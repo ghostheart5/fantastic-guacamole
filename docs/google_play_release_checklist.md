@@ -29,8 +29,8 @@
 ## Policy and Legal
 - [x] Privacy policy file at `assets/legal/privacy_policy.html`
 - [x] Terms of service file at `assets/legal/terms_of_service.html`
-- [ ] Host privacy policy at public URL and add to Google Play listing
-- [ ] Host terms URL (recommended)
+- [x] Host privacy policy at public URL and add to Google Play listing (`https://ghostheart5.github.io/fantastic-guacamole/privacy/`)
+- [x] Host terms URL (recommended) (`https://ghostheart5.github.io/fantastic-guacamole/terms/`)
 
 ## Versioning and Release
 - [x] Gradle release override support for app id and versioning added
