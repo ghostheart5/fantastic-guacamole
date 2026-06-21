@@ -32,7 +32,7 @@ jobs:
       - name: Build web
         run: flutter build web --release --base-href /fantastic-guacamole/
 
-      - name: Publish legal pages
+      - name: Copy legal pages to build
         run: |
           mkdir -p build/web/privacy build/web/terms
           cp assets/legal/privacy_policy.html build/web/privacy/index.html
