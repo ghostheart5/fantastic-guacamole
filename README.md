@@ -1,5 +1,5 @@
 # fantastic-guacamole
-chronospark is the future of life management in every possible way
+ChronoSpark is the future of life management in every possible way
 # ChronoSpark
 
 **ChronoSpark** is a Flutter-based "second brain" productivity and decision-support application designed to act as an intelligent, persistent assistant for task management, time-blocking, adaptive learning, and AI-driven decision-making.
