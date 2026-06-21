@@ -1,0 +1,7 @@
+{
+  "reflections": [
+    "Noticed less friction after batching communications.",
+    "Stress increased during context-switching window at 3 PM."
+  ],
+  "stressLevel": 0.34
+}

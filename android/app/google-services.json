@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "956622397052",
+    "project_id": "chronospark-app",
+    "storage_bucket": "chronospark-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:956622397052:android:8708c99d09903b329133f9",
+        "android_client_info": {
+          "package_name": "com.example.chronospark"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBEdXHOa-AZLTDCi97SBqD4fAvH3vdnneU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,14 @@
+{
+  "tasksEvents": [
+    "Task/Event 1 created"
+  ],
+  "goals": [
+    "Goal 1 created"
+  ],
+  "routines": [
+    "Routine 1 created"
+  ],
+  "siOutputs": [
+    "SI seeded output: Balanced plan drafted from your latest intent."
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "selectedDay": "Mon",
+  "timelineItems": [
+    {
+      "time": "08:30",
+      "title": "Morning Calibration",
+      "kind": "Focus Block",
+      "colorHex": "0xFF00F0FF"
+    },
+    {
+      "time": "10:00",
+      "title": "Tactical Routine Update",
+      "kind": "High Priority",
+      "colorHex": "0xFFFF4D6D"
+    },
+    {
+      "time": "13:00",
+      "title": "ChronoLogs Review",
+      "kind": "Review",
+      "colorHex": "0xFFFFB347"
+    },
+    {
+      "time": "15:00",
+      "title": "Team Sync",
+      "kind": "Event",
+      "colorHex": "0xFF8A5CFF"
+    },
+    {
+      "time": "16:30",
+      "title": "Output Plan Lock",
+      "kind": "Execution",
+      "colorHex": "0xFF00FFA3"
+    }
+  ]
+}
