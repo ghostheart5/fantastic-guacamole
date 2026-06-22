@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_sizes.dart';
+import '../../../core/constants/app_urls.dart';
 import '../../../ui/widgets/chronospark_bottom_nav.dart';
 import '../../../ui/widgets/panel_container.dart';
 import '../../../ui/widgets/section_header.dart';
@@ -203,7 +204,7 @@ class _SettingsHomeState extends State<SettingsHome> {
                   trailing: const Icon(Icons.open_in_new, size: 18),
                   onTap: () => _launchLegalUrl(
                     context,
-                    'https://ghostheart5.github.io/fantastic-guacamole/privacy/',
+                    AppUrls.privacyPolicy,
                   ),
                 ),
                 ListTile(
@@ -211,7 +212,7 @@ class _SettingsHomeState extends State<SettingsHome> {
                   trailing: const Icon(Icons.open_in_new, size: 18),
                   onTap: () => _launchLegalUrl(
                     context,
-                    'https://ghostheart5.github.io/fantastic-guacamole/terms/',
+                    AppUrls.termsOfService,
                   ),
                 ),
               ],
