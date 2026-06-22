@@ -4,6 +4,10 @@
 *.pyc
 *.swp
 .DS_Store
+Thumbs.db
+Desktop.ini
+.Spotlight-V100/
+.Trashes/
 .atom/
 .build/
 .buildlog/
@@ -27,10 +31,15 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.env
+.env.*
+!.env.example
 .flutter-plugins-dependencies
+node_modules/
 .pub-cache/
 .pub/
 /build/
+**/build/
 /coverage/
 
 # Symbolication related
