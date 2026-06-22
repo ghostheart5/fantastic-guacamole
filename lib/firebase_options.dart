@@ -51,12 +51,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBEdXHOa-AZLTDCi97SBqD4fAvH3vdnneU',
-    appId: '1:956622397052:android:8708c99d09903b329133f9',
+    appId: '1:956622397052:android:3ecf5fcda0f2e1ef9133f9',
     messagingSenderId: '956622397052',
     projectId: 'chronospark-app',
     storageBucket: 'chronospark-app.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyAeDIlk349AqTLueWvfnD_PDKlQ4IsOXnY',
     appId: '1:956622397052:ios:ae0e18f5cc5a6c459133f9',

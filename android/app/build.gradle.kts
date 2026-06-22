@@ -17,7 +17,7 @@ if (keystorePropertiesFile.exists()) {
 
 val releaseApplicationId =
     (project.findProperty("CHRONOSPARK_APPLICATION_ID") as String?)
-        ?: "com.example.chronospark"
+        ?: "com.ghostheart5.chronospark"
 val releaseVersionCode =
     (project.findProperty("CHRONOSPARK_VERSION_CODE") as String?)?.toIntOrNull()
         ?: flutter.versionCode
