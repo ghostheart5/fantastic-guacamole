@@ -6,8 +6,6 @@
 .DS_Store
 Thumbs.db
 Desktop.ini
-.Spotlight-V100/
-.Trashes/
 .atom/
 .build/
 .buildlog/
@@ -36,8 +34,7 @@ migrate_working_dir/
 node_modules/
 .pub-cache/
 .pub/
-/build/
-**/build/
+build/
 /coverage/
 
 # Symbolication related
