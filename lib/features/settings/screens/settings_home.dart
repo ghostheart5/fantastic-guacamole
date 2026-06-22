@@ -25,6 +25,17 @@ class _SettingsHomeState extends State<SettingsHome> {
   bool _permissionsLock = true;
   bool _accountShield = true;
 
+  Future<void> _launchLegalUrl(BuildContext context, String url) async {
+    final Uri uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open link')),
+        );
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -190,21 +201,17 @@ class _SettingsHomeState extends State<SettingsHome> {
                 ListTile(
                   title: const Text('Privacy Policy'),
                   trailing: const Icon(Icons.open_in_new, size: 18),
-                  onTap: () => launchUrl(
-                    Uri.parse(
-                      'https://ghostheart5.github.io/fantastic-guacamole/privacy/',
-                    ),
-                    mode: LaunchMode.externalApplication,
+                  onTap: () => _launchLegalUrl(
+                    context,
+                    'https://ghostheart5.github.io/fantastic-guacamole/privacy/',
                   ),
                 ),
                 ListTile(
                   title: const Text('Terms of Service'),
                   trailing: const Icon(Icons.open_in_new, size: 18),
-                  onTap: () => launchUrl(
-                    Uri.parse(
-                      'https://ghostheart5.github.io/fantastic-guacamole/terms/',
-                    ),
-                    mode: LaunchMode.externalApplication,
+                  onTap: () => _launchLegalUrl(
+                    context,
+                    'https://ghostheart5.github.io/fantastic-guacamole/terms/',
                   ),
                 ),
               ],
