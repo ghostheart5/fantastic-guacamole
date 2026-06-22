@@ -200,6 +200,17 @@ class _SettingsHomeState extends State<SettingsHome> {
                       setState(() => _accountShield = value),
                 ),
                 ListTile(
+                  title: const Text('Account Deletion'),
+                  subtitle: const Text(
+                    'Learn how to request permanent account deletion',
+                  ),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => _launchLegalUrl(
+                    context,
+                    AppUrls.accountDeletion,
+                  ),
+                ),
+                ListTile(
                   title: const Text('Privacy Policy'),
                   trailing: const Icon(Icons.open_in_new, size: 18),
                   onTap: () => _launchLegalUrl(

@@ -3,4 +3,6 @@ abstract final class AppUrls {
       'https://ghostheart5.github.io/fantastic-guacamole/privacy/';
   static const String termsOfService =
       'https://ghostheart5.github.io/fantastic-guacamole/terms/';
+  static const String accountDeletion =
+      'https://ghostheart5.github.io/fantastic-guacamole/account-deletion/';
 }
