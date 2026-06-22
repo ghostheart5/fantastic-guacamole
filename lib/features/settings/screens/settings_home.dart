@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_sizes.dart';
 import '../../../ui/widgets/chronospark_bottom_nav.dart';
@@ -185,6 +186,26 @@ class _SettingsHomeState extends State<SettingsHome> {
                   value: _accountShield,
                   onChanged: (bool value) =>
                       setState(() => _accountShield = value),
+                ),
+                ListTile(
+                  title: const Text('Privacy Policy'),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => launchUrl(
+                    Uri.parse(
+                      'https://ghostheart5.github.io/fantastic-guacamole/privacy/',
+                    ),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                ),
+                ListTile(
+                  title: const Text('Terms of Service'),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => launchUrl(
+                    Uri.parse(
+                      'https://ghostheart5.github.io/fantastic-guacamole/terms/',
+                    ),
+                    mode: LaunchMode.externalApplication,
+                  ),
                 ),
               ],
             ),
