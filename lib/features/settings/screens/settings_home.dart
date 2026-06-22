@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_sizes.dart';
+import '../../../core/constants/app_urls.dart';
 import '../../../ui/widgets/chronospark_bottom_nav.dart';
 import '../../../ui/widgets/panel_container.dart';
 import '../../../ui/widgets/section_header.dart';
@@ -23,6 +25,17 @@ class _SettingsHomeState extends State<SettingsHome> {
   bool _encryption = true;
   bool _permissionsLock = true;
   bool _accountShield = true;
+
+  Future<void> _launchLegalUrl(BuildContext context, String url) async {
+    final Uri uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open link')),
+        );
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -185,6 +198,22 @@ class _SettingsHomeState extends State<SettingsHome> {
                   value: _accountShield,
                   onChanged: (bool value) =>
                       setState(() => _accountShield = value),
+                ),
+                ListTile(
+                  title: const Text('Privacy Policy'),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => _launchLegalUrl(
+                    context,
+                    AppUrls.privacyPolicy,
+                  ),
+                ),
+                ListTile(
+                  title: const Text('Terms of Service'),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => _launchLegalUrl(
+                    context,
+                    AppUrls.termsOfService,
+                  ),
                 ),
               ],
             ),
