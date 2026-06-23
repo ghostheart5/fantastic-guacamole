@@ -163,28 +163,32 @@ class _SettingsHomeState extends State<SettingsHome> {
             title: 'Privacy and Security',
             child: Column(
               children: <Widget>[
-                SwitchListTile(
-                  title: const Text('App Lock'),
-                  subtitle: const Text('Require lock on app open'),
-                  value: _encryption,
-                  onChanged: (bool value) =>
-                      setState(() => _encryption = value),
-                ),
-                SwitchListTile(
-                  title: const Text('Biometric Unlock'),
-                  subtitle: const Text(
-                    'Use device biometrics for quick unlock',
+                Material(
+                  color: Colors.transparent,
+                  child: SwitchListTile(
+                    title: const Text('App Lock'),
+                    subtitle: const Text('Require lock on app open'),
+                    value: _encryption,
+                    onChanged: (bool value) => setState(() => _encryption = value),
                   ),
-                  value: _permissionsLock,
-                  onChanged: (bool value) =>
-                      setState(() => _permissionsLock = value),
                 ),
-                SwitchListTile(
-                  title: const Text('Analytics Sharing'),
-                  subtitle: const Text('Share anonymous usage analytics'),
-                  value: _accountShield,
-                  onChanged: (bool value) =>
-                      setState(() => _accountShield = value),
+                Material(
+                  color: Colors.transparent,
+                  child: SwitchListTile(
+                    title: const Text('Biometric Unlock'),
+                    subtitle: const Text('Use device biometrics for quick unlock'),
+                    value: _permissionsLock,
+                    onChanged: (bool value) => setState(() => _permissionsLock = value),
+                  ),
+                ),
+                Material(
+                  color: Colors.transparent,
+                  child: SwitchListTile(
+                    title: const Text('Analytics Sharing'),
+                    subtitle: const Text('Share anonymous usage analytics'),
+                    value: _accountShield,
+                    onChanged: (bool value) => setState(() => _accountShield = value),
+                  ),
                 ),
               ],
             ),

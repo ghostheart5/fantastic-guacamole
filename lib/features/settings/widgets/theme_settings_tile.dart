@@ -12,11 +12,14 @@ class ThemeSettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SwitchListTile(
-      value: value,
-      onChanged: onChanged,
-      title: const Text('Neon Recall Theme'),
-      subtitle: const Text('Switch to memory-focused color profile'),
+    return Material(
+      color: Colors.transparent,
+      child: SwitchListTile(
+        value: value,
+        onChanged: onChanged,
+        title: const Text('Neon Recall Theme'),
+        subtitle: const Text('Switch to memory-focused color profile'),
+      ),
     );
   }
 }

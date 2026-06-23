@@ -16,11 +16,14 @@ class ModuleToggleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SwitchListTile(
-      value: value,
-      onChanged: onChanged,
-      title: Text(label),
-      subtitle: Text(subtitle),
+    return Material(
+      color: Colors.transparent,
+      child: SwitchListTile(
+        value: value,
+        onChanged: onChanged,
+        title: Text(label),
+        subtitle: Text(subtitle),
+      ),
     );
   }
 }
