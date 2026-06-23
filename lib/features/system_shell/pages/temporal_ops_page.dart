@@ -237,7 +237,13 @@ class _TemporalOpsPageState extends State<TemporalOpsPage> with SingleTickerProv
                       'assets/grid/temporal_grid.png',
                       fit: BoxFit.contain,
                       errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
-                        return const SizedBox.shrink();
+                        return Image.asset(
+                          'assets/backgrounds/main_bg.png',
+                          fit: BoxFit.cover,
+                          errorBuilder:
+                              (BuildContext context, Object error, StackTrace? stackTrace) =>
+                                  const SizedBox.shrink(),
+                        );
                       },
                     ),
                   ),
