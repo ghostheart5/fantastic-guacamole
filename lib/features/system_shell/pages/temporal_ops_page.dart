@@ -528,19 +528,25 @@ class _AnimatedTaskTile extends StatelessWidget {
         child: AnimatedScale(
           duration: const Duration(milliseconds: 220),
           scale: completing ? 0.975 : 1,
-          child: Material(
-            color: Colors.transparent,
-            child: CheckboxListTile(
-              value: task.done,
-              onChanged: (_) => onChanged(),
-              controlAffinity: ListTileControlAffinity.leading,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-              title: Text(
-                task.title,
-                style: TextStyle(
-                  color: const Color(0xFFD8D0E6),
-                  decoration: task.done ? TextDecoration.lineThrough : TextDecoration.none,
-                ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: onChanged,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: Row(
+                children: <Widget>[
+                  Checkbox(value: task.done, onChanged: (_) => onChanged()),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      task.title,
+                      style: TextStyle(
+                        color: const Color(0xFFD8D0E6),
+                        decoration: task.done ? TextDecoration.lineThrough : TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
