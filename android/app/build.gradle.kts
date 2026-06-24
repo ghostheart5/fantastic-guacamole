@@ -25,7 +25,7 @@ val releaseVersionCode =
 val releaseVersionName =
     (project.findProperty("CHRONOSPARK_VERSION_NAME") as String?)
         ?: flutter.versionName
-// Keep this list aligned with AGP/Gradle release assembly task names used in CI and local builds.
+// Keep this lowercase list aligned with AGP/Gradle release assembly task names used in CI/local builds.
 val releaseTaskNames =
     setOf(
         "release",
