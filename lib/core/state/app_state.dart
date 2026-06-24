@@ -624,7 +624,7 @@ class AppState extends ChangeNotifier {
 
       hasPremiumAccess = await _paywallService.readCachedPremium();
 
-      // If no subscription in storage but has premium from paywall, sync
+      // Keep subscription state aligned with paywall verification state.
       if (hasPremiumAccess && !isPremium) {
         _subscription = SubscriptionSnapshot(
           plan: SubscriptionPlan.premium,
@@ -633,6 +633,8 @@ class AppState extends ChangeNotifier {
           subscriptionStartDate: DateTime.now(),
           mockNextBillingDate: DateTime.now().add(const Duration(days: 30)),
         );
+      } else if (!hasPremiumAccess && isPremium) {
+        _subscription = SubscriptionSnapshot.base();
       }
 
       await _paywallService
@@ -647,6 +649,8 @@ class AppState extends ChangeNotifier {
                   subscriptionStartDate: DateTime.now(),
                   mockNextBillingDate: DateTime.now().add(const Duration(days: 30)),
                 );
+              } else if (!premiumFromPaywall && isPremium) {
+                _subscription = SubscriptionSnapshot.base();
               }
               notifyListeners();
             },

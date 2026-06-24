@@ -53,6 +53,8 @@ class PaywallService {
             await _setPremium(true);
             onPremiumChanged(true);
           } else {
+            await _setPremium(false);
+            onPremiumChanged(false);
             onError?.call('Purchase verification failed. Premium access not granted.');
           }
         }
@@ -108,6 +110,9 @@ class PaywallService {
   }
 
   Future<bool> readCachedPremium() async {
+    if (!_verifier.isConfigured) {
+      return false;
+    }
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_premiumKey) ?? false;
   }
