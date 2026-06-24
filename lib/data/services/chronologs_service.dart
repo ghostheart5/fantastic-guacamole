@@ -108,7 +108,6 @@ class ChronoLogsService {
     cancellationToken.throwIfCancelled();
 
     await prefs.setString(_key, jsonEncode(payload.toJson()));
-    cancellationToken.throwIfCancelled();
   }
 
   Future<void> addCompletedTask(String taskLine, {CancellationToken? cancellationToken}) async {

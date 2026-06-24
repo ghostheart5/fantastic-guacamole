@@ -6,6 +6,7 @@ import '../../core/state/app_state.dart';
 import 'operation_cancellation.dart';
 
 typedef AccessTokenProvider = Future<String?> Function();
+const String _authorizationScheme = 'Bearer';
 
 class SiAiService {
   SiAiService({
@@ -40,14 +41,14 @@ class SiAiService {
   String? _refreshedToken;
   bool _isDisposed = false;
 
-  bool get isConfigured => _apiKey.trim().isNotEmpty || _tokenProvider != null;
+  bool get isConfigured => _apiKey.trim().isNotEmpty;
 
   Future<String?> generateResponse({
     required String prompt,
     required Decision decision,
     CancellationToken? cancellationToken,
   }) async {
-    if (!isConfigured || _isDisposed) {
+    if (_isDisposed) {
       return null;
     }
 
@@ -116,8 +117,9 @@ class SiAiService {
   Future<String?> _readToken({CancellationToken? cancellationToken}) async {
     cancellationToken.throwIfCancelled();
 
-    if (_refreshedToken != null && _refreshedToken!.trim().isNotEmpty) {
-      return _refreshedToken!.trim();
+    final String refreshedToken = (_refreshedToken ?? '').trim();
+    if (refreshedToken.isNotEmpty) {
+      return refreshedToken;
     }
 
     if (_tokenProvider != null) {
@@ -153,11 +155,11 @@ class SiAiService {
     CancellationToken? cancellationToken,
   }) async {
     if (_isDisposed) {
-      throw OperationCancelledException('SI AI service is disposed.');
+      throw OperationCancelledException('Operation cancelled because SI AI service is disposed.');
     }
     cancellationToken.throwIfCancelled();
 
-    final String authorizationHeader = <String>['Bearer', bearerToken].join(' ');
+    final String authorizationHeader = '$_authorizationScheme $bearerToken';
 
     final http.Response response = await _client.post(
       Uri.parse(_endpoint),
@@ -169,7 +171,7 @@ class SiAiService {
     );
 
     if (_isDisposed) {
-      throw OperationCancelledException('SI AI service is disposed.');
+      throw OperationCancelledException('Operation cancelled because SI AI service is disposed.');
     }
     cancellationToken.throwIfCancelled();
     return response;

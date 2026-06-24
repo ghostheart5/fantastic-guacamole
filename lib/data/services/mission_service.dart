@@ -57,6 +57,5 @@ class MissionService {
       missions.map((MissionModel mission) => mission.toJson()).toList(),
     );
     await prefs.setString(_missionsKey, payload);
-    cancellationToken.throwIfCancelled();
   }
 }

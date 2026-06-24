@@ -120,10 +120,7 @@ class WorkspaceStoreService {
   static const String _siKey = 'workspace_si_v1';
 
   Future<CreatorWorkspaceState> loadCreatorState({CancellationToken? cancellationToken}) async {
-    cancellationToken.throwIfCancelled();
-
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    cancellationToken.throwIfCancelled();
 
     final String? raw = prefs.getString(_creatorKey);
     if (raw != null && raw.trim().isNotEmpty) {
@@ -145,14 +142,12 @@ class WorkspaceStoreService {
     cancellationToken.throwIfCancelled();
 
     await prefs.setString(_creatorKey, jsonEncode(state.toJson()));
-    cancellationToken.throwIfCancelled();
   }
 
   Future<TemporalPlannerState> loadTemporalState({CancellationToken? cancellationToken}) async {
     cancellationToken.throwIfCancelled();
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    cancellationToken.throwIfCancelled();
 
     final String? raw = prefs.getString(_temporalKey);
     if (raw != null && raw.trim().isNotEmpty) {
@@ -176,14 +171,12 @@ class WorkspaceStoreService {
     cancellationToken.throwIfCancelled();
 
     await prefs.setString(_temporalKey, jsonEncode(state.toJson()));
-    cancellationToken.throwIfCancelled();
   }
 
   Future<SIWorkspaceState> loadSiState({CancellationToken? cancellationToken}) async {
     cancellationToken.throwIfCancelled();
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    cancellationToken.throwIfCancelled();
 
     final String? raw = prefs.getString(_siKey);
     if (raw != null && raw.trim().isNotEmpty) {
@@ -202,7 +195,6 @@ class WorkspaceStoreService {
     cancellationToken.throwIfCancelled();
 
     await prefs.setString(_siKey, jsonEncode(state.toJson()));
-    cancellationToken.throwIfCancelled();
   }
 
   Future<CreatorWorkspaceState> _loadCreatorSeed({CancellationToken? cancellationToken}) async {

@@ -11,7 +11,7 @@ class AuthGate extends StatefulWidget {
     this.errorBuilder,
     this.timeout = const Duration(seconds: 8),
     this.maxRetries = 1,
-  });
+  }) : assert(maxRetries >= 0, 'maxRetries must be zero or greater.');
 
   final Future<bool> Function() signInAttempt;
   final Widget child;
@@ -42,7 +42,7 @@ class _AuthGateState extends State<AuthGate> {
     });
 
     int attempt = 0;
-    final int retryLimit = widget.maxRetries < 0 ? 0 : widget.maxRetries;
+    final int retryLimit = widget.maxRetries;
 
     while (attempt <= retryLimit) {
       try {
@@ -57,7 +57,7 @@ class _AuthGateState extends State<AuthGate> {
           });
           return;
         }
-        _error = Exception('Sign-in failed.');
+        _error = Exception('Sign-in attempt returned false.');
         break;
       } on TimeoutException {
         if (attempt == retryLimit) {
@@ -102,7 +102,7 @@ class _AuthGateState extends State<AuthGate> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
-              ElevatedButton(onPressed: _attemptSignIn, child: const Text('Retry sign-in')),
+              ElevatedButton(onPressed: _attemptSignIn, child: const Text('Retry Sign In')),
             ],
           ),
         );

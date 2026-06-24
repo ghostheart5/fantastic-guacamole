@@ -7,6 +7,7 @@ import 'operation_cancellation.dart';
 
 typedef AccessTokenProvider = Future<String?> Function();
 typedef SessionStatusProvider = bool Function();
+const String _authorizationScheme = 'Bearer';
 
 class PaywallReceiptVerifier {
   PaywallReceiptVerifier({
@@ -47,8 +48,11 @@ class PaywallReceiptVerifier {
     }
 
     cancellationToken.throwIfCancelled();
-    if (_isDisposed || !_canVerifyForCurrentSession()) {
-      return false;
+    if (_isDisposed) {
+      throw OperationCancelledException('Receipt verifier is disposed.');
+    }
+    if (!_canVerifyForCurrentSession()) {
+      throw OperationCancelledException('Receipt verification cancelled: user is not signed in.');
     }
 
     final Map<String, dynamic> payload = <String, dynamic>{
@@ -99,9 +103,13 @@ class PaywallReceiptVerifier {
 
   Future<String?> _readToken({CancellationToken? cancellationToken}) async {
     cancellationToken.throwIfCancelled();
+    if (!_canVerifyForCurrentSession()) {
+      throw OperationCancelledException('Token read cancelled: user is not signed in.');
+    }
 
-    if (_refreshedToken != null && _refreshedToken!.trim().isNotEmpty) {
-      return _refreshedToken!.trim();
+    final String refreshedToken = (_refreshedToken ?? '').trim();
+    if (refreshedToken.isNotEmpty) {
+      return refreshedToken;
     }
 
     if (_tokenProvider != null) {
@@ -122,6 +130,9 @@ class PaywallReceiptVerifier {
     }
 
     cancellationToken.throwIfCancelled();
+    if (!_canVerifyForCurrentSession()) {
+      throw OperationCancelledException('Token refresh cancelled: user is not signed in.');
+    }
     final String refreshed = (await _tokenRefresher.call() ?? '').trim();
     cancellationToken.throwIfCancelled();
     if (refreshed.isEmpty) {
@@ -134,7 +145,7 @@ class PaywallReceiptVerifier {
 
   Future<http.Response> _post({
     required Map<String, dynamic> payload,
-    required String? bearerToken,
+    String? bearerToken,
     CancellationToken? cancellationToken,
   }) async {
     if (_isDisposed) {
@@ -142,13 +153,13 @@ class PaywallReceiptVerifier {
     }
     cancellationToken.throwIfCancelled();
     if (!_canVerifyForCurrentSession()) {
-      throw OperationCancelledException('Verification cancelled because user is signed out.');
+      throw OperationCancelledException('Verification cancelled before request completed.');
     }
 
     final Map<String, String> headers = <String, String>{'Content-Type': 'application/json'};
     final String token = (bearerToken ?? '').trim();
     if (token.isNotEmpty) {
-      headers['Authorization'] = <String>['Bearer', token].join(' ');
+      headers['Authorization'] = '$_authorizationScheme $token';
     }
 
     final http.Response response = await _client.post(
@@ -162,7 +173,7 @@ class PaywallReceiptVerifier {
       throw OperationCancelledException('Receipt verifier is disposed.');
     }
     if (!_canVerifyForCurrentSession()) {
-      throw OperationCancelledException('Verification cancelled because user is signed out.');
+      throw OperationCancelledException('Verification cancelled before request completed.');
     }
     return response;
   }

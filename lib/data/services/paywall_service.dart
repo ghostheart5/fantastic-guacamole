@@ -59,18 +59,13 @@ class PaywallService {
     }
 
     _purchaseSub = _iap.purchaseStream.listen((List<PurchaseDetails> purchases) async {
-      if (_disposeSource.isCancelled) {
-        return;
-      }
+      try {
+        _disposeSource.token.throwIfCancelled();
+        for (final PurchaseDetails purchase in purchases) {
+          _disposeSource.token.throwIfCancelled();
 
-      for (final PurchaseDetails purchase in purchases) {
-        if (_disposeSource.isCancelled) {
-          return;
-        }
-
-        if (purchase.status == PurchaseStatus.purchased ||
-            purchase.status == PurchaseStatus.restored) {
-          try {
+          if (purchase.status == PurchaseStatus.purchased ||
+              purchase.status == PurchaseStatus.restored) {
             final bool verified = await _verifier.verifyPurchase(
               purchase,
               cancellationToken: _disposeSource.token,
@@ -81,16 +76,16 @@ class PaywallService {
             } else {
               onError?.call('Purchase verification failed. Premium access not granted.');
             }
-          } on OperationCancelledException {
-            return;
+          }
+          if (purchase.status == PurchaseStatus.error) {
+            onError?.call(purchase.error?.message ?? 'Purchase failed.');
+          }
+          if (purchase.pendingCompletePurchase) {
+            await _iap.completePurchase(purchase);
           }
         }
-        if (purchase.status == PurchaseStatus.error) {
-          onError?.call(purchase.error?.message ?? 'Purchase failed.');
-        }
-        if (purchase.pendingCompletePurchase) {
-          await _iap.completePurchase(purchase);
-        }
+      } on OperationCancelledException {
+        return;
       }
     });
 
@@ -174,8 +169,6 @@ class PaywallService {
     cancellationToken.throwIfCancelled();
     _disposeSource.token.throwIfCancelled();
     await prefs.setBool(_premiumKey, value);
-    cancellationToken.throwIfCancelled();
-    _disposeSource.token.throwIfCancelled();
   }
 
   Future<void> dispose() async {
