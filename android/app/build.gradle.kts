@@ -109,7 +109,11 @@ android {
                     )
                 }
 
-                val validatedStoreFilePath = releaseStoreFilePath!!
+                val validatedStoreFilePath =
+                    releaseStoreFilePath
+                        ?: throw GradleException(
+                            "Release signing is required. Missing key.properties value: storeFile"
+                        )
                 if (!file(validatedStoreFilePath).exists()) {
                     throw GradleException(
                         "Release signing is required. Keystore file not found: $validatedStoreFilePath"
