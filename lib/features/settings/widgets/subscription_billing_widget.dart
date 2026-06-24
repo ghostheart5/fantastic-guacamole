@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/state/app_state.dart';
+import '../../../core/system/subscription_product_ids.dart';
 import '../../../core/system/subscription_model.dart';
 import '../../../data/services/paywall_service.dart';
 
@@ -205,8 +206,8 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
 
   String _expectedProductId() {
     return _cycle == BillingCycle.monthly
-        ? 'chronospark_premium_monthly'
-        : 'chronospark_premium_yearly';
+        ? SubscriptionProductIds.premiumMonthly
+        : SubscriptionProductIds.premiumYearly;
   }
 
   Future<void> _loadProducts(AppState appState) async {

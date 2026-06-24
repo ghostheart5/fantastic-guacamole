@@ -8,6 +8,7 @@ import '../si/adaptive_learning.dart';
 import '../si/si_engine.dart';
 import '../system/behavior_entities.dart';
 import '../system/notification_manager.dart';
+import '../system/subscription_product_ids.dart';
 import '../system/runtime_persistence.dart';
 import '../system/subscription_model.dart';
 
@@ -609,8 +610,8 @@ class AppState extends ChangeNotifier {
         return null;
       case SubscriptionPlan.premium:
         return billingCycle == BillingCycle.monthly
-            ? 'chronospark_premium_monthly'
-            : 'chronospark_premium_yearly';
+            ? SubscriptionProductIds.premiumMonthly
+            : SubscriptionProductIds.premiumYearly;
       case SubscriptionPlan.ultimate:
         return null;
     }

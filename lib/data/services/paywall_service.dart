@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+import '../../core/system/subscription_product_ids.dart';
 import '../../core/system/subscription_model.dart';
 import 'paywall_receipt_verifier.dart';
 
@@ -24,8 +25,8 @@ class PaywallService {
     : _verifier = verifier ?? PaywallReceiptVerifier();
 
   static const Set<String> productIds = <String>{
-    'chronospark_premium_monthly',
-    'chronospark_premium_yearly',
+    SubscriptionProductIds.premiumMonthly,
+    SubscriptionProductIds.premiumYearly,
   };
 
   final InAppPurchase _iap = InAppPurchase.instance;

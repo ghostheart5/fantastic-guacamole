@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+import '../../core/system/subscription_product_ids.dart';
 import '../../core/system/subscription_model.dart';
 
 class ReceiptVerificationResult {
@@ -83,14 +84,15 @@ class PaywallReceiptVerifier {
 
   ReceiptVerificationResult _resultFor({required String productId, String? entitlement}) {
     final SubscriptionPlan? plan = _planFromEntitlement(entitlement) ?? _planFromProductId(productId);
-    if (plan == null || plan == SubscriptionPlan.base) {
+    final BillingCycle? billingCycle = _billingCycleFromProductId(productId);
+    if (plan == null || plan == SubscriptionPlan.base || billingCycle == null) {
       return const ReceiptVerificationResult.invalid();
     }
 
     return ReceiptVerificationResult(
       isValid: true,
       plan: plan,
-      billingCycle: _billingCycleFromProductId(productId),
+      billingCycle: billingCycle,
     );
   }
 
@@ -110,26 +112,27 @@ class PaywallReceiptVerifier {
   SubscriptionPlan? _planFromProductId(String productId) {
     final String normalized = productId.toLowerCase();
     switch (normalized) {
-      case 'chronospark_premium_monthly':
-      case 'chronospark_premium_yearly':
+      case SubscriptionProductIds.premiumMonthly:
+      case SubscriptionProductIds.premiumYearly:
         return SubscriptionPlan.premium;
-      case 'chronospark_ultimate_monthly':
-      case 'chronospark_ultimate_yearly':
+      case SubscriptionProductIds.ultimateMonthly:
+      case SubscriptionProductIds.ultimateYearly:
         return SubscriptionPlan.ultimate;
       default:
         return null;
     }
   }
 
-  BillingCycle _billingCycleFromProductId(String productId) {
+  BillingCycle? _billingCycleFromProductId(String productId) {
     switch (productId.toLowerCase()) {
-      case 'chronospark_premium_yearly':
-      case 'chronospark_ultimate_yearly':
+      case SubscriptionProductIds.premiumYearly:
+      case SubscriptionProductIds.ultimateYearly:
         return BillingCycle.yearly;
-      case 'chronospark_premium_monthly':
-      case 'chronospark_ultimate_monthly':
-      default:
+      case SubscriptionProductIds.premiumMonthly:
+      case SubscriptionProductIds.ultimateMonthly:
         return BillingCycle.monthly;
+      default:
+        return null;
     }
   }
 }
