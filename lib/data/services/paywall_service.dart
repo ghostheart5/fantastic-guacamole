@@ -1,7 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'paywall_receipt_verifier.dart';
 
@@ -34,6 +34,8 @@ class PaywallService {
   final PaywallReceiptVerifier _verifier;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
 
+  static final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+
   Future<void> initialize({
     required void Function(bool isPremium) onPremiumChanged,
     void Function(String message)? onError,
@@ -48,7 +50,16 @@ class PaywallService {
       for (final PurchaseDetails purchase in purchases) {
         if (purchase.status == PurchaseStatus.purchased ||
             purchase.status == PurchaseStatus.restored) {
-          final bool verified = await _verifier.verifyPurchase(purchase);
+          bool verified = false;
+          try {
+            verified = await _verifier.verifyPurchase(purchase);
+          } catch (_) {
+            onError?.call('Your purchase was completed but could not be verified right now due to a network issue. Please restore purchases once connectivity is available.');
+            if (purchase.pendingCompletePurchase) {
+              await _iap.completePurchase(purchase);
+            }
+            continue;
+          }
           if (verified) {
             await _setPremium(true);
             onPremiumChanged(true);
@@ -108,13 +119,12 @@ class PaywallService {
   }
 
   Future<bool> readCachedPremium() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_premiumKey) ?? false;
+    final String? value = await _secureStorage.read(key: _premiumKey);
+    return value == 'true';
   }
 
   Future<void> _setPremium(bool value) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_premiumKey, value);
+    await _secureStorage.write(key: _premiumKey, value: value.toString());
   }
 
   Future<void> dispose() async {
