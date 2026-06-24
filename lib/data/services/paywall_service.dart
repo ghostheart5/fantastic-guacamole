@@ -48,7 +48,16 @@ class PaywallService {
       for (final PurchaseDetails purchase in purchases) {
         if (purchase.status == PurchaseStatus.purchased ||
             purchase.status == PurchaseStatus.restored) {
-          final bool verified = await _verifier.verifyPurchase(purchase);
+          bool verified = false;
+          try {
+            verified = await _verifier.verifyPurchase(purchase);
+          } catch (_) {
+            onError?.call('Your purchase was completed but could not be verified right now due to a network issue. Please restore purchases once connectivity is available.');
+            if (purchase.pendingCompletePurchase) {
+              await _iap.completePurchase(purchase);
+            }
+            continue;
+          }
           if (verified) {
             await _setPremium(true);
             onPremiumChanged(true);
