@@ -180,9 +180,9 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
   }
 
   PaywallProduct? _productForCycle(AppState appState) {
-    final String cycleSuffix = _cycleSuffix();
+    final String expectedProductId = _expectedProductId();
     for (final PaywallProduct product in appState.paywallProducts) {
-      if (product.id.toLowerCase().endsWith(cycleSuffix)) {
+      if (product.id == expectedProductId) {
         return product;
       }
     }
@@ -203,8 +203,10 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
     return '\$${price.toStringAsFixed(2)}${_cycle == BillingCycle.monthly ? '/mo' : '/yr'}';
   }
 
-  String _cycleSuffix() {
-    return _cycle == BillingCycle.monthly ? '_monthly' : '_yearly';
+  String _expectedProductId() {
+    return _cycle == BillingCycle.monthly
+        ? 'chronospark_premium_monthly'
+        : 'chronospark_premium_yearly';
   }
 
   Future<void> _loadProducts(AppState appState) async {

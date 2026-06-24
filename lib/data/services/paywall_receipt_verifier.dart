@@ -109,16 +109,27 @@ class PaywallReceiptVerifier {
 
   SubscriptionPlan? _planFromProductId(String productId) {
     final String normalized = productId.toLowerCase();
-    if (normalized.contains('ultimate')) {
-      return SubscriptionPlan.ultimate;
+    switch (normalized) {
+      case 'chronospark_premium_monthly':
+      case 'chronospark_premium_yearly':
+        return SubscriptionPlan.premium;
+      case 'chronospark_ultimate_monthly':
+      case 'chronospark_ultimate_yearly':
+        return SubscriptionPlan.ultimate;
+      default:
+        return null;
     }
-    if (normalized.contains('premium')) {
-      return SubscriptionPlan.premium;
-    }
-    return null;
   }
 
   BillingCycle _billingCycleFromProductId(String productId) {
-    return productId.toLowerCase().contains('year') ? BillingCycle.yearly : BillingCycle.monthly;
+    switch (productId.toLowerCase()) {
+      case 'chronospark_premium_yearly':
+      case 'chronospark_ultimate_yearly':
+        return BillingCycle.yearly;
+      case 'chronospark_premium_monthly':
+      case 'chronospark_ultimate_monthly':
+      default:
+        return BillingCycle.monthly;
+    }
   }
 }

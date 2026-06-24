@@ -410,8 +410,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> purchase(String productId) async {
+    final bool hadRuntimeError = runtimeError != null;
     runtimeError = null;
-    notifyListeners();
+    if (hadRuntimeError) {
+      notifyListeners();
+    }
     try {
       await _paywallService.buyProduct(productId);
     } catch (e) {
@@ -421,8 +424,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> restorePurchases() async {
+    final bool hadRuntimeError = runtimeError != null;
     runtimeError = null;
-    notifyListeners();
+    if (hadRuntimeError) {
+      notifyListeners();
+    }
     try {
       await _paywallService.restorePurchases();
     } catch (e) {
@@ -443,9 +449,7 @@ class AppState extends ChangeNotifier {
       runtimeError = null;
       final String? productId = _productIdFor(plan, billingCycle);
       if (productId == null) {
-        runtimeError = plan == SubscriptionPlan.ultimate
-            ? 'Ultimate is not currently available in the store.'
-            : '${plan.displayName} is not currently available for in-app purchase.';
+        runtimeError = '${plan.displayName} is not currently available in the store.';
         notifyListeners();
         return false;
       }
@@ -567,7 +571,6 @@ class AppState extends ChangeNotifier {
   Future<void> _bootstrap() async {
     try {
       await _loadRuntimeSnapshot();
-      _subscription = SubscriptionSnapshot.base();
 
       await _paywallService
           .initialize(
