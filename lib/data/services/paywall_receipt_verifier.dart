@@ -47,10 +47,8 @@ class PaywallReceiptVerifier {
         headers: headers,
         body: jsonEncode(payload),
       );
-    } on SocketException catch (e) {
+    } on IOException catch (e) {
       throw Exception('Receipt verification unavailable: no network connection. ($e)');
-    } on HandshakeException catch (e) {
-      throw Exception('Receipt verification unavailable: secure connection failed. ($e)');
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {

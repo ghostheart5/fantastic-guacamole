@@ -226,9 +226,7 @@ class AppState extends ChangeNotifier {
       if (aiResponse != null && aiResponse.trim().isNotEmpty) {
         response = aiResponse;
       }
-    } on SocketException catch (_) {
-      response = '$response [Offline: SI running on local reasoning]';
-    } on HandshakeException catch (_) {
+    } on IOException catch (_) {
       response = '$response [Offline: SI running on local reasoning]';
     } catch (_) {
       // Keep rule-based response if AI provider fails for other reasons.

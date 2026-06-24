@@ -52,7 +52,7 @@ class PaywallService {
           try {
             verified = await _verifier.verifyPurchase(purchase);
           } catch (e) {
-            onError?.call('Purchase verification unavailable: ${e.toString()} Your purchase has been recorded and will be verified when connectivity is restored.');
+            onError?.call('Purchase verification unavailable: ${e.toString()}. Your purchase has been recorded and will be verified when connectivity is restored.');
             if (purchase.pendingCompletePurchase) {
               await _iap.completePurchase(purchase);
             }
