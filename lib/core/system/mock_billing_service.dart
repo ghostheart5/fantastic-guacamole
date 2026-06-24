@@ -1,6 +1,9 @@
 // Mock billing service for ChronoSpark.
-// Simulates subscription purchase and management without real payment APIs.
-// Perfect for offline testing and demo environments.
+// Simulates the payment processor (Stripe / App Store / Play Store) without
+// using real payment APIs. Its sole job is to process a charge and return a
+// receipt token. Entitlement decisions are made by the server, not here.
+
+import 'dart:math';
 
 import 'subscription_model.dart';
 
@@ -12,21 +15,33 @@ class BillingException implements Exception {
   String toString() => message;
 }
 
-/// Mock billing service that simulates subscription management
+/// Mock payment-processor service.
+///
+/// In a server-authoritative system the billing processor has one
+/// responsibility: collect payment and return a receipt. The server then
+/// validates that receipt and decides what the user is allowed to access.
+/// This separation prevents the client from self-granting entitlements.
 class MockBillingService {
   MockBillingService({this.shouldSucceed = true});
 
-  /// Control whether simulated purchases succeed or fail
+  /// Control whether simulated charges succeed or fail.
   bool shouldSucceed;
 
-  /// Simulate upgrading to a plan
-  /// Returns updated SubscriptionSnapshot on success
-  Future<SubscriptionSnapshot> upgradeToPlan(
+  static final Random _random = Random.secure();
+
+  /// Simulate charging the user for a plan upgrade.
+  ///
+  /// Returns an opaque purchase receipt token on success. Pass this token to
+  /// [EntitlementService.activateEntitlement] so the server can validate the
+  /// transaction and issue an authoritative entitlement record. Never use this
+  /// method's return value to decide whether a feature is unlocked — only the
+  /// server's response should determine that.
+  Future<String> upgradeToPlan(
     SubscriptionPlan plan,
     BillingCycle billingCycle, {
     bool simulateFailure = false,
   }) async {
-    // Simulate network delay
+    // Simulate payment-processor round-trip delay.
     await Future<void>.delayed(const Duration(milliseconds: 800));
 
     if (simulateFailure || !shouldSucceed) {
@@ -34,78 +49,18 @@ class MockBillingService {
     }
 
     if (plan == SubscriptionPlan.base) {
-      throw BillingException('Cannot upgrade to Base tier. Use downgradeToPlan instead.');
+      throw BillingException('Cannot purchase Base tier — it is free.');
     }
 
-    final DateTime now = DateTime.now();
-    final int intervalDays = billingCycle.billingIntervalDays;
-
-    return SubscriptionSnapshot(
-      plan: plan,
-      billingCycle: billingCycle,
-      status: SubscriptionStatus.active,
-      subscriptionStartDate: now,
-      mockNextBillingDate: now.add(Duration(days: intervalDays)),
-    );
-  }
-
-  /// Simulate downgrading to Base (free) tier
-  /// Maintains user data but removes premium features
-  Future<SubscriptionSnapshot> downgradeToPlan() async {
-    // Simulate network delay
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-
-    final DateTime now = DateTime.now();
-
-    return SubscriptionSnapshot(
-      plan: SubscriptionPlan.base,
-      billingCycle: BillingCycle.monthly, // N/A for free tier
-      status: SubscriptionStatus.active,
-      subscriptionStartDate: now,
-      mockNextBillingDate: now.add(const Duration(days: 30)), // Arbitrary future date
-    );
-  }
-
-  /// Simulate canceling a subscription (moves to canceled status)
-  /// Typically used at end of billing cycle
-  Future<SubscriptionSnapshot> cancelSubscription(SubscriptionSnapshot current) async {
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-
-    return current.copyWith(status: SubscriptionStatus.canceled);
-  }
-
-  /// Simulate subscription renewal (when billing date is reached)
-  Future<SubscriptionSnapshot> renewSubscription(SubscriptionSnapshot current) async {
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-
-    if (!shouldSucceed) {
-      throw BillingException('Simulated renewal failure. Please update your payment method.');
-    }
-
-    final DateTime now = DateTime.now();
-    final int intervalDays = current.billingCycle.billingIntervalDays;
-
-    return current.copyWith(
-      subscriptionStartDate: now,
-      mockNextBillingDate: now.add(Duration(days: intervalDays)),
-    );
-  }
-
-  /// Simulate applying a promo code (extends billing cycle)
-  Future<SubscriptionSnapshot> applyPromoCode(
-    SubscriptionSnapshot current,
-    String promoCode, {
-    int discountDays = 30,
-  }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-
-    if (promoCode.isNotEmpty && promoCode.length >= 3) {
-      return current.copyWith(
-        mockNextBillingDate: current.mockNextBillingDate.add(Duration(days: discountDays)),
-      );
-    }
-
-    throw BillingException('Invalid promo code.');
+    // Return a receipt token the server will validate.
+    // In production this would be the App Store receipt, Play Store purchase
+    // token, or Stripe payment intent ID.
+    const String chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final String token = List<String>.generate(
+      24,
+      (_) => chars[_random.nextInt(chars.length)],
+    ).join();
+    return 'mock_rcpt_${plan.name}_${billingCycle.name}_$token';
   }
 
   /// Get current subscription pricing
