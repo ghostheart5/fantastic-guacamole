@@ -84,12 +84,6 @@ android {
         release {
             val releaseStoreFilePath = keystoreProperties["storeFile"] as? String
             val hasValidStoreFile = hasValidReleaseStoreFile(releaseStoreFilePath)
-            val hasCompleteReleaseSigning =
-                keystorePropertiesFile.exists() &&
-                    requiredReleaseSigningKeys.all { key ->
-                        !isBlankReleaseSigningValue(keystoreProperties, key)
-                    } &&
-                    hasValidStoreFile
 
             if (isReleaseTaskRequested) {
                 if (!keystorePropertiesFile.exists()) {
@@ -109,18 +103,20 @@ android {
                     )
                 }
 
-                val validatedStoreFilePath =
-                    releaseStoreFilePath
-                        ?: throw GradleException(
-                            "Release signing is required. Missing key.properties value: storeFile"
-                        )
+                val validatedStoreFilePath = releaseStoreFilePath!!
                 if (!file(validatedStoreFilePath).exists()) {
                     throw GradleException(
                         "Release signing is required. Keystore file not found: $validatedStoreFilePath"
                     )
                 }
                 signingConfig = signingConfigs.getByName("release")
-            } else if (hasCompleteReleaseSigning) {
+            } else if (
+                keystorePropertiesFile.exists() &&
+                requiredReleaseSigningKeys.all { key ->
+                    !isBlankReleaseSigningValue(keystoreProperties, key)
+                } &&
+                hasValidStoreFile
+            ) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
