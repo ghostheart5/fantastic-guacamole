@@ -38,8 +38,20 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Build macOS app with xcodebuild
-        run: xcodebuild -workspace macos/Runner.xcworkspace -scheme Runner -configuration Debug build
+      - name: Prepare macOS build files
+        run: flutter build macos --debug --config-only
+
+      - name: Build macOS app for CodeQL tracing
+        run: |
+          xcodebuild \
+            -workspace macos/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/macos \
+            build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
