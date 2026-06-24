@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 abstract class RuntimePersistence {
   Future<Map<String, dynamic>?> loadSnapshot();
@@ -12,10 +12,11 @@ class SharedPrefsRuntimePersistence implements RuntimePersistence {
 
   final String key;
 
+  static final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+
   @override
   Future<Map<String, dynamic>?> loadSnapshot() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? raw = prefs.getString(key);
+    final String? raw = await _secureStorage.read(key: key);
     if (raw == null || raw.trim().isEmpty) {
       return null;
     }
@@ -29,7 +30,6 @@ class SharedPrefsRuntimePersistence implements RuntimePersistence {
 
   @override
   Future<void> saveSnapshot(Map<String, dynamic> snapshot) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString(key, jsonEncode(snapshot));
+    await _secureStorage.write(key: key, value: jsonEncode(snapshot));
   }
 }

@@ -1,7 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'paywall_receipt_verifier.dart';
 
@@ -33,6 +33,8 @@ class PaywallService {
   final InAppPurchase _iap = InAppPurchase.instance;
   final PaywallReceiptVerifier _verifier;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
+
+  static final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   Future<void> initialize({
     required void Function(bool isPremium) onPremiumChanged,
@@ -117,13 +119,12 @@ class PaywallService {
   }
 
   Future<bool> readCachedPremium() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_premiumKey) ?? false;
+    final String? value = await _secureStorage.read(key: _premiumKey);
+    return value == 'true';
   }
 
   Future<void> _setPremium(bool value) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_premiumKey, value);
+    await _secureStorage.write(key: _premiumKey, value: value.toString());
   }
 
   Future<void> dispose() async {
