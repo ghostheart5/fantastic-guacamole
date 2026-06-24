@@ -5,7 +5,10 @@ abstract class KeyValueStore {
   Future<String?> getString(String key);
 }
 
-/// A simple async gate (mutex) that serialises concurrent async operations.
+/// A simple async gate (mutex) that serialises concurrent async operations in
+/// FIFO order. Each call to [run] waits for the previously enqueued operation
+/// to complete before starting the next one. If an operation throws, subsequent
+/// operations in the queue are still executed — errors do not poison the gate.
 class _AsyncGate {
   Future<void> _tail = Future<void>.value();
 

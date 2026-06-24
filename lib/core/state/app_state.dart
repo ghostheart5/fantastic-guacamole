@@ -413,7 +413,6 @@ class AppState extends ChangeNotifier {
         const Duration(seconds: 15),
         onTimeout: () {
           runtimeError = 'Store query timed out. Using cached products.';
-          notifyListeners();
           return const <PaywallProduct>[];
         },
       );
