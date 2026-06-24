@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'operation_cancellation.dart';
 import 'paywall_receipt_verifier.dart';
 
 class PaywallProduct {
@@ -20,8 +22,12 @@ class PaywallProduct {
 }
 
 class PaywallService {
-  PaywallService({PaywallReceiptVerifier? verifier})
-    : _verifier = verifier ?? PaywallReceiptVerifier();
+  PaywallService({PaywallReceiptVerifier? verifier, SessionStatusProvider? isSignedIn})
+    : _verifier =
+          verifier ??
+          PaywallReceiptVerifier(
+            isSignedIn: isSignedIn ?? (() => FirebaseAuth.instance.currentUser != null),
+          );
 
   static const String _premiumKey = 'paywall_premium_v1';
 
@@ -32,28 +38,51 @@ class PaywallService {
 
   final InAppPurchase _iap = InAppPurchase.instance;
   final PaywallReceiptVerifier _verifier;
+  final CancellationTokenSource _disposeSource = CancellationTokenSource();
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
 
   Future<void> initialize({
     required void Function(bool isPremium) onPremiumChanged,
     void Function(String message)? onError,
+    CancellationToken? cancellationToken,
   }) async {
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
+
     final bool available = await _iap.isAvailable();
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
+
     if (!available) {
-      onPremiumChanged(await readCachedPremium());
+      onPremiumChanged(await readCachedPremium(cancellationToken: cancellationToken));
       return;
     }
 
     _purchaseSub = _iap.purchaseStream.listen((List<PurchaseDetails> purchases) async {
+      if (_disposeSource.isCancelled) {
+        return;
+      }
+
       for (final PurchaseDetails purchase in purchases) {
+        if (_disposeSource.isCancelled) {
+          return;
+        }
+
         if (purchase.status == PurchaseStatus.purchased ||
             purchase.status == PurchaseStatus.restored) {
-          final bool verified = await _verifier.verifyPurchase(purchase);
-          if (verified) {
-            await _setPremium(true);
-            onPremiumChanged(true);
-          } else {
-            onError?.call('Purchase verification failed. Premium access not granted.');
+          try {
+            final bool verified = await _verifier.verifyPurchase(
+              purchase,
+              cancellationToken: _disposeSource.token,
+            );
+            if (verified) {
+              await _setPremium(true, cancellationToken: _disposeSource.token);
+              onPremiumChanged(true);
+            } else {
+              onError?.call('Purchase verification failed. Premium access not granted.');
+            }
+          } on OperationCancelledException {
+            return;
           }
         }
         if (purchase.status == PurchaseStatus.error) {
@@ -65,16 +94,23 @@ class PaywallService {
       }
     });
 
-    onPremiumChanged(await readCachedPremium());
+    onPremiumChanged(await readCachedPremium(cancellationToken: cancellationToken));
   }
 
-  Future<List<PaywallProduct>> queryProducts() async {
+  Future<List<PaywallProduct>> queryProducts({CancellationToken? cancellationToken}) async {
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
+
     final bool available = await _iap.isAvailable();
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
     if (!available) {
       return const <PaywallProduct>[];
     }
 
     final ProductDetailsResponse response = await _iap.queryProductDetails(productIds);
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
     if (response.error != null) {
       return const <PaywallProduct>[];
     }
@@ -87,13 +123,20 @@ class PaywallService {
         .toList();
   }
 
-  Future<void> buyProduct(String productId) async {
+  Future<void> buyProduct(String productId, {CancellationToken? cancellationToken}) async {
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
+
     final bool available = await _iap.isAvailable();
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
     if (!available) {
       throw Exception('Store is currently unavailable on this device.');
     }
 
     final ProductDetailsResponse response = await _iap.queryProductDetails(<String>{productId});
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
     if (response.productDetails.isEmpty) {
       throw Exception('Selected product not found in store configuration.');
     }
@@ -101,23 +144,43 @@ class PaywallService {
     final ProductDetails product = response.productDetails.first;
     final PurchaseParam param = PurchaseParam(productDetails: product);
     await _iap.buyNonConsumable(purchaseParam: param);
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
   }
 
-  Future<void> restorePurchases() async {
+  Future<void> restorePurchases({CancellationToken? cancellationToken}) async {
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
     await _iap.restorePurchases();
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
   }
 
-  Future<bool> readCachedPremium() async {
+  Future<bool> readCachedPremium({CancellationToken? cancellationToken}) async {
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
+
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
     return prefs.getBool(_premiumKey) ?? false;
   }
 
-  Future<void> _setPremium(bool value) async {
+  Future<void> _setPremium(bool value, {CancellationToken? cancellationToken}) async {
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
+
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
     await prefs.setBool(_premiumKey, value);
+    cancellationToken.throwIfCancelled();
+    _disposeSource.token.throwIfCancelled();
   }
 
   Future<void> dispose() async {
+    _disposeSource.cancel();
     await _purchaseSub?.cancel();
+    _verifier.dispose();
   }
 }

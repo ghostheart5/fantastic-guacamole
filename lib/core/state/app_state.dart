@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/services/paywall_service.dart';
 import '../../data/services/si_ai_service.dart';
+import '../../data/services/operation_cancellation.dart';
 import '../si/adaptive_learning.dart';
 import '../si/si_engine.dart';
 import '../system/behavior_entities.dart';
@@ -38,6 +39,7 @@ class AppState extends ChangeNotifier {
   final MockBillingService _billingService = MockBillingService();
   final NotificationManager _notificationManager = NotificationManager();
   final AdaptiveLearningSystem _learning = AdaptiveLearningSystem();
+  final CancellationTokenSource _serviceCancellation = CancellationTokenSource();
 
   late final Timer _timeTicker;
   SubscriptionSnapshot _subscription = SubscriptionSnapshot.base();
@@ -221,6 +223,7 @@ class AppState extends ChangeNotifier {
       final String? aiResponse = await _aiService.generateResponse(
         prompt: value,
         decision: decision ?? _fallbackDecision(),
+        cancellationToken: _serviceCancellation.token,
       );
       if (aiResponse != null && aiResponse.trim().isNotEmpty) {
         response = aiResponse;
@@ -408,14 +411,14 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> refreshPaywallProducts() async {
-    paywallProducts = await _paywallService.queryProducts();
+    paywallProducts = await _paywallService.queryProducts(cancellationToken: _serviceCancellation.token);
     notifyListeners();
   }
 
   Future<void> purchase(String productId) async {
     runtimeError = null;
     try {
-      await _paywallService.buyProduct(productId);
+      await _paywallService.buyProduct(productId, cancellationToken: _serviceCancellation.token);
     } catch (e) {
       runtimeError = e.toString();
       notifyListeners();
@@ -425,7 +428,7 @@ class AppState extends ChangeNotifier {
   Future<void> restorePurchases() async {
     runtimeError = null;
     try {
-      await _paywallService.restorePurchases();
+      await _paywallService.restorePurchases(cancellationToken: _serviceCancellation.token);
     } catch (e) {
       runtimeError = e.toString();
       notifyListeners();
@@ -622,7 +625,9 @@ class AppState extends ChangeNotifier {
       await _loadRuntimeSnapshot();
       await _loadSubscriptionSnapshot();
 
-      hasPremiumAccess = await _paywallService.readCachedPremium();
+      hasPremiumAccess = await _paywallService.readCachedPremium(
+        cancellationToken: _serviceCancellation.token,
+      );
 
       // If no subscription in storage but has premium from paywall, sync
       if (hasPremiumAccess && !isPremium) {
@@ -654,6 +659,7 @@ class AppState extends ChangeNotifier {
               runtimeError = message;
               notifyListeners();
             },
+            cancellationToken: _serviceCancellation.token,
           )
           .timeout(const Duration(seconds: 8));
       await refreshPaywallProducts();
@@ -1139,8 +1145,10 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
+    _serviceCancellation.cancel();
     _timeTicker.cancel();
     _paywallService.dispose();
+    _aiService.dispose();
     super.dispose();
   }
 }

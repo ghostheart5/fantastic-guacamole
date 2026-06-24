@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'operation_cancellation.dart';
+
 class ChronoLogsPayload {
   final List<String> completedTasks;
   final List<String> pastMissions;
@@ -82,11 +84,15 @@ class ChronoLogsService {
     archives: <String>['Q2 Mission Archive', 'April Tactical Snapshot'],
   );
 
-  Future<ChronoLogsPayload> load() async {
+  Future<ChronoLogsPayload> load({CancellationToken? cancellationToken}) async {
+    cancellationToken.throwIfCancelled();
+
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    cancellationToken.throwIfCancelled();
+
     final String? raw = prefs.getString(_key);
     if (raw == null || raw.trim().isEmpty) {
-      await save(_defaultPayload);
+      await save(_defaultPayload, cancellationToken: cancellationToken);
       return _defaultPayload;
     }
 
@@ -95,18 +101,25 @@ class ChronoLogsService {
     return ChronoLogsPayload.fromJson(json);
   }
 
-  Future<void> save(ChronoLogsPayload payload) async {
+  Future<void> save(ChronoLogsPayload payload, {CancellationToken? cancellationToken}) async {
+    cancellationToken.throwIfCancelled();
+
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    cancellationToken.throwIfCancelled();
+
     await prefs.setString(_key, jsonEncode(payload.toJson()));
+    cancellationToken.throwIfCancelled();
   }
 
-  Future<void> addCompletedTask(String taskLine) async {
+  Future<void> addCompletedTask(String taskLine, {CancellationToken? cancellationToken}) async {
+    cancellationToken.throwIfCancelled();
+
     final String line = taskLine.trim();
     if (line.isEmpty) {
       return;
     }
 
-    final ChronoLogsPayload current = await load();
+    final ChronoLogsPayload current = await load(cancellationToken: cancellationToken);
     if (current.completedTasks.contains(line)) {
       return;
     }
@@ -124,6 +137,6 @@ class ChronoLogsService {
       oldRoutines: current.oldRoutines,
       archives: current.archives,
     );
-    await save(next);
+    await save(next, cancellationToken: cancellationToken);
   }
 }
