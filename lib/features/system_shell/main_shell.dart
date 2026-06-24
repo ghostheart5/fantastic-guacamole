@@ -22,7 +22,16 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  // Pre-built from the const shellTabs list – never changes, so built once.
+  static final List<SystemNavItem> _navItems = shellTabs
+      .map((ShellTabInfo tab) => SystemNavItem(label: tab.label, icon: tab.icon))
+      .toList();
+
   int _tabIndex = 0;
+
+  // Stable void wrapper so SystemBottomNav doesn't receive a new closure
+  // reference on every build while still ignoring the returned Future.
+  void _onNavTap(int index) => _openTab(index).ignore();
 
   Future<void> _openTab(int index) async {
     if (_tabIndex == index) {
@@ -77,8 +86,15 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final AppState appState = context.watch<AppState>();
-    final Decision? decision = appState.decision;
+    // Rebuild only when the specific values consumed here change, not on every
+    // AppState.notifyListeners() call.
+    final int alertCount = context.select<AppState, int>(
+      (AppState s) => (s.decision?.workload ?? 0) > 0.75 ? 1 : 0,
+    );
+    final bool canUseTemporalOps =
+        context.select<AppState, bool>((AppState s) => s.canUseTemporalOps);
+    final bool canUseSiConsole =
+        context.select<AppState, bool>((AppState s) => s.canUseSiConsole);
 
     return Scaffold(
       body: Stack(
@@ -89,17 +105,13 @@ class _MainShellState extends State<MainShell> {
               children: <Widget>[
                 SystemHeader(
                   sectionTitle: shellTabs[_tabIndex].label,
-                  alertCount: (decision?.workload ?? 0) > 0.75 ? 1 : 0,
+                  alertCount: alertCount,
                 ),
-                Expanded(child: _centerContent()),
+                Expanded(child: _centerContent(canUseTemporalOps, canUseSiConsole)),
                 SystemBottomNav(
-                  items: shellTabs
-                      .map((ShellTabInfo tab) => SystemNavItem(label: tab.label, icon: tab.icon))
-                      .toList(),
+                  items: _navItems,
                   currentIndex: _tabIndex,
-                  onTap: (int index) async {
-                    await _openTab(index);
-                  },
+                  onTap: _onNavTap,
                 ),
               ],
             ),
@@ -109,9 +121,7 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  Widget _centerContent() {
-    final AppState appState = context.read<AppState>();
-
+  Widget _centerContent(bool canUseTemporalOps, bool canUseSiConsole) {
     switch (shellTabs[_tabIndex].tab) {
       case ShellTab.nexus:
         return NexusPage(
@@ -124,7 +134,8 @@ class _MainShellState extends State<MainShell> {
       case ShellTab.logs:
         return const ChronoLogsPage();
       case ShellTab.temporal:
-        if (!appState.canUseTemporalOps) {
+        if (!canUseTemporalOps) {
+          final AppState appState = context.read<AppState>();
           return PremiumFeatureGate(
             featureName: 'Temporal Ops',
             subtitle:
@@ -139,7 +150,8 @@ class _MainShellState extends State<MainShell> {
         }
         return const TemporalOpsPage();
       case ShellTab.siConsole:
-        if (!appState.canUseSiConsole) {
+        if (!canUseSiConsole) {
+          final AppState appState = context.read<AppState>();
           return PremiumFeatureGate(
             featureName: 'SI Console',
             subtitle:

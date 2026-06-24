@@ -23,9 +23,9 @@ class SystemBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      decoration: BoxDecoration(
-        color: const Color(0x1C000000),
-        border: Border(top: BorderSide(color: const Color(0x33FFFFFF))),
+      decoration: const BoxDecoration(
+        color: Color(0x1C000000),
+        border: Border(top: BorderSide(color: Color(0x33FFFFFF))),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

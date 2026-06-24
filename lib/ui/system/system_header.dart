@@ -11,9 +11,9 @@ class SystemHeader extends StatelessWidget {
     final TextTheme textTheme = Theme.of(context).textTheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0x1AFFFFFF),
-        border: Border(bottom: BorderSide(color: const Color(0x33FFFFFF))),
+      decoration: const BoxDecoration(
+        color: Color(0x1AFFFFFF),
+        border: Border(bottom: BorderSide(color: Color(0x33FFFFFF))),
       ),
       child: Row(
         children: <Widget>[

@@ -29,8 +29,39 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
 
   @override
   Widget build(BuildContext context) {
+    // Static images are passed as `child` so they are built only once and
+    // reused across every animation frame instead of being rebuilt each tick.
     return AnimatedBuilder(
       animation: _controller,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          Image.asset(
+            _rootBackgroundAsset,
+            fit: BoxFit.cover,
+            errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
+                const ColoredBox(color: Color(0xFF0C0812)),
+          ),
+          Opacity(
+            opacity: 0.1,
+            child: Image.asset(
+              'assets/overlays/particles_overlay.png',
+              fit: BoxFit.cover,
+              errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
+                  const SizedBox.shrink(),
+            ),
+          ),
+          Opacity(
+            opacity: 0.08,
+            child: Image.asset(
+              'assets/overlays/glass_overlay.png',
+              fit: BoxFit.cover,
+              errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
+                  const SizedBox.shrink(),
+            ),
+          ),
+        ],
+      ),
       builder: (BuildContext context, Widget? child) {
         final double t = _controller.value;
         final Color color1 = Color.lerp(const Color(0xCC08040E), const Color(0xCC170C1F), t)!;
@@ -40,12 +71,7 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
         return Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            Image.asset(
-              _rootBackgroundAsset,
-              fit: BoxFit.cover,
-              errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
-                  const ColoredBox(color: Color(0xFF0C0812)),
-            ),
+            child!, // static background + overlay images
             AnimatedContainer(
               duration: const Duration(seconds: 3),
               decoration: BoxDecoration(
@@ -54,24 +80,6 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
                   end: end,
                   colors: <Color>[color1, color2, Color.lerp(color2, color1, 0.5)!, color2],
                 ),
-              ),
-            ),
-            Opacity(
-              opacity: 0.1,
-              child: Image.asset(
-                'assets/overlays/particles_overlay.png',
-                fit: BoxFit.cover,
-                errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
-                    const SizedBox.shrink(),
-              ),
-            ),
-            Opacity(
-              opacity: 0.08,
-              child: Image.asset(
-                'assets/overlays/glass_overlay.png',
-                fit: BoxFit.cover,
-                errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
-                    const SizedBox.shrink(),
               ),
             ),
             AnimatedOpacity(

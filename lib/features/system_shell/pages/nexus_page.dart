@@ -13,8 +13,8 @@ class NexusPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AppState appState = Provider.of<AppState>(context);
-    final Decision? decision = appState.decision;
+    final Decision? decision =
+        context.select<AppState, Decision?>((AppState s) => s.decision);
     if (decision == null) {
       return const Center(child: Text('Initializing system...'));
     }
