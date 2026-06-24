@@ -448,7 +448,7 @@ class AppState extends ChangeNotifier {
 
     final MockBillingService? billing = _billingService;
     if (billing == null) {
-      runtimeError = 'Mock billing is not available in production builds.';
+      runtimeError = 'Mock billing is disabled. Enable it with --dart-define=CHRONOSPARK_ENABLE_MOCK_BILLING=true in a debug build.';
       notifyListeners();
       return false;
     }
@@ -481,7 +481,7 @@ class AppState extends ChangeNotifier {
 
     final MockBillingService? billing = _billingService;
     if (billing == null) {
-      runtimeError = 'Mock billing is not available in production builds.';
+      runtimeError = 'Mock billing is disabled. Enable it with --dart-define=CHRONOSPARK_ENABLE_MOCK_BILLING=true in a debug build.';
       notifyListeners();
       return false;
     }
@@ -513,7 +513,7 @@ class AppState extends ChangeNotifier {
 
     final MockBillingService? billing = _billingService;
     if (billing == null) {
-      runtimeError = 'Mock billing is not available in production builds.';
+      runtimeError = 'Mock billing is disabled. Enable it with --dart-define=CHRONOSPARK_ENABLE_MOCK_BILLING=true in a debug build.';
       notifyListeners();
       return false;
     }
@@ -545,7 +545,7 @@ class AppState extends ChangeNotifier {
 
     final MockBillingService? billing = _billingService;
     if (billing == null) {
-      runtimeError = 'Mock billing is not available in production builds.';
+      runtimeError = 'Mock billing is disabled. Enable it with --dart-define=CHRONOSPARK_ENABLE_MOCK_BILLING=true in a debug build.';
       notifyListeners();
       return false;
     }
