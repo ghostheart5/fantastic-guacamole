@@ -217,7 +217,7 @@ class AppState extends ChangeNotifier {
     _history.add('You: $value');
     String response = decision?.systemNote ?? 'System updated.';
 
-    _appendLog('api', 'SI AI request sent for console input', ChronoLogStatus.info);
+    _appendLog('api', 'SI AI request sent for console input: "${value.length > 80 ? '${value.substring(0, 80)}…' : value}"', ChronoLogStatus.info);
     try {
       final String? aiResponse = await _aiService.generateResponse(
         prompt: value,
@@ -229,9 +229,9 @@ class AppState extends ChangeNotifier {
       } else {
         _appendLog('api', 'SI AI returned no content; using rule-based response', ChronoLogStatus.warning);
       }
-    } catch (_) {
+    } catch (e) {
       // Keep rule-based response if AI provider fails.
-      _appendLog('api', 'SI AI request failed; using rule-based response', ChronoLogStatus.warning);
+      _appendLog('api', 'SI AI request failed: $e; using rule-based response', ChronoLogStatus.warning);
     }
 
     await Future<void>.delayed(const Duration(milliseconds: 300));
@@ -659,7 +659,7 @@ class AppState extends ChangeNotifier {
           subscriptionStartDate: DateTime.now(),
           mockNextBillingDate: DateTime.now().add(const Duration(days: 30)),
         );
-        _appendLog('auth', 'Subscription synced from cached paywall: premium/monthly', ChronoLogStatus.info);
+        _appendLog('auth', 'Subscription synced from cached paywall: ${SubscriptionPlan.premium.name}/${BillingCycle.monthly.name}', ChronoLogStatus.info);
       }
 
       await _paywallService
