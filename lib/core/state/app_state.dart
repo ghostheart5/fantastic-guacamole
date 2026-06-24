@@ -11,6 +11,7 @@ import '../system/notification_manager.dart';
 import '../system/runtime_persistence.dart';
 import '../system/subscription_model.dart';
 import '../system/mock_billing_service.dart';
+import '../utils/logger.dart';
 
 typedef Decision = SiDecision;
 typedef UserState = UserSignalState;
@@ -148,6 +149,12 @@ class AppState extends ChangeNotifier {
   }
 
   void updateState(UserState newState) {
+    Logger.debug('user_action:update_state', data: <String, Object?>{
+      'energy': newState.energyLevel.name,
+      'workload': newState.workload,
+      'deadlinePressure': newState.deadlinePressure,
+      'taskCount': newState.tasks.length,
+    });
     currentState = newState;
     _recomputeDecision();
     _autoSave();
@@ -160,6 +167,9 @@ class AppState extends ChangeNotifier {
       return;
     }
 
+    Logger.debug('user_action:console_input', data: <String, Object?>{
+      'length': value.length,
+    });
     isProcessingConsole = true;
     runtimeError = null;
     _notificationManager.markActivity();
@@ -217,6 +227,7 @@ class AppState extends ChangeNotifier {
     _history.add('You: $value');
     String response = decision?.systemNote ?? 'System updated.';
 
+    Logger.debug('api_call:ai_generate_response');
     try {
       final String? aiResponse = await _aiService.generateResponse(
         prompt: value,
@@ -224,8 +235,10 @@ class AppState extends ChangeNotifier {
       );
       if (aiResponse != null && aiResponse.trim().isNotEmpty) {
         response = aiResponse;
+        Logger.debug('api_call:ai_generate_response:done');
       }
-    } catch (_) {
+    } catch (e) {
+      Logger.error('api_call:ai_generate_response:error', error: e);
       // Keep rule-based response if AI provider fails.
     }
 
@@ -266,6 +279,11 @@ class AppState extends ChangeNotifier {
       return;
     }
 
+    Logger.debug('user_action:add_task', data: <String, Object?>{
+      'title': trimmed,
+      'priority': priority,
+      'hasDeadline': hasDeadline,
+    });
     currentState = UserState(
       tasks: <SiTask>[
         SiTask(title: trimmed, priority: priority.clamp(1, 10), hasDeadline: hasDeadline),
@@ -294,6 +312,12 @@ class AppState extends ChangeNotifier {
       return;
     }
 
+    Logger.debug('user_action:edit_task', data: <String, Object?>{
+      'from': source,
+      'to': target,
+      'priority': priority,
+      'hasDeadline': hasDeadline,
+    });
     final List<SiTask> updated = currentState.tasks.map((SiTask task) {
       if (task.title != source) {
         return task;
@@ -324,6 +348,7 @@ class AppState extends ChangeNotifier {
       return;
     }
 
+    Logger.debug('user_action:complete_task', data: <String, Object?>{'title': trimmed});
     _completedTaskTitles.add(trimmed);
     _learning.registerCompletion(trimmed, now: DateTime.now());
     _notificationManager.recordResponse(acknowledged: true);
@@ -347,6 +372,7 @@ class AppState extends ChangeNotifier {
       return;
     }
 
+    Logger.debug('user_action:skip_task', data: <String, Object?>{'title': trimmed});
     _skippedTaskTitles.add(trimmed);
     _learning.registerSkip(trimmed);
     _notificationManager.recordResponse(acknowledged: false);
@@ -363,6 +389,7 @@ class AppState extends ChangeNotifier {
       return;
     }
 
+    Logger.debug('user_action:delay_task', data: <String, Object?>{'title': trimmed});
     _delayedTaskTitles.add(trimmed);
     _learning.registerDelay(trimmed);
     _appendLog('task', 'Delayed: $trimmed', ChronoLogStatus.warning);
@@ -378,6 +405,11 @@ class AppState extends ChangeNotifier {
       return;
     }
 
+    Logger.debug('user_action:add_mission', data: <String, Object?>{
+      'title': trimmed,
+      'importance': importance,
+      'hasDeadline': deadline != null,
+    });
     _missions.insert(
       0,
       ChronoMission(
@@ -394,6 +426,10 @@ class AppState extends ChangeNotifier {
   }
 
   void addRoutine({required String id, required DateTime scheduledTime}) {
+    Logger.debug('user_action:add_routine', data: <String, Object?>{
+      'id': id,
+      'scheduledTime': scheduledTime.toIso8601String(),
+    });
     _routines.insert(
       0,
       ChronoRoutine(
@@ -408,25 +444,35 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> refreshPaywallProducts() async {
+    Logger.debug('api_call:refresh_paywall_products');
     paywallProducts = await _paywallService.queryProducts();
+    Logger.debug('api_call:refresh_paywall_products:done', data: <String, Object?>{
+      'productCount': paywallProducts.length,
+    });
     notifyListeners();
   }
 
   Future<void> purchase(String productId) async {
+    Logger.debug('api_call:purchase', data: <String, Object?>{'productId': productId});
     runtimeError = null;
     try {
       await _paywallService.buyProduct(productId);
+      Logger.debug('api_call:purchase:done', data: <String, Object?>{'productId': productId});
     } catch (e) {
+      Logger.error('api_call:purchase:error', error: e);
       runtimeError = e.toString();
       notifyListeners();
     }
   }
 
   Future<void> restorePurchases() async {
+    Logger.debug('api_call:restore_purchases');
     runtimeError = null;
     try {
       await _paywallService.restorePurchases();
+      Logger.debug('api_call:restore_purchases:done');
     } catch (e) {
+      Logger.error('api_call:restore_purchases:error', error: e);
       runtimeError = e.toString();
       notifyListeners();
     }
@@ -434,7 +480,14 @@ class AppState extends ChangeNotifier {
 
   /// Upgrade to a subscription plan
   Future<bool> upgradeToPlan(SubscriptionPlan plan, BillingCycle billingCycle) async {
+    Logger.debug('api_call:upgrade_to_plan', data: <String, Object?>{
+      'plan': plan.name,
+      'billingCycle': billingCycle.name,
+    });
     if (plan == SubscriptionPlan.base) {
+      Logger.warning('api_call:upgrade_to_plan:rejected', data: <String, Object?>{
+        'reason': 'Cannot upgrade to Base tier',
+      });
       runtimeError = 'Cannot upgrade to Base tier. Use downgradePlan instead.';
       notifyListeners();
       return false;
@@ -448,10 +501,15 @@ class AppState extends ChangeNotifier {
       );
 
       _subscription = newSubscription;
+      Logger.debug('state_change:subscription', data: <String, Object?>{
+        'plan': _subscription.plan.name,
+        'status': _subscription.status.name,
+      });
       await _autoSave();
       notifyListeners();
       return true;
     } catch (e) {
+      Logger.error('api_call:upgrade_to_plan:error', error: e);
       runtimeError = e.toString();
       notifyListeners();
       return false;
@@ -460,7 +518,13 @@ class AppState extends ChangeNotifier {
 
   /// Downgrade to Base (free) tier
   Future<bool> downgradePlan() async {
+    Logger.debug('api_call:downgrade_plan', data: <String, Object?>{
+      'currentPlan': currentPlan.name,
+    });
     if (!isPremium) {
+      Logger.warning('api_call:downgrade_plan:rejected', data: <String, Object?>{
+        'reason': 'Already on Base tier',
+      });
       runtimeError = 'Already on Base tier.';
       notifyListeners();
       return false;
@@ -475,10 +539,15 @@ class AppState extends ChangeNotifier {
       _temporalTrialUses = 0;
       _siConsoleTrialUses = 0;
 
+      Logger.debug('state_change:subscription', data: <String, Object?>{
+        'plan': _subscription.plan.name,
+        'status': _subscription.status.name,
+      });
       await _autoSave();
       notifyListeners();
       return true;
     } catch (e) {
+      Logger.error('api_call:downgrade_plan:error', error: e);
       runtimeError = e.toString();
       notifyListeners();
       return false;
@@ -487,6 +556,9 @@ class AppState extends ChangeNotifier {
 
   /// Cancel current subscription
   Future<bool> cancelSubscription() async {
+    Logger.debug('api_call:cancel_subscription', data: <String, Object?>{
+      'currentPlan': currentPlan.name,
+    });
     if (!isPremium) {
       return true; // Already on Base
     }
@@ -498,10 +570,15 @@ class AppState extends ChangeNotifier {
       );
 
       _subscription = newSubscription;
+      Logger.debug('state_change:subscription', data: <String, Object?>{
+        'plan': _subscription.plan.name,
+        'status': _subscription.status.name,
+      });
       await _autoSave();
       notifyListeners();
       return true;
     } catch (e) {
+      Logger.error('api_call:cancel_subscription:error', error: e);
       runtimeError = e.toString();
       notifyListeners();
       return false;
@@ -510,7 +587,11 @@ class AppState extends ChangeNotifier {
 
   /// Apply a promo code to subscription
   Future<bool> applyPromoCode(String code) async {
+    Logger.debug('api_call:apply_promo_code');
     if (!isPremium) {
+      Logger.warning('api_call:apply_promo_code:rejected', data: <String, Object?>{
+        'reason': 'Not a premium subscriber',
+      });
       runtimeError = 'Promo codes only apply to active subscriptions.';
       notifyListeners();
       return false;
@@ -524,17 +605,20 @@ class AppState extends ChangeNotifier {
       );
 
       _subscription = newSubscription;
+      Logger.debug('state_change:subscription', data: <String, Object?>{
+        'plan': _subscription.plan.name,
+        'status': _subscription.status.name,
+      });
       await _autoSave();
       notifyListeners();
       return true;
     } catch (e) {
+      Logger.error('api_call:apply_promo_code:error', error: e);
       runtimeError = e.toString();
       notifyListeners();
       return false;
     }
-  }
-
-  /// Get next billing date formatted
+  }  /// Get next billing date formatted
   String getNextBillingDateFormatted() {
     final DateTime billingDate = _subscription.mockNextBillingDate;
     return 'Your next billing date is ${billingDate.month}/${billingDate.day}/${billingDate.year}';
@@ -618,6 +702,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _bootstrap() async {
+    Logger.debug('api_call:bootstrap:start');
     try {
       await _loadRuntimeSnapshot();
       await _loadSubscriptionSnapshot();
@@ -648,9 +733,13 @@ class AppState extends ChangeNotifier {
                   mockNextBillingDate: DateTime.now().add(const Duration(days: 30)),
                 );
               }
+              Logger.debug('state_change:premium_access', data: <String, Object?>{
+                'hasPremiumAccess': hasPremiumAccess,
+              });
               notifyListeners();
             },
             onError: (String message) {
+              Logger.error('api_call:paywall_initialize:error', error: message);
               runtimeError = message;
               notifyListeners();
             },
@@ -659,7 +748,12 @@ class AppState extends ChangeNotifier {
       await refreshPaywallProducts();
 
       _recomputeDecision();
+      Logger.debug('api_call:bootstrap:done', data: <String, Object?>{
+        'plan': currentPlan.name,
+        'hasPremiumAccess': hasPremiumAccess,
+      });
     } catch (e) {
+      Logger.error('api_call:bootstrap:error', error: e);
       runtimeError = 'Startup partially failed: $e';
       if (decision == null) {
         _recomputeDecision();
@@ -672,6 +766,12 @@ class AppState extends ChangeNotifier {
 
   void _recomputeDecision({DateTime? now}) {
     final DateTime stamp = now ?? DateTime.now();
+
+    Logger.debug('state_change:recompute_decision', data: <String, Object?>{
+      'energy': currentState.energyLevel.name,
+      'workload': currentState.workload,
+      'taskCount': currentState.tasks.length,
+    });
 
     final List<SiTask> rankedTasks = _learning.rankTasks(
       currentState.tasks,
@@ -836,11 +936,16 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _loadRuntimeSnapshot() async {
+    Logger.debug('api_call:load_runtime_snapshot');
     final Map<String, dynamic>? decoded = await _persistence.loadSnapshot();
     if (decoded == null) {
+      Logger.debug('api_call:load_runtime_snapshot:no_snapshot');
       return;
     }
 
+    Logger.debug('api_call:load_runtime_snapshot:done', data: <String, Object?>{
+      'schemaVersion': decoded['schemaVersion'],
+    });
     final List<dynamic> tasksRaw = decoded['tasks'] as List<dynamic>? ?? const <dynamic>[];
     final List<SiTask> tasks = tasksRaw.map((dynamic e) {
       final Map<String, dynamic> map = e as Map<String, dynamic>;
@@ -973,6 +1078,10 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _autoSave() async {
+    Logger.debug('api_call:auto_save', data: <String, Object?>{
+      'taskCount': currentState.tasks.length,
+      'plan': currentPlan.name,
+    });
     final Map<String, dynamic> payload = <String, dynamic>{
       'schemaVersion': 2,
       'tasks': currentState.tasks
