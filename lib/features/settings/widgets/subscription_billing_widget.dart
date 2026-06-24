@@ -103,8 +103,7 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
   }) {
     final bool isCurrent = appState.currentPlan == plan;
     final double fallbackPrice = _cycle == BillingCycle.monthly ? monthly : yearly;
-    final String fallbackPriceLabel =
-        '\$${fallbackPrice.toStringAsFixed(2)}${_cycle == BillingCycle.monthly ? '/mo' : '/yr'}';
+    final String fallbackPriceLabel = _fallbackPriceLabel(fallbackPrice);
     final String priceLabel = product?.price ?? fallbackPriceLabel;
 
     return _card(
@@ -181,7 +180,7 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
   }
 
   PaywallProduct? _productForCycle(AppState appState) {
-    final String cycleSuffix = _cycle == BillingCycle.monthly ? '_monthly' : '_yearly';
+    final String cycleSuffix = _cycleSuffix();
     for (final PaywallProduct product in appState.paywallProducts) {
       if (product.id.toLowerCase().endsWith(cycleSuffix)) {
         return product;
@@ -198,6 +197,14 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
       return 'Load Store Plan';
     }
     return 'Continue in Store';
+  }
+
+  String _fallbackPriceLabel(double price) {
+    return '\$${price.toStringAsFixed(2)}${_cycle == BillingCycle.monthly ? '/mo' : '/yr'}';
+  }
+
+  String _cycleSuffix() {
+    return _cycle == BillingCycle.monthly ? '_monthly' : '_yearly';
   }
 
   Future<void> _loadProducts(AppState appState) async {

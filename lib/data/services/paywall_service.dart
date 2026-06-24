@@ -72,7 +72,6 @@ class PaywallService {
       }
     });
 
-    onSubscriptionChanged(SubscriptionSnapshot.base());
     await restorePurchases();
   }
 
