@@ -18,6 +18,8 @@ class SiAiService {
           model ??
           const String.fromEnvironment('CHRONOSPARK_AI_MODEL', defaultValue: 'gpt-4o-mini');
 
+  static const int maxPromptLength = 5000;
+
   final http.Client _client;
   final String _endpoint;
   final String _apiKey;
@@ -27,6 +29,11 @@ class SiAiService {
 
   Future<String?> generateResponse({required String prompt, required Decision decision}) async {
     if (!isConfigured) {
+      return null;
+    }
+
+    final String trimmed = prompt.trim();
+    if (trimmed.isEmpty || trimmed.length > maxPromptLength) {
       return null;
     }
 
@@ -40,7 +47,7 @@ class SiAiService {
         <String, String>{
           'role': 'user',
           'content':
-              'Current system note: ${decision.systemNote}. Primary: ${decision.primaryDecision}. Secondary: ${decision.secondaryAction}. User input: $prompt',
+              'Current system note: ${decision.systemNote}. Primary: ${decision.primaryDecision}. Secondary: ${decision.secondaryAction}. User input: $trimmed',
         },
       ],
       'temperature': 0.4,

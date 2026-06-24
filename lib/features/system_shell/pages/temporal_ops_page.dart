@@ -78,6 +78,9 @@ class _TemporalOpsPageState extends State<TemporalOpsPage> with SingleTickerProv
   void _addTask() {
     final String value = _taskController.text.trim();
     if (value.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a task before submitting.')),
+      );
       return;
     }
     final String id = DateTime.now().microsecondsSinceEpoch.toString();

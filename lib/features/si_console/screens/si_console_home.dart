@@ -35,6 +35,9 @@ class _SIConsoleHomeState extends State<SIConsoleHome> {
   void _addReflection() {
     final String text = _reflectionController.text.trim();
     if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a value before submitting.')),
+      );
       return;
     }
     setState(() {

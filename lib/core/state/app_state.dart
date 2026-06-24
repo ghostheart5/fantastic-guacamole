@@ -408,7 +408,18 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> refreshPaywallProducts() async {
-    paywallProducts = await _paywallService.queryProducts();
+    try {
+      paywallProducts = await _paywallService.queryProducts().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          runtimeError = 'Store query timed out. Using cached products.';
+          notifyListeners();
+          return const <PaywallProduct>[];
+        },
+      );
+    } catch (e) {
+      runtimeError = 'Could not fetch products. Using cached data.';
+    }
     notifyListeners();
   }
 
