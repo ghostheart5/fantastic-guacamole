@@ -418,6 +418,7 @@ class AppState extends ChangeNotifier {
         },
       );
     } catch (e) {
+      paywallProducts = const <PaywallProduct>[];
       runtimeError = 'Could not fetch products. Using cached data.';
     }
     notifyListeners();

@@ -13,7 +13,7 @@ class _AsyncGate {
     final Completer<void> completer = Completer<void>();
     final Future<T> result = _tail.then<T>((_) => fn());
     _tail = completer.future;
-    result.whenComplete(completer.complete);
+    result.whenComplete(() => completer.complete());
     return result;
   }
 }
