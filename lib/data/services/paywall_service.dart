@@ -52,7 +52,7 @@ class PaywallService {
           try {
             verified = await _verifier.verifyPurchase(purchase);
           } catch (_) {
-            onError?.call('Purchase verification unavailable offline. Your purchase has been recorded and will be verified when connectivity is restored.');
+            onError?.call('Your purchase was completed but could not be verified right now due to a network issue. Please restore purchases once connectivity is available.');
             if (purchase.pendingCompletePurchase) {
               await _iap.completePurchase(purchase);
             }
