@@ -65,14 +65,26 @@ class _CreatorModules extends StatelessWidget {
   }
 }
 
-class _CreatorForm extends StatelessWidget {
+class _CreatorForm extends StatefulWidget {
   const _CreatorForm();
 
   @override
-  Widget build(BuildContext context) {
-    final TextEditingController nameController = TextEditingController();
-    final TextEditingController intentController = TextEditingController();
+  State<_CreatorForm> createState() => _CreatorFormState();
+}
 
+class _CreatorFormState extends State<_CreatorForm> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _intentController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _intentController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return GlassPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,12 +95,12 @@ class _CreatorForm extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           TextField(
-            controller: nameController,
+            controller: _nameController,
             decoration: const InputDecoration(labelText: 'Name'),
           ),
           const SizedBox(height: 8),
           TextField(
-            controller: intentController,
+            controller: _intentController,
             decoration: const InputDecoration(labelText: 'Intent'),
           ),
           const SizedBox(height: 10),
@@ -96,17 +108,17 @@ class _CreatorForm extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: FilledButton.icon(
               onPressed: () {
-                final String title = nameController.text.trim();
+                final String title = _nameController.text.trim();
                 if (title.isEmpty) {
                   return;
                 }
                 context.read<AppState>().addTask(
                   title: title,
                   priority: 7,
-                  hasDeadline: intentController.text.toLowerCase().contains('deadline'),
+                  hasDeadline: _intentController.text.toLowerCase().contains('deadline'),
                 );
-                nameController.clear();
-                intentController.clear();
+                _nameController.clear();
+                _intentController.clear();
               },
               icon: const Icon(Icons.add_task_outlined),
               label: const Text('Create Task'),
