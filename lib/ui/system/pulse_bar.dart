@@ -26,18 +26,18 @@ class PulseBar extends StatelessWidget {
   Widget _line(String label, double value, Color accent) {
     final double clamped = value.clamp(0.0, 1.0);
     final int percentage = (clamped * 100).round();
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: clamped),
-      duration: const Duration(milliseconds: 600),
-      builder: (BuildContext context, double animated, Widget? child) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(label, style: const TextStyle(color: Color(0xFFD8D0E6), fontSize: 12)),
-            const SizedBox(height: 4),
-            Semantics(
-              label: '$label: $percentage%',
-              child: LayoutBuilder(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(label, style: const TextStyle(color: Color(0xFFD8D0E6), fontSize: 12)),
+        const SizedBox(height: 4),
+        Semantics(
+          label: '$label: $percentage%',
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: clamped),
+            duration: const Duration(milliseconds: 600),
+            builder: (BuildContext context, double animated, Widget? child) {
+              return LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints constraints) {
                   final double trackWidth = constraints.maxWidth;
                   return ExcludeSemantics(
@@ -63,11 +63,11 @@ class PulseBar extends StatelessWidget {
                     ),
                   );
                 },
-              ),
-            ),
-          ],
-        );
-      },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

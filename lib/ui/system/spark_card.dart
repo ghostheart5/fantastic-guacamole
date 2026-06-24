@@ -19,7 +19,7 @@ class SparkCard extends StatelessWidget {
         : const <Color>[Color(0x14FFFFFF), Color(0x26FFFFFF)];
 
     return Semantics(
-      label: '$subtitle: $title',
+      label: '$subtitle. $title',
       child: ExcludeSemantics(
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
