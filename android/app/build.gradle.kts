@@ -25,6 +25,7 @@ val releaseVersionCode =
 val releaseVersionName =
     (project.findProperty("CHRONOSPARK_VERSION_NAME") as String?)
         ?: flutter.versionName
+// Keep this list aligned with AGP/Gradle release assembly task names used in CI and local builds.
 val releaseTaskNames =
     setOf(
         "release",
@@ -39,6 +40,7 @@ val isReleaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
     val leafTaskName = taskName.substringAfterLast(':').lowercase()
     leafTaskName in releaseTaskNames
 }
+// Keep this list aligned with the fields read in signingConfigs.release.
 val requiredReleaseSigningKeys = listOf("keyAlias", "keyPassword", "storeFile", "storePassword")
 fun isBlankReleaseSigningValue(properties: Properties, key: String): Boolean {
     return (properties[key] as? String).isNullOrBlank()
@@ -107,6 +109,11 @@ android {
                     )
                 }
 
+                if (releaseStoreFilePath.isNullOrBlank()) {
+                    throw GradleException(
+                        "Release signing is required. key.properties value 'storeFile' is missing or blank."
+                    )
+                }
                 if (!hasValidStoreFile) {
                     throw GradleException(
                         "Release signing is required. Keystore file not found: $releaseStoreFilePath"
