@@ -28,18 +28,12 @@ val releaseVersionName =
 val isReleaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
     val leafTaskName = taskName.substringAfterLast(':')
     leafTaskName.equals("release", ignoreCase = true) ||
-        leafTaskName.endsWith("Release", ignoreCase = true) ||
-        (
-            leafTaskName.contains("Release", ignoreCase = true) &&
-                (
-                    leafTaskName.startsWith("assemble", ignoreCase = true) ||
-                        leafTaskName.startsWith("bundle", ignoreCase = true) ||
-                        leafTaskName.startsWith("package", ignoreCase = true) ||
-                        leafTaskName.startsWith("sign", ignoreCase = true)
-                    )
-            )
+        leafTaskName.endsWith("Release", ignoreCase = true)
 }
 val requiredReleaseSigningKeys = listOf("keyAlias", "keyPassword", "storeFile", "storePassword")
+fun isBlankReleaseSigningValue(properties: Properties, key: String): Boolean {
+    return (properties[key] as? String).isNullOrBlank()
+}
 
 android {
     namespace = releaseApplicationId
@@ -79,7 +73,7 @@ android {
             val hasCompleteReleaseSigning =
                 keystorePropertiesFile.exists() &&
                     requiredReleaseSigningKeys.all { key ->
-                        !(keystoreProperties[key] as? String).isNullOrBlank()
+                        !isBlankReleaseSigningValue(keystoreProperties, key)
                     } &&
                     hasValidStoreFile
 
@@ -92,7 +86,7 @@ android {
                 }
 
                 val missingKeys = requiredReleaseSigningKeys.filter { key ->
-                    (keystoreProperties[key] as? String).isNullOrBlank()
+                    isBlankReleaseSigningValue(keystoreProperties, key)
                 }
                 if (missingKeys.isNotEmpty()) {
                     throw GradleException(
