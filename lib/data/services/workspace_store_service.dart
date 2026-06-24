@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CreatorWorkspaceState {
@@ -117,6 +118,8 @@ class WorkspaceStoreService {
   static const String _temporalKey = 'workspace_temporal_v1';
   static const String _siKey = 'workspace_si_v1';
 
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+
   Future<CreatorWorkspaceState> loadCreatorState() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? raw = prefs.getString(_creatorKey);
@@ -152,8 +155,7 @@ class WorkspaceStoreService {
   }
 
   Future<SIWorkspaceState> loadSiState() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? raw = prefs.getString(_siKey);
+    final String? raw = await _secureStorage.read(key: _siKey);
     if (raw != null && raw.trim().isNotEmpty) {
       return SIWorkspaceState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     }
@@ -164,8 +166,7 @@ class WorkspaceStoreService {
   }
 
   Future<void> saveSiState(SIWorkspaceState state) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_siKey, jsonEncode(state.toJson()));
+    await _secureStorage.write(key: _siKey, value: jsonEncode(state.toJson()));
   }
 
   Future<CreatorWorkspaceState> _loadCreatorSeed() async {

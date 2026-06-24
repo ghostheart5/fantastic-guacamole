@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ChronoLogsPayload {
   final List<String> completedTasks;
@@ -58,6 +58,8 @@ class ChronoLogsPayload {
 class ChronoLogsService {
   static const String _key = 'chronologs_payload_v1';
 
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+
   static const ChronoLogsPayload _defaultPayload = ChronoLogsPayload(
     completedTasks: <String>[
       'Finalized mission brief',
@@ -83,8 +85,7 @@ class ChronoLogsService {
   );
 
   Future<ChronoLogsPayload> load() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? raw = prefs.getString(_key);
+    final String? raw = await _secureStorage.read(key: _key);
     if (raw == null || raw.trim().isEmpty) {
       await save(_defaultPayload);
       return _defaultPayload;
@@ -96,8 +97,7 @@ class ChronoLogsService {
   }
 
   Future<void> save(ChronoLogsPayload payload) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode(payload.toJson()));
+    await _secureStorage.write(key: _key, value: jsonEncode(payload.toJson()));
   }
 
   Future<void> addCompletedTask(String taskLine) async {
