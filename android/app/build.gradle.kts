@@ -25,14 +25,26 @@ val releaseVersionCode =
 val releaseVersionName =
     (project.findProperty("CHRONOSPARK_VERSION_NAME") as String?)
         ?: flutter.versionName
+val releaseTaskNames =
+    setOf(
+        "release",
+        "assemblerelease",
+        "bundlerelease",
+        "packagerelease",
+        "installrelease",
+        "signreleasebundle",
+        "publishreleasebundle",
+    )
 val isReleaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
-    val leafTaskName = taskName.substringAfterLast(':')
-    leafTaskName.equals("release", ignoreCase = true) ||
-        leafTaskName.endsWith("Release", ignoreCase = true)
+    val leafTaskName = taskName.substringAfterLast(':').lowercase()
+    leafTaskName in releaseTaskNames
 }
 val requiredReleaseSigningKeys = listOf("keyAlias", "keyPassword", "storeFile", "storePassword")
 fun isBlankReleaseSigningValue(properties: Properties, key: String): Boolean {
     return (properties[key] as? String).isNullOrBlank()
+}
+fun hasValidReleaseStoreFile(storeFilePath: String?): Boolean {
+    return !storeFilePath.isNullOrBlank() && file(storeFilePath).exists()
 }
 
 android {
@@ -69,7 +81,7 @@ android {
     buildTypes {
         release {
             val releaseStoreFilePath = keystoreProperties["storeFile"] as? String
-            val hasValidStoreFile = !releaseStoreFilePath.isNullOrBlank() && file(releaseStoreFilePath).exists()
+            val hasValidStoreFile = hasValidReleaseStoreFile(releaseStoreFilePath)
             val hasCompleteReleaseSigning =
                 keystorePropertiesFile.exists() &&
                     requiredReleaseSigningKeys.all { key ->
