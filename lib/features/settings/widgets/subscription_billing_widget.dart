@@ -159,7 +159,7 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
                         }
                         await _purchase(appState, product.id);
                       },
-                child: Text(_buttonLabel(product)),
+                child: Text(_getUpgradeButtonLabel(product)),
               ),
             ),
         ],
@@ -190,7 +190,7 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
     return null;
   }
 
-  String _buttonLabel(PaywallProduct? product) {
+  String _getUpgradeButtonLabel(PaywallProduct? product) {
     if (_busy) {
       return 'Processing...';
     }

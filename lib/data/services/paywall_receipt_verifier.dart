@@ -83,8 +83,10 @@ class PaywallReceiptVerifier {
   }
 
   ReceiptVerificationResult _resultFor({required String productId, String? entitlement}) {
-    final SubscriptionPlan? plan = _planFromEntitlement(entitlement) ?? _planFromProductId(productId);
-    final BillingCycle? billingCycle = _billingCycleFromProductId(productId);
+    final String normalizedProductId = productId.toLowerCase();
+    final SubscriptionPlan? plan =
+        _planFromEntitlement(entitlement) ?? _planFromProductId(normalizedProductId);
+    final BillingCycle? billingCycle = _billingCycleFromProductId(normalizedProductId);
     if (plan == null || plan == SubscriptionPlan.base || billingCycle == null) {
       return const ReceiptVerificationResult.invalid();
     }
@@ -110,8 +112,7 @@ class PaywallReceiptVerifier {
   }
 
   SubscriptionPlan? _planFromProductId(String productId) {
-    final String normalized = productId.toLowerCase();
-    switch (normalized) {
+    switch (productId) {
       case SubscriptionProductIds.premiumMonthly:
       case SubscriptionProductIds.premiumYearly:
         return SubscriptionPlan.premium;
@@ -124,7 +125,7 @@ class PaywallReceiptVerifier {
   }
 
   BillingCycle? _billingCycleFromProductId(String productId) {
-    switch (productId.toLowerCase()) {
+    switch (productId) {
       case SubscriptionProductIds.premiumYearly:
       case SubscriptionProductIds.ultimateYearly:
         return BillingCycle.yearly;

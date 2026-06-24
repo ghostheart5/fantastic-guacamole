@@ -613,6 +613,8 @@ class AppState extends ChangeNotifier {
             ? SubscriptionProductIds.premiumMonthly
             : SubscriptionProductIds.premiumYearly;
       case SubscriptionPlan.ultimate:
+        // Ultimate has no live store SKU configured yet, so verified purchases
+        // cannot grant it through the current paywall flow.
         return null;
     }
   }
