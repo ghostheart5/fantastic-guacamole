@@ -74,10 +74,9 @@ class PaywallReceiptVerifier {
       return const ReceiptVerificationResult.invalid();
     }
 
+    final String decodedProductId = (decoded['productId'] as String?)?.trim() ?? '';
     return _resultFor(
-      productId: (decoded['productId'] as String?)?.trim().isNotEmpty == true
-          ? decoded['productId'] as String
-          : purchase.productID,
+      productId: decodedProductId.isNotEmpty ? decodedProductId : purchase.productID,
       entitlement: (decoded['entitlement'] as String?)?.trim(),
     );
   }

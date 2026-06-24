@@ -443,7 +443,9 @@ class AppState extends ChangeNotifier {
       runtimeError = null;
       final String? productId = _productIdFor(plan, billingCycle);
       if (productId == null) {
-        runtimeError = 'Selected plan is not available for in-app purchase.';
+        runtimeError = plan == SubscriptionPlan.ultimate
+            ? 'Ultimate is not currently available in the store.'
+            : 'Selected plan is not available for in-app purchase.';
         notifyListeners();
         return false;
       }

@@ -68,7 +68,7 @@ class PaywallService {
       }
 
       if (highestSubscription != null) {
-        onSubscriptionChanged(highestSubscription!);
+        onSubscriptionChanged(highestSubscription);
       }
     });
 

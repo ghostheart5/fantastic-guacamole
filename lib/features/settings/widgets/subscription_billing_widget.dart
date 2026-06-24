@@ -159,13 +159,7 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
                         }
                         await _purchase(appState, product.id);
                       },
-                child: Text(
-                  _busy
-                      ? 'Processing...'
-                      : product == null
-                      ? 'Load Store Plan'
-                      : 'Continue in Store',
-                ),
+                child: Text(_buttonLabel(product)),
               ),
             ),
         ],
@@ -187,13 +181,23 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
   }
 
   PaywallProduct? _productForCycle(AppState appState) {
-    final String cycleToken = _cycle == BillingCycle.monthly ? 'monthly' : 'yearly';
+    final String cycleSuffix = _cycle == BillingCycle.monthly ? '_monthly' : '_yearly';
     for (final PaywallProduct product in appState.paywallProducts) {
-      if (product.id.toLowerCase().contains(cycleToken)) {
+      if (product.id.toLowerCase().endsWith(cycleSuffix)) {
         return product;
       }
     }
     return null;
+  }
+
+  String _buttonLabel(PaywallProduct? product) {
+    if (_busy) {
+      return 'Processing...';
+    }
+    if (product == null) {
+      return 'Load Store Plan';
+    }
+    return 'Continue in Store';
   }
 
   Future<void> _loadProducts(AppState appState) async {
