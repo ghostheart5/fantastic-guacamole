@@ -38,8 +38,8 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Build macOS app
-        run: flutter build macos --debug
+      - name: Build macOS app with xcodebuild
+        run: xcodebuild -workspace macos/Runner.xcworkspace -scheme Runner -configuration Debug build
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
