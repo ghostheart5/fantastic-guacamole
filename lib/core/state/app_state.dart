@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/services/paywall_service.dart';
@@ -11,6 +12,7 @@ import '../system/notification_manager.dart';
 import '../system/runtime_persistence.dart';
 import '../system/subscription_model.dart';
 import '../system/mock_billing_service.dart';
+import '../utils/cancel_token.dart';
 
 typedef Decision = SiDecision;
 typedef UserState = UserSignalState;
@@ -42,6 +44,9 @@ class AppState extends ChangeNotifier {
   late final Timer _timeTicker;
   SubscriptionSnapshot _subscription = SubscriptionSnapshot.base();
   DateTime _lastDecisionRefresh = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Tracks the in-flight console operation so it can be cancelled on demand.
+  CancelToken? _currentOperationCancel;
 
   Decision? decision;
   bool isInitializing = true;
@@ -160,6 +165,19 @@ class AppState extends ChangeNotifier {
       return;
     }
 
+    // Issue #3: Sign-out guard — reject the request immediately if the user
+    // is no longer authenticated.
+    if (FirebaseAuth.instance.currentUser == null) {
+      _history.add('System: Session expired. Please sign in to continue.');
+      notifyListeners();
+      return;
+    }
+
+    // Issue #2: Create a fresh cancel token for this operation so it can be
+    // abandoned if the user navigates away or signs out.
+    final CancelToken cancelToken = CancelToken();
+    _currentOperationCancel = cancelToken;
+
     isProcessingConsole = true;
     runtimeError = null;
     _notificationManager.markActivity();
@@ -221,7 +239,23 @@ class AppState extends ChangeNotifier {
       final String? aiResponse = await _aiService.generateResponse(
         prompt: value,
         decision: decision ?? _fallbackDecision(),
+        cancelToken: cancelToken,
       );
+
+      // Issue #2: Discard the result if the operation was cancelled while the
+      // AI request was in flight (e.g. user navigated away).
+      if (cancelToken.isCancelled) {
+        // Issue #3: If the user signed out during the request, surface a clear
+        // message rather than silently dropping the response.
+        if (FirebaseAuth.instance.currentUser == null) {
+          _history.add('System: Your session was closed. Please sign in again.');
+        }
+        _currentOperationCancel = null;
+        isProcessingConsole = false;
+        notifyListeners();
+        return;
+      }
+
       if (aiResponse != null && aiResponse.trim().isNotEmpty) {
         response = aiResponse;
       }
@@ -229,10 +263,21 @@ class AppState extends ChangeNotifier {
       // Keep rule-based response if AI provider fails.
     }
 
+    // Issue #3: Final sign-out check — the user may have signed out after the
+    // request completed but before we update the UI.
+    if (FirebaseAuth.instance.currentUser == null) {
+      _history.add('System: Your session was closed. Please sign in again.');
+      _currentOperationCancel = null;
+      isProcessingConsole = false;
+      notifyListeners();
+      return;
+    }
+
     await Future<void>.delayed(const Duration(milliseconds: 300));
     _history.add('SI: $response');
 
     _appendLog('console', value, ChronoLogStatus.info);
+    _currentOperationCancel = null;
     isProcessingConsole = false;
     await _autoSave();
     notifyListeners();
@@ -1137,8 +1182,18 @@ class AppState extends ChangeNotifier {
     );
   }
 
+  /// Cancels the currently running console operation, if any.
+  ///
+  /// Call this when the owning widget is disposed to prevent orphaned async
+  /// operations from updating state after the UI has been torn down.
+  void cancelCurrentOperation() {
+    _currentOperationCancel?.cancel();
+    _currentOperationCancel = null;
+  }
+
   @override
   void dispose() {
+    _currentOperationCancel?.cancel();
     _timeTicker.cancel();
     _paywallService.dispose();
     super.dispose();

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../core/state/app_state.dart';
+import '../../core/utils/cancel_token.dart';
 
 class SiAiService {
   SiAiService({http.Client? client, String? endpoint, String? apiKey, String? model})
@@ -25,7 +26,20 @@ class SiAiService {
 
   bool get isConfigured => _apiKey.trim().isNotEmpty;
 
-  Future<String?> generateResponse({required String prompt, required Decision decision}) async {
+  /// Generates an AI response for [prompt] given the current [decision] context.
+  ///
+  /// Pass a [cancelToken] to allow the caller to abandon the request mid-flight.
+  /// Returns `null` when the service is not configured, the request fails, or
+  /// the operation has been cancelled.
+  Future<String?> generateResponse({
+    required String prompt,
+    required Decision decision,
+    CancelToken? cancelToken,
+  }) async {
+    if (cancelToken?.isCancelled ?? false) {
+      return null;
+    }
+
     if (!isConfigured) {
       return null;
     }
@@ -46,6 +60,10 @@ class SiAiService {
       'temperature': 0.4,
     };
 
+    if (cancelToken?.isCancelled ?? false) {
+      return null;
+    }
+
     final http.Response response = await _client.post(
       Uri.parse(_endpoint),
       headers: <String, String>{
@@ -54,6 +72,10 @@ class SiAiService {
       },
       body: jsonEncode(body),
     );
+
+    if (cancelToken?.isCancelled ?? false) {
+      return null;
+    }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       return null;

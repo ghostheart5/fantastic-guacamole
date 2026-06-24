@@ -13,9 +13,17 @@ class SiConsolePage extends StatefulWidget {
 
 class _SiConsolePageState extends State<SiConsolePage> {
   final TextEditingController _controller = TextEditingController();
+  late AppState _appState;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _appState = Provider.of<AppState>(context, listen: false);
+  }
 
   @override
   void dispose() {
+    _appState.cancelCurrentOperation();
     _controller.dispose();
     super.dispose();
   }
