@@ -1,4 +1,4 @@
-package com.ghostheart5.chronospark
+package com.ghostheart.chronospark
 
 import io.flutter.embedding.android.FlutterActivity
 
