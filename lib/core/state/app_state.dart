@@ -48,6 +48,9 @@ class AppState extends ChangeNotifier {
   /// Tracks the in-flight console operation so it can be cancelled on demand.
   CancelToken? _currentOperationCancel;
 
+  static const String _sessionClosedMessage =
+      'System: Your session was closed. Please sign in again.';
+
   Decision? decision;
   bool isInitializing = true;
   bool isProcessingConsole = false;
@@ -168,7 +171,7 @@ class AppState extends ChangeNotifier {
     // Issue #3: Sign-out guard — reject the request immediately if the user
     // is no longer authenticated.
     if (FirebaseAuth.instance.currentUser == null) {
-      _history.add('System: Session expired. Please sign in to continue.');
+      _history.add('System: You are not signed in. Please sign in to continue.');
       notifyListeners();
       return;
     }
@@ -248,7 +251,7 @@ class AppState extends ChangeNotifier {
         // Issue #3: If the user signed out during the request, surface a clear
         // message rather than silently dropping the response.
         if (FirebaseAuth.instance.currentUser == null) {
-          _history.add('System: Your session was closed. Please sign in again.');
+          _history.add(_sessionClosedMessage);
         }
         _currentOperationCancel = null;
         isProcessingConsole = false;
@@ -266,7 +269,7 @@ class AppState extends ChangeNotifier {
     // Issue #3: Final sign-out check — the user may have signed out after the
     // request completed but before we update the UI.
     if (FirebaseAuth.instance.currentUser == null) {
-      _history.add('System: Your session was closed. Please sign in again.');
+      _history.add(_sessionClosedMessage);
       _currentOperationCancel = null;
       isProcessingConsole = false;
       notifyListeners();
