@@ -109,14 +109,9 @@ android {
                     )
                 }
 
-                if (releaseStoreFilePath.isNullOrBlank()) {
-                    throw GradleException(
-                        "Release signing is required. key.properties value 'storeFile' is missing or blank."
-                    )
-                }
                 if (!hasValidStoreFile) {
                     throw GradleException(
-                        "Release signing is required. Keystore file not found: $releaseStoreFilePath"
+                        "Release signing is required. Keystore file not found: ${releaseStoreFilePath ?: "unknown"}"
                     )
                 }
                 signingConfig = signingConfigs.getByName("release")
