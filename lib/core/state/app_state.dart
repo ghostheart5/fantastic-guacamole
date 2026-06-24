@@ -686,7 +686,9 @@ class AppState extends ChangeNotifier {
       } catch (_) {
         // Server unreachable — fall back to the locally cached snapshot so the
         // app stays usable offline. Access is not expanded beyond what was last
-        // confirmed by the server.
+        // confirmed by the server. The exact error is intentionally discarded
+        // here because any network or timeout failure is handled identically:
+        // we apply the safe fallback and proceed.
         await _loadSubscriptionSnapshot();
       }
 
@@ -710,7 +712,10 @@ class AppState extends ChangeNotifier {
                     _subscription = updated.toSnapshot();
                   }
                 } catch (_) {
-                  // Server unreachable; paywall flag is the best signal we have.
+                  // Server unreachable during a receipt-based purchase callback.
+                  // Any network or timeout error is handled identically: fall back
+                  // to the paywall flag as a best-effort signal. The discarded
+                  // exception carries no actionable information beyond "offline".
                   if (!isPremium) {
                     _subscription = SubscriptionSnapshot(
                       plan: SubscriptionPlan.premium,

@@ -276,7 +276,7 @@ class EntitlementService {
   /// accepts whatever the server returns.
   Future<EntitlementRecord> applyPromoCode(String userId, String code) async {
     if (code.trim().length < 3) {
-      throw EntitlementException('Invalid promo code.');
+      throw EntitlementException('Promo code must be at least 3 characters long.');
     }
 
     if (isConfigured) {
