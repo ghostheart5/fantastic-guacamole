@@ -118,7 +118,7 @@ class WorkspaceStoreService {
   static const String _temporalKey = 'workspace_temporal_v1';
   static const String _siKey = 'workspace_si_v1';
 
-  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   Future<CreatorWorkspaceState> loadCreatorState() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();

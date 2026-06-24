@@ -12,7 +12,7 @@ class SharedPrefsRuntimePersistence implements RuntimePersistence {
 
   final String key;
 
-  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   @override
   Future<Map<String, dynamic>?> loadSnapshot() async {

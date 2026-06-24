@@ -58,7 +58,7 @@ class ChronoLogsPayload {
 class ChronoLogsService {
   static const String _key = 'chronologs_payload_v1';
 
-  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   static const ChronoLogsPayload _defaultPayload = ChronoLogsPayload(
     completedTasks: <String>[

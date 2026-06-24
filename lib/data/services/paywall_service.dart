@@ -34,7 +34,7 @@ class PaywallService {
   final PaywallReceiptVerifier _verifier;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
 
-  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   Future<void> initialize({
     required void Function(bool isPremium) onPremiumChanged,
