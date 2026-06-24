@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -31,7 +33,7 @@ class _MainShellState extends State<MainShell> {
 
   // Stable void wrapper so SystemBottomNav doesn't receive a new closure
   // reference on every build while still ignoring the returned Future.
-  void _onNavTap(int index) => _openTab(index).ignore();
+  void _onNavTap(int index) => unawaited(_openTab(index));
 
   Future<void> _openTab(int index) async {
     if (_tabIndex == index) {
@@ -122,6 +124,8 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _centerContent(bool canUseTemporalOps, bool canUseSiConsole) {
+    final AppState appState = context.read<AppState>();
+
     switch (shellTabs[_tabIndex].tab) {
       case ShellTab.nexus:
         return NexusPage(
@@ -135,7 +139,6 @@ class _MainShellState extends State<MainShell> {
         return const ChronoLogsPage();
       case ShellTab.temporal:
         if (!canUseTemporalOps) {
-          final AppState appState = context.read<AppState>();
           return PremiumFeatureGate(
             featureName: 'Temporal Ops',
             subtitle:
@@ -151,7 +154,6 @@ class _MainShellState extends State<MainShell> {
         return const TemporalOpsPage();
       case ShellTab.siConsole:
         if (!canUseSiConsole) {
-          final AppState appState = context.read<AppState>();
           return PremiumFeatureGate(
             featureName: 'SI Console',
             subtitle:
