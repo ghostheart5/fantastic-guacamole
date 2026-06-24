@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/services/paywall_service.dart';
@@ -7,10 +8,10 @@ import '../../data/services/si_ai_service.dart';
 import '../si/adaptive_learning.dart';
 import '../si/si_engine.dart';
 import '../system/behavior_entities.dart';
+import '../system/mock_billing_service.dart';
 import '../system/notification_manager.dart';
 import '../system/runtime_persistence.dart';
 import '../system/subscription_model.dart';
-import '../system/mock_billing_service.dart';
 
 typedef Decision = SiDecision;
 typedef UserState = UserSignalState;
@@ -31,11 +32,21 @@ class AppState extends ChangeNotifier {
     _bootstrap();
   }
 
+  /// Mock billing is only allocated in non-release builds.
+  static bool get _allowMockBilling {
+    if (kReleaseMode) return false;
+    return const bool.fromEnvironment(
+      'CHRONOSPARK_ENABLE_MOCK_BILLING',
+      defaultValue: false,
+    );
+  }
+
   final SiEngine _engine;
   final PaywallService _paywallService;
   final SiAiService _aiService;
   final RuntimePersistence _persistence;
-  final MockBillingService _billingService = MockBillingService();
+  final MockBillingService? _billingService =
+      _allowMockBilling ? MockBillingService() : null;
   final NotificationManager _notificationManager = NotificationManager();
   final AdaptiveLearningSystem _learning = AdaptiveLearningSystem();
 
@@ -59,12 +70,7 @@ class AppState extends ChangeNotifier {
   );
 
   UserState currentState = const UserState(
-    tasks: <SiTask>[
-      SiTask(title: 'Finish strategic report', priority: 9, hasDeadline: true),
-      SiTask(title: 'Review chronologs and summarize', priority: 7),
-      SiTask(title: 'Design weekly temporal map', priority: 8),
-      SiTask(title: 'Inbox triage', priority: 4),
-    ],
+    tasks: <SiTask>[],
     energyLevel: Energy.medium,
     workload: 0.72,
     deadlinePressure: 0.64,
@@ -440,9 +446,16 @@ class AppState extends ChangeNotifier {
       return false;
     }
 
+    final MockBillingService? billing = _billingService;
+    if (billing == null) {
+      runtimeError = 'Mock billing is not available in production builds.';
+      notifyListeners();
+      return false;
+    }
+
     try {
       runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.upgradeToPlan(
+      final SubscriptionSnapshot newSubscription = await billing.upgradeToPlan(
         plan,
         billingCycle,
       );
@@ -466,9 +479,16 @@ class AppState extends ChangeNotifier {
       return false;
     }
 
+    final MockBillingService? billing = _billingService;
+    if (billing == null) {
+      runtimeError = 'Mock billing is not available in production builds.';
+      notifyListeners();
+      return false;
+    }
+
     try {
       runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.downgradeToPlan();
+      final SubscriptionSnapshot newSubscription = await billing.downgradeToPlan();
 
       _subscription = newSubscription;
       // Reset trial counters on downgrade
@@ -491,9 +511,16 @@ class AppState extends ChangeNotifier {
       return true; // Already on Base
     }
 
+    final MockBillingService? billing = _billingService;
+    if (billing == null) {
+      runtimeError = 'Mock billing is not available in production builds.';
+      notifyListeners();
+      return false;
+    }
+
     try {
       runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.cancelSubscription(
+      final SubscriptionSnapshot newSubscription = await billing.cancelSubscription(
         _subscription,
       );
 
@@ -516,9 +543,16 @@ class AppState extends ChangeNotifier {
       return false;
     }
 
+    final MockBillingService? billing = _billingService;
+    if (billing == null) {
+      runtimeError = 'Mock billing is not available in production builds.';
+      notifyListeners();
+      return false;
+    }
+
     try {
       runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.applyPromoCode(
+      final SubscriptionSnapshot newSubscription = await billing.applyPromoCode(
         _subscription,
         code,
       );
@@ -852,7 +886,7 @@ class AppState extends ChangeNotifier {
     }).toList();
 
     currentState = UserState(
-      tasks: tasks.isEmpty ? currentState.tasks : tasks,
+      tasks: tasks,
       energyLevel: Energy.values[(decoded['energy'] as num?)?.toInt() ?? Energy.medium.index],
       workload: ((decoded['workload'] as num?)?.toDouble() ?? currentState.workload).clamp(
         0.0,

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/constants/product_ids.dart';
 import 'paywall_receipt_verifier.dart';
 
 class PaywallProduct {
@@ -25,10 +26,7 @@ class PaywallService {
 
   static const String _premiumKey = 'paywall_premium_v1';
 
-  static const Set<String> productIds = <String>{
-    'chronospark_premium_monthly',
-    'chronospark_premium_yearly',
-  };
+  static const Set<String> productIds = ProductIds.all;
 
   final InAppPurchase _iap = InAppPurchase.instance;
   final PaywallReceiptVerifier _verifier;
