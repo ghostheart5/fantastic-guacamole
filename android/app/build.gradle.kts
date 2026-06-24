@@ -109,9 +109,10 @@ android {
                     )
                 }
 
-                if (!hasValidStoreFile) {
+                val validatedStoreFilePath = releaseStoreFilePath!!
+                if (!file(validatedStoreFilePath).exists()) {
                     throw GradleException(
-                        "Release signing is required. Keystore file not found: ${releaseStoreFilePath ?: "unknown"}"
+                        "Release signing is required. Keystore file not found: $validatedStoreFilePath"
                     )
                 }
                 signingConfig = signingConfigs.getByName("release")
