@@ -201,7 +201,7 @@ class AppState extends ChangeNotifier {
             hasDeadline: lower.contains('deadline') || lower.contains('urgent'),
           ),
         );
-        _appendLog('task', 'Task created from console input: $title', ChronoLogStatus.success);
+        _appendLog('task', 'Task added via SI Console: "$title"', ChronoLogStatus.success);
       }
     }
 
@@ -217,6 +217,7 @@ class AppState extends ChangeNotifier {
     _history.add('You: $value');
     String response = decision?.systemNote ?? 'System updated.';
 
+    _appendLog('api', 'SI AI request sent for console input', ChronoLogStatus.info);
     try {
       final String? aiResponse = await _aiService.generateResponse(
         prompt: value,
@@ -224,15 +225,19 @@ class AppState extends ChangeNotifier {
       );
       if (aiResponse != null && aiResponse.trim().isNotEmpty) {
         response = aiResponse;
+        _appendLog('api', 'SI AI response received successfully', ChronoLogStatus.success);
+      } else {
+        _appendLog('api', 'SI AI returned no content; using rule-based response', ChronoLogStatus.warning);
       }
     } catch (_) {
       // Keep rule-based response if AI provider fails.
+      _appendLog('api', 'SI AI request failed; using rule-based response', ChronoLogStatus.warning);
     }
 
     await Future<void>.delayed(const Duration(milliseconds: 300));
     _history.add('SI: $response');
 
-    _appendLog('console', value, ChronoLogStatus.info);
+    _appendLog('console', 'SI Console input processed: "$value"', ChronoLogStatus.info);
     isProcessingConsole = false;
     await _autoSave();
     notifyListeners();
@@ -328,7 +333,7 @@ class AppState extends ChangeNotifier {
     _learning.registerCompletion(trimmed, now: DateTime.now());
     _notificationManager.recordResponse(acknowledged: true);
 
-    _appendLog('task', 'Completed: $trimmed', ChronoLogStatus.success);
+    _appendLog('task', 'Task completed: "$trimmed"', ChronoLogStatus.success);
 
     final ChronoNotification completion = _notificationManager.completionFeedback(
       title: trimmed,
@@ -350,7 +355,7 @@ class AppState extends ChangeNotifier {
     _skippedTaskTitles.add(trimmed);
     _learning.registerSkip(trimmed);
     _notificationManager.recordResponse(acknowledged: false);
-    _appendLog('task', 'Skipped: $trimmed', ChronoLogStatus.warning);
+    _appendLog('task', 'Task skipped: "$trimmed"', ChronoLogStatus.warning);
 
     _recomputeDecision();
     _autoSave();
@@ -365,7 +370,7 @@ class AppState extends ChangeNotifier {
 
     _delayedTaskTitles.add(trimmed);
     _learning.registerDelay(trimmed);
-    _appendLog('task', 'Delayed: $trimmed', ChronoLogStatus.warning);
+    _appendLog('task', 'Task delayed: "$trimmed"', ChronoLogStatus.warning);
 
     _recomputeDecision();
     _autoSave();
@@ -414,20 +419,24 @@ class AppState extends ChangeNotifier {
 
   Future<void> purchase(String productId) async {
     runtimeError = null;
+    _appendLog('paywall', 'Purchase initiated: product "$productId"', ChronoLogStatus.info);
     try {
       await _paywallService.buyProduct(productId);
     } catch (e) {
       runtimeError = e.toString();
+      _appendLog('error', 'Purchase failed for product "$productId": $e', ChronoLogStatus.error);
       notifyListeners();
     }
   }
 
   Future<void> restorePurchases() async {
     runtimeError = null;
+    _appendLog('paywall', 'Purchase restore requested', ChronoLogStatus.info);
     try {
       await _paywallService.restorePurchases();
     } catch (e) {
       runtimeError = e.toString();
+      _appendLog('error', 'Purchase restore failed: $e', ChronoLogStatus.error);
       notifyListeners();
     }
   }
@@ -440,6 +449,7 @@ class AppState extends ChangeNotifier {
       return false;
     }
 
+    _appendLog('paywall', 'Upgrade initiated: ${plan.name} / ${billingCycle.name}', ChronoLogStatus.info);
     try {
       runtimeError = null;
       final SubscriptionSnapshot newSubscription = await _billingService.upgradeToPlan(
@@ -448,11 +458,13 @@ class AppState extends ChangeNotifier {
       );
 
       _subscription = newSubscription;
+      _appendLog('paywall', 'Upgrade complete: plan=${plan.name}, cycle=${billingCycle.name}', ChronoLogStatus.success);
       await _autoSave();
       notifyListeners();
       return true;
     } catch (e) {
       runtimeError = e.toString();
+      _appendLog('error', 'Upgrade failed (${plan.name}): $e', ChronoLogStatus.error);
       notifyListeners();
       return false;
     }
@@ -466,6 +478,7 @@ class AppState extends ChangeNotifier {
       return false;
     }
 
+    _appendLog('paywall', 'Downgrade to base tier initiated', ChronoLogStatus.info);
     try {
       runtimeError = null;
       final SubscriptionSnapshot newSubscription = await _billingService.downgradeToPlan();
@@ -475,11 +488,13 @@ class AppState extends ChangeNotifier {
       _temporalTrialUses = 0;
       _siConsoleTrialUses = 0;
 
+      _appendLog('paywall', 'Downgrade complete: plan set to base', ChronoLogStatus.success);
       await _autoSave();
       notifyListeners();
       return true;
     } catch (e) {
       runtimeError = e.toString();
+      _appendLog('error', 'Downgrade failed: $e', ChronoLogStatus.error);
       notifyListeners();
       return false;
     }
@@ -491,6 +506,7 @@ class AppState extends ChangeNotifier {
       return true; // Already on Base
     }
 
+    _appendLog('paywall', 'Subscription cancellation requested', ChronoLogStatus.info);
     try {
       runtimeError = null;
       final SubscriptionSnapshot newSubscription = await _billingService.cancelSubscription(
@@ -498,11 +514,13 @@ class AppState extends ChangeNotifier {
       );
 
       _subscription = newSubscription;
+      _appendLog('paywall', 'Subscription cancelled successfully', ChronoLogStatus.success);
       await _autoSave();
       notifyListeners();
       return true;
     } catch (e) {
       runtimeError = e.toString();
+      _appendLog('error', 'Subscription cancellation failed: $e', ChronoLogStatus.error);
       notifyListeners();
       return false;
     }
@@ -516,6 +534,7 @@ class AppState extends ChangeNotifier {
       return false;
     }
 
+    _appendLog('paywall', 'Promo code submitted: "$code"', ChronoLogStatus.info);
     try {
       runtimeError = null;
       final SubscriptionSnapshot newSubscription = await _billingService.applyPromoCode(
@@ -524,11 +543,13 @@ class AppState extends ChangeNotifier {
       );
 
       _subscription = newSubscription;
+      _appendLog('paywall', 'Promo code accepted: "$code"', ChronoLogStatus.success);
       await _autoSave();
       notifyListeners();
       return true;
     } catch (e) {
       runtimeError = e.toString();
+      _appendLog('error', 'Promo code "$code" failed: $e', ChronoLogStatus.error);
       notifyListeners();
       return false;
     }
@@ -623,6 +644,11 @@ class AppState extends ChangeNotifier {
       await _loadSubscriptionSnapshot();
 
       hasPremiumAccess = await _paywallService.readCachedPremium();
+      _appendLog(
+        'auth',
+        'Premium access state restored: ${hasPremiumAccess ? "premium" : "base"}',
+        ChronoLogStatus.info,
+      );
 
       // If no subscription in storage but has premium from paywall, sync
       if (hasPremiumAccess && !isPremium) {
@@ -633,12 +659,18 @@ class AppState extends ChangeNotifier {
           subscriptionStartDate: DateTime.now(),
           mockNextBillingDate: DateTime.now().add(const Duration(days: 30)),
         );
+        _appendLog('auth', 'Subscription synced from cached paywall: premium/monthly', ChronoLogStatus.info);
       }
 
       await _paywallService
           .initialize(
             onPremiumChanged: (bool premiumFromPaywall) {
               hasPremiumAccess = premiumFromPaywall;
+              _appendLog(
+                'paywall',
+                'Premium status updated: ${premiumFromPaywall ? "granted" : "revoked"}',
+                premiumFromPaywall ? ChronoLogStatus.success : ChronoLogStatus.warning,
+              );
               if (premiumFromPaywall && !isPremium) {
                 _subscription = SubscriptionSnapshot(
                   plan: SubscriptionPlan.premium,
@@ -652,6 +684,7 @@ class AppState extends ChangeNotifier {
             },
             onError: (String message) {
               runtimeError = message;
+              _appendLog('error', 'Paywall initialization error: $message', ChronoLogStatus.error);
               notifyListeners();
             },
           )
@@ -661,6 +694,7 @@ class AppState extends ChangeNotifier {
       _recomputeDecision();
     } catch (e) {
       runtimeError = 'Startup partially failed: $e';
+      _appendLog('error', 'Bootstrap failed: $e', ChronoLogStatus.error);
       if (decision == null) {
         _recomputeDecision();
       }
