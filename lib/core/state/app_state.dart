@@ -48,6 +48,8 @@ class AppState extends ChangeNotifier {
   SubscriptionSnapshot _subscription = SubscriptionSnapshot.base();
   DateTime _lastDecisionRefresh = DateTime.fromMillisecondsSinceEpoch(0);
 
+  double _textScale = 1.0;
+
   // The device/user ID used to identify this installation with the entitlement server.
   String _userId = '';
 
@@ -122,6 +124,14 @@ class AppState extends ChangeNotifier {
   bool get isUltimate => _subscription.plan.isUltimate;
   bool get canUpgrade => !isPremium;
   bool get canDowngrade => isPremium;
+
+  // ── Text scale ────────────────────────────────────────────────────────────
+  double get textScale => _textScale;
+
+  void setTextScale(double value) {
+    _textScale = value.clamp(0.85, 1.35);
+    notifyListeners();
+  }
 
   Future<bool> consumeTemporalOpsTrialIfNeeded() async {
     // Premium+ users have unlimited access

@@ -33,22 +33,29 @@ class SystemBottomNav extends StatelessWidget {
           final bool selected = currentIndex == index;
           final Color color = selected ? const Color(0xFFC2A7FF) : const Color(0xFF8E849E);
           return Expanded(
-            child: InkWell(
-              onTap: () => onTap(index),
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Icon(items[index].icon, size: 20, color: color),
-                    const SizedBox(height: 4),
-                    Text(
-                      items[index].label,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: color),
+            child: Semantics(
+              label: items[index].label,
+              button: true,
+              selected: selected,
+              child: InkWell(
+                onTap: () => onTap(index),
+                borderRadius: BorderRadius.circular(10),
+                child: ExcludeSemantics(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(items[index].icon, size: 20, color: color),
+                        const SizedBox(height: 4),
+                        Text(
+                          items[index].label,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, color: color),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
