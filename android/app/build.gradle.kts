@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     id("com.android.application")
@@ -24,6 +25,10 @@ val releaseVersionCode =
 val releaseVersionName =
     (project.findProperty("CHRONOSPARK_VERSION_NAME") as String?)
         ?: flutter.versionName
+val isReleaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.contains("release", ignoreCase = true)
+}
+val requiredReleaseSigningKeys = listOf("keyAlias", "keyPassword", "storeFile", "storePassword")
 
 android {
     namespace = releaseApplicationId
@@ -58,11 +63,33 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            if (isReleaseTaskRequested) {
+                if (!keystorePropertiesFile.exists()) {
+                    throw GradleException(
+                        "Release signing is required. Missing ${keystorePropertiesFile.path}. " +
+                            "Create android/key.properties with release keystore values."
+                    )
+                }
+
+                val missingKeys = requiredReleaseSigningKeys.filter { key ->
+                    (keystoreProperties[key] as? String).isNullOrBlank()
+                }
+                if (missingKeys.isNotEmpty()) {
+                    throw GradleException(
+                        "Release signing is required. Missing key.properties values: " +
+                            missingKeys.joinToString(", ")
+                    )
+                }
+
+                val releaseStoreFilePath = keystoreProperties["storeFile"] as String
+                if (!file(releaseStoreFilePath).exists()) {
+                    throw GradleException(
+                        "Release signing is required. Keystore file not found: $releaseStoreFilePath"
+                    )
+                }
             }
+
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

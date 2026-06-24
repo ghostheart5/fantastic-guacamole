@@ -1,4 +1,5 @@
 # Copy this file to android/key.properties and fill with your release signing values.
+# Release builds now fail fast if this file is missing or any value is blank.
 # Never commit the real android/key.properties or your .jks file.
 storePassword=YOUR_STORE_PASSWORD
 keyPassword=YOUR_KEY_PASSWORD
