@@ -22,9 +22,17 @@ jobs:
         env:
           KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
         run: |
+          if [ -z "$KUBECONFIG_B64" ]; then
+            echo "KUBECONFIG_B64 secret is not set" >&2
+            exit 1
+          fi
           mkdir -p $HOME/.kube
           echo "$KUBECONFIG_B64" | base64 -d > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
+          kubectl cluster-info
 
       - name: Deploy to cluster
         run: kubectl apply -f infra/k8s/deployment.yaml
+
+      - name: Verify rollout
+        run: kubectl rollout status deployment/my-app --timeout=120s
