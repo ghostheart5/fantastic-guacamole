@@ -26,7 +26,18 @@ val releaseVersionName =
     (project.findProperty("CHRONOSPARK_VERSION_NAME") as String?)
         ?: flutter.versionName
 val isReleaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
-    taskName.contains("release", ignoreCase = true)
+    val leafTaskName = taskName.substringAfterLast(':')
+    leafTaskName.equals("release", ignoreCase = true) ||
+        leafTaskName.endsWith("Release", ignoreCase = true) ||
+        (
+            leafTaskName.contains("Release", ignoreCase = true) &&
+                (
+                    leafTaskName.startsWith("assemble", ignoreCase = true) ||
+                        leafTaskName.startsWith("bundle", ignoreCase = true) ||
+                        leafTaskName.startsWith("package", ignoreCase = true) ||
+                        leafTaskName.startsWith("sign", ignoreCase = true)
+                    )
+            )
 }
 val requiredReleaseSigningKeys = listOf("keyAlias", "keyPassword", "storeFile", "storePassword")
 
@@ -63,13 +74,14 @@ android {
 
     buildTypes {
         release {
-            val missingKeys = requiredReleaseSigningKeys.filter { key ->
-                (keystoreProperties[key] as? String).isNullOrBlank()
-            }
             val releaseStoreFilePath = keystoreProperties["storeFile"] as? String
             val hasValidStoreFile = !releaseStoreFilePath.isNullOrBlank() && file(releaseStoreFilePath).exists()
             val hasCompleteReleaseSigning =
-                keystorePropertiesFile.exists() && missingKeys.isEmpty() && hasValidStoreFile
+                keystorePropertiesFile.exists() &&
+                    requiredReleaseSigningKeys.all { key ->
+                        !(keystoreProperties[key] as? String).isNullOrBlank()
+                    } &&
+                    hasValidStoreFile
 
             if (isReleaseTaskRequested) {
                 if (!keystorePropertiesFile.exists()) {
@@ -79,6 +91,9 @@ android {
                     )
                 }
 
+                val missingKeys = requiredReleaseSigningKeys.filter { key ->
+                    (keystoreProperties[key] as? String).isNullOrBlank()
+                }
                 if (missingKeys.isNotEmpty()) {
                     throw GradleException(
                         "Release signing is required. Missing key.properties values: " +
