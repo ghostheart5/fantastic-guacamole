@@ -8,17 +8,25 @@ class HoloButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.all(8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.cyanAccent),
-          boxShadow: [BoxShadow(color: Colors.cyanAccent.withValues(alpha: 0.6), blurRadius: 10)],
-        ),
-        child: Center(
-          child: Text(label, style: const TextStyle(color: Colors.cyanAccent)),
+    return Semantics(
+      label: label,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: ExcludeSemantics(
+          child: Container(
+            margin: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.cyanAccent),
+              boxShadow: [
+                BoxShadow(color: Colors.cyanAccent.withValues(alpha: 0.6), blurRadius: 10),
+              ],
+            ),
+            child: Center(
+              child: Text(label, style: const TextStyle(color: Colors.cyanAccent)),
+            ),
+          ),
         ),
       ),
     );

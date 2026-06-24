@@ -24,8 +24,10 @@ class PulseBar extends StatelessWidget {
   }
 
   Widget _line(String label, double value, Color accent) {
+    final double clamped = value.clamp(0.0, 1.0);
+    final int percentage = (clamped * 100).round();
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: value.clamp(0.0, 1.0)),
+      tween: Tween<double>(begin: 0, end: clamped),
       duration: const Duration(milliseconds: 600),
       builder: (BuildContext context, double animated, Widget? child) {
         return Column(
@@ -33,30 +35,35 @@ class PulseBar extends StatelessWidget {
           children: <Widget>[
             Text(label, style: const TextStyle(color: Color(0xFFD8D0E6), fontSize: 12)),
             const SizedBox(height: 4),
-            LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                final double trackWidth = constraints.maxWidth;
-                return Container(
-                  height: 9,
-                  width: trackWidth,
-                  decoration: BoxDecoration(
-                    color: const Color(0x22FFFFFF),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 600),
+            Semantics(
+              label: '$label: $percentage%',
+              child: LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final double trackWidth = constraints.maxWidth;
+                  return ExcludeSemantics(
+                    child: Container(
                       height: 9,
-                      width: animated * trackWidth,
+                      width: trackWidth,
                       decoration: BoxDecoration(
-                        color: accent,
-                        borderRadius: BorderRadius.circular(4),
+                        color: const Color(0x22FFFFFF),
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 600),
+                          height: 9,
+                          width: animated * trackWidth,
+                          decoration: BoxDecoration(
+                            color: accent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ],
         );

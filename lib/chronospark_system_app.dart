@@ -112,6 +112,15 @@ class ChronoSparkSystemApp extends StatelessWidget {
             ),
           ),
         ),
+        builder: (BuildContext context, Widget? child) {
+          final double textScale = context.watch<AppState>().textScale;
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(textScale),
+            ),
+            child: child!,
+          );
+        },
         home: const MainShell(),
       ),
     );

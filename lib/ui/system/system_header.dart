@@ -28,19 +28,29 @@ class SystemHeader extends StatelessWidget {
           const Spacer(),
           Text(sectionTitle, style: textTheme.bodyMedium?.copyWith(color: const Color(0xFFA99DBE))),
           const SizedBox(width: 12),
-          const Icon(Icons.bolt_rounded, color: Color(0xFFC2A7FF), size: 18),
+          ExcludeSemantics(
+            child: const Icon(Icons.bolt_rounded, color: Color(0xFFC2A7FF), size: 18),
+          ),
           const SizedBox(width: 8),
-          Stack(
-            alignment: Alignment.topRight,
-            children: <Widget>[
-              const Icon(Icons.notifications_none_rounded, color: Color(0xFFFF8FB6), size: 18),
-              if (alertCount > 0)
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(color: Color(0xFFFF5D93), shape: BoxShape.circle),
-                ),
-            ],
+          Semantics(
+            label: alertCount > 0 ? '$alertCount alert${alertCount == 1 ? '' : 's'}' : 'No alerts',
+            child: ExcludeSemantics(
+              child: Stack(
+                alignment: Alignment.topRight,
+                children: <Widget>[
+                  const Icon(Icons.notifications_none_rounded, color: Color(0xFFFF8FB6), size: 18),
+                  if (alertCount > 0)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF5D93),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

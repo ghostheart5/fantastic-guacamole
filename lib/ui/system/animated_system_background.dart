@@ -29,9 +29,10 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (BuildContext context, Widget? child) {
+    return ExcludeSemantics(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (BuildContext context, Widget? child) {
         final double t = _controller.value;
         final Color color1 = Color.lerp(const Color(0xCC08040E), const Color(0xCC170C1F), t)!;
         final Color color2 = Color.lerp(const Color(0xCC221029), const Color(0xCC0D0916), t)!;
@@ -85,6 +86,7 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
           ],
         );
       },
+      ),
     );
   }
 }

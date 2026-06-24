@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_sizes.dart';
 import '../../../core/constants/app_urls.dart';
+import '../../../core/state/app_state.dart';
 import '../../../ui/widgets/chronospark_bottom_nav.dart';
 import '../../../ui/widgets/panel_container.dart';
 import '../../../ui/widgets/section_header.dart';
@@ -86,6 +88,7 @@ class _SettingsHomeState extends State<SettingsHome> {
                   label: _state.textScale.toStringAsFixed(2),
                   onChanged: (double value) {
                     setState(() => _state = _controller.setTextScale(value));
+                    context.read<AppState>().setTextScale(value);
                   },
                 ),
               ],
