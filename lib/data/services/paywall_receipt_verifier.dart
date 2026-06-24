@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -39,11 +40,18 @@ class PaywallReceiptVerifier {
       headers['Authorization'] = 'Bearer $_apiKey';
     }
 
-    final http.Response response = await _client.post(
-      Uri.parse(_endpoint),
-      headers: headers,
-      body: jsonEncode(payload),
-    );
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse(_endpoint),
+        headers: headers,
+        body: jsonEncode(payload),
+      );
+    } on SocketException catch (e) {
+      throw Exception('Receipt verification unavailable: no network connection. ($e)');
+    } on HandshakeException catch (e) {
+      throw Exception('Receipt verification unavailable: secure connection failed. ($e)');
+    }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       return false;

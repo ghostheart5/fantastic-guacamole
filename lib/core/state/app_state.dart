@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -225,8 +226,12 @@ class AppState extends ChangeNotifier {
       if (aiResponse != null && aiResponse.trim().isNotEmpty) {
         response = aiResponse;
       }
+    } on SocketException catch (_) {
+      response = '$response [Offline: SI running on local reasoning]';
+    } on HandshakeException catch (_) {
+      response = '$response [Offline: SI running on local reasoning]';
     } catch (_) {
-      // Keep rule-based response if AI provider fails.
+      // Keep rule-based response if AI provider fails for other reasons.
     }
 
     await Future<void>.delayed(const Duration(milliseconds: 300));
