@@ -2,15 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../data/services/entitlement_service.dart';
 import '../../data/services/paywall_service.dart';
 import '../../data/services/si_ai_service.dart';
 import '../si/adaptive_learning.dart';
 import '../si/si_engine.dart';
 import '../system/behavior_entities.dart';
+import '../system/mock_billing_service.dart';
 import '../system/notification_manager.dart';
 import '../system/runtime_persistence.dart';
 import '../system/subscription_model.dart';
-import '../system/mock_billing_service.dart';
 
 typedef Decision = SiDecision;
 typedef UserState = UserSignalState;
@@ -22,10 +23,12 @@ class AppState extends ChangeNotifier {
     PaywallService? paywallService,
     SiAiService? aiService,
     RuntimePersistence? persistence,
+    EntitlementService? entitlementService,
   }) : _engine = engine ?? const SiEngine(),
        _paywallService = paywallService ?? PaywallService(),
        _aiService = aiService ?? SiAiService(),
-       _persistence = persistence ?? SharedPrefsRuntimePersistence() {
+       _persistence = persistence ?? SharedPrefsRuntimePersistence(),
+       _entitlementService = entitlementService ?? EntitlementService() {
     _timeTicker = Timer.periodic(const Duration(minutes: 5), (_) => _maybeRefreshFromTime());
 
     _bootstrap();
@@ -35,6 +38,7 @@ class AppState extends ChangeNotifier {
   final PaywallService _paywallService;
   final SiAiService _aiService;
   final RuntimePersistence _persistence;
+  final EntitlementService _entitlementService;
   final MockBillingService _billingService = MockBillingService();
   final NotificationManager _notificationManager = NotificationManager();
   final AdaptiveLearningSystem _learning = AdaptiveLearningSystem();
@@ -42,6 +46,9 @@ class AppState extends ChangeNotifier {
   late final Timer _timeTicker;
   SubscriptionSnapshot _subscription = SubscriptionSnapshot.base();
   DateTime _lastDecisionRefresh = DateTime.fromMillisecondsSinceEpoch(0);
+
+  // The device/user ID used to identify this installation with the entitlement server.
+  String _userId = '';
 
   Decision? decision;
   bool isInitializing = true;
@@ -433,6 +440,13 @@ class AppState extends ChangeNotifier {
   }
 
   /// Upgrade to a subscription plan
+  ///
+  /// Follows the server-authoritative pattern:
+  ///   1. Ask the billing processor to charge the card and get a receipt.
+  ///   2. Send the receipt to the entitlement server so it can validate the
+  ///      transaction independently (with Apple / Google / Stripe).
+  ///   3. Apply the plan the *server* says the user now has — never the plan
+  ///      the billing processor returned, which the client could manipulate.
   Future<bool> upgradeToPlan(SubscriptionPlan plan, BillingCycle billingCycle) async {
     if (plan == SubscriptionPlan.base) {
       runtimeError = 'Cannot upgrade to Base tier. Use downgradePlan instead.';
@@ -442,12 +456,22 @@ class AppState extends ChangeNotifier {
 
     try {
       runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.upgradeToPlan(
-        plan,
-        billingCycle,
+
+      // Step 1 — process payment and collect the billing receipt.
+      final String receipt = await _billingService.upgradeToPlan(plan, billingCycle);
+
+      // Step 2 — send receipt to the server; it validates and grants access.
+      // The returned EntitlementRecord is the authoritative statement of what
+      // the user is now allowed to use. We do not trust the local receipt.
+      final EntitlementRecord record = await _entitlementService.activateEntitlement(
+        userId: _userId,
+        plan: plan,
+        billingCycle: billingCycle,
+        purchaseReceipt: receipt,
       );
 
-      _subscription = newSubscription;
+      // Step 3 — apply whatever the server decided.
+      _subscription = record.toSnapshot();
       await _autoSave();
       notifyListeners();
       return true;
@@ -459,6 +483,10 @@ class AppState extends ChangeNotifier {
   }
 
   /// Downgrade to Base (free) tier
+  ///
+  /// Revokes premium on the server so both client and server agree on the
+  /// new plan. Resetting trial counters happens locally since they are
+  /// client-side usage meters, not access grants.
   Future<bool> downgradePlan() async {
     if (!isPremium) {
       runtimeError = 'Already on Base tier.';
@@ -468,10 +496,12 @@ class AppState extends ChangeNotifier {
 
     try {
       runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.downgradeToPlan();
 
-      _subscription = newSubscription;
-      // Reset trial counters on downgrade
+      // Ask the server to revoke premium and return a Base entitlement record.
+      final EntitlementRecord record = await _entitlementService.revokeEntitlement(_userId);
+      _subscription = record.toSnapshot();
+
+      // Reset trial counters on downgrade so the user gets a fresh trial.
       _temporalTrialUses = 0;
       _siConsoleTrialUses = 0;
 
@@ -486,6 +516,9 @@ class AppState extends ChangeNotifier {
   }
 
   /// Cancel current subscription
+  ///
+  /// Tells the server to mark the subscription as canceled; the server
+  /// returns the updated entitlement. The client applies that record.
   Future<bool> cancelSubscription() async {
     if (!isPremium) {
       return true; // Already on Base
@@ -493,11 +526,12 @@ class AppState extends ChangeNotifier {
 
     try {
       runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.cancelSubscription(
-        _subscription,
-      );
 
-      _subscription = newSubscription;
+      // Revoking via the entitlement server ensures the cancellation is
+      // recorded centrally — it cannot be reversed by clearing local state.
+      final EntitlementRecord record = await _entitlementService.revokeEntitlement(_userId);
+      _subscription = record.toSnapshot();
+
       await _autoSave();
       notifyListeners();
       return true;
@@ -509,6 +543,9 @@ class AppState extends ChangeNotifier {
   }
 
   /// Apply a promo code to subscription
+  ///
+  /// The code is validated server-side; the server extends the billing period
+  /// and returns the updated entitlement. The client cannot self-apply promos.
   Future<bool> applyPromoCode(String code) async {
     if (!isPremium) {
       runtimeError = 'Promo codes only apply to active subscriptions.';
@@ -518,12 +555,13 @@ class AppState extends ChangeNotifier {
 
     try {
       runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.applyPromoCode(
-        _subscription,
+
+      final EntitlementRecord record = await _entitlementService.applyPromoCode(
+        _userId,
         code,
       );
+      _subscription = record.toSnapshot();
 
-      _subscription = newSubscription;
       await _autoSave();
       notifyListeners();
       return true;
@@ -620,33 +658,69 @@ class AppState extends ChangeNotifier {
   Future<void> _bootstrap() async {
     try {
       await _loadRuntimeSnapshot();
-      await _loadSubscriptionSnapshot();
 
-      hasPremiumAccess = await _paywallService.readCachedPremium();
+      // Obtain (or create) the stable identifier used to query the entitlement
+      // server. In a production app with sign-in this would be the auth UID.
+      _userId = await _entitlementService.getOrCreateDeviceId();
 
-      // If no subscription in storage but has premium from paywall, sync
-      if (hasPremiumAccess && !isPremium) {
-        _subscription = SubscriptionSnapshot(
-          plan: SubscriptionPlan.premium,
-          billingCycle: BillingCycle.monthly,
-          status: SubscriptionStatus.active,
-          subscriptionStartDate: DateTime.now(),
-          mockNextBillingDate: DateTime.now().add(const Duration(days: 30)),
-        );
+      // -----------------------------------------------------------------------
+      // Server-authoritative entitlement check.
+      //
+      // The server is the single source of truth for subscription status.
+      // We request the current entitlement before enabling any gated features.
+      // If the server is reachable, its answer overwrites whatever was cached
+      // locally — this handles renewals, refunds, and plan changes that happen
+      // outside the app without any client interaction.
+      // -----------------------------------------------------------------------
+      try {
+        final EntitlementRecord? record = await _entitlementService
+            .fetchEntitlement(_userId)
+            .timeout(const Duration(seconds: 8));
+        if (record != null) {
+          // Server responded — trust it.
+          _subscription = record.toSnapshot();
+        } else {
+          // Server has no record for this user yet (new install); keep Base.
+          await _loadSubscriptionSnapshot();
+        }
+      } catch (_) {
+        // Server unreachable — fall back to the locally cached snapshot so the
+        // app stays usable offline. Access is not expanded beyond what was last
+        // confirmed by the server.
+        await _loadSubscriptionSnapshot();
       }
+
+      // Keep the paywall / App Store purchase stream running so receipt-based
+      // purchases (e.g. in-app purchases on iOS/Android) still reach us.
+      hasPremiumAccess = await _paywallService.readCachedPremium();
 
       await _paywallService
           .initialize(
-            onPremiumChanged: (bool premiumFromPaywall) {
+            onPremiumChanged: (bool premiumFromPaywall) async {
               hasPremiumAccess = premiumFromPaywall;
-              if (premiumFromPaywall && !isPremium) {
-                _subscription = SubscriptionSnapshot(
-                  plan: SubscriptionPlan.premium,
-                  billingCycle: BillingCycle.monthly,
-                  status: SubscriptionStatus.active,
-                  subscriptionStartDate: DateTime.now(),
-                  mockNextBillingDate: DateTime.now().add(const Duration(days: 30)),
-                );
+              if (premiumFromPaywall) {
+                // A receipt-based purchase just completed. Ask the server what
+                // plan the user has now — do not self-grant from the paywall flag.
+                try {
+                  _entitlementService.invalidateCache();
+                  final EntitlementRecord? updated = await _entitlementService
+                      .fetchEntitlement(_userId)
+                      .timeout(const Duration(seconds: 8));
+                  if (updated != null) {
+                    _subscription = updated.toSnapshot();
+                  }
+                } catch (_) {
+                  // Server unreachable; paywall flag is the best signal we have.
+                  if (!isPremium) {
+                    _subscription = SubscriptionSnapshot(
+                      plan: SubscriptionPlan.premium,
+                      billingCycle: BillingCycle.monthly,
+                      status: SubscriptionStatus.active,
+                      subscriptionStartDate: DateTime.now(),
+                      mockNextBillingDate: DateTime.now().add(const Duration(days: 30)),
+                    );
+                  }
+                }
               }
               notifyListeners();
             },
