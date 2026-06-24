@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/state/app_state.dart';
 import '../../../core/system/subscription_model.dart';
+import '../../../data/services/paywall_service.dart';
 
 class SubscriptionBillingWidget extends StatefulWidget {
   const SubscriptionBillingWidget({super.key});
@@ -18,6 +19,7 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
   @override
   Widget build(BuildContext context) {
     final AppState appState = context.watch<AppState>();
+    final PaywallProduct? premiumProduct = _productForCycle(appState);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -35,7 +37,7 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
               Text(
                 appState.isPremium
                     ? appState.getNextBillingDateFormatted()
-                    : 'Base includes limited trials for premium modules.',
+                    : 'Premium access syncs from verified store purchases.',
                 style: const TextStyle(color: Color(0xFFD8D0E6)),
               ),
             ],
@@ -73,6 +75,7 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
           context,
           appState: appState,
           plan: SubscriptionPlan.premium,
+          product: premiumProduct,
           title: 'Premium',
           monthly: 7.99,
           yearly: 59.99,
@@ -83,33 +86,6 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
             '30-day history',
           ],
         ),
-        const SizedBox(height: 10),
-        _tierCard(
-          context,
-          appState: appState,
-          plan: SubscriptionPlan.ultimate,
-          title: 'Ultimate',
-          monthly: 12.99,
-          yearly: 99.99,
-          highlight: true,
-          bullets: const <String>[
-            'Everything in Premium',
-            'Unlimited history',
-            'Advanced analytics',
-            'Predictive SI insights',
-          ],
-        ),
-        if (appState.isPremium) ...<Widget>[
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _busy ? null : () async => _downgrade(appState),
-              icon: const Icon(Icons.arrow_downward),
-              label: const Text('Downgrade to Base'),
-            ),
-          ),
-        ],
       ],
     );
   }
@@ -118,6 +94,7 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
     BuildContext context, {
     required AppState appState,
     required SubscriptionPlan plan,
+    required PaywallProduct? product,
     required String title,
     required double monthly,
     required double yearly,
@@ -125,8 +102,10 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
     bool highlight = false,
   }) {
     final bool isCurrent = appState.currentPlan == plan;
-    final double price = _cycle == BillingCycle.monthly ? monthly : yearly;
-    final String suffix = _cycle == BillingCycle.monthly ? '/mo' : '/yr';
+    final double fallbackPrice = _cycle == BillingCycle.monthly ? monthly : yearly;
+    final String fallbackPriceLabel =
+        '\$${fallbackPrice.toStringAsFixed(2)}${_cycle == BillingCycle.monthly ? '/mo' : '/yr'}';
+    final String priceLabel = product?.price ?? fallbackPriceLabel;
 
     return _card(
       context,
@@ -152,7 +131,7 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
           ),
           const SizedBox(height: 6),
           Text(
-            '\$${price.toStringAsFixed(2)}$suffix',
+            priceLabel,
             style: const TextStyle(
               color: Color(0xFFC2A7FF),
               fontSize: 20,
@@ -171,8 +150,22 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: _busy ? null : () async => _upgrade(appState, plan),
-                child: Text(_busy ? 'Processing...' : 'Upgrade'),
+                onPressed: _busy
+                    ? null
+                    : () async {
+                        if (product == null) {
+                          await _loadProducts(appState);
+                          return;
+                        }
+                        await _purchase(appState, product.id);
+                      },
+                child: Text(
+                  _busy
+                      ? 'Processing...'
+                      : product == null
+                      ? 'Load Store Plan'
+                      : 'Continue in Store',
+                ),
               ),
             ),
         ],
@@ -193,9 +186,19 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
     );
   }
 
-  Future<void> _upgrade(AppState appState, SubscriptionPlan plan) async {
+  PaywallProduct? _productForCycle(AppState appState) {
+    final String cycleToken = _cycle == BillingCycle.monthly ? 'monthly' : 'yearly';
+    for (final PaywallProduct product in appState.paywallProducts) {
+      if (product.id.toLowerCase().contains(cycleToken)) {
+        return product;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _loadProducts(AppState appState) async {
     setState(() => _busy = true);
-    await appState.upgradeToPlan(plan, _cycle);
+    await appState.refreshPaywallProducts();
     if (mounted && (appState.runtimeError ?? '').isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appState.runtimeError!)));
     }
@@ -204,9 +207,9 @@ class _SubscriptionBillingWidgetState extends State<SubscriptionBillingWidget> {
     }
   }
 
-  Future<void> _downgrade(AppState appState) async {
+  Future<void> _purchase(AppState appState, String productId) async {
     setState(() => _busy = true);
-    await appState.downgradePlan();
+    await appState.purchase(productId);
     if (mounted && (appState.runtimeError ?? '').isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appState.runtimeError!)));
     }

@@ -3,6 +3,25 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+import '../../core/system/subscription_model.dart';
+
+class ReceiptVerificationResult {
+  const ReceiptVerificationResult({
+    required this.isValid,
+    this.plan,
+    this.billingCycle,
+  });
+
+  const ReceiptVerificationResult.invalid()
+    : isValid = false,
+      plan = null,
+      billingCycle = null;
+
+  final bool isValid;
+  final SubscriptionPlan? plan;
+  final BillingCycle? billingCycle;
+}
+
 class PaywallReceiptVerifier {
   PaywallReceiptVerifier({http.Client? client, String? endpoint, String? apiKey})
     : _client = client ?? http.Client(),
@@ -17,9 +36,9 @@ class PaywallReceiptVerifier {
 
   bool get isConfigured => _endpoint.trim().isNotEmpty;
 
-  Future<bool> verifyPurchase(PurchaseDetails purchase) async {
+  Future<ReceiptVerificationResult> verifyPurchase(PurchaseDetails purchase) async {
     if (!isConfigured) {
-      return true;
+      return _resultFor(productId: purchase.productID);
     }
 
     final Map<String, dynamic> payload = <String, dynamic>{
@@ -46,10 +65,61 @@ class PaywallReceiptVerifier {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      return false;
+      return const ReceiptVerificationResult.invalid();
     }
 
     final Map<String, dynamic> decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    return (decoded['valid'] as bool?) ?? false;
+    final bool isValid = (decoded['valid'] as bool?) ?? false;
+    if (!isValid) {
+      return const ReceiptVerificationResult.invalid();
+    }
+
+    return _resultFor(
+      productId: (decoded['productId'] as String?)?.trim().isNotEmpty == true
+          ? decoded['productId'] as String
+          : purchase.productID,
+      entitlement: (decoded['entitlement'] as String?)?.trim(),
+    );
+  }
+
+  ReceiptVerificationResult _resultFor({required String productId, String? entitlement}) {
+    final SubscriptionPlan? plan = _planFromEntitlement(entitlement) ?? _planFromProductId(productId);
+    if (plan == null || plan == SubscriptionPlan.base) {
+      return const ReceiptVerificationResult.invalid();
+    }
+
+    return ReceiptVerificationResult(
+      isValid: true,
+      plan: plan,
+      billingCycle: _billingCycleFromProductId(productId),
+    );
+  }
+
+  SubscriptionPlan? _planFromEntitlement(String? entitlement) {
+    switch (entitlement?.toLowerCase()) {
+      case 'premium':
+        return SubscriptionPlan.premium;
+      case 'ultimate':
+        return SubscriptionPlan.ultimate;
+      case 'base':
+        return SubscriptionPlan.base;
+      default:
+        return null;
+    }
+  }
+
+  SubscriptionPlan? _planFromProductId(String productId) {
+    final String normalized = productId.toLowerCase();
+    if (normalized.contains('ultimate')) {
+      return SubscriptionPlan.ultimate;
+    }
+    if (normalized.contains('premium')) {
+      return SubscriptionPlan.premium;
+    }
+    return null;
+  }
+
+  BillingCycle _billingCycleFromProductId(String productId) {
+    return productId.toLowerCase().contains('year') ? BillingCycle.yearly : BillingCycle.monthly;
   }
 }

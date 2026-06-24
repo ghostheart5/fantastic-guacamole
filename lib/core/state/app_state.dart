@@ -10,7 +10,6 @@ import '../system/behavior_entities.dart';
 import '../system/notification_manager.dart';
 import '../system/runtime_persistence.dart';
 import '../system/subscription_model.dart';
-import '../system/mock_billing_service.dart';
 
 typedef Decision = SiDecision;
 typedef UserState = UserSignalState;
@@ -35,7 +34,6 @@ class AppState extends ChangeNotifier {
   final PaywallService _paywallService;
   final SiAiService _aiService;
   final RuntimePersistence _persistence;
-  final MockBillingService _billingService = MockBillingService();
   final NotificationManager _notificationManager = NotificationManager();
   final AdaptiveLearningSystem _learning = AdaptiveLearningSystem();
 
@@ -47,7 +45,6 @@ class AppState extends ChangeNotifier {
   bool isInitializing = true;
   bool isProcessingConsole = false;
   String? runtimeError;
-  bool hasPremiumAccess = false;
   List<PaywallProduct> paywallProducts = const <PaywallProduct>[];
 
   ChronoUserState behaviorState = const ChronoUserState(
@@ -416,6 +413,7 @@ class AppState extends ChangeNotifier {
     runtimeError = null;
     try {
       await _paywallService.buyProduct(productId);
+      notifyListeners();
     } catch (e) {
       runtimeError = e.toString();
       notifyListeners();
@@ -426,6 +424,7 @@ class AppState extends ChangeNotifier {
     runtimeError = null;
     try {
       await _paywallService.restorePurchases();
+      notifyListeners();
     } catch (e) {
       runtimeError = e.toString();
       notifyListeners();
@@ -442,13 +441,14 @@ class AppState extends ChangeNotifier {
 
     try {
       runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.upgradeToPlan(
-        plan,
-        billingCycle,
-      );
+      final String? productId = _productIdFor(plan, billingCycle);
+      if (productId == null) {
+        runtimeError = 'Selected plan is not available for in-app purchase.';
+        notifyListeners();
+        return false;
+      }
 
-      _subscription = newSubscription;
-      await _autoSave();
+      await _paywallService.buyProduct(productId);
       notifyListeners();
       return true;
     } catch (e) {
@@ -460,78 +460,23 @@ class AppState extends ChangeNotifier {
 
   /// Downgrade to Base (free) tier
   Future<bool> downgradePlan() async {
-    if (!isPremium) {
-      runtimeError = 'Already on Base tier.';
-      notifyListeners();
-      return false;
-    }
-
-    try {
-      runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.downgradeToPlan();
-
-      _subscription = newSubscription;
-      // Reset trial counters on downgrade
-      _temporalTrialUses = 0;
-      _siConsoleTrialUses = 0;
-
-      await _autoSave();
-      notifyListeners();
-      return true;
-    } catch (e) {
-      runtimeError = e.toString();
-      notifyListeners();
-      return false;
-    }
+    runtimeError = 'Downgrades must be managed in the app store for the active purchase.';
+    notifyListeners();
+    return false;
   }
 
   /// Cancel current subscription
   Future<bool> cancelSubscription() async {
-    if (!isPremium) {
-      return true; // Already on Base
-    }
-
-    try {
-      runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.cancelSubscription(
-        _subscription,
-      );
-
-      _subscription = newSubscription;
-      await _autoSave();
-      notifyListeners();
-      return true;
-    } catch (e) {
-      runtimeError = e.toString();
-      notifyListeners();
-      return false;
-    }
+    runtimeError = 'Subscription cancellation must be managed in the app store.';
+    notifyListeners();
+    return false;
   }
 
   /// Apply a promo code to subscription
   Future<bool> applyPromoCode(String code) async {
-    if (!isPremium) {
-      runtimeError = 'Promo codes only apply to active subscriptions.';
-      notifyListeners();
-      return false;
-    }
-
-    try {
-      runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.applyPromoCode(
-        _subscription,
-        code,
-      );
-
-      _subscription = newSubscription;
-      await _autoSave();
-      notifyListeners();
-      return true;
-    } catch (e) {
-      runtimeError = e.toString();
-      notifyListeners();
-      return false;
-    }
+    runtimeError = 'Promo codes are not supported by the verified purchase flow.';
+    notifyListeners();
+    return false;
   }
 
   /// Get next billing date formatted
@@ -620,34 +565,13 @@ class AppState extends ChangeNotifier {
   Future<void> _bootstrap() async {
     try {
       await _loadRuntimeSnapshot();
-      await _loadSubscriptionSnapshot();
-
-      hasPremiumAccess = await _paywallService.readCachedPremium();
-
-      // If no subscription in storage but has premium from paywall, sync
-      if (hasPremiumAccess && !isPremium) {
-        _subscription = SubscriptionSnapshot(
-          plan: SubscriptionPlan.premium,
-          billingCycle: BillingCycle.monthly,
-          status: SubscriptionStatus.active,
-          subscriptionStartDate: DateTime.now(),
-          mockNextBillingDate: DateTime.now().add(const Duration(days: 30)),
-        );
-      }
+      _subscription = SubscriptionSnapshot.base();
 
       await _paywallService
           .initialize(
-            onPremiumChanged: (bool premiumFromPaywall) {
-              hasPremiumAccess = premiumFromPaywall;
-              if (premiumFromPaywall && !isPremium) {
-                _subscription = SubscriptionSnapshot(
-                  plan: SubscriptionPlan.premium,
-                  billingCycle: BillingCycle.monthly,
-                  status: SubscriptionStatus.active,
-                  subscriptionStartDate: DateTime.now(),
-                  mockNextBillingDate: DateTime.now().add(const Duration(days: 30)),
-                );
-              }
+            onSubscriptionChanged: (SubscriptionSnapshot subscription) {
+              _applyVerifiedSubscription(subscription);
+              runtimeError = null;
               notifyListeners();
             },
             onError: (String message) {
@@ -667,6 +591,23 @@ class AppState extends ChangeNotifier {
     } finally {
       isInitializing = false;
       notifyListeners();
+    }
+  }
+
+  void _applyVerifiedSubscription(SubscriptionSnapshot subscription) {
+    _subscription = subscription;
+  }
+
+  String? _productIdFor(SubscriptionPlan plan, BillingCycle billingCycle) {
+    switch (plan) {
+      case SubscriptionPlan.base:
+        return null;
+      case SubscriptionPlan.premium:
+        return billingCycle == BillingCycle.monthly
+            ? 'chronospark_premium_monthly'
+            : 'chronospark_premium_yearly';
+      case SubscriptionPlan.ultimate:
+        return null;
     }
   }
 
@@ -918,58 +859,6 @@ class AppState extends ChangeNotifier {
         decoded['learning'] as Map<String, dynamic>? ?? const <String, dynamic>{};
     _learning.fromJson(learningJson);
 
-    // Load subscription data
-    final Map<String, dynamic> subJson =
-        decoded['subscription'] as Map<String, dynamic>? ?? const <String, dynamic>{};
-    if (subJson.isNotEmpty) {
-      _subscription = SubscriptionSnapshot.fromJson(subJson);
-      return;
-    }
-
-    final String? plan = decoded['plan'] as String?;
-    if (plan != null && plan.isNotEmpty) {
-      _subscription = SubscriptionSnapshot.fromJson(<String, dynamic>{
-        'plan': plan,
-        'billingCycle': decoded['billingCycle'] ?? 'monthly',
-        'status': decoded['subscriptionStatus'] ?? 'active',
-        'subscriptionStartDate':
-            decoded['subscriptionStartDate'] ?? DateTime.now().toIso8601String(),
-        'mockNextBillingDate':
-            decoded['mockNextBillingDate'] ??
-            DateTime.now().add(const Duration(days: 30)).toIso8601String(),
-      });
-    }
-  }
-
-  /// Load subscription from persistence
-  Future<void> _loadSubscriptionSnapshot() async {
-    final Map<String, dynamic>? decoded = await _persistence.loadSnapshot();
-    if (decoded == null) {
-      _subscription = SubscriptionSnapshot.base();
-      return;
-    }
-
-    final Map<String, dynamic> subJson =
-        decoded['subscription'] as Map<String, dynamic>? ?? const <String, dynamic>{};
-    if (subJson.isNotEmpty) {
-      _subscription = SubscriptionSnapshot.fromJson(subJson);
-    } else {
-      final String? plan = decoded['plan'] as String?;
-      if (plan != null && plan.isNotEmpty) {
-        _subscription = SubscriptionSnapshot.fromJson(<String, dynamic>{
-          'plan': plan,
-          'billingCycle': decoded['billingCycle'] ?? 'monthly',
-          'status': decoded['subscriptionStatus'] ?? 'active',
-          'subscriptionStartDate':
-              decoded['subscriptionStartDate'] ?? DateTime.now().toIso8601String(),
-          'mockNextBillingDate':
-              decoded['mockNextBillingDate'] ??
-              DateTime.now().add(const Duration(days: 30)).toIso8601String(),
-        });
-      } else {
-        _subscription = SubscriptionSnapshot.base();
-      }
-    }
   }
 
   Future<void> _autoSave() async {
@@ -998,12 +887,6 @@ class AppState extends ChangeNotifier {
       'temporalTrialUses': _temporalTrialUses,
       'siConsoleTrialUses': _siConsoleTrialUses,
       'learning': _learning.toJson(),
-      'plan': _subscription.plan.name,
-      'billingCycle': _subscription.billingCycle.name,
-      'subscriptionStatus': _subscription.status.name,
-      'subscriptionStartDate': _subscription.subscriptionStartDate.toIso8601String(),
-      'mockNextBillingDate': _subscription.mockNextBillingDate.toIso8601String(),
-      'subscription': _subscription.toJson(),
     };
     await _persistence.saveSnapshot(payload);
   }

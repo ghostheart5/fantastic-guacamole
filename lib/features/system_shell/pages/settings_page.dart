@@ -53,9 +53,9 @@ class SettingsPage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                appState.hasPremiumAccess
-                    ? 'Premium is active on this account.'
-                    : 'Premium is locked. Choose a plan below.',
+                appState.isPremium
+                    ? 'Premium access is active from a verified store purchase.'
+                    : 'Premium access is locked until a verified purchase is restored.',
                 style: const TextStyle(color: Color(0xFFD8D0E6)),
               ),
               const SizedBox(height: 10),

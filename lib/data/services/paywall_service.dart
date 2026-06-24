@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/system/subscription_model.dart';
 import 'paywall_receipt_verifier.dart';
 
 class PaywallProduct {
@@ -23,8 +23,6 @@ class PaywallService {
   PaywallService({PaywallReceiptVerifier? verifier})
     : _verifier = verifier ?? PaywallReceiptVerifier();
 
-  static const String _premiumKey = 'paywall_premium_v1';
-
   static const Set<String> productIds = <String>{
     'chronospark_premium_monthly',
     'chronospark_premium_yearly',
@@ -35,23 +33,28 @@ class PaywallService {
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
 
   Future<void> initialize({
-    required void Function(bool isPremium) onPremiumChanged,
+    required void Function(SubscriptionSnapshot subscription) onSubscriptionChanged,
     void Function(String message)? onError,
   }) async {
     final bool available = await _iap.isAvailable();
     if (!available) {
-      onPremiumChanged(await readCachedPremium());
+      onSubscriptionChanged(SubscriptionSnapshot.base());
       return;
     }
 
     _purchaseSub = _iap.purchaseStream.listen((List<PurchaseDetails> purchases) async {
+      SubscriptionSnapshot? highestSubscription;
       for (final PurchaseDetails purchase in purchases) {
         if (purchase.status == PurchaseStatus.purchased ||
             purchase.status == PurchaseStatus.restored) {
-          final bool verified = await _verifier.verifyPurchase(purchase);
-          if (verified) {
-            await _setPremium(true);
-            onPremiumChanged(true);
+          final ReceiptVerificationResult verification = await _verifier.verifyPurchase(purchase);
+          if (verification.isValid && verification.plan != null) {
+            final SubscriptionSnapshot verifiedSubscription = _buildSubscriptionSnapshot(
+              purchase: purchase,
+              plan: verification.plan!,
+              billingCycle: verification.billingCycle ?? BillingCycle.monthly,
+            );
+            highestSubscription = _pickHigherSubscription(highestSubscription, verifiedSubscription);
           } else {
             onError?.call('Purchase verification failed. Premium access not granted.');
           }
@@ -63,9 +66,14 @@ class PaywallService {
           await _iap.completePurchase(purchase);
         }
       }
+
+      if (highestSubscription != null) {
+        onSubscriptionChanged(highestSubscription!);
+      }
     });
 
-    onPremiumChanged(await readCachedPremium());
+    onSubscriptionChanged(SubscriptionSnapshot.base());
+    await restorePurchases();
   }
 
   Future<List<PaywallProduct>> queryProducts() async {
@@ -107,17 +115,47 @@ class PaywallService {
     await _iap.restorePurchases();
   }
 
-  Future<bool> readCachedPremium() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_premiumKey) ?? false;
-  }
-
-  Future<void> _setPremium(bool value) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_premiumKey, value);
-  }
-
   Future<void> dispose() async {
     await _purchaseSub?.cancel();
+  }
+
+  SubscriptionSnapshot _buildSubscriptionSnapshot({
+    required PurchaseDetails purchase,
+    required SubscriptionPlan plan,
+    required BillingCycle billingCycle,
+  }) {
+    final DateTime startDate = _parseTransactionDate(purchase.transactionDate);
+    return SubscriptionSnapshot(
+      plan: plan,
+      billingCycle: billingCycle,
+      status: SubscriptionStatus.active,
+      subscriptionStartDate: startDate,
+      mockNextBillingDate: startDate.add(Duration(days: billingCycle.billingIntervalDays)),
+    );
+  }
+
+  SubscriptionSnapshot _pickHigherSubscription(
+    SubscriptionSnapshot? current,
+    SubscriptionSnapshot candidate,
+  ) {
+    if (current == null) {
+      return candidate;
+    }
+
+    return candidate.plan.index > current.plan.index ? candidate : current;
+  }
+
+  DateTime _parseTransactionDate(String? rawValue) {
+    final String raw = rawValue?.trim() ?? '';
+    if (raw.isEmpty) {
+      return DateTime.now();
+    }
+
+    final int? millis = int.tryParse(raw);
+    if (millis != null) {
+      return DateTime.fromMillisecondsSinceEpoch(millis);
+    }
+
+    return DateTime.tryParse(raw) ?? DateTime.now();
   }
 }
