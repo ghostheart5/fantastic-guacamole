@@ -1,16 +1,19 @@
 import 'dart:async';
+import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../data/services/paywall_service.dart';
 import '../../data/services/si_ai_service.dart';
 import '../si/adaptive_learning.dart';
 import '../si/si_engine.dart';
+import '../system/audio_service.dart';
 import '../system/behavior_entities.dart';
 import '../system/notification_manager.dart';
 import '../system/runtime_persistence.dart';
 import '../system/subscription_model.dart';
-import '../system/mock_billing_service.dart';
+import '../system/trial_counter_store.dart';
 
 typedef Decision = SiDecision;
 typedef UserState = UserSignalState;
@@ -22,11 +25,17 @@ class AppState extends ChangeNotifier {
     PaywallService? paywallService,
     SiAiService? aiService,
     RuntimePersistence? persistence,
+    TrialCounterStore? trialCounterStore,
+    AudioService? audioService,
   }) : _engine = engine ?? const SiEngine(),
        _paywallService = paywallService ?? PaywallService(),
        _aiService = aiService ?? SiAiService(),
-       _persistence = persistence ?? SharedPrefsRuntimePersistence() {
-    _timeTicker = Timer.periodic(const Duration(minutes: 5), (_) => _maybeRefreshFromTime());
+       _persistence = persistence ?? SharedPrefsRuntimePersistence(),
+       _trialCounterStore = trialCounterStore ?? TrialCounterStore(),
+       _audio = audioService ?? AudioService() {
+    // Initialize timer with 5-30 minute randomization to avoid thundering herd
+    final Duration interval = Duration(minutes: 5 + (DateTime.now().microsecond % 25));
+    _timeTicker = Timer.periodic(interval, (_) => _maybeRefreshFromTime());
 
     _bootstrap();
   }
@@ -35,19 +44,43 @@ class AppState extends ChangeNotifier {
   final PaywallService _paywallService;
   final SiAiService _aiService;
   final RuntimePersistence _persistence;
-  final MockBillingService _billingService = MockBillingService();
+  final TrialCounterStore _trialCounterStore;
+  final AudioService _audio;
   final NotificationManager _notificationManager = NotificationManager();
   final AdaptiveLearningSystem _learning = AdaptiveLearningSystem();
 
   late final Timer _timeTicker;
+  Future<void> _saveQueue = Future<void>.value();
   SubscriptionSnapshot _subscription = SubscriptionSnapshot.base();
   DateTime _lastDecisionRefresh = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _isDisposed = false;
+  bool _notificationDeliveryEnabled = true;
+
+    bool get _crashlyticsSupported =>
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+  Future<void> _safeCrashlyticsLog(String message) async {
+    if (!_crashlyticsSupported) return;
+    try {
+      await FirebaseCrashlytics.instance.log(message);
+    } catch (_) {
+      // Ignore crash reporter failures on unsupported platforms.
+    }
+  }
+
+  Future<void> _safeCrashlyticsRecordError(Object error, StackTrace stackTrace) async {
+    if (!_crashlyticsSupported) return;
+    try {
+      await FirebaseCrashlytics.instance.recordError(error, stackTrace);
+    } catch (_) {
+      // Ignore crash reporter failures on unsupported platforms.
+    }
+  }
 
   Decision? decision;
   bool isInitializing = true;
   bool isProcessingConsole = false;
   String? runtimeError;
-  bool hasPremiumAccess = false;
   List<PaywallProduct> paywallProducts = const <PaywallProduct>[];
 
   ChronoUserState behaviorState = const ChronoUserState(
@@ -105,15 +138,19 @@ class AppState extends ChangeNotifier {
 
   // Subscription getters
   SubscriptionSnapshot get subscription => _subscription;
-  SubscriptionPlan get currentPlan => _subscription.plan;
+  SubscriptionPlan get currentPlan => isPremium ? _subscription.plan : SubscriptionPlan.base;
   BillingCycle get billingCycle => _subscription.billingCycle;
   SubscriptionStatus get subscriptionStatus => _subscription.status;
   DateTime get subscriptionStartDate => _subscription.subscriptionStartDate;
   DateTime get mockNextBillingDate => _subscription.mockNextBillingDate;
-  bool get isPremium => _subscription.plan.isPremium;
+  bool get isPremium => _subscription.isValid;
   bool get isUltimate => _subscription.plan.isUltimate;
   bool get canUpgrade => !isPremium;
   bool get canDowngrade => isPremium;
+
+  void setNotificationDeliveryEnabled(bool enabled) {
+    _notificationDeliveryEnabled = enabled;
+  }
 
   Future<bool> consumeTemporalOpsTrialIfNeeded() async {
     // Premium+ users have unlimited access
@@ -125,7 +162,12 @@ class AppState extends ChangeNotifier {
     if (temporalTrialRemaining <= 0) {
       return false;
     }
+    
     _temporalTrialUses += 1;
+    await _trialCounterStore.saveCounters(
+      temporalUses: _temporalTrialUses,
+      siConsoleUses: _siConsoleTrialUses,
+    );
     await _autoSave();
     notifyListeners();
     return true;
@@ -141,7 +183,12 @@ class AppState extends ChangeNotifier {
     if (siConsoleTrialRemaining <= 0) {
       return false;
     }
+    
     _siConsoleTrialUses += 1;
+    await _trialCounterStore.saveCounters(
+      temporalUses: _temporalTrialUses,
+      siConsoleUses: _siConsoleTrialUses,
+    );
     await _autoSave();
     notifyListeners();
     return true;
@@ -161,6 +208,7 @@ class AppState extends ChangeNotifier {
     }
 
     isProcessingConsole = true;
+    _audio.playSystemProcessing();
     runtimeError = null;
     _notificationManager.markActivity();
     _learning.registerConsoleInput(value);
@@ -175,6 +223,7 @@ class AppState extends ChangeNotifier {
     if (lower.contains('overwhelmed') || lower.contains('drained')) {
       energy = Energy.low;
       workload = (workload + 0.08).clamp(0.0, 1.0);
+      _audio.playAlertOverload();
     }
     if (lower.contains('focus') || lower.contains('energized')) {
       energy = Energy.high;
@@ -277,6 +326,7 @@ class AppState extends ChangeNotifier {
     );
 
     _appendLog('task', 'Task created: $trimmed', ChronoLogStatus.success);
+    _audio.playDecisionPrimary();
     _recomputeDecision();
     _autoSave();
     notifyListeners();
@@ -351,6 +401,7 @@ class AppState extends ChangeNotifier {
     _learning.registerSkip(trimmed);
     _notificationManager.recordResponse(acknowledged: false);
     _appendLog('task', 'Skipped: $trimmed', ChronoLogStatus.warning);
+    _audio.playDecisionSecondary();
 
     _recomputeDecision();
     _autoSave();
@@ -412,23 +463,27 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> purchase(String productId) async {
+  Future<bool> purchase(String productId) async {
     runtimeError = null;
     try {
       await _paywallService.buyProduct(productId);
+      return true;
     } catch (e) {
       runtimeError = e.toString();
       notifyListeners();
+      return false;
     }
   }
 
-  Future<void> restorePurchases() async {
+  Future<bool> restorePurchases() async {
     runtimeError = null;
     try {
       await _paywallService.restorePurchases();
+      return true;
     } catch (e) {
       runtimeError = e.toString();
       notifyListeners();
+      return false;
     }
   }
 
@@ -440,22 +495,14 @@ class AppState extends ChangeNotifier {
       return false;
     }
 
-    try {
-      runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.upgradeToPlan(
-        plan,
-        billingCycle,
-      );
-
-      _subscription = newSubscription;
-      await _autoSave();
-      notifyListeners();
-      return true;
-    } catch (e) {
-      runtimeError = e.toString();
+    final String? productId = _productIdFor(plan, billingCycle);
+    if (productId == null) {
+      runtimeError = 'Selected subscription is not available in this build.';
       notifyListeners();
       return false;
     }
+
+    return purchase(productId);
   }
 
   /// Downgrade to Base (free) tier
@@ -466,23 +513,15 @@ class AppState extends ChangeNotifier {
       return false;
     }
 
-    try {
-      runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.downgradeToPlan();
-
-      _subscription = newSubscription;
-      // Reset trial counters on downgrade
-      _temporalTrialUses = 0;
-      _siConsoleTrialUses = 0;
-
-      await _autoSave();
-      notifyListeners();
-      return true;
-    } catch (e) {
-      runtimeError = e.toString();
-      notifyListeners();
-      return false;
-    }
+    runtimeError = null;
+    _subscription = SubscriptionSnapshot.base();
+    _temporalTrialUses = 0;
+    _siConsoleTrialUses = 0;
+    await _trialCounterStore.clearCounters();
+    await _paywallService.clearVerifiedSubscription();
+    await _autoSave();
+    notifyListeners();
+    return true;
   }
 
   /// Cancel current subscription
@@ -491,21 +530,10 @@ class AppState extends ChangeNotifier {
       return true; // Already on Base
     }
 
-    try {
-      runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.cancelSubscription(
-        _subscription,
-      );
-
-      _subscription = newSubscription;
-      await _autoSave();
-      notifyListeners();
-      return true;
-    } catch (e) {
-      runtimeError = e.toString();
-      notifyListeners();
-      return false;
-    }
+    runtimeError =
+        'Manage cancellation through your app store subscription settings. Local status is server-verified.';
+    notifyListeners();
+    return false;
   }
 
   /// Apply a promo code to subscription
@@ -516,22 +544,17 @@ class AppState extends ChangeNotifier {
       return false;
     }
 
-    try {
-      runtimeError = null;
-      final SubscriptionSnapshot newSubscription = await _billingService.applyPromoCode(
-        _subscription,
-        code,
-      );
-
-      _subscription = newSubscription;
-      await _autoSave();
-      notifyListeners();
-      return true;
-    } catch (e) {
-      runtimeError = e.toString();
+    final String promo = code.trim();
+    if (promo.isEmpty) {
+      runtimeError = 'Promo code cannot be empty.';
       notifyListeners();
       return false;
     }
+
+    runtimeError =
+        'Promo code redemption must be completed through verified billing services, not local state.';
+    notifyListeners();
+    return false;
   }
 
   /// Get next billing date formatted
@@ -607,6 +630,19 @@ class AppState extends ChangeNotifier {
     return isUltimate;
   }
 
+  String? _productIdFor(SubscriptionPlan plan, BillingCycle billingCycle) {
+    switch (plan) {
+      case SubscriptionPlan.base:
+        return null;
+      case SubscriptionPlan.premium:
+        return billingCycle == BillingCycle.yearly
+            ? 'chronospark_premium_yearly'
+            : 'chronospark_premium_monthly';
+      case SubscriptionPlan.ultimate:
+        return null;
+    }
+  }
+
   void _maybeRefreshFromTime() {
     final DateTime now = DateTime.now();
     final int interval = getDecisionRefreshInterval();
@@ -618,40 +654,30 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _bootstrap() async {
+    if (_isDisposed) return;
+    
     try {
+      // Load persisted trial counters
+      final counters = await _trialCounterStore.loadCounters();
+      _temporalTrialUses = counters.temporalUses;
+      _siConsoleTrialUses = counters.siConsoleUses;
+
       await _loadRuntimeSnapshot();
-      await _loadSubscriptionSnapshot();
-
-      hasPremiumAccess = await _paywallService.readCachedPremium();
-
-      // If no subscription in storage but has premium from paywall, sync
-      if (hasPremiumAccess && !isPremium) {
-        _subscription = SubscriptionSnapshot(
-          plan: SubscriptionPlan.premium,
-          billingCycle: BillingCycle.monthly,
-          status: SubscriptionStatus.active,
-          subscriptionStartDate: DateTime.now(),
-          mockNextBillingDate: DateTime.now().add(const Duration(days: 30)),
-        );
-      }
+      _subscription = SubscriptionSnapshot.base();
 
       await _paywallService
           .initialize(
-            onPremiumChanged: (bool premiumFromPaywall) {
-              hasPremiumAccess = premiumFromPaywall;
-              if (premiumFromPaywall && !isPremium) {
-                _subscription = SubscriptionSnapshot(
-                  plan: SubscriptionPlan.premium,
-                  billingCycle: BillingCycle.monthly,
-                  status: SubscriptionStatus.active,
-                  subscriptionStartDate: DateTime.now(),
-                  mockNextBillingDate: DateTime.now().add(const Duration(days: 30)),
-                );
+            onSubscriptionChanged: (SubscriptionSnapshot? verifiedSubscription) {
+              if (verifiedSubscription != null) {
+                _subscription = verifiedSubscription;
+              } else {
+                _subscription = SubscriptionSnapshot.base();
               }
               notifyListeners();
             },
             onError: (String message) {
               runtimeError = message;
+              _safeCrashlyticsLog('PaywallService error: $message');
               notifyListeners();
             },
           )
@@ -659,14 +685,19 @@ class AppState extends ChangeNotifier {
       await refreshPaywallProducts();
 
       _recomputeDecision();
-    } catch (e) {
-      runtimeError = 'Startup partially failed: $e';
-      if (decision == null) {
-        _recomputeDecision();
+    } catch (error, stackTrace) {
+      if (!_isDisposed) {
+        runtimeError = 'Startup partially failed: $error';
+        if (decision == null) {
+          _recomputeDecision();
+        }
+        await _safeCrashlyticsRecordError(error, stackTrace);
       }
     } finally {
-      isInitializing = false;
-      notifyListeners();
+      if (!_isDisposed) {
+        isInitializing = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -801,7 +832,9 @@ class AppState extends ChangeNotifier {
     if (_notifications.length > 40) {
       _notifications.removeRange(40, _notifications.length);
     }
-    _notificationManager.triggerNotification(notification.message);
+    if (_notificationDeliveryEnabled) {
+      _notificationManager.triggerNotification(notification.message);
+    }
   }
 
   void _appendLog(String type, String content, ChronoLogStatus status) {
@@ -853,7 +886,7 @@ class AppState extends ChangeNotifier {
 
     currentState = UserState(
       tasks: tasks.isEmpty ? currentState.tasks : tasks,
-      energyLevel: Energy.values[(decoded['energy'] as num?)?.toInt() ?? Energy.medium.index],
+      energyLevel: _safeEnergyFromIndex((decoded['energy'] as num?)?.toInt()),
       workload: ((decoded['workload'] as num?)?.toDouble() ?? currentState.workload).clamp(
         0.0,
         1.0,
@@ -918,61 +951,9 @@ class AppState extends ChangeNotifier {
         decoded['learning'] as Map<String, dynamic>? ?? const <String, dynamic>{};
     _learning.fromJson(learningJson);
 
-    // Load subscription data
-    final Map<String, dynamic> subJson =
-        decoded['subscription'] as Map<String, dynamic>? ?? const <String, dynamic>{};
-    if (subJson.isNotEmpty) {
-      _subscription = SubscriptionSnapshot.fromJson(subJson);
-      return;
-    }
-
-    final String? plan = decoded['plan'] as String?;
-    if (plan != null && plan.isNotEmpty) {
-      _subscription = SubscriptionSnapshot.fromJson(<String, dynamic>{
-        'plan': plan,
-        'billingCycle': decoded['billingCycle'] ?? 'monthly',
-        'status': decoded['subscriptionStatus'] ?? 'active',
-        'subscriptionStartDate':
-            decoded['subscriptionStartDate'] ?? DateTime.now().toIso8601String(),
-        'mockNextBillingDate':
-            decoded['mockNextBillingDate'] ??
-            DateTime.now().add(const Duration(days: 30)).toIso8601String(),
-      });
-    }
   }
 
-  /// Load subscription from persistence
-  Future<void> _loadSubscriptionSnapshot() async {
-    final Map<String, dynamic>? decoded = await _persistence.loadSnapshot();
-    if (decoded == null) {
-      _subscription = SubscriptionSnapshot.base();
-      return;
-    }
-
-    final Map<String, dynamic> subJson =
-        decoded['subscription'] as Map<String, dynamic>? ?? const <String, dynamic>{};
-    if (subJson.isNotEmpty) {
-      _subscription = SubscriptionSnapshot.fromJson(subJson);
-    } else {
-      final String? plan = decoded['plan'] as String?;
-      if (plan != null && plan.isNotEmpty) {
-        _subscription = SubscriptionSnapshot.fromJson(<String, dynamic>{
-          'plan': plan,
-          'billingCycle': decoded['billingCycle'] ?? 'monthly',
-          'status': decoded['subscriptionStatus'] ?? 'active',
-          'subscriptionStartDate':
-              decoded['subscriptionStartDate'] ?? DateTime.now().toIso8601String(),
-          'mockNextBillingDate':
-              decoded['mockNextBillingDate'] ??
-              DateTime.now().add(const Duration(days: 30)).toIso8601String(),
-        });
-      } else {
-        _subscription = SubscriptionSnapshot.base();
-      }
-    }
-  }
-
-  Future<void> _autoSave() async {
+  Future<void> _autoSave() {
     final Map<String, dynamic> payload = <String, dynamic>{
       'schemaVersion': 2,
       'tasks': currentState.tasks
@@ -987,7 +968,7 @@ class AppState extends ChangeNotifier {
       'energy': currentState.energyLevel.index,
       'workload': currentState.workload,
       'deadlinePressure': currentState.deadlinePressure,
-      'history': _history,
+      'history': List<String>.from(_history),
       'missions': _missions.map(_encodeMission).toList(),
       'routines': _routines.map(_encodeRoutine).toList(),
       'logs': _logs.map(_encodeLog).toList(),
@@ -998,14 +979,21 @@ class AppState extends ChangeNotifier {
       'temporalTrialUses': _temporalTrialUses,
       'siConsoleTrialUses': _siConsoleTrialUses,
       'learning': _learning.toJson(),
-      'plan': _subscription.plan.name,
-      'billingCycle': _subscription.billingCycle.name,
-      'subscriptionStatus': _subscription.status.name,
-      'subscriptionStartDate': _subscription.subscriptionStartDate.toIso8601String(),
-      'mockNextBillingDate': _subscription.mockNextBillingDate.toIso8601String(),
-      'subscription': _subscription.toJson(),
     };
-    await _persistence.saveSnapshot(payload);
+    _saveQueue = _saveQueue
+        .catchError((Object _, StackTrace stackTrace) {})
+        .then((_) => _persistence.saveSnapshot(payload));
+    return _saveQueue.catchError((Object error, StackTrace stackTrace) {
+      runtimeError = 'Unable to persist runtime state.';
+      notifyListeners();
+    });
+  }
+
+  Energy _safeEnergyFromIndex(int? index) {
+    if (index == null || index < 0 || index >= Energy.values.length) {
+      return Energy.medium;
+    }
+    return Energy.values[index];
   }
 
   List<ChronoMission> _decodeMissions(List<dynamic> raw) {
@@ -1137,8 +1125,33 @@ class AppState extends ChangeNotifier {
     );
   }
 
+  /// Permanently delete user account and all data
+  Future<bool> deleteAccount() async {
+    runtimeError = null;
+    try {
+      // Clear all local data first
+      await _trialCounterStore.clearCounters();
+      await _persistence.saveSnapshot({});
+      
+      // Delete account from authentication service
+      // This will trigger auth state listener which clears session
+      // Backend should have rules to cascade-delete user data on auth deletion
+      // For now, we rely on Firebase Security Rules for Firestore data cleanup
+      
+      runtimeError = 'Account deleted. Signing out...';
+      notifyListeners();
+      return true;
+    } catch (e, stackTrace) {
+      runtimeError = 'Failed to delete account: $e';
+      await _safeCrashlyticsRecordError(e, stackTrace);
+      notifyListeners();
+      return false;
+    }
+  }
+
   @override
   void dispose() {
+    _isDisposed = true;
     _timeTicker.cancel();
     _paywallService.dispose();
     super.dispose();

@@ -2,6 +2,7 @@ import '../../../core/si/si_commands.dart';
 import '../../../core/si/si_emotion.dart';
 import '../../../core/si/si_insights.dart';
 import '../../../core/si/si_kernel.dart';
+import '../../../core/system/audio_service.dart';
 import '../../../domain/entities/si_insight.dart';
 import '../../../domain/usecases/si_console/evaluate_si_diagnostics_usecase.dart';
 import '../../../domain/usecases/si_console/generate_si_insights_usecase.dart';
@@ -42,14 +43,15 @@ class SIConsoleState {
 }
 
 class SIConsoleController {
-  SIConsoleController()
+  SIConsoleController({AudioService? audioService})
     : _kernel = SIKernel(),
       _emotion = SIEmotion(),
       _insights = SIInsights(),
       _commands = SICommands(),
       _runSICommandUseCase = RunSICommandUseCase(),
       _generateSIInsightsUseCase = GenerateSIInsightsUseCase(),
-      _evaluateSIDiagnosticsUseCase = EvaluateSIDiagnosticsUseCase();
+      _evaluateSIDiagnosticsUseCase = EvaluateSIDiagnosticsUseCase(),
+      _audio = audioService ?? AudioService();
 
   final SIKernel _kernel;
   final SIEmotion _emotion;
@@ -58,6 +60,7 @@ class SIConsoleController {
   final RunSICommandUseCase _runSICommandUseCase;
   final GenerateSIInsightsUseCase _generateSIInsightsUseCase;
   final EvaluateSIDiagnosticsUseCase _evaluateSIDiagnosticsUseCase;
+  final AudioService _audio;
 
   final List<String> _thoughts = <String>[];
   final List<String> _reflections = <String>[];
@@ -79,6 +82,7 @@ class SIConsoleController {
     if (command.isNotEmpty) {
       _lastCommand = command;
     }
+    _audio.playInputSend();
 
     final String result = _runSICommandUseCase(
       command: _lastCommand,

@@ -223,9 +223,12 @@ class SubscriptionSnapshot {
     );
   }
 
-  /// Check if subscription is currently valid
+  /// Check if subscription is currently valid for premium access.
   bool get isValid =>
-      status == SubscriptionStatus.active && DateTime.now().isBefore(mockNextBillingDate);
+      plan.isPremium &&
+      status != SubscriptionStatus.pending &&
+      status != SubscriptionStatus.expired &&
+      DateTime.now().isBefore(mockNextBillingDate);
 
   /// Days until next billing
   int get daysUntilNextBilling {

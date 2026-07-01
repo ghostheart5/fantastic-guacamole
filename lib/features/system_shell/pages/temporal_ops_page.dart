@@ -233,18 +233,17 @@ class _TemporalOpsPageState extends State<TemporalOpsPage> with SingleTickerProv
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 260),
                     opacity: _focusMode ? 0.16 : 0.1,
-                    child: Image.asset(
-                      'assets/grid/temporal_grid.png',
-                      fit: BoxFit.contain,
-                      errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
-                        return Image.asset(
-                          'assets/backgrounds/main_bg.png',
-                          fit: BoxFit.cover,
-                          errorBuilder:
-                              (BuildContext context, Object error, StackTrace? stackTrace) =>
-                                  const SizedBox.shrink(),
-                        );
-                      },
+                    child: Container(
+                      margin: const EdgeInsets.all(30),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0x55C2A7FF), width: 1.2),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: <Color>[Color(0x2200E7FF), Color(0x22B08BFF), Color(0x11FF8FB6)],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -258,11 +257,20 @@ class _TemporalOpsPageState extends State<TemporalOpsPage> with SingleTickerProv
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 240),
                     opacity: _focusMode ? 0.32 : 0.18,
-                    child: Image.asset(
-                      'assets/glows/glow_primary.png',
+                    child: Container(
                       width: 220,
-                      errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
-                          const SizedBox.shrink(),
+                      height: 220,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: <Color>[
+                            Color(0x3DC2A7FF),
+                            Color(0x33FF8FB6),
+                            Color(0x00000000),
+                          ],
+                          stops: <double>[0.0, 0.56, 1.0],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -403,11 +411,14 @@ class _DayChipState extends State<_DayChip> {
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 220),
                   opacity: widget.isSelected ? (_pressed ? 0.4 : 0.25) : 0,
-                  child: Image.asset(
-                    'assets/glows/glow_secondary.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
-                        const SizedBox.shrink(),
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: <Color>[Color(0x44C2A7FF), Color(0x33FF8FB6), Color(0x00000000)],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -468,11 +479,14 @@ class _GlowActionButtonState extends State<_GlowActionButton> {
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 220),
                   opacity: (widget.isActive || _pressed) ? (_pressed ? 0.35 : 0.24) : 0,
-                  child: Image.asset(
-                    'assets/glows/glow_primary.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
-                        const SizedBox.shrink(),
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: <Color>[Color(0x40C2A7FF), Color(0x2EFF8FB6), Color(0x00000000)],
+                      ),
+                    ),
                   ),
                 ),
               ),

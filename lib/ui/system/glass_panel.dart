@@ -14,17 +14,26 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final Color baseSurface = scheme.surface;
+    final Color borderColor = isActive ? scheme.primary : scheme.outline;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
       padding: padding,
       decoration: BoxDecoration(
-        color: const Color(0x22FFFFFF),
+        color: baseSurface.withValues(alpha: 0.22),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: isActive ? const Color(0x66C2A7FF) : const Color(0x33FFFFFF)),
+        border: Border.all(color: borderColor.withValues(alpha: isActive ? 0.55 : 0.32)),
         boxShadow: <BoxShadow>[
           const BoxShadow(color: Color(0x33000000), blurRadius: 20, offset: Offset(0, 8)),
-          if (isActive) const BoxShadow(color: Color(0x44C2A7FF), blurRadius: 24, spreadRadius: 2),
+          if (isActive)
+            BoxShadow(
+              color: scheme.primary.withValues(alpha: 0.35),
+              blurRadius: 24,
+              spreadRadius: 2,
+            ),
         ],
       ),
       child: Stack(
@@ -35,12 +44,19 @@ class GlassPanel extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 240),
-                  opacity: isActive ? 0.28 : 0,
-                  child: Image.asset(
-                    'assets/glows/glow_secondary.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
-                        const SizedBox.shrink(),
+                  opacity: isActive ? 0.32 : 0.12,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: <Color>[
+                          scheme.secondary.withValues(alpha: 0.16),
+                          scheme.primary.withValues(alpha: 0.14),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),

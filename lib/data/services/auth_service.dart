@@ -24,4 +24,19 @@ class AuthService {
   Future<void> signOut() async {
     await _auth.signOut();
   }
+
+  /// Delete the current user account permanently
+  /// This removes authentication and should trigger backend data deletion
+  Future<void> deleteAccount() async {
+    final User? user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('No user currently signed in.');
+    }
+
+    // Delete Firebase Auth account
+    await user.delete();
+
+    // Clear auth state
+    await _auth.signOut();
+  }
 }

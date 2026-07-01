@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/system/subscription_model.dart';
 import 'paywall_receipt_verifier.dart';
+import 'secure_entitlement_store.dart';
 
 class PaywallProduct {
   const PaywallProduct({
@@ -20,56 +23,106 @@ class PaywallProduct {
 }
 
 class PaywallService {
-  PaywallService({PaywallReceiptVerifier? verifier})
-    : _verifier = verifier ?? PaywallReceiptVerifier();
-
-  static const String _premiumKey = 'paywall_premium_v1';
+  PaywallService({
+    PaywallReceiptVerifier? verifier,
+    EntitlementStore? entitlementStore,
+    InAppPurchase? iap,
+  }) : _verifier = verifier ?? PaywallReceiptVerifier(),
+       _entitlementStore = entitlementStore ?? SecureEntitlementStore(),
+       _iap = iap ?? InAppPurchase.instance;
 
   static const Set<String> productIds = <String>{
     'chronospark_premium_monthly',
     'chronospark_premium_yearly',
   };
 
-  final InAppPurchase _iap = InAppPurchase.instance;
+  final InAppPurchase _iap;
   final PaywallReceiptVerifier _verifier;
+  final EntitlementStore _entitlementStore;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
 
+  bool get _supportsInAppPurchase =>
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
+
+  Future<bool> _isStoreAvailable() async {
+    if (!_supportsInAppPurchase) {
+      return false;
+    }
+
+    try {
+      return await _iap.isAvailable();
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> initialize({
-    required void Function(bool isPremium) onPremiumChanged,
+    required void Function(SubscriptionSnapshot? subscription) onSubscriptionChanged,
     void Function(String message)? onError,
   }) async {
-    final bool available = await _iap.isAvailable();
+    onSubscriptionChanged(await readVerifiedSubscription());
+
+    final bool available = await _isStoreAvailable();
     if (!available) {
-      onPremiumChanged(await readCachedPremium());
       return;
     }
 
-    _purchaseSub = _iap.purchaseStream.listen((List<PurchaseDetails> purchases) async {
-      for (final PurchaseDetails purchase in purchases) {
-        if (purchase.status == PurchaseStatus.purchased ||
-            purchase.status == PurchaseStatus.restored) {
-          final bool verified = await _verifier.verifyPurchase(purchase);
-          if (verified) {
-            await _setPremium(true);
-            onPremiumChanged(true);
-          } else {
-            onError?.call('Purchase verification failed. Premium access not granted.');
+    await _purchaseSub?.cancel();
+    _purchaseSub = _iap.purchaseStream.listen(
+      (List<PurchaseDetails> purchases) async {
+        for (final PurchaseDetails purchase in purchases) {
+          try {
+            if (purchase.status == PurchaseStatus.purchased ||
+                purchase.status == PurchaseStatus.restored) {
+              final bool verified = await _verifier.verifyPurchase(purchase);
+              if (verified) {
+                final SubscriptionSnapshot snapshot = _snapshotForPurchase(purchase);
+                await storeVerifiedSubscription(snapshot);
+                onSubscriptionChanged(snapshot);
+              } else {
+                await clearVerifiedSubscription();
+                onSubscriptionChanged(null);
+                onError?.call('Purchase verification failed. Premium access not granted.');
+              }
+            }
+
+            if (purchase.status == PurchaseStatus.error) {
+              onError?.call(purchase.error?.message ?? 'Purchase failed.');
+            }
+          } catch (error) {
+            onError?.call('Purchase processing failed: $error');
+          } finally {
+            if (purchase.pendingCompletePurchase) {
+              await _iap.completePurchase(purchase);
+            }
           }
         }
-        if (purchase.status == PurchaseStatus.error) {
-          onError?.call(purchase.error?.message ?? 'Purchase failed.');
-        }
-        if (purchase.pendingCompletePurchase) {
-          await _iap.completePurchase(purchase);
-        }
-      }
-    });
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        onError?.call('Purchase stream failed: $error');
+      },
+    );
+  }
 
-    onPremiumChanged(await readCachedPremium());
+  Future<SubscriptionSnapshot?> readVerifiedSubscription() async {
+    return _entitlementStore.readSubscription();
+  }
+
+  Future<void> storeVerifiedSubscription(SubscriptionSnapshot subscription) async {
+    if (!subscription.isValid) {
+      await clearVerifiedSubscription();
+      return;
+    }
+
+    await _entitlementStore.writeSubscription(subscription);
+  }
+
+  Future<void> clearVerifiedSubscription() async {
+    await _entitlementStore.clearSubscription();
   }
 
   Future<List<PaywallProduct>> queryProducts() async {
-    final bool available = await _iap.isAvailable();
+    final bool available = await _isStoreAvailable();
     if (!available) {
       return const <PaywallProduct>[];
     }
@@ -88,14 +141,14 @@ class PaywallService {
   }
 
   Future<void> buyProduct(String productId) async {
-    final bool available = await _iap.isAvailable();
+    final bool available = await _isStoreAvailable();
     if (!available) {
-      throw Exception('Store is currently unavailable on this device.');
+      throw StateError('Store is currently unavailable on this device.');
     }
 
     final ProductDetailsResponse response = await _iap.queryProductDetails(<String>{productId});
     if (response.productDetails.isEmpty) {
-      throw Exception('Selected product not found in store configuration.');
+      throw StateError('Selected product not found in store configuration.');
     }
 
     final ProductDetails product = response.productDetails.first;
@@ -104,20 +157,27 @@ class PaywallService {
   }
 
   Future<void> restorePurchases() async {
+    if (!await _isStoreAvailable()) {
+      return;
+    }
     await _iap.restorePurchases();
-  }
-
-  Future<bool> readCachedPremium() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_premiumKey) ?? false;
-  }
-
-  Future<void> _setPremium(bool value) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_premiumKey, value);
   }
 
   Future<void> dispose() async {
     await _purchaseSub?.cancel();
+  }
+
+  SubscriptionSnapshot _snapshotForPurchase(PurchaseDetails purchase) {
+    final BillingCycle cycle = purchase.productID.endsWith('_yearly')
+        ? BillingCycle.yearly
+        : BillingCycle.monthly;
+    final DateTime now = DateTime.now();
+    return SubscriptionSnapshot(
+      plan: SubscriptionPlan.premium,
+      billingCycle: cycle,
+      status: SubscriptionStatus.active,
+      subscriptionStartDate: now,
+      mockNextBillingDate: now.add(Duration(days: cycle.billingIntervalDays)),
+    );
   }
 }

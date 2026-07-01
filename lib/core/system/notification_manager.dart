@@ -1,4 +1,5 @@
 import 'behavior_entities.dart';
+import 'local_notification_service.dart';
 
 enum ChronoNotificationType {
   primaryDecisionAlert,
@@ -142,7 +143,18 @@ class NotificationManager {
   }
 
   void triggerNotification(String message) {
-    // Hook for flutter_local_notifications integration.
+    Future<void>.microtask(() async {
+      try {
+        await LocalNotificationService.instance.showNow(
+          title: 'ChronoSpark',
+          body: message,
+        );
+      } catch (_) {
+        // Keep console logging as a fallback when local notifications fail.
+      }
+    });
+
+    // Keep a debug trail for terminal sessions.
     // ignore: avoid_print
     print('NOTIFY: $message');
   }

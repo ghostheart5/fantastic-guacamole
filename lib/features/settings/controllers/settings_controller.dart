@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../data/repositories/settings_repository.dart';
 import '../../../data/repositories/settings_repository_impl.dart';
 import '../../../domain/entities/app_settings.dart';
@@ -24,7 +26,7 @@ class SettingsState {
   });
 }
 
-class SettingsController {
+class SettingsController extends ChangeNotifier {
   SettingsController({SettingsRepository? repository})
     : _repository = repository ?? SettingsRepositoryImpl(),
       _updateSettingsUseCase = UpdateSettingsUseCase(),
@@ -61,7 +63,9 @@ class SettingsController {
       neonRecall: value,
     );
     _applyDomain(next);
-    return read();
+    final SettingsState state = read();
+    notifyListeners();
+    return state;
   }
 
   SettingsState setSiEnabled(bool value) {
@@ -70,7 +74,9 @@ class SettingsController {
       siEnabled: value,
     );
     _applyDomain(next);
-    return read();
+    final SettingsState state = read();
+    notifyListeners();
+    return state;
   }
 
   SettingsState setNotifications(bool value) {
@@ -79,7 +85,9 @@ class SettingsController {
       notifications: value,
     );
     _applyDomain(next);
-    return read();
+    final SettingsState state = read();
+    notifyListeners();
+    return state;
   }
 
   SettingsState setDataSync(bool value) {
@@ -88,7 +96,9 @@ class SettingsController {
       dataSync: value,
     );
     _applyDomain(next);
-    return read();
+    final SettingsState state = read();
+    notifyListeners();
+    return state;
   }
 
   SettingsState setCompactMode(bool value) {
@@ -97,7 +107,9 @@ class SettingsController {
       compactMode: value,
     );
     _applyDomain(next);
-    return read();
+    final SettingsState state = read();
+    notifyListeners();
+    return state;
   }
 
   SettingsState setTextScale(double value) {
@@ -106,7 +118,9 @@ class SettingsController {
       textScale: value,
     );
     _applyDomain(next);
-    return read();
+    final SettingsState state = read();
+    notifyListeners();
+    return state;
   }
 
   SettingsState setSiTuning(double value) {
@@ -115,12 +129,16 @@ class SettingsController {
       siTuning: value,
     );
     _applyDomain(next);
-    return read();
+    final SettingsState state = read();
+    notifyListeners();
+    return state;
   }
 
   SettingsState resetData() {
     _repository.resetDefaults();
     _applyDomain(_resetSettingsUseCase());
-    return read();
+    final SettingsState state = read();
+    notifyListeners();
+    return state;
   }
 }

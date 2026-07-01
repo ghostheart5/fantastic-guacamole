@@ -1,21 +1,42 @@
-﻿import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
+﻿import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:io';
 
-import 'chronospark_system_app.dart';
-import 'core/di/app_locator.dart';
+import 'app/app.dart';
+import 'core/system/local_notification_service.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  } catch (_) {
-    // Firebase options may not be configured in local dev yet.
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await LocalNotificationService.instance.initialize();
+
+    final bool crashlyticsSupported =
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+  // Enable Crashlytics collection and set up error handlers on supported platforms.
+  if (crashlyticsSupported) {
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FirebaseCrashlytics.instance.recordFlutterError(details);
+    };
   }
 
-  // Touch the singleton to initialise all repository singletons before
-  // the widget tree is built.
-  AppLocator.instance;
-  runApp(const ChronoSparkSystemApp());
+  runZonedGuarded<Future<void>>(
+    () async {
+      runApp(const ChronoSparkApp());
+    },
+    (Object error, StackTrace stackTrace) {
+      if (crashlyticsSupported) {
+        FirebaseCrashlytics.instance.recordError(error, stackTrace, fatal: true);
+      } else {
+        debugPrint('Unhandled error: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    },
+  );
 }

@@ -116,6 +116,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Scaffold(
       body: HoloBackground(
+        backgroundAsset: 'assets/backgrounds/main_bg.png',
         child: SafeArea(
           child: ListView(
             padding: const EdgeInsets.all(AppSizes.md),

@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     id("com.android.application")
@@ -11,8 +12,13 @@ plugins {
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
+val releaseBuildRequested = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
+} else if (releaseBuildRequested) {
+    throw GradleException(
+        "Release signing is required. Create android/key.properties and configure the upload keystore.",
+    )
 }
 
 val releaseApplicationId =
@@ -47,22 +53,43 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+            if (!keystorePropertiesFile.exists()) {
+                if (releaseBuildRequested) {
+                    throw GradleException(
+                        "Release signing is required. Create android/key.properties and configure the upload keystore.",
+                    )
+                }
+                return@create
             }
+
+            val keyAliasValue = keystoreProperties["keyAlias"] as String?
+            val keyPasswordValue = keystoreProperties["keyPassword"] as String?
+            val storeFileValue = keystoreProperties["storeFile"] as String?
+            val storePasswordValue = keystoreProperties["storePassword"] as String?
+
+            if (keyAliasValue.isNullOrBlank() ||
+                keyPasswordValue.isNullOrBlank() ||
+                storeFileValue.isNullOrBlank() ||
+                storePasswordValue.isNullOrBlank()
+            ) {
+                if (releaseBuildRequested) {
+                    throw GradleException(
+                        "Release signing is incomplete. Fill in android/key.properties with keystore values.",
+                    )
+                }
+                return@create
+            }
+
+            keyAlias = keyAliasValue
+            keyPassword = keyPasswordValue
+            storeFile = file(storeFileValue)
+            storePassword = storePasswordValue
         }
     }
 
     buildTypes {
         release {
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
