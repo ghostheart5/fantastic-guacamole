@@ -29,8 +29,14 @@
 ## Policy and Legal
 - [x] Privacy policy file at `assets/legal/privacy_policy.html`
 - [x] Terms of service file at `assets/legal/terms_of_service.html`
+- [x] Account deletion file at `assets/legal/account_deletion.html`
+- [x] Support page file at `assets/legal/support.html`
+- [x] Data safety page file at `assets/legal/data_safety.html`
 - [x] Host privacy policy at public URL (`https://ghostheart5.github.io/fantastic-guacamole/privacy/`) — deployed via CI; add URL to Google Play listing
 - [x] Host terms URL (`https://ghostheart5.github.io/fantastic-guacamole/terms/`) — deployed via CI
+- [x] Host account deletion URL (`https://ghostheart5.github.io/fantastic-guacamole/delete-account/`) — deployed via CI
+- [x] Host support URL (`https://ghostheart5.github.io/fantastic-guacamole/support/`) — deployed via CI
+- [x] Host data safety URL (`https://ghostheart5.github.io/fantastic-guacamole/data-safety/`) — deployed via CI
 
 ## Versioning and Release
 - [x] Gradle release override support for app id and versioning added

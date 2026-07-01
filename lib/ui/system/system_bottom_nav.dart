@@ -36,6 +36,7 @@ class SystemBottomNav extends StatelessWidget {
           final bool selected = currentIndex == index;
           final Color color = selected ? scheme.primary : scheme.onSurface.withValues(alpha: 0.7);
           return Expanded(
+<<<<<<< HEAD
             child: InkWell(
               onTap: () => onTap(index),
               borderRadius: BorderRadius.circular(10),
@@ -93,8 +94,31 @@ class SystemBottomNav extends StatelessWidget {
                           fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                         ),
                       ),
+=======
+            child: Semantics(
+              label: items[index].label,
+              button: true,
+              selected: selected,
+              child: InkWell(
+                onTap: () => onTap(index),
+                borderRadius: BorderRadius.circular(10),
+                child: ExcludeSemantics(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(items[index].icon, size: 20, color: color),
+                        const SizedBox(height: 4),
+                        Text(
+                          items[index].label,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, color: color),
+                        ),
+                      ],
+>>>>>>> 979f416d61500b1beabf212d483428b7431dab3e
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

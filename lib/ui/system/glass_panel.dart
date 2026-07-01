@@ -39,6 +39,7 @@ class GlassPanel extends StatelessWidget {
       child: Stack(
         children: <Widget>[
           Positioned.fill(
+<<<<<<< HEAD
             child: IgnorePointer(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(18),
@@ -56,6 +57,20 @@ class GlassPanel extends StatelessWidget {
                           Colors.transparent,
                         ],
                       ),
+=======
+            child: ExcludeSemantics(
+              child: IgnorePointer(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 240),
+                    opacity: isActive ? 0.28 : 0,
+                    child: Image.asset(
+                      'assets/glows/glow_secondary.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
+                          const SizedBox.shrink(),
+>>>>>>> 979f416d61500b1beabf212d483428b7431dab3e
                     ),
                   ),
                 ),

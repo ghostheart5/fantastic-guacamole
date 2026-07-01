@@ -51,6 +51,7 @@ class PaywallReceiptVerifier {
       headers['Authorization'] = 'Bearer $_apiKey';
     }
 
+<<<<<<< HEAD
     final http.Response response = await retry<http.Response>(
       () async {
         final http.Response response = await _client
@@ -74,6 +75,18 @@ class PaywallReceiptVerifier {
       shouldRetry: (Object error, StackTrace stackTrace) =>
           error is TimeoutException || error is SocketException || error is http.ClientException,
     );
+=======
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse(_endpoint),
+        headers: headers,
+        body: jsonEncode(payload),
+      );
+    } on IOException catch (_) {
+      throw Exception('Receipt verification unavailable: no network connection.');
+    }
+>>>>>>> 979f416d61500b1beabf212d483428b7431dab3e
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       return false;

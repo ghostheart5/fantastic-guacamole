@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
+<<<<<<< HEAD
 import 'package:flutter/foundation.dart';
+=======
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+>>>>>>> 979f416d61500b1beabf212d483428b7431dab3e
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../core/system/subscription_model.dart';
@@ -41,6 +45,7 @@ class PaywallService {
   final EntitlementStore _entitlementStore;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
 
+<<<<<<< HEAD
   bool get _supportsInAppPurchase =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
 
@@ -55,6 +60,9 @@ class PaywallService {
       return false;
     }
   }
+=======
+  static final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+>>>>>>> 979f416d61500b1beabf212d483428b7431dab3e
 
   Future<void> initialize({
     required void Function(SubscriptionSnapshot? subscription) onSubscriptionChanged,
@@ -67,6 +75,7 @@ class PaywallService {
       return;
     }
 
+<<<<<<< HEAD
     await _purchaseSub?.cancel();
     _purchaseSub = _iap.purchaseStream.listen(
       (List<PurchaseDetails> purchases) async {
@@ -95,6 +104,27 @@ class PaywallService {
             if (purchase.pendingCompletePurchase) {
               await _iap.completePurchase(purchase);
             }
+=======
+    _purchaseSub = _iap.purchaseStream.listen((List<PurchaseDetails> purchases) async {
+      for (final PurchaseDetails purchase in purchases) {
+        if (purchase.status == PurchaseStatus.purchased ||
+            purchase.status == PurchaseStatus.restored) {
+          bool verified = false;
+          try {
+            verified = await _verifier.verifyPurchase(purchase);
+          } catch (_) {
+            onError?.call('Your purchase was completed but could not be verified right now due to a network issue. Please restore purchases once connectivity is available.');
+            if (purchase.pendingCompletePurchase) {
+              await _iap.completePurchase(purchase);
+            }
+            continue;
+          }
+          if (verified) {
+            await _setPremium(true);
+            onPremiumChanged(true);
+          } else {
+            onError?.call('Purchase verification failed. Premium access not granted.');
+>>>>>>> 979f416d61500b1beabf212d483428b7431dab3e
           }
         }
       },
@@ -163,6 +193,18 @@ class PaywallService {
     await _iap.restorePurchases();
   }
 
+<<<<<<< HEAD
+=======
+  Future<bool> readCachedPremium() async {
+    final String? value = await _secureStorage.read(key: _premiumKey);
+    return value == 'true';
+  }
+
+  Future<void> _setPremium(bool value) async {
+    await _secureStorage.write(key: _premiumKey, value: value.toString());
+  }
+
+>>>>>>> 979f416d61500b1beabf212d483428b7431dab3e
   Future<void> dispose() async {
     await _purchaseSub?.cancel();
   }
