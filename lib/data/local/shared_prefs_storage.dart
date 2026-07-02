@@ -102,7 +102,16 @@ class SharedPrefsStorage {
     try {
       final raw = prefs.getString(key);
       if (raw == null) return {};
-      return json.decode(raw) as Map<String, dynamic>;
+      final Object? decoded = json.decode(raw);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return decoded.map(
+          (dynamic mapKey, dynamic mapValue) => MapEntry(mapKey.toString(), mapValue),
+        );
+      }
+      return {};
     } catch (_) {
       return {};
     }
@@ -120,7 +129,8 @@ class SharedPrefsStorage {
     try {
       final raw = prefs.getString(key);
       if (raw == null) return [];
-      return json.decode(raw) as List<dynamic>;
+      final Object? decoded = json.decode(raw);
+      return decoded is List<dynamic> ? decoded : const <dynamic>[];
     } catch (_) {
       return [];
     }
