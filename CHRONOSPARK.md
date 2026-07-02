@@ -21,10 +21,13 @@ ChronoSpark combines a beautiful Material 3 UI with a sophisticated behavioral e
 ### Technology Stack
 
 - **Framework**: Flutter (Dart)
-- **State Management**: Provider pattern with `ChangeNotifier`
+- **State Management**: Riverpod providers (with legacy compatibility where needed)
 - **Persistence**: `SharedPreferences` via abstracted `RuntimePersistence` layer (designed for future Hive/SQLite upgrades)
 - **Typography**: Google Fonts (Orbitron, Inter, etc.)
 - **UI Pattern**: Material 3 + custom glassmorphic components
+
+Layer dependency direction contract: `UI (features) -> Riverpod providers (state) -> Repositories (data/di) -> Services (Supabase/storage) -> Engine (logic layer)`.
+See `docs/LAYER_FLOW.md`.
 
 ### Core Layers
 

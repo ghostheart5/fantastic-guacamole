@@ -1,0 +1,16 @@
+[
+  {
+    "id": "1",
+    "title": "Deep Work",
+    "priority": 5,
+    "difficulty": 4,
+    "energyRequired": 4
+  },
+  {
+    "id": "2",
+    "title": "Workout",
+    "priority": 3,
+    "difficulty": 2,
+    "energyRequired": 3
+  }
+]

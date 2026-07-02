@@ -1,0 +1,3 @@
+class CoachService {
+  const CoachService();
+}

@@ -43,3 +43,43 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/key.properties
+/android/app/*.jks
+/android/app/*.keystore
+# Flutter/Dart
+.dart_tool/
+.packages
+pubspec.lock
+build/
+
+# Android
+android/.gradle/
+android/app/build/
+*.keystore
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+
+# macOS
+macos/Pods/
+
+# Windows
+windows/flutter/ephemeral/
+
+# Linux
+linux/flutter/ephemeral/
+
+# VS Code
+.vscode/
+
+# IDEA
+.idea/
+
+# Logs
+*.log
+
+# Secrets
+.env
+
+~$*.docx

@@ -1,6 +1,4 @@
-<!DOCTYPE html>
-<html>
-<head>
+<!DOCTYPE html><html lang="en"><head>
   <!--
     If you are serving your web app in a path other than the root, change the
     href value below to reflect the base path you are serving from.
@@ -18,21 +16,161 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="ChronoSpark is an AI-powered productivity planner for focus sessions, temporal operations, adaptive insights, and secure task orchestration.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ChronoSpark">
+  <meta property="og:title" content="ChronoSpark | AI Productivity Planner">
+  <meta property="og:description" content="Plan faster and stay in flow with adaptive SI guidance, focus layers, and premium temporal ops.">
+  <meta property="og:url" content="https://ghostheart5.github.io/fantastic-guacamole/">
+  <meta property="og:image" content="https://ghostheart5.github.io/fantastic-guacamole/icons/Icon-512.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ChronoSpark | AI Productivity Planner">
+  <meta name="twitter:description" content="Adaptive planning, task orchestration, and decision support for deep work.">
+  <meta name="twitter:image" content="https://ghostheart5.github.io/fantastic-guacamole/icons/Icon-512.png">
+  <link rel="canonical" href="https://ghostheart5.github.io/fantastic-guacamole/">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="chronospark">
+  <meta name="apple-mobile-web-app-title" content="ChronoSpark">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/png" href="favicon.png">
 
-  <title>chronospark</title>
+  <title>ChronoSpark | AI Productivity Planner</title>
   <link rel="manifest" href="manifest.json">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "ChronoSpark",
+      "applicationCategory": "ProductivityApplication",
+      "operatingSystem": "Android, iOS, Windows, macOS, Linux, Web",
+      "description": "AI-powered productivity planner with adaptive focus guidance, temporal operations, and SI-assisted decision support.",
+      "url": "https://ghostheart5.github.io/fantastic-guacamole/",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+  </script>
+  <style id="splash-screen-style">
+    html {
+      height: 100%
+    }
+
+    body {
+      margin: 0;
+      min-height: 100%;
+      background-color: #0F172A;
+          background-size: 100% 100%;
+    }
+
+    .center {
+      margin: 0;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      -ms-transform: translate(-50%, -50%);
+      transform: translate(-50%, -50%);
+    }
+
+    .contain {
+      display:block;
+      width:100%; height:100%;
+      object-fit: contain;
+    }
+
+    .stretch {
+      display:block;
+      width:100%; height:100%;
+    }
+
+    .cover {
+      display:block;
+      width:100%; height:100%;
+      object-fit: cover;
+    }
+
+    .bottom {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      -ms-transform: translate(-50%, 0);
+      transform: translate(-50%, 0);
+    }
+
+    .bottomLeft {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+    }
+
+    .bottomRight {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+    }
+  </style>
+  <script id="splash-screen-script">
+    function removeSplashFromWeb() {
+      document.getElementById("splash")?.remove();
+      document.getElementById("splash-branding")?.remove();
+      document.body.style.background = "transparent";
+    }
+  </script>
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 </head>
 <body>
+  <picture id="splash">
+      <source srcset="splash/img/light-1x.png 1x, splash/img/light-2x.png 2x, splash/img/light-3x.png 3x, splash/img/light-4x.png 4x" media="(prefers-color-scheme: light)">
+      <source srcset="splash/img/dark-1x.png 1x, splash/img/dark-2x.png 2x, splash/img/dark-3x.png 3x, splash/img/dark-4x.png 4x" media="(prefers-color-scheme: dark)">
+      <img class="center" aria-hidden="true" src="splash/img/light-1x.png" alt="">
+  </picture>
+  <script>
+    (function ensureFormFieldIdentity() {
+      let generatedFieldCount = 0;
+
+      function assignIdentityAttributes(root) {
+        const fields = root.querySelectorAll('input, textarea, select');
+        for (const field of fields) {
+          if (!field.id) {
+            generatedFieldCount += 1;
+            field.id = `cs-field-${generatedFieldCount}`;
+          }
+          if (!field.name) {
+            field.name = field.id;
+          }
+        }
+      }
+
+      assignIdentityAttributes(document);
+
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          for (const node of mutation.addedNodes) {
+            if (!(node instanceof Element)) {
+              continue;
+            }
+            if (node.matches('input, textarea, select')) {
+              assignIdentityAttributes(node.parentElement ?? document);
+            } else {
+              assignIdentityAttributes(node);
+            }
+          }
+        }
+      });
+
+      observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+    })();
+  </script>
+  <script src="https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js"></script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
@@ -41,6 +179,7 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script src="flutter_bootstrap.js" async></script>
-</body>
-</html>
+  <script src="flutter_bootstrap.js" async=""></script>
+
+
+</body></html>

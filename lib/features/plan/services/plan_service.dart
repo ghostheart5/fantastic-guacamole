@@ -1,0 +1,3 @@
+class PlanService {
+  const PlanService();
+}

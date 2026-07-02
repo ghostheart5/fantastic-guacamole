@@ -25,14 +25,26 @@ val releaseVersionName =
     (project.findProperty("CHRONOSPARK_VERSION_NAME") as String?)
         ?: flutter.versionName
 
+fun Properties.hasReleaseSigningValues(): Boolean {
+    val storePassword = getProperty("storePassword")?.trim().orEmpty()
+    val keyPassword = getProperty("keyPassword")?.trim().orEmpty()
+    val keyAlias = getProperty("keyAlias")?.trim().orEmpty()
+    val storeFile = getProperty("storeFile")?.trim().orEmpty()
+
+    return listOf(storePassword, keyPassword, keyAlias, storeFile).all { value ->
+        value.isNotEmpty() && !value.startsWith("YOUR_")
+    }
+}
+
 android {
     namespace = releaseApplicationId
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = maxOf(flutter.compileSdkVersion, 34)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -40,17 +52,17 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = maxOf(flutter.targetSdkVersion, 34)
         versionCode = releaseVersionCode
         versionName = releaseVersionName
     }
 
     signingConfigs {
-        create("release") {
-            if (keystorePropertiesFile.exists()) {
+        if (keystorePropertiesFile.exists() && keystoreProperties.hasReleaseSigningValues()) {
+            create("release") {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
+                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
                 storePassword = keystoreProperties["storePassword"] as String
             }
         }
@@ -58,17 +70,15 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 }
 
 dependencies {
+    implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("com.android.billingclient:billing:6.0.1")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
 
 kotlin {

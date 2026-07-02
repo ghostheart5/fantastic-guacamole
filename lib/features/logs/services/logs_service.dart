@@ -1,0 +1,3 @@
+class LogsService {
+  const LogsService();
+}

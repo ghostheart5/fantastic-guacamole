@@ -1,0 +1,18 @@
+ChronoSpark Privacy Policy
+
+ChronoSpark stores user data locally on the device.
+
+We do not collect or transmit personal data to external servers.
+
+Data stored includes:
+- Tasks
+- App usage behavior
+- Preferences
+
+This data is used only to improve app functionality and user experience.
+
+No data is shared with third parties.
+
+Users can clear all stored data at any time from Settings.
+
+Contact: ghostheart131517@gmail.com

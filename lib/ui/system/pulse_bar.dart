@@ -13,7 +13,9 @@ class PulseBar extends StatelessWidget {
       children: <Widget>[
         Text(
           'System Pulse',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFA99DBE)),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: const Color(0xFFA99DBE)),
         ),
         const SizedBox(height: 10),
         _line('Energy', energy, const Color(0xFFC2A7FF)),
@@ -29,7 +31,10 @@ class PulseBar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(label, style: const TextStyle(color: Color(0xFFD8D0E6), fontSize: 12)),
+        Text(
+          label,
+          style: const TextStyle(color: Color(0xFFD8D0E6), fontSize: 12),
+        ),
         const SizedBox(height: 4),
         Semantics(
           label: '$label: $percentage%',

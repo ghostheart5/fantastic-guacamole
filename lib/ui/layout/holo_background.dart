@@ -1,6 +1,5 @@
+﻿import 'package:fantastic_guacamole/core/theme/decorations.dart';
 import 'package:flutter/material.dart';
-
-import '../../theme/decorations.dart';
 
 class HoloBackground extends StatelessWidget {
   final Widget child;
@@ -11,6 +10,10 @@ class HoloBackground extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF000000),
+        image: DecorationImage(
+          image: AssetImage('assets/backgrounds/home_bg.png'),
+          fit: BoxFit.cover,
+        ),
         gradient: AppDecorations.appBackground,
       ),
       child: child,

@@ -1,0 +1,16 @@
+
+PLACEHOLDER (PLACEHOLDER) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\config\env.dart
+PLACEHOLDER (MOCK_) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\config\env.dart
+PLACEHOLDER (TODO) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\core\utils\math_utils.dart
+PLACEHOLDER (TODO) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\core\widgets\app_layout.dart
+PLACEHOLDER (TODO) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\data\models\planning_horizon.dart
+PLACEHOLDER (TODO) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\data\models\task_behavior.dart
+PLACEHOLDER (TODO) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\data\models\user_state.dart
+PLACEHOLDER (TODO) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\data\services\workspace_store_service.dart
+PLACEHOLDER (TODO) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\engine\learning\learning_state.dart
+PLACEHOLDER (TODO) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\engine\learning\neural_dump.dart
+PLACEHOLDER (TODO) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\engine\si\si_persistance.dart
+PLACEHOLDER (PLACEHOLDER) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\features\insights\state\insights_state.dart
+PLACEHOLDER (TODO) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\features\profile\models\profile_model.dart
+PLACEHOLDER (TODO) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\features\progression\models\user_progress.dart
+PLACEHOLDER (TODO) in C:\Users\keegan radetski\Desktop\productive\chronospark\lib\state\controllers\si_state_controller.dart

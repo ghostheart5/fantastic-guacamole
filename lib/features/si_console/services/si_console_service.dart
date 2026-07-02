@@ -1,0 +1,3 @@
+class SiConsoleService {
+  const SiConsoleService();
+}

@@ -1,0 +1,3 @@
+class EmotionService {
+  const EmotionService();
+}

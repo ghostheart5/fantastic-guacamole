@@ -1,5 +1,5 @@
-name: chronospark
-description: "A new Flutter project."
+name: fantastic_guacamole
+description: "AI-powered productivity planner with adaptive focus, temporal ops, and SI guidance."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -35,18 +35,44 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.3.2
-  flutter_secure_storage: ^10.0.0
-  provider: ^6.1.2
-  firebase_core: ^3.13.1
-  firebase_auth: ^5.5.1
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  flutter_riverpod: ^3.3.2
+  go_router: ^17.3.0
   in_app_purchase: ^3.2.0
   http: ^1.3.0
   url_launcher: ^6.3.1
-  google_fonts: ^6.2.1
+  google_fonts: ^8.1.0
+  flutter_secure_storage: ^10.3.1
+  flutter_local_notifications: ^22.0.1
+  app_links: ^7.2.0
+  google_sign_in: ^7.2.0
+  supabase_flutter: ^2.9.1
+  flutter_svg: ^2.3.0
+  lottie: ^3.4.0
+  audioplayers: ^6.8.1
+  vibration: ^3.2.0
+  riverpod_annotation: ^4.0.3
+  speech_to_text: ^7.4.0
+  flutter_tts: ^4.2.5
+  intl: ^0.20.0
+  firebase_core: ^4.11.0
+  device_info_plus: ^13.0.0
+  package_info_plus: ^10.0.0
+  flutter_foreground_task: ^9.2.2
+  crypto: ^3.0.3
+  encrypt: ^5.0.3
+  path_provider: ^2.1.1
+  cryptography: ^2.7.0
+  timezone: ^0.11.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_native_splash: ^2.4.1
+  flutter_launcher_icons: ^0.14.4
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -54,6 +80,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  build_runner: ^2.4.13
+  riverpod_generator: ^4.0.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -66,17 +94,39 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
-    - assets/animations/
-    - assets/audio/
+    - assets/animations/focus_pulse.json
+    - assets/animations/level_up.json
+    - assets/animations/session_complete.json
+    - assets/audio/ai_decision.wav
+    - assets/audio/error_soft.wav
+    - assets/audio/focus_start.wav
+    - assets/audio/task_complete.wav
     - assets/backgrounds/
-    - assets/data/
-    - assets/fonts/
-    - assets/glows/
-    - assets/grid/
+    - assets/data/creator_seed.json
+    - assets/data/si_seed.json
+    - assets/data/tasks.json
+    - assets/data/temporal_seed.json
+    - assets/data/user.json
+    - assets/fonts/Inter_18pt-Black.ttf
+    - assets/fonts/Inter-Bold.ttf
+    - assets/fonts/Inter-Medium.ttf
+    - assets/fonts/Inter-Regular.ttf
     - assets/icons/
-    - assets/images/
-    - assets/legal/
-    - assets/overlays/
+    - assets/legal/privacy_policy.html
+    - assets/legal/privacy_policy.txt
+    - assets/legal/terms_of_service.html
+    - assets/legal/terms_of_service.txt
+    - assets/overlays/noise.png
+
+
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -100,6 +150,19 @@ flutter:
   #       - asset: fonts/Schyler-Regular.ttf
   #       - asset: fonts/Schyler-Italic.ttf
   #         style: italic
+
+flutter_native_splash:
+  color: "#0F172A"
+  android: true
+  ios: true
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icons/app_icon.png
+  remove_alpha_ios: true
+  adaptive_icon_background: "#0F172A"
+  adaptive_icon_foreground: assets/icons/app_icon.png
   #   - family: Trajan Pro
   #     fonts:
   #       - asset: fonts/TrajanPro.ttf
