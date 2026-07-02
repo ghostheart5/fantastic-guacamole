@@ -81,3 +81,5 @@ linux/flutter/ephemeral/
 
 # Secrets
 .env
+
+~$*.docx
