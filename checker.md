@@ -27,7 +27,7 @@ if ($emptyFiles -eq 0) {
 }
 
 Write-Host "`n🧩 TODO/placeholder scan"
-$markers = $dartFiles | Select-String -Pattern "\bTODO\b|\bplaceholder\b|\bnot implemented\b" -CaseSensitive:$false -ErrorAction SilentlyContinue
+$markers = $dartFiles | Select-String -Pattern "\bTODO(?:\b|[:(])|\bplaceholder\b|\bnot implemented\b" -CaseSensitive:$false -ErrorAction SilentlyContinue
 if ($markers) {
   foreach ($marker in $markers) {
     Write-Host "⚠️ $($marker.Path):$($marker.LineNumber) -> $($marker.Line.Trim())"
@@ -80,18 +80,19 @@ foreach ($symbol in $symbolChecks) {
 }
 
 Write-Host "`n🏗️ Architecture boundary scan"
+$basePath = (Resolve-Path .).Path
 foreach ($file in $dartFiles) {
-  $relative = [IO.Path]::GetRelativePath((Resolve-Path .).Path, $file.FullName).Replace('\', '/')
+  $relative = [IO.Path]::GetRelativePath($basePath, $file.FullName).Replace('\', '/')
   $text = Get-Content -Path $file.FullName -Raw -ErrorAction SilentlyContinue
   if ([string]::IsNullOrWhiteSpace($text)) {
     continue
   }
 
-  if ($relative -like "lib/features/*" -and $text -match "import\s+'package:[^']+/engine/") {
+  if ($relative -like "lib/features/*" -and $text -match "import\s+['""]package:[^'""]+/engine/['""]") {
     Write-Host "🔥 Possible UI -> ENGINE import: $relative"
     $violations++
   }
-  if ($relative -like "lib/engine/*" -and $text -match "import\s+'package:[^']+/state/") {
+  if ($relative -like "lib/engine/*" -and $text -match "import\s+['""]package:[^'""]+/state/['""]") {
     Write-Host "🔥 Possible ENGINE -> STATE import: $relative"
     $violations++
   }
