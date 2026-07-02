@@ -27,7 +27,7 @@ if ($emptyFiles -eq 0) {
 }
 
 Write-Host "`n🧩 TODO/placeholder scan"
-$markers = $dartFiles | Select-String -Pattern "TODO|placeholder|not implemented" -CaseSensitive:$false -ErrorAction SilentlyContinue
+$markers = $dartFiles | Select-String -Pattern "\bTODO\b|\bplaceholder\b|\bnot implemented\b" -CaseSensitive:$false -ErrorAction SilentlyContinue
 if ($markers) {
   foreach ($marker in $markers) {
     Write-Host "⚠️ $($marker.Path):$($marker.LineNumber) -> $($marker.Line.Trim())"
@@ -38,25 +38,26 @@ if ($markers) {
 }
 
 Write-Host "`n⚙️ Core file checks"
-$coreFiles = @(
-  "lib/engine/si/si_core.dart",
-  "lib/engine/si/si_engine.dart",
-  "lib/engine/si/si_ai_service.dart",
-  "lib/engine/si/si_response_engine.dart",
-  "lib/engine/learning/adaptive_learning.dart",
-  "lib/state/controllers/ai_controller.dart",
-  "lib/state/controllers/learning_controller.dart",
-  "lib/state/controllers/insight_controller.dart",
-  "lib/features/home/ui/smart_coach_screen.dart",
-  "lib/features/insights/insight_screen.dart",
-  "lib/features/si_console/ui/si_console_screen.dart"
+$coreChecks = @(
+  @{ Name = "SI Core"; Paths = @("lib/engine/si/si_core.dart") },
+  @{ Name = "SI Engine"; Paths = @("lib/engine/si/si_engine.dart") },
+  @{ Name = "SI AI Service"; Paths = @("lib/engine/si/si_ai_service.dart") },
+  @{ Name = "SI Response Engine"; Paths = @("lib/engine/si/si_response_engine.dart") },
+  @{ Name = "Adaptive Learning"; Paths = @("lib/engine/learning/adaptive_learning.dart") },
+  @{ Name = "AI Controller"; Paths = @("lib/state/controllers/ai_controller.dart") },
+  @{ Name = "Learning Controller"; Paths = @("lib/state/controllers/learning_controller.dart") },
+  @{ Name = "Insight Controller"; Paths = @("lib/state/controllers/insight_controller.dart") },
+  @{ Name = "Smart Coach Screen"; Paths = @("lib/features/home/ui/smart_coach_screen.dart") },
+  @{ Name = "Insight Screen"; Paths = @("lib/features/insights/ui/insight_screen.dart", "lib/features/insights/insight_screen.dart") },
+  @{ Name = "SI Console Screen"; Paths = @("lib/features/si_console/ui/si_console_screen.dart") }
 )
 
-foreach ($path in $coreFiles) {
-  if (Test-Path $path) {
-    Write-Host "✅ Found: $path"
+foreach ($check in $coreChecks) {
+  $existing = $check.Paths | Where-Object { Test-Path $_ }
+  if ($existing.Count -gt 0) {
+    Write-Host "✅ Found ($($check.Name)): $($existing[0])"
   } else {
-    Write-Host "❌ Missing core file: $path"
+    Write-Host "❌ Missing core file ($($check.Name)): $($check.Paths -join ' OR ')"
     $missingCore++
   }
 }
@@ -80,7 +81,7 @@ foreach ($symbol in $symbolChecks) {
 
 Write-Host "`n🏗️ Architecture boundary scan"
 foreach ($file in $dartFiles) {
-  $relative = $file.FullName.Replace((Resolve-Path .).Path + [IO.Path]::DirectorySeparatorChar, "")
+  $relative = [IO.Path]::GetRelativePath((Resolve-Path .).Path, $file.FullName).Replace('\', '/')
   $text = Get-Content -Path $file.FullName -Raw -ErrorAction SilentlyContinue
   if ([string]::IsNullOrWhiteSpace($text)) {
     continue
