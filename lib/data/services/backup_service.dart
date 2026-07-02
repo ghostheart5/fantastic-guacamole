@@ -135,8 +135,8 @@ class BackupService {
     if (rawTasks is! List) return const <TaskModel>[];
     return rawTasks
         .whereType<Map>()
-        .map((Map<dynamic, dynamic> value) => value.map(
-              (dynamic key, dynamic data) => MapEntry(key.toString(), data),
+        .map((Map<dynamic, dynamic> item) => item.map(
+              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
             ))
         .map(TaskAdapter.fromJson)
         .toList();

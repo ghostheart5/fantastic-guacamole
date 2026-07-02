@@ -59,7 +59,7 @@ class NetworkClient implements NetworkClientContract {
     if (decoded is Map) {
       return decoded.map((dynamic key, dynamic value) => MapEntry(key.toString(), value));
     }
-    throw const FormatException('Expected JSON object response');
+    throw FormatException('Expected JSON object response, but received: ${decoded.runtimeType}');
   }
 }
 

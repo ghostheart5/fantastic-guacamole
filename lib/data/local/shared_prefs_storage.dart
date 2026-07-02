@@ -108,7 +108,7 @@ class SharedPrefsStorage {
       }
       if (decoded is Map) {
         return decoded.map(
-          (dynamic mapKey, dynamic mapValue) => MapEntry(mapKey.toString(), mapValue),
+          (dynamic key, dynamic value) => MapEntry(key.toString(), value),
         );
       }
       return {};
