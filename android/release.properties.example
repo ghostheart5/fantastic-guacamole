@@ -1,6 +1,6 @@
 # Copy these values into android/gradle.properties (or pass with -P flags in CI)
 # to set production release identity/version without editing Gradle files.
 
-CHRONOSPARK_APPLICATION_ID=com.chronospark.app
-CHRONOSPARK_VERSION_CODE=2
-CHRONOSPARK_VERSION_NAME=1.0.1
+CHRONOSPARK_APPLICATION_ID=com.ghostheart5.chronospark
+CHRONOSPARK_VERSION_CODE=1
+CHRONOSPARK_VERSION_NAME=1.0.0

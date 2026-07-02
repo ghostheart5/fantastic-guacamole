@@ -8,6 +8,7 @@
 ChronoSpark is a Flutter-based second brain for task planning, adaptive learning, time-blocking, and AI-driven decision support.
 
 For the full architecture and subsystem reference, see [CHRONOSPARK.md](CHRONOSPARK.md).
+For the dependency direction contract, see [docs/LAYER_FLOW.md](docs/LAYER_FLOW.md).
 
 ## Highlights
 
@@ -22,3 +23,22 @@ For the full architecture and subsystem reference, see [CHRONOSPARK.md](CHRONOSP
 - `flutter analyze`
 - `flutter test`
 - `flutter run -d windows`
+
+## App links and indexing
+
+- Android App Links are declared for:
+  - `https://ghostheart5.github.io/fantastic-guacamole/app/*`
+  - `https://chronospark.app/app/*`
+  - `https://www.chronospark.app/app/*`
+- Digital association files are in `web/.well-known/`.
+- Replace the placeholder values in:
+  - `web/.well-known/assetlinks.json`
+  - `web/.well-known/apple-app-site-association`
+  before production rollout.
+- For production enforcement, set:
+  - `--dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true`
+  - `--dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=https://<your-domain>/verify-receipt`
+  - `--dart-define=CHRONOSPARK_AI_PROXY_ENDPOINT=https://<your-domain>/ai-proxy`
+  - `--dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=<release-cert-sha256>`
+  - `--dart-define=CHRONOSPARK_IOS_TEAM_ID=<apple-team-id>`
+- Security note: keep provider API secrets on your backend only; mobile/web clients now use authenticated user tokens for AI and receipt verification requests.

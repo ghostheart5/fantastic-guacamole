@@ -1,0 +1,3 @@
+class CreatorService {
+  const CreatorService();
+}

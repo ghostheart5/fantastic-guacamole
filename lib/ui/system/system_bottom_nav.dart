@@ -1,14 +1,21 @@
+import 'dart:async';
+
+import 'package:fantastic_guacamole/core/services/feedback_service.dart';
+import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/ui/widgets/app_icon.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SystemNavItem {
-  const SystemNavItem({required this.label, required this.icon, this.iconAsset});
+  const SystemNavItem({required this.label, this.iconData, this.svgAsset})
+    : assert(iconData != null || svgAsset != null);
 
   final String label;
-  final IconData icon;
-  final String? iconAsset;
+  final IconData? iconData;
+  final String? svgAsset;
 }
 
-class SystemBottomNav extends StatelessWidget {
+class SystemBottomNav extends ConsumerWidget {
   const SystemBottomNav({
     required this.items,
     required this.currentIndex,
@@ -21,109 +28,93 @@ class SystemBottomNav extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bool soundEnabled = ref.watch(soundEnabledProvider);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.2),
-        border: Border(top: BorderSide(color: scheme.outline.withValues(alpha: 0.32))),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List<Widget>.generate(items.length, (int index) {
-          final bool selected = currentIndex == index;
-          final Color color = selected ? scheme.primary : scheme.onSurface.withValues(alpha: 0.7);
-          return Expanded(
-<<<<<<< HEAD
-            child: InkWell(
-              onTap: () => onTap(index),
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? scheme.primary.withValues(alpha: 0.22)
-                            : scheme.surface.withValues(alpha: 0.28),
-                        borderRadius: BorderRadius.circular(9),
-                        border: Border.all(
-                          color: selected
-                              ? scheme.primary.withValues(alpha: 0.52)
-                              : scheme.outline.withValues(alpha: 0.22),
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: items[index].iconAsset != null
-                          ? Image.asset(
-                              items[index].iconAsset!,
-                              width: 20,
-                              height: 20,
-                              fit: BoxFit.contain,
-                              filterQuality: FilterQuality.high,
-                              gaplessPlayback: true,
-                              errorBuilder: (
-                                BuildContext context,
-                                Object error,
-                                StackTrace? stackTrace,
-                              ) {
-                                return Icon(items[index].icon, size: 18, color: color);
-                              },
-                            )
-                          : Icon(items[index].icon, size: 18, color: color),
-                    ),
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      height: 28,
-                      child: Text(
-                        items[index].label,
-                        maxLines: 2,
-                        softWrap: true,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.clip,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: color,
-                          height: 1.05,
-                          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                        ),
-                      ),
-=======
-            child: Semantics(
-              label: items[index].label,
-              button: true,
-              selected: selected,
-              child: InkWell(
-                onTap: () => onTap(index),
-                borderRadius: BorderRadius.circular(10),
-                child: ExcludeSemantics(
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
+        child: Row(
+          children: List<Widget>.generate(items.length, (int index) {
+            final bool selected = currentIndex == index;
+            final Color color = selected ? const Color(0xFFECE8F9) : const Color(0xFFB6AEC4);
+            final String? svgAsset = items[index].svgAsset;
+
+            return Expanded(
+              child: Semantics(
+                button: true,
+                selected: selected,
+                label: '${items[index].label} tab',
+                child: InkWell(
+                  onTap: () => unawaited(
+                    FeedbackService.tapThenAction(() => onTap(index), soundEnabled: soundEnabled),
+                  ),
+                  borderRadius: BorderRadius.circular(22),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Icon(items[index].icon, size: 20, color: color),
-                        const SizedBox(height: 4),
-                        Text(
-                          items[index].label,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, color: color),
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: AnimatedSlide(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      offset: selected ? const Offset(0, -0.06) : Offset.zero,
+                      child: SizedBox(
+                        height: 88,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Stack(
+                              alignment: Alignment.center,
+                              children: <Widget>[
+                                if (selected)
+                                  Container(
+                                    width: 68,
+                                    height: 68,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: RadialGradient(
+                                        colors: <Color>[
+                                          Color(0x66C2A7FF),
+                                          Color(0x2262E0FF),
+                                          Color(0x00000000),
+                                        ],
+                                        stops: <double>[0.0, 0.7, 1.0],
+                                      ),
+                                    ),
+                                  ),
+                                AnimatedScale(
+                                  duration: const Duration(milliseconds: 180),
+                                  curve: Curves.easeOut,
+                                  scale: selected ? 1.09 : 1,
+                                  child: svgAsset != null
+                                      ? AppIcon(svgAsset, size: 28, color: color)
+                                      : Icon(items[index].iconData, size: 28, color: color),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              items[index].label,
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                height: 1.0,
+                                color: color,
+                                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
->>>>>>> 979f416d61500b1beabf212d483428b7431dab3e
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-        }),
+            );
+          }),
+        ),
       ),
     );
   }

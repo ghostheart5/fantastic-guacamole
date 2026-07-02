@@ -1,10 +1,9 @@
 class AppSizes {
-  static const double xs = 6;
-  static const double sm = 10;
-  static const double md = 16;
-  static const double lg = 24;
-  static const double xl = 32;
+  static const padding = 16.0;
+  static const radius = 14.0;
 
-  static const double radius = 14;
-  static const double panelRadius = 18;
+  static const xs = 6.0;
+  static const sm = 10.0;
+  static const md = 16.0;
+  static const panelRadius = 22.0;
 }

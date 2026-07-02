@@ -1,5 +1,4 @@
 import java.util.Properties
-import org.gradle.api.GradleException
 
 plugins {
     id("com.android.application")
@@ -12,13 +11,8 @@ plugins {
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
-val releaseBuildRequested = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
-} else if (releaseBuildRequested) {
-    throw GradleException(
-        "Release signing is required. Create android/key.properties and configure the upload keystore.",
-    )
 }
 
 val releaseApplicationId =
@@ -31,14 +25,26 @@ val releaseVersionName =
     (project.findProperty("CHRONOSPARK_VERSION_NAME") as String?)
         ?: flutter.versionName
 
+fun Properties.hasReleaseSigningValues(): Boolean {
+    val storePassword = getProperty("storePassword")?.trim().orEmpty()
+    val keyPassword = getProperty("keyPassword")?.trim().orEmpty()
+    val keyAlias = getProperty("keyAlias")?.trim().orEmpty()
+    val storeFile = getProperty("storeFile")?.trim().orEmpty()
+
+    return listOf(storePassword, keyPassword, keyAlias, storeFile).all { value ->
+        value.isNotEmpty() && !value.startsWith("YOUR_")
+    }
+}
+
 android {
     namespace = releaseApplicationId
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = maxOf(flutter.compileSdkVersion, 34)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -46,56 +52,33 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = maxOf(flutter.targetSdkVersion, 34)
         versionCode = releaseVersionCode
         versionName = releaseVersionName
     }
 
     signingConfigs {
-        create("release") {
-            if (!keystorePropertiesFile.exists()) {
-                if (releaseBuildRequested) {
-                    throw GradleException(
-                        "Release signing is required. Create android/key.properties and configure the upload keystore.",
-                    )
-                }
-                return@create
+        if (keystorePropertiesFile.exists() && keystoreProperties.hasReleaseSigningValues()) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
             }
-
-            val keyAliasValue = keystoreProperties["keyAlias"] as String?
-            val keyPasswordValue = keystoreProperties["keyPassword"] as String?
-            val storeFileValue = keystoreProperties["storeFile"] as String?
-            val storePasswordValue = keystoreProperties["storePassword"] as String?
-
-            if (keyAliasValue.isNullOrBlank() ||
-                keyPasswordValue.isNullOrBlank() ||
-                storeFileValue.isNullOrBlank() ||
-                storePasswordValue.isNullOrBlank()
-            ) {
-                if (releaseBuildRequested) {
-                    throw GradleException(
-                        "Release signing is incomplete. Fill in android/key.properties with keystore values.",
-                    )
-                }
-                return@create
-            }
-
-            keyAlias = keyAliasValue
-            keyPassword = keyPasswordValue
-            storeFile = file(storeFileValue)
-            storePassword = storePasswordValue
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 }
 
 dependencies {
+    implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("com.android.billingclient:billing:6.0.1")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
 
 kotlin {

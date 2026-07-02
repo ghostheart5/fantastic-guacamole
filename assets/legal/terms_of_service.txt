@@ -1,0 +1,18 @@
+ChronoSpark Terms of Service
+
+ChronoSpark is a productivity tool designed to assist with task management and decision-making.
+
+The app provides suggestions based on user inputs and behavior, but all decisions are the user's responsibility.
+
+The app is provided "as-is" without guarantees of accuracy or outcomes.
+
+Users agree not to misuse the app or attempt to disrupt its functionality.
+
+Subscriptions and purchases, when enabled, are handled by the relevant app store.
+Purchase restoration is available only in builds where live billing has been enabled.
+
+ChronoSpark reserves the right to update these terms.
+
+Some account requests may require support rather than a self-service in-app action.
+
+Contact: https://chronospark.app/support

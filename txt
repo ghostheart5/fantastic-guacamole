@@ -1,0 +1,161 @@
+Core Architecture Working
+App boots without errors
+
+Routing works (every screen reachable)
+
+State management wired correctly (for you: Riverpod providers generate + run)
+
+Dependency injection works
+
+No infinite rebuild loops
+
+No missing imports or unresolved references
+
+2. Data Model Working
+All models defined
+
+All fields typed correctly
+
+JSON serialization/deserialization works
+
+Null‑safety handled
+
+Data validation exists
+
+No circular dependencies
+
+3. Data Sources Working
+Local storage works (Hive/SQflite/SecureStorage/Supabase local cache)
+
+Remote API calls work (Supabase, REST, Firebase, etc.)
+
+Error handling for failed requests
+
+Retry logic optional
+
+Offline mode optional
+
+Sync logic optional
+
+4. Repositories Working
+Repos return correct data
+
+Repos handle errors
+
+Repos expose streams/futures cleanly
+
+Repos connect correctly to services
+
+Repos tested with real data
+
+5. State Management Working
+Providers compile (codegen success)
+
+Providers return correct states
+
+Loading state implemented
+
+Error state implemented
+
+Empty state implemented
+
+State updates trigger UI updates
+
+No provider override conflicts
+
+6. UI Functionality Working
+All screens load
+
+All buttons respond
+
+All forms validate
+
+All gestures work
+
+All lists scroll
+
+All dialogs open/close
+
+All animations run (if used)
+
+No broken layouts
+
+No overflow errors
+
+7. Navigation Working
+All routes registered
+
+Deep links optional
+
+Back navigation works
+
+Navigation arguments pass correctly
+
+No dead‑end screens
+
+No duplicate navigation stacks
+
+8. User Input Working
+Text fields validate
+
+Buttons disabled/enabled correctly
+
+Form submission works
+
+Input sanitization
+
+Keyboard dismissal
+
+Gesture detection
+
+9. Authentication (if app uses it)
+Sign‑in works
+
+Sign‑up works
+
+Password reset works
+
+Token refresh works
+
+Logout works
+
+Auth state persists
+
+Protected routes blocked when logged out
+
+10. Error Handling Working
+No red screens
+
+No unhandled exceptions
+
+User‑friendly error messages
+
+Retry buttons where needed
+
+Logging enabled
+
+Crash reporting enabled
+
+11. Performance Functionality
+No jank on scroll
+
+No heavy work on main thread
+
+Images optimized
+
+Caching works
+
+Pagination works (if used)
+
+Memory usage stable
+
+12. Device Compatibility
+Works on small screens
+
+Works on large screens
+
+Works in dark mode
+
+Works with slow network
+
+Works offline (if required)

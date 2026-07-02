@@ -1,0 +1,568 @@
+# Empty and Placeholder Audit
+
+Generated: 2026-06-26 13:48:56
+Workspace: C:\Users\keegan radetski\Desktop\productive\chronospark
+
+## Summary
+- Total folders: 436
+- Total files: 895
+- Empty folders: 26
+- Empty files: 11
+- Placeholder-marker files: 75
+
+## All Folders
+- .dart_tool
+- .dart_tool\dartpad
+- .git
+- .git\gk
+- .git\hooks
+- .git\info
+- .git\logs
+- .git\logs\refs
+- .git\logs\refs\heads
+- .git\logs\refs\remotes
+- .git\logs\refs\remotes\origin
+- .git\logs\refs\remotes\origin\copilot
+- .git\objects
+- .git\objects\00
+- .git\objects\01
+- .git\objects\04
+- .git\objects\06
+- .git\objects\07
+- .git\objects\08
+- .git\objects\0a
+- .git\objects\0c
+- .git\objects\0e
+- .git\objects\16
+- .git\objects\17
+- .git\objects\18
+- .git\objects\1c
+- .git\objects\1e
+- .git\objects\1f
+- .git\objects\25
+- .git\objects\28
+- .git\objects\29
+- .git\objects\2a
+- .git\objects\2b
+- .git\objects\31
+- .git\objects\32
+- .git\objects\33
+- .git\objects\38
+- .git\objects\39
+- .git\objects\3a
+- .git\objects\3c
+- .git\objects\3d
+- .git\objects\43
+- .git\objects\44
+- .git\objects\45
+- .git\objects\49
+- .git\objects\4a
+- .git\objects\4b
+- .git\objects\4f
+- .git\objects\52
+- .git\objects\54
+- .git\objects\56
+- .git\objects\58
+- .git\objects\5a
+- .git\objects\5b
+- .git\objects\5c
+- .git\objects\60
+- .git\objects\62
+- .git\objects\64
+- .git\objects\6b
+- .git\objects\6c
+- .git\objects\6e
+- .git\objects\6f
+- .git\objects\70
+- .git\objects\73
+- .git\objects\76
+- .git\objects\7c
+- .git\objects\7d
+- .git\objects\7e
+- .git\objects\82
+- .git\objects\84
+- .git\objects\86
+- .git\objects\87
+- .git\objects\89
+- .git\objects\8b
+- .git\objects\8d
+- .git\objects\8e
+- .git\objects\93
+- .git\objects\96
+- .git\objects\97
+- .git\objects\9a
+- .git\objects\9c
+- .git\objects\9d
+- .git\objects\9e
+- .git\objects\a1
+- .git\objects\a2
+- .git\objects\a3
+- .git\objects\a7
+- .git\objects\aa
+- .git\objects\ad
+- .git\objects\b0
+- .git\objects\b2
+- .git\objects\b3
+- .git\objects\b5
+- .git\objects\c0
+- .git\objects\c3
+- .git\objects\c5
+- .git\objects\c6
+- .git\objects\c8
+- .git\objects\cb
+- .git\objects\cd
+- .git\objects\cf
+- .git\objects\d7
+- .git\objects\d9
+- .git\objects\db
+- .git\objects\de
+- .git\objects\e2
+- .git\objects\e3
+- .git\objects\e7
+- .git\objects\ea
+- .git\objects\ee
+- .git\objects\f0
+- .git\objects\f3
+- .git\objects\f6
+- .git\objects\f7
+- .git\objects\f9
+- .git\objects\fa
+- .git\objects\fc
+- .git\objects\fe
+- .git\objects\ff
+- .git\objects\info
+- .git\objects\info\commit-graphs
+- .git\objects\pack
+- .git\refs
+- .git\refs\heads
+- .git\refs\remotes
+- .git\refs\remotes\origin
+- .git\refs\remotes\origin\copilot
+- .git\refs\tags
+- .githooks
+- .github
+- .github\ISSUE_TEMPLATE
+- .github\workflows
+- .idea
+- .idea\libraries
+- .idea\runConfigurations
+- .rebuild
+- .vscode
+- android
+- android\.gradle
+- android\.gradle\9.1.0
+- android\.gradle\9.1.0\checksums
+- android\.gradle\9.1.0\executionHistory
+- android\.gradle\9.1.0\expanded
+- android\.gradle\9.1.0\fileChanges
+- android\.gradle\9.1.0\fileHashes
+- android\.gradle\9.1.0\vcsMetadata
+- android\.gradle\buildOutputCleanup
+- android\.gradle\noVersion
+- android\.gradle\vcs-1
+- android\.kotlin
+- android\.kotlin\sessions
+- android\app
+- android\app\src
+- android\app\src\debug
+- android\app\src\main
+- android\app\src\main\java
+- android\app\src\main\java\io
+- android\app\src\main\java\io\flutter
+- android\app\src\main\java\io\flutter\plugins
+- android\app\src\main\kotlin
+- android\app\src\main\kotlin\com
+- android\app\src\main\kotlin\com\ghostheart5
+- android\app\src\main\kotlin\com\ghostheart5\chronospark
+- android\app\src\main\res
+- android\app\src\main\res\drawable
+- android\app\src\main\res\drawable-hdpi
+- android\app\src\main\res\drawable-mdpi
+- android\app\src\main\res\drawable-v21
+- android\app\src\main\res\drawable-xhdpi
+- android\app\src\main\res\drawable-xxhdpi
+- android\app\src\main\res\drawable-xxxhdpi
+- android\app\src\main\res\mipmap-hdpi
+- android\app\src\main\res\mipmap-mdpi
+- android\app\src\main\res\mipmap-xhdpi
+- android\app\src\main\res\mipmap-xxhdpi
+- android\app\src\main\res\mipmap-xxxhdpi
+- android\app\src\main\res\values
+- android\app\src\main\res\values-night
+- android\app\src\main\res\values-night-v31
+- android\app\src\main\res\values-v31
+- android\app\src\profile
+- android\gradle
+- android\gradle\wrapper
+- assets
+- assets\animations
+- assets\audio
+- assets\backgrounds
+- assets\data
+- assets\empty
+- assets\fonts
+- assets\icons
+- assets\images
+- assets\legal
+- assets\overlays
+- docs
+- integration_test
+- ios
+- ios\Flutter
+- ios\Flutter\ephemeral
+- ios\Flutter\ephemeral\Packages
+- ios\Flutter\ephemeral\Packages\.packages
+- ios\Flutter\ephemeral\Packages\FlutterGeneratedPluginSwiftPackage
+- ios\Flutter\ephemeral\Packages\FlutterGeneratedPluginSwiftPackage\Sources
+- ios\Flutter\ephemeral\Packages\FlutterGeneratedPluginSwiftPackage\Sources\FlutterGeneratedPluginSwiftPackage
+- ios\Runner
+- ios\Runner.xcodeproj
+- ios\Runner.xcodeproj\project.xcworkspace
+- ios\Runner.xcodeproj\project.xcworkspace\xcshareddata
+- ios\Runner.xcodeproj\xcshareddata
+- ios\Runner.xcodeproj\xcshareddata\xcschemes
+- ios\Runner.xcworkspace
+- ios\Runner.xcworkspace\xcshareddata
+- ios\Runner\Assets.xcassets
+- ios\Runner\Assets.xcassets\AppIcon.appiconset
+- ios\Runner\Assets.xcassets\LaunchBackground.imageset
+- ios\Runner\Assets.xcassets\LaunchImage.imageset
+- ios\Runner\Base.lproj
+- ios\RunnerTests
+- lib
+- lib\app
+- lib\common
+- lib\common\errors
+- lib\config
+- lib\core
+- lib\core\constants
+- lib\core\extensions
+- lib\core\navigation
+- lib\core\services
+- lib\core\state
+- lib\core\system
+- lib\core\theme
+- lib\core\utils
+- lib\core\widgets
+- lib\data
+- lib\data\di
+- lib\data\local
+- lib\data\models
+- lib\data\paywall
+- lib\data\repositories
+- lib\data\services
+- lib\data\services\contracts
+- lib\data\sources
+- lib\data\storage
+- lib\di
+- lib\domain
+- lib\domain\entities
+- lib\domain\logic
+- lib\domain\logic\decision
+- lib\domain\logic\energy
+- lib\domain\logic\fatigue
+- lib\domain\logic\insights
+- lib\domain\logic\planning
+- lib\domain\logic\scoring
+- lib\domain\models
+- lib\domain\usecases
+- lib\domain\usecases\ai
+- lib\domain\usecases\focus
+- lib\domain\usecases\insights
+- lib\domain\usecases\planning
+- lib\domain\usecases\tasks
+- lib\domain\usecases\user
+- lib\domain\value_objects
+- lib\engine
+- lib\engine\insights
+- lib\engine\learning
+- lib\engine\scoring
+- lib\engine\si
+- lib\features
+- lib\features\auth
+- lib\features\auth\screens
+- lib\features\coach
+- lib\features\coach\logic
+- lib\features\coach\models
+- lib\features\coach\services
+- lib\features\coach\state
+- lib\features\coach\ui
+- lib\features\console
+- lib\features\console\widgets
+- lib\features\creator
+- lib\features\creator\widgets
+- lib\features\focus
+- lib\features\focus\logic
+- lib\features\focus\models
+- lib\features\focus\services
+- lib\features\focus\state
+- lib\features\focus\ui
+- lib\features\focus\widgets
+- lib\features\home
+- lib\features\home\widgets
+- lib\features\insights
+- lib\features\insights\logic
+- lib\features\insights\models
+- lib\features\insights\services
+- lib\features\insights\state
+- lib\features\insights\ui
+- lib\features\logs
+- lib\features\logs\logic
+- lib\features\logs\models
+- lib\features\logs\services
+- lib\features\logs\state
+- lib\features\logs\ui
+- lib\features\logs\widgets
+- lib\features\notifications
+- lib\features\plan
+- lib\features\plan\widgets
+- lib\features\profile
+- lib\features\profile\logic
+- lib\features\profile\models
+- lib\features\profile\services
+- lib\features\profile\state
+- lib\features\profile\ui
+- lib\features\profile\ui\widgets
+- lib\features\profile\widgets
+- lib\features\progression
+- lib\features\progression\logic
+- lib\features\progression\models
+- lib\features\progression\services
+- lib\features\progression\state
+- lib\features\progression\ui
+- lib\features\progression\ui\widgets
+- lib\features\progression\widgets
+- lib\features\reflect
+- lib\features\reflect\widgets
+- lib\features\settings
+- lib\features\settings\actions
+- lib\features\settings\controllers
+- lib\features\settings\screens
+- lib\features\settings\widgets
+- lib\features\si_console
+- lib\features\si_console\controllers
+- lib\features\si_console\logic
+- lib\features\si_console\models
+- lib\features\si_console\services
+- lib\features\si_console\state
+- lib\features\si_console\ui
+- lib\features\si_console\widgets
+- lib\features\system_shell
+- lib\features\system_shell\models
+- lib\features\system_shell\pages
+- lib\features\tasks
+- lib\features\tasks\logic
+- lib\features\tasks\models
+- lib\features\tasks\services
+- lib\features\tasks\state
+- lib\features\tasks\ui
+- lib\onboarding
+- lib\onboarding\steps
+- lib\state
+- lib\state\controllers
+- lib\state\core
+- lib\state\feature
+- lib\state\models
+- lib\state\providers
+- lib\theme
+- lib\ui
+- lib\ui\components
+- lib\ui\layout
+- lib\ui\layouts
+- lib\ui\screens
+- lib\ui\splash
+- lib\ui\system
+- lib\ui\widgets
+- lib\widgets
+- linux
+- linux\flutter
+- linux\flutter\ephemeral
+- linux\flutter\ephemeral\.plugin_symlinks
+- linux\flutter\ephemeral\.plugin_symlinks\app_links_linux
+- linux\flutter\ephemeral\.plugin_symlinks\audioplayers_linux
+- linux\flutter\ephemeral\.plugin_symlinks\device_info_plus
+- linux\flutter\ephemeral\.plugin_symlinks\flutter_local_notifications_linux
+- linux\flutter\ephemeral\.plugin_symlinks\flutter_secure_storage_linux
+- linux\flutter\ephemeral\.plugin_symlinks\gtk
+- linux\flutter\ephemeral\.plugin_symlinks\jni
+- linux\flutter\ephemeral\.plugin_symlinks\package_info_plus
+- linux\flutter\ephemeral\.plugin_symlinks\path_provider_linux
+- linux\flutter\ephemeral\.plugin_symlinks\shared_preferences_linux
+- linux\flutter\ephemeral\.plugin_symlinks\url_launcher_linux
+- linux\runner
+- logs
+- macos
+- macos\Flutter
+- macos\Flutter\ephemeral
+- macos\Flutter\ephemeral\Packages
+- macos\Flutter\ephemeral\Packages\.packages
+- macos\Flutter\ephemeral\Packages\FlutterGeneratedPluginSwiftPackage
+- macos\Flutter\ephemeral\Packages\FlutterGeneratedPluginSwiftPackage\Sources
+- macos\Flutter\ephemeral\Packages\FlutterGeneratedPluginSwiftPackage\Sources\FlutterGeneratedPluginSwiftPackage
+- macos\Runner
+- macos\Runner.xcodeproj
+- macos\Runner.xcodeproj\project.xcworkspace
+- macos\Runner.xcodeproj\project.xcworkspace\xcshareddata
+- macos\Runner.xcodeproj\xcshareddata
+- macos\Runner.xcodeproj\xcshareddata\xcschemes
+- macos\Runner.xcworkspace
+- macos\Runner.xcworkspace\xcshareddata
+- macos\Runner\Assets.xcassets
+- macos\Runner\Assets.xcassets\AppIcon.appiconset
+- macos\Runner\Base.lproj
+- macos\Runner\Configs
+- macos\RunnerTests
+- scripts
+- test
+- test\support
+- test\unit
+- test\widget
+- web
+- web\.well-known
+- web\app
+- web\app\creator
+- web\app\logs
+- web\app\nexus
+- web\app\settings
+- web\app\si
+- web\app\temporal
+- web\icons
+- web\privacy
+- web\splash
+- web\splash\img
+- web\terms
+- windows
+- windows\flutter
+- windows\flutter\ephemeral
+- windows\flutter\ephemeral\.plugin_symlinks
+- windows\flutter\ephemeral\.plugin_symlinks\app_links
+- windows\flutter\ephemeral\.plugin_symlinks\audioplayers_windows
+- windows\flutter\ephemeral\.plugin_symlinks\device_info_plus
+- windows\flutter\ephemeral\.plugin_symlinks\flutter_secure_storage_windows
+- windows\flutter\ephemeral\.plugin_symlinks\jni
+- windows\flutter\ephemeral\.plugin_symlinks\package_info_plus
+- windows\flutter\ephemeral\.plugin_symlinks\passkeys_windows
+- windows\flutter\ephemeral\.plugin_symlinks\path_provider_windows
+- windows\flutter\ephemeral\.plugin_symlinks\shared_preferences_windows
+- windows\flutter\ephemeral\.plugin_symlinks\url_launcher_windows
+- windows\runner
+- windows\runner\resources
+
+## Empty Folders
+- .git\refs\tags
+- android\.gradle\9.1.0\expanded
+- android\.gradle\9.1.0\vcsMetadata
+- android\.kotlin\sessions
+- ios\Flutter\ephemeral\Packages\.packages
+- lib\core\widgets
+- lib\features\coach\services
+- lib\features\focus\services
+- lib\features\insights\logic
+- lib\features\insights\models
+- lib\features\insights\services
+- lib\features\insights\state
+- lib\features\logs\services
+- lib\features\profile\logic
+- lib\features\profile\models
+- lib\features\profile\services
+- lib\features\profile\widgets
+- lib\features\progression\services
+- lib\features\progression\widgets
+- lib\features\si_console\models
+- lib\features\si_console\services
+- lib\features\si_console\state
+- lib\features\tasks\models
+- lib\features\tasks\services
+- logs
+- macos\Flutter\ephemeral\Packages\.packages
+
+## Empty Files
+- android\.gradle\9.1.0\gc.properties
+- android\.gradle\vcs-1\gc.properties
+- lib\app\app_root.dart
+- lib\app\providers.dart
+- lib\features\focus\focus_screen.dart
+- lib\features\home\_screen.dart
+- lib\features\home\home_screen.dart
+- lib\features\profile\profile_screen.dart
+- lib\features\progression\models\user_progress.dart
+- lib\features\progression\progression_screen.dart
+- lib\state\app_state.dart
+
+## Placeholder Marker Hits
+- Marker set: TODO, FIXME, TBD, placeholder, stub, mock, plug in later, sample task, No data yet, coming soon, not implemented, implement me, lorem ipsum
+- .git\hooks\sendemail-validate.sample:22 (marker: TODO)
+- .git\index:33 (marker: mock)
+- .git\objects\pack\pack-1d56777dd094a48c9f354157a3e8098dab47a033.pack:3104 (marker: Tbd)
+- .git\objects\pack\pack-24406aa88dcaa36c2ecf468ca8645062e042f49e.pack:5915 (marker: tbD)
+- .vscode\launch.json:21 (marker: Mock)
+- android\.gradle\9.1.0\executionHistory\executionHistory.bin:32 (marker: Placeholder)
+- android\.gradle\9.1.0\fileHashes\fileHashes.bin:2028 (marker: tBd)
+- android\app\src\main\res\drawable-xhdpi\splash.png:504 (marker: tBd)
+- android\app\src\main\res\drawable-xxhdpi\splash.png:1418 (marker: tbd)
+- assets\backgrounds\bg_focus.png:1182 (marker: tbD)
+- assets\backgrounds\bg_main.png:4873 (marker: tbD)
+- assets\backgrounds\bg_surface.png:5819 (marker: tbd)
+- assets\backgrounds\bg_system.png:3260 (marker: TBD)
+- assets\empty\no_insights.png:3830 (marker: TBd)
+- assets\empty\no_logs.png:5439 (marker: TBd)
+- assets\empty\no_tasks.png:3038 (marker: TBD)
+- assets\fonts\Inter_18pt-Black.ttf:2019 (marker: tbd)
+- assets\fonts\Inter-Bold.ttf:2019 (marker: tbd)
+- assets\fonts\Inter-Medium.ttf:2019 (marker: tbd)
+- assets\fonts\Inter-Regular.ttf:2019 (marker: tbd)
+- assets\images\focus_glow.png:3499 (marker: Tbd)
+- assets\overlays\noise.png:173 (marker: TBD)
+- CHRONOSPARK.md:2417 (marker: mock)
+- docs\ACCESSIBILITY_AUDIT.md:228 (marker: Placeholder)
+- docs\ASSETS_VERIFICATION_AUDIT.md:391 (marker: placeholder)
+- docs\audit_empty_placeholder_report.md:1 (marker: Placeholder)
+- docs\EDGE_CASES_AUDIT.md:315 (marker: not implemented)
+- docs\ERROR_HANDLING_RELIABILITY_AUDIT.md:216 (marker: mock)
+- docs\google_play_release_checklist.md:15 (marker: stub)
+- docs\PAYWALL_MONETIZATION_AUDIT.md:17 (marker: Mock)
+- docs\PERFORMANCE_OPTIMIZATION_REPORT.md:5 (marker: mock)
+- docs\PRODUCTION_READINESS_AUDIT.md:406 (marker: Mock)
+- docs\receipt_verification_api.md:1 (marker: Stub)
+- docs\TOP_3_CRITICAL_ISSUES.md:11 (marker: NOT IMPLEMENTED)
+- ios\Runner\Assets.xcassets\LaunchImage.imageset\LaunchImage@2x.png:504 (marker: tBd)
+- ios\Runner\Assets.xcassets\LaunchImage.imageset\LaunchImage@3x.png:1418 (marker: tbd)
+- ios\Runner\Base.lproj\LaunchScreen.storyboard:35 (marker: placeholder)
+- ios\Runner\Base.lproj\Main.storyboard:22 (marker: placeholder)
+- lib\app\router.dart:1 (marker: placeholder)
+- lib\config\env.dart:19 (marker: Mock)
+- lib\core\state\app_state.dart:13 (marker: mock)
+- lib\core\system\data_migration.dart:178 (marker: toDo)
+- lib\core\system\mock_billing_service.dart:1 (marker: Mock)
+- lib\core\system\subscription_model.dart:141 (marker: mock)
+- lib\data\paywall\entitlement_service.dart:43 (marker: mock)
+- lib\data\repositories\log_repository.dart:10 (marker: placeholder)
+- lib\data\services\workspace_store_service.dart:141 (marker: toDo)
+- lib\domain\usecases\insights\generate_insight.dart:4 (marker: No data yet)
+- lib\engine\insights\insight_engine.dart:14 (marker: No data yet)
+- lib\engine\learning\adaptive_learning.dart:40 (marker: toDo)
+- lib\engine\learning\behavior_entities.dart:49 (marker: toDo)
+- lib\engine\scoring\scoring_weights.dart:39 (marker: toDo)
+- lib\engine\si\decision_model.dart:21 (marker: toDo)
+- lib\features\auth\screens\auth_gate.dart:18 (marker: Mock)
+- lib\features\auth\screens\login_screen.dart:15 (marker: Mock)
+- lib\features\settings\controllers\settings_controller.dart:39 (marker: toDo)
+- lib\features\settings\widgets\subscription_billing_widget.dart:26 (marker: Mock)
+- lib\features\si_console\controllers\si_console_controller.dart:169 (marker: toDo)
+- lib\features\system_shell\pages\nexus_page.dart:19 (marker: mock)
+- lib\features\system_shell\pages\profile_page.dart:389 (marker: toDo)
+- lib\features\system_shell\pages\settings_page.dart:240 (marker: toDo)
+- lib\features\system_shell\pages\smart_coach_screen.dart:104 (marker: toDo)
+- lib\features\system_shell\pages\tasks_page.dart:49 (marker: toDo)
+- linux\flutter\CMakeLists.txt:9 (marker: TODO)
+- macos\Runner\Assets.xcassets\AppIcon.appiconset\app_icon_512.png:9 (marker: tbd)
+- README.md:34 (marker: placeholder)
+- scripts\receipt_verifier_stub.js:42 (marker: Stub)
+- test\unit\subscription_model_test.dart:12 (marker: mock)
+- test\widget\auth_gate_widget_test.dart:92 (marker: mock)
+- web\index.html:12 (marker: placeholder)
+- web\splash\img\dark-2x.png:504 (marker: tBd)
+- web\splash\img\dark-3x.png:1418 (marker: tbd)
+- web\splash\img\light-2x.png:504 (marker: tBd)
+- web\splash\img\light-3x.png:1418 (marker: tbd)
+- windows\flutter\CMakeLists.txt:9 (marker: TODO)

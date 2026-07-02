@@ -1,8 +1,8 @@
 # ChronoSpark Google Play Release Checklist
 
 ## Firebase
-- [x] FlutterFire configured for project `chronospark-app`
-- [x] `lib/firebase_options.dart` generated
+- [x] FlutterFire project configured for `chronospark-app`
+- [ ] Replace placeholder values in `lib/config/firebase_options.dart` or verify Android release path does not depend on them
 - [x] Android `google-services.json` generated
 - [ ] iOS `GoogleService-Info.plist` added to `ios/Runner/` (run FlutterFire on macOS or download manually)
 - [ ] Firebase Console: enable Email/Password auth provider
@@ -13,6 +13,7 @@
   - `chronospark_premium_yearly`
 - [x] Client-side receipt verification hook added
 - [x] Server stub endpoint script added (`scripts/receipt_verifier_stub.js`)
+- [ ] Implement real Play Billing purchase and restore flow in app code
 - [ ] Create matching products in Google Play Console with exact IDs
 - [ ] Add pricing, localized descriptions, and publish products
 - [ ] Test purchases with license test account
@@ -29,14 +30,11 @@
 ## Policy and Legal
 - [x] Privacy policy file at `assets/legal/privacy_policy.html`
 - [x] Terms of service file at `assets/legal/terms_of_service.html`
-- [x] Account deletion file at `assets/legal/account_deletion.html`
-- [x] Support page file at `assets/legal/support.html`
-- [x] Data safety page file at `assets/legal/data_safety.html`
-- [x] Host privacy policy at public URL (`https://ghostheart5.github.io/fantastic-guacamole/privacy/`) — deployed via CI; add URL to Google Play listing
-- [x] Host terms URL (`https://ghostheart5.github.io/fantastic-guacamole/terms/`) — deployed via CI
-- [x] Host account deletion URL (`https://ghostheart5.github.io/fantastic-guacamole/delete-account/`) — deployed via CI
-- [x] Host support URL (`https://ghostheart5.github.io/fantastic-guacamole/support/`) — deployed via CI
-- [x] Host data safety URL (`https://ghostheart5.github.io/fantastic-guacamole/data-safety/`) — deployed via CI
+- [x] Support page file added at `web/support/index.html`
+- [x] Host privacy policy at public URL (`https://chronospark.app/privacy/` or equivalent deployed path)
+- [x] Host terms URL (`https://chronospark.app/terms/` or equivalent deployed path)
+- [x] Host support URL (`https://chronospark.app/support/` or equivalent deployed path)
+- [ ] Confirm Play Console developer support email/contact is configured
 
 ## Versioning and Release
 - [x] Gradle release override support for app id and versioning added
@@ -46,5 +44,10 @@
 
 ## Testing
 - [x] `flutter analyze` clean
-- [x] `flutter test` passing
+- [ ] Add or restore `test/` coverage; `flutter test` currently has no test directory
 - [x] Audit script (`python uats.py`) clean
+
+## Closed Testing Notes
+- [x] Tester access mode can bypass auth and premium restrictions for QA builds
+- [ ] Hide or disable unfinished account-management flows if using community testers
+- [ ] Use a signed `.aab` built with QA/tester dart-defines, not production publish flags

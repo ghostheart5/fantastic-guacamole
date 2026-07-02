@@ -67,6 +67,24 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# Temporary compatibility shim for older audioplayers_windows releases under
+# latest MSVC STL (VS 2026 Insiders). This avoids a hard error from
+# <experimental/coroutine> while we keep package versions pinned.
+if(TARGET audioplayers_windows_plugin)
+  target_compile_definitions(audioplayers_windows_plugin PRIVATE
+    _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+endif()
+
+# firebase_core currently maps Profile to the SDK's Debug binaries on Windows.
+# That pulls in debug CRT symbols (e.g. _CrtDbgReport) and breaks Profile links.
+# Map Profile to imported Release artifacts without relying on path text replacement.
+foreach(firebase_lib IN ITEMS firebase_app firebase_auth firebase_storage firebase_firestore)
+  if(TARGET ${firebase_lib})
+    set_property(TARGET ${firebase_lib} APPEND PROPERTY
+      MAP_IMPORTED_CONFIG_PROFILE Release)
+  endif()
+endforeach()
+
 
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can
@@ -75,14 +93,11 @@ include(flutter/generated_plugins.cmake)
 set(BUILD_BUNDLE_DIR "$<TARGET_FILE_DIR:${BINARY_NAME}>")
 # Make the "install" step default, as it's required to run.
 set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
-endif()
+# Keep all install output local to the build tree (never Program Files).
+set(INSTALL_BUNDLE_DATA_DIR "${BUILD_BUNDLE_DIR}/data")
+set(INSTALL_BUNDLE_LIB_DIR "${BUILD_BUNDLE_DIR}")
 
-set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
-set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
-
-install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
+install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"

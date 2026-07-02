@@ -1,0 +1,3 @@
+class TasksService {
+  const TasksService();
+}

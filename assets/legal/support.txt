@@ -1,0 +1,14 @@
+ChronoSpark Support
+
+Last updated: 2026-06-28
+
+Closed testing builds may include QA-only access overrides and may not reflect final billing or account-management behavior.
+
+When requesting help:
+- Include your device model and OS version.
+- Describe the screen or feature where the issue occurred.
+- State whether you used tester access or a real account.
+- Include reproduction steps or screenshots when possible.
+
+Contact:
+Use the developer support contact listed in the app store listing.

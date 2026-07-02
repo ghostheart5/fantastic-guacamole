@@ -30,7 +30,11 @@ class SparkCard extends StatelessWidget {
             border: Border.all(color: const Color(0x33FFFFFF)),
             boxShadow: primary
                 ? const <BoxShadow>[
-                    BoxShadow(color: Color(0x55C2A7FF), blurRadius: 24, spreadRadius: 1),
+                    BoxShadow(
+                      color: Color(0x55C2A7FF),
+                      blurRadius: 24,
+                      spreadRadius: 1,
+                    ),
                   ]
                 : const <BoxShadow>[],
           ),
@@ -39,16 +43,17 @@ class SparkCard extends StatelessWidget {
             children: <Widget>[
               Text(
                 subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFFE9E1F5),
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: const Color(0xFFE9E1F5)),
               ),
               const SizedBox(height: 8),
               Text(
                 title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),

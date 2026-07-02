@@ -14,71 +14,40 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final Color baseSurface = scheme.surface;
-    final Color borderColor = isActive ? scheme.primary : scheme.outline;
-
-    return AnimatedContainer(
+    return AnimatedSlide(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
-      padding: padding,
-      decoration: BoxDecoration(
-        color: baseSurface.withValues(alpha: 0.22),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: borderColor.withValues(alpha: isActive ? 0.55 : 0.32)),
-        boxShadow: <BoxShadow>[
-          const BoxShadow(color: Color(0x33000000), blurRadius: 20, offset: Offset(0, 8)),
-          if (isActive)
-            BoxShadow(
-              color: scheme.primary.withValues(alpha: 0.35),
-              blurRadius: 24,
-              spreadRadius: 2,
-            ),
-        ],
-      ),
-      child: Stack(
-        children: <Widget>[
-          Positioned.fill(
-<<<<<<< HEAD
-            child: IgnorePointer(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 240),
-                  opacity: isActive ? 0.32 : 0.12,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: <Color>[
-                          scheme.secondary.withValues(alpha: 0.16),
-                          scheme.primary.withValues(alpha: 0.14),
-                          Colors.transparent,
-                        ],
-                      ),
-=======
-            child: ExcludeSemantics(
-              child: IgnorePointer(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 240),
-                    opacity: isActive ? 0.28 : 0,
-                    child: Image.asset(
-                      'assets/glows/glow_secondary.png',
-                      fit: BoxFit.cover,
-                      errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
-                          const SizedBox.shrink(),
->>>>>>> 979f416d61500b1beabf212d483428b7431dab3e
-                    ),
-                  ),
-                ),
-              ),
-            ),
+      offset: isActive ? const Offset(0, -0.01) : Offset.zero,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        padding: padding,
+        decoration: BoxDecoration(
+          image: const DecorationImage(
+            image: AssetImage('assets/backgrounds/home_bg.png'),
+            fit: BoxFit.cover,
           ),
-          child,
-        ],
+          color: const Color(0x1A000000),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? const Color(0x38C2A7FF) : const Color(0x12FFFFFF),
+          ),
+          boxShadow: <BoxShadow>[
+            const BoxShadow(
+              color: Color(0x16000000),
+              blurRadius: 16,
+              offset: Offset(0, 6),
+            ),
+            if (isActive)
+              const BoxShadow(
+                color: Color(0x1AC2A7FF),
+                blurRadius: 18,
+                spreadRadius: 0.5,
+                offset: Offset(0, 8),
+              ),
+          ],
+        ),
+        child: child,
       ),
     );
   }

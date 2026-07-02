@@ -1,0 +1,141 @@
+import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
+import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/theme/theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class AppRoot extends ConsumerWidget {
+  const AppRoot({super.key, this.startupError});
+
+  final String? startupError;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final String startupMessage = startupError?.trim() ?? '';
+    final bool showQaDiagnostics = ref.watch(intelligenceStateProvider).flags.testerFullAccess;
+
+    return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
+      title: 'ChronoSpark',
+      theme: appTheme,
+      routerConfig: ref.watch(appRouterProvider),
+      builder: (context, child) {
+        if (startupMessage.isEmpty && !showQaDiagnostics) {
+          return child ?? const SizedBox.shrink();
+        }
+
+        return Stack(
+          children: [
+            child ?? const SizedBox.shrink(),
+            if (startupMessage.isNotEmpty)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: SafeArea(
+                  minimum: const EdgeInsets.all(16),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
+                      ),
+                      child: Text(
+                        startupMessage,
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (showQaDiagnostics)
+              Align(
+                alignment: Alignment.topRight,
+                child: SafeArea(
+                  minimum: const EdgeInsets.all(12),
+                  child: FloatingActionButton.small(
+                    heroTag: 'qa_diagnostics_fab',
+                    backgroundColor: Colors.black.withValues(alpha: 0.72),
+                    onPressed: () => _showDiagnosticsSheet(context),
+                    child: const Icon(Icons.bug_report_outlined, color: Colors.white, size: 18),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDiagnosticsSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF050D1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.72,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 14, 16, 10),
+                  child: Text(
+                    'QA Diagnostics',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, color: Colors.white12),
+                Expanded(
+                  child: ValueListenableBuilder<List<String>>(
+                    valueListenable: RuntimeDiagnostics.entries,
+                    builder: (context, entries, _) {
+                      if (entries.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'No diagnostics captured yet.',
+                            style: TextStyle(color: Colors.white54, fontSize: 13),
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                        itemCount: entries.length,
+                        itemBuilder: (context, index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              entries[index],
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                height: 1.35,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
