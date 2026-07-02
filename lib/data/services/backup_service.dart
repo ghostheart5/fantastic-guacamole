@@ -78,47 +78,34 @@ class BackupService {
   }
 
   Future<void> restoreFullBackup(Map<String, dynamic> backup) async {
-    if (backup['tasks'] is List) {
-      final list = backup['tasks'] as List;
-      final models = list
-          .whereType<Map<String, dynamic>>()
-          .map(TaskAdapter.fromJson)
-          .toList();
+    final List<TaskModel> models = _taskModelsFromRaw(backup['tasks']);
+    if (models.isNotEmpty) {
       await taskStorage.clear();
       for (final model in models) {
         await taskStorage.put(model.id, model);
       }
     }
 
-    if (backup['user'] is Map<String, dynamic>) {
-      final model = UserAdapter.fromJson(
-        backup['user'] as Map<String, dynamic>,
-      );
+    final Map<String, dynamic>? userJson = _asStringKeyMap(backup['user']);
+    if (userJson != null) {
+      final model = UserAdapter.fromJson(userJson);
       await userStorage.put('user', model);
     }
 
-    if (backup['user_state'] is Map<String, dynamic>) {
-      await prefs.setJson(
-        'user_state',
-        backup['user_state'] as Map<String, dynamic>,
-      );
+    final Map<String, dynamic>? userStateJson = _asStringKeyMap(backup['user_state']);
+    if (userStateJson != null) {
+      await prefs.setJson('user_state', userStateJson);
     }
 
-    if (backup['settings'] is Map<String, dynamic>) {
-      await prefs.setJson(
-        'settings',
-        backup['settings'] as Map<String, dynamic>,
-      );
+    final Map<String, dynamic>? settingsJson = _asStringKeyMap(backup['settings']);
+    if (settingsJson != null) {
+      await prefs.setJson('settings', settingsJson);
     }
   }
 
   Future<void> restoreTasks(Map<String, dynamic> backup) async {
-    if (backup['tasks'] is! List) return;
-    final list = backup['tasks'] as List;
-    final models = list
-        .whereType<Map<String, dynamic>>()
-        .map(TaskAdapter.fromJson)
-        .toList();
+    final List<TaskModel> models = _taskModelsFromRaw(backup['tasks']);
+    if (models.isEmpty) return;
     await taskStorage.clear();
     for (final model in models) {
       await taskStorage.put(model.id, model);
@@ -126,21 +113,39 @@ class BackupService {
   }
 
   Future<void> restoreUser(Map<String, dynamic> backup) async {
-    if (backup['user'] is! Map<String, dynamic>) return;
-    final model = UserAdapter.fromJson(backup['user'] as Map<String, dynamic>);
+    final Map<String, dynamic>? userJson = _asStringKeyMap(backup['user']);
+    if (userJson == null) return;
+    final model = UserAdapter.fromJson(userJson);
     await userStorage.put('user', model);
   }
 
   Future<void> restoreUserState(Map<String, dynamic> backup) async {
-    if (backup['user_state'] is! Map<String, dynamic>) return;
-    await prefs.setJson(
-      'user_state',
-      backup['user_state'] as Map<String, dynamic>,
-    );
+    final Map<String, dynamic>? userStateJson = _asStringKeyMap(backup['user_state']);
+    if (userStateJson == null) return;
+    await prefs.setJson('user_state', userStateJson);
   }
 
   Future<void> restoreSettings(Map<String, dynamic> backup) async {
-    if (backup['settings'] is! Map<String, dynamic>) return;
-    await prefs.setJson('settings', backup['settings'] as Map<String, dynamic>);
+    final Map<String, dynamic>? settingsJson = _asStringKeyMap(backup['settings']);
+    if (settingsJson == null) return;
+    await prefs.setJson('settings', settingsJson);
+  }
+
+  List<TaskModel> _taskModelsFromRaw(dynamic rawTasks) {
+    if (rawTasks is! List) return const <TaskModel>[];
+    return rawTasks
+        .whereType<Map>()
+        .map((Map<dynamic, dynamic> item) => item.map(
+              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+            ))
+        .map(TaskAdapter.fromJson)
+        .toList();
+  }
+
+  Map<String, dynamic>? _asStringKeyMap(dynamic value) {
+    if (value is! Map) return null;
+    return value.map(
+      (dynamic key, dynamic mapValue) => MapEntry(key.toString(), mapValue),
+    );
   }
 }

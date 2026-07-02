@@ -25,7 +25,7 @@ class NetworkClient implements NetworkClientContract {
       headers?.forEach((k, v) => request.headers.set(k, v));
       final response = await request.close().timeout(timeout);
       final body = await response.transform(utf8.decoder).join();
-      return jsonDecode(body) as Map<String, dynamic>;
+      return _decodeMap(body);
     } finally {
       client.close();
     }
@@ -45,10 +45,21 @@ class NetworkClient implements NetworkClientContract {
       request.write(jsonEncode(body));
       final response = await request.close().timeout(timeout);
       final responseBody = await response.transform(utf8.decoder).join();
-      return jsonDecode(responseBody) as Map<String, dynamic>;
+      return _decodeMap(responseBody);
     } finally {
       client.close();
     }
+  }
+
+  Map<String, dynamic> _decodeMap(String payload) {
+    final Object? decoded = jsonDecode(payload);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    if (decoded is Map) {
+      return decoded.map((dynamic key, dynamic value) => MapEntry(key.toString(), value));
+    }
+    throw FormatException('Expected JSON object response, but received: ${decoded.runtimeType}');
   }
 }
 
