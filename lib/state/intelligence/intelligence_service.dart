@@ -8,7 +8,7 @@ class IntelligenceService {
     required bool hasMockSession,
     required bool hasAuthenticatedUser,
   }) {
-    final bool isProduction = Env.resolveIsProduction(Env.appFlavor);
+    final bool isProduction = Env.isProduction;
     final bool isMockMode = Env.resolveIsMockMode(
       isProduction: isProduction,
       enableMockMode: Env.enableMockMode,

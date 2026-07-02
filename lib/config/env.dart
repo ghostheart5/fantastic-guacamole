@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class Env {
   static const String appName = 'ChronoSpark';
   static const String appFlavor = String.fromEnvironment(
@@ -73,8 +75,8 @@ class Env {
     defaultValue: false,
   );
 
-  static bool resolveIsProduction(String flavor) {
-    return flavor.toLowerCase() == 'prod';
+  static bool resolveIsProduction(String flavor, {required bool isReleaseMode}) {
+    return isReleaseMode && flavor.toLowerCase() == 'prod';
   }
 
   static bool resolveIsMockMode({required bool isProduction, required bool enableMockMode}) {
@@ -104,7 +106,7 @@ class Env {
     return !isProduction || enableTesterFullAccess;
   }
 
-  static bool get isProduction => resolveIsProduction(appFlavor);
+  static bool get isProduction => resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
 
   static bool get isMockMode =>
       resolveIsMockMode(isProduction: isProduction, enableMockMode: enableMockMode);
