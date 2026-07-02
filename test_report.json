@@ -1,0 +1,6 @@
+{
+    "issues": [
+        "Flutter tests failed",
+        "/bin/sh: 1: flutter: not found"
+    ]
+}

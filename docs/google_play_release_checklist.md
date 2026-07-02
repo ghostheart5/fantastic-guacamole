@@ -44,7 +44,7 @@
 
 ## Testing
 - [x] `flutter analyze` clean
-- [ ] Add or restore `test/` coverage; `flutter test` currently has no test directory
+- [ ] Expand `test/` and `integration_test/` coverage for critical flows and keep tests green in CI
 - [x] Audit script (`python uats.py`) clean
 
 ## Closed Testing Notes
