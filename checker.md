@@ -27,7 +27,7 @@ if ($emptyFiles -eq 0) {
 }
 
 Write-Host "`n🧩 TODO/placeholder scan"
-$markers = Select-String -Path "$root/**/*.dart" -Pattern "TODO|placeholder|not implemented" -CaseSensitive:$false -ErrorAction SilentlyContinue
+$markers = $dartFiles | Select-String -Pattern "TODO|placeholder|not implemented" -CaseSensitive:$false -ErrorAction SilentlyContinue
 if ($markers) {
   foreach ($marker in $markers) {
     Write-Host "⚠️ $($marker.Path):$($marker.LineNumber) -> $($marker.Line.Trim())"
@@ -69,7 +69,7 @@ $symbolChecks = @(
 )
 
 foreach ($symbol in $symbolChecks) {
-  $match = Select-String -Path "$root/**/*.dart" -Pattern "\b$symbol\b" -ErrorAction SilentlyContinue
+  $match = $dartFiles | Select-String -Pattern "\b$symbol\b" -ErrorAction SilentlyContinue
   if ($match) {
     Write-Host "✅ Connected: $symbol"
   } else {
@@ -101,7 +101,7 @@ if ($violations -eq 0) {
 }
 
 Write-Host "`n📊 Logging presence"
-$logs = Select-String -Path "$root/**/*.dart" -Pattern "Logger\.log" -ErrorAction SilentlyContinue
+$logs = $dartFiles | Select-String -Pattern "Logger\.log" -ErrorAction SilentlyContinue
 if ($logs) {
   Write-Host "✅ Logger.log usage found ($($logs.Count) hits)"
 } else {
