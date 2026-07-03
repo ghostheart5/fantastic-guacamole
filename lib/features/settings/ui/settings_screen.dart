@@ -1,6 +1,8 @@
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/constants/app_colors.dart';
 import 'package:fantastic_guacamole/core/constants/app_urls.dart';
+import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/data/di/services_providers.dart';
 import 'package:fantastic_guacamole/features/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -123,6 +125,9 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
+              const _ReflectionReminderSection(),
+              const SizedBox(height: 16),
+
               _Section(
                 label: 'ACCOUNT',
                 accentColor: AppColors.neonViolet,
@@ -231,6 +236,149 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ReflectionReminderSection extends ConsumerStatefulWidget {
+  const _ReflectionReminderSection();
+
+  @override
+  ConsumerState<_ReflectionReminderSection> createState() =>
+      _ReflectionReminderSectionState();
+}
+
+class _ReflectionReminderSectionState
+    extends ConsumerState<_ReflectionReminderSection> {
+  static const _enabledKey = 'reflection_reminder_enabled';
+  static const _timeKey = 'reflection_reminder_time';
+  static const _notifId = 'reflection_reminder';
+
+  bool _enabled = false;
+  TimeOfDay _time = const TimeOfDay(hour: 20, minute: 0);
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _load() {
+    final enabledStr = SharedPrefsService.load(_enabledKey);
+    final timeStr = SharedPrefsService.load(_timeKey);
+    setState(() {
+      _enabled = enabledStr == 'true';
+      if (timeStr != null) {
+        final parts = timeStr.split(':');
+        if (parts.length == 2) {
+          _time = TimeOfDay(
+            hour: int.tryParse(parts[0]) ?? 20,
+            minute: int.tryParse(parts[1]) ?? 0,
+          );
+        }
+      }
+    });
+  }
+
+  Future<void> _toggle(bool value) async {
+    setState(() => _enabled = value);
+    await SharedPrefsService.save(_enabledKey, value.toString());
+    final scheduler = ref.read(notificationSchedulerProvider);
+    if (value) {
+      await scheduler.scheduleDailyAt(
+        id: _notifId,
+        title: 'Time to reflect',
+        body: 'Capture your thoughts and energy for today.',
+        hour: _time.hour,
+        minute: _time.minute,
+      );
+    } else {
+      await scheduler.cancel(_notifId);
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _time,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppColors.neonViolet,
+            onPrimary: Colors.white,
+            surface: Color(0xFF0B111C),
+            onSurface: Colors.white70,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _time = picked);
+    await SharedPrefsService.save(_timeKey, '${picked.hour}:${picked.minute}');
+    if (_enabled) {
+      final scheduler = ref.read(notificationSchedulerProvider);
+      await scheduler.cancel(_notifId);
+      await scheduler.scheduleDailyAt(
+        id: _notifId,
+        title: 'Time to reflect',
+        body: 'Capture your thoughts and energy for today.',
+        hour: picked.hour,
+        minute: picked.minute,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Section(
+      label: 'DAILY REFLECTION',
+      accentColor: AppColors.neonViolet,
+      child: Column(
+        children: [
+          _NeonToggleTile(
+            title: 'Reflection Reminder',
+            value: _enabled,
+            onChanged: _toggle,
+          ),
+          if (_enabled)
+            GestureDetector(
+              onTap: _pickTime,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Reminder Time',
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.neonViolet.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.neonViolet.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Text(
+                        _time.format(context),
+                        style: const TextStyle(
+                          color: AppColors.neonViolet,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

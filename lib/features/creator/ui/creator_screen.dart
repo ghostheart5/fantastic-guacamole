@@ -89,6 +89,8 @@ class CreatorScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
+                const _TypeGuideCard(),
+                const SizedBox(height: 16),
                 DynamicForm(
                   onSubmit: (data) async {
                     await ref.read(creatorActionsProvider).createTask(data);
@@ -102,6 +104,80 @@ class CreatorScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TypeGuideCard extends StatelessWidget {
+  const _TypeGuideCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF050D1A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.memoryAmber.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'TYPES',
+            style: TextStyle(
+              fontSize: 9,
+              letterSpacing: 2.5,
+              color: AppColors.memoryAmber,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const _TypeRow(icon: Icons.check_circle_outline, label: 'Task', desc: 'something to complete'),
+          const SizedBox(height: 6),
+          const _TypeRow(icon: Icons.repeat_rounded, label: 'Routine', desc: 'repeat daily'),
+          const SizedBox(height: 6),
+          const _TypeRow(icon: Icons.timer_outlined, label: 'Focus', desc: 'timed session'),
+          const SizedBox(height: 6),
+          const _TypeRow(icon: Icons.flag_outlined, label: 'Mission', desc: 'long-term goal'),
+        ],
+      ),
+    );
+  }
+}
+
+class _TypeRow extends StatelessWidget {
+  const _TypeRow({required this.icon, required this.label, required this.desc});
+  final IconData icon;
+  final String label;
+  final String desc;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: AppColors.neonCyan, size: 13),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            '— $desc',
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

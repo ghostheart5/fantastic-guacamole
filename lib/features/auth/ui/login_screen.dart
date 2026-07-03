@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fantastic_guacamole/core/constants/app_assets.dart';
 import 'package:fantastic_guacamole/core/constants/app_colors.dart';
 import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
@@ -43,7 +45,25 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final VoidCallback? onMockLogin = widget.onMockLogin;
@@ -51,81 +71,158 @@ class _LoginScreenState extends State<LoginScreen> {
         widget.startupError?.trim().isNotEmpty ?? false
         ? widget.startupError!.trim()
         : null;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF080506),
-      body: SafeArea(
-        child: IgnorePointer(
-          ignoring: widget.isSubmitting,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Image.asset(
-                  AppAssets.bgLogin,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+      backgroundColor: AppColors.background,
+      resizeToAvoidBottomInset: true,
+      body: Stack(
+        children: [
+          // Background image
+          Positioned.fill(
+            child: Image.asset(
+              AppAssets.bgLogin,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
+          ),
+
+          // Heavy dark overlay — bottom heavier for form readability
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: [0.0, 0.3, 0.65, 1.0],
+                  colors: [
+                    Color(0x66000000),
+                    Color(0x88000000),
+                    Color(0xCC0F172A),
+                    Color(0xFF0F172A),
+                  ],
                 ),
               ),
-              const Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: <Color>[Color(0xAA130B0B), Color(0xE6080506)],
+            ),
+          ),
+
+          // Top branding section
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(28, 36, 28, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // CHRONOSPARK title with glow
+                    AnimatedBuilder(
+                      animation: _pulse,
+                      builder: (context, _) {
+                        final glowAlpha =
+                            0.35 + 0.35 * math.sin(_pulse.value * math.pi);
+                        return ShaderMask(
+                          shaderCallback: (bounds) =>
+                              const LinearGradient(
+                                colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
+                              ).createShader(bounds),
+                          child: Text(
+                            'CHRONO\nSPARK',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 48,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 3,
+                              height: 0.95,
+                              shadows: [
+                                Shadow(
+                                  color: Color(0xFF00E5FF).withValues(
+                                    alpha: glowAlpha,
+                                  ),
+                                  blurRadius: 28,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'TEMPORAL INTELLIGENCE SYSTEM',
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 10,
+                        letterSpacing: 3.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 40,
+                      height: 2,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
+                        ),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Align(
-                alignment: Alignment.bottomCenter,
+            ),
+          ),
+
+          // Form at bottom
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: IgnorePointer(
+                ignoring: widget.isSubmitting,
                 child: SingleChildScrollView(
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: EdgeInsets.fromLTRB(
-                    18,
-                    12,
-                    18,
+                    20,
+                    0,
+                    20,
                     20 + MediaQuery.of(context).viewInsets.bottom,
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        widget.isSignUpMode ? 'Create account' : 'Welcome back',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
+                      // Section label
                       Text(
                         widget.isSignUpMode
-                            ? 'Set up your ChronoSpark profile to get started.'
-                            : 'Sign in to continue your session.',
-                        textAlign: TextAlign.center,
+                            ? 'CREATE ACCOUNT'
+                            : 'ACCESS SYSTEM',
                         style: const TextStyle(
-                          color: Color(0xFFF0C9B2),
-                          fontSize: 13,
-                          height: 1.35,
+                          color: Colors.white38,
+                          fontSize: 10,
+                          letterSpacing: 3,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
+                      const SizedBox(height: 14),
+
+                      // Error
                       if (startupMessage != null) ...[
-                        const SizedBox(height: 10),
                         Container(
-                          width: double.infinity,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
+                            horizontal: 14,
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.redAccent.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(14),
+                            color: Colors.redAccent.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: Colors.redAccent.withValues(alpha: 0.35),
+                              color: Colors.redAccent.withValues(alpha: 0.3),
                             ),
                           ),
                           child: Text(
@@ -134,91 +231,110 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: const TextStyle(
                               color: Color(0xFFFFD7D0),
                               fontSize: 12,
-                              height: 1.35,
+                              height: 1.4,
                             ),
                           ),
                         ),
+                        const SizedBox(height: 12),
                       ],
-                      const SizedBox(height: 12),
-                      _GlyphInput(
+
+                      // Email field
+                      _NeonInput(
                         key: const ValueKey('login-email-field'),
                         controller: widget.emailController,
                         icon: Icons.alternate_email_rounded,
                         keyboardType: TextInputType.emailAddress,
                         hintText: 'Email address',
                         obscure: false,
+                        accentColor: AppColors.neonCyan,
                       ),
-                      const SizedBox(height: 8),
-                      _GlyphInput(
+                      const SizedBox(height: 10),
+
+                      // Password field
+                      _NeonInput(
                         key: const ValueKey('login-password-field'),
                         controller: widget.passwordController,
                         icon: Icons.key_rounded,
                         keyboardType: TextInputType.visiblePassword,
                         hintText: 'Password',
                         obscure: widget.obscurePassword,
+                        accentColor: AppColors.neonViolet,
                         trailing: SmartPressable(
                           onTap: widget.onTogglePassword,
                           child: Icon(
                             widget.obscurePassword
                                 ? Icons.visibility_off_rounded
                                 : Icons.visibility_rounded,
-                            color: const Color(0xFFE04D2D),
+                            color: AppColors.neonViolet.withValues(alpha: 0.7),
                             size: 18,
                           ),
                         ),
                       ),
+                      const SizedBox(height: 18),
+
+                      // Primary CTA — full width gradient button
+                      _PrimaryButton(
+                        label: widget.isSignUpMode
+                            ? 'INITIALIZE PROFILE'
+                            : 'ENTER SYSTEM',
+                        isLoading: widget.isSubmitting,
+                        onTap: widget.onPrimaryAction,
+                      ),
                       const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        alignment: WrapAlignment.center,
+
+                      // Secondary row
+                      Row(
                         children: [
-                          _OrbAction(
-                            label: widget.isSignUpMode ? 'Create' : 'Sign in',
-                            icon: widget.isSignUpMode
-                                ? Icons.person_add_alt_rounded
-                                : Icons.arrow_forward_rounded,
-                            color: AppColors.recallRed,
-                            onTap: widget.onPrimaryAction,
-                          ),
-                          _OrbAction(
-                            label: 'Google',
-                            icon: Icons.login_rounded,
-                            color: AppColors.neonViolet,
-                            onTap: widget.onGoogleSignIn,
-                          ),
-                          _OrbAction(
-                            label: 'Reset',
-                            icon: Icons.restart_alt_rounded,
-                            color: AppColors.neonCyan,
-                            onTap: widget.onForgotPassword,
-                          ),
-                          if (widget.allowSignUp)
-                            _OrbAction(
-                              label: widget.isSignUpMode
-                                  ? 'Switch to sign in'
-                                  : 'Switch to sign up',
-                              icon: Icons.swap_horiz_rounded,
-                              color: const Color(0xFFFF8844),
-                              onTap: widget.onToggleMode,
+                          Expanded(
+                            child: _SecondaryButton(
+                              label: 'Google',
+                              icon: Icons.login_rounded,
+                              color: AppColors.neonViolet,
+                              onTap: widget.onGoogleSignIn,
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _SecondaryButton(
+                              label: 'Forgot PW',
+                              icon: Icons.lock_reset_rounded,
+                              color: AppColors.neonCyan,
+                              onTap: widget.onForgotPassword,
+                            ),
+                          ),
+                          if (widget.allowSignUp) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _SecondaryButton(
+                                label: widget.isSignUpMode
+                                    ? 'Sign In'
+                                    : 'Sign Up',
+                                icon: widget.isSignUpMode
+                                    ? Icons.arrow_back_rounded
+                                    : Icons.person_add_rounded,
+                                color: AppColors.primary,
+                                onTap: widget.onToggleMode,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
+
+                      // Mock login
                       if (widget.showMockHint && onMockLogin != null) ...[
                         const SizedBox(height: 10),
                         SmartPressable(
                           onTap: onMockLogin,
                           child: Container(
-                            width: double.infinity,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
+                              horizontal: 14,
                               vertical: 10,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0x2EE39A2B),
-                              borderRadius: BorderRadius.circular(14),
+                              color: const Color(0x1AFFC857),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: const Color(0xCCF2B24A),
+                                color: const Color(0x99FFC857),
                               ),
                             ),
                             child: const Row(
@@ -226,16 +342,17 @@ class _LoginScreenState extends State<LoginScreen> {
                               children: [
                                 Icon(
                                   Icons.bolt_rounded,
-                                  size: 18,
-                                  color: Color(0xFFFFC96A),
+                                  size: 16,
+                                  color: Color(0xFFFFC857),
                                 ),
                                 SizedBox(width: 8),
                                 Text(
-                                  'Tester Access (Mock Login)',
+                                  'TESTER ACCESS  ·  MOCK LOGIN',
                                   style: TextStyle(
                                     color: Color(0xFFFFDFA3),
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 13,
+                                    fontSize: 11,
+                                    letterSpacing: 1.5,
                                   ),
                                 ),
                               ],
@@ -245,13 +362,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                       if (widget.showMockHint &&
                           (widget.mockHint?.trim().isNotEmpty ?? false)) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Text(
                           widget.mockHint!,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Color(0xFFE5C7A0),
-                            fontSize: 12,
+                            fontSize: 11,
                             height: 1.3,
                           ),
                         ),
@@ -260,37 +377,41 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-              if (widget.isSubmitting)
-                const Align(
-                  alignment: Alignment.topCenter,
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 18),
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Color(0xFFFF5530),
-                      ),
+            ),
+          ),
+
+          // Loading indicator
+          if (widget.isSubmitting)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Color(0x33000000),
+                child: Center(
+                  child: SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.neonCyan,
                     ),
                   ),
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-class _GlyphInput extends StatelessWidget {
-  const _GlyphInput({
+class _NeonInput extends StatelessWidget {
+  const _NeonInput({
     super.key,
     required this.controller,
     required this.icon,
     required this.keyboardType,
     this.hintText,
     required this.obscure,
+    required this.accentColor,
     this.trailing,
   });
 
@@ -299,51 +420,114 @@ class _GlyphInput extends StatelessWidget {
   final TextInputType keyboardType;
   final String? hintText;
   final bool obscure;
+  final Color accentColor;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0x6E170C0D),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x99F05A36)),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(color: Color(0x332E0909), blurRadius: 10, spreadRadius: 1),
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accentColor.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.08),
+            blurRadius: 12,
+            spreadRadius: 1,
+          ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFFF35D35), size: 18),
-          const SizedBox(width: 8),
+          Icon(icon, color: accentColor.withValues(alpha: 0.8), size: 18),
+          const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: controller,
               obscureText: obscure,
               keyboardType: keyboardType,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                letterSpacing: 0.3,
+              ),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 hintText: hintText,
-                hintStyle: const TextStyle(
-                  color: Color(0x99F7C9B8),
+                hintStyle: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.25),
                   fontSize: 14,
                 ),
               ),
             ),
           ),
-          ?trailing,
+          if (trailing != null) trailing!,
         ],
       ),
     );
   }
 }
 
-class _OrbAction extends StatelessWidget {
-  const _OrbAction({
+class _PrimaryButton extends StatelessWidget {
+  const _PrimaryButton({
+    required this.label,
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isLoading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SmartPressable(
+      onTap: onTap,
+      child: Container(
+        height: 54,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF00E5FF).withValues(alpha: 0.25),
+              blurRadius: 24,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.black,
+                ),
+              )
+            : Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2.5,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _SecondaryButton extends StatelessWidget {
+  const _SecondaryButton({
     required this.label,
     required this.icon,
     required this.color,
@@ -360,42 +544,30 @@ class _OrbAction extends StatelessWidget {
     return SmartPressable(
       onTap: onTap,
       child: Container(
-        width: 88,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: <Color>[
-              color.withValues(alpha: 0.34),
-              color.withValues(alpha: 0.12),
-            ],
-          ),
-          border: Border.all(color: color.withValues(alpha: 0.78)),
-          boxShadow: <BoxShadow>[
+          borderRadius: BorderRadius.circular(12),
+          color: color.withValues(alpha: 0.08),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+          boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.5),
-              blurRadius: 16,
-              spreadRadius: 1,
+              color: color.withValues(alpha: 0.12),
+              blurRadius: 10,
             ),
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color.withValues(alpha: 0.95), size: 22),
-            const SizedBox(height: 6),
+            Icon(icon, color: color.withValues(alpha: 0.85), size: 18),
+            const SizedBox(height: 4),
             Text(
               label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.92),
-                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.75),
+                fontSize: 10,
                 fontWeight: FontWeight.w700,
-                height: 1.1,
+                letterSpacing: 0.5,
               ),
             ),
           ],

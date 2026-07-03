@@ -2,11 +2,11 @@ import 'package:fantastic_guacamole/data/models/task.dart';
 
 class AIResponse {
   const AIResponse({
-    required this.task,
-    required this.message,
-    required this.reasoning,
-    required this.emotion,
-    required this.confidence,
+    this.task,
+    this.message = '',
+    this.reasoning = '',
+    this.emotion = 'balanced',
+    this.confidence = 0.5,
   });
 
   final Task? task;
@@ -14,6 +14,4 @@ class AIResponse {
   final String reasoning;
   final String emotion;
   final double confidence;
-
-  String get taskTitle => task?.title ?? 'No active tasks';
 }

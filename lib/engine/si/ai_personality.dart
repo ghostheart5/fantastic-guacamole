@@ -1,1 +1,1 @@
-enum AIPersonality { neutral, coach, strict, calm }
+enum AIPersonality { coach, analyst, motivator, strategist, strict, calm, neutral }

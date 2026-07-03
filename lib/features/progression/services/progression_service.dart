@@ -3,9 +3,7 @@ import 'package:fantastic_guacamole/features/progression/state/progression_state
 import 'package:fantastic_guacamole/state/app_state.dart';
 
 class ProgressionService {
-  const ProgressionService({this.xpPerLevel = 50});
-
-  final int xpPerLevel;
+  const ProgressionService();
 
   ProgressionState fromProfile(ProfileState profile) {
     final UserProgress progress = UserProgress(
@@ -13,7 +11,6 @@ class ProgressionService {
       level: profile.level,
       streak: profile.streak,
       longestStreak: profile.longestStreak,
-      xpPerLevel: xpPerLevel,
     );
     return ProgressionState(progress: progress, loading: false);
   }

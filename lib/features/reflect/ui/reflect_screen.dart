@@ -1,8 +1,12 @@
 import 'package:fantastic_guacamole/core/constants/app_colors.dart';
+import 'package:fantastic_guacamole/core/utils/crisis_guard.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/features/emotion/emotion_provider.dart';
 import 'package:fantastic_guacamole/features/emotion/emotional_state.dart';
 import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
 import 'package:flutter/material.dart';
@@ -41,6 +45,11 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
       return;
     }
 
+    if (isCrisis(note) && mounted) {
+      await showCrisisDialog(context);
+      return;
+    }
+
     if (_saving) return;
     setState(() => _saving = true);
 
@@ -61,6 +70,22 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
           energy: _energy,
           emotion: _emotion.name,
         );
+
+    if (!mounted) return;
+
+    await ref
+        .read(memoriesProvider.notifier)
+        .capture(_extractMemory(note, _emotion, _energy));
+
+    if (!mounted) return;
+
+    await ref.read(timelineProvider.notifier).record(TimelineEventEntity(
+          id: 'rf_${DateTime.now().millisecondsSinceEpoch}',
+          type: TimelineEventType.reflection,
+          title: 'Reflection saved',
+          detail: note.length > 60 ? '${note.substring(0, 60)}…' : note,
+          timestamp: DateTime.now(),
+        ));
 
     if (!mounted) return;
 
@@ -102,6 +127,17 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
     }
   }
 
+  static String _extractMemory(
+      String note, EmotionalState emotion, double energy) {
+    final pct = (energy * 100).round();
+    final sentences = note
+        .split(RegExp(r'[.!?]+'))
+        .where((s) => s.trim().length > 8)
+        .toList();
+    if (sentences.isNotEmpty) return '${sentences.first.trim()}.';
+    return 'Felt ${emotion.name} at $pct% energy.';
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -110,6 +146,20 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(
+      voiceControllerProvider.select((v) => v.recognizedText),
+      (_, text) {
+        if (text.isNotEmpty) {
+          final current = _controller.text;
+          _controller.text =
+              current.isEmpty ? text : '$current $text';
+          _controller.selection = TextSelection.fromPosition(
+            TextPosition(offset: _controller.text.length),
+          );
+          setState(() => _saved = false);
+        }
+      },
+    );
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/reflect_bg.jpg',
       child: Scaffold(
@@ -166,7 +216,17 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 6),
+                const Text(
+                  'This app is not a substitute for professional mental health care.',
+                  style: TextStyle(
+                    color: Colors.white30,
+                    fontSize: 10,
+                    letterSpacing: 0.3,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 18),
 
                 _NeonPanel(
                   label: 'BIOMETRIC INPUT',
@@ -199,6 +259,19 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
                 _NeonPanel(
                   label: 'NEURAL DUMP',
                   accentColor: AppColors.neonViolet,
+                  trailing: _MicButton(
+                    onTap: () {
+                      final voice = ref.read(voiceControllerProvider.notifier);
+                      final isListening =
+                          ref.read(voiceControllerProvider).isListening;
+                      if (isListening) {
+                        voice.stopListening();
+                      } else {
+                        voice.startListening();
+                      }
+                    },
+                    isListening: ref.watch(voiceControllerProvider).isListening,
+                  ),
                   child: TextField(
                     controller: _controller,
                     maxLines: 5,
@@ -278,11 +351,13 @@ class _NeonPanel extends StatelessWidget {
     required this.label,
     required this.child,
     required this.accentColor,
+    this.trailing,
   });
 
   final String label;
   final Widget child;
   final Color accentColor;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -324,6 +399,10 @@ class _NeonPanel extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              if (trailing != null) ...[
+                const Spacer(),
+                trailing!,
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -386,6 +465,40 @@ class _NeonSlider extends StatelessWidget {
           child: Slider(value: value, onChanged: onChanged),
         ),
       ],
+    );
+  }
+}
+
+class _MicButton extends StatelessWidget {
+  const _MicButton({required this.onTap, required this.isListening});
+
+  final VoidCallback onTap;
+  final bool isListening;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: isListening
+              ? AppColors.memoryAmber.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isListening
+                ? AppColors.memoryAmber.withValues(alpha: 0.5)
+                : Colors.white24,
+          ),
+        ),
+        child: Icon(
+          isListening ? Icons.mic : Icons.mic_none,
+          size: 16,
+          color: isListening ? AppColors.memoryAmber : Colors.white38,
+        ),
+      ),
     );
   }
 }

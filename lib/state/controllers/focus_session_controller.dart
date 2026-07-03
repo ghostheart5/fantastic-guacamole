@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_history.dart';
 import 'package:fantastic_guacamole/engine/scoring/session_scoring_engine.dart';
 import 'package:fantastic_guacamole/engine/si/si_core.dart';
@@ -6,6 +7,9 @@ import 'package:fantastic_guacamole/engine/si/si_snapshot.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/session_score_view.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
+import 'package:fantastic_guacamole/state/providers/behavior_provider.dart';
+import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final sessionScoringEngineProvider = Provider<SessionScoringEngine>((ref) {
@@ -88,6 +92,37 @@ class FocusSessionController {
     _ref
         .read(sessionScoreProvider.notifier)
         .set(SessionScoreView.fromScore(score));
+
+    final profile = _ref.read(profileProvider);
+    final streakMaintained = profile.streak > 0;
+    await _ref.read(identityStateProvider.notifier).onFocusComplete(
+          sessionCompleted: true,
+          taskCompleted: true,
+          streakMaintained: streakMaintained,
+        );
+    await _ref.read(behaviorStateProvider.notifier).onSessionComplete(
+          sessionCompleted: true,
+          taskCompleted: true,
+        );
+    await _ref.read(timelineProvider.notifier).record(TimelineEventEntity(
+          id: 'fs_${DateTime.now().millisecondsSinceEpoch}',
+          type: TimelineEventType.focusSession,
+          title: 'Focus session',
+          detail: task.title,
+          timestamp: DateTime.now(),
+        ));
+
+    final profileAfter = _ref.read(profileProvider);
+    if (profileAfter.leveledUp) {
+      await _ref.read(timelineProvider.notifier).record(TimelineEventEntity(
+            id: 'lu_${DateTime.now().millisecondsSinceEpoch}',
+            type: TimelineEventType.levelUp,
+            title: 'Level up!',
+            detail: 'Reached level ${profileAfter.level}',
+            timestamp: DateTime.now(),
+          ));
+      _ref.read(profileProvider.notifier).clearLeveledUp();
+    }
 
     await _ref
         .read(aiControllerProvider)

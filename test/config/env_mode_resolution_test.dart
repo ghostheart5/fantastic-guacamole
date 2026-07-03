@@ -42,10 +42,10 @@ void main() {
       );
     });
 
-    test('mock login and tester access remain production-safe', () {
+    test('mock login is opt-in in non-production and always blocked in production', () {
       expect(
         Env.resolveIsMockLoginEnabled(
-          isProduction: true,
+          isProduction: false,
           isMockMode: false,
           enableMockLogin: false,
         ),
@@ -55,10 +55,33 @@ void main() {
         Env.resolveIsMockLoginEnabled(
           isProduction: false,
           isMockMode: false,
+          enableMockLogin: true,
+        ),
+        isTrue,
+      );
+      expect(
+        Env.resolveIsMockLoginEnabled(
+          isProduction: false,
+          isMockMode: true,
           enableMockLogin: false,
         ),
         isTrue,
       );
+      expect(
+        Env.resolveIsMockLoginEnabled(isProduction: true, isMockMode: false, enableMockLogin: true),
+        isFalse,
+      );
+      expect(
+        Env.resolveIsMockLoginEnabled(
+          isProduction: true,
+          isMockMode: false,
+          enableMockLogin: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('tester full access remains production-safe', () {
       expect(
         Env.resolveHasTesterFullAccess(isProduction: true, enableTesterFullAccess: false),
         isFalse,

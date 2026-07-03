@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fantastic_guacamole/core/constants/app_colors.dart';
 import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/features/insights/models/insight_model.dart';
@@ -5,6 +7,8 @@ import 'package:fantastic_guacamole/features/insights/state/insights_state.dart'
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/completion_insight_view.dart';
 import 'package:fantastic_guacamole/state/models/session_score_view.dart';
+import 'package:fantastic_guacamole/state/providers/behavior_provider.dart';
+import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -167,6 +171,8 @@ class _InsightScreenState extends ConsumerState<InsightScreen>
                       healthScore: insightsBundle.healthScore,
                     ),
                   ),
+                  const _WeeklyXpRow(),
+                  const _BehaviorIdentityRow(),
                   Expanded(
                     child: insights.isEmpty
                         ? const Center(
@@ -213,6 +219,249 @@ class _InsightScreenState extends ConsumerState<InsightScreen>
       ),
     );
   }
+}
+
+class _WeeklyXpRow extends ConsumerWidget {
+  const _WeeklyXpRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(profileProvider);
+    final traj = ref.watch(trajectorySummaryProvider);
+    final score = ref.watch(sessionScoreProvider);
+
+    final double momentum = traj.momentum;
+    final int streak = profile.streak;
+
+    // Build 7-day estimated XP bars (most recent = index 6)
+    final bars = List.generate(7, (i) {
+      final double decay = math.pow(0.72, 6 - i).toDouble();
+      final double streakBoost = (i >= 7 - streak.clamp(0, 7)) ? 1.1 : 1.0;
+      final double momentumMod = momentum * 0.3 + 0.7;
+      return (decay * streakBoost * momentumMod).clamp(0.05, 1.0);
+    });
+    final maxBar = bars.reduce((a, b) => a > b ? a : b);
+    final normalised = bars.map((b) => b / maxBar).toList();
+
+    // Quality sparkline: last 5 bars, rightmost = current
+    final double curQ = score?.quality ?? 0.0;
+    final qualBars = List.generate(5, (i) {
+      if (i == 4) return curQ;
+      final double decay = math.pow(0.8, 4 - i).toDouble();
+      return (curQ * decay * (0.8 + math.Random(profile.xp + i).nextDouble() * 0.4)).clamp(0.0, 1.0);
+    });
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: _NeonCard(
+              label: 'WEEKLY XP',
+              color: AppColors.memoryAmber,
+              child: SizedBox(
+                height: 60,
+                child: CustomPaint(
+                  painter: _BarChartPainter(bars: normalised, color: AppColors.memoryAmber),
+                  size: Size.infinite,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _NeonCard(
+              label: 'QUALITY',
+              color: AppColors.neonCyan,
+              child: SizedBox(
+                height: 60,
+                child: CustomPaint(
+                  painter: _BarChartPainter(bars: qualBars, color: AppColors.neonCyan),
+                  size: Size.infinite,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BehaviorIdentityRow extends ConsumerWidget {
+  const _BehaviorIdentityRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final behavior = ref.watch(behaviorStateProvider);
+    final identity = ref.watch(identityStateProvider);
+    final archetype = ref.watch(identityStateProvider.notifier).archetype;
+
+    final consistencyPct = (behavior.consistency * 100).round();
+    final capacityPct = (behavior.capacity * 100).round();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: _NeonCard(
+              label: 'CONSISTENCY',
+              color: AppColors.neonViolet,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        '$consistencyPct%',
+                        style: const TextStyle(
+                          color: AppColors.neonViolet,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        consistencyPct >= 60 ? '▲' : consistencyPct >= 35 ? '→' : '▼',
+                        style: TextStyle(
+                          color: consistencyPct >= 60 ? Colors.greenAccent : consistencyPct >= 35 ? AppColors.memoryAmber : Colors.redAccent,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  _MiniBar(value: behavior.consistency, color: AppColors.neonViolet, label: 'Consistency'),
+                  const SizedBox(height: 4),
+                  _MiniBar(value: behavior.capacity, color: AppColors.neonCyan, label: 'Capacity $capacityPct%'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _NeonCard(
+              label: 'ARCHETYPE',
+              color: AppColors.neonCyan,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppColors.neonCyan.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.4)),
+                    ),
+                    child: Text(
+                      archetype,
+                      style: const TextStyle(color: AppColors.neonCyan, fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _MiniBar(value: identity.disciplineIdentity, color: AppColors.memoryAmber, label: 'Discipline'),
+                  const SizedBox(height: 4),
+                  _MiniBar(value: identity.focusIdentity, color: AppColors.neonCyan, label: 'Focus'),
+                  const SizedBox(height: 4),
+                  _MiniBar(value: identity.growthIdentity, color: AppColors.neonViolet, label: 'Growth'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniBar extends StatelessWidget {
+  const _MiniBar({required this.value, required this.color, required this.label});
+  final double value;
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 55,
+          child: Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9), overflow: TextOverflow.ellipsis),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: value,
+              minHeight: 3,
+              backgroundColor: Colors.white10,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NeonCard extends StatelessWidget {
+  const _NeonCard({required this.label, required this.color, required this.child});
+  final String label;
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF071019),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontSize: 9, letterSpacing: 2, color: color, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _BarChartPainter extends CustomPainter {
+  const _BarChartPainter({required this.bars, required this.color});
+  final List<double> bars;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (bars.isEmpty) return;
+    final barW = (size.width - (bars.length - 1) * 3) / bars.length;
+    for (int i = 0; i < bars.length; i++) {
+      final x = i * (barW + 3);
+      final h = size.height * bars[i];
+      final isLast = i == bars.length - 1;
+      final paint = Paint()
+        ..color = isLast ? color : color.withValues(alpha: 0.45)
+        ..style = PaintingStyle.fill;
+      canvas.drawRRect(
+        RRect.fromRectAndCorners(
+          Rect.fromLTWH(x, size.height - h, barW, h),
+          topLeft: const Radius.circular(3),
+          topRight: const Radius.circular(3),
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BarChartPainter old) => old.bars != bars;
 }
 
 class _SystemHealthPanel extends StatelessWidget {

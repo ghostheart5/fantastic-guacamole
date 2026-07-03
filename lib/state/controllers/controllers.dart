@@ -1,4 +1,5 @@
 export 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
+export 'package:fantastic_guacamole/state/controllers/momentum_controller.dart';
 export 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 export 'package:fantastic_guacamole/state/controllers/audio_feedback_controller.dart';
 export 'package:fantastic_guacamole/state/controllers/coach_controller.dart';

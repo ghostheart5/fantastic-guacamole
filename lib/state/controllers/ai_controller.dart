@@ -24,6 +24,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final aiControllerProvider = Provider<AIController>((ref) => AIController(ref));
 
+/// Synchronous next-step text derived from the highest-priority pending task.
+final nextActionTextProvider = Provider<String>((ref) {
+  final tasks = ref.watch(tasksProvider).asData?.value;
+  if (tasks == null || tasks.isEmpty) {
+    return 'Create your first task to get started.';
+  }
+  final sorted = [...tasks]..sort((a, b) => a.priority.compareTo(b.priority));
+  return 'Focus on: ${sorted.first.title}';
+});
+
 final aiTriggerProvider = NotifierProvider<AITriggerNotifier, int>(
   AITriggerNotifier.new,
 );

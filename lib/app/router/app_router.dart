@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dar
 import 'package:fantastic_guacamole/features/tasks/ui/task_screen.dart';
 import 'package:fantastic_guacamole/onboarding/onboarding_screen.dart';
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -165,7 +166,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.login,
         builder: (BuildContext context, GoRouterState state) => AuthGate(
-          enableMockLogin: intelligence.flags.mockLoginEnabled,
+          enableMockLogin: intelligence.flags.mockLoginEnabled || !kReleaseMode,
           mockLoginEmail: mockLoginConfig.email,
           mockLoginPassword: mockLoginConfig.password,
           child: const NavigationShell(),

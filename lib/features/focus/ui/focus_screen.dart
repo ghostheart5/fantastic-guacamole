@@ -3,7 +3,9 @@ import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/core/constants/app_colors.dart';
 import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
+import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 import 'package:fantastic_guacamole/features/focus/logic/session_timer.dart';
+import 'package:fantastic_guacamole/features/focus/services/focus_service.dart';
 import 'package:fantastic_guacamole/features/focus/services/focus_session_services.dart';
 import 'package:fantastic_guacamole/features/focus/widgets/focus_timer.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -11,6 +13,9 @@ import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/system/focus_start_overlay.dart';
+import 'package:fantastic_guacamole/ui/system/level_up_overlay.dart';
+import 'package:fantastic_guacamole/ui/system/system_toast.dart';
 import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
 import 'package:fantastic_guacamole/ui/widgets/section_header.dart';
 import 'package:flutter/material.dart';
@@ -27,7 +32,7 @@ class FocusScreen extends ConsumerStatefulWidget {
 
 class _FocusScreenState extends ConsumerState<FocusScreen>
     with TickerProviderStateMixin {
-  static const _durationOptions = [15, 25, 50];
+  static const _durationOptions = [10, 15, 25, 50];
 
   int _selectedMinutes = 25;
   bool _started = false;
@@ -35,6 +40,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
   SessionTimer? _sessionTimer;
   bool _sessionCompleted = false;
   final FocusServices _focusServices = const FocusServices();
+  final _focusService = FocusService();
 
   int get _totalSeconds => _selectedMinutes * 60;
 
@@ -44,6 +50,8 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
   @override
   void initState() {
     super.initState();
+    final int level = ref.read(progressionProvider).progress.level;
+    _selectedMinutes = _focusService.defaultSessionMinutes(level);
     _seconds = _totalSeconds;
 
     _glowPulse = AnimationController(
@@ -68,21 +76,23 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
   }
 
   void _start() {
-    setState(() => _started = true);
-    ref.read(focusControllerProvider.notifier).start();
-    _sessionTimer?.dispose();
-    _sessionTimer = _focusServices.createTimer(
-      totalSeconds: _totalSeconds,
-      onTick: (remaining) {
-        if (!mounted) return;
-        setState(() => _seconds = remaining);
-      },
-      onDone: _finish,
-    );
-    _sessionTimer?.start();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) ref.read(audioFeedbackControllerProvider).playFocusStart();
-    });
+    unawaited(runFocusStartAnimation(context, onStart: () {
+      setState(() => _started = true);
+      ref.read(focusControllerProvider.notifier).start();
+      _sessionTimer?.dispose();
+      _sessionTimer = _focusServices.createTimer(
+        totalSeconds: _totalSeconds,
+        onTick: (remaining) {
+          if (!mounted) return;
+          setState(() => _seconds = remaining);
+        },
+        onDone: _finish,
+      );
+      _sessionTimer?.start();
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) ref.read(audioFeedbackControllerProvider).playFocusStart();
+      });
+    }));
   }
 
   TaskView? _resolveRouteTask() {
@@ -130,6 +140,23 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
     }
     ref.read(focusTaskProvider.notifier).set(null);
     ref.read(focusControllerProvider.notifier).complete();
+    ref.read(momentumProvider.notifier).onSessionCompleted();
+
+    if (mounted) {
+      showXPGain(context, ProgressionPolicy.sessionXp);
+      final prof = ref.read(profileProvider);
+      if (prof.leveledUp) {
+        Future.delayed(const Duration(milliseconds: 700), () {
+          if (mounted) {
+            showLevelUpAnimation(
+              context,
+              level: prof.level,
+              title: 'Level ${prof.level}',
+            );
+          }
+        });
+      }
+    }
   }
 
   Future<void> _endSession() async {
@@ -155,6 +182,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
 
     ref.read(focusTaskProvider.notifier).set(null);
     ref.read(focusControllerProvider.notifier).reset();
+    ref.read(momentumProvider.notifier).reset();
     ref.read(appFlowProvider.notifier).toCoach();
   }
 
@@ -175,7 +203,47 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
     if (!mounted) return;
     ref.read(focusTaskProvider.notifier).set(null);
     ref.read(focusControllerProvider.notifier).reset();
+    ref.read(momentumProvider.notifier).reset();
     ref.read(appFlowProvider.notifier).toCoach();
+  }
+
+  Future<void> _tryEndSession() async {
+    final int elapsed = _totalSeconds - _seconds;
+    if (elapsed < 180) {
+      final bool? confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: const Color(0xFF050D1A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'Keep going?',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            'Just 2 more minutes — small sessions still count.',
+            style: TextStyle(color: Colors.white60),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text(
+                'End anyway',
+                style: TextStyle(color: Colors.white38),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'Keep going',
+                style: TextStyle(color: AppColors.neonCyan),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    await _endSession();
   }
 
   void _navigateAfterComplete() {
@@ -288,6 +356,8 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
 
                           // Pre-start: duration picker + begin button
                           if (!_started) ...[
+                            const _FocusInfoCard(),
+                            const SizedBox(height: 16),
                             _DurationPicker(
                               options: _durationOptions,
                               selected: _selectedMinutes,
@@ -363,17 +433,12 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
                             ),
                             const SizedBox(height: 24),
                             if (!_sessionCompleted) ...[
-                              HoloButton(
-                                label: 'Finish Session',
-                                onTap: _finish,
-                              ),
-                              const SizedBox(height: 12),
                               HoloButton(label: 'Skip Session', onTap: _skip),
                               const SizedBox(height: 12),
                               HoloButton(
                                 label: 'End Session',
                                 color: Colors.white54,
-                                onTap: _endSession,
+                                onTap: _tryEndSession,
                               ),
                             ],
                           ],
@@ -393,16 +458,90 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
                 child: ColoredBox(
                   color: Colors.black.withValues(alpha: 0.7),
                   child: Center(
-                    child: Lottie.asset(
-                      'assets/animations/session_complete.json',
-                      controller: _completeAnim,
-                      onLoaded: (composition) {
-                        _completeAnim.duration = composition.duration;
-                        if (!_completeAnim.isAnimating) {
-                          _completeAnim.forward();
-                        }
-                      },
-                      width: 280,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'SESSION COMPLETE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Lottie.asset(
+                          'assets/animations/session_complete.json',
+                          controller: _completeAnim,
+                          onLoaded: (composition) {
+                            _completeAnim.duration = composition.duration;
+                            if (!_completeAnim.isAnimating) {
+                              _completeAnim.forward();
+                            }
+                          },
+                          width: 280,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              '+25 XP',
+                              style: TextStyle(
+                                color: AppColors.memoryAmber,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            const Icon(
+                              Icons.local_fire_department,
+                              color: Colors.deepOrangeAccent,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${ref.read(profileProvider).streak}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        if (ref.watch(momentumProvider).chainCount > 0)
+                          GestureDetector(
+                            onTap: () {
+                              ref.read(focusTaskProvider.notifier).set(null);
+                              ref.read(focusControllerProvider.notifier).complete();
+                              ref.read(appFlowProvider.notifier).toCoach();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 28, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: AppColors.neonCyan.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(50),
+                                border: Border.all(
+                                    color: AppColors.neonCyan
+                                        .withValues(alpha: 0.4)),
+                              ),
+                              child: const Text(
+                                'Keep going  →',
+                                style: TextStyle(
+                                  color: AppColors.neonCyan,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -518,6 +657,41 @@ class _DurationPicker extends StatelessWidget {
           }).toList(),
         ),
       ],
+    );
+  }
+}
+
+class _FocusInfoCard extends StatelessWidget {
+  const _FocusInfoCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.neonCyan.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.neonCyan.withValues(alpha: 0.18),
+        ),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.bolt_rounded, color: AppColors.neonCyan, size: 16),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Work without distractions.  +25 XP per session.  Builds streak.',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

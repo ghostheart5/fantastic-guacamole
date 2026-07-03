@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 import 'package:fantastic_guacamole/engine/scoring/session_score.dart';
 
 class SessionScoringEngine {
@@ -6,11 +7,6 @@ class SessionScoringEngine {
     required double energy,
     required int taskPriority,
   }) {
-    final int baseXp = (seconds ~/ 60).clamp(1, 60);
-    final int priorityBonus = taskPriority * 4;
-    final int energyBonus = (energy * 12).round();
-    final int xp = baseXp + priorityBonus + energyBonus;
-
     final double quality = (seconds / 300).clamp(0.0, 1.0);
 
     final String feedback;
@@ -24,6 +20,11 @@ class SessionScoringEngine {
       feedback = 'Short session — every rep counts.';
     }
 
-    return SessionScore(xp: xp, quality: quality, feedback: feedback);
+    return SessionScore(
+      xp: ProgressionPolicy.sessionXp,
+      quality: quality,
+      feedback: feedback,
+      confidenceDelta: quality >= 0.8 ? 0.02 : (quality < 0.5 ? -0.05 : 0.0),
+    );
   }
 }

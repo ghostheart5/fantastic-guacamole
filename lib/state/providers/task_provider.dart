@@ -13,6 +13,9 @@ final tasksProvider = FutureProvider<List<Task>>((ref) async {
           priority: task.priority,
           difficulty: task.difficulty,
           energyRequired: task.energyRequired,
+          goalId: task.goalId,
+          subtasks: task.subtasks,
+          recurrenceRule: task.recurrenceRule,
         ),
       )
       .toList();

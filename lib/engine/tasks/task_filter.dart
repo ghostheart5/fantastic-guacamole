@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 
 class TaskFilter {
@@ -68,4 +69,20 @@ class TaskFilter {
   /// Tasks belonging to a specific goal.
   static List<TaskEntity> forGoal(List<TaskEntity> tasks, String goalId) =>
       tasks.where((t) => t.goalId == goalId).toList();
+
+  /// SI-driven filter: when primaryInstinct is 'safety_first', returns only
+  /// easy tasks (difficulty <= 2). Otherwise returns all incomplete tasks.
+  static List<TaskEntity> bySiState(
+    List<TaskEntity> tasks,
+    SiStateEntity siState,
+  ) {
+    final List<TaskEntity> active = incomplete(tasks);
+    if (siState.primaryInstinct == 'safety_first') {
+      final List<TaskEntity> easy = active
+          .where((t) => t.difficulty <= 2)
+          .toList();
+      return easy.isNotEmpty ? easy : active;
+    }
+    return active;
+  }
 }

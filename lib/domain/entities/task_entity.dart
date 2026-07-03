@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
+
 class TaskEntity {
   const TaskEntity({
     required this.id,
@@ -14,6 +16,8 @@ class TaskEntity {
     this.dueDate,
     this.goalId,
     this.isCanceled = false,
+    this.subtasks = const [],
+    this.recurrenceRule = RecurrenceRule.none,
   });
 
   final String id;
@@ -30,6 +34,8 @@ class TaskEntity {
   final DateTime? dueDate;
   final String? goalId;
   final bool isCanceled;
+  final List<String> subtasks;
+  final RecurrenceRule recurrenceRule;
 
   TaskEntity copyWith({
     String? id,
@@ -46,6 +52,8 @@ class TaskEntity {
     DateTime? dueDate,
     String? goalId,
     bool? isCanceled,
+    List<String>? subtasks,
+    RecurrenceRule? recurrenceRule,
   }) {
     return TaskEntity(
       id: id ?? this.id,
@@ -62,6 +70,8 @@ class TaskEntity {
       dueDate: dueDate ?? this.dueDate,
       goalId: goalId ?? this.goalId,
       isCanceled: isCanceled ?? this.isCanceled,
+      subtasks: subtasks ?? this.subtasks,
+      recurrenceRule: recurrenceRule ?? this.recurrenceRule,
     );
   }
 }

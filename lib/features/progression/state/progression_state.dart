@@ -18,7 +18,6 @@ class ProgressionState {
         level: 1,
         streak: 0,
         longestStreak: 0,
-        xpPerLevel: 50,
       ),
       loading: false,
       error: null,

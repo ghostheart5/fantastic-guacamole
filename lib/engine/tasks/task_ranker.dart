@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 
@@ -11,15 +12,19 @@ class RankedTask {
 class TaskRanker {
   const TaskRanker();
 
-  /// Returns tasks sorted highest-score first, using learning weights,
-  /// current energy, and fatigue to rank each task.
+  /// Returns tasks sorted highest-score first.
+  /// When [siState.avoidOverwhelm] is true, ranks by ease instead of priority.
   List<RankedTask> rank(
     List<TaskEntity> tasks, {
     required LearningState learning,
     required double energy,
     double fatigue = 0.0,
     DateTime? now,
+    SiStateEntity? siState,
   }) {
+    if (siState?.avoidOverwhelm == true) {
+      return _rankByEase(tasks);
+    }
     final DateTime ref = now ?? DateTime.now();
     return tasks
         .map(
@@ -39,6 +44,7 @@ class TaskRanker {
     required double energy,
     double fatigue = 0.0,
     DateTime? now,
+    SiStateEntity? siState,
   }) {
     if (tasks.isEmpty) return null;
     return rank(
@@ -47,7 +53,16 @@ class TaskRanker {
       energy: energy,
       fatigue: fatigue,
       now: now,
+      siState: siState,
     ).first.task;
+  }
+
+  /// Ease-first ranking: sort by difficulty ascending, then energy match.
+  List<RankedTask> _rankByEase(List<TaskEntity> tasks) {
+    return tasks
+        .map((t) => RankedTask(task: t, score: (5 - t.difficulty).toDouble()))
+        .toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
   }
 
   double _score(
@@ -68,18 +83,14 @@ class TaskRanker {
     score += (1.0 - fatigue) * 6.0;
     score -= task.difficulty * learning.effortWeight * fatigue * 4.0;
 
-    // Bonus when energy is sufficient for this task.
     if (energy >= energyNeed) score += 4.0;
-
-    // When fatigued, prefer low-difficulty tasks.
     if (fatigue > 0.7 && task.difficulty <= 2) score += 3.0;
 
-    // Urgency boost from due date.
     final DateTime? dueDate = task.dueDate;
     if (dueDate != null) {
       final int hours = dueDate.difference(now).inHours;
       if (hours < 0) {
-        score += 15.0; // overdue
+        score += 15.0;
       } else if (hours < 24) {
         score += 10.0;
       } else if (hours < 72) {

@@ -1,14 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/constants/app_colors.dart';
+import 'package:fantastic_guacamole/core/utils/crisis_guard.dart';
 import 'package:fantastic_guacamole/data/models/si_state.dart';
+import 'package:fantastic_guacamole/features/emotion/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/widgets/typing_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 // ---------------------------------------------------------------------------
 // Model
@@ -346,18 +351,85 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   void _send() {
     final String text = _input.text.trim();
     if (text.isEmpty) return;
+    if (isCrisis(text)) {
+      showCrisisDialog(context);
+      return;
+    }
     _input.clear();
 
     setState(() => _messages.add(_Msg(text: text, isUser: true)));
     _scrollToBottom();
-
     setState(() => _typing = true);
     _scrollToBottom();
 
-    // Simulate SI thinking delay
-    final Duration delay = Duration(
-      milliseconds: 600 + math.Random().nextInt(700),
-    );
+    _dispatchQuery(text);
+  }
+
+  Future<void> _dispatchQuery(String text) async {
+    final endpoint = Env.aiProxyEndpoint.trim();
+    if (endpoint.isNotEmpty) {
+      try {
+        await _sendToProxy(text, endpoint);
+        return;
+      } catch (_) {
+        // fall through to canned responder
+      }
+    }
+    _useCannedResponse(text);
+  }
+
+  Future<void> _sendToProxy(String text, String endpoint) async {
+    final energy = ref.read(energyProvider);
+    final siState = ref.read(siStateProvider);
+    final profile = ref.read(profileProvider);
+    final emotion = ref.read(emotionProvider);
+
+    // Build conversation history for context (last 6 messages)
+    final recentMessages = _messages.length > 6 ? _messages.sublist(_messages.length - 6) : _messages;
+    final history = recentMessages.map((_Msg m) => <String, String>{
+      'role': m.isUser ? 'user' : 'assistant',
+      'content': m.text,
+    }).toList();
+
+    final body = jsonEncode({
+      'message': text,
+      'history': history,
+      'context': {
+        'name': profile.name,
+        'level': profile.level,
+        'xp': profile.xp,
+        'streak': profile.streak,
+        'energy': energy,
+        'emotion': emotion.name,
+        'fatigue': siState.fatigue,
+        'completedToday': siState.completedToday,
+      },
+    });
+
+    final response = await http.post(
+      Uri.parse(endpoint),
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    ).timeout(const Duration(seconds: 12));
+
+    if (!mounted) return;
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final message = json['message']?.toString() ?? json['reply']?.toString() ?? 'No response.';
+      final emotion = json['emotion']?.toString() ?? 'balanced';
+      setState(() {
+        _typing = false;
+        _messages.add(_Msg(text: message, isUser: false, emotion: emotion));
+      });
+      _scrollToBottom();
+    } else {
+      throw Exception('Proxy returned ${response.statusCode}');
+    }
+  }
+
+  void _useCannedResponse(String text) {
+    final Duration delay = Duration(milliseconds: 600 + math.Random().nextInt(700));
     Timer(delay, () {
       if (!mounted) return;
       final energy = ref.read(energyProvider);
@@ -388,9 +460,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       }
       setState(() {
         _typing = false;
-        _messages.add(
-          _Msg(text: result.text, isUser: false, emotion: result.emotion),
-        );
+        _messages.add(_Msg(text: result.text, isUser: false, emotion: result.emotion));
         _lastSiResponse = result.text;
       });
       _scrollToBottom();

@@ -130,6 +130,30 @@ class NotificationScheduler {
     );
   }
 
+  Future<void> scheduleDailyAt({
+    required String id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+  }) async {
+    if (!_permissionGranted) return;
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+    await _plugin.zonedSchedule(
+      id: id.hashCode,
+      title: title,
+      body: body,
+      scheduledDate: scheduled,
+      notificationDetails: _notifDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
   Future<void> cancel(String id) async {
     await _plugin.cancel(id: id.hashCode);
   }

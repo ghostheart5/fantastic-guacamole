@@ -5,9 +5,11 @@ import 'package:fantastic_guacamole/features/coach/ui/coach_screen.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/flowmap/ui/flowmap_screen.dart';
 import 'package:fantastic_guacamole/features/focus/ui/focus_screen.dart';
+import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_coach_screen.dart';
 import 'package:fantastic_guacamole/features/insights/ui/insight_screen.dart';
 import 'package:fantastic_guacamole/features/logs/ui/logs_screen.dart';
+import 'package:fantastic_guacamole/features/memories/ui/memories_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/plan/ui/plan_screen.dart';
 import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
@@ -15,6 +17,8 @@ import 'package:fantastic_guacamole/features/progression/ui/progression_screen.d
 import 'package:fantastic_guacamole/features/reflect/ui/reflect_screen.dart';
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
+import 'package:fantastic_guacamole/features/soul_map/ui/soul_map_screen.dart';
+import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/features/tasks/ui/task_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
@@ -56,7 +60,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell> {
   static const _screens = [
     NexusScreen(),
     TaskScreen(),
-    ReflectScreen(),
+    CoachScreen(),
     LogsScreen(),
     ProfileScreen(),
   ];
@@ -119,7 +123,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell> {
           items: [
             _svgNavItem(AppAssets.iconNexus, 'Nexus', _index == 0),
             _svgNavItem(AppAssets.iconTasks, 'Tasks', _index == 1),
-            _svgNavItem(AppAssets.iconReflect, 'Reflect', _index == 2),
+            _svgNavItem(AppAssets.iconCoach, 'Coach', _index == 2),
             _svgNavItem(AppAssets.iconLogs, 'Logs', _index == 3),
             _svgNavItem(AppAssets.iconProfile, 'Profile', _index == 4),
           ],
@@ -151,6 +155,14 @@ class _NavigationShellState extends ConsumerState<NavigationShell> {
       body = const CreatorScreen();
     } else if (view == AppView.flowmap) {
       body = const FlowmapScreen();
+    } else if (view == AppView.goals) {
+      body = const GoalsScreen();
+    } else if (view == AppView.memories) {
+      body = const MemoriesScreen();
+    } else if (view == AppView.soulMap) {
+      body = const SoulMapScreen();
+    } else if (view == AppView.timeline) {
+      body = const TimelineScreen();
     } else {
       body = const CoachScreen();
     }

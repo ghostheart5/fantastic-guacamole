@@ -25,41 +25,51 @@ class DaySelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 44,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        scrollDirection: Axis.horizontal,
-        itemCount: _days.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) {
+      child: Row(
+        children: List.generate(_days.length, (i) {
           final bool selected = selectedIndex == i;
-          return InkWell(
-            onTap: () => onSelect(i),
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: selected
-                    ? AppColors.neonViolet.withValues(alpha: 0.2)
-                    : Colors.white.withValues(alpha: 0.03),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: selected
-                      ? AppColors.neonViolet.withValues(alpha: 0.55)
-                      : Colors.white12,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                _days[i],
-                style: TextStyle(
-                  color: selected ? AppColors.neonViolet : Colors.white54,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: i < _days.length - 1 ? 6 : 0),
+              child: GestureDetector(
+                onTap: () => onSelect(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? AppColors.neonViolet.withValues(alpha: 0.2)
+                        : Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: selected
+                          ? AppColors.neonViolet.withValues(alpha: 0.6)
+                          : Colors.white12,
+                    ),
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: AppColors.neonViolet.withValues(alpha: 0.25),
+                              blurRadius: 8,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    _days[i],
+                    style: TextStyle(
+                      color: selected ? AppColors.neonViolet : Colors.white38,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
                 ),
               ),
             ),
           );
-        },
+        }),
       ),
     );
   }
