@@ -1,18 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!--
-  PLACEHOLDER — replace with real values from Firebase Console.
-  Run: flutterfire configure --platforms=ios  (requires macOS + Xcode)
-  Then add the generated GoogleService-Info.plist to ios/Runner/ via Xcode.
--->
 <plist version="1.0">
 <dict>
-  <key>CLIENT_ID</key>
-  <string>REPLACE_WITH_IOS_CLIENT_ID</string>
-  <key>REVERSED_CLIENT_ID</key>
-  <string>REPLACE_WITH_REVERSED_CLIENT_ID</string>
   <key>API_KEY</key>
-  <string>REPLACE_WITH_IOS_API_KEY</string>
+  <string>AIzaSyAeDIlk349AqTLueWvfnD_PDKlQ4IsOXnY</string>
   <key>GCM_SENDER_ID</key>
   <string>956622397052</string>
   <key>PLIST_VERSION</key>
@@ -34,6 +25,6 @@
   <key>IS_SIGNIN_ENABLED</key>
   <true/>
   <key>GOOGLE_APP_ID</key>
-  <string>1:956622397052:ios:REPLACE_WITH_IOS_APP_ID</string>
+  <string>1:956622397052:ios:4a522f3f234d24959133f9</string>
 </dict>
 </plist>
