@@ -43,7 +43,7 @@ import 'package:fantastic_guacamole/features/logs/services/log_services.dart';
 import 'package:fantastic_guacamole/features/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/features/notifications/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/features/notifications/services/notifications_service.dart';
-import 'package:fantastic_guacamole/features/paywall/repositories/paywall_repository.dart';
+import 'package:fantastic_guacamole/features/paywall/repositories/google_play_paywall_repository.dart';
 import 'package:fantastic_guacamole/features/paywall/services/paywall_service.dart';
 // ============================================================
 // FEATURE: SETTINGS
@@ -175,7 +175,7 @@ final notificationsServiceProvider = Provider<NotificationsService>((ref) {
 });
 
 final paywallRepositoryProvider = Provider<IPaywallRepository>((ref) {
-  return PaywallRepository();
+  return GooglePlayPaywallRepository();
 });
 
 final paywallServiceProvider = Provider<PaywallService>((ref) {
