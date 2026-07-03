@@ -184,22 +184,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.privacy,
         builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'Privacy', body: 'Privacy route scaffold'),
+            const WebPageView(
+              title: 'Privacy Policy',
+              assetPath: 'assets/legal/privacy_policy.txt',
+            ),
       ),
       GoRoute(
         path: RoutePaths.terms,
         builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'Terms', body: 'Terms route scaffold'),
+            const WebPageView(
+              title: 'Terms of Service',
+              assetPath: 'assets/legal/terms_of_service.txt',
+            ),
       ),
       GoRoute(
         path: RoutePaths.support,
         builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'Support', body: 'Support route scaffold'),
+            const WebPageView(
+              title: 'Support',
+              body: 'For support, contact ghostheart131517@gmail.com',
+            ),
       ),
       GoRoute(
         path: RoutePaths.about,
         builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'About', body: 'About route scaffold'),
+            const WebPageView(title: 'About', body: 'ChronoSpark'),
       ),
       GoRoute(
         path: RoutePaths.feature1,
