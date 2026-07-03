@@ -46,7 +46,7 @@ jobs:
 
       - name: Package artifacts
         run: |
-          TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
+          TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
           TAG="android-release-${TIMESTAMP}"
           AAB="build/app/outputs/bundle/release/app-release.aab"
 
@@ -58,13 +58,18 @@ jobs:
           echo "TAG=${TAG}" >> "$GITHUB_ENV"
           echo "TIMESTAMP=${TIMESTAMP}" >> "$GITHUB_ENV"
 
+      - name: Clean up signing secrets
+        if: always()
+        run: |
+          rm -f android/app/key.jks android/key.properties
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${TAG}" \
             --repo "${{ github.repository }}" \
-            --title "ChronoSpark Android Release" \
+            --title "ChronoSpark Android Release ${TIMESTAMP}" \
             --draft \
             --prerelease \
             --notes "Automated Android release build (${TIMESTAMP})" \
