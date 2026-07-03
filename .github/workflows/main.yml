@@ -39,7 +39,11 @@ jobs:
           cp assets/legal/terms_of_service.html build/web/terms/index.html
 
       - name: Copy .well-known to build
-        run: cp -r web/.well-known build/web/.well-known
+        run: |
+          if [ -d web/.well-known ]; then
+            mkdir -p build/web/.well-known
+            cp -r web/.well-known/. build/web/.well-known/
+          fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
