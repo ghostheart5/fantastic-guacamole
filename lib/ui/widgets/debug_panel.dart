@@ -21,7 +21,10 @@ class DebugPanel extends ConsumerWidget {
         width: 240,
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.circular(12),
+        ),
 
         child: DefaultTextStyle(
           style: const TextStyle(fontSize: 11, color: Colors.white),
@@ -30,7 +33,10 @@ class DebugPanel extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 /// Title
-                const Text("SI CONTROL", style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  "SI CONTROL",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
 
                 const SizedBox(height: 6),
 
@@ -43,12 +49,20 @@ class DebugPanel extends ConsumerWidget {
                 const SizedBox(height: 6),
 
                 Text("EffortW: ${learning.effortWeight.toStringAsFixed(2)}"),
-                Text("PriorityW: ${learning.priorityWeight.toStringAsFixed(2)}"),
+                Text(
+                  "PriorityW: ${learning.priorityWeight.toStringAsFixed(2)}",
+                ),
                 Text("AI: ${aiStatus.phase}"),
-                if (aiStatus.requestId != null) Text("AI Req: ${aiStatus.requestId}"),
-                if (aiStatus.durationMs != null) Text("AI Ms: ${aiStatus.durationMs}"),
+                if (aiStatus.requestId != null)
+                  Text("AI Req: ${aiStatus.requestId}"),
+                if (aiStatus.durationMs != null)
+                  Text("AI Ms: ${aiStatus.durationMs}"),
                 if (aiStatus.error != null)
-                  Text("AI Err: ${aiStatus.error}", maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(
+                    "AI Err: ${aiStatus.error}",
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
 
                 const Divider(),
 

@@ -20,9 +20,15 @@ class PlanHeader extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.neonCyan.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
+              border: Border.all(
+                color: AppColors.neonCyan.withValues(alpha: 0.3),
+              ),
             ),
-            child: const Icon(Icons.arrow_back_ios_new, color: AppColors.neonCyan, size: 16),
+            child: const Icon(
+              Icons.arrow_back_ios_new,
+              color: AppColors.neonCyan,
+              size: 16,
+            ),
           ),
         ),
         const SizedBox(width: 14),
@@ -33,7 +39,10 @@ class PlanHeader extends StatelessWidget {
             color: AppColors.neonViolet,
             borderRadius: BorderRadius.circular(2),
             boxShadow: [
-              BoxShadow(color: AppColors.neonViolet.withValues(alpha: 0.8), blurRadius: 8),
+              BoxShadow(
+                color: AppColors.neonViolet.withValues(alpha: 0.8),
+                blurRadius: 8,
+              ),
             ],
           ),
         ),
@@ -66,7 +75,11 @@ class PlanHeader extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'TEMPORAL SCHEDULE',
-                  style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 2,
+                    color: Colors.white38,
+                  ),
                 ),
               ),
             ],

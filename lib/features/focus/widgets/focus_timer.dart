@@ -21,7 +21,11 @@ class FocusTimer extends StatelessWidget {
       children: [
         const Text(
           'TIME REMAINING',
-          style: TextStyle(fontSize: 10, letterSpacing: 2.5, color: Colors.white38),
+          style: TextStyle(
+            fontSize: 10,
+            letterSpacing: 2.5,
+            color: Colors.white38,
+          ),
         ),
         const SizedBox(height: 12),
         FittedBox(
@@ -49,7 +53,11 @@ class FocusTimer extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           '${(progress * 100).round()}% complete',
-          style: const TextStyle(fontSize: 11, color: Colors.white38, letterSpacing: 1),
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.white38,
+            letterSpacing: 1,
+          ),
         ),
       ],
     );

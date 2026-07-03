@@ -56,7 +56,10 @@ class IntelligenceService {
   }
 
   MockLoginConfigState mockLoginConfig() {
-    return MockLoginConfigState(email: Env.mockLoginEmail.trim(), password: Env.mockLoginPassword);
+    return MockLoginConfigState(
+      email: Env.mockLoginEmail.trim(),
+      password: Env.mockLoginPassword,
+    );
   }
 
   List<String> productionReadinessIssues({bool force = false}) {

@@ -25,7 +25,8 @@ class FocusScreen extends ConsumerStatefulWidget {
   ConsumerState<FocusScreen> createState() => _FocusScreenState();
 }
 
-class _FocusScreenState extends ConsumerState<FocusScreen> with TickerProviderStateMixin {
+class _FocusScreenState extends ConsumerState<FocusScreen>
+    with TickerProviderStateMixin {
   static const _durationOptions = [15, 25, 50];
 
   int _selectedMinutes = 25;
@@ -45,8 +46,10 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with TickerProviderSt
     super.initState();
     _seconds = _totalSeconds;
 
-    _glowPulse = AnimationController(vsync: this, duration: const Duration(seconds: 2))
-      ..repeat(reverse: true);
+    _glowPulse = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
 
     _completeAnim = AnimationController(vsync: this);
     _completeAnim.addStatusListener((status) {
@@ -66,6 +69,7 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with TickerProviderSt
 
   void _start() {
     setState(() => _started = true);
+    ref.read(focusControllerProvider.notifier).start();
     _sessionTimer?.dispose();
     _sessionTimer = _focusServices.createTimer(
       totalSeconds: _totalSeconds,
@@ -99,7 +103,11 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with TickerProviderSt
 
     await ref
         .read(focusSessionControllerProvider)
-        .completeSession(task: task, elapsedSeconds: elapsed, reasoning: recommendation?.reasoning);
+        .completeSession(
+          task: task,
+          elapsedSeconds: elapsed,
+          reasoning: recommendation?.reasoning,
+        );
 
     if (!mounted) return;
 
@@ -188,10 +196,12 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with TickerProviderSt
     final TaskView? task = routeTask ?? aiTask;
     final double elapsed = _started ? 1 - (_seconds / _totalSeconds) : 0.0;
     final safeSeconds = _seconds < 0 ? 0 : _seconds;
-    final safeProgress = elapsed.isNaN || elapsed.isInfinite ? 0.0 : elapsed.clamp(0.0, 1.0);
+    final safeProgress = elapsed.isNaN || elapsed.isInfinite
+        ? 0.0
+        : elapsed.clamp(0.0, 1.0);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/focus_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/focus_bg.jpg',
       showGradientOverlay: false,
       showGlowOverlay: false,
       child: Scaffold(
@@ -202,9 +212,14 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with TickerProviderSt
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 22,
+                    ),
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -214,7 +229,9 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with TickerProviderSt
                               SmartPressable(
                                 onTap: () {
                                   _sessionTimer?.stop();
-                                  ref.read(focusControllerProvider.notifier).reset();
+                                  ref
+                                      .read(focusControllerProvider.notifier)
+                                      .reset();
                                   ref.read(appFlowProvider.notifier).toCoach();
                                 },
                                 child: const Icon(
@@ -239,9 +256,11 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with TickerProviderSt
                             NeonPanel(
                               header: Text(
                                 'CURRENT TASK',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.labelLarge?.copyWith(color: neonCyan, letterSpacing: 2),
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(
+                                      color: neonCyan,
+                                      letterSpacing: 2,
+                                    ),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,7 +275,10 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with TickerProviderSt
                                   const SizedBox(height: 4),
                                   Text(
                                     'Priority ${task.priority}  ·  Energy ${task.energyRequired}',
-                                    style: const TextStyle(fontSize: 12, color: AppColors.neonCyan),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.neonCyan,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -285,22 +307,30 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with TickerProviderSt
                           // Active: timer + controls
                           if (_started) ...[
                             SizedBox(
-                              height: math.min(340, constraints.maxHeight * 0.44),
+                              height: math.min(
+                                340,
+                                constraints.maxHeight * 0.44,
+                              ),
                               child: AnimatedBuilder(
                                 animation: _glowPulse,
                                 builder: (context, child) {
                                   final double pulse =
-                                      0.5 + 0.5 * math.sin(_glowPulse.value * math.pi);
-                                  final double glowAlpha = (elapsed * 0.45 + pulse * 0.12).clamp(
-                                    0.0,
-                                    0.6,
-                                  );
+                                      0.5 +
+                                      0.5 *
+                                          math.sin(_glowPulse.value * math.pi);
+                                  final double glowAlpha =
+                                      (elapsed * 0.45 + pulse * 0.12).clamp(
+                                        0.0,
+                                        0.6,
+                                      );
                                   return DecoratedBox(
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(22),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: AppColors.neonCyan.withValues(alpha: glowAlpha),
+                                          color: AppColors.neonCyan.withValues(
+                                            alpha: glowAlpha,
+                                          ),
                                           blurRadius: 16 + pulse * 14,
                                           spreadRadius: 1,
                                         ),
@@ -333,7 +363,10 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with TickerProviderSt
                             ),
                             const SizedBox(height: 24),
                             if (!_sessionCompleted) ...[
-                              HoloButton(label: 'Finish Session', onTap: _finish),
+                              HoloButton(
+                                label: 'Finish Session',
+                                onTap: _finish,
+                              ),
                               const SizedBox(height: 12),
                               HoloButton(label: 'Skip Session', onTap: _skip),
                               const SizedBox(height: 12),
@@ -382,7 +415,11 @@ class _FocusScreenState extends ConsumerState<FocusScreen> with TickerProviderSt
 }
 
 class _DurationPicker extends StatelessWidget {
-  const _DurationPicker({required this.options, required this.selected, required this.onSelect});
+  const _DurationPicker({
+    required this.options,
+    required this.selected,
+    required this.onSelect,
+  });
 
   final List<int> options;
   final int selected;
@@ -442,7 +479,9 @@ class _DurationPicker extends StatelessWidget {
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
-                                color: AppColors.neonCyan.withValues(alpha: 0.2),
+                                color: AppColors.neonCyan.withValues(
+                                  alpha: 0.2,
+                                ),
                                 blurRadius: 12,
                               ),
                             ]
@@ -455,7 +494,9 @@ class _DurationPicker extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w300,
-                            color: isSelected ? AppColors.neonCyan : Colors.white38,
+                            color: isSelected
+                                ? AppColors.neonCyan
+                                : Colors.white38,
                           ),
                         ),
                         Text(

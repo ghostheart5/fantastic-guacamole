@@ -8,7 +8,11 @@ class StreakLogic {
     final DateTime? lastActiveDate = streak.lastActiveDate;
     final DateTime? last = lastActiveDate == null
         ? null
-        : DateTime(lastActiveDate.year, lastActiveDate.month, lastActiveDate.day);
+        : DateTime(
+            lastActiveDate.year,
+            lastActiveDate.month,
+            lastActiveDate.day,
+          );
 
     if (last == null) {
       return Streak(current: 1, longest: 1, lastActiveDate: day);
@@ -16,7 +20,11 @@ class StreakLogic {
 
     final int difference = day.difference(last).inDays;
     if (difference == 0) {
-      return Streak(current: streak.current, longest: streak.longest, lastActiveDate: day);
+      return Streak(
+        current: streak.current,
+        longest: streak.longest,
+        lastActiveDate: day,
+      );
     }
 
     if (difference == 1) {

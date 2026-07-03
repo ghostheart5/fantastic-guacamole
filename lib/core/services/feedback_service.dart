@@ -10,7 +10,10 @@ class FeedbackService {
     await AudioService.play('audio/error_soft.wav', soundEnabled);
   }
 
-  static Future<void> success(BuildContext context, {required bool soundEnabled}) async {
+  static Future<void> success(
+    BuildContext context, {
+    required bool soundEnabled,
+  }) async {
     HapticFeedback.mediumImpact();
     await AudioService.play('audio/task_complete.wav', soundEnabled);
   }

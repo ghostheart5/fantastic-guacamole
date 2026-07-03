@@ -1,5 +1,9 @@
 class AgentResult {
-  const AgentResult({required this.selectedAgent, required this.workflow, required this.payload});
+  const AgentResult({
+    required this.selectedAgent,
+    required this.workflow,
+    required this.payload,
+  });
 
   final String selectedAgent;
   final String workflow;

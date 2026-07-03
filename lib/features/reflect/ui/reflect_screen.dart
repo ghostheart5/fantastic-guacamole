@@ -56,7 +56,11 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
 
     await ref
         .read(workspaceStoreServiceProvider)
-        .appendSiReflection(note: note, energy: _energy, emotion: _emotion.name);
+        .appendSiReflection(
+          note: note,
+          energy: _energy,
+          emotion: _emotion.name,
+        );
 
     if (!mounted) return;
 
@@ -107,7 +111,7 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
   @override
   Widget build(BuildContext context) {
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/reflect_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/reflect_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -152,7 +156,11 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
                         ),
                         const Text(
                           'TEMPORAL ANALYSIS',
-                          style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
+                          style: TextStyle(
+                            fontSize: 10,
+                            letterSpacing: 2,
+                            color: Colors.white38,
+                          ),
                         ),
                       ],
                     ),
@@ -194,7 +202,11 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
                   child: TextField(
                     controller: _controller,
                     maxLines: 5,
-                    style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.6),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      height: 1.6,
+                    ),
                     decoration: const InputDecoration(
                       hintText: 'Capture any thoughts, wins, or blockers...',
                       hintStyle: TextStyle(color: Colors.white24),
@@ -219,7 +231,9 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
                         decoration: BoxDecoration(
                           color: AppColors.memoryAmber.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.4)),
+                          border: Border.all(
+                            color: AppColors.memoryAmber.withValues(alpha: 0.4),
+                          ),
                         ),
                         child: const Icon(
                           Icons.lightbulb_outline,
@@ -231,7 +245,11 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
                       const Expanded(
                         child: Text(
                           'What was your highest-leverage action today?',
-                          style: TextStyle(fontSize: 14, color: Colors.white70, height: 1.6),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white70,
+                            height: 1.6,
+                          ),
                         ),
                       ),
                     ],
@@ -240,7 +258,9 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
                 const SizedBox(height: 24),
 
                 HoloButton(
-                  label: _saving ? 'SAVING...' : (_saved ? 'SAVED' : 'SAVE REFLECTION'),
+                  label: _saving
+                      ? 'SAVING...'
+                      : (_saved ? 'SAVED' : 'SAVE REFLECTION'),
                   color: _saved ? AppColors.neonCyan : AppColors.neonViolet,
                   onTap: _saving ? () {} : () => _saveReflection(),
                 ),
@@ -254,7 +274,11 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
 }
 
 class _NeonPanel extends StatelessWidget {
-  const _NeonPanel({required this.label, required this.child, required this.accentColor});
+  const _NeonPanel({
+    required this.label,
+    required this.child,
+    required this.accentColor,
+  });
 
   final String label;
   final Widget child;
@@ -270,7 +294,11 @@ class _NeonPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
         boxShadow: [
-          BoxShadow(color: accentColor.withValues(alpha: 0.06), blurRadius: 20, spreadRadius: -2),
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.06),
+            blurRadius: 20,
+            spreadRadius: -2,
+          ),
         ],
       ),
       child: Column(
@@ -329,11 +357,19 @@ class _NeonSlider extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(color: Colors.white54, fontSize: 11, letterSpacing: 1.5),
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 11,
+                letterSpacing: 1.5,
+              ),
             ),
             Text(
               '${(value * 100).round()}%',
-              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),

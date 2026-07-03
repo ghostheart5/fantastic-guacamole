@@ -2,7 +2,11 @@ import 'package:fantastic_guacamole/core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class DayOverviewCard extends StatelessWidget {
-  const DayOverviewCard({super.key, required this.blocksCount, required this.energy});
+  const DayOverviewCard({
+    super.key,
+    required this.blocksCount,
+    required this.energy,
+  });
 
   final int blocksCount;
   final double energy;
@@ -35,12 +39,20 @@ class DayOverviewCard extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: const TextStyle(fontSize: 10, color: Colors.white38, letterSpacing: 1.3),
+          style: const TextStyle(
+            fontSize: 10,
+            color: Colors.white38,
+            letterSpacing: 1.3,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: color,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ],
     );

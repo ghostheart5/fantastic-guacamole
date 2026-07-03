@@ -11,10 +11,11 @@ class SummarizationAgent extends AiAgent {
 
   @override
   Future<Map<String, dynamic>> execute(Map<String, dynamic> request) async {
-    final String content = request['content']?.toString() ?? request['prompt']?.toString() ?? '';
-    final Map<String, dynamic> summary = await summaryTool.run(<String, dynamic>{
-      'content': content,
-    });
+    final String content =
+        request['content']?.toString() ?? request['prompt']?.toString() ?? '';
+    final Map<String, dynamic> summary = await summaryTool.run(
+      <String, dynamic>{'content': content},
+    );
     final String summaryText = summary['summary']?.toString() ?? '';
 
     return <String, dynamic>{
@@ -23,7 +24,8 @@ class SummarizationAgent extends AiAgent {
       'contentLength': content.length,
       'summary': summaryText,
       'message': summaryText,
-      'reasoning': 'Summarized ${summary['sentences']} sentences into a compact response.',
+      'reasoning':
+          'Summarized ${summary['sentences']} sentences into a compact response.',
       'emotion': 'balanced',
       'confidence': 0.72,
       'status': 'ready',

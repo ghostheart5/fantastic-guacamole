@@ -17,7 +17,7 @@ class NotificationsPage extends ConsumerWidget {
     final async = controller.watch();
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/nexus_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/nexus_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -99,32 +99,38 @@ class _Header extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [AppColors.neonCyan, AppColors.neonViolet],
-                ).createShader(bounds),
-                child: const Text(
-                  'NOTIFICATIONS',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 3,
-                    color: Colors.white,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [AppColors.neonCyan, AppColors.neonViolet],
+                  ).createShader(bounds),
+                  child: const Text(
+                    'NOTIFICATIONS',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 3,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
-              const Text(
-                'SYSTEM ALERTS',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2,
-                  color: Colors.white38,
+                const Text(
+                  'SYSTEM ALERTS',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 2,
+                    color: Colors.white38,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

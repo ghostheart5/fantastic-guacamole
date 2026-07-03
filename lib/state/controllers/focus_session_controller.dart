@@ -28,14 +28,20 @@ class FocusSessionController {
   }) async {
     if (task == null) {
       _applyFallbackScore(elapsedSeconds);
-      AppAnalytics.track('focus_session_completed', params: <String, Object?>{'task': 'unknown'});
+      AppAnalytics.track(
+        'focus_session_completed',
+        params: <String, Object?>{'task': 'unknown'},
+      );
       return;
     }
 
     final rawTask = task.toTask();
     final si = _ref.read(siStateProvider);
     final learning = _ref.read(learningProvider);
-    final SICoreUpdate update = SICore(si: si, learning: learning).onComplete(rawTask);
+    final SICoreUpdate update = SICore(
+      si: si,
+      learning: learning,
+    ).onComplete(rawTask);
 
     await _ref.read(learningProvider.notifier).apply(update.learning);
     _ref
@@ -67,7 +73,9 @@ class FocusSessionController {
         );
     await _ref.read(aiResponseProvider.notifier).execute();
     final aiResponse = _ref.read(aiResponseProvider).asData?.value;
-    _ref.read(notificationProvider.notifier).pushCompletionFeedback(rawTask.title);
+    _ref
+        .read(notificationProvider.notifier)
+        .pushCompletionFeedback(rawTask.title);
 
     final score = _ref
         .read(sessionScoringEngineProvider)
@@ -77,7 +85,9 @@ class FocusSessionController {
           taskPriority: rawTask.priority,
         );
     _ref.read(profileProvider.notifier).addXP(score.xp);
-    _ref.read(sessionScoreProvider.notifier).set(SessionScoreView.fromScore(score));
+    _ref
+        .read(sessionScoreProvider.notifier)
+        .set(SessionScoreView.fromScore(score));
 
     await _ref
         .read(aiControllerProvider)
@@ -103,14 +113,20 @@ class FocusSessionController {
   Future<void> skipSession({required TaskView? task, String? reasoning}) async {
     if (task == null) {
       await _ref.read(aiResponseProvider.notifier).execute();
-      AppAnalytics.track('focus_session_skipped', params: <String, Object?>{'task': 'unknown'});
+      AppAnalytics.track(
+        'focus_session_skipped',
+        params: <String, Object?>{'task': 'unknown'},
+      );
       return;
     }
 
     final rawTask = task.toTask();
     final si = _ref.read(siStateProvider);
     final learning = _ref.read(learningProvider);
-    final SICoreUpdate update = SICore(si: si, learning: learning).onSkip(rawTask);
+    final SICoreUpdate update = SICore(
+      si: si,
+      learning: learning,
+    ).onSkip(rawTask);
 
     await _ref.read(learningProvider.notifier).apply(update.learning);
     _ref
@@ -145,7 +161,10 @@ class FocusSessionController {
 
     AppAnalytics.track(
       'focus_session_skipped',
-      params: <String, Object?>{'task_id': rawTask.id, 'priority': rawTask.priority},
+      params: <String, Object?>{
+        'task_id': rawTask.id,
+        'priority': rawTask.priority,
+      },
     );
   }
 
@@ -154,6 +173,8 @@ class FocusSessionController {
         .read(sessionScoringEngineProvider)
         .calculate(seconds: elapsedSeconds, energy: 0.5, taskPriority: 1);
     _ref.read(profileProvider.notifier).addXP(score.xp);
-    _ref.read(sessionScoreProvider.notifier).set(SessionScoreView.fromScore(score));
+    _ref
+        .read(sessionScoreProvider.notifier)
+        .set(SessionScoreView.fromScore(score));
   }
 }

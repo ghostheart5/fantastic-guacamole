@@ -33,9 +33,15 @@ class StreakCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.neonViolet.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.35)),
+              border: Border.all(
+                color: AppColors.neonViolet.withValues(alpha: 0.35),
+              ),
             ),
-            child: const Icon(Icons.local_fire_department, color: AppColors.neonViolet, size: 24),
+            child: const Icon(
+              Icons.local_fire_department,
+              color: AppColors.neonViolet,
+              size: 24,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -62,7 +68,11 @@ class StreakCard extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'DAY STREAK',
-                          style: TextStyle(fontSize: 11, letterSpacing: 1.5, color: Colors.white38),
+                          style: TextStyle(
+                            fontSize: 11,
+                            letterSpacing: 1.5,
+                            color: Colors.white38,
+                          ),
                         ),
                       ),
                     ),

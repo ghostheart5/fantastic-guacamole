@@ -47,7 +47,9 @@ final voiceServiceProvider = Provider<VoiceService>((ref) {
   return VoiceService();
 });
 
-final voiceControllerProvider = NotifierProvider<VoiceController, VoiceState>(VoiceController.new);
+final voiceControllerProvider = NotifierProvider<VoiceController, VoiceState>(
+  VoiceController.new,
+);
 
 class VoiceController extends Notifier<VoiceState> {
   final SpeechToText _speech = SpeechToText();
@@ -62,7 +64,10 @@ class VoiceController extends Notifier<VoiceState> {
     try {
       available = await _speech.initialize(
         onError: (errorNotification) {
-          state = state.copyWith(isListening: false, error: errorNotification.errorMsg);
+          state = state.copyWith(
+            isListening: false,
+            error: errorNotification.errorMsg,
+          );
         },
         onStatus: (status) {
           if (status == 'notListening' || status == 'done') {
@@ -74,7 +79,8 @@ class VoiceController extends Notifier<VoiceState> {
       state = state.copyWith(
         isAvailable: false,
         isListening: false,
-        error: error.message ?? 'Speech recognition unavailable on this device.',
+        error:
+            error.message ?? 'Speech recognition unavailable on this device.',
       );
       return;
     } catch (_) {
@@ -95,7 +101,11 @@ class VoiceController extends Notifier<VoiceState> {
       return;
     }
 
-    state = state.copyWith(isAvailable: true, isListening: true, clearError: true);
+    state = state.copyWith(
+      isAvailable: true,
+      isListening: true,
+      clearError: true,
+    );
 
     try {
       await _speech.listen(
@@ -112,7 +122,10 @@ class VoiceController extends Notifier<VoiceState> {
         error: error.message ?? 'Failed to start speech recognition.',
       );
     } catch (_) {
-      state = state.copyWith(isListening: false, error: 'Failed to start speech recognition.');
+      state = state.copyWith(
+        isListening: false,
+        error: 'Failed to start speech recognition.',
+      );
     }
   }
 
@@ -152,7 +165,10 @@ class VoiceController extends Notifier<VoiceState> {
       return;
     }
 
-    final AIRecommendation? response = ref.read(aiResponseProvider).asData?.value;
+    final AIRecommendation? response = ref
+        .read(aiResponseProvider)
+        .asData
+        ?.value;
     final String? reasoning = response?.reasoning;
     final String spoken = (reasoning != null && reasoning.isNotEmpty)
         ? reasoning

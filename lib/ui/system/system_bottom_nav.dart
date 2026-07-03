@@ -38,7 +38,9 @@ class SystemBottomNav extends ConsumerWidget {
         child: Row(
           children: List<Widget>.generate(items.length, (int index) {
             final bool selected = currentIndex == index;
-            final Color color = selected ? const Color(0xFFECE8F9) : const Color(0xFFB6AEC4);
+            final Color color = selected
+                ? const Color(0xFFECE8F9)
+                : const Color(0xFFB6AEC4);
             final String? svgAsset = items[index].svgAsset;
 
             return Expanded(
@@ -48,7 +50,10 @@ class SystemBottomNav extends ConsumerWidget {
                 label: '${items[index].label} tab',
                 child: InkWell(
                   onTap: () => unawaited(
-                    FeedbackService.tapThenAction(() => onTap(index), soundEnabled: soundEnabled),
+                    FeedbackService.tapThenAction(
+                      () => onTap(index),
+                      soundEnabled: soundEnabled,
+                    ),
                   ),
                   borderRadius: BorderRadius.circular(22),
                   child: Padding(
@@ -86,8 +91,16 @@ class SystemBottomNav extends ConsumerWidget {
                                   curve: Curves.easeOut,
                                   scale: selected ? 1.09 : 1,
                                   child: svgAsset != null
-                                      ? AppIcon(svgAsset, size: 28, color: color)
-                                      : Icon(items[index].iconData, size: 28, color: color),
+                                      ? AppIcon(
+                                          svgAsset,
+                                          size: 28,
+                                          color: color,
+                                        )
+                                      : Icon(
+                                          items[index].iconData,
+                                          size: 28,
+                                          color: color,
+                                        ),
                                 ),
                               ],
                             ),
@@ -102,7 +115,9 @@ class SystemBottomNav extends ConsumerWidget {
                                 fontSize: 11,
                                 height: 1.0,
                                 color: color,
-                                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
                               ),
                             ),
                           ],

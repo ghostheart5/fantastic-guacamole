@@ -3,7 +3,7 @@ import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
 import 'package:fantastic_guacamole/features/home/widgets/ai_decision_card.dart';
 import 'package:fantastic_guacamole/features/home/widgets/energy_card.dart';
-import 'package:fantastic_guacamole/features/home/widgets/focurs_task_card.dart';
+import 'package:fantastic_guacamole/features/home/widgets/focus_task_card.dart';
 import 'package:fantastic_guacamole/features/home/widgets/quick_actions.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
@@ -35,7 +35,9 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       }
 
       final String? reasoning = next.value?.reasoning;
-      if (reasoning != null && reasoning.isNotEmpty && reasoning != _lastSpokenReasoning) {
+      if (reasoning != null &&
+          reasoning.isNotEmpty &&
+          reasoning != _lastSpokenReasoning) {
         _lastSpokenReasoning = reasoning;
         ref.read(voiceServiceProvider).speak(reasoning);
       }
@@ -44,7 +46,9 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
     final AsyncValue<AIRecommendation?> aiAsync = ref.watch(aiResponseProvider);
     final AIRecommendation? recommendation = aiAsync.asData?.value;
     final String taskTitle = recommendation?.task?.title ?? '';
-    final predictionAsync = taskTitle.isEmpty ? null : ref.watch(predictionProvider(taskTitle));
+    final predictionAsync = taskTitle.isEmpty
+        ? null
+        : ref.watch(predictionProvider(taskTitle));
     final AIPersonality personality = ref.watch(aiPersonalityProvider);
     final double energy = ref.watch(energyProvider);
     final VoiceState voice = ref.watch(voiceControllerProvider);
@@ -70,7 +74,8 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: SmartPressable(
-                              onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
+                              onTap: () =>
+                                  ref.read(appFlowProvider.notifier).toCoach(),
                               child: const Icon(
                                 Icons.arrow_back_ios,
                                 color: Colors.white54,
@@ -120,9 +125,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                   NeonPanel(
                     header: Text(
                       'AI PERSONALITY',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelLarge?.copyWith(color: neonCyan, letterSpacing: 2),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: neonCyan,
+                        letterSpacing: 2,
+                      ),
                     ),
                     child: Wrap(
                       spacing: 8,
@@ -147,9 +153,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     NeonPanel(
                       header: Text(
                         'PREDICTION',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelLarge?.copyWith(color: neonCyan, letterSpacing: 2),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: neonCyan,
+                          letterSpacing: 2,
+                        ),
                       ),
                       child: predictionAsync.when(
                         data: (prediction) => Column(
@@ -157,20 +164,19 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                           children: [
                             Text(
                               'Prediction: ${prediction.outcome}',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.white),
                             ),
                             const SizedBox(height: 6),
                             Text(
                               'Confidence: ${(prediction.probability * 100).toInt()}%',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: Colors.white70),
                             ),
                           ],
                         ),
-                        loading: () => const Center(child: CircularProgressIndicator()),
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
                         error: (_, _) => const Text('Prediction unavailable'),
                       ),
                     ),
@@ -179,9 +185,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     NeonPanel(
                       header: Text(
                         'AI RECOMMENDATION',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelLarge?.copyWith(color: neonCyan, letterSpacing: 2),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: neonCyan,
+                          letterSpacing: 2,
+                        ),
                       ),
                       child: AIDecisionCard(
                         task: task,
@@ -197,9 +204,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                   NeonPanel(
                     header: Text(
                       'ENERGY LEVEL',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelLarge?.copyWith(color: neonCyan, letterSpacing: 2),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: neonCyan,
+                        letterSpacing: 2,
+                      ),
                     ),
                     child: EnergyCard(energy: energy),
                   ),
@@ -221,9 +229,13 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     label: voice.isListening ? 'Stop Listening' : '🎤 Speak',
                     onTap: () {
                       if (voice.isListening) {
-                        ref.read(voiceControllerProvider.notifier).stopListening();
+                        ref
+                            .read(voiceControllerProvider.notifier)
+                            .stopListening();
                       } else {
-                        ref.read(voiceControllerProvider.notifier).startListening();
+                        ref
+                            .read(voiceControllerProvider.notifier)
+                            .startListening();
                       }
                     },
                   ),
@@ -231,9 +243,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                   NeonPanel(
                     header: Text(
                       'VOICE INTERACTION',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelLarge?.copyWith(color: neonCyan, letterSpacing: 2),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: neonCyan,
+                        letterSpacing: 2,
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -242,23 +255,34 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                voice.isListening ? 'Listening...' : 'Tap mic and speak to SI',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: voice.isListening ? neonCyan : Colors.white70,
-                                ),
+                                voice.isListening
+                                    ? 'Listening...'
+                                    : 'Tap mic and speak to SI',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: voice.isListening
+                                          ? neonCyan
+                                          : Colors.white70,
+                                    ),
                               ),
                             ),
                             IconButton(
                               onPressed: () {
                                 if (voice.isListening) {
-                                  ref.read(voiceControllerProvider.notifier).stopListening();
+                                  ref
+                                      .read(voiceControllerProvider.notifier)
+                                      .stopListening();
                                 } else {
-                                  ref.read(voiceControllerProvider.notifier).startListening();
+                                  ref
+                                      .read(voiceControllerProvider.notifier)
+                                      .startListening();
                                 }
                               },
                               icon: Icon(
                                 voice.isListening ? Icons.mic_off : Icons.mic,
-                                color: voice.isListening ? Colors.pinkAccent : neonCyan,
+                                color: voice.isListening
+                                    ? Colors.pinkAccent
+                                    : neonCyan,
                               ),
                             ),
                           ],
@@ -266,18 +290,16 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                         if (voice.recognizedText.isNotEmpty)
                           Text(
                             'You: ${voice.recognizedText}',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodySmall?.copyWith(color: Colors.white60),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.white60),
                           ),
                         if (voice.lastResponse.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 6),
                             child: Text(
                               'SI: ${voice.lastResponse}',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodySmall?.copyWith(color: const Color(0xFF9BE7FF)),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: const Color(0xFF9BE7FF)),
                             ),
                           ),
                         if (voice.error != null)
@@ -285,9 +307,8 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                             padding: const EdgeInsets.only(top: 6),
                             child: Text(
                               voice.error ?? 'Voice interaction failed.',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodySmall?.copyWith(color: const Color(0xFFFF8A8A)),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: const Color(0xFFFF8A8A)),
                             ),
                           ),
                       ],

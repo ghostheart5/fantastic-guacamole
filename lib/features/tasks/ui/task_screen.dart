@@ -15,7 +15,7 @@ class TaskScreen extends ConsumerWidget {
     final TrajectorySummaryView summary = ref.watch(trajectorySummaryProvider);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/tasks_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/tasks_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -45,7 +45,11 @@ class TaskScreen extends ConsumerWidget {
                       padding: EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
                         'PREDICTIVE BEHAVIOR · HABITS · SI ALERTS',
-                        style: TextStyle(fontSize: 10, color: Colors.white54, letterSpacing: 1.8),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white54,
+                          letterSpacing: 1.8,
+                        ),
                       ),
                     ),
                   ),
@@ -71,7 +75,9 @@ class TaskScreen extends ConsumerWidget {
                         delegate: SliverChildBuilderDelegate((context, index) {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: TaskCard(task: TaskView.fromTask(tasks[index])),
+                            child: TaskCard(
+                              task: TaskView.fromTask(tasks[index]),
+                            ),
                           );
                         }, childCount: tasks.length),
                       ),
@@ -95,7 +101,8 @@ class _TrajectorySummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final double predictionProbability = summary.predictionProbability ?? 0.0;
     final String predictionExplanation =
-        summary.predictionExplanation ?? 'Prediction details are unavailable right now.';
+        summary.predictionExplanation ??
+        'Prediction details are unavailable right now.';
 
     return Container(
       width: double.infinity,
@@ -123,39 +130,65 @@ class _TrajectorySummaryCard extends StatelessWidget {
             runSpacing: 10,
             children: [
               _MetricChip(label: 'PENDING', value: '${summary.pendingTasks}'),
-              _MetricChip(label: 'COMPLETED', value: '${summary.completedTasks}'),
+              _MetricChip(
+                label: 'COMPLETED',
+                value: '${summary.completedTasks}',
+              ),
               _MetricChip(label: 'LEVEL', value: 'L${summary.level}'),
               _MetricChip(label: 'STREAK', value: '${summary.streak}d'),
               _MetricChip(label: 'TODAY', value: '${summary.completedToday}'),
               _MetricChip(label: 'PRESSURE', value: '${summary.pressureIndex}'),
-              _MetricChip(label: 'DIVERGENCE', value: '${summary.behaviorDivergence}%'),
+              _MetricChip(
+                label: 'DIVERGENCE',
+                value: '${summary.behaviorDivergence}%',
+              ),
             ],
           ),
           const SizedBox(height: 14),
           Text(
             summary.alert,
-            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             'XP ${summary.lastSessionXp}  ·  Quality ${(summary.lastSessionQuality * 100).round()}%  ·  Momentum ${(summary.momentum * 100).round()}%',
-            style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4),
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             'Adaptability ${(summary.adaptability * 100).round()}%',
-            style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4),
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
+              height: 1.4,
+            ),
           ),
           if (summary.hasPrediction) ...[
             const SizedBox(height: 12),
             Text(
               'Prediction: ${summary.predictionOutcome} · ${(predictionProbability * 100).round()}%',
-              style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4),
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               predictionExplanation,
-              style: const TextStyle(color: Colors.white38, fontSize: 12, height: 1.4),
+              style: const TextStyle(
+                color: Colors.white38,
+                fontSize: 12,
+                height: 1.4,
+              ),
             ),
           ],
         ],
@@ -173,11 +206,14 @@ class _PredictiveSiReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final double predictionProbability = summary.predictionProbability ?? 0.0;
     final String predictionExplanation =
-        summary.predictionExplanation ?? 'Prediction details are unavailable right now.';
+        summary.predictionExplanation ??
+        'Prediction details are unavailable right now.';
     final String forecast = summary.hasPrediction
         ? '${summary.predictionTitle}: ${summary.predictionOutcome} · ${(predictionProbability * 100).round()}%'
         : 'No explicit model prediction yet. Using live trajectory signals.';
-    final String guidance = summary.hasPrediction ? predictionExplanation : summary.alert;
+    final String guidance = summary.hasPrediction
+        ? predictionExplanation
+        : summary.alert;
 
     return Container(
       width: double.infinity,
@@ -210,17 +246,36 @@ class _PredictiveSiReportCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Text(guidance, style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.5)),
+          Text(
+            guidance,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
           const SizedBox(height: 14),
           Wrap(
             spacing: 10,
             runSpacing: 10,
             children: [
-              _MetricChip(label: 'ENERGY', value: '${(summary.energy * 100).round()}%'),
-              _MetricChip(label: 'MOMENTUM', value: '${(summary.momentum * 100).round()}%'),
-              _MetricChip(label: 'ADAPTABILITY', value: '${(summary.adaptability * 100).round()}%'),
+              _MetricChip(
+                label: 'ENERGY',
+                value: '${(summary.energy * 100).round()}%',
+              ),
+              _MetricChip(
+                label: 'MOMENTUM',
+                value: '${(summary.momentum * 100).round()}%',
+              ),
+              _MetricChip(
+                label: 'ADAPTABILITY',
+                value: '${(summary.adaptability * 100).round()}%',
+              ),
               _MetricChip(label: 'PRESSURE', value: '${summary.pressureIndex}'),
-              _MetricChip(label: 'DIVERGENCE', value: '${summary.behaviorDivergence}%'),
+              _MetricChip(
+                label: 'DIVERGENCE',
+                value: '${summary.behaviorDivergence}%',
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -265,7 +320,11 @@ class _MetricChip extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: 15,
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),

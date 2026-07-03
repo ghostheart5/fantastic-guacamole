@@ -1,9 +1,10 @@
 import 'package:fantastic_guacamole/data/models/notification.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final notificationsProvider = NotifierProvider<NotificationController, List<ChronoNotification>>(
-  NotificationController.new,
-);
+final notificationsProvider =
+    NotifierProvider<NotificationController, List<ChronoNotification>>(
+      NotificationController.new,
+    );
 
 class NotificationController extends Notifier<List<ChronoNotification>> {
   @override

@@ -29,7 +29,7 @@ class LogsScreen extends ConsumerWidget {
     );
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/logs_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/logs_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -54,7 +54,10 @@ class LogsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: LogsInsightCard(title: 'XP Snapshot', value: '${profile.xp}'),
+                      child: LogsInsightCard(
+                        title: 'XP Snapshot',
+                        value: '${profile.xp}',
+                      ),
                     ),
                   ],
                 ),
@@ -63,13 +66,19 @@ class LogsScreen extends ConsumerWidget {
                   loading: () => const Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 32),
-                      child: CircularProgressIndicator(color: AppColors.neonCyan, strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        color: AppColors.neonCyan,
+                        strokeWidth: 2,
+                      ),
                     ),
                   ),
                   error: (e, _) => Center(
                     child: Text(
                       'Failed to load logs: $e',
-                      style: const TextStyle(color: AppColors.recallRed, fontSize: 12),
+                      style: const TextStyle(
+                        color: AppColors.recallRed,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                   data: (_) => Column(
@@ -119,7 +128,11 @@ class LogsScreen extends ConsumerWidget {
 }
 
 class _LogList extends StatelessWidget {
-  const _LogList({required this.entries, required this.icon, required this.color});
+  const _LogList({
+    required this.entries,
+    required this.icon,
+    required this.color,
+  });
 
   final List<String> entries;
   final IconData icon;
@@ -141,7 +154,11 @@ class _LogList extends StatelessWidget {
                 Expanded(
                   child: Text(
                     entries[i],
-                    style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
                   ),
                 ),
               ],
@@ -154,7 +171,11 @@ class _LogList extends StatelessWidget {
 }
 
 class _ScreenHeader extends StatelessWidget {
-  const _ScreenHeader({required this.title, required this.subtitle, required this.accentColor});
+  const _ScreenHeader({
+    required this.title,
+    required this.subtitle,
+    required this.accentColor,
+  });
   final String title;
   final String subtitle;
   final Color accentColor;
@@ -169,7 +190,12 @@ class _ScreenHeader extends StatelessWidget {
           decoration: BoxDecoration(
             color: accentColor,
             borderRadius: BorderRadius.circular(2),
-            boxShadow: [BoxShadow(color: accentColor.withValues(alpha: 0.8), blurRadius: 8)],
+            boxShadow: [
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.8),
+                blurRadius: 8,
+              ),
+            ],
           ),
         ),
         const SizedBox(width: 12),
@@ -177,8 +203,9 @@ class _ScreenHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ShaderMask(
-              shaderCallback: (bounds) =>
-                  LinearGradient(colors: [accentColor, AppColors.neonViolet]).createShader(bounds),
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [accentColor, AppColors.neonViolet],
+              ).createShader(bounds),
               child: Text(
                 title,
                 style: const TextStyle(
@@ -191,7 +218,11 @@ class _ScreenHeader extends StatelessWidget {
             ),
             Text(
               subtitle,
-              style: const TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
+              style: const TextStyle(
+                fontSize: 10,
+                letterSpacing: 2,
+                color: Colors.white38,
+              ),
             ),
           ],
         ),
@@ -201,7 +232,11 @@ class _ScreenHeader extends StatelessWidget {
 }
 
 class _NeonPanel extends StatelessWidget {
-  const _NeonPanel({required this.label, required this.child, required this.accentColor});
+  const _NeonPanel({
+    required this.label,
+    required this.child,
+    required this.accentColor,
+  });
   final String label;
   final Widget child;
   final Color accentColor;
@@ -216,7 +251,11 @@ class _NeonPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
         boxShadow: [
-          BoxShadow(color: accentColor.withValues(alpha: 0.06), blurRadius: 20, spreadRadius: -2),
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.06),
+            blurRadius: 20,
+            spreadRadius: -2,
+          ),
         ],
       ),
       child: Column(
@@ -256,5 +295,6 @@ class _PanelDivider extends StatelessWidget {
   const _PanelDivider();
 
   @override
-  Widget build(BuildContext context) => Container(height: 0.5, color: Colors.white10);
+  Widget build(BuildContext context) =>
+      Container(height: 0.5, color: Colors.white10);
 }

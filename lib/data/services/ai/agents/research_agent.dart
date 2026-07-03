@@ -12,12 +12,13 @@ class ResearchAgent extends AiAgent {
 
   @override
   Future<Map<String, dynamic>> execute(Map<String, dynamic> request) async {
-    final String query = request['query']?.toString() ?? request['prompt']?.toString() ?? '';
-    final List<Task> tasks = (request['tasks'] as List<Task>?) ?? const <Task>[];
-    final Map<String, dynamic> findings = await researchTool.run(<String, dynamic>{
-      'query': query,
-      'tasks': tasks,
-    });
+    final String query =
+        request['query']?.toString() ?? request['prompt']?.toString() ?? '';
+    final List<Task> tasks =
+        (request['tasks'] as List<Task>?) ?? const <Task>[];
+    final Map<String, dynamic> findings = await researchTool.run(
+      <String, dynamic>{'query': query, 'tasks': tasks},
+    );
     final List<Map<String, dynamic>> rows =
         ((findings['findings'] as List<dynamic>?) ?? const <dynamic>[])
             .whereType<Map<String, dynamic>>()

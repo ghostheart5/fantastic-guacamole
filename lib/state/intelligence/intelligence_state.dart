@@ -68,7 +68,10 @@ class MockLoginConfigState {
 }
 
 class AuthStateSnapshot {
-  const AuthStateSnapshot({required this.hasMockSession, required this.hasAuthenticatedUser});
+  const AuthStateSnapshot({
+    required this.hasMockSession,
+    required this.hasAuthenticatedUser,
+  });
 
   final bool hasMockSession;
   final bool hasAuthenticatedUser;

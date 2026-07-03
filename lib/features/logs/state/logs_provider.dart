@@ -2,9 +2,10 @@ import 'package:fantastic_guacamole/data/services/logs_service.dart';
 import 'package:fantastic_guacamole/state/services/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final logsProvider = NotifierProvider<LogsController, AsyncValue<ChronoLogsPayload>>(
-  LogsController.new,
-);
+final logsProvider =
+    NotifierProvider<LogsController, AsyncValue<ChronoLogsPayload>>(
+      LogsController.new,
+    );
 
 class LogsController extends Notifier<AsyncValue<ChronoLogsPayload>> {
   @override

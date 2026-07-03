@@ -11,21 +11,21 @@ class AppAssets {
   static const audioTaskComplete = 'assets/audio/task_complete.wav';
 
   // Backgrounds
-  static const bgCreator = 'assets/backgrounds/creator_bg.png';
-  static const bgFocus = 'assets/backgrounds/focus_bg.png';
-  static const bgHome = 'assets/backgrounds/home_bg.png';
-  static const bgInsights = 'assets/backgrounds/insigh_bg.png';
-  static const bgLogin = 'assets/backgrounds/login_bg.png';
-  static const bgLogs = 'assets/backgrounds/logs_bg.png';
-  static const bgNexus = 'assets/backgrounds/nexus_bg.png';
-  static const bgOnboarding = 'assets/backgrounds/onboarding_screen.png';
-  static const bgPlan = 'assets/backgrounds/plan_bg.png';
-  static const bgProfile = 'assets/backgrounds/profile_bg.png';
-  static const bgProgression = 'assets/backgrounds/progression_bg.png';
-  static const bgReflect = 'assets/backgrounds/reflect_bg.png';
-  static const bgSettings = 'assets/backgrounds/settings_bg.png';
-  static const bgSiConsole = 'assets/backgrounds/si_console_bg.png';
-  static const bgTasks = 'assets/backgrounds/tasks_bg.png';
+  static const bgCreator = 'assets/backgrounds/creator_bg.jpg';
+  static const bgFocus = 'assets/backgrounds/focus_bg.jpg';
+  static const bgHome = 'assets/backgrounds/home_bg.jpg';
+  static const bgInsights = 'assets/backgrounds/insigh_bg.jpg';
+  static const bgLogin = 'assets/backgrounds/login_bg.jpg';
+  static const bgLogs = 'assets/backgrounds/logs_bg.jpg';
+  static const bgNexus = 'assets/backgrounds/nexus_bg.jpg';
+  static const bgOnboarding = 'assets/backgrounds/onboarding_screen.jpg';
+  static const bgPlan = 'assets/backgrounds/plan_bg.jpg';
+  static const bgProfile = 'assets/backgrounds/profile_bg.jpg';
+  static const bgProgression = 'assets/backgrounds/progression_bg.jpg';
+  static const bgReflect = 'assets/backgrounds/reflect_bg.jpg';
+  static const bgSettings = 'assets/backgrounds/settings_bg.jpg';
+  static const bgSiConsole = 'assets/backgrounds/si_console_bg.jpg';
+  static const bgTasks = 'assets/backgrounds/tasks_bg.jpg';
 
   // Data
   static const dataCreatorSeed = 'assets/data/creator_seed.json';
@@ -34,8 +34,7 @@ class AppAssets {
   static const dataTemporalSeed = 'assets/data/temporal_seed.json';
   static const dataUser = 'assets/data/user.json';
 
-  // Fonts
-  static const fontInterBlack = 'assets/fonts/Inter_18pt-Black.ttf';
+  // Fonts (raw asset paths — see pubspec.yaml for font family registration)
   static const fontInterBold = 'assets/fonts/Inter-Bold.ttf';
   static const fontInterMedium = 'assets/fonts/Inter-Medium.ttf';
   static const fontInterRegular = 'assets/fonts/Inter-Regular.ttf';

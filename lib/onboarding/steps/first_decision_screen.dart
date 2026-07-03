@@ -77,7 +77,9 @@ class _FirstDecisionScreenState extends State<FirstDecisionScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.2)),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -111,7 +113,10 @@ class _FirstDecisionScreenState extends State<FirstDecisionScreen> {
                           SizedBox(height: 4),
                           Text(
                             'Example task — what would you do with this?',
-                            style: TextStyle(fontSize: 12, color: Colors.white38),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white38,
+                            ),
                           ),
                         ],
                       ),
@@ -174,7 +179,10 @@ class _FirstDecisionScreenState extends State<FirstDecisionScreen> {
                             const SizedBox(height: 2),
                             Text(
                               choice.description,
-                              style: const TextStyle(fontSize: 10, color: Colors.white38),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.white38,
+                              ),
                               maxLines: 2,
                             ),
                           ],
@@ -203,7 +211,9 @@ class _FirstDecisionScreenState extends State<FirstDecisionScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.neonCyan.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.5)),
+                      border: Border.all(
+                        color: AppColors.neonCyan.withValues(alpha: 0.5),
+                      ),
                     ),
                     child: const Text(
                       'LOCK IN DECISION',

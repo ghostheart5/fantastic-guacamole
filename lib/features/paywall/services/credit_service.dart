@@ -32,7 +32,10 @@ class CreditService {
       wallet = premium
           ? _createWallet(premium: true, now: now)
           : wallet.copyWith(
-              balance: (wallet.balance + _freeDailyRefill).clamp(0, _freeAllowance),
+              balance: (wallet.balance + _freeDailyRefill).clamp(
+                0,
+                _freeAllowance,
+              ),
               allowance: _freeAllowance,
               resetAt: now.add(const Duration(days: 1)),
               updatedAt: now,
@@ -43,7 +46,10 @@ class CreditService {
     return wallet;
   }
 
-  Future<AiCreditSpendResult> spend({required bool premium, required int amount}) async {
+  Future<AiCreditSpendResult> spend({
+    required bool premium,
+    required int amount,
+  }) async {
     final AiCreditWallet wallet = await loadWallet(premium: premium);
     if (wallet.balance < amount) {
       return AiCreditSpendResult(wallet: wallet, allowed: false);

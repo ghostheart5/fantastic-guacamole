@@ -65,7 +65,11 @@ class TasksController extends ChangeNotifier {
     _setLoading(false);
   }
 
-  Future<void> addTask({required String title, String? description, DateTime? scheduledFor}) async {
+  Future<void> addTask({
+    required String title,
+    String? description,
+    DateTime? scheduledFor,
+  }) async {
     _setLoading(true);
     final AppResult<TaskModel> result = await _service.createTask(
       title: title,
@@ -153,7 +157,9 @@ class TasksController extends ChangeNotifier {
 
   Future<void> _persistUpdate(TaskModel updated) async {
     _setLoading(true);
-    final AppResult<List<TaskModel>> result = await _service.updateTask(updated);
+    final AppResult<List<TaskModel>> result = await _service.updateTask(
+      updated,
+    );
     if (result.isSuccess) {
       _tasks = result.data ?? <TaskModel>[];
       _error = null;

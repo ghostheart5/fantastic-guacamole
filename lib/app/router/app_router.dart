@@ -27,6 +27,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final bool onboardingComplete = ref.watch(onboardingCompleteGuardProvider);
   final bool isAuthenticated = ref.watch(authenticatedGuardProvider);
   final bool hasPremiumAccess = ref.watch(premiumAccessGuardProvider);
+  final intelligence = ref.watch(intelligenceStateProvider);
+  final mockLoginConfig = ref.watch(mockLoginConfigProvider);
 
   return GoRouter(
     initialLocation: RoutePaths.home,
@@ -34,7 +36,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       final String location = state.matchedLocation;
 
-      if (location == RoutePaths.shell && onboardingComplete && isAuthenticated) {
+      if (location == RoutePaths.shell &&
+          onboardingComplete &&
+          isAuthenticated) {
         return RoutePaths.home;
       }
 
@@ -46,7 +50,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return RoutePaths.onboarding;
       }
 
-      if (!isAuthenticated && location != RoutePaths.login && location != RoutePaths.onboarding) {
+      if (!isAuthenticated &&
+          location != RoutePaths.login &&
+          location != RoutePaths.onboarding) {
         return RoutePaths.login;
       }
 
@@ -54,7 +60,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return RoutePaths.home;
       }
 
-      if (!hasPremiumAccess && location == RoutePaths.feature3) {
+      if (!hasPremiumAccess &&
+          (location == RoutePaths.feature1 ||
+              location == RoutePaths.feature2 ||
+              location == RoutePaths.feature3)) {
         return RoutePaths.paywall;
       }
 
@@ -68,57 +77,70 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: <RouteBase>[
           GoRoute(
             path: RoutePaths.home,
-            builder: (BuildContext context, GoRouterState state) => const NavigationShell(),
+            builder: (BuildContext context, GoRouterState state) =>
+                const NavigationShell(),
           ),
         ],
       ),
       GoRoute(
         path: RoutePaths.coach,
-        builder: (BuildContext context, GoRouterState state) => const CoachScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const CoachScreen(),
       ),
       GoRoute(
         path: RoutePaths.focus,
-        builder: (BuildContext context, GoRouterState state) => const FocusScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const FocusScreen(),
       ),
       GoRoute(
         path: RoutePaths.plan,
-        builder: (BuildContext context, GoRouterState state) => const PlanScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const PlanScreen(),
       ),
       GoRoute(
         path: RoutePaths.create,
-        builder: (BuildContext context, GoRouterState state) => const CreatorScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const CreatorScreen(),
       ),
       GoRoute(
         path: RoutePaths.creator,
-        builder: (BuildContext context, GoRouterState state) => const CreatorScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const CreatorScreen(),
       ),
       GoRoute(
         path: RoutePaths.reflect,
-        builder: (BuildContext context, GoRouterState state) => const ReflectScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const ReflectScreen(),
       ),
       GoRoute(
         path: RoutePaths.insights,
-        builder: (BuildContext context, GoRouterState state) => const InsightScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const InsightScreen(),
       ),
       GoRoute(
         path: RoutePaths.logs,
-        builder: (BuildContext context, GoRouterState state) => const LogsScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const LogsScreen(),
       ),
       GoRoute(
         path: RoutePaths.nexus,
-        builder: (BuildContext context, GoRouterState state) => const NexusScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const NexusScreen(),
       ),
       GoRoute(
         path: RoutePaths.notifications,
-        builder: (BuildContext context, GoRouterState state) => const NotificationsPage(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const NotificationsPage(),
       ),
       GoRoute(
         path: RoutePaths.progression,
-        builder: (BuildContext context, GoRouterState state) => const ProgressionScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const ProgressionScreen(),
       ),
       GoRoute(
         path: RoutePaths.temporal,
-        builder: (BuildContext context, GoRouterState state) => const ProgressionScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const ProgressionScreen(),
       ),
       GoRoute(
         path: RoutePaths.si,
@@ -127,28 +149,37 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.tasks,
-        builder: (BuildContext context, GoRouterState state) => const TaskScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const TaskScreen(),
       ),
       GoRoute(
         path: RoutePaths.profile,
-        builder: (BuildContext context, GoRouterState state) => const ProfileScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const ProfileScreen(),
       ),
       GoRoute(
         path: RoutePaths.onboarding,
-        builder: (BuildContext context, GoRouterState state) => const OnboardingScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const OnboardingScreen(),
       ),
       GoRoute(
         path: RoutePaths.login,
-        builder: (BuildContext context, GoRouterState state) =>
-            const AuthGate(child: NavigationShell()),
+        builder: (BuildContext context, GoRouterState state) => AuthGate(
+          enableMockLogin: intelligence.flags.mockLoginEnabled,
+          mockLoginEmail: mockLoginConfig.email,
+          mockLoginPassword: mockLoginConfig.password,
+          child: const NavigationShell(),
+        ),
       ),
       GoRoute(
         path: RoutePaths.settings,
-        builder: (BuildContext context, GoRouterState state) => const SettingsScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const SettingsScreen(),
       ),
       GoRoute(
         path: RoutePaths.paywall,
-        builder: (BuildContext context, GoRouterState state) => const PaywallPage(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const PaywallPage(),
       ),
       GoRoute(
         path: RoutePaths.privacy,
@@ -183,7 +214,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.feature3,
         builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'Feature 3', body: 'Premium route scaffold'),
+            const WebPageView(
+              title: 'Feature 3',
+              body: 'Premium route scaffold',
+            ),
       ),
     ],
   );

@@ -66,18 +66,6 @@ import 'package:fantastic_guacamole/features/tasks/services/task_service.dart';
 
 import 'package:fantastic_guacamole/features/timeline/repositories/timeline_repository.dart';
 import 'package:fantastic_guacamole/features/timeline/services/timeline_service.dart';
-import 'package:fantastic_guacamole/state/controllers/ai_controller.dart' as ai_controller;
-import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart'
-    as app_flow_controller;
-import 'package:fantastic_guacamole/state/controllers/audio_feedback_controller.dart'
-    as audio_feedback_controller;
-// ============================================================
-// FEATURE: FOCUS + SESSION + AI + AUDIO + APP FLOW
-// ============================================================
-
-import 'package:fantastic_guacamole/state/controllers/focus_controller.dart' as focus_controller;
-import 'package:fantastic_guacamole/state/controllers/focus_session_controller.dart'
-    as focus_session_controller;
 import 'package:fantastic_guacamole/state/intelligence/intelligence_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -106,7 +94,9 @@ final secureStoreProvider = Provider<SecureStore>((ref) {
   return SecureStore(
     backend: intelligence.flags.mockMode
         ? InMemorySecureStoreBackend()
-        : RealSecureStoreBackend(storage: ref.read(flutterSecureStorageProvider)),
+        : RealSecureStoreBackend(
+            storage: ref.read(flutterSecureStorageProvider),
+          ),
   );
 });
 final hiveStoreProvider = Provider<HiveStore>((ref) {
@@ -149,7 +139,10 @@ final retryPolicyProvider = Provider<RetryPolicy>((ref) {
 // FLOWMAP
 final flowmapRepositoryProvider = Provider<FlowmapRepository>((ref) {
   return FlowmapRepository(
-    storage: HiveStorage<String>('flowmap_box', hive: ref.read(hiveStoreProvider)),
+    storage: HiveStorage<String>(
+      'flowmap_box',
+      hive: ref.read(hiveStoreProvider),
+    ),
   );
 });
 final flowmapServiceProvider = Provider<FlowmapService>((ref) {
@@ -172,7 +165,9 @@ final identityServiceProvider = Provider<IdentityServiceContract>((ref) {
 final notificationSchedulerProvider = Provider<NotificationScheduler>(
   (ref) => NotificationScheduler(),
 );
-final notificationsRepositoryProvider = Provider<NotificationsRepository>((ref) {
+final notificationsRepositoryProvider = Provider<NotificationsRepository>((
+  ref,
+) {
   return NotificationsRepository(ref.read(notificationSchedulerProvider));
 });
 final notificationsServiceProvider = Provider<NotificationsService>((ref) {
@@ -196,15 +191,22 @@ final appSettingsServiceProvider = Provider<AppSettingsService>((ref) {
 });
 
 // TIMELINE
-final timelineRepositoryProvider = Provider<TimelineRepository>((ref) => TimelineRepository());
+final timelineRepositoryProvider = Provider<TimelineRepository>(
+  (ref) => TimelineRepository(),
+);
 final timelineServiceProvider = Provider<TimelineService>((ref) {
   return TimelineService(ref.read(timelineRepositoryProvider));
 });
 
 // TASKS
-final featureTaskRepositoryProvider = Provider<feature_tasks.TaskRepository>((ref) {
+final featureTaskRepositoryProvider = Provider<feature_tasks.TaskRepository>((
+  ref,
+) {
   return feature_tasks.TaskRepository(
-    storage: HiveStorage<String>('feature_tasks_box', hive: ref.read(hiveStoreProvider)),
+    storage: HiveStorage<String>(
+      'feature_tasks_box',
+      hive: ref.read(hiveStoreProvider),
+    ),
   );
 });
 
@@ -223,16 +225,6 @@ final siEngineRepositoryProvider = Provider<SiEngineRepository>((ref) {
 final siEngineServiceProvider = Provider<SiEngineService>((ref) {
   return SiEngineService(ref.read(siEngineRepositoryProvider));
 });
-
-// ============================================================
-// FOCUS + SESSION + AI + AUDIO + APP FLOW
-// ============================================================
-
-final focusControllerProvider = focus_controller.focusControllerProvider;
-final focusSessionControllerProvider = focus_session_controller.focusSessionControllerProvider;
-final audioFeedbackControllerProvider = audio_feedback_controller.audioFeedbackControllerProvider;
-final aiResponseProvider = ai_controller.aiResponseProvider;
-final appFlowProvider = app_flow_controller.appFlowProvider;
 
 // ============================================================
 // LOGGING

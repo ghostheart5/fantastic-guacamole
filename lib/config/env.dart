@@ -40,7 +40,7 @@ class Env {
   );
   static const String mockLoginPassword = String.fromEnvironment(
     'CHRONOSPARK_MOCK_LOGIN_PASSWORD',
-    defaultValue: 'ChronoSpark123!',
+    defaultValue: '',
   );
   static const String receiptVerifyEndpoint = String.fromEnvironment(
     'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
@@ -64,7 +64,7 @@ class Env {
   );
   static const String appLinksAndroidSha256 = String.fromEnvironment(
     'CHRONOSPARK_ANDROID_SHA256_CERT',
-    defaultValue: 'REPLACE_WITH_RELEASE_SHA256_CERT_FINGERPRINT',
+    defaultValue: 'B9:09:A5:09:56:08:DE:F7:91:EF:B5:A1:C0:D8:28:54:15:8B:45:0A:82:BF:9F:B2:90:84:BB:78:4A:52:17:2F',
   );
   static const String appLinksIosTeamId = String.fromEnvironment(
     'CHRONOSPARK_IOS_TEAM_ID',
@@ -79,7 +79,10 @@ class Env {
     return isReleaseMode && flavor.toLowerCase() == 'prod';
   }
 
-  static bool resolveIsMockMode({required bool isProduction, required bool enableMockMode}) {
+  static bool resolveIsMockMode({
+    required bool isProduction,
+    required bool enableMockMode,
+  }) {
     return !isProduction && enableMockMode;
   }
 
@@ -96,7 +99,7 @@ class Env {
     required bool isMockMode,
     required bool enableMockLogin,
   }) {
-    return isMockMode || !isProduction || enableMockLogin;
+    return !isProduction && (isMockMode || enableMockLogin);
   }
 
   static bool resolveHasTesterFullAccess({
@@ -108,8 +111,10 @@ class Env {
 
   static bool get isProduction => resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
 
-  static bool get isMockMode =>
-      resolveIsMockMode(isProduction: isProduction, enableMockMode: enableMockMode);
+  static bool get isMockMode => resolveIsMockMode(
+    isProduction: isProduction,
+    enableMockMode: enableMockMode,
+  );
 
   static bool get isPaywallDisabled => resolveIsPaywallDisabled(
     isProduction: isProduction,

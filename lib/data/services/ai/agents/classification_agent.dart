@@ -2,7 +2,9 @@ import 'package:fantastic_guacamole/data/services/ai/agents/ai_agent.dart';
 import 'package:fantastic_guacamole/data/services/ai/tools/intent_classification_tool.dart';
 
 class ClassificationAgent extends AiAgent {
-  const ClassificationAgent({this.classificationTool = const IntentClassificationTool()});
+  const ClassificationAgent({
+    this.classificationTool = const IntentClassificationTool(),
+  });
 
   final IntentClassificationTool classificationTool;
 
@@ -11,10 +13,11 @@ class ClassificationAgent extends AiAgent {
 
   @override
   Future<Map<String, dynamic>> execute(Map<String, dynamic> request) async {
-    final String text = request['text']?.toString() ?? request['prompt']?.toString() ?? '';
-    final Map<String, dynamic> result = await classificationTool.run(<String, dynamic>{
-      'text': text,
-    });
+    final String text =
+        request['text']?.toString() ?? request['prompt']?.toString() ?? '';
+    final Map<String, dynamic> result = await classificationTool.run(
+      <String, dynamic>{'text': text},
+    );
     final String label = result['label']?.toString() ?? 'unclassified';
     final double confidence = (result['confidence'] as num?)?.toDouble() ?? 0.0;
 

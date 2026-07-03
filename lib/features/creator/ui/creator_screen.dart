@@ -13,7 +13,7 @@ class CreatorScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/creator_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/creator_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

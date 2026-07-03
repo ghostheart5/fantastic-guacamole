@@ -9,7 +9,8 @@ class TasksLogic {
 
   List<TaskModel> filterPending(List<TaskModel> tasks) {
     return tasks.where((TaskModel t) {
-      return t.status == TaskStatus.pending || t.status == TaskStatus.inProgress;
+      return t.status == TaskStatus.pending ||
+          t.status == TaskStatus.inProgress;
     }).toList();
   }
 
@@ -20,7 +21,11 @@ class TasksLogic {
       if (scheduledFor == null) {
         return false;
       }
-      final DateTime scheduled = DateTime(scheduledFor.year, scheduledFor.month, scheduledFor.day);
+      final DateTime scheduled = DateTime(
+        scheduledFor.year,
+        scheduledFor.month,
+        scheduledFor.day,
+      );
       return scheduled == day;
     }).toList();
   }
@@ -73,7 +78,9 @@ class TasksLogic {
 
     final List<TaskModel> prioritised = <TaskModel>[
       ...overdue,
-      ...sortBySchedule(pending.where((TaskModel t) => !overdue.contains(t)).toList()),
+      ...sortBySchedule(
+        pending.where((TaskModel t) => !overdue.contains(t)).toList(),
+      ),
     ];
 
     return prioritised.take(limit).toList();

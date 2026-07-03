@@ -1,9 +1,10 @@
 import 'package:fantastic_guacamole/state/models/session_score_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final sessionScoreProvider = NotifierProvider<SessionScoreNotifier, SessionScoreView?>(
-  SessionScoreNotifier.new,
-);
+final sessionScoreProvider =
+    NotifierProvider<SessionScoreNotifier, SessionScoreView?>(
+      SessionScoreNotifier.new,
+    );
 
 class SessionScoreNotifier extends Notifier<SessionScoreView?> {
   @override

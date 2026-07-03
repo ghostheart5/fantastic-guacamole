@@ -20,7 +20,9 @@ class MockAuthSessionNotifier extends Notifier<bool> {
 final authUserProvider = StreamProvider<User?>((ref) {
   final sb.SupabaseClient client = ref.watch(supabaseClientProvider);
 
-  final Stream<User?> authStateStream = client.auth.onAuthStateChange.map((event) {
+  final Stream<User?> authStateStream = client.auth.onAuthStateChange.map((
+    event,
+  ) {
     final sb.User? sbUser = event.session?.user ?? client.auth.currentUser;
     return _mapSupabaseUser(sbUser);
   });
@@ -47,7 +49,10 @@ final intelligenceStateProvider = Provider<IntelligenceState>((ref) {
 
   return ref
       .read(intelligenceServiceProvider)
-      .fromRuntime(hasMockSession: hasMockSession, hasAuthenticatedUser: hasAuthenticatedUser);
+      .fromRuntime(
+        hasMockSession: hasMockSession,
+        hasAuthenticatedUser: hasAuthenticatedUser,
+      );
 });
 
 final authenticatedGuardProvider = Provider<bool>((ref) {
@@ -58,7 +63,8 @@ User? _mapSupabaseUser(sb.User? supabaseUser) {
   if (supabaseUser == null) {
     return null;
   }
-  final Map<String, dynamic> metadata = supabaseUser.userMetadata ?? const <String, dynamic>{};
+  final Map<String, dynamic> metadata =
+      supabaseUser.userMetadata ?? const <String, dynamic>{};
   final String? fullName = metadata['full_name']?.toString().trim();
   final String? name = metadata['name']?.toString().trim();
 

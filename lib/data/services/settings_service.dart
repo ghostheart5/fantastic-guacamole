@@ -41,7 +41,8 @@ class SettingsService {
     _neonRecall = await _store.readBool(_neonRecallKey) ?? _neonRecall;
     _siModule = await _store.readBool(_siModuleKey) ?? _siModule;
     _notifications = await _store.readBool(_notificationsKey) ?? _notifications;
-    _analyticsSharing = await _store.readBool(_analyticsSharingKey) ?? _analyticsSharing;
+    _analyticsSharing =
+        await _store.readBool(_analyticsSharingKey) ?? _analyticsSharing;
     _dataSync = await _store.readBool(_dataSyncKey) ?? _dataSync;
     _compactMode = await _store.readBool(_compactModeKey) ?? _compactMode;
     _textScale = await _store.readDouble(_textScaleKey) ?? _textScale;

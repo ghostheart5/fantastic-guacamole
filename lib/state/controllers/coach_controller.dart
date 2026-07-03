@@ -4,7 +4,9 @@ import 'package:fantastic_guacamole/state/controllers/insight_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/prediction_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final coachControllerProvider = NotifierProvider<CoachController, CoachState>(CoachController.new);
+final coachControllerProvider = NotifierProvider<CoachController, CoachState>(
+  CoachController.new,
+);
 
 class CoachController extends Notifier<CoachState> {
   @override
@@ -23,7 +25,9 @@ class CoachController extends Notifier<CoachState> {
       if (response != null) {
         final String taskTitle = response.task?.title ?? '';
         if (taskTitle.isNotEmpty) {
-          final prediction = await ref.read(predictionProvider(taskTitle).future);
+          final prediction = await ref.read(
+            predictionProvider(taskTitle).future,
+          );
           evolvedResponse =
               '${response.message}\n\nInsight: $pattern\n\nPrediction:\n${prediction.outcome} '
               '(${(prediction.probability * 100).toInt()}%)\n\n${prediction.explanation}';
@@ -31,7 +35,11 @@ class CoachController extends Notifier<CoachState> {
           evolvedResponse = '${response.message}\n\nInsight: $pattern';
         }
       }
-      state = state.copyWith(loading: false, response: evolvedResponse, task: response?.task);
+      state = state.copyWith(
+        loading: false,
+        response: evolvedResponse,
+        task: response?.task,
+      );
     } catch (e) {
       state = state.copyWith(loading: false, error: e.toString());
     }

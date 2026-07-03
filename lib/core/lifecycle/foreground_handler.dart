@@ -17,7 +17,10 @@ class ChronoForegroundHandler extends TaskHandler {
 
   @override
   void onRepeatEvent(DateTime timestamp) {
-    FlutterForegroundTask.sendDataToMain({'event': 'tick', 'time': timestamp.toIso8601String()});
+    FlutterForegroundTask.sendDataToMain({
+      'event': 'tick',
+      'time': timestamp.toIso8601String(),
+    });
   }
 
   @override

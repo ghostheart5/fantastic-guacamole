@@ -91,7 +91,12 @@ class _IntentSelectionState extends State<IntentSelection> {
                         width: isSelected ? 1.5 : 1,
                       ),
                       boxShadow: isSelected
-                          ? [BoxShadow(color: intent.color.withValues(alpha: 0.15), blurRadius: 16)]
+                          ? [
+                              BoxShadow(
+                                color: intent.color.withValues(alpha: 0.15),
+                                blurRadius: 16,
+                              ),
+                            ]
                           : null,
                     ),
                     child: Row(
@@ -100,13 +105,21 @@ class _IntentSelectionState extends State<IntentSelection> {
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: intent.color.withValues(alpha: isSelected ? 0.15 : 0.06),
+                            color: intent.color.withValues(
+                              alpha: isSelected ? 0.15 : 0.06,
+                            ),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: intent.color.withValues(alpha: isSelected ? 0.5 : 0.2),
+                              color: intent.color.withValues(
+                                alpha: isSelected ? 0.5 : 0.2,
+                              ),
                             ),
                           ),
-                          child: Icon(intent.icon, color: intent.color, size: 22),
+                          child: Icon(
+                            intent.icon,
+                            color: intent.color,
+                            size: 22,
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -118,18 +131,28 @@ class _IntentSelectionState extends State<IntentSelection> {
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
-                                  color: isSelected ? intent.color : Colors.white,
+                                  color: isSelected
+                                      ? intent.color
+                                      : Colors.white,
                                 ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 intent.description,
-                                style: const TextStyle(fontSize: 12, color: Colors.white38),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white38,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        if (isSelected) Icon(Icons.check_circle, color: intent.color, size: 20),
+                        if (isSelected)
+                          Icon(
+                            Icons.check_circle,
+                            color: intent.color,
+                            size: 20,
+                          ),
                       ],
                     ),
                   ),
@@ -156,9 +179,14 @@ class _IntentSelectionState extends State<IntentSelection> {
                 decoration: BoxDecoration(
                   color: AppColors.neonCyan.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.5)),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.5),
+                  ),
                   boxShadow: [
-                    BoxShadow(color: AppColors.neonCyan.withValues(alpha: 0.2), blurRadius: 16),
+                    BoxShadow(
+                      color: AppColors.neonCyan.withValues(alpha: 0.2),
+                      blurRadius: 16,
+                    ),
                   ],
                 ),
                 child: const Text(

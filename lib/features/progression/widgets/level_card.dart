@@ -49,7 +49,11 @@ class LevelCard extends StatelessWidget {
                     ),
                     const Text(
                       'LVL',
-                      style: TextStyle(fontSize: 9, letterSpacing: 1.5, color: Colors.white38),
+                      style: TextStyle(
+                        fontSize: 9,
+                        letterSpacing: 1.5,
+                        color: Colors.white38,
+                      ),
                     ),
                   ],
                 ),
@@ -83,7 +87,10 @@ class LevelCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                ProgressBar(value: progress.levelProgress, color: AppColors.memoryAmber),
+                ProgressBar(
+                  value: progress.levelProgress,
+                  color: AppColors.memoryAmber,
+                ),
               ],
             ),
           ),

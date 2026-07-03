@@ -40,12 +40,22 @@ class ProfileHeader extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.neonCyan.withValues(alpha: 0.1),
-              border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.5), width: 2),
+              border: Border.all(
+                color: AppColors.neonCyan.withValues(alpha: 0.5),
+                width: 2,
+              ),
               boxShadow: [
-                BoxShadow(color: AppColors.neonCyan.withValues(alpha: 0.3), blurRadius: 16),
+                BoxShadow(
+                  color: AppColors.neonCyan.withValues(alpha: 0.3),
+                  blurRadius: 16,
+                ),
               ],
             ),
-            child: const Icon(Icons.person, color: AppColors.neonCyan, size: 30),
+            child: const Icon(
+              Icons.person,
+              color: AppColors.neonCyan,
+              size: 30,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -70,11 +80,16 @@ class ProfileHeader extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.neonCyan.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: AppColors.neonCyan.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Text(
                       'OPERATIVE L$level',
@@ -112,7 +127,11 @@ class ProfileHeader extends StatelessWidget {
 }
 
 class _HeaderIconBtn extends StatelessWidget {
-  const _HeaderIconBtn({required this.icon, required this.color, required this.onTap});
+  const _HeaderIconBtn({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
   final IconData icon;
   final Color color;
   final VoidCallback onTap;

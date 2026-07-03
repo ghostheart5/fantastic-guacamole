@@ -11,8 +11,11 @@ class ReminderAgent extends AiAgent {
 
   @override
   Future<Map<String, dynamic>> execute(Map<String, dynamic> request) async {
-    final String reminder = request['reminder']?.toString() ?? request['prompt']?.toString() ?? '';
-    final Map<String, dynamic> plan = await reminderTool.run(<String, dynamic>{'prompt': reminder});
+    final String reminder =
+        request['reminder']?.toString() ?? request['prompt']?.toString() ?? '';
+    final Map<String, dynamic> plan = await reminderTool.run(<String, dynamic>{
+      'prompt': reminder,
+    });
     final String window = plan['window']?.toString() ?? 'today';
     final bool scheduled = plan['scheduled'] == true;
 
@@ -25,7 +28,8 @@ class ReminderAgent extends AiAgent {
       'message': scheduled
           ? 'Reminder queued for $window: $reminder'
           : 'No reminder text provided.',
-      'reasoning': 'Detected time window from the prompt and prepared reminder metadata.',
+      'reasoning':
+          'Detected time window from the prompt and prepared reminder metadata.',
       'emotion': 'balanced',
       'confidence': scheduled ? 0.8 : 0.3,
       'status': 'ready',

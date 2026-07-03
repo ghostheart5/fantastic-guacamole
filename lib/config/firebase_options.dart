@@ -43,11 +43,11 @@ class DefaultFirebaseOptions {
   // ANDROID
   // ------------------------------------------------------------
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: "PASTE_ANDROID_API_KEY",
-    appId: "PASTE_ANDROID_APP_ID",
-    messagingSenderId: "PASTE_ANDROID_SENDER_ID",
-    projectId: "PASTE_PROJECT_ID",
-    storageBucket: "PASTE_STORAGE_BUCKET",
+    apiKey: "AIzaSyBEdXHOa-AZLTDCi97SBqD4fAvH3vdnneU",
+    appId: "1:956622397052:android:3ecf5fcda0f2e1ef9133f9",
+    messagingSenderId: "956622397052",
+    projectId: "chronospark-app",
+    storageBucket: "chronospark-app.firebasestorage.app",
   );
 
   // ------------------------------------------------------------

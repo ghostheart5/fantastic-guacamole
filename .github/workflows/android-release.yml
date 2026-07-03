@@ -1,77 +1,42 @@
-name: ChronoSpark Android Release
+name: Android Release
 
 on:
-  workflow_dispatch:
-
-permissions:
-  contents: write
+  push:
+    tags:
+      - 'v*.*.*'
 
 jobs:
-  build-and-release:
+  build-aab:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+      - uses: actions/checkout@v4
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           channel: stable
 
-      - name: Flutter pub get
+      - name: Install dependencies
         run: flutter pub get
 
       - name: Decode keystore
-        run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
 
       - name: Write key.properties
         run: |
-          cat > android/key.properties <<EOF
+          cat > android/key.properties << 'EOF'
           storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyAlias=upload
           storeFile=app/key.jks
           EOF
 
-      - name: Build Android App Bundle
+      - name: Build signed AAB
         run: flutter build appbundle --release
 
-      - name: Package artifacts
-        run: |
-          TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
-          TAG="android-release-${TIMESTAMP}"
-          AAB="build/app/outputs/bundle/release/app-release.aab"
-
-          mkdir -p dist
-          cp "$AAB" "dist/chronospark-${TIMESTAMP}.aab"
-
-          (cd dist && sha256sum "chronospark-${TIMESTAMP}.aab" > SHA256SUMS.txt)
-
-          echo "TAG=${TAG}" >> "$GITHUB_ENV"
-          echo "TIMESTAMP=${TIMESTAMP}" >> "$GITHUB_ENV"
-
-      - name: Clean up signing secrets
-        if: always()
-        run: |
-          rm -f android/app/key.jks android/key.properties
-
-      - name: Create GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${TAG}" \
-            --repo "${{ github.repository }}" \
-            --title "ChronoSpark Android Release ${TIMESTAMP}" \
-            --draft \
-            --prerelease \
-            --notes "Automated Android release build (${TIMESTAMP})" \
-            dist/chronospark-${TIMESTAMP}.aab \
-            dist/SHA256SUMS.txt
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronospark-release-${{ github.ref_name }}
+          path: build/app/outputs/bundle/release/app-release.aab

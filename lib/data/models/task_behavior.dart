@@ -20,7 +20,10 @@ class TaskBehavior {
     final task = await repo.getTaskById(id);
     if (task == null) return null;
 
-    final updated = task.copyWith(isCompleted: true, completedAt: DateTime.now());
+    final updated = task.copyWith(
+      isCompleted: true,
+      completedAt: DateTime.now(),
+    );
 
     await repo.saveTask(updated);
 
@@ -133,7 +136,11 @@ class TaskBehavior {
       if (minutesLeft <= 0) {
         score += 1.0; // overdue = max urgency
       } else {
-        final normalized = MathUtils.clamp(1.0 - (minutesLeft / 1440), 0.0, 1.0).toDouble();
+        final normalized = MathUtils.clamp(
+          1.0 - (minutesLeft / 1440),
+          0.0,
+          1.0,
+        ).toDouble();
         score += normalized;
       }
     }
@@ -152,7 +159,8 @@ class TaskBehavior {
     final urgent = urgency(task);
     final DateTime? scheduledFor = task.scheduledFor;
     final scheduledSoon =
-        scheduledFor != null && TimeUtils.minutesBetween(DateTime.now(), scheduledFor) <= 30;
+        scheduledFor != null &&
+        TimeUtils.minutesBetween(DateTime.now(), scheduledFor) <= 30;
 
     return urgent >= 0.7 || scheduledSoon;
   }

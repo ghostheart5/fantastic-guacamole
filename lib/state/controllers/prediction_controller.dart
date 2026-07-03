@@ -10,7 +10,10 @@ final predictionEngineProvider = Provider<PredictionEngine>((ref) {
   return PredictionEngine();
 });
 
-final predictionProvider = FutureProvider.family<Prediction, String>((ref, String taskTitle) async {
+final predictionProvider = FutureProvider.family<Prediction, String>((
+  ref,
+  String taskTitle,
+) async {
   final prefs = ref.read(sharedPrefsStoreProvider);
   await prefs.init();
   final String? raw = prefs.load('neural_dump');
@@ -30,5 +33,7 @@ final predictionProvider = FutureProvider.family<Prediction, String>((ref, Strin
     }
   }
 
-  return ref.read(predictionEngineProvider).predict(history: history, task: taskTitle);
+  return ref
+      .read(predictionEngineProvider)
+      .predict(history: history, task: taskTitle);
 });

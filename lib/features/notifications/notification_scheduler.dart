@@ -10,7 +10,8 @@ class NotificationScheduler {
 
   final FlutterLocalNotificationsPlugin _plugin;
   bool _permissionGranted = true;
-  static final ValueNotifier<bool?> permissionGrantedListenable = ValueNotifier<bool?>(null);
+  static final ValueNotifier<bool?> permissionGrantedListenable =
+      ValueNotifier<bool?>(null);
 
   static const _channel = AndroidNotificationChannel(
     'chronospark_channel',
@@ -37,20 +38,31 @@ class NotificationScheduler {
       requestBadgePermission: false,
       requestSoundPermission: false,
     );
-    const settings = InitializationSettings(android: android, iOS: darwin, macOS: darwin);
+    const settings = InitializationSettings(
+      android: android,
+      iOS: darwin,
+      macOS: darwin,
+    );
     await _plugin.initialize(settings: settings);
 
     final AndroidFlutterLocalNotificationsPlugin? androidPlugin = _plugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     final IOSFlutterLocalNotificationsPlugin? iosPlugin = _plugin
-        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
     final MacOSFlutterLocalNotificationsPlugin? macosPlugin = _plugin
-        .resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>();
+        .resolvePlatformSpecificImplementation<
+          MacOSFlutterLocalNotificationsPlugin
+        >();
 
     await androidPlugin?.createNotificationChannel(_channel);
 
     bool granted = true;
-    final bool? androidGranted = await androidPlugin?.requestNotificationsPermission();
+    final bool? androidGranted = await androidPlugin
+        ?.requestNotificationsPermission();
     if (androidGranted != null) {
       granted = granted && androidGranted;
     }
@@ -80,20 +92,32 @@ class NotificationScheduler {
       RuntimeDiagnostics.record('Notification permission granted.');
     } else {
       Logger.warn('Notification permission denied; schedules will be skipped.');
-      RuntimeDiagnostics.record('Notification permission denied; schedules will be skipped.');
+      RuntimeDiagnostics.record(
+        'Notification permission denied; schedules will be skipped.',
+      );
     }
   }
 
   Future<void> schedule(NotificationEntity notification) async {
     if (!_permissionGranted) {
-      Logger.log('Notifications', 'Skipped schedule because permission is not granted.');
-      RuntimeDiagnostics.record('Skipped notification schedule because permission is not granted.');
+      Logger.log(
+        'Notifications',
+        'Skipped schedule because permission is not granted.',
+      );
+      RuntimeDiagnostics.record(
+        'Skipped notification schedule because permission is not granted.',
+      );
       return;
     }
     final scheduledTz = tz.TZDateTime.from(notification.scheduledAt, tz.local);
     if (scheduledTz.isBefore(tz.TZDateTime.now(tz.local))) {
-      Logger.log('Notifications', 'Skipped schedule for past time: ${notification.id}.');
-      RuntimeDiagnostics.record('Skipped notification schedule for past time: ${notification.id}.');
+      Logger.log(
+        'Notifications',
+        'Skipped schedule for past time: ${notification.id}.',
+      );
+      RuntimeDiagnostics.record(
+        'Skipped notification schedule for past time: ${notification.id}.',
+      );
       return;
     }
     await _plugin.zonedSchedule(

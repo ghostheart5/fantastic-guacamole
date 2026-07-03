@@ -68,8 +68,15 @@ class ChronoLogsService {
       'Completed deep work sprint',
       'Closed tactical planning loop',
     ],
-    pastMissions: <String>['Mission Blackglass', 'Mission Morning Surge', 'Mission Iron Focus'],
-    pastSchedules: <String>['2026-06-15: 6 focused blocks', '2026-06-16: 5 focused blocks'],
+    pastMissions: <String>[
+      'Mission Blackglass',
+      'Mission Morning Surge',
+      'Mission Iron Focus',
+    ],
+    pastSchedules: <String>[
+      '2026-06-15: 6 focused blocks',
+      '2026-06-16: 5 focused blocks',
+    ],
     notes: <String>[
       'Energy peaks between 09:00 and 12:00.',
       'Avoid stacking two heavy creative blocks back to back.',
@@ -82,7 +89,10 @@ class ChronoLogsService {
       'Redacted Event 07A sealed into vault.',
       'Overload incident 12F archived.',
     ],
-    oldRoutines: <String>['Legacy Dawn Sprint (retired)', 'Night Compression Loop (retired)'],
+    oldRoutines: <String>[
+      'Legacy Dawn Sprint (retired)',
+      'Night Compression Loop (retired)',
+    ],
     archives: <String>['Q2 Mission Archive', 'April Tactical Snapshot'],
   );
 
@@ -94,15 +104,17 @@ class ChronoLogsService {
     }
 
     try {
-      final Map<String, dynamic> json = (jsonDecode(raw) as Map<dynamic, dynamic>)
-          .cast<String, dynamic>();
+      final Map<String, dynamic> json =
+          (jsonDecode(raw) as Map<dynamic, dynamic>).cast<String, dynamic>();
       return ChronoLogsPayload.fromJson(json);
     } on FormatException catch (error) {
       Logger.error('Chronolog payload corrupt. Resetting defaults. $error');
       await save(_defaultPayload);
       return _defaultPayload;
     } on TypeError catch (error) {
-      Logger.error('Chronolog payload invalid shape. Resetting defaults. $error');
+      Logger.error(
+        'Chronolog payload invalid shape. Resetting defaults. $error',
+      );
       await save(_defaultPayload);
       return _defaultPayload;
     }

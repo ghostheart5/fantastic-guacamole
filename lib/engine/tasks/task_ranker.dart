@@ -22,7 +22,12 @@ class TaskRanker {
   }) {
     final DateTime ref = now ?? DateTime.now();
     return tasks
-        .map((t) => RankedTask(task: t, score: _score(t, learning, energy, fatigue, ref)))
+        .map(
+          (t) => RankedTask(
+            task: t,
+            score: _score(t, learning, energy, fatigue, ref),
+          ),
+        )
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
   }
@@ -36,7 +41,13 @@ class TaskRanker {
     DateTime? now,
   }) {
     if (tasks.isEmpty) return null;
-    return rank(tasks, learning: learning, energy: energy, fatigue: fatigue, now: now).first.task;
+    return rank(
+      tasks,
+      learning: learning,
+      energy: energy,
+      fatigue: fatigue,
+      now: now,
+    ).first.task;
   }
 
   double _score(
@@ -47,7 +58,10 @@ class TaskRanker {
     DateTime now,
   ) {
     final double energyNeed = task.energyRequired / 5.0;
-    final double energyMatch = (1.0 - (energy - energyNeed).abs()).clamp(0.0, 1.0);
+    final double energyMatch = (1.0 - (energy - energyNeed).abs()).clamp(
+      0.0,
+      1.0,
+    );
 
     double score = task.priority * learning.priorityWeight * 10.0;
     score += energyMatch * 12.0;

@@ -36,7 +36,11 @@ class AgentRequest {
     'prompt': prompt,
     'context': context,
     'tasks': tasks.map((Task task) => task.toJson()).toList(),
-    'si': {'energy': si?.energy, 'fatigue': si?.fatigue, 'completedToday': si?.completedToday},
+    'si': {
+      'energy': si?.energy,
+      'fatigue': si?.fatigue,
+      'completedToday': si?.completedToday,
+    },
     'learning': learning?.toJson(),
     'personality': personality.name,
     'preferredAgent': preferredAgent,

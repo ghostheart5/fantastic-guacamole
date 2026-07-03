@@ -17,7 +17,8 @@ class RecommendationAgent extends AiAgent {
   @override
   Future<Map<String, dynamic>> execute(Map<String, dynamic> request) async {
     final Object? context = request['context'];
-    final List<Task> tasks = (request['tasks'] as List<Task>?) ?? const <Task>[];
+    final List<Task> tasks =
+        (request['tasks'] as List<Task>?) ?? const <Task>[];
     final SIState? si = request['si'] as SIState?;
     final LearningState? learning = request['learning'] as LearningState?;
     final AIPersonality personality = request['personality'] is AIPersonality

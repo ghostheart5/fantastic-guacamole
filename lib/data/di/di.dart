@@ -8,7 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// ChronoSpark DI Container
 /// Initializes all core systems and registers global providers.
-@Deprecated('Use app bootstrap and providers in data/di/services_providers.dart instead.')
+@Deprecated(
+  'Use app bootstrap and providers in data/di/services_providers.dart instead.',
+)
 class DI {
   static bool _initialized = false;
 

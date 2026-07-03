@@ -37,7 +37,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
         .toList(growable: false);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/plan_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/plan_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

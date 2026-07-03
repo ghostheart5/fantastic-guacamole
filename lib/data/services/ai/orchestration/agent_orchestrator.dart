@@ -51,15 +51,24 @@ class AgentOrchestrator {
     final Stopwatch stopwatch = Stopwatch()..start();
     final AgentRequest resolvedRequest =
         request ??
-        AgentRequest(prompt: prompt, context: context, preferredAgent: preferredAgent?.name);
+        AgentRequest(
+          prompt: prompt,
+          context: context,
+          preferredAgent: preferredAgent?.name,
+        );
     final AgentKind agentKind = preferredAgent ?? _selectAgent(prompt, context);
-    final Map<String, dynamic> payload = await _resolve(agentKind).execute(resolvedRequest.toMap());
+    final Map<String, dynamic> payload = await _resolve(
+      agentKind,
+    ).execute(resolvedRequest.toMap());
     stopwatch.stop();
 
     return AgentResult(
       selectedAgent: agentKind.name,
       workflow: 'execute',
-      payload: _normalizePayload(payload, durationMs: stopwatch.elapsedMilliseconds),
+      payload: _normalizePayload(
+        payload,
+        durationMs: stopwatch.elapsedMilliseconds,
+      ),
     );
   }
 
@@ -79,10 +88,14 @@ class AgentOrchestrator {
     if (lowered.contains('summarize') || lowered.contains('summary')) {
       return AgentKind.summarization;
     }
-    if (lowered.contains('classify') || lowered.contains('label') || lowered.contains('intent')) {
+    if (lowered.contains('classify') ||
+        lowered.contains('label') ||
+        lowered.contains('intent')) {
       return AgentKind.classification;
     }
-    if (lowered.contains('recommend') || lowered.contains('suggest') || lowered.contains('best')) {
+    if (lowered.contains('recommend') ||
+        lowered.contains('suggest') ||
+        lowered.contains('best')) {
       return AgentKind.recommendation;
     }
     if (lowered.contains('custom')) {
@@ -115,9 +128,13 @@ class AgentOrchestrator {
     }
   }
 
-  Map<String, dynamic> _normalizePayload(Map<String, dynamic> payload, {required int durationMs}) {
+  Map<String, dynamic> _normalizePayload(
+    Map<String, dynamic> payload, {
+    required int durationMs,
+  }) {
     final Map<String, dynamic> normalized = Map<String, dynamic>.from(payload);
-    normalized['message'] ??= normalized['response'] ?? normalized['summary'] ?? '';
+    normalized['message'] ??=
+        normalized['response'] ?? normalized['summary'] ?? '';
     normalized['reasoning'] ??= normalized['message'];
     normalized['emotion'] ??= 'balanced';
     normalized['confidence'] ??= 0.5;

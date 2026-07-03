@@ -1,4 +1,5 @@
-import 'package:fantastic_guacamole/data/di/services_providers.dart' show sharedPrefsStoreProvider;
+import 'package:fantastic_guacamole/data/di/services_providers.dart'
+    show sharedPrefsStoreProvider;
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
@@ -30,13 +31,16 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
   return ref.read(paywallServiceProvider).getPaywallConfig();
 });
 
-final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((ref) async {
+final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((
+  ref,
+) async {
   return ref.read(paywallServiceProvider).getUserSubscriptionState();
 });
 
-final paywallPromptProvider = NotifierProvider<PaywallPromptNotifier, PaywallPrompt?>(
-  PaywallPromptNotifier.new,
-);
+final paywallPromptProvider =
+    NotifierProvider<PaywallPromptNotifier, PaywallPrompt?>(
+      PaywallPromptNotifier.new,
+    );
 
 class PaywallPromptNotifier extends Notifier<PaywallPrompt?> {
   @override

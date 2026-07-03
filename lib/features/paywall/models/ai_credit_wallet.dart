@@ -52,7 +52,8 @@ class AiCreditWallet {
           DateTime.tryParse(json['resetAt']?.toString() ?? '')?.toLocal() ??
           DateTime.now().add(const Duration(days: 1)),
       updatedAt:
-          DateTime.tryParse(json['updatedAt']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
+          DateTime.tryParse(json['updatedAt']?.toString() ?? '')?.toLocal() ??
+          DateTime.now(),
     );
   }
 }

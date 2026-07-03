@@ -51,7 +51,9 @@ class TaskRepository implements ITaskRepository {
   Future<List<TaskEntity>> getAllTasks() async {
     try {
       final map = _storage.getAll();
-      return map.values.map((raw) => _fromJson(jsonDecode(raw) as Map<String, dynamic>)).toList();
+      return map.values
+          .map((raw) => _fromJson(jsonDecode(raw) as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       throw StorageException('Failed to load tasks: $e');
     }

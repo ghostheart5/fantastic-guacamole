@@ -1,7 +1,9 @@
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final focusTaskProvider = NotifierProvider<FocusTaskNotifier, TaskView?>(FocusTaskNotifier.new);
+final focusTaskProvider = NotifierProvider<FocusTaskNotifier, TaskView?>(
+  FocusTaskNotifier.new,
+);
 
 class FocusTaskNotifier extends Notifier<TaskView?> {
   @override

@@ -12,7 +12,10 @@ final learningHistoryProvider =
 final learningMetricsProvider = Provider<LearningMetrics>((ref) {
   final LearningState learning = ref.watch(learningProvider);
   final List<LearningHistoryEntry> history = ref.watch(learningHistoryProvider);
-  return const LearningMetricsCalculator().calculate(state: learning, history: history);
+  return const LearningMetricsCalculator().calculate(
+    state: learning,
+    history: history,
+  );
 });
 
 class LearningHistoryController extends Notifier<List<LearningHistoryEntry>> {

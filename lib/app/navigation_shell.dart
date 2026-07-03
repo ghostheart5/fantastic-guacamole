@@ -61,7 +61,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell> {
     ProfileScreen(),
   ];
 
-  BottomNavigationBarItem _svgNavItem(String assetPath, String label, bool active) {
+  BottomNavigationBarItem _svgNavItem(
+    String assetPath,
+    String label,
+    bool active,
+  ) {
     return BottomNavigationBarItem(
       label: label,
       icon: SvgPicture.asset(
@@ -134,7 +138,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell> {
           ? const SIConsoleScreen()
           : _PremiumRouteGate(
               featureName: 'SI Console',
-              onGoToSettings: () => ref.read(appFlowProvider.notifier).toSettings(),
+              onGoToSettings: () =>
+                  ref.read(appFlowProvider.notifier).toSettings(),
             );
     } else if (view == AppView.settings) {
       body = const SettingsScreen();
@@ -155,7 +160,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell> {
 }
 
 class _PremiumRouteGate extends StatelessWidget {
-  const _PremiumRouteGate({required this.featureName, required this.onGoToSettings});
+  const _PremiumRouteGate({
+    required this.featureName,
+    required this.onGoToSettings,
+  });
 
   final String featureName;
   final VoidCallback onGoToSettings;
@@ -169,7 +177,10 @@ class _PremiumRouteGate extends StatelessWidget {
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(20),
-            child: PremiumFeatureGate(featureName: featureName, onGoToSettings: onGoToSettings),
+            child: PremiumFeatureGate(
+              featureName: featureName,
+              onGoToSettings: onGoToSettings,
+            ),
           ),
         ),
       ),

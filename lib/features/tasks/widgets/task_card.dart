@@ -37,7 +37,11 @@ class TaskCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: accent.withValues(alpha: 0.2)),
           boxShadow: [
-            BoxShadow(color: accent.withValues(alpha: 0.08), blurRadius: 16, spreadRadius: -2),
+            BoxShadow(
+              color: accent.withValues(alpha: 0.08),
+              blurRadius: 16,
+              spreadRadius: -2,
+            ),
           ],
         ),
         child: Row(
@@ -48,7 +52,12 @@ class TaskCard extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: accent,
                 borderRadius: BorderRadius.circular(2),
-                boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.7), blurRadius: 8)],
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.7),
+                    blurRadius: 8,
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 14),
@@ -77,7 +86,10 @@ class TaskCard extends ConsumerWidget {
                         label: 'E${task.energyRequired}',
                         color: AppColors.neonCyan.withValues(alpha: 0.6),
                       ),
-                      _Tag(label: 'P${task.priority}', color: accent.withValues(alpha: 0.8)),
+                      _Tag(
+                        label: 'P${task.priority}',
+                        color: accent.withValues(alpha: 0.8),
+                      ),
                     ],
                   ),
                 ],
@@ -88,11 +100,18 @@ class TaskCard extends ConsumerWidget {
               width: 48,
               height: 48,
               child: CustomPaint(
-                painter: _PriorityRingPainter(priority: task.priority, color: accent),
+                painter: _PriorityRingPainter(
+                  priority: task.priority,
+                  color: accent,
+                ),
                 child: Center(
                   child: Text(
                     '${task.priority}',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: accent),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: accent,
+                    ),
                   ),
                 ),
               ),
@@ -118,7 +137,10 @@ class _Tag extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.35), width: 0.5),
       ),
-      child: Text(label, style: TextStyle(fontSize: 9, color: color, letterSpacing: 1)),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 9, color: color, letterSpacing: 1),
+      ),
     );
   }
 }
@@ -172,5 +194,6 @@ class _PriorityRingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_PriorityRingPainter old) => old.priority != priority || old.color != color;
+  bool shouldRepaint(_PriorityRingPainter old) =>
+      old.priority != priority || old.color != color;
 }

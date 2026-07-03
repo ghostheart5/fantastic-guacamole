@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/app/app.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
-import 'package:fantastic_guacamole/config/firebase_options.dart';
+import 'package:fantastic_guacamole/firebase_options.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/observers/riverpod_observer.dart';
@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/features/notifications/notification_schedule
 import 'package:fantastic_guacamole/state/intelligence/intelligence_service.dart';
 import 'package:fantastic_guacamole/system/system_boot.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,14 +37,33 @@ void main() {
     data: intelligence.toMap(),
   );
 
-  runApp(ProviderScope(observers: [AppObserver()], child: const _StartupBootstrapGate()));
+  FlutterError.onError = (errorDetails) {
+    if (Firebase.apps.isNotEmpty) {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+    }
+  };
+
+  runZonedGuarded(
+    () => runApp(
+      ProviderScope(
+        observers: [AppObserver()],
+        child: const _StartupBootstrapGate(),
+      ),
+    ),
+    (error, stack) {
+      if (Firebase.apps.isNotEmpty) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      }
+    },
+  );
 }
 
 class _StartupBootstrapGate extends ConsumerStatefulWidget {
   const _StartupBootstrapGate();
 
   @override
-  ConsumerState<_StartupBootstrapGate> createState() => _StartupBootstrapGateState();
+  ConsumerState<_StartupBootstrapGate> createState() =>
+      _StartupBootstrapGateState();
 }
 
 class _StartupBootstrapGateState extends ConsumerState<_StartupBootstrapGate> {
@@ -57,17 +77,21 @@ class _StartupBootstrapGateState extends ConsumerState<_StartupBootstrapGate> {
   }
 
   Future<void> _bootstrap() async {
-    final _StartupBootstrapResult result = await _initializeStartup(ref).timeout(
-      const Duration(seconds: 45),
-      onTimeout: () {
-        Logger.error('Startup bootstrap timed out before completion.');
-        RuntimeDiagnostics.record('Startup bootstrap timed out before completion.');
-        return const _StartupBootstrapResult(
-          hasOnboarded: false,
-          startupError: 'Startup bootstrap timed out. App started in degraded mode.',
+    final _StartupBootstrapResult result = await _initializeStartup(ref)
+        .timeout(
+          const Duration(seconds: 45),
+          onTimeout: () {
+            Logger.error('Startup bootstrap timed out before completion.');
+            RuntimeDiagnostics.record(
+              'Startup bootstrap timed out before completion.',
+            );
+            return const _StartupBootstrapResult(
+              hasOnboarded: false,
+              startupError:
+                  'Startup bootstrap timed out. App started in degraded mode.',
+            );
+          },
         );
-      },
-    );
     final String? stateBootstrapIssue = await _runStateBootstrapSafe(ref);
     final String? startupError = _appendStartupIssue(
       result.startupError,
@@ -101,7 +125,9 @@ class _StartupBootstrapGateState extends ConsumerState<_StartupBootstrapGate> {
 
 Future<String?> _runStateBootstrapSafe(WidgetRef ref) async {
   try {
-    await ref.read(stateBootstrapProvider.future).timeout(const Duration(seconds: 4));
+    await ref
+        .read(stateBootstrapProvider.future)
+        .timeout(const Duration(seconds: 4));
     Logger.log('Startup', 'State bootstrap completed.');
     RuntimeDiagnostics.record('State bootstrap completed.');
     return null;
@@ -117,7 +143,10 @@ Future<String?> _runStateBootstrapSafe(WidgetRef ref) async {
 }
 
 class _StartupBootstrapResult {
-  const _StartupBootstrapResult({required this.hasOnboarded, required this.startupError});
+  const _StartupBootstrapResult({
+    required this.hasOnboarded,
+    required this.startupError,
+  });
 
   final bool hasOnboarded;
   final String? startupError;
@@ -139,27 +168,34 @@ Future<_StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   const SystemBoot();
   tz.initializeTimeZones();
 
-  final Future<String?> storageIssueFuture = _measureIssueStage('storage', _initStorageSafe);
+  final Future<String?> storageIssueFuture = _measureIssueStage(
+    'storage',
+    _initStorageSafe,
+  );
   final Future<String?> firebaseIssueFuture = _measureIssueStage(
     'firebase',
     () => _initFirebaseSafe(isMockMode: intelligence.flags.mockMode),
   );
   final Future<String?> notificationIssueFuture = _measureIssueStage(
     'notifications',
-    () => _initNotificationSchedulerSafe(isMockMode: intelligence.flags.mockMode),
+    () =>
+        _initNotificationSchedulerSafe(isMockMode: intelligence.flags.mockMode),
   );
   final Future<String?> identityIssueFuture = _measureIssueStage(
     'identity',
     () => _initIdentitySafe(ref),
   );
-  final Future<_PrefsLoadResult> prefsResultFuture = _measurePrefsStage(_loadPrefsSafe);
+  final Future<_PrefsLoadResult> prefsResultFuture = _measurePrefsStage(
+    _loadPrefsSafe,
+  );
 
-  final List<String?> startupIssues = await Future.wait<String?>(<Future<String?>>[
-    storageIssueFuture,
-    firebaseIssueFuture,
-    notificationIssueFuture,
-    identityIssueFuture,
-  ]);
+  final List<String?> startupIssues =
+      await Future.wait<String?>(<Future<String?>>[
+        storageIssueFuture,
+        firebaseIssueFuture,
+        notificationIssueFuture,
+        identityIssueFuture,
+      ]);
   final _PrefsLoadResult prefsResult = await prefsResultFuture;
 
   for (final String? issue in startupIssues) {
@@ -169,10 +205,15 @@ Future<_StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
 
   final bool hasOnboarded = prefsResult.hasOnboarded;
 
-  final List<String> readinessIssues = intelligenceService.productionReadinessIssues();
+  final List<String> readinessIssues = intelligenceService
+      .productionReadinessIssues();
   if (readinessIssues.isNotEmpty) {
-    Logger.warn('Production readiness issues detected: ${readinessIssues.length}');
-    RuntimeDiagnostics.record('Production readiness issues: ${readinessIssues.length}');
+    Logger.warn(
+      'Production readiness issues detected: ${readinessIssues.length}',
+    );
+    RuntimeDiagnostics.record(
+      'Production readiness issues: ${readinessIssues.length}',
+    );
     startupError = _appendStartupIssue(
       startupError,
       'Production readiness configuration is incomplete:\n- '
@@ -192,17 +233,24 @@ Future<_StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   );
 
   totalBootstrap.stop();
-  Logger.info('Startup bootstrap total=${totalBootstrap.elapsedMilliseconds}ms');
+  Logger.info(
+    'Startup bootstrap total=${totalBootstrap.elapsedMilliseconds}ms',
+  );
   RuntimeDiagnostics.recordState(
     'startup.complete',
-    message: startupError == null || startupError.trim().isEmpty ? 'ok' : 'degraded',
+    message: startupError == null || startupError.trim().isEmpty
+        ? 'ok'
+        : 'degraded',
     data: <String, Object?>{
       'durationMs': totalBootstrap.elapsedMilliseconds,
       'hasError': startupError != null && startupError.trim().isNotEmpty,
     },
   );
 
-  return _StartupBootstrapResult(hasOnboarded: hasOnboarded, startupError: startupError);
+  return _StartupBootstrapResult(
+    hasOnboarded: hasOnboarded,
+    startupError: startupError,
+  );
 }
 
 Future<String?> _initStorageSafe() async {
@@ -222,23 +270,32 @@ Future<String?> _initStorageSafe() async {
   }
 }
 
-Future<String?> _measureIssueStage(String stage, Future<String?> Function() action) async {
+Future<String?> _measureIssueStage(
+  String stage,
+  Future<String?> Function() action,
+) async {
   final Stopwatch sw = Stopwatch()..start();
   final String? issue = await action();
   sw.stop();
   final String outcome = issue == null ? 'ok' : 'issue';
   Logger.info('Startup stage $stage: $outcome in ${sw.elapsedMilliseconds}ms');
-  RuntimeDiagnostics.record('Startup stage $stage: $outcome in ${sw.elapsedMilliseconds}ms');
+  RuntimeDiagnostics.record(
+    'Startup stage $stage: $outcome in ${sw.elapsedMilliseconds}ms',
+  );
   return issue;
 }
 
-Future<_PrefsLoadResult> _measurePrefsStage(Future<_PrefsLoadResult> Function() action) async {
+Future<_PrefsLoadResult> _measurePrefsStage(
+  Future<_PrefsLoadResult> Function() action,
+) async {
   final Stopwatch sw = Stopwatch()..start();
   final _PrefsLoadResult result = await action();
   sw.stop();
   final String outcome = result.issue == null ? 'ok' : 'issue';
   Logger.info('Startup stage prefs: $outcome in ${sw.elapsedMilliseconds}ms');
-  RuntimeDiagnostics.record('Startup stage prefs: $outcome in ${sw.elapsedMilliseconds}ms');
+  RuntimeDiagnostics.record(
+    'Startup stage prefs: $outcome in ${sw.elapsedMilliseconds}ms',
+  );
   return result;
 }
 
@@ -255,6 +312,7 @@ Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       ).timeout(const Duration(seconds: 12));
+      await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
       Logger.log('Startup', 'Firebase initialized.');
       RuntimeDiagnostics.record('Firebase initialized.');
     }
@@ -278,10 +336,17 @@ Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
   }
 }
 
-Future<String?> _initNotificationSchedulerSafe({required bool isMockMode}) async {
+Future<String?> _initNotificationSchedulerSafe({
+  required bool isMockMode,
+}) async {
   if (isMockMode) {
-    Logger.log('Startup', 'Mock mode active: notification scheduler startup skipped.');
-    RuntimeDiagnostics.record('Mock mode active: notification scheduler startup skipped.');
+    Logger.log(
+      'Startup',
+      'Mock mode active: notification scheduler startup skipped.',
+    );
+    RuntimeDiagnostics.record(
+      'Mock mode active: notification scheduler startup skipped.',
+    );
     return null;
   }
   try {
@@ -306,7 +371,10 @@ Future<String?> _initIdentitySafe(WidgetRef ref) async {
   try {
     Logger.log('Startup', 'Bootstrapping identity...');
     RuntimeDiagnostics.record('Bootstrapping identity...');
-    await ref.read(identityServiceProvider).ensureIdentity().timeout(const Duration(seconds: 8));
+    await ref
+        .read(identityServiceProvider)
+        .ensureIdentity()
+        .timeout(const Duration(seconds: 8));
     Logger.log('Startup', 'Identity bootstrap completed.');
     RuntimeDiagnostics.record('Identity bootstrap completed.');
     return null;
@@ -327,10 +395,17 @@ Future<_PrefsLoadResult> _loadPrefsSafe() async {
   try {
     Logger.log('Startup', 'Loading local preferences...');
     RuntimeDiagnostics.record('Loading local preferences...');
-    final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 6));
+    final prefs = await SharedPreferences.getInstance().timeout(
+      const Duration(seconds: 6),
+    );
     hasOnboarded = prefs.getBool(onboardingCompleteStorageKey) ?? false;
-    Logger.log('Startup', 'Local preferences loaded. onboardingComplete=$hasOnboarded');
-    RuntimeDiagnostics.record('Local preferences loaded. onboardingComplete=$hasOnboarded');
+    Logger.log(
+      'Startup',
+      'Local preferences loaded. onboardingComplete=$hasOnboarded',
+    );
+    RuntimeDiagnostics.record(
+      'Local preferences loaded. onboardingComplete=$hasOnboarded',
+    );
     return _PrefsLoadResult(hasOnboarded: hasOnboarded, issue: null);
   } on TimeoutException {
     Logger.warn('Local preferences initialization timed out.');
@@ -341,7 +416,9 @@ Future<_PrefsLoadResult> _loadPrefsSafe() async {
     );
   } on Exception catch (error) {
     Logger.error('Local preferences initialization failed.', error);
-    RuntimeDiagnostics.record('Local preferences initialization failed: $error');
+    RuntimeDiagnostics.record(
+      'Local preferences initialization failed: $error',
+    );
     return _PrefsLoadResult(
       hasOnboarded: false,
       issue: 'Local preferences initialization failed: $error',

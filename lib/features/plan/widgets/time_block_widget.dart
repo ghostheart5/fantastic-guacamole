@@ -23,7 +23,9 @@ class TimeBlockWidget extends StatelessWidget {
         color: const Color(0xFF050D1A),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: accent.withValues(alpha: 0.2)),
-        boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.06), blurRadius: 12)],
+        boxShadow: [
+          BoxShadow(color: accent.withValues(alpha: 0.06), blurRadius: 12),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -34,7 +36,9 @@ class TimeBlockWidget extends StatelessWidget {
             decoration: BoxDecoration(
               color: accent,
               borderRadius: BorderRadius.circular(2),
-              boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.7), blurRadius: 6)],
+              boxShadow: [
+                BoxShadow(color: accent.withValues(alpha: 0.7), blurRadius: 6),
+              ],
             ),
           ),
           const SizedBox(width: 14),

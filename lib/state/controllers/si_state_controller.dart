@@ -45,7 +45,11 @@ class SIStateController extends Notifier<SIState> {
     state = state.copyWith(fatigue: (state.fatigue + delta).clamp(0.0, 1.0));
   }
 
-  void replaceState({required double energy, required double fatigue, int? completedToday}) {
+  void replaceState({
+    required double energy,
+    required double fatigue,
+    int? completedToday,
+  }) {
     state = state.copyWith(
       energy: energy.clamp(0.0, 1.0),
       fatigue: fatigue.clamp(0.0, 1.0),
@@ -58,4 +62,6 @@ class SIStateController extends Notifier<SIState> {
   }
 }
 
-final siStateProvider = NotifierProvider<SIStateController, SIState>(SIStateController.new);
+final siStateProvider = NotifierProvider<SIStateController, SIState>(
+  SIStateController.new,
+);

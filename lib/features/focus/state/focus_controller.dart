@@ -1,4 +1,4 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class FocusState {
   final bool active;
@@ -16,9 +16,13 @@ class FocusState {
   }
 }
 
-final focusControllerProvider = NotifierProvider<FocusController, FocusState>(FocusController.new);
+final focusControllerProvider = NotifierProvider<FocusController, FocusState>(
+  FocusController.new,
+);
 
-final focusProvider = Provider<bool>((ref) => ref.watch(focusControllerProvider).active);
+final focusProvider = Provider<bool>(
+  (ref) => ref.watch(focusControllerProvider).active,
+);
 
 class FocusController extends Notifier<FocusState> {
   @override
@@ -33,11 +37,16 @@ class FocusController extends Notifier<FocusState> {
   }
 
   Future<void> _runTimer(int token) async {
-    while (state.active && token == _sessionToken) {
+    while (true) {
       await Future<void>.delayed(const Duration(seconds: 1));
-      if (state.active && token == _sessionToken) {
-        state = state.copyWith(seconds: state.seconds + 1);
+      if (!ref.mounted || token != _sessionToken) {
+        return;
       }
+      final FocusState current = state;
+      if (!current.active) {
+        return;
+      }
+      state = current.copyWith(seconds: current.seconds + 1);
     }
   }
 

@@ -14,7 +14,9 @@ enum AppView {
   flowmap,
 }
 
-final appFlowProvider = NotifierProvider<AppFlowController, AppView>(AppFlowController.new);
+final appFlowProvider = NotifierProvider<AppFlowController, AppView>(
+  AppFlowController.new,
+);
 
 class AppFlowController extends Notifier<AppView> {
   @override

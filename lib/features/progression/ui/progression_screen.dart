@@ -16,7 +16,7 @@ class ProgressionScreen extends ConsumerWidget {
     final progress = progression.progress;
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/progression_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/progression_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -48,32 +48,41 @@ class ProgressionScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 14),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ShaderMask(
-                          shaderCallback: (bounds) => const LinearGradient(
-                            colors: [AppColors.memoryAmber, AppColors.neonCyan],
-                          ).createShader(bounds),
-                          child: const Text(
-                            'PROGRESSION',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 3,
-                              color: Colors.white,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ShaderMask(
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [
+                                AppColors.memoryAmber,
+                                AppColors.neonCyan,
+                              ],
+                            ).createShader(bounds),
+                            child: const Text(
+                              'PROGRESSION',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 3,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
-                        ),
-                        const Text(
-                          'GROWTH MATRIX',
-                          style: TextStyle(
-                            fontSize: 10,
-                            letterSpacing: 2,
-                            color: Colors.white38,
+                          const Text(
+                            'GROWTH MATRIX',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              letterSpacing: 2,
+                              color: Colors.white38,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),

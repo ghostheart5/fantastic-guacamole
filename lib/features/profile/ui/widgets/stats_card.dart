@@ -22,7 +22,9 @@ class StatsCard extends StatelessWidget {
         color: const Color(0xFF050D1A),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withValues(alpha: 0.3)),
-        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.08), blurRadius: 14)],
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.08), blurRadius: 14),
+        ],
       ),
       child: Column(
         children: [
@@ -32,14 +34,22 @@ class StatsCard extends StatelessWidget {
             fit: BoxFit.scaleDown,
             child: Text(
               value,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
           ),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 9, letterSpacing: 1.5, color: Colors.white38),
+              style: const TextStyle(
+                fontSize: 9,
+                letterSpacing: 1.5,
+                color: Colors.white38,
+              ),
             ),
           ),
         ],

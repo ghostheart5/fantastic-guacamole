@@ -19,7 +19,7 @@ class SettingsScreen extends ConsumerWidget {
     final intelligence = ref.watch(intelligenceStateProvider);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/settings_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/settings_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -43,7 +43,9 @@ class SettingsScreen extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: AppColors.neonCyan.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: AppColors.neonCyan.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: const Icon(
                         Icons.arrow_back_ios_new,
@@ -77,7 +79,11 @@ class SettingsScreen extends ConsumerWidget {
                           'SYSTEM CONFIG',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
+                          style: TextStyle(
+                            fontSize: 10,
+                            letterSpacing: 2,
+                            color: Colors.white38,
+                          ),
                         ),
                       ],
                     ),
@@ -94,10 +100,12 @@ class SettingsScreen extends ConsumerWidget {
                     _NeonToggleTile(
                       title: 'Sound Effects',
                       value: soundEnabled,
-                      onChanged: (v) => ref.read(soundEnabledProvider.notifier).set(v),
+                      onChanged: (v) =>
+                          ref.read(soundEnabledProvider.notifier).set(v),
                     ),
                     ValueListenableBuilder<bool?>(
-                      valueListenable: NotificationScheduler.permissionGrantedListenable,
+                      valueListenable:
+                          NotificationScheduler.permissionGrantedListenable,
                       builder: (context, granted, _) {
                         final String subtitle = switch (granted) {
                           true => 'Granted',
@@ -121,7 +129,9 @@ class SettingsScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     _NeonNavTile(
-                      title: access.hasTesterFullAccess ? 'Tester Access' : 'Subscription',
+                      title: access.hasTesterFullAccess
+                          ? 'Tester Access'
+                          : 'Subscription',
                       subtitle: access.subscriptionStatusDetail,
                       onTap: () => context.go(RoutePaths.paywall),
                     ),
@@ -145,7 +155,10 @@ class SettingsScreen extends ConsumerWidget {
                 accentColor: AppColors.neonCyan,
                 child: Column(
                   children: [
-                    _NeonStatusTile(title: 'Flavor', subtitle: intelligence.environment.appFlavor),
+                    _NeonStatusTile(
+                      title: 'Flavor',
+                      subtitle: intelligence.environment.appFlavor,
+                    ),
                     _NeonStatusTile(
                       title: 'Mock Mode',
                       subtitle: intelligence.flags.mockMode
@@ -160,7 +173,9 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     _NeonStatusTile(
                       title: 'Mock Login',
-                      subtitle: intelligence.flags.mockLoginEnabled ? 'Enabled' : 'Disabled',
+                      subtitle: intelligence.flags.mockLoginEnabled
+                          ? 'Enabled'
+                          : 'Disabled',
                     ),
                   ],
                 ),
@@ -178,8 +193,10 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) =>
-                              const _InfoScreen(title: 'Privacy Policy', body: _kPrivacyPolicy),
+                          builder: (_) => const _InfoScreen(
+                            title: 'Privacy Policy',
+                            body: _kPrivacyPolicy,
+                          ),
                         ),
                       ),
                     ),
@@ -188,8 +205,10 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) =>
-                              const _InfoScreen(title: 'Terms of Service', body: _kTermsOfService),
+                          builder: (_) => const _InfoScreen(
+                            title: 'Terms of Service',
+                            body: _kTermsOfService,
+                          ),
                         ),
                       ),
                     ),
@@ -199,7 +218,10 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) => const _InfoScreen(title: 'Support', body: _kSupportInfo),
+                          builder: (_) => const _InfoScreen(
+                            title: 'Support',
+                            body: _kSupportInfo,
+                          ),
                         ),
                       ),
                     ),
@@ -215,7 +237,11 @@ class SettingsScreen extends ConsumerWidget {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({required this.label, required this.child, required this.accentColor});
+  const _Section({
+    required this.label,
+    required this.child,
+    required this.accentColor,
+  });
   final String label;
   final Widget child;
   final Color accentColor;
@@ -229,7 +255,11 @@ class _Section extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
         boxShadow: [
-          BoxShadow(color: accentColor.withValues(alpha: 0.06), blurRadius: 16, spreadRadius: -2),
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.06),
+            blurRadius: 16,
+            spreadRadius: -2,
+          ),
         ],
       ),
       child: Column(
@@ -270,7 +300,11 @@ class _Section extends StatelessWidget {
 }
 
 class _NeonToggleTile extends StatelessWidget {
-  const _NeonToggleTile({required this.title, required this.value, required this.onChanged});
+  const _NeonToggleTile({
+    required this.title,
+    required this.value,
+    required this.onChanged,
+  });
   final String title;
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -282,7 +316,10 @@ class _NeonToggleTile extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
           Switch(
             value: value,
             onChanged: onChanged,
@@ -317,14 +354,21 @@ class _NeonNavTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                  Text(
+                    title,
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
                   if (subtitle != null)
                     Text(
                       subtitle ?? '',
                       maxLines: 3,
                       softWrap: true,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.35),
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
                     ),
                 ],
               ),
@@ -354,13 +398,20 @@ class _NeonStatusTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
                 Text(
                   subtitle,
                   maxLines: 2,
                   softWrap: true,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.35),
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -401,7 +452,9 @@ class _InfoScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppColors.neonCyan.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: AppColors.neonCyan.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: const Icon(
                           Icons.arrow_back_ios_new,
@@ -433,7 +486,11 @@ class _InfoScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                   child: Text(
                     body,
-                    style: const TextStyle(fontSize: 13, color: Colors.white60, height: 1.75),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.white60,
+                      height: 1.75,
+                    ),
                   ),
                 ),
               ),

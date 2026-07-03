@@ -18,6 +18,25 @@ flutterfire configure --platforms=android,ios,web,windows,macos,linux
     or download file from Firebase Console and add it manually.
 - In Firebase Console, enable `Authentication -> Sign-in method -> Email/Password`.
 
+## Android Google Sign-In OAuth Checklist
+- Enable `Authentication -> Sign-in method -> Google` in Firebase Console.
+- Add Android app SHA certificates in Firebase Console (`Project settings -> Your apps -> Android app -> Add fingerprint`).
+- Download a fresh `android/app/google-services.json` after adding fingerprints and replace the local file.
+- Confirm that `google-services.json` contains `oauth_client` entries for `client_type: 3` (Android).
+
+Current debug certificate fingerprints on this machine:
+
+- SHA-1: `5E:F2:18:3E:56:BE:E1:7C:C1:9A:F7:EC:C8:D3:E3:07:B8:9A:BA:20`
+- SHA-256: `BA:4E:75:7D:2F:15:17:71:23:9D:01:85:1E:D7:80:83:74:34:98:00:49:82:DC:52:76:95:7B:23:7F:0B:40:D8`
+
+Release signing fingerprints must also be added before Play production/testing sign-in will work.
+
+To print release keystore fingerprints:
+
+```powershell
+keytool -list -v -alias <your_release_alias> -keystore <path_to_release_keystore>
+```
+
 ## Runtime Initialization
 `lib/main.dart` now initializes Firebase using:
 

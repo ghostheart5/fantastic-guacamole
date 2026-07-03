@@ -14,18 +14,28 @@ final _sharedPrefsProvider = FutureProvider<SharedPrefsStorage>((ref) async {
 });
 
 final _backupServiceProvider = Provider<BackupService?>((ref) {
-  final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(_sharedPrefsProvider);
+  final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
+    _sharedPrefsProvider,
+  );
   return prefsAsync.whenOrNull(
     data: (SharedPrefsStorage prefs) => BackupService(
-      taskStorage: HiveStorage<TaskModel>('tasks', hive: const HiveStoreAdapter()),
-      userStorage: HiveStorage<UserModel>('users', hive: const HiveStoreAdapter()),
+      taskStorage: HiveStorage<TaskModel>(
+        'tasks',
+        hive: const HiveStoreAdapter(),
+      ),
+      userStorage: HiveStorage<UserModel>(
+        'users',
+        hive: const HiveStoreAdapter(),
+      ),
       prefs: prefs,
     ),
   );
 });
 
 final syncServiceProvider = Provider<SyncService?>((ref) {
-  final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(_sharedPrefsProvider);
+  final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
+    _sharedPrefsProvider,
+  );
   final BackupService? backup = ref.watch(_backupServiceProvider);
   return prefsAsync.whenOrNull(
     data: (SharedPrefsStorage prefs) => backup == null
@@ -33,16 +43,24 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
         : SyncService(
             backup: backup,
             prefs: prefs,
-            taskStorage: HiveStorage<TaskModel>('tasks', hive: const HiveStoreAdapter()),
-            userStorage: HiveStorage<UserModel>('users', hive: const HiveStoreAdapter()),
+            taskStorage: HiveStorage<TaskModel>(
+              'tasks',
+              hive: const HiveStoreAdapter(),
+            ),
+            userStorage: HiveStorage<UserModel>(
+              'users',
+              hive: const HiveStoreAdapter(),
+            ),
           ),
   );
 });
 
 final syncToCloudProvider = FutureProvider<bool>((ref) async {
-  return ref.read(syncServiceProvider)?.syncToCloud() ?? Future<bool>.value(false);
+  return ref.read(syncServiceProvider)?.syncToCloud() ??
+      Future<bool>.value(false);
 });
 
 final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
-  return ref.read(syncServiceProvider)?.restoreFromCloud() ?? Future<bool>.value(false);
+  return ref.read(syncServiceProvider)?.restoreFromCloud() ??
+      Future<bool>.value(false);
 });

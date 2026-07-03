@@ -18,7 +18,8 @@ class NeonPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final NeonEffects effects = Theme.of(context).extension<NeonEffects>() ?? defaultNeonEffects;
+    final NeonEffects effects =
+        Theme.of(context).extension<NeonEffects>() ?? defaultNeonEffects;
 
     return Container(
       width: double.infinity,

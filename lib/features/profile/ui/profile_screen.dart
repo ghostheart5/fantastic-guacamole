@@ -15,7 +15,7 @@ class ProfileScreen extends ConsumerWidget {
     final state = ref.watch(profileViewStateProvider);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/profile_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/profile_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(child: _ProfileBody(state: state)),
@@ -105,7 +105,8 @@ class _NameEditorState extends State<_NameEditor> {
   @override
   void didUpdateWidget(covariant _NameEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialName != widget.initialName && _controller.text != widget.initialName) {
+    if (oldWidget.initialName != widget.initialName &&
+        _controller.text != widget.initialName) {
       _controller.text = widget.initialName;
     }
   }
@@ -169,11 +170,15 @@ class _NameEditorState extends State<_NameEditor> {
               fillColor: Colors.white.withValues(alpha: 0.03),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppColors.neonViolet.withValues(alpha: 0.2)),
+                borderSide: BorderSide(
+                  color: AppColors.neonViolet.withValues(alpha: 0.2),
+                ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppColors.neonViolet.withValues(alpha: 0.2)),
+                borderSide: BorderSide(
+                  color: AppColors.neonViolet.withValues(alpha: 0.2),
+                ),
               ),
             ),
           ),

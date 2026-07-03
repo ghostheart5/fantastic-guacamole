@@ -2,9 +2,10 @@ import 'package:fantastic_guacamole/features/flowmap/models/flowmap_node.dart';
 import 'package:fantastic_guacamole/state/services/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final flowmapProvider = NotifierProvider<FlowmapController, AsyncValue<List<FlowmapNode>>>(
-  FlowmapController.new,
-);
+final flowmapProvider =
+    NotifierProvider<FlowmapController, AsyncValue<List<FlowmapNode>>>(
+      FlowmapController.new,
+    );
 
 class FlowmapController extends Notifier<AsyncValue<List<FlowmapNode>>> {
   @override
@@ -32,7 +33,9 @@ class FlowmapController extends Notifier<AsyncValue<List<FlowmapNode>>> {
     final node = FlowmapNode(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title.trim(),
-      description: (trimmedDescription?.isEmpty ?? true) ? null : trimmedDescription,
+      description: (trimmedDescription?.isEmpty ?? true)
+          ? null
+          : trimmedDescription,
       tags: tags,
       createdAt: DateTime.now(),
     );
@@ -42,7 +45,9 @@ class FlowmapController extends Notifier<AsyncValue<List<FlowmapNode>>> {
 
   Future<void> deleteNode(String id) async {
     await ref.read(flowmapServiceProvider).deleteNode(id);
-    final updated = (state.asData?.value ?? <FlowmapNode>[]).where((n) => n.id != id).toList();
+    final updated = (state.asData?.value ?? <FlowmapNode>[])
+        .where((n) => n.id != id)
+        .toList();
     state = AsyncValue.data(updated);
   }
 

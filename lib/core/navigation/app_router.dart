@@ -54,7 +54,9 @@ class AppRouter {
       case '/settings':
         return createRoute(const SettingsScreen());
       default:
-        return createRoute(const Scaffold(body: Center(child: Text('Route not found'))));
+        return createRoute(
+          const Scaffold(body: Center(child: Text('Route not found'))),
+        );
     }
   }
 }

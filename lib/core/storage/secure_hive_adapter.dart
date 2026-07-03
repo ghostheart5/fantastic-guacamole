@@ -31,7 +31,9 @@ class SecureHiveAdapter extends TypeAdapter<String> {
   @override
   void write(BinaryWriter writer, String value) {
     final Random rng = Random.secure();
-    final IV iv = IV(Uint8List.fromList(List<int>.generate(16, (_) => rng.nextInt(256))));
+    final IV iv = IV(
+      Uint8List.fromList(List<int>.generate(16, (_) => rng.nextInt(256))),
+    );
     final Encrypter encrypter = Encrypter(AES(_key));
     final Encrypted encrypted = encrypter.encrypt(value, iv: iv);
     writer.writeString('${iv.base64}$_sep${encrypted.base64}');

@@ -11,13 +11,19 @@ abstract class NetworkClientContract {
 }
 
 class NetworkClient implements NetworkClientContract {
-  NetworkClient({this.baseUrl = '', this.timeout = const Duration(seconds: 30)});
+  NetworkClient({
+    this.baseUrl = '',
+    this.timeout = const Duration(seconds: 30),
+  });
 
   final String baseUrl;
   final Duration timeout;
 
   @override
-  Future<Map<String, dynamic>> get(String path, {Map<String, String>? headers}) async {
+  Future<Map<String, dynamic>> get(
+    String path, {
+    Map<String, String>? headers,
+  }) async {
     final client = HttpClient();
     try {
       final request = await client.getUrl(Uri.parse('$baseUrl$path'))
@@ -67,7 +73,10 @@ class MockNetworkClient implements NetworkClientContract {
   const MockNetworkClient();
 
   @override
-  Future<Map<String, dynamic>> get(String path, {Map<String, String>? headers}) async {
+  Future<Map<String, dynamic>> get(
+    String path, {
+    Map<String, String>? headers,
+  }) async {
     return <String, dynamic>{
       'ok': true,
       'source': 'mock',

@@ -16,14 +16,17 @@ class NexusScreen extends ConsumerStatefulWidget {
   ConsumerState<NexusScreen> createState() => _NexusScreenState();
 }
 
-class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProviderStateMixin {
+class _NexusScreenState extends ConsumerState<NexusScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
 
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(vsync: this, duration: const Duration(seconds: 3))
-      ..repeat(reverse: true);
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -40,7 +43,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
     final SIState siState = ref.watch(siStateProvider);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/nexus_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/nexus_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -52,8 +55,11 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: AnimatedBuilder(
                     animation: _pulse,
-                    builder: (context, _) =>
-                        _SystemRings(energy: energy, fatigue: siState.fatigue, pulse: _pulse.value),
+                    builder: (context, _) => _SystemRings(
+                      energy: energy,
+                      fatigue: siState.fatigue,
+                      pulse: _pulse.value,
+                    ),
                   ),
                 ),
               ),
@@ -74,7 +80,10 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
                   ),
                 ),
               const SliverToBoxAdapter(
-                child: Padding(padding: EdgeInsets.fromLTRB(16, 20, 16, 32), child: _ActionGrid()),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, 20, 16, 32),
+                  child: _ActionGrid(),
+                ),
               ),
             ],
           ),
@@ -99,7 +108,7 @@ class _NexusHeader extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(width: 56),
+          const SizedBox(width: 12),
           const Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -127,39 +136,53 @@ class _NexusHeader extends StatelessWidget {
                       letterSpacing: 2.4,
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
-                      shadows: [Shadow(color: Colors.black87, blurRadius: 6, offset: Offset(0, 1))],
+                      shadows: [
+                        Shadow(
+                          color: Colors.black87,
+                          blurRadius: 6,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _PulseDot(color: Colors.greenAccent),
-                  SizedBox(width: 6),
-                  Text(
-                    'ONLINE',
-                    style: TextStyle(
-                      fontSize: 9,
-                      letterSpacing: 2,
-                      color: Colors.greenAccent,
-                      fontWeight: FontWeight.w600,
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _PulseDot(color: Colors.greenAccent),
+                    SizedBox(width: 6),
+                    Text(
+                      'ONLINE',
+                      style: TextStyle(
+                        fontSize: 9,
+                        letterSpacing: 2,
+                        color: Colors.greenAccent,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'LVL ${profile.level}  ·  ${profile.streak}d',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.white38,
+                    letterSpacing: 1,
                   ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'LVL ${profile.level}  ·  ${profile.streak}d',
-                style: const TextStyle(fontSize: 10, color: Colors.white38, letterSpacing: 1),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -175,14 +198,17 @@ class _PulseDot extends StatefulWidget {
   State<_PulseDot> createState() => _PulseDotState();
 }
 
-class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _c;
 
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
-      ..repeat(reverse: true);
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -218,7 +244,11 @@ class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixi
 // ---------------------------------------------------------------------------
 
 class _SystemRings extends StatelessWidget {
-  const _SystemRings({required this.energy, required this.fatigue, required this.pulse});
+  const _SystemRings({
+    required this.energy,
+    required this.fatigue,
+    required this.pulse,
+  });
 
   final double energy;
   final double fatigue;
@@ -233,7 +263,11 @@ class _SystemRings extends StatelessWidget {
         children: [
           CustomPaint(
             size: const Size(190, 190),
-            painter: _RingPainter(energy: energy, fatigue: fatigue, pulse: pulse),
+            painter: _RingPainter(
+              energy: energy,
+              fatigue: fatigue,
+              pulse: pulse,
+            ),
           ),
           Column(
             mainAxisSize: MainAxisSize.min,
@@ -256,7 +290,11 @@ class _SystemRings extends StatelessWidget {
               ),
               const Text(
                 'ENERGY %',
-                style: TextStyle(fontSize: 8, letterSpacing: 3, color: Colors.white30),
+                style: TextStyle(
+                  fontSize: 8,
+                  letterSpacing: 3,
+                  color: Colors.white30,
+                ),
               ),
             ],
           ),
@@ -267,7 +305,11 @@ class _SystemRings extends StatelessWidget {
 }
 
 class _RingPainter extends CustomPainter {
-  const _RingPainter({required this.energy, required this.fatigue, required this.pulse});
+  const _RingPainter({
+    required this.energy,
+    required this.fatigue,
+    required this.pulse,
+  });
 
   final double energy;
   final double fatigue;
@@ -282,8 +324,22 @@ class _RingPainter extends CustomPainter {
     final Offset c = Offset(size.width / 2, size.height / 2);
 
     _drawTicks(canvas, c);
-    _drawRing(canvas, c, _outerR, energy, const Color(0xFF00E5FF), reversed: false);
-    _drawRing(canvas, c, _innerR, 1 - fatigue, const Color(0xFF9B8AFB), reversed: false);
+    _drawRing(
+      canvas,
+      c,
+      _outerR,
+      energy,
+      const Color(0xFF00E5FF),
+      reversed: false,
+    );
+    _drawRing(
+      canvas,
+      c,
+      _innerR,
+      1 - fatigue,
+      const Color(0xFF9B8AFB),
+      reversed: false,
+    );
 
     // Center glow
     canvas.drawCircle(
@@ -414,7 +470,11 @@ class _RingLabels extends StatelessWidget {
 }
 
 class _RingLabel extends StatelessWidget {
-  const _RingLabel({required this.label, required this.value, required this.color});
+  const _RingLabel({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
   final String label;
   final String value;
   final Color color;
@@ -430,7 +490,9 @@ class _RingLabel extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: color,
-            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 6)],
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 6),
+            ],
           ),
         ),
         const SizedBox(width: 8),
@@ -439,11 +501,19 @@ class _RingLabel extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(fontSize: 8, letterSpacing: 2, color: Colors.white38),
+              style: const TextStyle(
+                fontSize: 8,
+                letterSpacing: 2,
+                color: Colors.white38,
+              ),
             ),
             Text(
               value,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ],
         ),
@@ -469,11 +539,19 @@ class _StatStrip extends StatelessWidget {
       children: [
         SizedBox(
           width: 104,
-          child: _StatChip(label: 'LVL', value: '${profile.level}', color: AppColors.neonCyan),
+          child: _StatChip(
+            label: 'LVL',
+            value: '${profile.level}',
+            color: AppColors.neonCyan,
+          ),
         ),
         SizedBox(
           width: 104,
-          child: _StatChip(label: 'XP', value: '${profile.xp}', color: AppColors.pulseNeonBlue),
+          child: _StatChip(
+            label: 'XP',
+            value: '${profile.xp}',
+            color: AppColors.pulseNeonBlue,
+          ),
         ),
         SizedBox(
           width: 104,
@@ -497,7 +575,11 @@ class _StatStrip extends StatelessWidget {
 }
 
 class _StatChip extends StatelessWidget {
-  const _StatChip({required this.label, required this.value, required this.color});
+  const _StatChip({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
   final String label;
   final String value;
   final Color color;
@@ -510,16 +592,29 @@ class _StatChip extends StatelessWidget {
         color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.2)),
-        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.12), blurRadius: 12)],
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.12), blurRadius: 12),
+        ],
       ),
       child: Column(
         children: [
           Text(
             value,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 8, letterSpacing: 2, color: Colors.white38)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 8,
+              letterSpacing: 2,
+              color: Colors.white38,
+            ),
+          ),
         ],
       ),
     );
@@ -554,10 +649,18 @@ class _ActiveSessionBanner extends ConsumerWidget {
           spacing: 10,
           runSpacing: 8,
           children: [
-            const Icon(Icons.radio_button_checked, color: AppColors.neonCyan, size: 14),
+            const Icon(
+              Icons.radio_button_checked,
+              color: AppColors.neonCyan,
+              size: 14,
+            ),
             const Text(
               'SESSION ACTIVE',
-              style: TextStyle(fontSize: 10, letterSpacing: 2, color: AppColors.neonCyan),
+              style: TextStyle(
+                fontSize: 10,
+                letterSpacing: 2,
+                color: AppColors.neonCyan,
+              ),
             ),
             Text(
               elapsed,
@@ -570,7 +673,11 @@ class _ActiveSessionBanner extends ConsumerWidget {
             ),
             const Text(
               'RESUME →',
-              style: TextStyle(fontSize: 10, letterSpacing: 1.5, color: Colors.white38),
+              style: TextStyle(
+                fontSize: 10,
+                letterSpacing: 1.5,
+                color: Colors.white38,
+              ),
             ),
           ],
         ),

@@ -21,7 +21,8 @@ class PaywallRepository implements IPaywallRepository {
       id: 'monthly',
       title: 'Premium Monthly',
       priceLabel: 'from \$9.99 / month',
-      description: 'Best for active users who want full AI coaching and recurring credits.',
+      description:
+          'Best for active users who want full AI coaching and recurring credits.',
       aiCreditsIncluded: 300,
       benefits: <String>[
         '300 AI credits every month',
@@ -34,7 +35,8 @@ class PaywallRepository implements IPaywallRepository {
       id: 'annual',
       title: 'Premium Yearly',
       priceLabel: 'from \$89.99 / year',
-      description: 'Best value for users committed to long-term habit building.',
+      description:
+          'Best value for users committed to long-term habit building.',
       aiCreditsIncluded: 360,
       benefits: <String>[
         '360 AI credits every month',
@@ -72,7 +74,9 @@ class PaywallRepository implements IPaywallRepository {
   Future<PaywallEntity> getPaywallConfig() async {
     return PaywallEntity(
       featureId: 'premium',
-      title: paywallTestingMode ? 'Unlocked for testing' : 'AI Credits + Premium',
+      title: paywallTestingMode
+          ? 'Unlocked for testing'
+          : 'AI Credits + Premium',
       body: paywallTestingMode
           ? 'Premium gates are bypassed in this build so QA can verify the full app.'
           : 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.',

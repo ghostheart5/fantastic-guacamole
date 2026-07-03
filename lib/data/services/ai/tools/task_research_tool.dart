@@ -29,6 +29,10 @@ class TaskResearchTool extends AiTool {
       };
     }).toList();
 
-    return <String, dynamic>{'query': query, 'findingCount': findings.length, 'findings': findings};
+    return <String, dynamic>{
+      'query': query,
+      'findingCount': findings.length,
+      'findings': findings,
+    };
   }
 }

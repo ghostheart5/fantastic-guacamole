@@ -65,7 +65,10 @@ class HiveService {
     String? keyBase64 = await secureStorage.read(key: _keyStorageKey);
     if (keyBase64 == null) {
       final Random rng = Random.secure();
-      final List<int> keyBytes = List<int>.generate(32, (_) => rng.nextInt(256));
+      final List<int> keyBytes = List<int>.generate(
+        32,
+        (_) => rng.nextInt(256),
+      );
       keyBase64 = base64Encode(keyBytes);
       await secureStorage.write(key: _keyStorageKey, value: keyBase64);
     }
@@ -89,7 +92,9 @@ class HiveService {
 
   static Box<dynamic> box(String key) {
     if (!Hive.isBoxOpen(key)) {
-      throw StateError('Hive box "$key" is not open. Call HiveService.openBox($key) first.');
+      throw StateError(
+        'Hive box "$key" is not open. Call HiveService.openBox($key) first.',
+      );
     }
     return Hive.box<dynamic>(key);
   }

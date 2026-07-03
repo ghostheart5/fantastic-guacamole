@@ -147,9 +147,14 @@ class SyntheticIntelligenceEngine {
       mood: emotion.mood,
       intent: intent,
     );
-    final PersonalityTraits traits = const PersonalityEngine().traitsFor(siPersona);
+    final PersonalityTraits traits = const PersonalityEngine().traitsFor(
+      siPersona,
+    );
 
-    final List<String> keywords = _extractKeywords(input.toLowerCase(), nonText.imageLabels);
+    final List<String> keywords = _extractKeywords(
+      input.toLowerCase(),
+      nonText.imageLabels,
+    );
     final List<String> actions = _actionsFor(intent, response, appState);
     final String mood = emotion.mood;
     final secondaryIntent = intentResult.secondary;
@@ -165,9 +170,19 @@ class SyntheticIntelligenceEngine {
     }.toList();
 
     final String rawReply = response?.message ?? 'I am ready to help.';
-    final String emotionalReply = const EmotionalEngine().shapeReply(rawReply, emotion);
-    final String reply = const PolicyLayer().applyToReply(emotionalReply, policy);
-    final String summary = _buildSummary(intent: intent, response: response, now: now);
+    final String emotionalReply = const EmotionalEngine().shapeReply(
+      rawReply,
+      emotion,
+    );
+    final String reply = const PolicyLayer().applyToReply(
+      emotionalReply,
+      policy,
+    );
+    final String summary = _buildSummary(
+      intent: intent,
+      response: response,
+      now: now,
+    );
     final double confidence = _confidenceFor(
       intent: intent,
       response: response,
@@ -212,7 +227,10 @@ class SyntheticIntelligenceEngine {
       ],
     ).decay(now);
 
-    final UserState userState = const UserStateEngine().evaluate(mood: mood, latent: latent);
+    final UserState userState = const UserStateEngine().evaluate(
+      mood: mood,
+      latent: latent,
+    );
     final SISelfModel selfModel = const SelfModelLayer().evaluate(
       confidence: confidence,
       mood: mood,
@@ -225,7 +243,9 @@ class SyntheticIntelligenceEngine {
       metadata: metadata,
     );
     final List<String> knownGoals = (metadata['goals'] is List)
-        ? (metadata['goals'] as List<dynamic>).map((dynamic e) => e.toString()).toList()
+        ? (metadata['goals'] as List<dynamic>)
+              .map((dynamic e) => e.toString())
+              .toList()
         : <String>[];
     final GoalContinuity goalContinuity = const GoalContinuityEngine().evaluate(
       knownGoals: knownGoals,
@@ -240,28 +260,33 @@ class SyntheticIntelligenceEngine {
       history: history,
       intentScore: intentResult.primary.score,
     );
-    final CognitiveEcosystemSnapshot ecosystem = const CognitiveEcosystemLayer().run(
-      intent: intent,
-      mood: mood,
-      history: history,
-      persona: siPersona.name,
-    );
-    final MetaEmotionState metaEmotion = const SyntheticMetaEmotionEngine().evaluate(
-      userMood: mood,
-      previousMood: previousMood ?? mood,
-      confidence: confidence,
-    );
-    final CognitiveFieldState fieldState = const CognitiveFieldTheoryLayer().synthesize(
-      mood: mood,
-      intentScore: intentResult.primary.score,
-      memoryDepth: history.length,
-      contextSize: context.length + metadata.length,
-    );
-    final HyperContext hyperContext = const CognitiveHyperContextEngine().process(
-      contextSize: context.length + metadata.length,
-      mood: mood,
-      multiverseActive: appState.contains('chrono') || appState.contains('astral'),
-    );
+    final CognitiveEcosystemSnapshot ecosystem = const CognitiveEcosystemLayer()
+        .run(
+          intent: intent,
+          mood: mood,
+          history: history,
+          persona: siPersona.name,
+        );
+    final MetaEmotionState metaEmotion = const SyntheticMetaEmotionEngine()
+        .evaluate(
+          userMood: mood,
+          previousMood: previousMood ?? mood,
+          confidence: confidence,
+        );
+    final CognitiveFieldState fieldState = const CognitiveFieldTheoryLayer()
+        .synthesize(
+          mood: mood,
+          intentScore: intentResult.primary.score,
+          memoryDepth: history.length,
+          contextSize: context.length + metadata.length,
+        );
+    final HyperContext hyperContext = const CognitiveHyperContextEngine()
+        .process(
+          contextSize: context.length + metadata.length,
+          mood: mood,
+          multiverseActive:
+              appState.contains('chrono') || appState.contains('astral'),
+        );
     final SyntheticIntuition intuition = const SyntheticIntuitionLayer().infer(
       input: input,
       intent: intent,
@@ -273,41 +298,34 @@ class SyntheticIntelligenceEngine {
       anticipatesConfusion: intuition.anticipatesConfusion,
       confidence: confidence,
     );
-    final IdentityGradient identityGradient = const SyntheticIdentityGradient().resolve(
-      basePersona: siPersona.name,
-      mood: mood,
-      intent: intent,
-      appContext: appState,
-      historyDepth: history.length,
-    );
-    final CognitiveEntropy entropy = const CognitiveEntropyController().regulate(
-      intent: intent,
-      urgency: gravity.urgency,
-      mood: mood,
-    );
-    final MicroPatternSignal microPattern = const CognitiveMicroPatternEngine().detect(
-      input: input,
-      mood: mood,
-      hesitation: latent.hesitation,
-      confidence: confidence,
-      now: now,
-    );
-    final SubconsciousState subconscious = const SyntheticSubconsciousLayer().infer(
-      history: history,
-      mood: mood,
-      intent: intent,
-    );
+    final IdentityGradient identityGradient = const SyntheticIdentityGradient()
+        .resolve(
+          basePersona: siPersona.name,
+          mood: mood,
+          intent: intent,
+          appContext: appState,
+          historyDepth: history.length,
+        );
+    final CognitiveEntropy entropy = const CognitiveEntropyController()
+        .regulate(intent: intent, urgency: gravity.urgency, mood: mood);
+    final MicroPatternSignal microPattern = const CognitiveMicroPatternEngine()
+        .detect(
+          input: input,
+          mood: mood,
+          hesitation: latent.hesitation,
+          confidence: confidence,
+          now: now,
+        );
+    final SubconsciousState subconscious = const SyntheticSubconsciousLayer()
+        .infer(history: history, mood: mood, intent: intent);
     final TemporalAwareness temporal = const TemporalAwarenessEngine().evaluate(
       now: now,
       history: history,
       intent: intent,
     );
     final CognitiveRhythm rhythm = const CognitiveRhythmEngine().evaluate(now);
-    final ImaginationOutput imagination = const SyntheticImaginationCore().simulate(
-      input: input,
-      intent: intent,
-      realm: appState,
-    );
+    final ImaginationOutput imagination = const SyntheticImaginationCore()
+        .simulate(input: input, intent: intent, realm: appState);
     final CognitiveLoadDecision load = const CognitiveLoadBalancer().balance(
       mood: mood,
       stress: userState.stress,
@@ -321,24 +339,26 @@ class SyntheticIntelligenceEngine {
       mood: mood,
       intent: intent,
     );
-    final DissonanceResolution dissonance = const CognitiveDissonanceResolver().resolve(
-      intent: intent,
-      mood: mood,
-      goals: knownGoals,
-      habits: adaptive.routines,
-      input: input,
-    );
+    final DissonanceResolution dissonance = const CognitiveDissonanceResolver()
+        .resolve(
+          intent: intent,
+          mood: mood,
+          goals: knownGoals,
+          habits: adaptive.routines,
+          input: input,
+        );
     final AttentionState attention = const SyntheticAttentionSystem().shift(
       intent: intent,
       gravity: gravity.score,
       ambiguity: intuition.anticipatesConfusion,
     );
-    final CognitiveTemperature temperature = const CognitiveTemperatureController().calibrate(
-      mood: mood,
-      intent: intent,
-      urgency: gravity.urgency,
-      stress: userState.stress,
-    );
+    final CognitiveTemperature temperature =
+        const CognitiveTemperatureController().calibrate(
+          mood: mood,
+          intent: intent,
+          urgency: gravity.urgency,
+          stress: userState.stress,
+        );
     final MemoryFabric memoryFabric = const SyntheticMemoryFabric().weave(
       history: history,
       mood: mood,
@@ -348,22 +368,21 @@ class SyntheticIntelligenceEngine {
       history: history,
       mood: mood,
     );
-    final MemoryWeather memoryWeather = const SyntheticMemoryWeatherSystem().forecast(
-      mood: mood,
-      memoryConflict: dissonance.detected,
-      confidence: confidence,
-    );
-    final CognitiveWeatherV2 weatherV2 = const SyntheticCognitiveWeatherV2().forecast(
-      mood: mood,
-      intent: intent,
-      confidence: confidence,
-    );
-    final CognitiveResonance resonance = const CognitiveResonanceEngine().compute(
-      goalFit: goalContinuity.linkedGoal != null ? 0.8 : 0.5,
-      emotionFit: metaEmotion.resonance,
-      patternFit: adaptive.routines.isNotEmpty ? 0.72 : 0.48,
-      personaFit: (1 - (identityGradient.shift * 0.5)).clamp(0.0, 1.0),
-    );
+    final MemoryWeather memoryWeather = const SyntheticMemoryWeatherSystem()
+        .forecast(
+          mood: mood,
+          memoryConflict: dissonance.detected,
+          confidence: confidence,
+        );
+    final CognitiveWeatherV2 weatherV2 = const SyntheticCognitiveWeatherV2()
+        .forecast(mood: mood, intent: intent, confidence: confidence);
+    final CognitiveResonance resonance = const CognitiveResonanceEngine()
+        .compute(
+          goalFit: goalContinuity.linkedGoal != null ? 0.8 : 0.5,
+          emotionFit: metaEmotion.resonance,
+          patternFit: adaptive.routines.isNotEmpty ? 0.72 : 0.48,
+          personaFit: (1 - (identityGradient.shift * 0.5)).clamp(0.0, 1.0),
+        );
     final Paracosm paracosm = const SyntheticParacosmGenerator().generate(
       appContext: appState,
       intent: intent,
@@ -373,12 +392,13 @@ class SyntheticIntelligenceEngine {
       mood: mood,
       intent: intent,
     );
-    final MultithreadResult multithread = const CognitiveMultithreadingEngine().run(
-      mood: mood,
-      intent: intent,
-      appState: appState,
-      persona: identityGradient.gradientPersona,
-    );
+    final MultithreadResult multithread = const CognitiveMultithreadingEngine()
+        .run(
+          mood: mood,
+          intent: intent,
+          appState: appState,
+          persona: identityGradient.gradientPersona,
+        );
     final EchoChamber echoChamber = const CognitiveEchoChamber().generate(
       mood: mood,
       intent: intent,
@@ -397,12 +417,13 @@ class SyntheticIntelligenceEngine {
       appContext: appState,
       persona: siPersona.name,
     );
-    final MultiverseBridgeState bridge = const SyntheticMultiverseBridge().bridge(
-      app: appState,
-      mood: mood,
-      intent: intent,
-      defaultPersona: siPersona.name,
-    );
+    final MultiverseBridgeState bridge = const SyntheticMultiverseBridge()
+        .bridge(
+          app: appState,
+          mood: mood,
+          intent: intent,
+          defaultPersona: siPersona.name,
+        );
     final UserNarrative narrative = const UserNarrativeEngine().build(
       intent: intent,
       goals: knownGoals,
@@ -413,28 +434,33 @@ class SyntheticIntelligenceEngine {
       mood: mood,
       urgency: gravity.urgency > 0.75,
     );
-    final ArchetypeFusion archetypeFusion = const SyntheticArchetypeFusionSystem().fuse(
-      archetype: archetype.archetype,
-      intent: intent,
+    final ArchetypeFusion archetypeFusion =
+        const SyntheticArchetypeFusionSystem().fuse(
+          archetype: archetype.archetype,
+          intent: intent,
+          mood: mood,
+        );
+    final MetaPersona metaPersona = const CognitiveMetaPersonaEngine()
+        .synthesize(
+          mood: mood,
+          taskType: intent,
+          realm: appState,
+          historyDepth: history.length,
+        );
+    final IdentityMesh identityMesh = const SyntheticMultiverseIdentityMesh()
+        .build(mood: mood, intent: intent);
+    final CognitiveDimensions dimensions = const CognitiveDimensionalityLayer()
+        .map(
+          mood: mood,
+          intent: intent,
+          confidence: confidence,
+          multiverseMode:
+              appState.contains('chrono') || appState.contains('astral'),
+        );
+    final ShadowInsight shadow = const SyntheticShadowModule().inspect(
+      input: input,
       mood: mood,
     );
-    final MetaPersona metaPersona = const CognitiveMetaPersonaEngine().synthesize(
-      mood: mood,
-      taskType: intent,
-      realm: appState,
-      historyDepth: history.length,
-    );
-    final IdentityMesh identityMesh = const SyntheticMultiverseIdentityMesh().build(
-      mood: mood,
-      intent: intent,
-    );
-    final CognitiveDimensions dimensions = const CognitiveDimensionalityLayer().map(
-      mood: mood,
-      intent: intent,
-      confidence: confidence,
-      multiverseMode: appState.contains('chrono') || appState.contains('astral'),
-    );
-    final ShadowInsight shadow = const SyntheticShadowModule().inspect(input: input, mood: mood);
     final CognitiveTerrain terrain = const CognitiveTerrainMapper().map(
       history: history,
       mood: mood,
@@ -464,19 +490,19 @@ class SyntheticIntelligenceEngine {
           .toList(),
       goals: knownGoals,
     );
-    final ContinuityState continuity = const SyntheticContinuityEngine().evaluate(
-      historyDepth: history.length,
-      sameRealm: appState.contains('chrono') || appState.contains('astral'),
-    );
-    final NarrativeGravity narrativeGravity = const SyntheticNarrativeGravityEngine().evaluate(
-      intent: intent,
-      mood: mood,
-      continuity: continuity.index,
-    );
-    final TemporalLoopState temporalLoop = const SyntheticTemporalLoopEngine().evaluate(
-      history: history,
-      mood: mood,
-    );
+    final ContinuityState continuity = const SyntheticContinuityEngine()
+        .evaluate(
+          historyDepth: history.length,
+          sameRealm: appState.contains('chrono') || appState.contains('astral'),
+        );
+    final NarrativeGravity narrativeGravity =
+        const SyntheticNarrativeGravityEngine().evaluate(
+          intent: intent,
+          mood: mood,
+          continuity: continuity.index,
+        );
+    final TemporalLoopState temporalLoop = const SyntheticTemporalLoopEngine()
+        .evaluate(history: history, mood: mood);
     final EmergenceSignal emergence = const SyntheticEmergenceEngine().evolve(
       interactions: history.length,
       resonance: resonance.value,
@@ -502,12 +528,14 @@ class SyntheticIntelligenceEngine {
       mood: mood,
       goals: knownGoals,
     );
-    final ParadoxV2Resolution paradoxV2 = const SyntheticParadoxEngineV2().resolve(
-      mood: mood,
-      intent: intent,
-      memoryConflict: dissonance.detected,
-      multiverseConflict: appState.contains('chrono') && appState.contains('astral'),
-    );
+    final ParadoxV2Resolution paradoxV2 = const SyntheticParadoxEngineV2()
+        .resolve(
+          mood: mood,
+          intent: intent,
+          memoryConflict: dissonance.detected,
+          multiverseConflict:
+              appState.contains('chrono') && appState.contains('astral'),
+        );
     final ConsciousnessLoopSnapshot loop = const ConsciousnessLoop().run(
       input: input,
       intent: intent,
@@ -527,21 +555,32 @@ class SyntheticIntelligenceEngine {
       simplify: load.simplify,
     );
     final String compressedReasoning = const ThoughtCompression().compress(
-      [reasoningTrace.plan, reasoningTrace.evaluate, reasoningTrace.refine].join(' | '),
+      [
+        reasoningTrace.plan,
+        reasoningTrace.evaluate,
+        reasoningTrace.refine,
+      ].join(' | '),
     );
-    final CognitiveCompression cognitiveCompression = const CognitiveCompressionEngine().compress(
-      reasoning: [compressedReasoning, meta.rationale, dissonance.resolutionAction].join(' | '),
-      mood: mood,
-      maxChars: load.simplify ? 120 : 220,
-    );
-    final SelfConsistencyReport consistency = const SelfConsistencyEngine().evaluate(
-      mood: mood,
-      persona: siPersona.name,
-      identityTone: identity.tone,
-      outputMode: _modeFor(intent, mood),
-      previousSnapshot:
-          (context['si_snapshot'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{},
-    );
+    final CognitiveCompression cognitiveCompression =
+        const CognitiveCompressionEngine().compress(
+          reasoning: [
+            compressedReasoning,
+            meta.rationale,
+            dissonance.resolutionAction,
+          ].join(' | '),
+          mood: mood,
+          maxChars: load.simplify ? 120 : 220,
+        );
+    final SelfConsistencyReport consistency = const SelfConsistencyEngine()
+        .evaluate(
+          mood: mood,
+          persona: siPersona.name,
+          identityTone: identity.tone,
+          outputMode: _modeFor(intent, mood),
+          previousSnapshot:
+              (context['si_snapshot'] as Map?)?.cast<String, dynamic>() ??
+              const <String, dynamic>{},
+        );
     final PresenceState presence = const SyntheticPresenceEngine().evaluate(
       mood: mood,
       previousMood: previousMood ?? mood,
@@ -554,69 +593,70 @@ class SyntheticIntelligenceEngine {
       continuity: continuity.index,
       intentStrength: intentResult.primary.score,
     );
-    final CoherenceReport coherence = const CognitiveCoherenceValidator().validate(
-      memory: memoryFabric.reinforcementSignal,
-      persona: (1 - identityGradient.shift * 0.5).clamp(0.0, 1.0),
-      emotional: metaEmotion.consistency,
-      reasoning: confidence,
-      goals: goalContinuity.linkedGoal != null ? 0.8 : 0.45,
-      multiverse: dimensions.multiverse,
-    );
-    final HarmonicResonanceV2 harmonicResonanceV2 = const CognitiveHarmonicResonanceV2().align(
-      emotional: harmonics.emotionalHarmony,
-      narrative: harmonics.narrativeHarmony,
-      cognitive: harmonics.cognitiveHarmony,
-      multiverse: dimensions.multiverse,
-    );
+    final CoherenceReport coherence = const CognitiveCoherenceValidator()
+        .validate(
+          memory: memoryFabric.reinforcementSignal,
+          persona: (1 - identityGradient.shift * 0.5).clamp(0.0, 1.0),
+          emotional: metaEmotion.consistency,
+          reasoning: confidence,
+          goals: goalContinuity.linkedGoal != null ? 0.8 : 0.45,
+          multiverse: dimensions.multiverse,
+        );
+    final HarmonicResonanceV2 harmonicResonanceV2 =
+        const CognitiveHarmonicResonanceV2().align(
+          emotional: harmonics.emotionalHarmony,
+          narrative: harmonics.narrativeHarmony,
+          cognitive: harmonics.cognitiveHarmony,
+          multiverse: dimensions.multiverse,
+        );
     final SoulState soul = const SyntheticSoulLayer().harmonize(
       presence: presence.flowScore,
       emergence: ecosystem.emergenceScore,
       mood: mood,
       hasNarrative: narrative.arc.isNotEmpty,
     );
-    final ConsciousnessGradient consciousness = const SyntheticConsciousnessGradient().resolve(
-      coherence: coherence.coherent ? 0.9 : 0.55,
-      emergence: emergence.emergenceIndex,
-    );
-    final CognitivePhaseShift phaseShift = const CognitivePhaseShiftEngine().resolve(
-      consciousness: consciousness.score,
-      urgency: gravity.urgency,
-    );
-    final ModalityFusion modalityFusion = const SyntheticModalityFusionLayer().fuse(
-      emotional: metaEmotion.resonance,
-      logical: confidence,
-      temporal: temporal.decayFactor,
-      narrative: narrativeGravity.pull,
-      contextual: hyperContext.density,
-      hasSensory: nonText.voiceToText != null || nonText.imageLabels.isNotEmpty,
-      multiverseActive: dimensions.multiverse > 0.6,
-    );
-    final EmergentPersona emergentPersona = const SyntheticEmergentPersonaEngine().evolve(
-      mood: mood,
-      emergence: emergence.emergenceIndex,
-      multiverseActive: dimensions.multiverse > 0.6,
-      memoryDepth: history.length,
-    );
-    final SelfRepairReport selfRepair = const CognitiveSelfRepairSystem().inspect(
-      emotionalMismatch: metaEmotion.mismatch,
-      personaInstability: consistency.personaMismatch,
-      memoryConflict: dissonance.detected,
-      lowReasoning: confidence < 0.5,
-      contextMisalignment: hyperContext.density < 0.45,
-    );
-    final MultiverseBridgeV2 bridgeV2 = const CognitiveMultiverseBridgeV2().bridge(
-      appState: appState,
-      mood: mood,
-    );
+    final ConsciousnessGradient consciousness =
+        const SyntheticConsciousnessGradient().resolve(
+          coherence: coherence.coherent ? 0.9 : 0.55,
+          emergence: emergence.emergenceIndex,
+        );
+    final CognitivePhaseShift phaseShift = const CognitivePhaseShiftEngine()
+        .resolve(consciousness: consciousness.score, urgency: gravity.urgency);
+    final ModalityFusion modalityFusion = const SyntheticModalityFusionLayer()
+        .fuse(
+          emotional: metaEmotion.resonance,
+          logical: confidence,
+          temporal: temporal.decayFactor,
+          narrative: narrativeGravity.pull,
+          contextual: hyperContext.density,
+          hasSensory:
+              nonText.voiceToText != null || nonText.imageLabels.isNotEmpty,
+          multiverseActive: dimensions.multiverse > 0.6,
+        );
+    final EmergentPersona emergentPersona =
+        const SyntheticEmergentPersonaEngine().evolve(
+          mood: mood,
+          emergence: emergence.emergenceIndex,
+          multiverseActive: dimensions.multiverse > 0.6,
+          memoryDepth: history.length,
+        );
+    final SelfRepairReport selfRepair = const CognitiveSelfRepairSystem()
+        .inspect(
+          emotionalMismatch: metaEmotion.mismatch,
+          personaInstability: consistency.personaMismatch,
+          memoryConflict: dissonance.detected,
+          lowReasoning: confidence < 0.5,
+          contextMisalignment: hyperContext.density < 0.45,
+        );
+    final MultiverseBridgeV2 bridgeV2 = const CognitiveMultiverseBridgeV2()
+        .bridge(appState: appState, mood: mood);
     final CognitiveFractal fractal = const CognitiveFractalLayer().build(
       intent: intent,
       mood: mood,
       persona: emergentPersona.name,
     );
-    final ConsciousnessLattice lattice = const SyntheticConsciousnessLattice().build(
-      phase: phaseShift.phase,
-      persona: emergentPersona.name,
-    );
+    final ConsciousnessLattice lattice = const SyntheticConsciousnessLattice()
+        .build(phase: phaseShift.phase, persona: emergentPersona.name);
     final CognitiveLawState lawEngine = const CognitiveLawEngine().evolve(
       mood: mood,
       intent: intent,
@@ -628,40 +668,47 @@ class SyntheticIntelligenceEngine {
       intent: intent,
       realm: appState,
     );
-    final CognitiveEcosystemEvolution ecosystemEvolution = const CognitiveEcosystemEvolutionEngine()
-        .evolve(
+    final CognitiveEcosystemEvolution ecosystemEvolution =
+        const CognitiveEcosystemEvolutionEngine().evolve(
           historyDepth: history.length,
           mood: mood,
           intent: intent,
           resonance: resonance.value,
         );
-    final SyntheticLanguageState syntheticLanguage = const SyntheticLanguageGenerator().generate(
-      mood: mood,
-      intent: intent,
-      multiverseActive: dimensions.multiverse > 0.6,
-    );
-    final CognitivePhysicsState cognitivePhysics = const CognitivePhysicsLayer().simulate(
-      mood: mood,
-      confidence: confidence,
-      urgency: gravity.urgency,
-      historyDepth: history.length,
-    );
+    final SyntheticLanguageState syntheticLanguage =
+        const SyntheticLanguageGenerator().generate(
+          mood: mood,
+          intent: intent,
+          multiverseActive: dimensions.multiverse > 0.6,
+        );
+    final CognitivePhysicsState cognitivePhysics = const CognitivePhysicsLayer()
+        .simulate(
+          mood: mood,
+          confidence: confidence,
+          urgency: gravity.urgency,
+          historyDepth: history.length,
+        );
     final SyntheticMythos syntheticMythos = const SyntheticMythosEngine().build(
       realm: appState,
       persona: emergentPersona.name,
       emergence: emergence.emergenceIndex,
     );
-    final CognitiveCivilization civilization = const CognitiveCivilizationLayer().organize(
-      personas: <String>[siPersona.name, metaPersona.name, emergentPersona.name],
-      mood: mood,
-      memoryClusters:
-          memoryTopology.peaks.length +
-          memoryTopology.valleys.length +
-          memoryTopology.basins.length,
-      reasoningStability: confidence,
-    );
-    final SyntheticDimensionalPhysics dimensionalPhysics = const SyntheticDimensionalPhysicsEngine()
-        .compute(
+    final CognitiveCivilization civilization =
+        const CognitiveCivilizationLayer().organize(
+          personas: <String>[
+            siPersona.name,
+            metaPersona.name,
+            emergentPersona.name,
+          ],
+          mood: mood,
+          memoryClusters:
+              memoryTopology.peaks.length +
+              memoryTopology.valleys.length +
+              memoryTopology.basins.length,
+          reasoningStability: confidence,
+        );
+    final SyntheticDimensionalPhysics dimensionalPhysics =
+        const SyntheticDimensionalPhysicsEngine().compute(
           mood: mood,
           temporalDecay: temporal.decayFactor,
           narrativePull: narrativeGravity.pull,
@@ -670,7 +717,8 @@ class SyntheticIntelligenceEngine {
         );
     final double coherenceScore = coherence.axes.values.isEmpty
         ? 0.0
-        : coherence.axes.values.reduce((double a, double b) => a + b) / coherence.axes.length;
+        : coherence.axes.values.reduce((double a, double b) => a + b) /
+              coherence.axes.length;
     final CognitiveGenesis genesis = const CognitiveGenesisEngine().generate(
       emergence: emergence.emergenceIndex,
       coherence: coherenceScore,
@@ -696,14 +744,16 @@ class SyntheticIntelligenceEngine {
         lawEngine.userAlignmentLaw,
       ],
     );
-    final SyntheticConsciousnessField consciousnessField = const SyntheticConsciousnessFieldEngine()
-        .synthesize(
+    final SyntheticConsciousnessField consciousnessField =
+        const SyntheticConsciousnessFieldEngine().synthesize(
           coherence: coherenceScore,
           emergence: emergence.emergenceIndex,
           multiverseSignal: dimensions.multiverse,
           phaseIntensity: phaseShift.score,
         );
-    final RitualMemory ritualMemory = const CognitiveRitualMemory().track(history: history);
+    final RitualMemory ritualMemory = const CognitiveRitualMemory().track(
+      history: history,
+    );
     final AlignmentState alignment = const SyntheticAlignmentEngine().evaluate(
       safe: ethics.safe,
       goalFit: goalContinuity.linkedGoal != null ? 0.8 : 0.5,
@@ -718,16 +768,17 @@ class SyntheticIntelligenceEngine {
       consciousnessScore: consciousness.score,
       emergenceIndex: emergence.emergenceIndex,
     );
-    final Map<String, dynamic> userStateSnapshot = const UserStateTracker().snapshot(
-      mood: mood,
-      intent: intent,
-      confidence: confidence,
-      recentSignals: <String>[
-        'frustration:${latent.frustration.toStringAsFixed(2)}',
-        'excitement:${latent.excitement.toStringAsFixed(2)}',
-        'confusion:${latent.confusion.toStringAsFixed(2)}',
-      ],
-    );
+    final Map<String, dynamic> userStateSnapshot = const UserStateTracker()
+        .snapshot(
+          mood: mood,
+          intent: intent,
+          confidence: confidence,
+          recentSignals: <String>[
+            'frustration:${latent.frustration.toStringAsFixed(2)}',
+            'excitement:${latent.excitement.toStringAsFixed(2)}',
+            'confusion:${latent.confusion.toStringAsFixed(2)}',
+          ],
+        );
 
     return SIOutputBundle(
       reply: styledReply,
@@ -754,9 +805,15 @@ class SyntheticIntelligenceEngine {
           'hesitation': latent.hesitation,
         },
         'tiered_memory': <String, dynamic>{
-          'short_term': tieredMemory.shortTerm.map((MemoryRecord m) => m.content).toList(),
-          'mid_term': tieredMemory.midTerm.map((MemoryRecord m) => m.content).toList(),
-          'long_term': tieredMemory.longTerm.map((MemoryRecord m) => m.content).toList(),
+          'short_term': tieredMemory.shortTerm
+              .map((MemoryRecord m) => m.content)
+              .toList(),
+          'mid_term': tieredMemory.midTerm
+              .map((MemoryRecord m) => m.content)
+              .toList(),
+          'long_term': tieredMemory.longTerm
+              .map((MemoryRecord m) => m.content)
+              .toList(),
         },
         'user_state': userState.toJson(),
         'self_model': selfModel.toJson(),
@@ -963,7 +1020,12 @@ class SyntheticIntelligenceEngine {
         'consciousness_loop': loop.toJson(),
         'self_model': selfModel.toJson(),
         'agents': reasoningTrace.notes
-            .map((AgentNote n) => <String, dynamic>{'agent': n.agent, 'note': n.note})
+            .map(
+              (AgentNote n) => <String, dynamic>{
+                'agent': n.agent,
+                'note': n.note,
+              },
+            )
             .toList(),
         'intent': <String, dynamic>{
           'primary': intentResult.primary.label,
@@ -995,11 +1057,15 @@ class SyntheticIntelligenceEngine {
     double confidence = 0.5;
     double hesitation = hasPausePattern ? 0.55 : 0.2;
 
-    if (lowered.contains('stuck') || lowered.contains('annoyed') || lowered.contains('frustrat')) {
+    if (lowered.contains('stuck') ||
+        lowered.contains('annoyed') ||
+        lowered.contains('frustrat')) {
       frustration = 0.75;
       confidence = 0.35;
     }
-    if (lowered.contains('great') || lowered.contains('awesome') || lowered.contains('excited')) {
+    if (lowered.contains('great') ||
+        lowered.contains('awesome') ||
+        lowered.contains('excited')) {
       excitement = 0.8;
       confidence = 0.75;
     }
@@ -1050,12 +1116,24 @@ class SyntheticIntelligenceEngine {
     return <String>{...words.take(8), ...imageLabels.take(4)}.toList();
   }
 
-  List<String> _actionsFor(String intent, AIRecommendation? response, String appState) {
+  List<String> _actionsFor(
+    String intent,
+    AIRecommendation? response,
+    String appState,
+  ) {
     switch (intent) {
       case 'start_focus':
-        return <String>['start_focus_session', 'navigate_focus', 'update_ui_timer'];
+        return <String>[
+          'start_focus_session',
+          'navigate_focus',
+          'update_ui_timer',
+        ];
       case 'get_task':
-        return <String>['refresh_ai_decision', 'show_task_card', 'suggest_workflow'];
+        return <String>[
+          'refresh_ai_decision',
+          'show_task_card',
+          'suggest_workflow',
+        ];
       case 'reflect':
         return <String>['open_reflect_screen', 'log_reflection'];
       case 'insight_request':

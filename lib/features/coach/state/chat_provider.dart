@@ -7,7 +7,9 @@ final siAiServiceProvider = Provider<SIAIService>((ref) {
   return const SIAIService();
 });
 
-final chatProvider = NotifierProvider<ChatController, List<ChatMessage>>(ChatController.new);
+final chatProvider = NotifierProvider<ChatController, List<ChatMessage>>(
+  ChatController.new,
+);
 
 class ChatController extends Notifier<List<ChatMessage>> {
   @override
@@ -24,7 +26,12 @@ class ChatController extends Notifier<List<ChatMessage>> {
 
     final response = ref
         .read(siAiServiceProvider)
-        .generate(tasks: tasks, si: si, learning: learning, personality: personality);
+        .generate(
+          tasks: tasks,
+          si: si,
+          learning: learning,
+          personality: personality,
+        );
 
     _push(
       ChatMessage(

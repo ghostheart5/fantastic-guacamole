@@ -29,7 +29,8 @@ class _SIDebugOverlayState extends State<SIDebugOverlay> {
             onLongPress: () => setState(() => _visible = !_visible),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
-              transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+              transitionBuilder: (child, anim) =>
+                  FadeTransition(opacity: anim, child: child),
               child: _visible
                   ? _DebugPanel(
                       key: const ValueKey('panel'),
@@ -92,7 +93,9 @@ class _DebugPanel extends ConsumerWidget {
         color: const Color(0xEE0A0A16),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white10),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.7), blurRadius: 24)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.7), blurRadius: 24),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,13 +106,20 @@ class _DebugPanel extends ConsumerWidget {
               Container(
                 width: 6,
                 height: 6,
-                decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle),
+                decoration: const BoxDecoration(
+                  color: Colors.greenAccent,
+                  shape: BoxShape.circle,
+                ),
               ),
               const SizedBox(width: 6),
               const Expanded(
                 child: Text(
                   'SI DEBUG',
-                  style: TextStyle(fontSize: 8, letterSpacing: 2, color: Colors.white38),
+                  style: TextStyle(
+                    fontSize: 8,
+                    letterSpacing: 2,
+                    color: Colors.white38,
+                  ),
                 ),
               ),
               GestureDetector(
@@ -121,13 +131,19 @@ class _DebugPanel extends ConsumerWidget {
           const SizedBox(height: 7),
           const _Divider(),
           const SizedBox(height: 5),
-          _Row('TASK', ai?.task?.title ?? 'â€”'),
-          _Row('EMOTION', ai?.emotion ?? 'â€”'),
-          _Row('CONFIDENCE', confidence != null ? '${(confidence * 100).round()}%' : 'â€”'),
-          _Row('AGENT', agentTrace?.selectedAgent ?? 'â€”'),
-          _Row('MODE', agentTrace?.mode ?? 'â€”'),
-          _Row('LATENCY', agentTrace != null ? '${agentTrace.durationMs}ms' : 'â€”'),
-          _Row('REASONING', ai?.reasoning ?? 'â€”', wrap: true),
+          _Row('TASK', ai?.task?.title ?? '-'),
+          _Row('EMOTION', ai?.emotion ?? '-'),
+          _Row(
+            'CONFIDENCE',
+            confidence != null ? '${(confidence * 100).round()}%' : '-',
+          ),
+          _Row('AGENT', agentTrace?.selectedAgent ?? '-'),
+          _Row('MODE', agentTrace?.mode ?? '-'),
+          _Row(
+            'LATENCY',
+            agentTrace != null ? '${agentTrace.durationMs}ms' : '-',
+          ),
+          _Row('REASONING', ai?.reasoning ?? '-', wrap: true),
           const SizedBox(height: 4),
           const _Divider(),
           const SizedBox(height: 5),
@@ -177,13 +193,19 @@ class _Row extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
       child: Row(
-        crossAxisAlignment: wrap ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        crossAxisAlignment: wrap
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
         children: [
           SizedBox(
             width: 70,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 8, color: Colors.white38, letterSpacing: 1),
+              style: const TextStyle(
+                fontSize: 8,
+                color: Colors.white38,
+                letterSpacing: 1,
+              ),
             ),
           ),
           Expanded(
