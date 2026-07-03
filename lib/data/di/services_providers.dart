@@ -2,6 +2,7 @@
 // CORE STORAGE
 // ============================================================
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/storage/hive_service.dart';
 import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/core/storage/storage_migration.dart';
@@ -107,7 +108,16 @@ final sharedPrefsStoreProvider = Provider<SharedPrefsStore>((ref) {
 });
 
 final supabaseClientProvider = Provider<sb.SupabaseClient>((ref) {
-  return sb.Supabase.instance.client;
+  if (Env.isSupabaseConfigured) {
+    return sb.Supabase.instance.client;
+  }
+  // Return an inert client when Supabase isn't configured.
+  // The auth gateway checks isSupabaseConfigured and routes to UnavailableAuthService,
+  // so this client is never actually called.
+  return sb.SupabaseClient(
+    'https://placeholder.supabase.co',
+    'placeholder-anon-key',
+  );
 });
 
 // ============================================================

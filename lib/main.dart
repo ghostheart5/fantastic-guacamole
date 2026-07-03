@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/app/app.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/firebase_options.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
@@ -17,6 +18,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:timezone/data/latest_all.dart' as tz;
 
 void main() {
@@ -176,6 +178,10 @@ Future<_StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
     'firebase',
     () => _initFirebaseSafe(isMockMode: intelligence.flags.mockMode),
   );
+  final Future<String?> supabaseIssueFuture = _measureIssueStage(
+    'supabase',
+    () => _initSupabaseSafe(isMockMode: intelligence.flags.mockMode),
+  );
   final Future<String?> notificationIssueFuture = _measureIssueStage(
     'notifications',
     () =>
@@ -193,6 +199,7 @@ Future<_StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
       await Future.wait<String?>(<Future<String?>>[
         storageIssueFuture,
         firebaseIssueFuture,
+        supabaseIssueFuture,
         notificationIssueFuture,
         identityIssueFuture,
       ]);
@@ -333,6 +340,33 @@ Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
     Logger.error('Firebase initialization failed.', error);
     RuntimeDiagnostics.record('Firebase initialization failed: $error');
     return 'Firebase initialization failed: $error';
+  }
+}
+
+Future<String?> _initSupabaseSafe({required bool isMockMode}) async {
+  if (isMockMode || !Env.isSupabaseConfigured) {
+    Logger.log('Startup', 'Supabase startup skipped (mockMode=$isMockMode, configured=${Env.isSupabaseConfigured}).');
+    RuntimeDiagnostics.record('Supabase startup skipped.');
+    return null;
+  }
+  try {
+    Logger.log('Startup', 'Initializing Supabase...');
+    RuntimeDiagnostics.record('Initializing Supabase...');
+    await sb.Supabase.initialize(
+      url: Env.supabaseUrl,
+      publishableKey: Env.supabaseAnonKey,
+    ).timeout(const Duration(seconds: 12));
+    Logger.log('Startup', 'Supabase initialized.');
+    RuntimeDiagnostics.record('Supabase initialized.');
+    return null;
+  } on TimeoutException {
+    Logger.warn('Supabase initialization timed out.');
+    RuntimeDiagnostics.record('Supabase initialization timed out.');
+    return 'Supabase initialization timed out. Auth will be unavailable.';
+  } on Exception catch (error) {
+    Logger.error('Supabase initialization failed.', error);
+    RuntimeDiagnostics.record('Supabase initialization failed: $error');
+    return 'Supabase initialization failed: $error';
   }
 }
 
