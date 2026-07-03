@@ -55,7 +55,7 @@ class DefaultFirebaseOptions {
   // ------------------------------------------------------------
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: "PASTE_IOS_API_KEY",
-    appId: "PASTE_IOS_APP_ID",
+    appId: "1:956622397052:ios:4a522f3f234d24959133f9",
     messagingSenderId: "PASTE_IOS_SENDER_ID",
     projectId: "PASTE_PROJECT_ID",
     iosBundleId: "PASTE_IOS_BUNDLE_ID",
