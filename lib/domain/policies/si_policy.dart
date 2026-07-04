@@ -16,10 +16,9 @@ class SiPolicy {
       return decision.copyWith(
         action: simplified,
         tone: 'calm',
-        recommendedFocusMinutes:
-            decision.recommendedFocusMinutes > 15
-                ? 15
-                : decision.recommendedFocusMinutes,
+        recommendedFocusMinutes: decision.recommendedFocusMinutes > 15
+            ? 15
+            : decision.recommendedFocusMinutes,
       );
     }
     return decision;

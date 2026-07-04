@@ -4,8 +4,9 @@ import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/engine/si/offline/identity_engine.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final identityStateProvider =
-    NotifierProvider<IdentityNotifier, IdentityState>(IdentityNotifier.new);
+final identityStateProvider = NotifierProvider<IdentityNotifier, IdentityState>(
+  IdentityNotifier.new,
+);
 
 class IdentityNotifier extends Notifier<IdentityState> {
   static const _key = 'identity_state_v1';
@@ -45,8 +46,7 @@ class IdentityNotifier extends Notifier<IdentityState> {
     await _persist();
   }
 
-  String get reinforcementMessage =>
-      _engine.reinforceIdentity(state, '');
+  String get reinforcementMessage => _engine.reinforceIdentity(state, '');
 
   String get archetype {
     if (state.disciplineIdentity >= state.focusIdentity &&

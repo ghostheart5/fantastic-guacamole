@@ -32,10 +32,10 @@ final generateSiDecisionUseCaseProvider = Provider<GenerateSiDecision>((ref) {
 });
 
 final domainSiDecisionProvider = FutureProvider<Task?>((ref) async {
-  final SiDecisionEntity? decision = await ref
+  final SiDecisionEntity decision = await ref
       .read(generateSiDecisionUseCaseProvider)
       .call();
-  final String? selectedTaskId = decision?.selectedTaskId;
+  final String? selectedTaskId = decision.selectedTaskId;
   if (selectedTaskId == null || selectedTaskId.isEmpty) {
     return null;
   }

@@ -14,5 +14,6 @@ class MomentumController extends Notifier<MomentumState> {
   }
 }
 
-final momentumProvider =
-    NotifierProvider<MomentumController, MomentumState>(MomentumController.new);
+final momentumProvider = NotifierProvider<MomentumController, MomentumState>(
+  MomentumController.new,
+);

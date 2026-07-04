@@ -22,8 +22,9 @@ class _AiDecisionCardState extends State<AiDecisionCard> {
   }
 
   Future<void> _fetch() async {
-    final SiDecisionEntity decision =
-        await widget.siEngine.think('what should user do next?');
+    final SiDecisionEntity decision = await widget.siEngine.think(
+      'what should user do next?',
+    );
     if (mounted) {
       setState(() {
         _decision = decision;
@@ -44,8 +45,7 @@ class _AiDecisionCardState extends State<AiDecisionCard> {
     }
 
     final SiDecisionEntity d = _decision!;
-    final String message =
-        d.action.isNotEmpty ? d.action : d.rationale;
+    final String message = d.action.isNotEmpty ? d.action : d.rationale;
 
     return Card(
       child: Padding(

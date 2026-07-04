@@ -13,12 +13,7 @@ class ProgressionState {
 
   factory ProgressionState.initial() {
     return const ProgressionState(
-      progress: UserProgress(
-        xp: 0,
-        level: 1,
-        streak: 0,
-        longestStreak: 0,
-      ),
+      progress: UserProgress(xp: 0, level: 1, streak: 0, longestStreak: 0),
       loading: false,
       error: null,
     );

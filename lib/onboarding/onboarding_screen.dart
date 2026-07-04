@@ -113,7 +113,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               return _PersonalizationSlide(
                 nameCtrl: _nameCtrl,
                 selectedGoalType: _selectedGoalType,
-                onGoalTypeSelected: (v) => setState(() => _selectedGoalType = v),
+                onGoalTypeSelected: (v) =>
+                    setState(() => _selectedGoalType = v),
               );
             },
           ),
@@ -361,7 +362,9 @@ class _PersonalizationSlide extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.neonCyan.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.neonCyan.withValues(alpha: 0.3),
+                ),
               ),
               child: const Text(
                 'PERSONALIZE',
@@ -423,7 +426,9 @@ class _PersonalizationSlide extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.25)),
+                border: Border.all(
+                  color: AppColors.neonCyan.withValues(alpha: 0.25),
+                ),
               ),
               child: TextField(
                 controller: nameCtrl,
@@ -431,7 +436,10 @@ class _PersonalizationSlide extends StatelessWidget {
                 decoration: const InputDecoration(
                   hintText: 'Enter your name...',
                   hintStyle: TextStyle(color: Colors.white24),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   border: InputBorder.none,
                 ),
               ),
@@ -476,7 +484,11 @@ class _PersonalizationSlide extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Row(
                       children: [
-                        Icon(icon, color: selected ? color : Colors.white38, size: 16),
+                        Icon(
+                          icon,
+                          color: selected ? color : Colors.white38,
+                          size: 16,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -484,7 +496,9 @@ class _PersonalizationSlide extends StatelessWidget {
                             style: TextStyle(
                               color: selected ? color : Colors.white54,
                               fontSize: 11,
-                              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -616,12 +630,9 @@ class _StarPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint();
     for (final star in stars) {
-      final alpha = (0.35 +
-              0.45 *
-                  math.sin(
-                    t * math.pi * 2 * star.speed + star.phase,
-                  ))
-          .clamp(0.0, 1.0);
+      final alpha =
+          (0.35 + 0.45 * math.sin(t * math.pi * 2 * star.speed + star.phase))
+              .clamp(0.0, 1.0);
       paint.color = Colors.white.withValues(alpha: alpha);
       canvas.drawCircle(
         Offset(star.x * size.width, star.y * size.height),

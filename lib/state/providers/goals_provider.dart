@@ -4,8 +4,9 @@ import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final goalsProvider =
-    NotifierProvider<GoalsNotifier, List<GoalEntity>>(GoalsNotifier.new);
+final goalsProvider = NotifierProvider<GoalsNotifier, List<GoalEntity>>(
+  GoalsNotifier.new,
+);
 
 class GoalsNotifier extends Notifier<List<GoalEntity>> {
   static const _key = 'goals_v2';
@@ -14,7 +15,8 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
   @override
   List<GoalEntity> build() {
     // Try v2 first, fall back to v1 migration
-    final raw = SharedPrefsService.load(_key) ?? SharedPrefsService.load(_legacyKey);
+    final raw =
+        SharedPrefsService.load(_key) ?? SharedPrefsService.load(_legacyKey);
     if (raw == null) return [];
     try {
       final list = jsonDecode(raw) as List<dynamic>;
@@ -35,7 +37,9 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title.trim(),
       createdAt: DateTime.now(),
-      description: description?.trim().isEmpty ?? true ? null : description?.trim(),
+      description: description?.trim().isEmpty ?? true
+          ? null
+          : description?.trim(),
       targetDate: targetDate,
     );
     state = [goal, ...state];

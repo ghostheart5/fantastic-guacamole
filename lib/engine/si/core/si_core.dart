@@ -30,7 +30,12 @@ export 'package:fantastic_guacamole/engine/si/core/si_memory_module.dart'
         SISnapshot,
         SITieredMemory;
 export 'package:fantastic_guacamole/engine/si/core/si_reasoning_module.dart'
-    show AgentNote, MetaReasoning, ReasoningTrace, SICognitionState, SIPrediction;
+    show
+        AgentNote,
+        MetaReasoning,
+        ReasoningTrace,
+        SICognitionState,
+        SIPrediction;
 export 'package:fantastic_guacamole/engine/si/core/si_response_module.dart'
     show EmotionalSignal, PersonalityTraits, SIPersona, SIResponse;
 
@@ -59,17 +64,15 @@ class SIPipelineResult {
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 class SICore {
-  SICore({
-    SIMemoryStore? memory,
-    SIDecisionPolicy? policy,
-  })  : _memory = memory ?? const SIMemoryStore(),
-        _input = const SIInputModule(),
-        _intent = const SIIntentModule(),
-        _instinct = const SIInstinctModule(),
-        _reasoning = const SIReasoningModule(),
-        _decision = SIDecisionModule(policy: policy ?? const SIDecisionPolicy()),
-        _response = const SIResponseModule(),
-        _memoryModule = const SIMemoryModule();
+  SICore({SIMemoryStore? memory, SIDecisionPolicy? policy})
+    : _memory = memory ?? const SIMemoryStore(),
+      _input = const SIInputModule(),
+      _intent = const SIIntentModule(),
+      _instinct = const SIInstinctModule(),
+      _reasoning = const SIReasoningModule(),
+      _decision = SIDecisionModule(policy: policy ?? const SIDecisionPolicy()),
+      _response = const SIResponseModule(),
+      _memoryModule = const SIMemoryModule();
 
   SIMemoryStore _memory;
 

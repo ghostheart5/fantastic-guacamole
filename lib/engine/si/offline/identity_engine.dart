@@ -34,15 +34,15 @@ class IdentityEngine {
     required bool streakMaintained,
   }) {
     return IdentityState(
-      disciplineIdentity: (current.disciplineIdentity +
-              (taskCompleted ? 0.02 : -0.01))
+      disciplineIdentity:
+          (current.disciplineIdentity + (taskCompleted ? 0.02 : -0.01)).clamp(
+            0.0,
+            1.0,
+          ),
+      focusIdentity: (current.focusIdentity + (sessionCompleted ? 0.03 : -0.01))
           .clamp(0.0, 1.0),
-      focusIdentity:
-          (current.focusIdentity + (sessionCompleted ? 0.03 : -0.01))
-              .clamp(0.0, 1.0),
-      growthIdentity:
-          (current.growthIdentity + (streakMaintained ? 0.02 : 0.0))
-              .clamp(0.0, 1.0),
+      growthIdentity: (current.growthIdentity + (streakMaintained ? 0.02 : 0.0))
+          .clamp(0.0, 1.0),
     );
   }
 

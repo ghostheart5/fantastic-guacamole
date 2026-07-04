@@ -1,29 +1,35 @@
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 class VoiceService {
   final FlutterTts _tts = FlutterTts();
   bool _speaking = false;
-  bool _initialized = false;
+  Future<void>? _initFuture;
 
   bool get isSpeaking => _speaking;
 
-  Future<void> _ensureInit() async {
-    if (_initialized) return;
-    _initialized = true;
+  Future<void> _ensureInit() => _initFuture ??= _doInit();
+
+  Future<void> _doInit() async {
     await _tts.setLanguage('en-US');
-    await _tts.setVolume(1.0);
     await _tts.setSpeechRate(0.45);
     await _tts.setPitch(1.05);
+    await _tts.setVolume(1.0);
+    await _tts.awaitSpeakCompletion(true);
     _tts.setStartHandler(() => _speaking = true);
     _tts.setCompletionHandler(() => _speaking = false);
     _tts.setCancelHandler(() => _speaking = false);
-    _tts.setErrorHandler((_) => _speaking = false);
+    _tts.setErrorHandler((msg) {
+      _speaking = false;
+      Logger.error('[VoiceService] TTS error', msg);
+    });
   }
 
   Future<void> speak(String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     await _ensureInit();
+    if (_speaking) await _tts.stop();
     await _tts.speak(trimmed);
   }
 

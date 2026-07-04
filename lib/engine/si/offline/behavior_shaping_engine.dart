@@ -48,8 +48,10 @@ class BehaviorShapingEngine {
     return BehaviorState(
       consistency: (current.consistency + (sessionCompleted ? 0.05 : -0.03))
           .clamp(0.0, 1.0),
-      capacity: (current.capacity + (taskCompleted ? 0.03 : -0.02))
-          .clamp(0.0, 1.0),
+      capacity: (current.capacity + (taskCompleted ? 0.03 : -0.02)).clamp(
+        0.0,
+        1.0,
+      ),
       stability: (current.stability + (frictionScore < 0.4 ? 0.02 : -0.04))
           .clamp(0.0, 1.0),
     );
@@ -58,8 +60,10 @@ class BehaviorShapingEngine {
   BehaviorTarget generateTarget(BehaviorState state) {
     final double avg =
         (state.consistency + state.capacity + state.stability) / 3.0;
-    final int index =
-        (avg * (_ladder.length - 1)).round().clamp(0, _ladder.length - 1);
+    final int index = (avg * (_ladder.length - 1)).round().clamp(
+      0,
+      _ladder.length - 1,
+    );
     return BehaviorTarget(
       targetDifficulty: (avg * 4.0 + 1.0).clamp(1.0, 5.0),
       targetSessionLength: _ladder[index],

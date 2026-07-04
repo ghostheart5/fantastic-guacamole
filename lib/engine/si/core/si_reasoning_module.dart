@@ -192,8 +192,9 @@ class SIReasoningModule {
       );
     }
 
-    final List<NeuralEntry> matches =
-        history.where((NeuralEntry e) => e.task == task).toList();
+    final List<NeuralEntry> matches = history
+        .where((NeuralEntry e) => e.task == task)
+        .toList();
 
     if (matches.isEmpty) {
       return const SIPrediction(

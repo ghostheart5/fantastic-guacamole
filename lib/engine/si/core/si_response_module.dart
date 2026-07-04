@@ -94,7 +94,10 @@ class SIResponseModule {
       message = _truncate(message, 280);
     }
     if (identityState != null) {
-      message = const IdentityEngine().reinforceIdentity(identityState, message);
+      message = const IdentityEngine().reinforceIdentity(
+        identityState,
+        message,
+      );
     }
 
     return SIResponse(
@@ -124,14 +127,13 @@ class SIResponseModule {
 
     final double intensity =
         (latent.frustration +
-                latent.excitement +
-                latent.confusion +
-                latent.hesitation) /
-            4;
-    final String shift =
-        previousMood == null || previousMood == mood
-            ? 'stable'
-            : '$previousMood->$mood';
+            latent.excitement +
+            latent.confusion +
+            latent.hesitation) /
+        4;
+    final String shift = previousMood == null || previousMood == mood
+        ? 'stable'
+        : '$previousMood->$mood';
 
     return EmotionalSignal(
       mood: mood,

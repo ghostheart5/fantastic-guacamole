@@ -111,14 +111,20 @@ class SIInputModule {
   SIContext process(SIInputPacket packet, {String mood = 'neutral'}) {
     final SILatentInputs l = packet.latent;
 
-    final double stress =
-        ((l.frustration + l.confusion + l.hesitation) / 3).clamp(0.0, 1.0);
-    final double engagement =
-        (0.6 + (l.excitement - l.hesitation) * 0.4).clamp(0.0, 1.0);
-    final double fatigue =
-        (0.3 + l.hesitation * 0.4 + l.confusion * 0.3).clamp(0.0, 1.0);
-    final double motivation =
-        (l.excitement + l.confidence * 0.5).clamp(0.0, 1.0);
+    final double stress = ((l.frustration + l.confusion + l.hesitation) / 3)
+        .clamp(0.0, 1.0);
+    final double engagement = (0.6 + (l.excitement - l.hesitation) * 0.4).clamp(
+      0.0,
+      1.0,
+    );
+    final double fatigue = (0.3 + l.hesitation * 0.4 + l.confusion * 0.3).clamp(
+      0.0,
+      1.0,
+    );
+    final double motivation = (l.excitement + l.confidence * 0.5).clamp(
+      0.0,
+      1.0,
+    );
     final String stability = l.confidence >= 0.7 ? 'stable' : 'volatile';
 
     final SIUserState userState = SIUserState(

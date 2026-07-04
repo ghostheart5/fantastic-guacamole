@@ -92,12 +92,16 @@ class BackupService {
       await userStorage.put('user', model);
     }
 
-    final Map<String, dynamic>? userStateJson = _asStringKeyMap(backup['user_state']);
+    final Map<String, dynamic>? userStateJson = _asStringKeyMap(
+      backup['user_state'],
+    );
     if (userStateJson != null) {
       await prefs.setJson('user_state', userStateJson);
     }
 
-    final Map<String, dynamic>? settingsJson = _asStringKeyMap(backup['settings']);
+    final Map<String, dynamic>? settingsJson = _asStringKeyMap(
+      backup['settings'],
+    );
     if (settingsJson != null) {
       await prefs.setJson('settings', settingsJson);
     }
@@ -120,13 +124,17 @@ class BackupService {
   }
 
   Future<void> restoreUserState(Map<String, dynamic> backup) async {
-    final Map<String, dynamic>? userStateJson = _asStringKeyMap(backup['user_state']);
+    final Map<String, dynamic>? userStateJson = _asStringKeyMap(
+      backup['user_state'],
+    );
     if (userStateJson == null) return;
     await prefs.setJson('user_state', userStateJson);
   }
 
   Future<void> restoreSettings(Map<String, dynamic> backup) async {
-    final Map<String, dynamic>? settingsJson = _asStringKeyMap(backup['settings']);
+    final Map<String, dynamic>? settingsJson = _asStringKeyMap(
+      backup['settings'],
+    );
     if (settingsJson == null) return;
     await prefs.setJson('settings', settingsJson);
   }
@@ -134,10 +142,12 @@ class BackupService {
   List<TaskModel> _taskModelsFromRaw(dynamic rawTasks) {
     if (rawTasks is! List) return const <TaskModel>[];
     return rawTasks
-        .whereType<Map>()
-        .map((Map<dynamic, dynamic> item) => item.map(
-              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
-            ))
+        .whereType<Map<dynamic, dynamic>>()
+        .map(
+          (Map<dynamic, dynamic> item) => item.map(
+            (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+          ),
+        )
         .map(TaskAdapter.fromJson)
         .toList();
   }

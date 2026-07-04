@@ -76,23 +76,30 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
   }
 
   void _start() {
-    unawaited(runFocusStartAnimation(context, onStart: () {
-      setState(() => _started = true);
-      ref.read(focusControllerProvider.notifier).start();
-      _sessionTimer?.dispose();
-      _sessionTimer = _focusServices.createTimer(
-        totalSeconds: _totalSeconds,
-        onTick: (remaining) {
-          if (!mounted) return;
-          setState(() => _seconds = remaining);
+    unawaited(
+      runFocusStartAnimation(
+        context,
+        onStart: () {
+          setState(() => _started = true);
+          ref.read(focusControllerProvider.notifier).start();
+          _sessionTimer?.dispose();
+          _sessionTimer = _focusServices.createTimer(
+            totalSeconds: _totalSeconds,
+            onTick: (remaining) {
+              if (!mounted) return;
+              setState(() => _seconds = remaining);
+            },
+            onDone: _finish,
+          );
+          _sessionTimer?.start();
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) {
+              ref.read(audioFeedbackControllerProvider).playFocusStart();
+            }
+          });
         },
-        onDone: _finish,
-      );
-      _sessionTimer?.start();
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) ref.read(audioFeedbackControllerProvider).playFocusStart();
-      });
-    }));
+      ),
+    );
   }
 
   TaskView? _resolveRouteTask() {
@@ -214,7 +221,9 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
         context: context,
         builder: (_) => AlertDialog(
           backgroundColor: const Color(0xFF050D1A),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text(
             'Keep going?',
             style: TextStyle(color: Colors.white),
@@ -471,16 +480,21 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
                           ),
                         ),
                         const SizedBox(height: 16),
-                        Lottie.asset(
-                          'assets/animations/session_complete.json',
-                          controller: _completeAnim,
-                          onLoaded: (composition) {
-                            _completeAnim.duration = composition.duration;
-                            if (!_completeAnim.isAnimating) {
-                              _completeAnim.forward();
-                            }
-                          },
+                        SizedBox(
                           width: 280,
+                          height: 220,
+                          child: Lottie.asset(
+                            'assets/animations/session_complete.json',
+                            controller: _completeAnim,
+                            onLoaded: (composition) {
+                              if (!mounted) return;
+                              _completeAnim.duration = composition.duration;
+                              if (!_completeAnim.isAnimating) {
+                                _completeAnim.forward();
+                              }
+                            },
+                            fit: BoxFit.contain,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -517,18 +531,26 @@ class _FocusScreenState extends ConsumerState<FocusScreen>
                           GestureDetector(
                             onTap: () {
                               ref.read(focusTaskProvider.notifier).set(null);
-                              ref.read(focusControllerProvider.notifier).complete();
+                              ref
+                                  .read(focusControllerProvider.notifier)
+                                  .complete();
                               ref.read(appFlowProvider.notifier).toCoach();
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 28, vertical: 12),
+                                horizontal: 28,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
-                                color: AppColors.neonCyan.withValues(alpha: 0.12),
+                                color: AppColors.neonCyan.withValues(
+                                  alpha: 0.12,
+                                ),
                                 borderRadius: BorderRadius.circular(50),
                                 border: Border.all(
-                                    color: AppColors.neonCyan
-                                        .withValues(alpha: 0.4)),
+                                  color: AppColors.neonCyan.withValues(
+                                    alpha: 0.4,
+                                  ),
+                                ),
                               ),
                               child: const Text(
                                 'Keep going  →',
@@ -672,9 +694,7 @@ class _FocusInfoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.neonCyan.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.neonCyan.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.18)),
       ),
       child: const Row(
         children: [

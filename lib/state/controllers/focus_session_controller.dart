@@ -95,32 +95,41 @@ class FocusSessionController {
 
     final profile = _ref.read(profileProvider);
     final streakMaintained = profile.streak > 0;
-    await _ref.read(identityStateProvider.notifier).onFocusComplete(
+    await _ref
+        .read(identityStateProvider.notifier)
+        .onFocusComplete(
           sessionCompleted: true,
           taskCompleted: true,
           streakMaintained: streakMaintained,
         );
-    await _ref.read(behaviorStateProvider.notifier).onSessionComplete(
-          sessionCompleted: true,
-          taskCompleted: true,
+    await _ref
+        .read(behaviorStateProvider.notifier)
+        .onSessionComplete(sessionCompleted: true, taskCompleted: true);
+    await _ref
+        .read(timelineProvider.notifier)
+        .record(
+          TimelineEventEntity(
+            id: 'fs_${DateTime.now().millisecondsSinceEpoch}',
+            type: TimelineEventType.focusSession,
+            title: 'Focus session',
+            detail: task.title,
+            timestamp: DateTime.now(),
+          ),
         );
-    await _ref.read(timelineProvider.notifier).record(TimelineEventEntity(
-          id: 'fs_${DateTime.now().millisecondsSinceEpoch}',
-          type: TimelineEventType.focusSession,
-          title: 'Focus session',
-          detail: task.title,
-          timestamp: DateTime.now(),
-        ));
 
     final profileAfter = _ref.read(profileProvider);
     if (profileAfter.leveledUp) {
-      await _ref.read(timelineProvider.notifier).record(TimelineEventEntity(
-            id: 'lu_${DateTime.now().millisecondsSinceEpoch}',
-            type: TimelineEventType.levelUp,
-            title: 'Level up!',
-            detail: 'Reached level ${profileAfter.level}',
-            timestamp: DateTime.now(),
-          ));
+      await _ref
+          .read(timelineProvider.notifier)
+          .record(
+            TimelineEventEntity(
+              id: 'lu_${DateTime.now().millisecondsSinceEpoch}',
+              type: TimelineEventType.levelUp,
+              title: 'Level up!',
+              detail: 'Reached level ${profileAfter.level}',
+              timestamp: DateTime.now(),
+            ),
+          );
       _ref.read(profileProvider.notifier).clearLeveledUp();
     }
 

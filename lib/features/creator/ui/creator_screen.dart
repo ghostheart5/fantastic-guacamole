@@ -123,10 +123,10 @@ class _TypeGuideCard extends StatelessWidget {
           color: AppColors.memoryAmber.withValues(alpha: 0.15),
         ),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'TYPES',
             style: TextStyle(
               fontSize: 9,
@@ -135,14 +135,30 @@ class _TypeGuideCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 10),
-          const _TypeRow(icon: Icons.check_circle_outline, label: 'Task', desc: 'something to complete'),
-          const SizedBox(height: 6),
-          const _TypeRow(icon: Icons.repeat_rounded, label: 'Routine', desc: 'repeat daily'),
-          const SizedBox(height: 6),
-          const _TypeRow(icon: Icons.timer_outlined, label: 'Focus', desc: 'timed session'),
-          const SizedBox(height: 6),
-          const _TypeRow(icon: Icons.flag_outlined, label: 'Mission', desc: 'long-term goal'),
+          SizedBox(height: 10),
+          _TypeRow(
+            icon: Icons.check_circle_outline,
+            label: 'Task',
+            desc: 'something to complete',
+          ),
+          SizedBox(height: 6),
+          _TypeRow(
+            icon: Icons.repeat_rounded,
+            label: 'Routine',
+            desc: 'repeat daily',
+          ),
+          SizedBox(height: 6),
+          _TypeRow(
+            icon: Icons.timer_outlined,
+            label: 'Focus',
+            desc: 'timed session',
+          ),
+          SizedBox(height: 6),
+          _TypeRow(
+            icon: Icons.flag_outlined,
+            label: 'Mission',
+            desc: 'long-term goal',
+          ),
         ],
       ),
     );

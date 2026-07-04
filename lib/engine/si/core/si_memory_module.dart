@@ -112,8 +112,7 @@ class SIMemoryStore {
   final List<SISnapshot> snapshots;
   final SITieredMemory tiered;
 
-  SISnapshot? get latest =>
-      snapshots.isEmpty ? null : snapshots.first;
+  SISnapshot? get latest => snapshots.isEmpty ? null : snapshots.first;
 
   SIMemoryStore pushSnapshot(SISnapshot snapshot, {int max = 24}) {
     final List<SISnapshot> next = <SISnapshot>[snapshot, ...snapshots];

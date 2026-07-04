@@ -29,9 +29,7 @@ class WeeklySummaryCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.neonViolet.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
             color: AppColors.neonViolet.withValues(alpha: 0.06),
@@ -65,8 +63,10 @@ class WeeklySummaryCard extends ConsumerWidget {
               ),
               const Spacer(),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.neonViolet.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),

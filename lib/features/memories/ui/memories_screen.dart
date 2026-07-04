@@ -112,7 +112,7 @@ class MemoriesScreen extends ConsumerWidget {
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                         itemCount: sorted.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (_, i) => _MemoryCard(
                           memory: sorted[i],
                           onToggleStar: () => ref
@@ -153,7 +153,7 @@ class _MemoryCard extends StatelessWidget {
                 BoxShadow(
                   color: AppColors.memoryAmber.withValues(alpha: 0.08),
                   blurRadius: 12,
-                )
+                ),
               ]
             : null,
       ),
@@ -165,8 +165,10 @@ class _MemoryCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.neonViolet.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
@@ -198,9 +200,7 @@ class _MemoryCard extends StatelessWidget {
             onTap: onToggleStar,
             child: Icon(
               memory.starred ? Icons.star_rounded : Icons.star_border_rounded,
-              color: memory.starred
-                  ? AppColors.memoryAmber
-                  : Colors.white24,
+              color: memory.starred ? AppColors.memoryAmber : Colors.white24,
               size: 22,
             ),
           ),

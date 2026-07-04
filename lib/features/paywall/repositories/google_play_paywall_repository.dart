@@ -84,22 +84,24 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       if (res.error != null || res.productDetails.isEmpty) {
         return _plans; // fall back to static labels
       }
-      return _plans.map((PaywallPlan plan) {
-        final String? gpId = _kProductIds[plan.id];
-        final ProductDetails? detail = res.productDetails
-            .where((d) => d.id == gpId)
-            .firstOrNull;
-        return PaywallPlan(
-          id: plan.id,
-          title: plan.title,
-          priceLabel: detail?.price ?? plan.priceLabel,
-          description: plan.description,
-          aiCreditsIncluded: plan.aiCreditsIncluded,
-          benefits: plan.benefits,
-          isAvailable: detail != null,
-          isFeatured: plan.isFeatured,
-        );
-      }).toList(growable: false);
+      return _plans
+          .map((PaywallPlan plan) {
+            final String? gpId = _kProductIds[plan.id];
+            final ProductDetails? detail = res.productDetails
+                .where((d) => d.id == gpId)
+                .firstOrNull;
+            return PaywallPlan(
+              id: plan.id,
+              title: plan.title,
+              priceLabel: detail?.price ?? plan.priceLabel,
+              description: plan.description,
+              aiCreditsIncluded: plan.aiCreditsIncluded,
+              benefits: plan.benefits,
+              isAvailable: detail != null,
+              isFeatured: plan.isFeatured,
+            );
+          })
+          .toList(growable: false);
     } on Exception catch (e) {
       Logger.error('getAvailablePlans failed', e);
       return _plans;
@@ -110,7 +112,9 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
   Future<PaywallEntity> getPaywallConfig() async {
     return PaywallEntity(
       featureId: 'premium',
-      title: paywallTestingMode ? 'Unlocked for testing' : 'AI Credits + Premium',
+      title: paywallTestingMode
+          ? 'Unlocked for testing'
+          : 'AI Credits + Premium',
       body: paywallTestingMode
           ? 'Premium gates are bypassed in this build.'
           : 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.',
@@ -266,8 +270,9 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
         await _iap.completePurchase(purchase);
       } else if (purchase.status == PurchaseStatus.error) {
         Logger.error('IAP purchase error', purchase.error);
-        _pending[purchase.productID]
-            ?.completeError(purchase.error ?? 'Purchase failed');
+        _pending[purchase.productID]?.completeError(
+          purchase.error ?? 'Purchase failed',
+        );
         _pending.remove(purchase.productID);
         if (purchase.pendingCompletePurchase) {
           await _iap.completePurchase(purchase);
@@ -280,7 +285,9 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
     final String endpoint = Env.receiptVerifyEndpoint.trim();
     if (endpoint.isEmpty) {
       // No endpoint configured — trust Google Play result directly.
-      Logger.warn('receiptVerifyEndpoint not set; skipping server verification.');
+      Logger.warn(
+        'receiptVerifyEndpoint not set; skipping server verification.',
+      );
       return true;
     }
 
@@ -316,13 +323,13 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       final String? raw = prefs.getString(_kPrefsKey);
       if (raw == null) return;
-      final Map<String, dynamic> map =
-          jsonDecode(raw) as Map<String, dynamic>;
+      final Map<String, dynamic> map = jsonDecode(raw) as Map<String, dynamic>;
       final DateTime? renewal = map['renewalDate'] != null
           ? DateTime.tryParse(map['renewalDate'] as String)
           : null;
       final bool isActive =
-          map['isActive'] == true && (renewal == null || renewal.isAfter(DateTime.now()));
+          map['isActive'] == true &&
+          (renewal == null || renewal.isAfter(DateTime.now()));
       _state = SubscriptionState(
         isActive: isActive,
         status: map['status'] as String? ?? 'locked',

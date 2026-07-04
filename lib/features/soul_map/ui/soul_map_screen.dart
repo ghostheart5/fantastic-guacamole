@@ -14,7 +14,8 @@ final soulStateProvider = Provider<SoulState>((ref) {
   final si = ref.watch(siStateProvider);
   final traj = ref.watch(trajectorySummaryProvider);
   final emotion = ref.watch(emotionProvider);
-  final mood = emotion == EmotionalState.anxious ||
+  final mood =
+      emotion == EmotionalState.anxious ||
           emotion == EmotionalState.fatigued ||
           emotion == EmotionalState.scattered
       ? 'stressed'
@@ -53,7 +54,10 @@ class SoulMapScreen extends ConsumerWidget {
 
     final ranked = List.generate(6, (i) => MapEntry(i, values[i]))
       ..sort((a, b) => b.value.compareTo(a.value));
-    final top2 = ranked.take(2).map((e) => _labels[e.key].replaceAll('\n', ' ')).toList();
+    final top2 = ranked
+        .take(2)
+        .map((e) => _labels[e.key].replaceAll('\n', ' '))
+        .toList();
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/progression_bg.jpg',
@@ -68,8 +72,7 @@ class SoulMapScreen extends ConsumerWidget {
                 Row(
                   children: [
                     SmartPressable(
-                      onTap: () =>
-                          ref.read(appFlowProvider.notifier).toCoach(),
+                      onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
                       child: Container(
                         width: 36,
                         height: 36,
@@ -178,8 +181,9 @@ class SoulMapScreen extends ConsumerWidget {
                                 height: 6,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: AppColors.neonViolet
-                                      .withValues(alpha: 0.8),
+                                  color: AppColors.neonViolet.withValues(
+                                    alpha: 0.8,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -268,8 +272,11 @@ class _SoulRadarPainter extends CustomPainter {
           center.dx + radius * (r / 4) * math.cos(angle),
           center.dy + radius * (r / 4) * math.sin(angle),
         );
-        if (i == 0) path.moveTo(pt.dx, pt.dy);
-        else path.lineTo(pt.dx, pt.dy);
+        if (i == 0) {
+          path.moveTo(pt.dx, pt.dy);
+        } else {
+          path.lineTo(pt.dx, pt.dy);
+        }
       }
       path.close();
       canvas.drawPath(path, gridPaint);
@@ -313,8 +320,11 @@ class _SoulRadarPainter extends CustomPainter {
         center.dx + radius * v * math.cos(angle),
         center.dy + radius * v * math.sin(angle),
       );
-      if (i == 0) dataPath.moveTo(pt.dx, pt.dy);
-      else dataPath.lineTo(pt.dx, pt.dy);
+      if (i == 0) {
+        dataPath.moveTo(pt.dx, pt.dy);
+      } else {
+        dataPath.lineTo(pt.dx, pt.dy);
+      }
     }
     dataPath.close();
 
@@ -346,10 +356,7 @@ class _SoulRadarPainter extends CustomPainter {
         textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: 70);
-      tp.paint(
-        canvas,
-        Offset(lx - tp.width / 2, ly - tp.height / 2),
-      );
+      tp.paint(canvas, Offset(lx - tp.width / 2, ly - tp.height / 2));
     }
 
     // Dot at each vertex

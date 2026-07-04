@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/constants/app_assets.dart';
 import 'package:fantastic_guacamole/core/constants/app_colors.dart';
 import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/engine/si/offline/user_growth_engine.dart';
@@ -14,7 +15,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final _userGrowthProvider = Provider<UserGrowthState>((ref) {
   final profile = ref.watch(profileProvider);
   final traj = ref.watch(trajectorySummaryProvider);
-  final consistency = traj.momentum > 0.6 ? 0.9 : traj.momentum > 0.3 ? 0.6 : 0.3;
+  final consistency = traj.momentum > 0.6
+      ? 0.9
+      : traj.momentum > 0.3
+      ? 0.6
+      : 0.3;
   return const UserGrowthEngine().update(
     const UserGrowthState(),
     completedTasks: profile.xp ~/ 10,
@@ -31,7 +36,7 @@ class ProfileScreen extends ConsumerWidget {
     final state = ref.watch(profileViewStateProvider);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/profile_bg.jpg',
+      backgroundAssetPath: AppAssets.bgProfile,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(child: _ProfileBody(state: state)),
@@ -101,7 +106,7 @@ class _ProfileBody extends ConsumerWidget {
         const SizedBox(height: 16),
         _NavButtons(
           onTimeline: () => ref.read(appFlowProvider.notifier).toTimeline(),
-          onSettings: actions.openSettings,
+          onProgression: actions.openProgression,
         ),
       ],
     );
@@ -133,17 +138,23 @@ class _IdentityCard extends ConsumerWidget {
           Row(
             children: [
               Container(
-                width: 2, height: 14,
+                width: 2,
+                height: 14,
                 decoration: BoxDecoration(
                   color: AppColors.neonViolet,
                   borderRadius: BorderRadius.circular(1),
                 ),
               ),
               const SizedBox(width: 8),
-              const Text('ARCHETYPE', style: TextStyle(
-                fontSize: 10, letterSpacing: 2.5,
-                color: AppColors.neonViolet, fontWeight: FontWeight.w700,
-              )),
+              const Text(
+                'ARCHETYPE',
+                style: TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 2.5,
+                  color: AppColors.neonViolet,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -155,11 +166,23 @@ class _IdentityCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 14),
-          _IdentityBar(label: 'Discipline', value: identity.disciplineIdentity, color: AppColors.memoryAmber),
+          _IdentityBar(
+            label: 'Discipline',
+            value: identity.disciplineIdentity,
+            color: AppColors.memoryAmber,
+          ),
           const SizedBox(height: 8),
-          _IdentityBar(label: 'Focus', value: identity.focusIdentity, color: AppColors.neonCyan),
+          _IdentityBar(
+            label: 'Focus',
+            value: identity.focusIdentity,
+            color: AppColors.neonCyan,
+          ),
           const SizedBox(height: 8),
-          _IdentityBar(label: 'Growth', value: identity.growthIdentity, color: AppColors.neonViolet),
+          _IdentityBar(
+            label: 'Growth',
+            value: identity.growthIdentity,
+            color: AppColors.neonViolet,
+          ),
         ],
       ),
     );
@@ -180,15 +203,24 @@ class _ArchetypeBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
-      child: Text(label, style: TextStyle(
-        color: color, fontSize: 12, fontWeight: FontWeight.w700,
-      )),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
 
 class _IdentityBar extends StatelessWidget {
-  const _IdentityBar({required this.label, required this.value, required this.color});
+  const _IdentityBar({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
   final String label;
   final double value;
   final Color color;
@@ -197,7 +229,13 @@ class _IdentityBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        SizedBox(width: 70, child: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11))),
+        SizedBox(
+          width: 70,
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          ),
+        ),
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(2),
@@ -210,7 +248,14 @@ class _IdentityBar extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Text('${(value * 100).round()}%', style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+        Text(
+          '${(value * 100).round()}%',
+          style: TextStyle(
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
   }
@@ -226,8 +271,12 @@ class _ValuesCard extends ConsumerStatefulWidget {
 class _ValuesCardState extends ConsumerState<_ValuesCard> {
   static const _key = 'profile_values';
   static const _allValues = [
-    'Discipline', 'Growth', 'Clarity',
-    'Resilience', 'Creativity', 'Connection',
+    'Discipline',
+    'Growth',
+    'Clarity',
+    'Resilience',
+    'Creativity',
+    'Connection',
   ];
   Set<String> _selected = {};
 
@@ -266,13 +315,24 @@ class _ValuesCardState extends ConsumerState<_ValuesCard> {
         children: [
           Row(
             children: [
-              Container(width: 2, height: 14,
-                decoration: BoxDecoration(color: AppColors.neonCyan, borderRadius: BorderRadius.circular(1))),
+              Container(
+                width: 2,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: AppColors.neonCyan,
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
               const SizedBox(width: 8),
-              const Text('CORE VALUES', style: TextStyle(
-                fontSize: 10, letterSpacing: 2.5,
-                color: AppColors.neonCyan, fontWeight: FontWeight.w700,
-              )),
+              const Text(
+                'CORE VALUES',
+                style: TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 2.5,
+                  color: AppColors.neonCyan,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -285,19 +345,29 @@ class _ValuesCardState extends ConsumerState<_ValuesCard> {
                 onTap: () => _toggle(v),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: sel ? AppColors.neonCyan.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.04),
+                    color: sel
+                        ? AppColors.neonCyan.withValues(alpha: 0.15)
+                        : Colors.white.withValues(alpha: 0.04),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: sel ? AppColors.neonCyan.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.1),
+                      color: sel
+                          ? AppColors.neonCyan.withValues(alpha: 0.7)
+                          : Colors.white.withValues(alpha: 0.1),
                     ),
                   ),
-                  child: Text(v, style: TextStyle(
-                    color: sel ? AppColors.neonCyan : Colors.white54,
-                    fontSize: 12,
-                    fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
-                  )),
+                  child: Text(
+                    v,
+                    style: TextStyle(
+                      color: sel ? AppColors.neonCyan : Colors.white54,
+                      fontSize: 12,
+                      fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
                 ),
               );
             }).toList(),
@@ -309,9 +379,9 @@ class _ValuesCardState extends ConsumerState<_ValuesCard> {
 }
 
 class _NavButtons extends StatelessWidget {
-  const _NavButtons({required this.onTimeline, required this.onSettings});
+  const _NavButtons({required this.onTimeline, required this.onProgression});
   final VoidCallback onTimeline;
-  final VoidCallback onSettings;
+  final VoidCallback onProgression;
 
   @override
   Widget build(BuildContext context) {
@@ -328,10 +398,10 @@ class _NavButtons extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _NavBtn(
-            label: 'SETTINGS',
-            icon: Icons.settings_outlined,
-            color: AppColors.neonCyan,
-            onTap: onSettings,
+            label: 'PROGRESSION',
+            icon: Icons.bolt,
+            color: AppColors.memoryAmber,
+            onTap: onProgression,
           ),
         ),
       ],
@@ -340,7 +410,12 @@ class _NavButtons extends StatelessWidget {
 }
 
 class _NavBtn extends StatelessWidget {
-  const _NavBtn({required this.label, required this.icon, required this.color, required this.onTap});
+  const _NavBtn({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
   final String label;
   final IconData icon;
   final Color color;
@@ -362,7 +437,15 @@ class _NavBtn extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 16),
             const SizedBox(width: 8),
-            Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
+              ),
+            ),
           ],
         ),
       ),

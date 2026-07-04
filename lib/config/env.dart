@@ -64,7 +64,8 @@ class Env {
   );
   static const String appLinksAndroidSha256 = String.fromEnvironment(
     'CHRONOSPARK_ANDROID_SHA256_CERT',
-    defaultValue: 'B9:09:A5:09:56:08:DE:F7:91:EF:B5:A1:C0:D8:28:54:15:8B:45:0A:82:BF:9F:B2:90:84:BB:78:4A:52:17:2F',
+    defaultValue:
+        'B9:09:A5:09:56:08:DE:F7:91:EF:B5:A1:C0:D8:28:54:15:8B:45:0A:82:BF:9F:B2:90:84:BB:78:4A:52:17:2F',
   );
   static const String appLinksIosTeamId = String.fromEnvironment(
     'CHRONOSPARK_IOS_TEAM_ID',
@@ -75,7 +76,10 @@ class Env {
     defaultValue: false,
   );
 
-  static bool resolveIsProduction(String flavor, {required bool isReleaseMode}) {
+  static bool resolveIsProduction(
+    String flavor, {
+    required bool isReleaseMode,
+  }) {
     return isReleaseMode && flavor.toLowerCase() == 'prod';
   }
 
@@ -109,7 +113,8 @@ class Env {
     return !isProduction || enableTesterFullAccess;
   }
 
-  static bool get isProduction => resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
+  static bool get isProduction =>
+      resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
 
   static bool get isMockMode => resolveIsMockMode(
     isProduction: isProduction,

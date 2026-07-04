@@ -345,7 +345,10 @@ Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
 
 Future<String?> _initSupabaseSafe({required bool isMockMode}) async {
   if (isMockMode || !Env.isSupabaseConfigured) {
-    Logger.log('Startup', 'Supabase startup skipped (mockMode=$isMockMode, configured=${Env.isSupabaseConfigured}).');
+    Logger.log(
+      'Startup',
+      'Supabase startup skipped (mockMode=$isMockMode, configured=${Env.isSupabaseConfigured}).',
+    );
     RuntimeDiagnostics.record('Supabase startup skipped.');
     return null;
   }
@@ -391,13 +394,17 @@ Future<String?> _initNotificationSchedulerSafe({
     RuntimeDiagnostics.record('Notification scheduler initialized.');
     return null;
   } on TimeoutException {
-    Logger.warn('Notification scheduler startup timed out.');
-    RuntimeDiagnostics.record('Notification scheduler startup timed out.');
-    return 'Notification scheduler startup timed out.';
+    Logger.warn('Notification scheduler startup timed out (non-fatal).');
+    RuntimeDiagnostics.record(
+      'Notification scheduler startup timed out (non-fatal).',
+    );
+    return null;
   } on Exception catch (error) {
-    Logger.error('Notification scheduler startup failed.', error);
-    RuntimeDiagnostics.record('Notification scheduler startup failed: $error');
-    return 'Notification scheduler failed to initialize: $error';
+    Logger.warn('Notification scheduler startup failed (non-fatal): $error');
+    RuntimeDiagnostics.record(
+      'Notification scheduler startup failed (non-fatal): $error',
+    );
+    return null;
   }
 }
 

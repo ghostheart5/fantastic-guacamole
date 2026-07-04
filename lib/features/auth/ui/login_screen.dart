@@ -123,10 +123,9 @@ class _LoginScreenState extends State<LoginScreen>
                         final glowAlpha =
                             0.35 + 0.35 * math.sin(_pulse.value * math.pi);
                         return ShaderMask(
-                          shaderCallback: (bounds) =>
-                              const LinearGradient(
-                                colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
-                              ).createShader(bounds),
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
+                          ).createShader(bounds),
                           child: Text(
                             'CHRONO\nSPARK',
                             style: TextStyle(
@@ -137,9 +136,9 @@ class _LoginScreenState extends State<LoginScreen>
                               height: 0.95,
                               shadows: [
                                 Shadow(
-                                  color: Color(0xFF00E5FF).withValues(
-                                    alpha: glowAlpha,
-                                  ),
+                                  color: const Color(
+                                    0xFF00E5FF,
+                                  ).withValues(alpha: glowAlpha),
                                   blurRadius: 28,
                                 ),
                               ],
@@ -465,7 +464,7 @@ class _NeonInput extends StatelessWidget {
               ),
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
@@ -550,10 +549,7 @@ class _SecondaryButton extends StatelessWidget {
           color: color.withValues(alpha: 0.08),
           border: Border.all(color: color.withValues(alpha: 0.3)),
           boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.12),
-              blurRadius: 10,
-            ),
+            BoxShadow(color: color.withValues(alpha: 0.12), blurRadius: 10),
           ],
         ),
         child: Column(

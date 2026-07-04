@@ -90,10 +90,7 @@ class TaskCard extends ConsumerWidget {
                         label: 'P${task.priority}',
                         color: accent.withValues(alpha: 0.8),
                       ),
-                      const _Tag(
-                        label: '+10 XP',
-                        color: AppColors.memoryAmber,
-                      ),
+                      const _Tag(label: '+10 XP', color: AppColors.memoryAmber),
                     ],
                   ),
                 ],

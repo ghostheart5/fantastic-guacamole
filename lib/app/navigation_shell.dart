@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/constants/app_assets.dart';
+import 'package:fantastic_guacamole/core/errors/error_boundary_widget.dart';
+import 'package:fantastic_guacamole/core/network/network_status_service.dart';
+import 'package:fantastic_guacamole/core/widgets/offline_banner.dart';
+import 'package:fantastic_guacamole/data/local/offline_queue.dart';
 import 'package:fantastic_guacamole/features/coach/ui/coach_screen.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/flowmap/ui/flowmap_screen.dart';
@@ -26,6 +30,8 @@ import 'package:fantastic_guacamole/state/controllers/focus_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
+import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
+import 'package:fantastic_guacamole/state/services/session_recovery_service.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/premium_feature_gate.dart';
 import 'package:flutter/material.dart';
@@ -39,23 +45,108 @@ class NavigationShell extends ConsumerStatefulWidget {
   ConsumerState<NavigationShell> createState() => _NavigationShellState();
 }
 
-class _NavigationShellState extends ConsumerState<NavigationShell> {
+class _NavigationShellState extends ConsumerState<NavigationShell>
+    with WidgetsBindingObserver {
   int _index = 0;
   Timer? _passiveRefreshTimer;
+  Timer? _offlineSyncTimer;
+  Timer? _aiPrecomputeTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     _passiveRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       ref.invalidate(aiResponseProvider);
     });
+
+    _offlineSyncTimer = Timer.periodic(const Duration(minutes: 15), (_) {
+      unawaited(_replayOfflineQueue());
+    });
+
+    _aiPrecomputeTimer = Timer.periodic(const Duration(minutes: 20), (_) {
+      if (!mounted) return;
+      ref.invalidate(aiDecisionProvider);
+      ref.invalidate(aiResponseProvider);
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkRecovery());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _passiveRefreshTimer?.cancel();
+    _offlineSyncTimer?.cancel();
+    _aiPrecomputeTimer?.cancel();
     super.dispose();
   }
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(_saveCurrentState());
+    } else if (state == AppLifecycleState.resumed) {
+      _checkRecovery();
+      unawaited(_replayOfflineQueue());
+    }
+  }
+
+  // ── State Recovery ────────────────────────────────────────────────────────
+
+  Future<void> _saveCurrentState() async {
+    if (!mounted) return;
+    final view = ref.read(appFlowProvider);
+    await ref.read(sessionRecoveryProvider).saveState(lastRoute: view.name);
+    unawaited(_pushDailyMetrics());
+  }
+
+  Future<void> _pushDailyMetrics() async {
+    if (!mounted) return;
+    final accumulator = ref.read(localMetricsAccumulatorProvider);
+    final snapshot = await accumulator.snapshot();
+    await ref.read(globalAggregationServiceProvider).push(snapshot);
+  }
+
+  Future<void> _checkRecovery() async {
+    if (!mounted) return;
+    final recovery = await ref.read(sessionRecoveryProvider).loadState();
+    if (recovery == null) return;
+
+    if (recovery.focusSessionActive && recovery.focusStartTime != null) {
+      final elapsed = DateTime.now().difference(recovery.focusStartTime!);
+      if (elapsed.inHours < 4 && mounted) {
+        ref.read(appFlowProvider.notifier).toFocus();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Resuming focus session'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      } else {
+        await ref.read(sessionRecoveryProvider).clearFocus();
+      }
+    }
+  }
+
+  // ── Offline Queue ─────────────────────────────────────────────────────────
+
+  Future<void> _replayOfflineQueue() async {
+    if (!mounted) return;
+    final queue = ref.read(offlineQueueProvider);
+    await queue.replay((action) async {
+      // Actions are fire-and-forget best-effort replays.
+      // Task operations are stored locally already; this is for future cloud sync.
+    });
+  }
+
+  // ── Navigation ────────────────────────────────────────────────────────────
 
   static const _screens = [
     NexusScreen(),
@@ -86,11 +177,30 @@ class _NavigationShellState extends ConsumerState<NavigationShell> {
 
   @override
   Widget build(BuildContext context) {
-    // Passive trigger: AI re-evaluates automatically after focus completes
+    // AI re-evaluates automatically after focus completes
     ref.listen<FocusState>(focusControllerProvider, (prev, next) {
       if (prev?.completed == false && next.completed) {
         ref.invalidate(aiDecisionProvider);
         ref.invalidate(aiResponseProvider);
+        unawaited(
+          ref
+              .read(localMetricsAccumulatorProvider)
+              .recordFocusSession(
+                completed: true,
+                durationSeconds: prev?.seconds ?? 0,
+              ),
+        );
+      } else if (prev?.active == true &&
+          next.active == false &&
+          next.completed == false) {
+        final elapsed = prev?.seconds ?? 0;
+        if (elapsed > 0) {
+          unawaited(
+            ref
+                .read(localMetricsAccumulatorProvider)
+                .recordFocusSession(completed: false, durationSeconds: elapsed),
+          );
+        }
       }
     });
     ref.listen<double>(energyProvider, (_, _) {
@@ -100,6 +210,32 @@ class _NavigationShellState extends ConsumerState<NavigationShell> {
     ref.listen(learningProvider, (_, _) {
       ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
+    });
+
+    // Track focus view entry/exit for session recovery
+    ref.listen<AppView>(appFlowProvider, (prev, next) {
+      if (next == AppView.focus) {
+        unawaited(
+          ref
+              .read(sessionRecoveryProvider)
+              .saveState(
+                focusSessionActive: true,
+                focusStartTime: DateTime.now(),
+              ),
+        );
+      } else if (prev == AppView.focus) {
+        unawaited(ref.read(sessionRecoveryProvider).clearFocus());
+      }
+      unawaited(
+        ref.read(sessionRecoveryProvider).saveState(lastRoute: next.name),
+      );
+    });
+
+    // Replay offline queue when connectivity is restored
+    ref.listen<bool>(isOnlineProvider, (prev, next) {
+      if (next && prev == false) {
+        unawaited(_replayOfflineQueue());
+      }
     });
 
     final view = ref.watch(appFlowProvider);
@@ -112,6 +248,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell> {
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _index,
           onTap: (i) {
+            if (i == 2) {
+              ref.read(appFlowProvider.notifier).toSmartCoach();
+              return;
+            }
             setState(() => _index = i);
           },
           type: BottomNavigationBarType.fixed,
@@ -130,9 +270,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell> {
         ),
       );
     } else if (view == AppView.smartCoach) {
-      body = const SmartCoachScreen();
+      body = const ErrorBoundary(child: SmartCoachScreen());
     } else if (view == AppView.focus) {
-      body = const FocusScreen();
+      body = const ErrorBoundary(child: FocusScreen());
     } else if (view == AppView.insight) {
       body = const InsightScreen();
     } else if (view == AppView.reflect) {
@@ -167,7 +307,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell> {
       body = const CoachScreen();
     }
 
-    return body;
+    return OfflineBanner(child: body);
   }
 }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/constants/app_assets.dart';
 import 'package:fantastic_guacamole/core/constants/app_colors.dart';
+import 'package:fantastic_guacamole/core/errors/error_boundary_widget.dart';
 import 'package:fantastic_guacamole/core/utils/crisis_guard.dart';
 import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -52,6 +53,17 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
 
   Future<void> _getCoaching() async {
     if (_gettingCoaching) return;
+    try {
+      await _doGetCoaching();
+    } catch (e, s) {
+      if (mounted) {
+        setState(() => _gettingCoaching = false);
+        ErrorBoundary.of(context)?.captureError(e, s);
+      }
+    }
+  }
+
+  Future<void> _doGetCoaching() async {
     final String notes = _notesController.text.trim();
 
     if (isCrisis(notes) && mounted) {
@@ -63,19 +75,23 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
 
     // Persist reflection
     final currentSi = ref.read(siStateProvider);
-    ref.read(siStateProvider.notifier).replaceState(
-      energy: _energy,
-      fatigue: _fatigueFromEmotion(_emotion, currentSi.fatigue),
-      completedToday: currentSi.completedToday,
-    );
+    ref
+        .read(siStateProvider.notifier)
+        .replaceState(
+          energy: _energy,
+          fatigue: _fatigueFromEmotion(_emotion, currentSi.fatigue),
+          completedToday: currentSi.completedToday,
+        );
     ref.read(emotionProvider.notifier).set(_emotion);
 
     if (notes.isNotEmpty) {
-      await ref.read(workspaceStoreServiceProvider).appendSiReflection(
-        note: notes,
-        energy: _energy,
-        emotion: _emotion.name,
-      );
+      await ref
+          .read(workspaceStoreServiceProvider)
+          .appendSiReflection(
+            note: notes,
+            energy: _energy,
+            emotion: _emotion.name,
+          );
     }
 
     if (!mounted) return;
@@ -227,7 +243,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                               children: [
                                 _VoiceButton(message: _coachingMessage!),
                                 const SizedBox(width: 10),
-                                _MicButton(),
+                                const _MicButton(),
                               ],
                             ),
                           ],
@@ -252,10 +268,11 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                   ],
                 ),
               ),
-              if (_coachingMessage != null) _FollowUpBar(
-                controller: _followUpController,
-                onSend: _sendFollowUp,
-              ),
+              if (_coachingMessage != null)
+                _FollowUpBar(
+                  controller: _followUpController,
+                  onSend: _sendFollowUp,
+                ),
             ],
           ),
         ),
@@ -268,7 +285,11 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       children: [
         SmartPressable(
           onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
-          child: const Icon(Icons.arrow_back_ios, color: Colors.white54, size: 18),
+          child: const Icon(
+            Icons.arrow_back_ios,
+            color: Colors.white54,
+            size: 18,
+          ),
         ),
         const SizedBox(width: 14),
         Column(
@@ -470,7 +491,10 @@ class _FollowUpBar extends StatelessWidget {
                 onSubmitted: (_) => onSend(),
                 decoration: InputDecoration(
                   hintText: 'Ask a follow-up...',
-                  hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                  hintStyle: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 14,
+                  ),
                   filled: true,
                   fillColor: const Color(0xFF1A2440),
                   contentPadding: const EdgeInsets.symmetric(
@@ -625,12 +649,18 @@ class _VoiceButton extends ConsumerWidget {
         decoration: BoxDecoration(
           color: AppColors.memoryAmber.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.4)),
+          border: Border.all(
+            color: AppColors.memoryAmber.withValues(alpha: 0.4),
+          ),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.volume_up_rounded, color: AppColors.memoryAmber, size: 15),
+            Icon(
+              Icons.volume_up_rounded,
+              color: AppColors.memoryAmber,
+              size: 15,
+            ),
             SizedBox(width: 6),
             Text(
               'SPEAK',
@@ -738,9 +768,7 @@ class _NextStepCard extends ConsumerWidget {
             ],
           ),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: AppColors.neonCyan.withValues(alpha: 0.30),
-          ),
+          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.30)),
           boxShadow: [
             BoxShadow(
               color: AppColors.neonCyan.withValues(alpha: 0.10),
@@ -797,9 +825,9 @@ class _NextStepCard extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: 10),
-            Row(
+            const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
+              children: [
                 Text(
                   '+10 XP when complete',
                   style: TextStyle(
@@ -836,91 +864,94 @@ class _ProgressionBanner extends ConsumerWidget {
     final progress = ref.watch(progressionProvider).progress;
     final int pct = (progress.levelProgress * 100).round();
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.memoryAmber.withValues(alpha: 0.18),
-        ),
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.memoryAmber.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: AppColors.memoryAmber.withValues(alpha: 0.4),
-              ),
-            ),
-            child: Text(
-              'LVL ${progress.level}',
-              style: const TextStyle(
-                color: AppColors.memoryAmber,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1,
-              ),
-            ),
+    return SmartPressable(
+      onTap: () => ref.read(appFlowProvider.notifier).toProgression(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF050D1A),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.memoryAmber.withValues(alpha: 0.35),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    Text(
-                      '$pct% to Level ${progress.level + 1}',
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 10,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    Text(
-                      '${progress.xpToNext} XP',
-                      style: const TextStyle(
-                        color: Colors.white24,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
+        ),
+        child: Row(
+          children: <Widget>[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.memoryAmber.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: AppColors.memoryAmber.withValues(alpha: 0.4),
                 ),
-                const SizedBox(height: 4),
-                ProgressBar(
-                  value: progress.levelProgress,
+              ),
+              child: Text(
+                'LVL ${progress.level}',
+                style: const TextStyle(
                   color: AppColors.memoryAmber,
-                  height: 4,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      Text(
+                        '$pct% to Level ${progress.level + 1}',
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 10,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        '${progress.xpToNext} XP',
+                        style: const TextStyle(
+                          color: Colors.white24,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ProgressBar(
+                    value: progress.levelProgress,
+                    color: AppColors.memoryAmber,
+                    height: 4,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Icon(
+                  Icons.local_fire_department,
+                  color: Colors.deepOrangeAccent,
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${progress.streak}',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const Icon(
-                Icons.local_fire_department,
-                color: Colors.deepOrangeAccent,
-                size: 14,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '${progress.streak}',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1040,9 +1071,7 @@ class _QuickAddButton extends ConsumerWidget {
         decoration: BoxDecoration(
           color: AppColors.neonCyan.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.neonCyan.withValues(alpha: 0.25),
-          ),
+          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.25)),
         ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1130,7 +1159,10 @@ class _QuickAddButton extends ConsumerWidget {
                 ),
                 child: const Text(
                   'ADD',
-                  style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1.5),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                  ),
                 ),
               ),
             ),

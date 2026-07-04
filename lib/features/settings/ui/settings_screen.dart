@@ -1,11 +1,17 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/constants/app_colors.dart';
 import 'package:fantastic_guacamole/core/constants/app_urls.dart';
 import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/data/di/services_providers.dart';
+import 'package:fantastic_guacamole/dev/test_data_generator.dart';
+import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -233,6 +239,36 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              if (kDebugMode) ...[
+                const SizedBox(height: 16),
+                _Section(
+                  label: 'DEV TOOLS',
+                  accentColor: AppColors.neonViolet,
+                  child: _NeonNavTile(
+                    title: 'Generate Test Data',
+                    subtitle: '20 tasks · XP 2400 · streak 14 · energy 75%',
+                    onTap: () =>
+                        unawaited(TestDataGenerator.generate(ref, context)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _Section(
+                  label: 'PRODUCT ADVISOR',
+                  accentColor: AppColors.memoryAmber,
+                  child: _NeonNavTile(
+                    title: 'Open Advisor',
+                    subtitle: 'Insights, recommendations, and optimizer state',
+                    onTap: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ProductAdvisorScreen(),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const _GlobalMetricsDebugSection(),
+              ],
             ],
           ),
         ),
@@ -347,7 +383,10 @@ class _ReflectionReminderSectionState
               onTap: _pickTime,
               behavior: HitTestBehavior.opaque,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -357,7 +396,9 @@ class _ReflectionReminderSectionState
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.neonViolet.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -378,6 +419,58 @@ class _ReflectionReminderSectionState
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlobalMetricsDebugSection extends ConsumerWidget {
+  const _GlobalMetricsDebugSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final configAsync = ref.watch(optimizationConfigProvider);
+    return _Section(
+      label: 'GLOBAL OPTIMIZER',
+      accentColor: AppColors.neonCyan,
+      child: Column(
+        children: [
+          configAsync.when(
+            data: (config) => Column(
+              children: [
+                _NeonStatusTile(
+                  title: 'Focus Duration Multiplier',
+                  subtitle: config.focusDurationMultiplier.toStringAsFixed(2),
+                ),
+                _NeonStatusTile(
+                  title: 'Task Difficulty Scale',
+                  subtitle: config.taskDifficultyScale.toStringAsFixed(2),
+                ),
+              ],
+            ),
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+            error: (e, _) => _NeonStatusTile(
+              title: 'Optimizer Error',
+              subtitle: e.toString(),
+            ),
+          ),
+          _NeonNavTile(
+            title: 'Refresh Global Metrics',
+            subtitle: 'Fetches latest aggregate data from Supabase',
+            onTap: () {
+              ref.invalidate(optimizationConfigProvider);
+            },
+          ),
         ],
       ),
     );

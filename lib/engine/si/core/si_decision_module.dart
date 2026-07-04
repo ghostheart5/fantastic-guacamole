@@ -49,10 +49,7 @@ class SIDecisionPolicy {
     this.safety = true,
     this.tone = 'balanced',
     this.domainRules = const <String>['productivity'],
-    this.emotionalRules = const <String>[
-      'be_supportive',
-      'avoid_harshness',
-    ],
+    this.emotionalRules = const <String>['be_supportive', 'avoid_harshness'],
     this.appConstraints = const <String>[
       'no_destructive_actions_without_confirmation',
     ],

@@ -4,8 +4,9 @@ import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final memoriesProvider =
-    NotifierProvider<MemoriesNotifier, List<MemoryEntity>>(MemoriesNotifier.new);
+final memoriesProvider = NotifierProvider<MemoriesNotifier, List<MemoryEntity>>(
+  MemoriesNotifier.new,
+);
 
 class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
   static const _key = 'memories_v1';

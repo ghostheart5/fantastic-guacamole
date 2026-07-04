@@ -29,7 +29,8 @@ class Task {
       difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,
       energyRequired: (json['energyRequired'] as num?)?.toInt() ?? 3,
       goalId: json['goalId'] as String?,
-      subtasks: (json['subtasks'] as List<dynamic>?)
+      subtasks:
+          (json['subtasks'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
@@ -41,14 +42,14 @@ class Task {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'priority': priority,
-        'difficulty': difficulty,
-        'energyRequired': energyRequired,
-        if (goalId != null) 'goalId': goalId,
-        if (subtasks.isNotEmpty) 'subtasks': subtasks,
-        if (recurrenceRule != RecurrenceRule.none)
-          'recurrenceRule': recurrenceRule.name,
-      };
+    'id': id,
+    'title': title,
+    'priority': priority,
+    'difficulty': difficulty,
+    'energyRequired': energyRequired,
+    if (goalId != null) 'goalId': goalId,
+    if (subtasks.isNotEmpty) 'subtasks': subtasks,
+    if (recurrenceRule != RecurrenceRule.none)
+      'recurrenceRule': recurrenceRule.name,
+  };
 }

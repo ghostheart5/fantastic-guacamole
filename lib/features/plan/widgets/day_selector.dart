@@ -49,7 +49,9 @@ class DaySelector extends StatelessWidget {
                     boxShadow: selected
                         ? [
                             BoxShadow(
-                              color: AppColors.neonViolet.withValues(alpha: 0.25),
+                              color: AppColors.neonViolet.withValues(
+                                alpha: 0.25,
+                              ),
                               blurRadius: 8,
                             ),
                           ]

@@ -93,8 +93,9 @@ class SIIntentModule {
       primary.label,
       if (secondary != null) secondary.label,
     ];
-    final String predictedNext =
-        primary.label == 'start_focus' ? 'insight_request' : 'start_focus';
+    final String predictedNext = primary.label == 'start_focus'
+        ? 'insight_request'
+        : 'start_focus';
 
     return SIIntent(
       primary: primary,

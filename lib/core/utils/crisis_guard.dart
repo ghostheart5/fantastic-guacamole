@@ -50,7 +50,10 @@ Future<void> showCrisisDialog(BuildContext context) {
           SizedBox(height: 8),
           _CrisisLine(label: '988', detail: 'US Suicide & Crisis Lifeline'),
           SizedBox(height: 4),
-          _CrisisLine(label: 'Local services', detail: 'crisis center near you'),
+          _CrisisLine(
+            label: 'Local services',
+            detail: 'crisis center near you',
+          ),
         ],
       ),
       actions: [
@@ -58,7 +61,10 @@ Future<void> showCrisisDialog(BuildContext context) {
           onPressed: () => Navigator.of(ctx).pop(),
           child: const Text(
             'OK',
-            style: TextStyle(color: Color(0xFF9B8AFB), fontWeight: FontWeight.w700),
+            style: TextStyle(
+              color: Color(0xFF9B8AFB),
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],

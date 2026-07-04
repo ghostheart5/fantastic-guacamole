@@ -27,7 +27,9 @@ class NarrativeEngine {
 
   String _trajectory(double consistency) {
     if (consistency >= 0.8) return 'On track to hit your goals this week.';
-    if (consistency >= 0.5) return 'Slightly inconsistent — small sessions still count.';
+    if (consistency >= 0.5) {
+      return 'Slightly inconsistent — small sessions still count.';
+    }
     return 'Rebuilding the habit. Start with just one session today.';
   }
 }

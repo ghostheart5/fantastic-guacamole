@@ -35,21 +35,17 @@ class _XPToastState extends State<_XPToast>
     );
 
     _opacity = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween(begin: 0.0, end: 1.0),
-        weight: 18,
-      ),
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 18),
       TweenSequenceItem(tween: ConstantTween(1.0), weight: 64),
-      TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 0.0),
-        weight: 18,
-      ),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 18),
     ]).animate(_ctrl);
 
     _slide = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(begin: 16.0, end: 0.0)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween(
+          begin: 16.0,
+          end: 0.0,
+        ).chain(CurveTween(curve: Curves.easeOut)),
         weight: 18,
       ),
       TweenSequenceItem(tween: ConstantTween(0.0), weight: 82),

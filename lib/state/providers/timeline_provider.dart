@@ -6,7 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final timelineProvider =
     NotifierProvider<TimelineNotifier, List<TimelineEventEntity>>(
-        TimelineNotifier.new);
+      TimelineNotifier.new,
+    );
 
 class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
   static const _key = 'timeline_events_v1';

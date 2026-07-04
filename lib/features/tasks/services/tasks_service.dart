@@ -8,7 +8,8 @@ import 'package:flutter/foundation.dart';
 // SI decisions are injected optionally; existing callers still compile.
 
 class TasksService {
-  TasksService({SIEngineService? siEngine}) : _siEngine = siEngine;
+  TasksService({SIEngineService? siEngine})
+      : _siEngine = siEngine; // ignore: prefer_initializing_formals
 
   final SIEngineService? _siEngine;
   final List<TaskModel> _tasks = <TaskModel>[];
@@ -25,8 +26,9 @@ class TasksService {
     String resolvedTitle = title;
     final SIEngineService? engine = _siEngine;
     if (engine != null && title.trim().isNotEmpty) {
-      final SiDecisionEntity decision =
-          await engine.think('create task: $title');
+      final SiDecisionEntity decision = await engine.think(
+        'create task: $title',
+      );
       if (decision.action.isNotEmpty) resolvedTitle = decision.action;
     }
 
@@ -104,39 +106,50 @@ class TasksController extends ChangeNotifier {
 
   Future<void> updateStatus(String id, TaskStatus status) async {
     if (_tasks.isEmpty) return;
-    final TaskModel task =
-        _tasks.firstWhere((TaskModel t) => t.id == id, orElse: () => _tasks.first);
+    final TaskModel task = _tasks.firstWhere(
+      (TaskModel t) => t.id == id,
+      orElse: () => _tasks.first,
+    );
     await _persistUpdate(task.copyWith(status: status));
   }
 
   Future<void> markCompleted(String id) async {
     if (_tasks.isEmpty) return;
-    final TaskModel task =
-        _tasks.firstWhere((TaskModel t) => t.id == id, orElse: () => _tasks.first);
-    await _persistUpdate(task.copyWith(
-      status: TaskStatus.completed,
-      completionCount: task.completionCount + 1,
-    ));
+    final TaskModel task = _tasks.firstWhere(
+      (TaskModel t) => t.id == id,
+      orElse: () => _tasks.first,
+    );
+    await _persistUpdate(
+      task.copyWith(
+        status: TaskStatus.completed,
+        completionCount: task.completionCount + 1,
+      ),
+    );
   }
 
   Future<void> markSkipped(String id) async {
     if (_tasks.isEmpty) return;
-    final TaskModel task =
-        _tasks.firstWhere((TaskModel t) => t.id == id, orElse: () => _tasks.first);
-    await _persistUpdate(task.copyWith(
-      status: TaskStatus.skipped,
-      skipCount: task.skipCount + 1,
-    ));
+    final TaskModel task = _tasks.firstWhere(
+      (TaskModel t) => t.id == id,
+      orElse: () => _tasks.first,
+    );
+    await _persistUpdate(
+      task.copyWith(status: TaskStatus.skipped, skipCount: task.skipCount + 1),
+    );
   }
 
   Future<void> markDelayed(String id) async {
     if (_tasks.isEmpty) return;
-    final TaskModel task =
-        _tasks.firstWhere((TaskModel t) => t.id == id, orElse: () => _tasks.first);
-    await _persistUpdate(task.copyWith(
-      status: TaskStatus.delayed,
-      delayCount: task.delayCount + 1,
-    ));
+    final TaskModel task = _tasks.firstWhere(
+      (TaskModel t) => t.id == id,
+      orElse: () => _tasks.first,
+    );
+    await _persistUpdate(
+      task.copyWith(
+        status: TaskStatus.delayed,
+        delayCount: task.delayCount + 1,
+      ),
+    );
   }
 
   Future<void> deleteTask(String id) async {
@@ -153,7 +166,9 @@ class TasksController extends ChangeNotifier {
 
   Future<void> _persistUpdate(TaskModel updated) async {
     _setLoading(true);
-    final AppResult<List<TaskModel>> result = await _service.updateTask(updated);
+    final AppResult<List<TaskModel>> result = await _service.updateTask(
+      updated,
+    );
     if (result.isSuccess) {
       _tasks = result.data ?? <TaskModel>[];
       _error = null;

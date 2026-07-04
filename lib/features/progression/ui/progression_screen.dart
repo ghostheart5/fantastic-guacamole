@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/features/progression/widgets/level_card.dart
 import 'package:fantastic_guacamole/features/progression/widgets/streak_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/weekly_summary_card.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,8 +22,8 @@ final narrativeProvider = Provider<UserNarrative>((ref) {
   final consistency = signals.consistency.startsWith('High')
       ? 0.9
       : signals.consistency.startsWith('Med')
-          ? 0.6
-          : 0.3;
+      ? 0.6
+      : 0.3;
   return const NarrativeEngine().generate(
     streak: profile.streak,
     completedTasks: profile.xp ~/ 10,
@@ -118,6 +119,8 @@ class ProgressionScreen extends ConsumerWidget {
                 const _ProgressSignalsCard(),
                 const SizedBox(height: 12),
                 const _NarrativeCard(),
+                const SizedBox(height: 12),
+                const _AdvisorSummaryCard(),
               ],
             ),
           ),
@@ -140,9 +143,7 @@ class _ProgressSignalsCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.neonCyan.withValues(alpha: 0.15),
-        ),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,9 +247,7 @@ class _NarrativeCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.neonViolet.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,6 +278,57 @@ class _NarrativeCard extends ConsumerWidget {
               color: Colors.white54,
               fontSize: 12,
               height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdvisorSummaryCard extends ConsumerWidget {
+  const _AdvisorSummaryCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(weeklySummaryProvider);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF050D1A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'SYSTEM INSIGHT',
+            style: TextStyle(
+              fontSize: 9,
+              letterSpacing: 2.5,
+              color: AppColors.memoryAmber,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          summaryAsync.when(
+            data: (summary) => Text(
+              summary,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                height: 1.55,
+              ),
+            ),
+            loading: () => const Text(
+              'Analyzing...',
+              style: TextStyle(color: Colors.white38, fontSize: 12),
+            ),
+            error: (_, _) => const Text(
+              'Not enough data yet.',
+              style: TextStyle(color: Colors.white38, fontSize: 12),
             ),
           ),
         ],

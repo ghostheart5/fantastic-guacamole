@@ -11,7 +11,7 @@ class MomentumState {
   }
 
   MomentumState copyWith({bool? active, int? chainCount}) => MomentumState(
-        active: active ?? this.active,
-        chainCount: chainCount ?? this.chainCount,
-      );
+    active: active ?? this.active,
+    chainCount: chainCount ?? this.chainCount,
+  );
 }

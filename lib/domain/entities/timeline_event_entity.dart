@@ -1,4 +1,10 @@
-enum TimelineEventType { focusSession, reflection, levelUp, goalComplete, streak }
+enum TimelineEventType {
+  focusSession,
+  reflection,
+  levelUp,
+  goalComplete,
+  streak,
+}
 
 class TimelineEventEntity {
   const TimelineEventEntity({
@@ -16,12 +22,12 @@ class TimelineEventEntity {
   final DateTime timestamp;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'type': type.name,
-        'title': title,
-        'detail': detail,
-        'timestamp': timestamp.toIso8601String(),
-      };
+    'id': id,
+    'type': type.name,
+    'title': title,
+    'detail': detail,
+    'timestamp': timestamp.toIso8601String(),
+  };
 
   factory TimelineEventEntity.fromJson(Map<String, dynamic> j) =>
       TimelineEventEntity(

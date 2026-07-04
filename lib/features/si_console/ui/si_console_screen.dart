@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/core/constants/app_assets.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/constants/app_colors.dart';
 import 'package:fantastic_guacamole/core/utils/crisis_guard.dart';
@@ -385,11 +386,17 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final emotion = ref.read(emotionProvider);
 
     // Build conversation history for context (last 6 messages)
-    final recentMessages = _messages.length > 6 ? _messages.sublist(_messages.length - 6) : _messages;
-    final history = recentMessages.map((_Msg m) => <String, String>{
-      'role': m.isUser ? 'user' : 'assistant',
-      'content': m.text,
-    }).toList();
+    final recentMessages = _messages.length > 6
+        ? _messages.sublist(_messages.length - 6)
+        : _messages;
+    final history = recentMessages
+        .map(
+          (_Msg m) => <String, String>{
+            'role': m.isUser ? 'user' : 'assistant',
+            'content': m.text,
+          },
+        )
+        .toList();
 
     final body = jsonEncode({
       'message': text,
@@ -406,17 +413,22 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       },
     });
 
-    final response = await http.post(
-      Uri.parse(endpoint),
-      headers: {'Content-Type': 'application/json'},
-      body: body,
-    ).timeout(const Duration(seconds: 12));
+    final response = await http
+        .post(
+          Uri.parse(endpoint),
+          headers: {'Content-Type': 'application/json'},
+          body: body,
+        )
+        .timeout(const Duration(seconds: 12));
 
     if (!mounted) return;
 
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final message = json['message']?.toString() ?? json['reply']?.toString() ?? 'No response.';
+      final message =
+          json['message']?.toString() ??
+          json['reply']?.toString() ??
+          'No response.';
       final emotion = json['emotion']?.toString() ?? 'balanced';
       setState(() {
         _typing = false;
@@ -429,7 +441,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   }
 
   void _useCannedResponse(String text) {
-    final Duration delay = Duration(milliseconds: 600 + math.Random().nextInt(700));
+    final Duration delay = Duration(
+      milliseconds: 600 + math.Random().nextInt(700),
+    );
     Timer(delay, () {
       if (!mounted) return;
       final energy = ref.read(energyProvider);
@@ -448,7 +462,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       );
 
       var result = responder.respond(text);
-      if (_lastSiResponse != null && result.text == _lastSiResponse) {
+      int retries = 0;
+      while (_lastSiResponse != null &&
+          result.text == _lastSiResponse &&
+          retries < 3) {
         result = _SIResponder(
           energy: energy,
           siState: siState,
@@ -457,10 +474,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           focus: focus,
           variationSeed: _variationCounter++,
         ).respond(text);
+        retries++;
       }
       setState(() {
         _typing = false;
-        _messages.add(_Msg(text: result.text, isUser: false, emotion: result.emotion));
+        _messages.add(
+          _Msg(text: result.text, isUser: false, emotion: result.emotion),
+        );
         _lastSiResponse = result.text;
       });
       _scrollToBottom();
@@ -504,7 +524,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     );
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/si_console_bg.jpg',
+      backgroundAssetPath: AppAssets.bgSiConsole,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -636,12 +656,12 @@ class _Header extends StatelessWidget {
 // Message bubble
 // ---------------------------------------------------------------------------
 
-class _BubbleTile extends StatelessWidget {
+class _BubbleTile extends ConsumerWidget {
   const _BubbleTile({required this.msg});
   final _Msg msg;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bool isUser = msg.isUser;
     final String? emotion = msg.emotion;
     return Padding(
@@ -657,53 +677,104 @@ class _BubbleTile extends StatelessWidget {
             const SizedBox(width: 8),
           ],
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isUser
-                    ? const Color(0xFF1E1330)
-                    : const Color(0xFF0D1A2A),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isUser ? 16 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 16),
-                ),
-                border: Border.all(
-                  color: isUser
-                      ? Colors.purple.withValues(alpha: 0.25)
-                      : AppColors.neonCyan.withValues(alpha: 0.18),
-                ),
-                boxShadow: isUser
-                    ? null
-                    : [
-                        BoxShadow(
-                          color: AppColors.neonCyan.withValues(alpha: 0.06),
-                          blurRadius: 12,
-                        ),
-                      ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!isUser && emotion != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 5),
-                      child: _EmotionTag(emotion: emotion),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isUser
+                        ? const Color(0xFF1E1330)
+                        : const Color(0xFF0D1A2A),
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: Radius.circular(isUser ? 16 : 4),
+                      bottomRight: Radius.circular(isUser ? 4 : 16),
                     ),
-                  TypingText(
-                    msg.text,
-                    key: ValueKey<String>('si-msg-${msg.isUser}-${msg.text}'),
-                    animate: !isUser,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.55,
-                      color: isUser ? Colors.white70 : Colors.white,
-                      fontFamily: isUser ? null : 'monospace',
+                    border: Border.all(
+                      color: isUser
+                          ? Colors.purple.withValues(alpha: 0.25)
+                          : AppColors.neonCyan.withValues(alpha: 0.18),
+                    ),
+                    boxShadow: isUser
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: AppColors.neonCyan.withValues(alpha: 0.06),
+                              blurRadius: 12,
+                            ),
+                          ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (!isUser && emotion != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 5),
+                          child: _EmotionTag(emotion: emotion),
+                        ),
+                      TypingText(
+                        msg.text,
+                        key: ValueKey<String>(
+                          'si-msg-${msg.isUser}-${msg.text}',
+                        ),
+                        animate: !isUser,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.55,
+                          color: isUser ? Colors.white70 : Colors.white,
+                          fontFamily: isUser ? null : 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!isUser) ...[
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    onTap: () => unawaited(
+                      ref.read(voiceServiceProvider).speak(msg.text),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.neonCyan.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: AppColors.neonCyan.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.volume_up_rounded,
+                            color: AppColors.neonCyan,
+                            size: 12,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'SPEAK',
+                            style: TextStyle(
+                              color: AppColors.neonCyan,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
           ),
           if (isUser) const SizedBox(width: 8),

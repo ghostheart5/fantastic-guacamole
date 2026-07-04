@@ -248,7 +248,10 @@ class _WeeklyXpRow extends ConsumerWidget {
     final qualBars = List.generate(5, (i) {
       if (i == 4) return curQ;
       final double decay = math.pow(0.8, 4 - i).toDouble();
-      return (curQ * decay * (0.8 + math.Random(profile.xp + i).nextDouble() * 0.4)).clamp(0.0, 1.0);
+      return (curQ *
+              decay *
+              (0.8 + math.Random(profile.xp + i).nextDouble() * 0.4))
+          .clamp(0.0, 1.0);
     });
 
     return Padding(
@@ -262,7 +265,10 @@ class _WeeklyXpRow extends ConsumerWidget {
               child: SizedBox(
                 height: 60,
                 child: CustomPaint(
-                  painter: _BarChartPainter(bars: normalised, color: AppColors.memoryAmber),
+                  painter: _BarChartPainter(
+                    bars: normalised,
+                    color: AppColors.memoryAmber,
+                  ),
                   size: Size.infinite,
                 ),
               ),
@@ -276,7 +282,10 @@ class _WeeklyXpRow extends ConsumerWidget {
               child: SizedBox(
                 height: 60,
                 child: CustomPaint(
-                  painter: _BarChartPainter(bars: qualBars, color: AppColors.neonCyan),
+                  painter: _BarChartPainter(
+                    bars: qualBars,
+                    color: AppColors.neonCyan,
+                  ),
                   size: Size.infinite,
                 ),
               ),
@@ -324,18 +333,34 @@ class _BehaviorIdentityRow extends ConsumerWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        consistencyPct >= 60 ? '▲' : consistencyPct >= 35 ? '→' : '▼',
+                        consistencyPct >= 60
+                            ? '▲'
+                            : consistencyPct >= 35
+                            ? '→'
+                            : '▼',
                         style: TextStyle(
-                          color: consistencyPct >= 60 ? Colors.greenAccent : consistencyPct >= 35 ? AppColors.memoryAmber : Colors.redAccent,
+                          color: consistencyPct >= 60
+                              ? Colors.greenAccent
+                              : consistencyPct >= 35
+                              ? AppColors.memoryAmber
+                              : Colors.redAccent,
                           fontSize: 14,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  _MiniBar(value: behavior.consistency, color: AppColors.neonViolet, label: 'Consistency'),
+                  _MiniBar(
+                    value: behavior.consistency,
+                    color: AppColors.neonViolet,
+                    label: 'Consistency',
+                  ),
                   const SizedBox(height: 4),
-                  _MiniBar(value: behavior.capacity, color: AppColors.neonCyan, label: 'Capacity $capacityPct%'),
+                  _MiniBar(
+                    value: behavior.capacity,
+                    color: AppColors.neonCyan,
+                    label: 'Capacity $capacityPct%',
+                  ),
                 ],
               ),
             ),
@@ -349,23 +374,44 @@ class _BehaviorIdentityRow extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.neonCyan.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.4)),
+                      border: Border.all(
+                        color: AppColors.neonCyan.withValues(alpha: 0.4),
+                      ),
                     ),
                     child: Text(
                       archetype,
-                      style: const TextStyle(color: AppColors.neonCyan, fontSize: 12, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        color: AppColors.neonCyan,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  _MiniBar(value: identity.disciplineIdentity, color: AppColors.memoryAmber, label: 'Discipline'),
+                  _MiniBar(
+                    value: identity.disciplineIdentity,
+                    color: AppColors.memoryAmber,
+                    label: 'Discipline',
+                  ),
                   const SizedBox(height: 4),
-                  _MiniBar(value: identity.focusIdentity, color: AppColors.neonCyan, label: 'Focus'),
+                  _MiniBar(
+                    value: identity.focusIdentity,
+                    color: AppColors.neonCyan,
+                    label: 'Focus',
+                  ),
                   const SizedBox(height: 4),
-                  _MiniBar(value: identity.growthIdentity, color: AppColors.neonViolet, label: 'Growth'),
+                  _MiniBar(
+                    value: identity.growthIdentity,
+                    color: AppColors.neonViolet,
+                    label: 'Growth',
+                  ),
                 ],
               ),
             ),
@@ -377,7 +423,11 @@ class _BehaviorIdentityRow extends ConsumerWidget {
 }
 
 class _MiniBar extends StatelessWidget {
-  const _MiniBar({required this.value, required this.color, required this.label});
+  const _MiniBar({
+    required this.value,
+    required this.color,
+    required this.label,
+  });
   final double value;
   final Color color;
   final String label;
@@ -388,7 +438,11 @@ class _MiniBar extends StatelessWidget {
       children: [
         SizedBox(
           width: 55,
-          child: Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9), overflow: TextOverflow.ellipsis),
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white38, fontSize: 9),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         Expanded(
           child: ClipRRect(
@@ -407,7 +461,11 @@ class _MiniBar extends StatelessWidget {
 }
 
 class _NeonCard extends StatelessWidget {
-  const _NeonCard({required this.label, required this.color, required this.child});
+  const _NeonCard({
+    required this.label,
+    required this.color,
+    required this.child,
+  });
   final String label;
   final Color color;
   final Widget child;
@@ -424,7 +482,15 @@ class _NeonCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 9, letterSpacing: 2, color: color, fontWeight: FontWeight.w700)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              letterSpacing: 2,
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 10),
           child,
         ],

@@ -79,13 +79,17 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
 
     if (!mounted) return;
 
-    await ref.read(timelineProvider.notifier).record(TimelineEventEntity(
-          id: 'rf_${DateTime.now().millisecondsSinceEpoch}',
-          type: TimelineEventType.reflection,
-          title: 'Reflection saved',
-          detail: note.length > 60 ? '${note.substring(0, 60)}…' : note,
-          timestamp: DateTime.now(),
-        ));
+    await ref
+        .read(timelineProvider.notifier)
+        .record(
+          TimelineEventEntity(
+            id: 'rf_${DateTime.now().millisecondsSinceEpoch}',
+            type: TimelineEventType.reflection,
+            title: 'Reflection saved',
+            detail: note.length > 60 ? '${note.substring(0, 60)}…' : note,
+            timestamp: DateTime.now(),
+          ),
+        );
 
     if (!mounted) return;
 
@@ -128,7 +132,10 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
   }
 
   static String _extractMemory(
-      String note, EmotionalState emotion, double energy) {
+    String note,
+    EmotionalState emotion,
+    double energy,
+  ) {
     final pct = (energy * 100).round();
     final sentences = note
         .split(RegExp(r'[.!?]+'))
@@ -146,20 +153,19 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(
-      voiceControllerProvider.select((v) => v.recognizedText),
-      (_, text) {
-        if (text.isNotEmpty) {
-          final current = _controller.text;
-          _controller.text =
-              current.isEmpty ? text : '$current $text';
-          _controller.selection = TextSelection.fromPosition(
-            TextPosition(offset: _controller.text.length),
-          );
-          setState(() => _saved = false);
-        }
-      },
-    );
+    ref.listen(voiceControllerProvider.select((v) => v.recognizedText), (
+      _,
+      text,
+    ) {
+      if (text.isNotEmpty) {
+        final current = _controller.text;
+        _controller.text = current.isEmpty ? text : '$current $text';
+        _controller.selection = TextSelection.fromPosition(
+          TextPosition(offset: _controller.text.length),
+        );
+        setState(() => _saved = false);
+      }
+    });
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/reflect_bg.jpg',
       child: Scaffold(
@@ -262,8 +268,9 @@ class _ReflectScreenState extends ConsumerState<ReflectScreen> {
                   trailing: _MicButton(
                     onTap: () {
                       final voice = ref.read(voiceControllerProvider.notifier);
-                      final isListening =
-                          ref.read(voiceControllerProvider).isListening;
+                      final isListening = ref
+                          .read(voiceControllerProvider)
+                          .isListening;
                       if (isListening) {
                         voice.stopListening();
                       } else {
@@ -399,10 +406,7 @@ class _NeonPanel extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              if (trailing != null) ...[
-                const Spacer(),
-                trailing!,
-              ],
+              if (trailing != null) ...[const Spacer(), trailing!],
             ],
           ),
           const SizedBox(height: 16),

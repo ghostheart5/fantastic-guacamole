@@ -16,10 +16,14 @@ class CompleteTask {
   Future<void> call(String id) async {
     final task = await repository.getTaskById(id);
     if (task == null) throw StateError('Task not found');
-    if (!TaskPolicy.canComplete(task)) throw StateError('Task already completed');
+    if (!TaskPolicy.canComplete(task)) {
+      throw StateError('Task already completed');
+    }
 
     final now = DateTime.now();
-    await repository.saveTask(task.copyWith(isCompleted: true, completedAt: now));
+    await repository.saveTask(
+      task.copyWith(isCompleted: true, completedAt: now),
+    );
 
     // If recurring, create the next occurrence
     if (task.recurrenceRule != RecurrenceRule.none) {

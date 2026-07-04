@@ -11,7 +11,9 @@ class GenerateSiDecision {
 
   Future<SiDecisionEntity> call([String input = '']) async {
     final state = await siRepo.getCurrentState();
-    if (state == null) return const SiDecisionEntity(rationale: 'No state available.');
+    if (state == null) {
+      return const SiDecisionEntity(rationale: 'No state available.');
+    }
 
     final tasks = await taskRepo.getAllTasks();
 

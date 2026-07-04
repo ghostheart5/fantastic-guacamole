@@ -35,8 +35,7 @@ class TimelineScreen extends ConsumerWidget {
                 child: Row(
                   children: [
                     GestureDetector(
-                      onTap: () =>
-                          ref.read(appFlowProvider.notifier).toCoach(),
+                      onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
                       child: Container(
                         width: 36,
                         height: 36,
@@ -44,10 +43,14 @@ class TimelineScreen extends ConsumerWidget {
                           color: AppColors.neonViolet.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                              color: AppColors.neonViolet.withValues(alpha: 0.3)),
+                            color: AppColors.neonViolet.withValues(alpha: 0.3),
+                          ),
                         ),
-                        child: const Icon(Icons.arrow_back_ios_new,
-                            color: AppColors.neonViolet, size: 16),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new,
+                          color: AppColors.neonViolet,
+                          size: 16,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -71,9 +74,10 @@ class TimelineScreen extends ConsumerWidget {
                         const Text(
                           'YOUR JOURNEY',
                           style: TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 2,
-                              color: Colors.white38),
+                            fontSize: 10,
+                            letterSpacing: 2,
+                            color: Colors.white38,
+                          ),
                         ),
                       ],
                     ),
@@ -88,7 +92,10 @@ class TimelineScreen extends ConsumerWidget {
                           'Your journey starts here.\nComplete a session to record your first moment.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              color: Colors.white38, fontSize: 14, height: 1.6),
+                            color: Colors.white38,
+                            fontSize: 14,
+                            height: 1.6,
+                          ),
                         ),
                       )
                     : ListView.builder(
@@ -101,8 +108,9 @@ class TimelineScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                                 child: Text(
                                   day,
                                   style: const TextStyle(
@@ -114,7 +122,8 @@ class TimelineScreen extends ConsumerWidget {
                                 ),
                               ),
                               ...dayEvents.map(
-                                  (e) => _TimelineEventTile(event: e)),
+                                (e) => _TimelineEventTile(event: e),
+                              ),
                             ],
                           );
                         },
@@ -182,7 +191,11 @@ class _TimelineEventTile extends StatelessWidget {
                 ),
                 child: Icon(_icon, color: _color, size: 13),
               ),
-              Container(width: 1, height: 20, color: _color.withValues(alpha: 0.15)),
+              Container(
+                width: 1,
+                height: 20,
+                color: _color.withValues(alpha: 0.15),
+              ),
             ],
           ),
           const SizedBox(width: 12),
@@ -212,7 +225,9 @@ class _TimelineEventTile extends StatelessWidget {
                       Text(
                         DateFormat('h:mm a').format(event.timestamp),
                         style: const TextStyle(
-                            color: Colors.white38, fontSize: 10),
+                          color: Colors.white38,
+                          fontSize: 10,
+                        ),
                       ),
                     ],
                   ),
@@ -221,7 +236,10 @@ class _TimelineEventTile extends StatelessWidget {
                     Text(
                       event.detail,
                       style: const TextStyle(
-                          color: Colors.white60, fontSize: 12, height: 1.4),
+                        color: Colors.white60,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),

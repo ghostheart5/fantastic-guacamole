@@ -8,10 +8,10 @@ class ProgressSignals {
     required this.direction,
   });
 
-  final String momentum;     // 'Low' | 'Medium' | 'High'
-  final String consistency;  // 'N day streak'
-  final String load;         // 'Light' | 'Balanced' | 'Heavy'
-  final String direction;    // 'On Track' | 'Slightly Off' | 'Off Track'
+  final String momentum; // 'Low' | 'Medium' | 'High'
+  final String consistency; // 'N day streak'
+  final String load; // 'Light' | 'Balanced' | 'Heavy'
+  final String direction; // 'On Track' | 'Slightly Off' | 'Off Track'
 }
 
 class GetProgressSignals {
@@ -20,19 +20,19 @@ class GetProgressSignals {
       momentum: traj.momentum >= 0.7
           ? 'High'
           : traj.momentum >= 0.4
-              ? 'Medium'
-              : 'Low',
+          ? 'Medium'
+          : 'Low',
       consistency: '${traj.streak} day streak',
       load: traj.pressureIndex > 60
           ? 'Heavy'
           : traj.pressureIndex > 30
-              ? 'Balanced'
-              : 'Light',
+          ? 'Balanced'
+          : 'Light',
       direction: traj.behaviorDivergence > 40
           ? 'Off Track'
           : traj.behaviorDivergence > 20
-              ? 'Slightly Off'
-              : 'On Track',
+          ? 'Slightly Off'
+          : 'On Track',
     );
   }
 }

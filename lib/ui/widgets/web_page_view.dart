@@ -2,15 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class WebPageView extends StatelessWidget {
-  const WebPageView({
-    required this.title,
-    this.body,
-    this.assetPath,
-    super.key,
-  }) : assert(
-         body != null || assetPath != null,
-         'Provide either body or assetPath',
-       );
+  const WebPageView({required this.title, this.body, this.assetPath, super.key})
+    : assert(
+        body != null || assetPath != null,
+        'Provide either body or assetPath',
+      );
 
   final String title;
   final String? body;
