@@ -1,8 +1,6 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/engine/advisor/product_advisor_engine.dart';
-import 'package:fantastic_guacamole/engine/optimizer/optimization_config.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -47,7 +45,17 @@ class ProductAdvisorScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(20),
           children: [
             insightsAsync.when(
-              data: (insights) => _InsightsList(insights: insights),
+              data: (insights) => _InsightsList(
+                insights: insights
+                    .map(
+                      (insight) => _InsightView(
+                        issue: insight.issue,
+                        cause: insight.cause,
+                        recommendation: insight.recommendation,
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
               loading: () => const Center(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
@@ -60,7 +68,13 @@ class ProductAdvisorScreen extends ConsumerWidget {
             const _SectionHeader(label: 'OPTIMIZATION STATE'),
             const SizedBox(height: 8),
             configAsync.when(
-              data: (config) => _OptimizerStateCard(config: config),
+              data: (config) => _OptimizerStateCard(
+                config: _OptimizationView(
+                  focusDurationMultiplier: config.focusDurationMultiplier,
+                  taskDifficultyScale: config.taskDifficultyScale,
+                  nextActionAggressiveness: config.nextActionAggressiveness,
+                ),
+              ),
               loading: () => const SizedBox.shrink(),
               error: (_, _) => const SizedBox.shrink(),
             ),
@@ -80,7 +94,7 @@ class ProductAdvisorScreen extends ConsumerWidget {
 
 class _InsightsList extends StatelessWidget {
   const _InsightsList({required this.insights});
-  final List<ProductInsight> insights;
+  final List<_InsightView> insights;
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +127,7 @@ class _InsightsList extends StatelessWidget {
 
 class _InsightCard extends StatelessWidget {
   const _InsightCard({required this.insight, required this.isTop});
-  final ProductInsight insight;
+  final _InsightView insight;
   final bool isTop;
 
   @override
@@ -201,7 +215,7 @@ class _Label extends StatelessWidget {
 
 class _OptimizerStateCard extends StatelessWidget {
   const _OptimizerStateCard({required this.config});
-  final OptimizationConfig config;
+  final _OptimizationView config;
 
   @override
   Widget build(BuildContext context) {
@@ -311,6 +325,30 @@ class _ErrorTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _InsightView {
+  const _InsightView({
+    required this.issue,
+    required this.cause,
+    required this.recommendation,
+  });
+
+  final String issue;
+  final String cause;
+  final String recommendation;
+}
+
+class _OptimizationView {
+  const _OptimizationView({
+    required this.focusDurationMultiplier,
+    required this.taskDifficultyScale,
+    required this.nextActionAggressiveness,
+  });
+
+  final double focusDurationMultiplier;
+  final double taskDifficultyScale;
+  final double nextActionAggressiveness;
 }
 
 class _RefreshButton extends StatelessWidget {
