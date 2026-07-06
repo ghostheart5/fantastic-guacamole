@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/di/services_providers.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/engine/learning/adaptive_learning.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';

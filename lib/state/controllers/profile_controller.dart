@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/storage/hive_service.dart';
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
-import 'package:fantastic_guacamole/features/progression/logic/streak_logic.dart';
-import 'package:fantastic_guacamole/features/progression/models/streak.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/models/streak.dart';
+import 'package:fantastic_guacamole/state/services/streak_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ProfileState {
@@ -46,9 +50,7 @@ class ProfileState {
       leveledUp: leveledUp ?? this.leveledUp,
       name: name ?? this.name,
       soundEnabled: soundEnabled ?? this.soundEnabled,
-      lastActiveDate: clearLastActiveDate
-          ? null
-          : (lastActiveDate ?? this.lastActiveDate),
+      lastActiveDate: clearLastActiveDate ? null : (lastActiveDate ?? this.lastActiveDate),
     );
   }
 
@@ -75,9 +77,7 @@ class ProfileState {
   );
 }
 
-final profileProvider = NotifierProvider<ProfileController, ProfileState>(
-  ProfileController.new,
-);
+final profileProvider = NotifierProvider<ProfileController, ProfileState>(ProfileController.new);
 
 class ProfileController extends Notifier<ProfileState> {
   @override
@@ -88,15 +88,22 @@ class ProfileController extends Notifier<ProfileState> {
 
   static const _boxKey = 'profile_box';
   static const _stateKey = 'profile_state';
-  final HiveStorage<String> _storage = HiveStorage<String>(
-    _boxKey,
-    hive: const HiveStoreAdapter(),
-  );
-  static const _streakLogic = StreakLogic();
+  static const _secureStateKey = 'profile_state_v2';
+  final HiveStorage<String> _storage = HiveStorage<String>(_boxKey, hive: const HiveStoreAdapter());
+  static const _streakLogic = StreakService();
+
+  SecureStore get _secureStore => ref.read(secureStoreProvider);
 
   Future<void> _init() async {
-    await _storage.open();
-    final raw = _storage.get(_stateKey);
+    String? raw = await _secureStore.readString(_secureStateKey);
+    if (raw == null) {
+      await _storage.open();
+      raw = _storage.get(_stateKey);
+      if (raw != null) {
+        await _secureStore.writeString(_secureStateKey, raw);
+        await _storage.delete(_stateKey);
+      }
+    }
     if (raw == null) return;
     try {
       state = ProfileState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
@@ -104,7 +111,7 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   Future<void> _save() async {
-    await _storage.put(_stateKey, jsonEncode(state.toJson()));
+    await _secureStore.writeString(_secureStateKey, jsonEncode(state.toJson()));
   }
 
   void addXP(int amount) {
@@ -129,6 +136,7 @@ class ProfileController extends Notifier<ProfileState> {
       lastActiveDate: updated.lastActiveDate,
     );
     _save();
+    unawaited(_refreshCoachDecision());
   }
 
   void clearLeveledUp() {
@@ -136,9 +144,7 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   void updateName(String name) {
-    state = state.copyWith(
-      name: name.trim().isEmpty ? state.name : name.trim(),
-    );
+    state = state.copyWith(name: name.trim().isEmpty ? state.name : name.trim());
     _save();
   }
 
@@ -162,10 +168,21 @@ class ProfileController extends Notifier<ProfileState> {
       lastActiveDate: updated.lastActiveDate,
     );
     _save();
+    unawaited(_refreshCoachDecision());
   }
 
   void resetStreak() {
     state = state.copyWith(streak: 0, clearLastActiveDate: true);
     _save();
+    unawaited(_refreshCoachDecision());
+  }
+
+  Future<void> _refreshCoachDecision() async {
+    try {
+      await ref.read(generateSiDecisionUseCaseProvider).call();
+      ref.invalidate(domainSiDecisionProvider);
+    } catch (_) {
+      // Avoid blocking progression updates if coach refresh fails.
+    }
   }
 }

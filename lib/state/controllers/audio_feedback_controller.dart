@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/core/services/audio_service.dart';
+import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final audioFeedbackControllerProvider = Provider<AudioFeedbackController>(

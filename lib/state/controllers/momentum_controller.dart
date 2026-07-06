@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/state/models/momentum_state.dart';
+import 'package:fantastic_guacamole/state/state/momentum_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class MomentumController extends Notifier<MomentumState> {
