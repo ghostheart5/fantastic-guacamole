@@ -1,28 +1,13 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/type_selector.dart';
+import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:flutter/material.dart';
-
-class DynamicFormData {
-  const DynamicFormData({
-    required this.title,
-    this.description,
-    required this.type,
-    required this.priority,
-    this.scheduledFor,
-  });
-
-  final String title;
-  final String? description;
-  final String type;
-  final int priority; // 1–5
-  final DateTime? scheduledFor;
-}
 
 class DynamicForm extends StatefulWidget {
   const DynamicForm({super.key, required this.onSubmit});
 
-  final ValueChanged<DynamicFormData> onSubmit;
+  final Future<void> Function(CreatorFormData data) onSubmit;
 
   @override
   State<DynamicForm> createState() => _DynamicFormState();
@@ -34,6 +19,8 @@ class _DynamicFormState extends State<DynamicForm> {
   String _selectedType = 'Task';
   int _priority = 3;
   DateTime? _scheduledFor;
+  bool _submitting = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -42,27 +29,50 @@ class _DynamicFormState extends State<DynamicForm> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_submitting) return;
     final title = _titleController.text.trim();
-    if (title.isEmpty) return;
-    widget.onSubmit(
-      DynamicFormData(
-        title: title,
-        description: _descController.text.trim().isEmpty
-            ? null
-            : _descController.text.trim(),
-        type: _selectedType,
-        priority: _priority,
-        scheduledFor: _scheduledFor,
-      ),
-    );
-    _titleController.clear();
-    _descController.clear();
+    if (title.isEmpty) {
+      setState(() => _errorMessage = 'Add a title before creating the task.');
+      return;
+    }
+
     setState(() {
-      _selectedType = 'Task';
-      _priority = 3;
-      _scheduledFor = null;
+      _submitting = true;
+      _errorMessage = null;
     });
+
+    try {
+      await widget.onSubmit(
+        CreatorFormData(
+          title: title,
+          description: _descController.text.trim().isEmpty
+              ? null
+              : _descController.text.trim(),
+          type: _selectedType,
+          priority: _priority,
+          scheduledFor: _scheduledFor,
+        ),
+      );
+      if (!mounted) return;
+      _titleController.clear();
+      _descController.clear();
+      setState(() {
+        _selectedType = 'Task';
+        _priority = 3;
+        _scheduledFor = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'The task could not be saved. Your entry is still here—retry.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
   }
 
   @override
@@ -109,9 +119,16 @@ class _DynamicFormState extends State<DynamicForm> {
             selected: _scheduledFor,
             onPick: (date) => setState(() => _scheduledFor = date),
           ),
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _errorMessage!,
+              style: const TextStyle(color: AppColors.recallRed, fontSize: 12),
+            ),
+          ],
           const SizedBox(height: 20),
           SmartPressable(
-            onTap: _submit,
+            onTap: _submitting ? () {} : _submit,
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -128,16 +145,27 @@ class _DynamicFormState extends State<DynamicForm> {
                   ),
                 ],
               ),
-              child: const Text(
-                'FORGE TASK',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  letterSpacing: 2.5,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.memoryAmber,
-                ),
-              ),
+              child: _submitting
+                  ? const Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.memoryAmber,
+                        ),
+                      ),
+                    )
+                  : const Text(
+                      'FORGE TASK',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        letterSpacing: 2.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.memoryAmber,
+                      ),
+                    ),
             ),
           ),
         ],
