@@ -1,10 +1,4 @@
-enum TimelineEventType {
-  focusSession,
-  reflection,
-  levelUp,
-  goalComplete,
-  streak,
-}
+enum TimelineEventType { reflection, levelUp, goalComplete, streak }
 
 class TimelineEventEntity {
   const TimelineEventEntity({
@@ -21,6 +15,40 @@ class TimelineEventEntity {
   final String detail;
   final DateTime timestamp;
 
+  // Semantic helpers
+  bool get isReflection => type == TimelineEventType.reflection;
+  bool get isLevelUp => type == TimelineEventType.levelUp;
+  bool get isGoalComplete => type == TimelineEventType.goalComplete;
+  bool get isStreak => type == TimelineEventType.streak;
+
+  // Recency logic
+  Duration get age => DateTime.now().difference(timestamp);
+  bool get isRecent => age.inHours < 24;
+
+  // Display helpers
+  String get shortLabel {
+    switch (type) {
+      case TimelineEventType.reflection:
+        return 'Reflection';
+      case TimelineEventType.levelUp:
+        return 'Level Up';
+      case TimelineEventType.goalComplete:
+        return 'Goal Complete';
+      case TimelineEventType.streak:
+        return 'Streak';
+    }
+  }
+
+  // Invariants
+  void validate() {
+    if (title.trim().isEmpty) {
+      throw StateError('TimelineEventEntity must have a title');
+    }
+    if (detail.trim().isEmpty) {
+      throw StateError('TimelineEventEntity must have detail text');
+    }
+  }
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'type': type.name,
@@ -34,7 +62,7 @@ class TimelineEventEntity {
         id: j['id'] as String,
         type: TimelineEventType.values.firstWhere(
           (e) => e.name == j['type'],
-          orElse: () => TimelineEventType.focusSession,
+          orElse: () => TimelineEventType.reflection,
         ),
         title: j['title'] as String,
         detail: j['detail'] as String,

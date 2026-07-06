@@ -24,4 +24,25 @@ class SettingsEntity {
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
     );
   }
+
+  // Domain behavior
+  SettingsEntity toggleSound() => copyWith(soundEnabled: !soundEnabled);
+
+  SettingsEntity toggleNotifications() =>
+      copyWith(notificationsEnabled: !notificationsEnabled);
+
+  SettingsEntity setTheme(String mode) => copyWith(themeMode: mode);
+
+  SettingsEntity completeOnboarding() => copyWith(onboardingComplete: true);
+
+  bool get isDarkMode => themeMode == 'dark';
+  bool get isLightMode => themeMode == 'light';
+  bool get isSystemMode => themeMode == 'system';
+
+  void validate() {
+    const allowed = ['light', 'dark', 'system'];
+    if (!allowed.contains(themeMode)) {
+      throw StateError('Invalid theme mode: $themeMode');
+    }
+  }
 }
