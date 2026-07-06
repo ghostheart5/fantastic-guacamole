@@ -25,6 +25,10 @@ val releaseVersionCode =
 val releaseVersionName =
     (project.findProperty("CHRONOSPARK_VERSION_NAME") as String?)
         ?: flutter.versionName
+val releaseBuildRequested = gradle.startParameter.taskNames.any { taskName ->
+    val normalized = taskName.lowercase()
+    normalized.contains("release") || normalized.contains("bundle")
+}
 
 fun Properties.hasReleaseSigningValues(): Boolean {
     val storePassword = getProperty("storePassword")?.trim().orEmpty()
@@ -71,7 +75,14 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            val releaseSigningConfig = signingConfigs.findByName("release")
+            if (releaseSigningConfig != null) {
+                signingConfig = releaseSigningConfig
+            } else if (releaseBuildRequested) {
+                throw GradleException(
+                    "Release signing credentials are required; refusing to create a debug-signed release artifact.",
+                )
+            }
         }
     }
 }
