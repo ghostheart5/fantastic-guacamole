@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +23,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   final _nameCtrl = TextEditingController();
   String? _selectedGoalType;
 
-  static const _totalPages = 5; // 4 info slides + 1 personalization
+  static const _totalPages = 6; // 5 info slides + 1 personalization
 
   static const _slides = [
     _Slide(
@@ -31,7 +33,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       title: 'CHRONOSPARK',
       subtitle: 'Temporal Intelligence System',
       body:
-          'Your AI-powered life intelligence companion. ChronoSpark learns your energy, tracks your growth, and guides you toward your highest potential — every single day.',
+          'Your AI life intelligence core. ChronoSpark reads your energy, tracks your evolution, and helps you execute at your highest level every day.',
     ),
     _Slide(
       icon: Icons.psychology_rounded,
@@ -40,27 +42,42 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       title: 'LIFE GUIDANCE',
       subtitle: 'AI-powered personal coaching',
       body:
-          'The Smart Coach reflects your emotions, energy, and patterns to deliver personalised life advice. It\'s not a to-do list manager — it\'s a guide for your human journey.',
+          'Smart Coach reads your emotional state, energy signature, and behavior patterns to generate precise guidance. This is not a checklist bot. It is your strategy layer.',
     ),
     _Slide(
       icon: Icons.timer_rounded,
       iconColor: Color(0xFF00E5FF),
-      tag: 'FOCUS SESSIONS',
-      title: 'DEEP WORK',
-      subtitle: 'Lock in and earn XP',
+      tag: 'TRAJECTORY ENGINE',
+      title: 'PREDICTIONS & ACTIONS',
+      subtitle: 'Own your next move',
       body:
-          'Start a Focus Session to enter a distraction-free state. Completing sessions earns XP and advances your level on the Growth Matrix. Every minute counts.',
+          'Trajectory Engine converts behavior signals into forward predictions and tactical actions so you can move with clarity and force.',
     ),
     _Slide(
       icon: Icons.trending_up_rounded,
-      iconColor: Color(0xFFFFC857),
-      tag: 'GROWTH MATRIX',
-      title: 'LEVEL UP',
-      subtitle: 'Track your evolution',
+      iconColor: Color(0xFF00E5FF),
+      tag: 'ACTIVITY LEDGER',
+      title: 'VERIFIED HISTORY',
+      subtitle: 'Review what actually happened',
       body:
-          'Your Progression screen shows your XP, level, streak, and title. Reflect, focus, and grow — each action compounds into a stronger, more capable version of you.',
+          'Activity Ledger records completed actions and milestones in one trusted timeline so you can audit execution and upgrade your system.',
+    ),
+    _Slide(
+      icon: Icons.touch_app_rounded,
+      iconColor: Color(0xFF00E5FF),
+      tag: 'PAGE GUIDE',
+      title: 'WHAT TO CLICK',
+      subtitle: 'Quick control map',
+      body:
+          'Nexus: scan signals, choose one next move.\nTrajectory: read prediction, then open Flowmap for branches.\nCreator: forge manual tasks only when needed.\nActivity Ledger: audit completed actions and patterns.',
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    AppAnalytics.track('onboarding_started');
+  }
 
   Future<void> _complete() async {
     final name = _nameCtrl.text.trim();
@@ -72,12 +89,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(onboardingCompleteStorageKey, true);
+    await prefs.setInt(
+      onboardingContentVersionStorageKey,
+      TutorialContent.contentVersion,
+    );
+    AppAnalytics.track(
+      'onboarding_completed',
+      params: <String, Object?>{'selected_goal_type': _selectedGoalType ?? ''},
+    );
     if (!mounted) return;
     ref.read(onboardingCompleteProvider.notifier).set(true);
   }
 
   void _next() {
     if (_current < _totalPages - 1) {
+      AppAnalytics.track(
+        'onboarding_step_advanced',
+        params: <String, Object?>{'step_index': _current},
+      );
       _page.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
@@ -173,7 +202,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     // Skip link
                     if (_current < _totalPages - 1)
                       GestureDetector(
-                        onTap: _complete,
+                        onTap: () {
+                          AppAnalytics.track(
+                            'onboarding_skipped',
+                            params: <String, Object?>{'step_index': _current},
+                          );
+                          _complete();
+                        },
                         child: const Text(
                           'SKIP',
                           style: TextStyle(
