@@ -1,7 +1,7 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,7 +62,7 @@ class TimelineScreen extends ConsumerWidget {
                             colors: [AppColors.neonViolet, AppColors.neonCyan],
                           ).createShader(bounds),
                           child: const Text(
-                            'TIMELINE',
+                            'TIMELINE OPS',
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
@@ -72,7 +72,7 @@ class TimelineScreen extends ConsumerWidget {
                           ),
                         ),
                         const Text(
-                          'YOUR JOURNEY',
+                          'EVENT CHRONOLOGY',
                           style: TextStyle(
                             fontSize: 10,
                             letterSpacing: 2,
@@ -89,7 +89,7 @@ class TimelineScreen extends ConsumerWidget {
                 child: events.isEmpty
                     ? const Center(
                         child: Text(
-                          'Your journey starts here.\nComplete a session to record your first moment.',
+                          'No timeline events recorded yet.\nComplete goals, streaks, and reflections to build your chronology.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white38,
@@ -143,8 +143,6 @@ class _TimelineEventTile extends StatelessWidget {
 
   Color get _color {
     switch (event.type) {
-      case TimelineEventType.focusSession:
-        return AppColors.neonCyan;
       case TimelineEventType.reflection:
         return AppColors.neonViolet;
       case TimelineEventType.levelUp:
@@ -158,8 +156,6 @@ class _TimelineEventTile extends StatelessWidget {
 
   IconData get _icon {
     switch (event.type) {
-      case TimelineEventType.focusSession:
-        return Icons.timer_rounded;
       case TimelineEventType.reflection:
         return Icons.edit_note_rounded;
       case TimelineEventType.levelUp:
