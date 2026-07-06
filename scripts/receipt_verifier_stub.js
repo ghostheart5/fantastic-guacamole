@@ -1,7 +1,19 @@
 const http = require('http');
 
 const port = process.env.PORT ? Number(process.env.PORT) : 8787;
+const host = '127.0.0.1';
 const expectedKey = process.env.CHRONOSPARK_RECEIPT_VERIFY_KEY || '';
+const insecureLocalStubAllowed = process.env.CHRONOSPARK_ALLOW_INSECURE_LOCAL_STUB === 'true';
+
+if (process.env.NODE_ENV === 'production') {
+  throw new Error('receipt_verifier_stub.js must never run in production.');
+}
+
+if (!expectedKey && !insecureLocalStubAllowed) {
+  throw new Error(
+    'Set CHRONOSPARK_RECEIPT_VERIFY_KEY or CHRONOSPARK_ALLOW_INSECURE_LOCAL_STUB=true for local-only testing.',
+  );
+}
 
 function send(res, code, payload) {
   res.writeHead(code, { 'Content-Type': 'application/json' });
@@ -52,6 +64,6 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(port, () => {
-  console.log(`ChronoSpark receipt verifier stub listening on http://localhost:${port}`);
+server.listen(port, host, () => {
+  console.log(`ChronoSpark receipt verifier stub listening on http://${host}:${port}`);
 });
