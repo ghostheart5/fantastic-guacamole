@@ -47,6 +47,36 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
     final ProfileState profile = model?.aggregation.profile ?? ref.watch(profileProvider);
     final double energy = model?.aggregation.siState.energy ?? ref.watch(energyProvider);
     final SIState siState = model?.aggregation.siState ?? ref.watch(siStateProvider);
+    final trajectory = model?.aggregation.trajectory ?? ref.watch(trajectorySummaryProvider);
+
+    final String consistencySignal = trajectory.momentum >= 0.65
+      ? 'High'
+      : trajectory.momentum >= 0.4
+      ? 'Medium'
+      : 'Low';
+    final String loadSignal = siState.fatigue >= 0.75
+      ? 'Heavy'
+      : siState.fatigue >= 0.45
+      ? 'Moderate'
+      : 'Light';
+    final String growthTitle = profile.streak >= 21
+      ? 'Compounding Momentum'
+      : profile.streak >= 7
+      ? 'Stable Growth Arc'
+      : trajectory.completedTasks > 0
+      ? 'Early Growth Signal'
+      : 'Growth Engine Priming';
+    final String narrativeSummary = trajectory.completedTasks > 0
+      ? 'Momentum is active. Keep the next action small and immediate.'
+      : 'No completed actions yet. Start with one clear task to establish narrative continuity.';
+    final int soulContinuityPct =
+      ((((1 - siState.fatigue) * 0.55) + (trajectory.momentum * 0.45)).clamp(0.0, 1.0) * 100)
+        .round();
+    final int narrativePresencePct =
+      ((((trajectory.completedTasks > 0 ? 0.5 : 0.28) + (profile.streak.clamp(0, 14) / 14) * 0.5)
+            .clamp(0.0, 1.0) *
+          100)
+        .round();
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/nexus_bg.jpg',
@@ -79,10 +109,17 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: _CoreSignalsStrip(),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: _CoreSignalsStrip(
+                    growthTitle: growthTitle,
+                    narrativeSummary: narrativeSummary,
+                    consistencySignal: consistencySignal,
+                    loadSignal: loadSignal,
+                    soulContinuityPct: soulContinuityPct,
+                    narrativePresencePct: narrativePresencePct,
+                  ),
                 ),
               ),
               const SliverToBoxAdapter(
@@ -657,15 +694,25 @@ class _RingLabel extends StatelessWidget {
 // Dependency mesh
 // ---------------------------------------------------------------------------
 
-class _CoreSignalsStrip extends ConsumerWidget {
-  const _CoreSignalsStrip();
+class _CoreSignalsStrip extends StatelessWidget {
+  const _CoreSignalsStrip({
+    required this.growthTitle,
+    required this.narrativeSummary,
+    required this.consistencySignal,
+    required this.loadSignal,
+    required this.soulContinuityPct,
+    required this.narrativePresencePct,
+  });
+
+  final String growthTitle;
+  final String narrativeSummary;
+  final String consistencySignal;
+  final String loadSignal;
+  final int soulContinuityPct;
+  final int narrativePresencePct;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final growthTitle = ref.read(userGrowthTitleProvider);
-    final narrative = ref.read(narrativeProvider);
-    final soul = ref.read(soulStateProvider);
-    final progressSignals = ref.read(progressSignalsProvider);
+  Widget build(BuildContext context) {
 
     return Container(
       width: double.infinity,
@@ -702,7 +749,7 @@ class _CoreSignalsStrip extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            narrative.summary,
+            narrativeSummary,
             style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.35),
           ),
           const SizedBox(height: 10),
@@ -710,10 +757,10 @@ class _CoreSignalsStrip extends ConsumerWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _SignalPill(label: 'Consistency', value: progressSignals.consistency),
-              _SignalPill(label: 'Load', value: progressSignals.load),
-              _SignalPill(label: 'Soul Continuity', value: '${(soul.continuity * 100).round()}%'),
-              _SignalPill(label: 'Narrative', value: '${(soul.narrativePresence * 100).round()}%'),
+              _SignalPill(label: 'Consistency', value: consistencySignal),
+              _SignalPill(label: 'Load', value: loadSignal),
+              _SignalPill(label: 'Soul Continuity', value: '$soulContinuityPct%'),
+              _SignalPill(label: 'Narrative', value: '$narrativePresencePct%'),
             ],
           ),
         ],
