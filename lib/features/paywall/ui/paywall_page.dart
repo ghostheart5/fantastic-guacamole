@@ -1,15 +1,16 @@
-import 'package:fantastic_guacamole/app/router/route_paths.dart';
-import 'package:fantastic_guacamole/config/paywall_config.dart';
-import 'package:fantastic_guacamole/core/constants/app_assets.dart';
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
+import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
-import 'package:fantastic_guacamole/features/paywall/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
+import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
+import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,7 +38,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
   Future<void> _unlock(String planId) async {
     try {
       final SubscriptionState subscription = await ref
-          .read(paywallServiceProvider)
+          .read(paywallActionsProvider)
           .startSubscription(planId);
       ref
           .read(runtimePremiumAccessProvider.notifier)
@@ -62,13 +63,19 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
           'testing_mode': paywallTestingMode,
         },
       );
+    } on StateError catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _statusMessage = error.message;
+      });
     } catch (_) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _statusMessage =
-            'Unable to activate subscription right now. Please try again.';
+        _statusMessage = 'Subscription activation failed. Retry.';
       });
     }
   }
@@ -76,7 +83,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
   Future<void> _restore() async {
     try {
       final SubscriptionState subscription = await ref
-          .read(paywallServiceProvider)
+          .read(paywallActionsProvider)
           .restorePurchases();
       ref
           .read(runtimePremiumAccessProvider.notifier)
@@ -95,19 +102,26 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         'paywall_restore',
         params: <String, Object?>{'testing_mode': paywallTestingMode},
       );
+    } on StateError catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _statusMessage = error.message;
+      });
     } catch (_) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _statusMessage =
-            'Unable to restore purchases right now. Please try again.';
+        _statusMessage = 'Purchase restore failed. Retry.';
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final routes = ref.watch(routeSurfaceProvider);
     final AsyncValue<PaywallEntity> configAsync = ref.watch(
       paywallConfigProvider,
     );
@@ -151,6 +165,8 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         );
     final SubscriptionState? subscription = subscriptionAsync.asData?.value;
     final AiCreditWallet? wallet = walletAsync.asData?.value;
+    final bool canRestore =
+        paywallTestingMode || config.plans.any((plan) => plan.isAvailable);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgSettings,
@@ -168,7 +184,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                         Navigator.pop(context);
                         return;
                       }
-                      context.go(RoutePaths.settings);
+                      context.go(routes.settings);
                     },
                     child: Container(
                       width: 36,
@@ -400,7 +416,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
               ),
               const SizedBox(height: 8),
               OutlinedButton(
-                onPressed: _restore,
+                onPressed: canRestore ? _restore : null,
                 child: const Text('Restore Purchases'),
               ),
               const SizedBox(height: 10),
