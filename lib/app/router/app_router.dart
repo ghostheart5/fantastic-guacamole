@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
+import 'package:fantastic_guacamole/onboarding/onboarding_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     hide authenticatedGuardProvider;
@@ -15,6 +16,7 @@ import 'package:go_router/go_router.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final bool isAuthenticated = ref.watch(authenticatedGuardProvider);
+  final bool onboardingComplete = ref.watch(onboardingCompleteGuardProvider);
   final intelligence = ref.watch(intelligenceStateProvider);
   final mockLoginConfig = ref.watch(mockLoginConfigProvider);
 
@@ -29,11 +31,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (location == RoutePaths.onboarding) {
-        return isAuthenticated ? RoutePaths.home : RoutePaths.login;
+        if (isAuthenticated) {
+          return RoutePaths.home;
+        }
+        if (!onboardingComplete) {
+          return null;
+        }
+        return RoutePaths.login;
       }
 
-      if (!isAuthenticated && location != RoutePaths.login) {
+      if (!isAuthenticated && !onboardingComplete && location != RoutePaths.onboarding) {
+        return RoutePaths.onboarding;
+      }
+
+      if (!isAuthenticated && onboardingComplete && location != RoutePaths.login) {
         return RoutePaths.login;
+      }
+
+      if (location == RoutePaths.login && !onboardingComplete) {
+        return RoutePaths.onboarding;
       }
 
       if (location == RoutePaths.login && isAuthenticated) {
@@ -44,6 +60,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: <RouteBase>[
       // Primary surfaces: Now, Plan, Add, Reflect, Settings.
+      GoRoute(
+        path: RoutePaths.onboarding,
+        builder: (BuildContext context, GoRouterState state) => const OnboardingScreen(),
+      ),
       GoRoute(
         path: RoutePaths.home,
         builder: (BuildContext context, GoRouterState state) => const NavigationShell(),
