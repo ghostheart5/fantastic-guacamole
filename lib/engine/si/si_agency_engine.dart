@@ -1,59 +1,74 @@
-class AgencyDecision {
-  const AgencyDecision({
-    required this.autonomyLevel,
-    required this.shouldAct,
-    required this.action,
-    required this.reason,
-    required this.decisionConfidence,
+// lib/engine/si/si_agency_engine.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class AgencyProfile {
+  const AgencyProfile({
+    required this.userControl,
+    required this.autonomyRisk,
+    required this.permissionNeeded,
+    required this.allowedAction,
+    required this.guidance,
   });
 
-  final String autonomyLevel;
-  final bool shouldAct;
-  final String action;
-  final String reason;
-  final double decisionConfidence;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'autonomy_level': autonomyLevel,
-      'should_act': shouldAct,
-      'action': action,
-      'reason': reason,
-      'decision_confidence': decisionConfidence,
-    };
-  }
+  final double userControl;
+  final double autonomyRisk;
+  final bool permissionNeeded;
+  final String allowedAction;
+  final String guidance;
 }
 
-class AgencyEngine {
-  const AgencyEngine();
+class SIAgencyEngine {
+  const SIAgencyEngine();
 
-  AgencyDecision decide({
-    required String intent,
-    required double confidence,
-    required bool policyAllows,
+  AgencyProfile evaluate({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    SIDecision? decision,
   }) {
-    final bool actionableIntent =
-        intent == 'start_focus' || intent == 'get_task';
-    final bool shouldAct =
-        actionableIntent && confidence >= 0.55 && policyAllows;
+    final String action = decision?.action ?? _action(intent.primary.label);
+    final bool destructive = _destructive(action);
+    final bool uncertain = intent.confidence < 0.55 || instinct.reduceConfusion;
+    final bool overloaded =
+        instinct.avoidOverwhelm || context.userState.cognitiveLoad >= 0.72;
 
-    final String action;
-    if (shouldAct && intent == 'start_focus') {
-      action = 'suggest_focus_start';
-    } else if (shouldAct && intent == 'get_task') {
-      action = 'suggest_next_task';
-    } else {
-      action = 'request_clarification';
-    }
-
-    return AgencyDecision(
-      autonomyLevel: shouldAct ? 'bounded_autonomous' : 'assistive',
-      shouldAct: shouldAct,
-      action: action,
-      reason: shouldAct
-          ? 'Intent is actionable and confidence exceeds threshold.'
-          : 'Insufficient confidence or non-actionable intent.',
-      decisionConfidence: confidence,
+    final double risk = siClamp01(
+      (destructive ? 0.45 : 0) +
+          (uncertain ? 0.25 : 0) +
+          (overloaded ? 0.2 : 0) +
+          (instinct.safetyFirst ? 0.25 : 0),
     );
+
+    return AgencyProfile(
+      userControl: siClamp01(1 - risk),
+      autonomyRisk: risk,
+      permissionNeeded: destructive || risk >= 0.55,
+      allowedAction: risk >= 0.75 ? 'respond_conversationally' : action,
+      guidance: risk >= 0.55
+          ? 'Ask before acting and preserve user control.'
+          : 'Proceed with guidance while keeping user choice explicit.',
+    );
+  }
+
+  String _action(String intent) {
+    switch (intent) {
+      case 'start_focus':
+        return 'launch_focus_session';
+      case 'get_task':
+        return 'present_task_recommendation';
+      case 'reflect':
+        return 'open_reflection_flow';
+      case 'insight_request':
+        return 'show_insight_summary';
+      default:
+        return 'respond_conversationally';
+    }
+  }
+
+  bool _destructive(String action) {
+    return action.contains('delete') ||
+        action.contains('reset') ||
+        action.contains('clear');
   }
 }

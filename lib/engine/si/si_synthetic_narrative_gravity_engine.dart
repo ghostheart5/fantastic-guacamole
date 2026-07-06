@@ -1,67 +1,57 @@
-class NarrativeGravity {
-  const NarrativeGravity({
-    required this.strongArcs,
-    required this.weakArcs,
-    required this.brokenArcs,
-    required this.emergingArcs,
-    required this.emotionalArcs,
+// lib/engine/si/si_synthetic_narrative_gravity_engine.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/si_user_narrative_engine.dart';
+
+class SINarrativeGravity {
+  const SINarrativeGravity({
+    required this.center,
     required this.pull,
+    required this.guidance,
+    required this.memory,
   });
-
-  final List<String> strongArcs;
-  final List<String> weakArcs;
-  final List<String> brokenArcs;
-  final List<String> emergingArcs;
-  final List<String> emotionalArcs;
+  final String center;
   final double pull;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'strong_arcs': strongArcs,
-      'weak_arcs': weakArcs,
-      'broken_arcs': brokenArcs,
-      'emerging_arcs': emergingArcs,
-      'emotional_arcs': emotionalArcs,
-      'pull': pull,
-    };
-  }
+  final String guidance;
+  final SIMemoryStore memory;
 }
 
-class SyntheticNarrativeGravityEngine {
-  const SyntheticNarrativeGravityEngine();
+class SISyntheticNarrativeGravityEngine {
+  const SISyntheticNarrativeGravityEngine();
 
-  NarrativeGravity evaluate({
-    required String intent,
-    required String mood,
-    required double continuity,
+  SINarrativeGravity calculate({
+    required UserNarrative narrative,
+    required SIContext context,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    final List<String> strong = <String>[
-      if (intent == 'start_focus') 'execution_arc',
-    ];
-    final List<String> weak = <String>[
-      if (intent == 'general_query') 'clarity_arc',
-    ];
-    final List<String> broken = <String>[
-      if (mood == 'stressed' && continuity < 0.5) 'confidence_arc',
-    ];
-    final List<String> emerging = <String>[
-      if (intent == 'reflect') 'insight_arc',
-    ];
-    final List<String> emotional = <String>[mood];
-    final double pull =
-        ((strong.length * 0.32) +
-                (emerging.length * 0.22) +
-                (emotional.length * 0.16) +
-                (continuity * 0.3) -
-                (broken.length * 0.18))
-            .clamp(0.0, 1.0);
-    return NarrativeGravity(
-      strongArcs: strong,
-      weakArcs: weak,
-      brokenArcs: broken,
-      emergingArcs: emerging,
-      emotionalArcs: emotional,
+    final t = now ?? DateTime.now();
+    final pull = siClamp01(
+      narrative.confidence * .4 +
+          (narrative.trajectory == 'improving' ? .25 : .1) +
+          (1 - context.userState.stress) * .25,
+    );
+    final center = '${narrative.arc}:${narrative.archetype}';
+    final next = memory
+        .pushRecord(
+          MemoryTier.midTerm,
+          MemoryRecord(
+            content:
+                'narrative_gravity|center=$center|pull=${pull.toStringAsFixed(2)}',
+            timestamp: t,
+            relevance: pull,
+            confidence: .7,
+            emotionalWeight: context.userState.stress,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SINarrativeGravity(
+      center: center,
       pull: pull,
+      guidance: pull >= .65
+          ? 'frame_output_with_narrative'
+          : 'keep_narrative_subtle',
+      memory: next,
     );
   }
 }

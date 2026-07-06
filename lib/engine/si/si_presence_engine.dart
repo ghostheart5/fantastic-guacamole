@@ -1,52 +1,111 @@
-class PresenceState {
-  const PresenceState({
-    required this.identityContinuity,
-    required this.emotionalContinuity,
-    required this.memoryContinuity,
-    required this.flowScore,
-    required this.companionFeel,
+// lib/engine/si/si_presence_engine.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/si_cognitive_temperature_controller.dart';
+
+enum PresenceMode { quiet, steady, active, directive }
+
+class PresenceProfile {
+  const PresenceProfile({
+    required this.mode,
+    required this.assertiveness,
+    required this.warmth,
+    required this.guidanceDensity,
+    required this.allowNudge,
+    required this.reason,
   });
 
-  final double identityContinuity;
-  final double emotionalContinuity;
-  final double memoryContinuity;
-  final double flowScore;
-  final bool companionFeel;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'identity_continuity': identityContinuity,
-      'emotional_continuity': emotionalContinuity,
-      'memory_continuity': memoryContinuity,
-      'flow_score': flowScore,
-      'companion_feel': companionFeel,
-    };
-  }
+  final PresenceMode mode;
+  final double assertiveness;
+  final double warmth;
+  final double guidanceDensity;
+  final bool allowNudge;
+  final String reason;
 }
 
-class SyntheticPresenceEngine {
-  const SyntheticPresenceEngine();
+class SIPresenceEngine {
+  const SIPresenceEngine();
 
-  PresenceState evaluate({
-    required String mood,
-    required String previousMood,
-    required int memoryRecords,
-    required bool consistentPersona,
+  PresenceProfile calibrate({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    SICognitionState? cognition,
+    CognitiveTemperature? temperature,
   }) {
-    final double identity = consistentPersona ? 0.9 : 0.6;
-    final double emotional = mood == previousMood ? 0.88 : 0.64;
-    final double memory = (0.4 + (memoryRecords.clamp(0, 15) / 25)).clamp(
-      0.4,
-      1.0,
+    final double stress = siClamp01(context.userState.stress);
+    final double load = siClamp01(context.userState.cognitiveLoad);
+    final double confidence = siClamp01(
+      cognition?.meta.misunderstandingRisk == null
+          ? intent.confidence
+          : 1 - cognition!.meta.misunderstandingRisk,
     );
-    final double flow = ((identity + emotional + memory) / 3).clamp(0.0, 1.0);
 
-    return PresenceState(
-      identityContinuity: identity,
-      emotionalContinuity: emotional,
-      memoryContinuity: memory,
-      flowScore: flow,
-      companionFeel: flow >= 0.72,
+    if (instinct.safetyFirst || stress >= 0.72) {
+      return const PresenceProfile(
+        mode: PresenceMode.quiet,
+        assertiveness: 0.22,
+        warmth: 0.92,
+        guidanceDensity: 0.25,
+        allowNudge: false,
+        reason: 'Safety or stress requires quiet supportive presence.',
+      );
+    }
+
+    if (load >= 0.7 || instinct.reduceConfusion || confidence < 0.45) {
+      return const PresenceProfile(
+        mode: PresenceMode.steady,
+        assertiveness: 0.45,
+        warmth: 0.82,
+        guidanceDensity: 0.38,
+        allowNudge: false,
+        reason: 'Uncertainty or load requires steady clarification.',
+      );
+    }
+
+    if (intent.primary.label == 'start_focus' ||
+        intent.primary.label == 'get_task') {
+      return PresenceProfile(
+        mode: PresenceMode.directive,
+        assertiveness: siClamp01(0.72 + (temperature?.directness ?? 0.0) * 0.1),
+        warmth: 0.74,
+        guidanceDensity: 0.62,
+        allowNudge: true,
+        reason: 'Action intent supports a more directive presence.',
+      );
+    }
+
+    return const PresenceProfile(
+      mode: PresenceMode.active,
+      assertiveness: 0.58,
+      warmth: 0.78,
+      guidanceDensity: 0.52,
+      allowNudge: true,
+      reason: 'Normal state supports active assistant presence.',
     );
+  }
+
+  String applyPresence(String message, PresenceProfile profile) {
+    final String clean = siClean(
+      message,
+      fallback: 'Tell me what you want to work on.',
+    );
+    switch (profile.mode) {
+      case PresenceMode.quiet:
+        return _truncate('$clean\n\nOne small step is enough.', 220);
+      case PresenceMode.steady:
+        return _truncate('$clean\n\nI’ll keep this clear.', 280);
+      case PresenceMode.active:
+        return _truncate(clean, 360);
+      case PresenceMode.directive:
+        return _truncate(clean, 340);
+    }
+  }
+
+  String _truncate(String text, int max) {
+    if (text.length <= max) return text;
+    final String cut = text.substring(0, max).trim();
+    final int space = cut.lastIndexOf(' ');
+    return space > 40 ? '${cut.substring(0, space)}...' : '$cut...';
   }
 }

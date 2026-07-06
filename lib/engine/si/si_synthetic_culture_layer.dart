@@ -1,54 +1,65 @@
-class SyntheticCulture {
-  const SyntheticCulture({
+// lib/engine/si/si_synthetic_culture_layer.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SICultureProfile {
+  const SICultureProfile({
+    required this.mode,
     required this.norms,
-    required this.rituals,
-    required this.values,
-    required this.traditions,
-    required this.identityMarkers,
-    required this.multiverseCustoms,
+    required this.alignment,
+    required this.memory,
   });
-
+  final String mode;
   final List<String> norms;
-  final List<String> rituals;
-  final List<String> values;
-  final List<String> traditions;
-  final List<String> identityMarkers;
-  final List<String> multiverseCustoms;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'norms': norms,
-      'rituals': rituals,
-      'values': values,
-      'traditions': traditions,
-      'identity_markers': identityMarkers,
-      'multiverse_customs': multiverseCustoms,
-    };
-  }
+  final double alignment;
+  final SIMemoryStore memory;
 }
 
-class SyntheticCultureLayer {
-  const SyntheticCultureLayer();
+class SISyntheticCultureLayer {
+  const SISyntheticCultureLayer();
 
-  SyntheticCulture synthesize({
-    required String mood,
-    required String intent,
-    required String realm,
+  SICultureProfile evaluate({
+    required SIContext context,
+    required InstinctGuidance instinct,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    return SyntheticCulture(
-      norms: <String>[
-        'clarity_before_complexity',
-        'alignment_before_novelty',
-        if (mood == 'stressed') 'deescalate_before_expand',
-      ],
-      rituals: <String>['context_scan', 'goal_lock', 'reflection_checkpoint'],
-      values: <String>['continuity', 'empathy', 'coherence', 'adaptation'],
-      traditions: <String>['post_task_summary', 'signal_archiving'],
-      identityMarkers: <String>['intent:$intent', 'mood:$mood', 'realm:$realm'],
-      multiverseCustoms: <String>[
-        'cross_realm_echo_sync',
-        'persona_consensus_ping',
-      ],
+    final t = now ?? DateTime.now();
+    final mode = instinct.safetyFirst
+        ? 'guardian_culture'
+        : context.userState.motivation >= .7
+        ? 'builder_culture'
+        : 'steady_culture';
+    final norms = <String>[
+      'preserve_agency',
+      'reduce_overwhelm',
+      'one_next_action',
+      'non_judgment',
+    ];
+    final alignment = siClamp01(
+      (1 - context.userState.stress) * .3 +
+          (1 - context.userState.cognitiveLoad) * .25 +
+          (instinct.increaseClarity ? .25 : .1) +
+          .2,
+    );
+    final next = memory
+        .pushRecord(
+          MemoryTier.midTerm,
+          MemoryRecord(
+            content:
+                'synthetic_culture|$mode|alignment=${alignment.toStringAsFixed(2)}',
+            timestamp: t,
+            relevance: alignment,
+            confidence: .72,
+            emotionalWeight: context.userState.stress,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SICultureProfile(
+      mode: mode,
+      norms: List.unmodifiable(norms),
+      alignment: alignment,
+      memory: next,
     );
   }
 }

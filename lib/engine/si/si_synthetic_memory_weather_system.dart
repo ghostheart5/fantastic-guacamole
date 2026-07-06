@@ -1,63 +1,117 @@
-class MemoryWeather {
-  const MemoryWeather({
-    required this.type,
-    required this.intensity,
-    required this.reasoningImpact,
+// lib/engine/si/si_synthetic_memory_weather_system.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/si_synthetic_attention_system.dart';
+import 'package:fantastic_guacamole/engine/si/si_synthetic_intuition.dart';
+
+enum MemoryWeatherCondition { clear, active, stormy, stale, heavy }
+
+class MemoryWeatherProfile {
+  const MemoryWeatherProfile({
+    required this.condition,
+    required this.emotionalIntensity,
+    required this.usageFrequency,
+    required this.decayPressure,
+    required this.attentionBias,
+    required this.intuitionBias,
+    required this.memory,
   });
 
-  final String type;
-  final double intensity;
-  final String reasoningImpact;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'type': type,
-      'intensity': intensity,
-      'reasoning_impact': reasoningImpact,
-    };
-  }
+  final MemoryWeatherCondition condition;
+  final double emotionalIntensity;
+  final double usageFrequency;
+  final double decayPressure;
+  final double attentionBias;
+  final double intuitionBias;
+  final SIMemoryStore memory;
 }
 
-class SyntheticMemoryWeatherSystem {
-  const SyntheticMemoryWeatherSystem();
+class SISyntheticMemoryWeatherSystem {
+  const SISyntheticMemoryWeatherSystem();
 
-  MemoryWeather forecast({
-    required String mood,
-    required bool memoryConflict,
-    required double confidence,
+  MemoryWeatherProfile evaluate({
+    required SIMemoryStore memory,
+    required SIContext context,
+    AttentionProfile? attention,
+    SyntheticIntuitionResult? intuition,
+    DateTime? now,
   }) {
-    if (memoryConflict) {
-      return const MemoryWeather(
-        type: 'turbulence',
-        intensity: 0.78,
-        reasoningImpact: 'Slow reasoning and reconcile conflicting traces.',
-      );
-    }
-    if (mood == 'stressed') {
-      return const MemoryWeather(
-        type: 'storm',
-        intensity: 0.74,
-        reasoningImpact: 'Prioritize stabilization and simplified recall.',
-      );
-    }
-    if (confidence < 0.5) {
-      return const MemoryWeather(
-        type: 'fog',
-        intensity: 0.62,
-        reasoningImpact: 'Increase clarification and confidence checks.',
-      );
-    }
-    if (confidence > 0.75) {
-      return const MemoryWeather(
-        type: 'clarity',
-        intensity: 0.8,
-        reasoningImpact: 'Trust high-relevance memory paths.',
-      );
-    }
-    return const MemoryWeather(
-      type: 'calm',
-      intensity: 0.45,
-      reasoningImpact: 'Use balanced retrieval and pattern matching.',
+    final DateTime t = now ?? DateTime.now();
+    final List<MemoryRecord> records = <MemoryRecord>[
+      ...memory.tiered.shortTerm,
+      ...memory.tiered.midTerm,
+      ...memory.tiered.longTerm,
+    ];
+
+    final double emotional = records.isEmpty
+        ? siClamp01(context.userState.stress)
+        : siClamp01(
+            records.fold<double>(
+                  0,
+                  (double s, MemoryRecord r) =>
+                      s + siClamp01(r.emotionalWeight),
+                ) /
+                records.length,
+          );
+
+    final double usage = siClamp01(memory.tiered.shortTerm.length / 10);
+    final double decay = records.isEmpty
+        ? 0.2
+        : siClamp01(
+            records.where((MemoryRecord r) => r.score(t) < 0.25).length /
+                records.length,
+          );
+
+    final MemoryWeatherCondition condition = _condition(
+      emotional,
+      usage,
+      decay,
     );
+
+    final double attentionBias = siClamp01(
+      (attention?.focusScore ?? 0.5) + (usage * 0.15) - (decay * 0.12),
+    );
+
+    final double intuitionBias = siClamp01(
+      (intuition?.score ?? 0.5) + ((1 - emotional) * 0.1) - (decay * 0.1),
+    );
+
+    final SIMemoryStore nextMemory = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content:
+                'memory_weather|${condition.name}|emotional=${emotional.toStringAsFixed(2)}|usage=${usage.toStringAsFixed(2)}|decay=${decay.toStringAsFixed(2)}',
+            timestamp: t,
+            relevance: attentionBias,
+            confidence: 0.72,
+            emotionalWeight: emotional,
+            reinforcement: condition == MemoryWeatherCondition.clear ? 1 : 0,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+
+    return MemoryWeatherProfile(
+      condition: condition,
+      emotionalIntensity: emotional,
+      usageFrequency: usage,
+      decayPressure: decay,
+      attentionBias: attentionBias,
+      intuitionBias: intuitionBias,
+      memory: nextMemory,
+    );
+  }
+
+  MemoryWeatherCondition _condition(
+    double emotional,
+    double usage,
+    double decay,
+  ) {
+    if (emotional >= 0.7 && usage >= 0.55) return MemoryWeatherCondition.stormy;
+    if (decay >= 0.55) return MemoryWeatherCondition.stale;
+    if (emotional >= 0.65) return MemoryWeatherCondition.heavy;
+    if (usage >= 0.55) return MemoryWeatherCondition.active;
+    return MemoryWeatherCondition.clear;
   }
 }

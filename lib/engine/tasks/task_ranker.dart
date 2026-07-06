@@ -19,6 +19,8 @@ class TaskRanker {
     required LearningState learning,
     required double energy,
     double fatigue = 0.0,
+    double priorityScale = 1.0,
+    double difficultyScale = 1.0,
     DateTime? now,
     SiStateEntity? siState,
   }) {
@@ -30,7 +32,15 @@ class TaskRanker {
         .map(
           (t) => RankedTask(
             task: t,
-            score: _score(t, learning, energy, fatigue, ref),
+            score: _score(
+              t,
+              learning,
+              energy,
+              fatigue,
+              priorityScale,
+              difficultyScale,
+              ref,
+            ),
           ),
         )
         .toList()
@@ -43,6 +53,8 @@ class TaskRanker {
     required LearningState learning,
     required double energy,
     double fatigue = 0.0,
+    double priorityScale = 1.0,
+    double difficultyScale = 1.0,
     DateTime? now,
     SiStateEntity? siState,
   }) {
@@ -52,6 +64,8 @@ class TaskRanker {
       learning: learning,
       energy: energy,
       fatigue: fatigue,
+      priorityScale: priorityScale,
+      difficultyScale: difficultyScale,
       now: now,
       siState: siState,
     ).first.task;
@@ -70,6 +84,8 @@ class TaskRanker {
     LearningState learning,
     double energy,
     double fatigue,
+    double priorityScale,
+    double difficultyScale,
     DateTime now,
   ) {
     final double energyNeed = task.energyRequired / 5.0;
@@ -78,10 +94,16 @@ class TaskRanker {
       1.0,
     );
 
-    double score = task.priority * learning.priorityWeight * 10.0;
+    double score =
+        task.priority * learning.priorityWeight * priorityScale * 10.0;
     score += energyMatch * 12.0;
     score += (1.0 - fatigue) * 6.0;
-    score -= task.difficulty * learning.effortWeight * fatigue * 4.0;
+    score -=
+        task.difficulty *
+        learning.effortWeight *
+        difficultyScale *
+        fatigue *
+        4.0;
 
     if (energy >= energyNeed) score += 4.0;
     if (fatigue > 0.7 && task.difficulty <= 2) score += 3.0;

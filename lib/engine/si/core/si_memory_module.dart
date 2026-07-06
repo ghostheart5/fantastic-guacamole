@@ -1,189 +1,94 @@
-// Module 8 — Memory
-// Pipeline step: SIContext + SIDecision + SIResponse → SIMemoryUpdate
-// Merges: si_memory + si_tiered_memory + si_snapshot (and all memory layers)
+// lib/engine/si/core/si_memory_module.dart
 
-// ─── Data contracts ───────────────────────────────────────────────────────────
-
-class SISnapshot {
-  const SISnapshot({
-    required this.timestamp,
-    required this.energy,
-    required this.fatigue,
-    required this.completed,
-    required this.skipped,
-    this.taskId,
-    this.reasoning,
-  });
-
-  final DateTime timestamp;
-  final double energy;
-  final double fatigue;
-  final int completed;
-  final int skipped;
-  final String? taskId;
-  final String? reasoning;
-}
-
-enum MemoryTier { shortTerm, midTerm, longTerm }
-
-class MemoryRecord {
-  MemoryRecord({
-    required this.content,
-    required this.timestamp,
-    this.relevance = 0.5,
-    this.recency = 1.0,
-    this.confidence = 0.5,
-    this.emotionalWeight = 0.5,
-    this.reinforcement = 0,
-  });
-
-  final String content;
-  final DateTime timestamp;
-  final double relevance;
-  final double recency;
-  final double confidence;
-  final double emotionalWeight;
-  final int reinforcement;
-
-  double score(DateTime now) {
-    final int ageHours = now.difference(timestamp).inHours;
-    final double decay = (1 - (ageHours / 240)).clamp(0.15, 1.0);
-    return ((relevance * 0.35) +
-            (recency * 0.25) +
-            (confidence * 0.2) +
-            (emotionalWeight * 0.2)) *
-        decay *
-        (1 + reinforcement * 0.05);
-  }
-}
-
-class SITieredMemory {
-  const SITieredMemory({
-    this.shortTerm = const <MemoryRecord>[],
-    this.midTerm = const <MemoryRecord>[],
-    this.longTerm = const <MemoryRecord>[],
-  });
-
-  final List<MemoryRecord> shortTerm;
-  final List<MemoryRecord> midTerm;
-  final List<MemoryRecord> longTerm;
-
-  SITieredMemory push(MemoryTier tier, MemoryRecord record) {
-    switch (tier) {
-      case MemoryTier.shortTerm:
-        return SITieredMemory(
-          shortTerm: <MemoryRecord>[record, ...shortTerm].take(10).toList(),
-          midTerm: midTerm,
-          longTerm: longTerm,
-        );
-      case MemoryTier.midTerm:
-        return SITieredMemory(
-          shortTerm: shortTerm,
-          midTerm: <MemoryRecord>[record, ...midTerm].take(40).toList(),
-          longTerm: longTerm,
-        );
-      case MemoryTier.longTerm:
-        return SITieredMemory(
-          shortTerm: shortTerm,
-          midTerm: midTerm,
-          longTerm: <MemoryRecord>[record, ...longTerm].take(200).toList(),
-        );
-    }
-  }
-
-  SITieredMemory decay(DateTime now) {
-    List<MemoryRecord> filter(List<MemoryRecord> items, double threshold) =>
-        items.where((MemoryRecord r) => r.score(now) >= threshold).toList();
-
-    return SITieredMemory(
-      shortTerm: filter(shortTerm, 0.25),
-      midTerm: filter(midTerm, 0.2),
-      longTerm: filter(longTerm, 0.15),
-    );
-  }
-}
-
-class SIMemoryStore {
-  const SIMemoryStore({
-    this.snapshots = const <SISnapshot>[],
-    this.tiered = const SITieredMemory(),
-  });
-
-  final List<SISnapshot> snapshots;
-  final SITieredMemory tiered;
-
-  SISnapshot? get latest => snapshots.isEmpty ? null : snapshots.first;
-
-  SIMemoryStore pushSnapshot(SISnapshot snapshot, {int max = 24}) {
-    final List<SISnapshot> next = <SISnapshot>[snapshot, ...snapshots];
-    return SIMemoryStore(
-      snapshots: next.length > max ? next.take(max).toList() : next,
-      tiered: tiered,
-    );
-  }
-
-  SIMemoryStore pushRecord(MemoryTier tier, MemoryRecord record) {
-    return SIMemoryStore(
-      snapshots: snapshots,
-      tiered: tiered.push(tier, record),
-    );
-  }
-
-  SIMemoryStore decay() {
-    return SIMemoryStore(
-      snapshots: snapshots,
-      tiered: tiered.decay(DateTime.now()),
-    );
-  }
-
-  SIMemoryStore clear() => const SIMemoryStore();
-}
-
-class SIMemoryUpdate {
-  const SIMemoryUpdate({required this.store, required this.addedSnapshot});
-
-  final SIMemoryStore store;
-  final SISnapshot addedSnapshot;
-}
-
-// ─── Module ───────────────────────────────────────────────────────────────────
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 
 class SIMemoryModule {
   const SIMemoryModule();
 
   SIMemoryUpdate update({
     required SIMemoryStore current,
-    required double energy,
-    required double fatigue,
-    required int completed,
-    required int skipped,
-    String? taskId,
-    String? reasoning,
+    required SIContext context,
+    required SIDecision decision,
+    required SIResponse response,
   }) {
+    final DateTime now = DateTime.now();
+    final double energy = siClamp01(context.userState.motivation);
+    final double fatigue = siClamp01(context.userState.fatigue);
+
+    final int completed = _intFrom(context, 'completed');
+    final int skipped = _intFrom(context, 'skipped');
+
     final SISnapshot snapshot = SISnapshot(
-      timestamp: DateTime.now(),
+      timestamp: now,
       energy: energy,
       fatigue: fatigue,
       completed: completed,
       skipped: skipped,
-      taskId: taskId,
-      reasoning: reasoning,
+      taskId: _taskId(context, decision),
+      reasoning: decision.reasoning,
     );
 
     final MemoryRecord record = MemoryRecord(
-      content: reasoning ?? 'session_update',
-      timestamp: snapshot.timestamp,
-      relevance: energy,
+      content: _recordContent(decision, response),
+      timestamp: now,
+      relevance: _relevance(decision, context),
       recency: 1.0,
-      confidence: 0.7,
+      confidence: decision.confidence,
       emotionalWeight: fatigue,
+      reinforcement: _reinforcement(completed, skipped, decision.safe),
     );
 
     final SIMemoryStore updated = current
         .pushSnapshot(snapshot)
         .pushRecord(MemoryTier.shortTerm, record)
-        .decay();
+        .dedupe()
+        .decay(now);
 
     return SIMemoryUpdate(store: updated, addedSnapshot: snapshot);
+  }
+
+  int _intFrom(SIContext context, String key) {
+    final Object? value =
+        context.input.metadata[key] ?? context.input.context[key];
+    if (value is int) return value.clamp(0, 9999);
+    if (value is num) return value.toInt().clamp(0, 9999);
+    return 0;
+  }
+
+  String? _taskId(SIContext context, SIDecision decision) {
+    final Object? explicit =
+        context.input.metadata['taskId'] ?? context.input.context['taskId'];
+    final String clean = siClean(explicit?.toString());
+    if (clean.isNotEmpty) return clean;
+    final String title = siClean(decision.task?.title);
+    return title.isEmpty ? null : title;
+  }
+
+  String _recordContent(SIDecision decision, SIResponse response) {
+    final String action = siClean(decision.action, fallback: 'respond');
+    final String task = siClean(decision.task?.title);
+    final String msg = siClean(response.message, fallback: decision.reasoning);
+    final String content = task.isEmpty
+        ? '$action | $msg'
+        : '$action | $task | $msg';
+    return content.length <= 360 ? content : '${content.substring(0, 357)}...';
+  }
+
+  double _relevance(SIDecision decision, SIContext context) {
+    final double actionWeight =
+        decision.action == 'present_task_recommendation' ||
+            decision.action == 'launch_focus_session'
+        ? 0.85
+        : 0.65;
+    return siClamp01(
+      (actionWeight + decision.confidence + context.userState.engagement) / 3,
+    );
+  }
+
+  int _reinforcement(int completed, int skipped, bool safe) {
+    if (!safe) return 0;
+    if (completed > skipped) return 2;
+    if (completed == skipped && completed > 0) return 1;
+    return 0;
   }
 }

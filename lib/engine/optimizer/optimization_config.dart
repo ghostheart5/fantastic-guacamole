@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 class OptimizationConfig {
   const OptimizationConfig({
     required this.focusDurationMultiplier,
@@ -19,21 +17,25 @@ class OptimizationConfig {
 
   OptimizationConfig lerp(OptimizationConfig other, double t) {
     return OptimizationConfig(
-      focusDurationMultiplier: lerpDouble(
+      focusDurationMultiplier: _lerp(
         focusDurationMultiplier,
         other.focusDurationMultiplier,
         t,
-      )!,
-      taskDifficultyScale: lerpDouble(
+      ),
+      taskDifficultyScale: _lerp(
         taskDifficultyScale,
         other.taskDifficultyScale,
         t,
-      )!,
-      nextActionAggressiveness: lerpDouble(
+      ),
+      nextActionAggressiveness: _lerp(
         nextActionAggressiveness,
         other.nextActionAggressiveness,
         t,
-      )!,
+      ),
     );
+  }
+
+  static double _lerp(double start, double end, double amount) {
+    return start + (end - start) * amount;
   }
 }

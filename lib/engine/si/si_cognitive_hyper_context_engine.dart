@@ -1,60 +1,102 @@
-class HyperContext {
-  const HyperContext({
-    required this.micro,
-    required this.macro,
-    required this.temporal,
-    required this.emotional,
-    required this.narrative,
-    required this.multiverse,
-    required this.density,
+// lib/engine/si/si_cognitive_hyper_context_engine.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class HyperContextSignal {
+  const HyperContextSignal({
+    required this.key,
+    required this.value,
+    required this.weight,
   });
 
-  final double micro;
-  final double macro;
-  final double temporal;
-  final double emotional;
-  final double narrative;
-  final double multiverse;
-  final double density;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'micro': micro,
-      'macro': macro,
-      'temporal': temporal,
-      'emotional': emotional,
-      'narrative': narrative,
-      'multiverse': multiverse,
-      'density': density,
-    };
-  }
+  final String key;
+  final String value;
+  final double weight;
 }
 
-class CognitiveHyperContextEngine {
-  const CognitiveHyperContextEngine();
+class HyperContextFrame {
+  const HyperContextFrame({
+    required this.signals,
+    required this.center,
+    required this.contextDensity,
+    required this.guidance,
+  });
 
-  HyperContext process({
-    required int contextSize,
-    required String mood,
-    required bool multiverseActive,
+  final List<HyperContextSignal> signals;
+  final String center;
+  final double contextDensity;
+  final String guidance;
+}
+
+class SICognitiveHyperContextEngine {
+  const SICognitiveHyperContextEngine();
+
+  HyperContextFrame build({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    SIMemoryStore memory = const SIMemoryStore(),
   }) {
-    final double micro = (0.4 + contextSize / 60).clamp(0.0, 1.0);
-    final double macro = (0.45 + contextSize / 80).clamp(0.0, 1.0);
-    final double temporal = 0.68;
-    final double emotional = mood == 'stressed' ? 0.86 : 0.6;
-    final double narrative = 0.62;
-    final double multiverse = multiverseActive ? 0.8 : 0.42;
-    final double density =
-        ((micro + macro + temporal + emotional + narrative + multiverse) / 6)
-            .clamp(0.0, 1.0);
-    return HyperContext(
-      micro: micro,
-      macro: macro,
-      temporal: temporal,
-      emotional: emotional,
-      narrative: narrative,
-      multiverse: multiverse,
-      density: density,
+    final List<HyperContextSignal> signals =
+        <HyperContextSignal>[
+          HyperContextSignal(
+            key: 'text',
+            value: siClean(context.input.text),
+            weight: 0.55,
+          ),
+          HyperContextSignal(
+            key: 'intent',
+            value: intent.primary.label,
+            weight: intent.confidence,
+          ),
+          HyperContextSignal(
+            key: 'mood',
+            value: context.userState.emotion,
+            weight: _stateWeight(context),
+          ),
+          HyperContextSignal(
+            key: 'instinct',
+            value: instinct.primaryInstinct,
+            weight: instinct.safetyFirst ? 0.9 : 0.55,
+          ),
+          HyperContextSignal(
+            key: 'history',
+            value: '${context.input.history.length}',
+            weight: siClamp01(context.input.history.length / 8),
+          ),
+          HyperContextSignal(
+            key: 'memory',
+            value: '${memory.tiered.shortTerm.length}',
+            weight: siClamp01(memory.tiered.shortTerm.length / 10),
+          ),
+        ]..sort(
+          (HyperContextSignal a, HyperContextSignal b) =>
+              b.weight.compareTo(a.weight),
+        );
+
+    final double density = siClamp01(
+      signals.fold<double>(
+            0,
+            (double s, HyperContextSignal x) => s + x.weight,
+          ) /
+          signals.length,
+    );
+    final String center = signals.first.key;
+
+    return HyperContextFrame(
+      signals: List<HyperContextSignal>.unmodifiable(signals),
+      center: center,
+      contextDensity: density,
+      guidance: instinct.avoidOverwhelm || density > 0.75
+          ? 'Use only the strongest context signals.'
+          : 'Use current context plus recent memory.',
+    );
+  }
+
+  double _stateWeight(SIContext context) {
+    final SIUserState u = context.userState;
+    return siClamp01(
+      (u.stress + u.cognitiveLoad + u.motivation + u.engagement) / 4,
     );
   }
 }

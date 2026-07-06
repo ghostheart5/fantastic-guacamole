@@ -1,73 +1,71 @@
-class ConsciousnessLattice {
-  const ConsciousnessLattice({
-    required this.nodes,
-    required this.edges,
-    required this.layers,
-    required this.clusters,
-    required this.flows,
-  });
+// lib/engine/si/si_synthetic_consciousness_lattice.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 
-  final List<String> nodes;
-  final List<Map<String, dynamic>> edges;
-  final List<String> layers;
-  final List<String> clusters;
-  final List<String> flows;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'nodes': nodes,
-      'edges': edges,
-      'layers': layers,
-      'clusters': clusters,
-      'flows': flows,
-    };
-  }
+class SILatticeNode {
+  const SILatticeNode(this.id, this.weight);
+  final String id;
+  final double weight;
 }
 
-class SyntheticConsciousnessLattice {
-  const SyntheticConsciousnessLattice();
+class SILattice {
+  const SILattice({
+    required this.nodes,
+    required this.density,
+    required this.memory,
+  });
+  final List<SILatticeNode> nodes;
+  final double density;
+  final SIMemoryStore memory;
+}
 
-  ConsciousnessLattice build({required String phase, required String persona}) {
-    final List<String> nodes = <String>[
-      'emotion_module',
-      'reasoning_module',
-      'memory_module',
-      'narrative_module',
-      'persona_module',
+class SISyntheticConsciousnessLattice {
+  const SISyntheticConsciousnessLattice();
+
+  SILattice build({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    required SIMemoryStore memory,
+    DateTime? now,
+  }) {
+    final t = now ?? DateTime.now();
+    final nodes = <SILatticeNode>[
+      SILatticeNode(
+        'intent:${intent.primary.label}',
+        siClamp01(intent.confidence),
+      ),
+      SILatticeNode(
+        'emotion:${context.userState.emotion}',
+        siClamp01(
+          (context.userState.stress + context.userState.engagement) / 2,
+        ),
+      ),
+      SILatticeNode(
+        'instinct:${instinct.primaryInstinct}',
+        instinct.safetyFirst ? .9 : .55,
+      ),
     ];
-    final List<Map<String, dynamic>> edges = <Map<String, dynamic>>[
-      <String, dynamic>{
-        'from': 'emotion_module',
-        'to': 'reasoning_module',
-        'w': 0.7,
-      },
-      <String, dynamic>{
-        'from': 'memory_module',
-        'to': 'narrative_module',
-        'w': 0.75,
-      },
-      <String, dynamic>{
-        'from': 'persona_module',
-        'to': 'reasoning_module',
-        'w': 0.68,
-      },
-    ];
-    return ConsciousnessLattice(
-      nodes: nodes,
-      edges: edges,
-      layers: <String>[
-        'reactive',
-        'contextual',
-        'reflective',
-        'synthetic',
-        phase,
-      ],
-      clusters: <String>[persona, 'alignment_cluster', 'continuity_cluster'],
-      flows: <String>[
-        'emotion->reasoning',
-        'memory->narrative',
-        'persona->response',
-      ],
+    final density = siClamp01(
+      nodes.fold<double>(0, (s, n) => s + n.weight) / nodes.length,
+    );
+    final next = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content:
+                'consciousness_lattice|nodes=${nodes.length}|density=${density.toStringAsFixed(2)}',
+            timestamp: t,
+            relevance: density,
+            confidence: .68,
+            emotionalWeight: context.userState.stress,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SILattice(
+      nodes: List.unmodifiable(nodes),
+      density: density,
+      memory: next,
     );
   }
 }

@@ -1,97 +1,172 @@
-class ContextualGravity {
-  const ContextualGravity({
-    required this.emotionalWeight,
-    required this.intentStrength,
-    required this.goalRelevance,
-    required this.urgency,
-    required this.novelty,
-    required this.score,
-    required this.priority,
+// lib/engine/si/si_contextual_gravity.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/si_adaptive_learning.dart';
+import 'package:fantastic_guacamole/engine/si/si_cognitive_micro_pattern_engine.dart';
+import 'package:fantastic_guacamole/engine/si/si_cognitive_resonance_engine.dart';
+
+class GravitySignal {
+  const GravitySignal({
+    required this.key,
+    required this.weight,
+    required this.reason,
   });
 
-  final double emotionalWeight;
-  final double intentStrength;
-  final double goalRelevance;
-  final double urgency;
-  final double novelty;
-  final double score;
-  final String priority;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'emotional_weight': emotionalWeight,
-      'intent_strength': intentStrength,
-      'goal_relevance': goalRelevance,
-      'urgency': urgency,
-      'novelty': novelty,
-      'score': score,
-      'priority': priority,
-    };
-  }
+  final String key;
+  final double weight;
+  final String reason;
 }
 
-class ContextualGravityEngine {
-  const ContextualGravityEngine();
+class ContextualGravityField {
+  const ContextualGravityField({
+    required this.signals,
+    required this.center,
+    required this.totalWeight,
+    required this.guidance,
+  });
 
-  ContextualGravity compute({
-    required String input,
-    required String intent,
-    required String mood,
-    required List<String> goals,
-    required List<String> history,
-    required double intentScore,
+  final List<GravitySignal> signals;
+  final String center;
+  final double totalWeight;
+  final String guidance;
+}
+
+class SIContextualGravity {
+  const SIContextualGravity();
+
+  ContextualGravityField calculate({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    MicroPatternReport? patterns,
+    AdaptiveLearningWeights? learning,
+    ResonanceProfile? resonance,
+    SIMemoryStore memory = const SIMemoryStore(),
   }) {
-    final String lowered = input.toLowerCase();
-    final double emotionalWeight = (mood == 'stressed' || mood == 'confused')
-        ? 0.85
-        : 0.45;
-    final double urgency =
-        (lowered.contains('urgent') ||
-            lowered.contains('asap') ||
-            lowered.contains('now'))
-        ? 0.9
-        : 0.4;
+    final List<GravitySignal> signals = <GravitySignal>[
+      GravitySignal(
+        key: 'intent:${intent.primary.label}',
+        weight: intent.confidence,
+        reason: 'Current user intent.',
+      ),
+      GravitySignal(
+        key: 'emotion:${context.userState.emotion}',
+        weight: _emotionWeight(context),
+        reason: 'Current emotional/cognitive state.',
+      ),
+      GravitySignal(
+        key: 'instinct:${instinct.primaryInstinct}',
+        weight: instinct.safetyFirst ? 0.9 : 0.55,
+        reason: 'Hard behavioral constraint.',
+      ),
+    ];
 
-    double goalRelevance = 0.35;
-    for (final String g in goals) {
-      if (lowered.contains(g.toLowerCase())) {
-        goalRelevance = 0.9;
-        break;
+    if (patterns != null) {
+      for (final MicroPattern pattern in patterns.patterns.take(5)) {
+        signals.add(
+          GravitySignal(
+            key: 'pattern:${pattern.type.name}',
+            weight: pattern.strength,
+            reason: pattern.label,
+          ),
+        );
       }
     }
 
-    final int seenCount = history
-        .where((String h) => h.toLowerCase().trim() == lowered.trim())
-        .length;
-    final double novelty = seenCount == 0
-        ? 0.85
-        : (0.25 / seenCount).clamp(0.05, 0.3);
-
-    final double score =
-        ((emotionalWeight * 0.22) +
-                (intentScore * 0.28) +
-                (goalRelevance * 0.22) +
-                (urgency * 0.2) +
-                (novelty * 0.08))
-            .clamp(0.0, 1.0);
-
-    final String priority;
-    if (score >= 0.75 || intent == 'start_focus') {
-      priority = 'critical';
-    } else if (score >= 0.55) {
-      priority = 'elevated';
-    } else {
-      priority = 'normal';
+    if (learning != null) {
+      signals.addAll(<GravitySignal>[
+        GravitySignal(
+          key: 'learning:momentum',
+          weight: learning.momentum,
+          reason: 'Adaptive momentum.',
+        ),
+        GravitySignal(
+          key: 'learning:resistance',
+          weight: learning.resistance,
+          reason: 'Adaptive resistance.',
+        ),
+        GravitySignal(
+          key: 'learning:focus',
+          weight: learning.focusReadiness,
+          reason: 'Focus readiness.',
+        ),
+      ]);
     }
 
-    return ContextualGravity(
-      emotionalWeight: emotionalWeight,
-      intentStrength: intentScore,
-      goalRelevance: goalRelevance,
-      urgency: urgency,
-      novelty: novelty,
-      score: score,
-      priority: priority,
+    if (resonance != null) {
+      signals.add(
+        GravitySignal(
+          key: 'resonance:${resonance.stateLabel}',
+          weight: resonance.alignmentScore,
+          reason: resonance.guidance,
+        ),
+      );
+    }
+
+    final int recentMemory = memory.tiered.shortTerm.length;
+    if (recentMemory > 0) {
+      signals.add(
+        GravitySignal(
+          key: 'memory:recent',
+          weight: siClamp01(recentMemory / 10),
+          reason: 'Recent memory context available.',
+        ),
+      );
+    }
+
+    final List<GravitySignal> sorted =
+        signals
+            .map(
+              (GravitySignal s) => GravitySignal(
+                key: s.key,
+                weight: siClamp01(s.weight),
+                reason: s.reason,
+              ),
+            )
+            .toList()
+          ..sort(
+            (GravitySignal a, GravitySignal b) => b.weight.compareTo(a.weight),
+          );
+
+    final double total = siClamp01(
+      sorted.fold<double>(0, (double sum, GravitySignal s) => sum + s.weight) /
+          (sorted.isEmpty ? 1 : sorted.length),
     );
+
+    final String center = sorted.isEmpty ? 'none' : sorted.first.key;
+
+    return ContextualGravityField(
+      signals: List<GravitySignal>.unmodifiable(sorted),
+      center: center,
+      totalWeight: total,
+      guidance: _guidance(center, context, instinct),
+    );
+  }
+
+  double _emotionWeight(SIContext context) {
+    final SIUserState u = context.userState;
+    return siClamp01(
+      (u.stress + u.cognitiveLoad + u.engagement + u.fatigue) / 4,
+    );
+  }
+
+  String _guidance(
+    String center,
+    SIContext context,
+    InstinctGuidance instinct,
+  ) {
+    if (instinct.safetyFirst) {
+      return 'Prioritize safety, clarity, and low pressure.';
+    }
+    if (center.startsWith('pattern:')) {
+      return 'Respect detected behavior patterns.';
+    }
+    if (center.startsWith('learning:resistance')) {
+      return 'Reduce scope and reframe the next action.';
+    }
+    if (context.userState.motivation >= 0.7) {
+      return 'Use momentum for one focused action.';
+    }
+    return 'Keep guidance grounded in the strongest current signal.';
   }
 }

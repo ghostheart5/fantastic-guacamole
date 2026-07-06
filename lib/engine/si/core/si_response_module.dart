@@ -1,237 +1,269 @@
-// Module 7 — Response
-// Pipeline step: SIDecision + InstinctGuidance → SIResponse
-// Merges: si_response_engine + ai_response + si_personality_engine + si_emotion_engine + style
+// lib/engine/si/core/si_response_module.dart
 
-import 'package:fantastic_guacamole/data/models/task.dart';
-import 'package:fantastic_guacamole/engine/si/core/si_input_module.dart';
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/si/offline/identity_engine.dart';
-
-// ─── Data contracts ───────────────────────────────────────────────────────────
-
-enum SIPersona { mentor, assistant, coach, companion, analyst }
-
-class PersonalityTraits {
-  const PersonalityTraits({
-    required this.warmth,
-    required this.directness,
-    required this.humor,
-    required this.curiosity,
-    required this.empathy,
-  });
-
-  final double warmth;
-  final double directness;
-  final double humor;
-  final double curiosity;
-  final double empathy;
-}
-
-class EmotionalSignal {
-  const EmotionalSignal({
-    required this.mood,
-    required this.intensity,
-    required this.shift,
-  });
-
-  final String mood;
-  final double intensity;
-  final String shift;
-}
-
-class SIResponse {
-  const SIResponse({
-    required this.message,
-    required this.emotion,
-    required this.persona,
-    required this.traits,
-    required this.confidence,
-    this.task,
-  });
-
-  final String message;
-  final String emotion;
-  final SIPersona persona;
-  final PersonalityTraits traits;
-  final double confidence;
-  final Task? task;
-
-  String get taskTitle => task?.title ?? 'No active tasks';
-}
-
-// ─── Module ───────────────────────────────────────────────────────────────────
 
 class SIResponseModule {
   const SIResponseModule();
 
   SIResponse generate({
-    required String intent,
-    required String mood,
-    required String reasoning,
-    required double confidence,
-    required bool safetyFirst,
-    required bool avoidOverwhelm,
-    required SILatentInputs latent,
-    Task? task,
+    required SIDecision decision,
+    required InstinctGuidance instinct,
+    required SIContext context,
+    SICognitionState? cognition,
     String? previousMood,
     IdentityState? identityState,
   }) {
-    final EmotionalSignal signal = _inferEmotion(
-      text: reasoning,
-      latent: latent,
-      previousMood: previousMood,
+    final double confidence = decision.confidence;
+    final EmotionalSignal signal = _emotion(
+      context,
+      decision.reasoning,
+      previousMood,
     );
-    final SIPersona persona = _choosePersona(mood: mood, intent: intent);
-    final PersonalityTraits traits = _traitsFor(persona);
+    final SIPersona persona = _persona(
+      decision,
+      instinct,
+      signal.mood,
+      confidence,
+    );
 
-    String message = _buildMessage(
-      intent: intent,
-      task: task,
-      confidence: confidence,
-      safetyFirst: safetyFirst,
+    String message = _message(decision, instinct, cognition, confidence);
+    message = _shape(message, signal, instinct);
+    message = _constrain(message, instinct, decision);
+    message = _identity(message, identityState);
+    message = siClean(
+      message,
+      fallback: 'Tell me the task, goal, or decision you want help with.',
     );
-    message = _shapeForEmotion(message, signal);
-    if (avoidOverwhelm && message.length > 280) {
-      message = _truncate(message, 280);
-    }
-    if (identityState != null) {
-      message = const IdentityEngine().reinforceIdentity(
-        identityState,
-        message,
-      );
-    }
 
     return SIResponse(
       message: message,
       emotion: signal.mood,
       persona: persona,
-      traits: traits,
+      traits: _traits(
+        persona,
+        safetyFirst: instinct.safetyFirst || !decision.safe,
+      ),
       confidence: confidence,
-      task: task,
+      task: decision.task,
     );
   }
 
-  EmotionalSignal _inferEmotion({
-    required String text,
-    required SILatentInputs latent,
+  EmotionalSignal _emotion(
+    SIContext context,
+    String text,
     String? previousMood,
-  }) {
-    final String lowered = text.toLowerCase();
-    String mood = 'neutral';
-    if (latent.frustration > 0.6 || lowered.contains('frustrated')) {
+  ) {
+    final SIUserState u = context.userState;
+    final SILatentInputs l = context.input.latent;
+    final String lower = text.toLowerCase();
+
+    final double stress = <double>[
+      siClamp01(u.stress),
+      siClamp01(u.frustration),
+      siClamp01(l.frustration),
+      lower.contains('stressed') ? 0.55 : 0,
+    ].reduce((double a, double b) => a > b ? a : b);
+
+    final double confusion = <double>[
+      siClamp01(l.confusion),
+      siClamp01(u.cognitiveLoad) >= 0.75 ? 0.65 : 0,
+      lower.contains('confused') ? 0.55 : 0,
+    ].reduce((double a, double b) => a > b ? a : b);
+
+    final double excitement = <double>[
+      siClamp01(u.excitement),
+      siClamp01(l.excitement),
+      lower.contains('excited') ? 0.5 : 0,
+    ].reduce((double a, double b) => a > b ? a : b);
+
+    String mood = siNormalizeMood(u.emotion);
+    if (stress >= 0.65) {
       mood = 'stressed';
-    } else if (latent.excitement > 0.6 || lowered.contains('excited')) {
-      mood = 'excited';
-    } else if (latent.confusion > 0.5 || lowered.contains('confused')) {
+    } else if (confusion >= 0.6) {
       mood = 'confused';
+    } else if (excitement >= 0.65 && stress < 0.5) {
+      mood = 'excited';
     }
 
-    final double intensity =
-        (latent.frustration +
-            latent.excitement +
-            latent.confusion +
-            latent.hesitation) /
-        4;
-    final String shift = previousMood == null || previousMood == mood
-        ? 'stable'
-        : '$previousMood->$mood';
-
+    final String prev = previousMood == null
+        ? ''
+        : siNormalizeMood(previousMood);
     return EmotionalSignal(
       mood: mood,
-      intensity: intensity.clamp(0.0, 1.0),
-      shift: shift,
+      intensity: <double>[
+        stress,
+        confusion,
+        excitement,
+      ].reduce((a, b) => a > b ? a : b),
+      shift: prev.isEmpty || prev == mood ? 'stable' : '$prev->$mood',
     );
   }
 
-  SIPersona _choosePersona({required String mood, required String intent}) {
-    if (mood == 'stressed') return SIPersona.mentor;
-    if (intent == 'insight_request') return SIPersona.analyst;
-    if (intent == 'start_focus') return SIPersona.coach;
-    if (mood == 'confused') return SIPersona.assistant;
-    return SIPersona.companion;
+  SIPersona _persona(
+    SIDecision decision,
+    InstinctGuidance instinct,
+    String mood,
+    double confidence,
+  ) {
+    if (!decision.safe || instinct.safetyFirst) return SIPersona.mentor;
+    if (instinct.reduceConfusion || mood == 'confused' || confidence < 0.5) {
+      return SIPersona.assistant;
+    }
+    switch (decision.action) {
+      case 'launch_focus_session':
+      case 'present_task_recommendation':
+        return SIPersona.coach;
+      case 'show_insight_summary':
+        return SIPersona.analyst;
+      case 'open_reflection_flow':
+        return SIPersona.mentor;
+      default:
+        return mood == 'stressed' ? SIPersona.mentor : SIPersona.companion;
+    }
   }
 
-  PersonalityTraits _traitsFor(SIPersona persona) {
-    switch (persona) {
-      case SIPersona.mentor:
-        return const PersonalityTraits(
-          warmth: 0.9,
-          directness: 0.7,
-          humor: 0.2,
-          curiosity: 0.6,
-          empathy: 0.95,
-        );
-      case SIPersona.assistant:
-        return const PersonalityTraits(
-          warmth: 0.6,
-          directness: 0.85,
-          humor: 0.15,
-          curiosity: 0.55,
-          empathy: 0.7,
-        );
-      case SIPersona.coach:
-        return const PersonalityTraits(
-          warmth: 0.7,
-          directness: 0.9,
-          humor: 0.2,
-          curiosity: 0.5,
-          empathy: 0.65,
-        );
-      case SIPersona.companion:
-        return const PersonalityTraits(
-          warmth: 0.88,
-          directness: 0.55,
-          humor: 0.45,
-          curiosity: 0.7,
-          empathy: 0.85,
-        );
-      case SIPersona.analyst:
-        return const PersonalityTraits(
-          warmth: 0.45,
-          directness: 0.8,
-          humor: 0.1,
-          curiosity: 0.8,
-          empathy: 0.5,
+  PersonalityTraits _traits(SIPersona p, {required bool safetyFirst}) {
+    final PersonalityTraits base = switch (p) {
+      SIPersona.mentor => const PersonalityTraits(
+        warmth: .9,
+        directness: .65,
+        humor: .1,
+        curiosity: .55,
+        empathy: .95,
+      ),
+      SIPersona.assistant => const PersonalityTraits(
+        warmth: .68,
+        directness: .85,
+        humor: .1,
+        curiosity: .55,
+        empathy: .75,
+      ),
+      SIPersona.coach => const PersonalityTraits(
+        warmth: .72,
+        directness: .9,
+        humor: .15,
+        curiosity: .45,
+        empathy: .7,
+      ),
+      SIPersona.companion => const PersonalityTraits(
+        warmth: .88,
+        directness: .55,
+        humor: .35,
+        curiosity: .7,
+        empathy: .85,
+      ),
+      SIPersona.analyst => const PersonalityTraits(
+        warmth: .52,
+        directness: .82,
+        humor: .05,
+        curiosity: .82,
+        empathy: .55,
+      ),
+    };
+    if (!safetyFirst) return base;
+    return PersonalityTraits(
+      warmth: siClamp01(base.warmth + .08),
+      directness: siClamp01(base.directness - .08),
+      humor: 0,
+      curiosity: base.curiosity,
+      empathy: siClamp01(base.empathy + .1),
+    );
+  }
+
+  String _message(
+    SIDecision decision,
+    InstinctGuidance instinct,
+    SICognitionState? cognition,
+    double confidence,
+  ) {
+    final String task = siClean(decision.task?.title);
+    if (!decision.safe) {
+      return 'Let’s take a safer route. Pause, reset, and choose one small next step.';
+    }
+    if (instinct.safetyFirst) {
+      return task.isNotEmpty
+          ? 'Let’s slow this down. Focus on "$task" for one short block.'
+          : 'Let’s slow this down. Pick one small step, finish it, then reassess.';
+    }
+
+    switch (decision.action) {
+      case 'launch_focus_session':
+        return task.isNotEmpty
+            ? 'Start a focused block on "$task".'
+            : 'Start a short focus block.';
+      case 'present_task_recommendation':
+        return task.isNotEmpty
+            ? 'Best next task: "$task".'
+            : 'Add or choose one task, then I can guide the next step.';
+      case 'open_reflection_flow':
+        return 'Capture what happened, what worked, and what should change next.';
+      case 'show_insight_summary':
+        return siClean(cognition?.summary, fallback: decision.reasoning);
+      default:
+        return siClean(
+          decision.reasoning,
+          fallback: confidence >= .7
+              ? 'You have enough signal to move. Choose one clear next action.'
+              : 'Tell me the task, goal, or decision you want help with.',
         );
     }
   }
 
-  String _buildMessage({
-    required String intent,
-    required double confidence,
-    required bool safetyFirst,
-    Task? task,
-  }) {
-    if (safetyFirst) {
-      return 'Let us slow down and take this one step at a time. '
-          '${task != null ? "I suggest focusing on: ${task.title}." : ""}';
-    }
-    if (task != null) {
-      return confidence >= 0.7
-          ? 'High-energy window detected. Your next focus: ${task.title}.'
-          : 'Good momentum. I recommend: ${task.title}.';
-    }
-    return confidence >= 0.7
-        ? 'You are in a strong state. Keep building.'
-        : 'Steady progress. One step at a time.';
-  }
-
-  String _shapeForEmotion(String reply, EmotionalSignal signal) {
+  String _shape(
+    String message,
+    EmotionalSignal signal,
+    InstinctGuidance instinct,
+  ) {
+    if (instinct.avoidOverwhelm) return '$message\n\nOne step only.';
     switch (signal.mood) {
       case 'confused':
-        return '$reply\n\nI will keep this simple and step-by-step.';
+        return '$message\n\nI’ll keep it step-by-step.';
       case 'stressed':
-        return '$reply\n\nLet us take one action at a time.';
+        return '$message\n\nNo pressure — just the next small move.';
       case 'excited':
-        return '$reply\n\nMomentum looks great — keep it rolling.';
+        return '$message\n\nUse the momentum, but keep the scope clear.';
       default:
-        return reply;
+        return message;
     }
   }
 
-  String _truncate(String text, int maxChars) {
-    final String shortened = text.substring(0, maxChars);
-    final int lastPeriod = shortened.lastIndexOf('.');
-    if (lastPeriod > 80) return shortened.substring(0, lastPeriod + 1);
-    return '$shortened...';
+  String _constrain(
+    String message,
+    InstinctGuidance instinct,
+    SIDecision decision,
+  ) {
+    final int max = (!decision.safe || instinct.safetyFirst)
+        ? 220
+        : instinct.avoidOverwhelm
+        ? 260
+        : 420;
+    final String softened = message
+        .replaceAll(RegExp(r'\byou must\b', caseSensitive: false), 'you can')
+        .replaceAll(RegExp(r'\bhave to\b', caseSensitive: false), 'can')
+        .replaceAll(RegExp(r'\bshould\b', caseSensitive: false), 'could');
+    return _truncate(softened, max);
+  }
+
+  String _identity(String message, IdentityState? identityState) {
+    if (identityState == null) return message;
+    try {
+      final String result = const IdentityEngine()
+          .reinforceIdentity(identityState, message)
+          .trim();
+      return result.isEmpty ? message : result;
+    } catch (_) {
+      return message;
+    }
+  }
+
+  String _truncate(String text, int max) {
+    final String clean = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (clean.length <= max) return clean;
+    final String cut = clean.substring(0, max).trim();
+    final int period = cut.lastIndexOf(RegExp(r'[.!?]'));
+    if (period > 80) return cut.substring(0, period + 1);
+    final int space = cut.lastIndexOf(' ');
+    return space > 40 ? '${cut.substring(0, space)}...' : '$cut...';
   }
 }

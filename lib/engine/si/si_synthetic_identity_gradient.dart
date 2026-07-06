@@ -1,55 +1,60 @@
-class IdentityGradient {
-  const IdentityGradient({
-    required this.anchorPersona,
-    required this.gradientPersona,
-    required this.shift,
-    required this.relationshipDepth,
+// lib/engine/si/si_synthetic_identity_gradient.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIIdentityGradient {
+  const SIIdentityGradient({
+    required this.weights,
+    required this.dominant,
+    required this.memory,
   });
-
-  final String anchorPersona;
-  final String gradientPersona;
-  final double shift;
-  final double relationshipDepth;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'anchor_persona': anchorPersona,
-      'gradient_persona': gradientPersona,
-      'shift': shift,
-      'relationship_depth': relationshipDepth,
-    };
-  }
+  final Map<String, double> weights;
+  final String dominant;
+  final SIMemoryStore memory;
 }
 
-class SyntheticIdentityGradient {
-  const SyntheticIdentityGradient();
+class SISyntheticIdentityGradient {
+  const SISyntheticIdentityGradient();
 
-  IdentityGradient resolve({
-    required String basePersona,
-    required String mood,
-    required String intent,
-    required String appContext,
-    required int historyDepth,
+  SIIdentityGradient calculate({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    final double relationshipDepth = (historyDepth / 40).clamp(0.0, 1.0);
-    final double shift =
-        ((mood == 'stressed' ? 0.22 : 0.1) +
-                (intent == 'insight_request' ? 0.2 : 0.08) +
-                (appContext.contains('chrono') ? 0.16 : 0.06) +
-                relationshipDepth * 0.32)
-            .clamp(0.0, 1.0);
-
-    final String gradient = shift > 0.65
-        ? '${basePersona}_adaptive_guardian'
-        : shift > 0.45
-        ? '${basePersona}_adaptive_strategist'
-        : '${basePersona}_stable_companion';
-
-    return IdentityGradient(
-      anchorPersona: basePersona,
-      gradientPersona: gradient,
-      shift: shift,
-      relationshipDepth: relationshipDepth,
+    final t = now ?? DateTime.now();
+    final w = <String, double>{
+      'guardian': instinct.safetyFirst ? .9 : .25,
+      'builder':
+          intent.primary.label == 'get_task' ||
+              intent.primary.label == 'start_focus'
+          ? .8
+          : .35,
+      'analyst': intent.primary.label == 'insight_request' ? .85 : .3,
+      'restorer': context.userState.fatigue >= .68 ? .8 : .25,
+      'guide': .55,
+    }.map((k, v) => MapEntry(k, siClamp01(v)));
+    final dominant =
+        (w.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
+            .first
+            .key;
+    final next = memory
+        .pushRecord(
+          MemoryTier.midTerm,
+          MemoryRecord(
+            content: 'identity_gradient|dominant=$dominant',
+            timestamp: t,
+            relevance: w[dominant]!,
+            confidence: .72,
+            emotionalWeight: context.userState.stress,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SIIdentityGradient(
+      weights: Map.unmodifiable(w),
+      dominant: dominant,
+      memory: next,
     );
   }
 }

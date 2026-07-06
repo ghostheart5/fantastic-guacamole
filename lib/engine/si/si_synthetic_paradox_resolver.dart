@@ -1,50 +1,53 @@
-class ParadoxResolution {
-  const ParadoxResolution({
-    required this.hasParadox,
-    required this.paradoxes,
-    required this.strategy,
-    required this.resolvedDirective,
+// lib/engine/si/si_synthetic_paradox_resolver.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/si_synthetic_paradox_engine_v2.dart';
+
+class SIParadoxResolution {
+  const SIParadoxResolution({
+    required this.resolved,
+    required this.action,
+    required this.message,
+    required this.memory,
   });
-
-  final bool hasParadox;
-  final List<String> paradoxes;
-  final String strategy;
-  final String resolvedDirective;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'has_paradox': hasParadox,
-      'paradoxes': paradoxes,
-      'strategy': strategy,
-      'resolved_directive': resolvedDirective,
-    };
-  }
+  final bool resolved;
+  final String action;
+  final String message;
+  final SIMemoryStore memory;
 }
 
-class SyntheticParadoxResolver {
-  const SyntheticParadoxResolver();
+class SISyntheticParadoxResolver {
+  const SISyntheticParadoxResolver();
 
-  ParadoxResolution resolve({
-    required String input,
-    required String mood,
-    required List<String> goals,
+  SIParadoxResolution resolve({
+    required SIParadoxV2 paradox,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    final String lowered = input.toLowerCase();
-    final List<String> paradoxes = <String>[];
-    if (mood == 'stressed' && lowered.contains('more work')) {
-      paradoxes.add('emotional_capacity_vs_workload');
-    }
-    if (goals.isNotEmpty && lowered.contains('ignore plan')) {
-      paradoxes.add('goal_vs_instruction');
-    }
-
-    return ParadoxResolution(
-      hasParadox: paradoxes.isNotEmpty,
-      paradoxes: paradoxes,
-      strategy: paradoxes.isNotEmpty ? 'both_and_reframe' : 'direct_execution',
-      resolvedDirective: paradoxes.isNotEmpty
-          ? 'Preserve goal direction while reducing immediate cognitive load.'
-          : 'Proceed with current action path.',
+    final t = now ?? DateTime.now();
+    final action = paradox.detected ? 'respond_conversationally' : 'continue';
+    final msg = paradox.code == 'safety_vs_action'
+        ? 'Let’s pause and choose one safe next step.'
+        : paradox.code == 'uncertainty_vs_action'
+        ? 'I need one detail before acting.'
+        : 'No paradox adjustment needed.';
+    final next = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content: 'paradox_resolution|${paradox.code}|action=$action',
+            timestamp: t,
+            relevance: paradox.severity,
+            confidence: .7,
+            emotionalWeight: paradox.severity,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SIParadoxResolution(
+      resolved: true,
+      action: action,
+      message: msg,
+      memory: next,
     );
   }
 }

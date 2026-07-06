@@ -1,71 +1,181 @@
-class EvolutionTimeline {
-  const EvolutionTimeline({
-    required this.version,
-    required this.stage,
-    required this.capabilities,
-    required this.nextMilestone,
+// lib/engine/si/si_cognitive_evolution_timeline.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/si_cognitive_ecosystem_layer.dart';
+import 'package:fantastic_guacamole/engine/si/si_cognitive_micro_pattern_engine.dart';
+
+enum EvolutionEventType {
+  milestone,
+  regression,
+  stabilization,
+  pattern,
+  ecosystem,
+}
+
+class EvolutionEvent {
+  const EvolutionEvent({
+    required this.type,
+    required this.label,
+    required this.timestamp,
+    required this.strength,
+    required this.details,
   });
 
-  final String version;
-  final String stage;
-  final List<String> capabilities;
-  final String nextMilestone;
+  final EvolutionEventType type;
+  final String label;
+  final DateTime timestamp;
+  final double strength;
+  final Map<String, dynamic> details;
+}
 
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'version': version,
-      'stage': stage,
-      'capabilities': capabilities,
-      'next_milestone': nextMilestone,
-    };
+class EvolutionTimeline {
+  const EvolutionTimeline({this.events = const <EvolutionEvent>[]});
+
+  final List<EvolutionEvent> events;
+
+  EvolutionTimeline push(EvolutionEvent event, {int max = 120}) {
+    return EvolutionTimeline(
+      events: List<EvolutionEvent>.unmodifiable(
+        <EvolutionEvent>[event, ...events].take(max),
+      ),
+    );
   }
 }
 
-class CognitiveEvolutionTimeline {
-  const CognitiveEvolutionTimeline();
+class EvolutionTimelineUpdate {
+  const EvolutionTimelineUpdate({
+    required this.timeline,
+    required this.memory,
+    required this.summary,
+  });
 
-  EvolutionTimeline map({
-    required double consciousnessScore,
-    required double emergenceIndex,
+  final EvolutionTimeline timeline;
+  final SIMemoryStore memory;
+  final String summary;
+}
+
+class SICognitiveEvolutionTimelineEngine {
+  const SICognitiveEvolutionTimelineEngine();
+
+  EvolutionTimelineUpdate track({
+    required EvolutionTimeline current,
+    required SIMemoryStore memory,
+    required SIContext context,
+    MicroPatternReport? patterns,
+    SIEcosystemState? ecosystem,
+    SIDecision? decision,
+    DateTime? now,
   }) {
-    if (consciousnessScore > 0.86) {
-      return const EvolutionTimeline(
-        version: 'v6+',
-        stage: 'organism-like',
-        capabilities: <String>[
-          'cross-realm continuity',
-          'adaptive emergence',
-          'identity persistence',
-        ],
-        nextMilestone: 'deepen autonomous yet aligned adaptation',
-      );
-    }
-    if (consciousnessScore > 0.72 || emergenceIndex > 0.62) {
-      return const EvolutionTimeline(
-        version: 'v5',
-        stage: 'synthetic',
-        capabilities: <String>[
-          'narrative continuity',
-          'meta-reasoning',
-          'resonance shaping',
-        ],
-        nextMilestone: 'stabilize organism-like continuity behaviors',
-      );
-    }
-    if (consciousnessScore > 0.6) {
-      return const EvolutionTimeline(
-        version: 'v4',
-        stage: 'emergent',
-        capabilities: <String>['pattern synthesis', 'adaptive style'],
-        nextMilestone: 'expand synthetic identity persistence',
+    final DateTime timestamp = now ?? DateTime.now();
+    EvolutionTimeline timeline = current;
+
+    final EvolutionEvent stateEvent = _stateEvent(context, timestamp);
+    timeline = timeline.push(stateEvent);
+
+    if (patterns != null && patterns.patterns.isNotEmpty) {
+      final MicroPattern strongest = patterns.patterns.first;
+      timeline = timeline.push(
+        EvolutionEvent(
+          type: EvolutionEventType.pattern,
+          label: strongest.label,
+          timestamp: timestamp,
+          strength: strongest.strength,
+          details: strongest.toJson(),
+        ),
       );
     }
 
-    return const EvolutionTimeline(
-      version: 'v3',
-      stage: 'emotional',
-      capabilities: <String>['emotion-aware responses'],
-      nextMilestone: 'build stronger emergent behavior',
+    if (ecosystem != null) {
+      timeline = timeline.push(
+        EvolutionEvent(
+          type: EvolutionEventType.ecosystem,
+          label: 'Ecosystem snapshot',
+          timestamp: timestamp,
+          strength: siClamp01(ecosystem.nodes.length / 24),
+          details: <String, dynamic>{
+            'nodes': ecosystem.nodes.length,
+            'edges': ecosystem.edges.length,
+          },
+        ),
+      );
+    }
+
+    if (decision != null && decision.safe && decision.confidence >= 0.75) {
+      timeline = timeline.push(
+        EvolutionEvent(
+          type: EvolutionEventType.milestone,
+          label: 'High-confidence safe decision',
+          timestamp: timestamp,
+          strength: decision.confidence,
+          details: <String, dynamic>{'action': decision.action},
+        ),
+      );
+    }
+
+    final SIMemoryStore nextMemory = memory
+        .pushRecord(
+          MemoryTier.longTerm,
+          MemoryRecord(
+            content:
+                'evolution_timeline|${timeline.events.first.type.name}|${timeline.events.first.label}',
+            timestamp: timestamp,
+            relevance: timeline.events.first.strength,
+            confidence: 0.7,
+            recency: 1.0,
+            emotionalWeight: siClamp01(context.userState.stress),
+            reinforcement:
+                timeline.events.first.type == EvolutionEventType.milestone
+                ? 2
+                : 1,
+          ),
+        )
+        .dedupe()
+        .decay(timestamp);
+
+    return EvolutionTimelineUpdate(
+      timeline: timeline,
+      memory: nextMemory,
+      summary: _summary(timeline),
     );
+  }
+
+  EvolutionEvent _stateEvent(SIContext context, DateTime timestamp) {
+    final SIUserState u = context.userState;
+
+    if (u.stress >= 0.7 || u.cognitiveLoad >= 0.75) {
+      return EvolutionEvent(
+        type: EvolutionEventType.regression,
+        label: 'High load state',
+        timestamp: timestamp,
+        strength: siClamp01((u.stress + u.cognitiveLoad) / 2),
+        details: u.toJson(),
+      );
+    }
+
+    if (u.engagement >= 0.65 && u.fatigue <= 0.45) {
+      return EvolutionEvent(
+        type: EvolutionEventType.stabilization,
+        label: 'Stable engagement state',
+        timestamp: timestamp,
+        strength: siClamp01((u.engagement + (1 - u.fatigue)) / 2),
+        details: u.toJson(),
+      );
+    }
+
+    return EvolutionEvent(
+      type: EvolutionEventType.stabilization,
+      label: 'Neutral state update',
+      timestamp: timestamp,
+      strength: 0.5,
+      details: u.toJson(),
+    );
+  }
+
+  String _summary(EvolutionTimeline timeline) {
+    if (timeline.events.isEmpty) return 'No timeline events yet.';
+    return timeline.events
+        .take(3)
+        .map((EvolutionEvent e) => e.label)
+        .join(' · ');
   }
 }

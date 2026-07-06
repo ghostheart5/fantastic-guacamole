@@ -1,82 +1,49 @@
-class SINonTextInputs {
-  const SINonTextInputs({
-    this.voiceToText,
-    this.imageLabels = const <String>[],
-    this.uiState = const <String, dynamic>{},
-    this.sensorData = const <String, dynamic>{},
-    this.timeTriggers = const <String>[],
-    this.behaviorPatterns = const <String>[],
+// lib/engine/si/si_input_fusion.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIInputFusionResult {
+  const SIInputFusionResult({
+    required this.packet,
+    required this.fusedText,
+    required this.signalCount,
+    required this.confidence,
   });
 
-  final String? voiceToText;
-  final List<String> imageLabels;
-  final Map<String, dynamic> uiState;
-  final Map<String, dynamic> sensorData;
-  final List<String> timeTriggers;
-  final List<String> behaviorPatterns;
-}
-
-class SILatentInputs {
-  const SILatentInputs({
-    this.frustration = 0,
-    this.excitement = 0,
-    this.confusion = 0,
-    this.confidence = 0.5,
-    this.hesitation = 0,
-  });
-
-  final double frustration;
-  final double excitement;
-  final double confusion;
+  final SIInputPacket packet;
+  final String fusedText;
+  final int signalCount;
   final double confidence;
-  final double hesitation;
 }
 
-class SIInputPacket {
-  const SIInputPacket({
-    required this.text,
-    this.history = const <String>[],
-    this.metadata = const <String, dynamic>{},
-    this.context = const <String, dynamic>{},
-    this.nonText = const SINonTextInputs(),
-    this.latent = const SILatentInputs(),
-  });
+class SIInputFusionEngine {
+  const SIInputFusionEngine();
 
-  final String text;
-  final List<String> history;
-  final Map<String, dynamic> metadata;
-  final Map<String, dynamic> context;
-  final SINonTextInputs nonText;
-  final SILatentInputs latent;
-}
+  SIInputFusionResult fuse(SIInputPacket input) {
+    final List<String> parts = <String>[
+      input.text,
+      if (input.nonText.voiceToText != null) input.nonText.voiceToText!,
+      ...input.nonText.imageLabels,
+      ...input.nonText.timeTriggers,
+      ...input.nonText.behaviorPatterns,
+    ].map(siClean).where((String s) => s.isNotEmpty).toList();
 
-class InputFusionLayer {
-  const InputFusionLayer();
+    final String fused = parts.join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final int count =
+        parts.length + input.metadata.length + input.context.length;
 
-  Map<String, dynamic> fuse(SIInputPacket packet) {
-    final List<String> weightedHistory = packet.history.reversed
-        .take(5)
-        .toList()
-        .reversed
-        .toList();
-    return <String, dynamic>{
-      'text': packet.text,
-      'history_recent': weightedHistory,
-      'metadata': packet.metadata,
-      'context': packet.context,
-      'voice_text': packet.nonText.voiceToText,
-      'image_labels': packet.nonText.imageLabels,
-      'ui_state': packet.nonText.uiState,
-      'sensor_data': packet.nonText.sensorData,
-      'time_triggers': packet.nonText.timeTriggers,
-      'behavior_patterns': packet.nonText.behaviorPatterns,
-      'latent': <String, dynamic>{
-        'frustration': packet.latent.frustration,
-        'excitement': packet.latent.excitement,
-        'confusion': packet.latent.confusion,
-        'confidence': packet.latent.confidence,
-        'hesitation': packet.latent.hesitation,
-      },
-    };
+    return SIInputFusionResult(
+      packet: SIInputPacket(
+        text: fused.isEmpty ? input.text : fused,
+        history: input.history,
+        metadata: input.metadata,
+        context: input.context,
+        nonText: input.nonText,
+        latent: input.latent,
+      ),
+      fusedText: fused,
+      signalCount: count,
+      confidence: siClamp01(.35 + count * .06),
+    );
   }
 }

@@ -1,58 +1,76 @@
-class SISelfModel {
-  const SISelfModel({
+// lib/engine/si/si_self_model.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SISelfModelProfile {
+  const SISelfModelProfile({
+    required this.identity,
+    required this.traits,
+    required this.operatingMode,
     required this.confidence,
-    required this.limitations,
-    required this.tone,
-    required this.role,
-    required this.pastMistakes,
-    required this.improvements,
+    required this.memory,
   });
 
+  final String identity;
+  final Map<String, double> traits;
+  final String operatingMode;
   final double confidence;
-  final List<String> limitations;
-  final String tone;
-  final String role;
-  final List<String> pastMistakes;
-  final List<String> improvements;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'confidence': confidence,
-      'limitations': limitations,
-      'tone': tone,
-      'role': role,
-      'past_mistakes': pastMistakes,
-      'improvements': improvements,
-    };
-  }
+  final SIMemoryStore memory;
 }
 
-class SelfModelLayer {
-  const SelfModelLayer();
+class SISelfModelEngine {
+  const SISelfModelEngine();
 
-  SISelfModel evaluate({
-    required double confidence,
-    required String mood,
-    required String persona,
-    required String intent,
+  SISelfModelProfile update({
+    required SIContext context,
+    required SIIntent intent,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    final List<String> limitations = <String>[
-      if (confidence < 0.6) 'low_context_confidence',
-      if (intent == 'general_query') 'ambiguous_intent',
-    ];
+    final DateTime t = now ?? DateTime.now();
+    final String mode = context.userState.stress >= .7
+        ? 'guardian'
+        : intent.primary.label == 'insight_request'
+        ? 'analyst'
+        : intent.primary.label == 'get_task' ||
+              intent.primary.label == 'start_focus'
+        ? 'coach'
+        : 'companion';
 
-    return SISelfModel(
+    final Map<String, double> traits = <String, double>{
+      'clarity': siClamp01(intent.confidence),
+      'empathy': context.userState.stress >= .6 ? .9 : .72,
+      'directness': mode == 'coach' ? .85 : .62,
+      'restraint': context.userState.cognitiveLoad >= .7 ? .9 : .55,
+    };
+
+    final double confidence = siClamp01(
+      traits.values.fold<double>(0, (double s, double v) => s + v) /
+          traits.length,
+    );
+
+    final SIMemoryStore next = memory
+        .pushRecord(
+          MemoryTier.longTerm,
+          MemoryRecord(
+            content:
+                'self_model|identity=chronospark_si|mode=$mode|confidence=${confidence.toStringAsFixed(2)}',
+            timestamp: t,
+            relevance: confidence,
+            confidence: .74,
+            emotionalWeight: context.userState.stress,
+            reinforcement: confidence >= .7 ? 1 : 0,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+
+    return SISelfModelProfile(
+      identity: 'chronospark_si',
+      traits: Map<String, double>.unmodifiable(traits),
+      operatingMode: mode,
       confidence: confidence,
-      limitations: limitations,
-      tone: mood,
-      role: persona,
-      pastMistakes: <String>[
-        if (confidence < 0.5) 'may_misinterpret_without_clarification',
-      ],
-      improvements: <String>[
-        if (confidence < 0.7) 'ask_follow_up_questions',
-        'adapt_style_to_user_preference',
-      ],
+      memory: next,
     );
   }
 }

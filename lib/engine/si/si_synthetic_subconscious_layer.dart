@@ -1,49 +1,58 @@
-class SubconsciousState {
-  const SubconsciousState({
-    required this.latentPatterns,
-    required this.emotionalResidues,
-    required this.unresolvedThreads,
-    required this.backgroundPredictions,
-    required this.suppressedIntents,
+// lib/engine/si/si_synthetic_subconscious_layer.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SISubconsciousSignal {
+  const SISubconsciousSignal({
+    required this.latentPressure,
+    required this.hiddenNeed,
+    required this.memory,
   });
-
-  final List<String> latentPatterns;
-  final List<String> emotionalResidues;
-  final List<String> unresolvedThreads;
-  final List<String> backgroundPredictions;
-  final List<String> suppressedIntents;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'latent_patterns': latentPatterns,
-      'emotional_residues': emotionalResidues,
-      'unresolved_threads': unresolvedThreads,
-      'background_predictions': backgroundPredictions,
-      'suppressed_intents': suppressedIntents,
-    };
-  }
+  final double latentPressure;
+  final String hiddenNeed;
+  final SIMemoryStore memory;
 }
 
-class SyntheticSubconsciousLayer {
-  const SyntheticSubconsciousLayer();
+class SISyntheticSubconsciousLayer {
+  const SISyntheticSubconsciousLayer();
 
-  SubconsciousState infer({
-    required List<String> history,
-    required String mood,
-    required String intent,
+  SISubconsciousSignal infer({
+    required SIContext context,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    return SubconsciousState(
-      latentPatterns: <String>[
-        if (history.length > 6) 'recurring_focus_cycles',
-      ],
-      emotionalResidues: <String>[if (mood == 'stressed') 'pressure_residue'],
-      unresolvedThreads: <String>[
-        if (intent == 'reflect') 'unfinished_reflection_loop',
-      ],
-      backgroundPredictions: <String>['likely_needs_clarity_then_action'],
-      suppressedIntents: <String>[
-        if (intent == 'general_query') 'start_focus_candidate',
-      ],
+    final t = now ?? DateTime.now();
+    final l = context.input.latent;
+    final pressure = siClamp01(
+      l.frustration * .3 +
+          l.confusion * .3 +
+          l.hesitation * .25 +
+          (1 - l.confidence) * .15,
+    );
+    final need = pressure >= .65
+        ? 'stabilization'
+        : l.confusion >= .55
+        ? 'clarity'
+        : l.excitement >= .65
+        ? 'momentum_channel'
+        : 'steady_support';
+    final next = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content:
+                'subconscious|need=$need|pressure=${pressure.toStringAsFixed(2)}',
+            timestamp: t,
+            relevance: pressure,
+            confidence: .66,
+            emotionalWeight: pressure,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SISubconsciousSignal(
+      latentPressure: pressure,
+      hiddenNeed: need,
+      memory: next,
     );
   }
 }

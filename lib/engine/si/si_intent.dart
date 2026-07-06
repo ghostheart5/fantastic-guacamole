@@ -1,13 +1,33 @@
-enum SIIntent { getTask, startFocus, reflect, unknown }
+// lib/engine/si/si_intent.dart
 
-class SIIntentParser {
-  static SIIntent parse(String input) {
-    final String text = input.toLowerCase();
+class SIIntentLabels {
+  static const String generalQuery = 'general_query';
+  static const String startFocus = 'start_focus';
+  static const String getTask = 'get_task';
+  static const String reflect = 'reflect';
+  static const String insightRequest = 'insight_request';
+  static const String productivityOptimization = 'productivity_optimization';
+  static const String decisionSupport = 'decision_support';
+}
 
-    if (text.contains('focus')) return SIIntent.startFocus;
-    if (text.contains('what') || text.contains('task')) return SIIntent.getTask;
-    if (text.contains('reflect')) return SIIntent.reflect;
+class SIIntentUtils {
+  const SIIntentUtils();
 
-    return SIIntent.unknown;
+  String actionFor(String intent) {
+    switch (intent) {
+      case SIIntentLabels.startFocus:
+        return 'launch_focus_session';
+      case SIIntentLabels.getTask:
+        return 'present_task_recommendation';
+      case SIIntentLabels.reflect:
+        return 'open_reflection_flow';
+      case SIIntentLabels.insightRequest:
+        return 'show_insight_summary';
+      default:
+        return 'respond_conversationally';
+    }
   }
+
+  bool isActionIntent(String intent) =>
+      intent == SIIntentLabels.startFocus || intent == SIIntentLabels.getTask;
 }

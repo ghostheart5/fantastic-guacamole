@@ -1,52 +1,107 @@
+// lib/engine/si/si_ritual_memory_engine.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
 class RitualMemory {
   const RitualMemory({
-    required this.morningCheckIns,
-    required this.nightlyReflections,
-    required this.weeklyPlanning,
-    required this.creativeSessions,
-    required this.emotionalResets,
-    required this.stability,
+    required this.name,
+    required this.trigger,
+    required this.action,
+    required this.strength,
+    required this.evidence,
   });
 
-  final int morningCheckIns;
-  final int nightlyReflections;
-  final int weeklyPlanning;
-  final int creativeSessions;
-  final int emotionalResets;
-  final double stability;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'morning_check_ins': morningCheckIns,
-      'nightly_reflections': nightlyReflections,
-      'weekly_planning': weeklyPlanning,
-      'creative_sessions': creativeSessions,
-      'emotional_resets': emotionalResets,
-      'stability': stability,
-    };
-  }
+  final String name;
+  final String trigger;
+  final String action;
+  final double strength;
+  final List<String> evidence;
 }
 
-class CognitiveRitualMemory {
-  const CognitiveRitualMemory();
+class RitualMemoryReport {
+  const RitualMemoryReport({
+    required this.rituals,
+    required this.primary,
+    required this.memory,
+  });
 
-  RitualMemory track({required List<String> history}) {
-    int count(String needle) =>
-        history.where((String h) => h.toLowerCase().contains(needle)).length;
-    final int morning = count('morning');
-    final int nightly = count('night');
-    final int weekly = count('weekly');
-    final int creative = count('creative');
-    final int reset = count('reset');
-    final double stability =
-        ((morning + nightly + weekly + creative + reset) / 25).clamp(0.0, 1.0);
-    return RitualMemory(
-      morningCheckIns: morning,
-      nightlyReflections: nightly,
-      weeklyPlanning: weekly,
-      creativeSessions: creative,
-      emotionalResets: reset,
-      stability: stability,
+  final List<RitualMemory> rituals;
+  final RitualMemory? primary;
+  final SIMemoryStore memory;
+}
+
+class SIRitualMemoryEngine {
+  const SIRitualMemoryEngine();
+
+  RitualMemoryReport detect({
+    required SIContext context,
+    required SIMemoryStore memory,
+    DateTime? now,
+  }) {
+    final DateTime t = now ?? DateTime.now();
+    final List<RitualMemory> rituals = <RitualMemory>[];
+
+    final int completed = memory.snapshots
+        .take(10)
+        .fold<int>(0, (int s, SISnapshot x) => s + x.completed);
+    final int skipped = memory.snapshots
+        .take(10)
+        .fold<int>(0, (int s, SISnapshot x) => s + x.skipped);
+
+    if (completed >= 3 && completed > skipped) {
+      rituals.add(
+        RitualMemory(
+          name: 'focus_start_ritual',
+          trigger: 'momentum_available',
+          action: 'start_one_short_focus_block',
+          strength: siClamp01(completed / (completed + skipped + 1)),
+          evidence: <String>['completed=$completed', 'skipped=$skipped'],
+        ),
+      );
+    }
+
+    if (context.userState.fatigue >= 0.68) {
+      rituals.add(
+        RitualMemory(
+          name: 'recovery_ritual',
+          trigger: 'fatigue_high',
+          action: 'shrink_next_step_and_reassess',
+          strength: context.userState.fatigue,
+          evidence: <String>[
+            'fatigue=${context.userState.fatigue.toStringAsFixed(2)}',
+          ],
+        ),
+      );
+    }
+
+    rituals.sort(
+      (RitualMemory a, RitualMemory b) => b.strength.compareTo(a.strength),
+    );
+    final RitualMemory? primary = rituals.isEmpty ? null : rituals.first;
+
+    SIMemoryStore next = memory;
+    if (primary != null) {
+      next = next
+          .pushRecord(
+            MemoryTier.longTerm,
+            MemoryRecord(
+              content:
+                  'ritual|${primary.name}|trigger=${primary.trigger}|action=${primary.action}',
+              timestamp: t,
+              relevance: primary.strength,
+              confidence: 0.7,
+              emotionalWeight: context.userState.fatigue,
+              reinforcement: primary.strength >= 0.7 ? 2 : 1,
+            ),
+          )
+          .dedupe()
+          .decay(t);
+    }
+
+    return RitualMemoryReport(
+      rituals: List<RitualMemory>.unmodifiable(rituals),
+      primary: primary,
+      memory: next,
     );
   }
 }

@@ -1,144 +1,64 @@
-// Module 2 — Input
-// Pipeline step: raw input → SIContext { input, userState }
-// Merges: si_input_fusion + si_user_state_engine + si_user_state_tracker
+// lib/engine/si/core/si_input_module.dart
 
-// ─── Input types ─────────────────────────────────────────────────────────────
-
-class SINonTextInputs {
-  const SINonTextInputs({
-    this.voiceToText,
-    this.imageLabels = const <String>[],
-    this.uiState = const <String, dynamic>{},
-    this.sensorData = const <String, dynamic>{},
-    this.timeTriggers = const <String>[],
-    this.behaviorPatterns = const <String>[],
-  });
-
-  final String? voiceToText;
-  final List<String> imageLabels;
-  final Map<String, dynamic> uiState;
-  final Map<String, dynamic> sensorData;
-  final List<String> timeTriggers;
-  final List<String> behaviorPatterns;
-}
-
-class SILatentInputs {
-  const SILatentInputs({
-    this.frustration = 0,
-    this.excitement = 0,
-    this.confusion = 0,
-    this.confidence = 0.5,
-    this.hesitation = 0,
-  });
-
-  final double frustration;
-  final double excitement;
-  final double confusion;
-  final double confidence;
-  final double hesitation;
-}
-
-class SIInputPacket {
-  const SIInputPacket({
-    required this.text,
-    this.history = const <String>[],
-    this.metadata = const <String, dynamic>{},
-    this.context = const <String, dynamic>{},
-    this.nonText = const SINonTextInputs(),
-    this.latent = const SILatentInputs(),
-  });
-
-  final String text;
-  final List<String> history;
-  final Map<String, dynamic> metadata;
-  final Map<String, dynamic> context;
-  final SINonTextInputs nonText;
-  final SILatentInputs latent;
-}
-
-// ─── User state ───────────────────────────────────────────────────────────────
-
-class SIUserState {
-  const SIUserState({
-    required this.emotion,
-    required this.cognitiveLoad,
-    required this.stress,
-    required this.motivation,
-    required this.engagement,
-    required this.fatigue,
-    required this.frustration,
-    required this.excitement,
-    required this.stability,
-  });
-
-  final String emotion;
-  final double cognitiveLoad;
-  final double stress;
-  final double motivation;
-  final double engagement;
-  final double fatigue;
-  final double frustration;
-  final double excitement;
-  final String stability;
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    'emotion': emotion,
-    'cognitive_load': cognitiveLoad,
-    'stress': stress,
-    'motivation': motivation,
-    'engagement': engagement,
-    'fatigue': fatigue,
-    'frustration': frustration,
-    'excitement': excitement,
-    'stability': stability,
-  };
-}
-
-// ─── Pipeline output contract ─────────────────────────────────────────────────
-
-class SIContext {
-  const SIContext({required this.input, required this.userState});
-
-  final SIInputPacket input;
-  final SIUserState userState;
-}
-
-// ─── Module ───────────────────────────────────────────────────────────────────
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 
 class SIInputModule {
   const SIInputModule();
 
-  SIContext process(SIInputPacket packet, {String mood = 'neutral'}) {
+  SIContext process(SIInputPacket packet, {String? mood}) {
     final SILatentInputs l = packet.latent;
 
-    final double stress = ((l.frustration + l.confusion + l.hesitation) / 3)
-        .clamp(0.0, 1.0);
-    final double engagement = (0.6 + (l.excitement - l.hesitation) * 0.4).clamp(
-      0.0,
-      1.0,
+    final double frustration = siClamp01(l.frustration);
+    final double excitement = siClamp01(l.excitement);
+    final double confusion = siClamp01(l.confusion);
+    final double confidence = siClamp01(l.confidence);
+    final double hesitation = siClamp01(l.hesitation);
+
+    final double stress = ((frustration + confusion + hesitation) / 3)
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    final double engagement = (0.5 + (excitement - hesitation) * 0.5)
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    final double fatigue = (0.2 + hesitation * 0.5 + confusion * 0.3)
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    final double motivation = (excitement * 0.6 + confidence * 0.4)
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    final double cognitiveLoad = (stress * 0.6 + fatigue * 0.4)
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    final String resolvedMood = siNormalizeMood(
+      mood ??
+          packet.metadata['mood']?.toString() ??
+          packet.context['mood']?.toString() ??
+          'neutral',
     );
-    final double fatigue = (0.3 + l.hesitation * 0.4 + l.confusion * 0.3).clamp(
-      0.0,
-      1.0,
-    );
-    final double motivation = (l.excitement + l.confidence * 0.5).clamp(
-      0.0,
-      1.0,
-    );
-    final String stability = l.confidence >= 0.7 ? 'stable' : 'volatile';
 
     final SIUserState userState = SIUserState(
-      emotion: mood,
-      cognitiveLoad: (stress + fatigue).clamp(0.0, 1.0),
+      emotion: resolvedMood,
+      cognitiveLoad: cognitiveLoad,
       stress: stress,
       motivation: motivation,
       engagement: engagement,
       fatigue: fatigue,
-      frustration: l.frustration,
-      excitement: l.excitement,
-      stability: stability,
+      frustration: frustration,
+      excitement: excitement,
+      stability: _stability(confidence: confidence, stress: stress),
     );
 
     return SIContext(input: packet, userState: userState);
+  }
+
+  String _stability({required double confidence, required double stress}) {
+    if (confidence >= 0.75 && stress < 0.4) return 'stable';
+    if (stress >= 0.7) return 'fragile';
+    return 'volatile';
   }
 }
