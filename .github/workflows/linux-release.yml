@@ -29,6 +29,10 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Run security secret guard
+        shell: pwsh
+        run: ./scripts/security_secret_guard.ps1
+
       - name: Build Linux release
         run: flutter build linux --release
 
