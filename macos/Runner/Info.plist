@@ -28,5 +28,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Chronospark uses your microphone only when you start a voice coaching command.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Chronospark converts speech to text only for voice requests you initiate.</string>
 </dict>
 </plist>
