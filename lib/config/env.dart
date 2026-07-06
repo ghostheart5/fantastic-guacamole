@@ -1,10 +1,11 @@
+import 'package:fantastic_guacamole/config/app_flavor.dart';
 import 'package:flutter/foundation.dart';
 
-class Env {
+abstract final class Env {
   static const String appName = 'ChronoSpark';
   static const String appFlavor = String.fromEnvironment(
     'CHRONOSPARK_APP_FLAVOR',
-    defaultValue: 'dev',
+    defaultValue: 'prod',
   );
   static const bool enableVerboseLogs = bool.fromEnvironment(
     'CHRONOSPARK_VERBOSE_LOGS',
@@ -16,7 +17,7 @@ class Env {
   );
   static const bool enableAnalytics = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_ANALYTICS',
-    defaultValue: true,
+    defaultValue: false,
   );
   static const bool enableMockLogin = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_MOCK_LOGIN',
@@ -50,6 +51,10 @@ class Env {
     'CHRONOSPARK_AI_PROXY_ENDPOINT',
     defaultValue: '',
   );
+  static const String accountDeleteEndpoint = String.fromEnvironment(
+    'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
+    defaultValue: '',
+  );
   static const String supabaseUrl = String.fromEnvironment(
     'CHRONOSPARK_SUPABASE_URL',
     defaultValue: '',
@@ -64,23 +69,27 @@ class Env {
   );
   static const String appLinksAndroidSha256 = String.fromEnvironment(
     'CHRONOSPARK_ANDROID_SHA256_CERT',
-    defaultValue:
-        'B9:09:A5:09:56:08:DE:F7:91:EF:B5:A1:C0:D8:28:54:15:8B:45:0A:82:BF:9F:B2:90:84:BB:78:4A:52:17:2F',
+    defaultValue: '',
   );
   static const String appLinksIosTeamId = String.fromEnvironment(
     'CHRONOSPARK_IOS_TEAM_ID',
-    defaultValue: 'REPLACE_WITH_TEAM_ID',
+    defaultValue: '',
   );
   static const bool enforceProductionReadiness = bool.fromEnvironment(
     'CHRONOSPARK_ENFORCE_PROD_READINESS',
     defaultValue: false,
   );
 
+  static AppFlavor get flavor => AppFlavor.parse(appFlavor);
+
   static bool resolveIsProduction(
     String flavor, {
     required bool isReleaseMode,
   }) {
-    return isReleaseMode && flavor.toLowerCase() == 'prod';
+    // Release artifacts always use production security rules. A missing or
+    // mistyped flavor must never enable QA authentication or entitlement
+    // bypasses in a distributable build.
+    return isReleaseMode;
   }
 
   static bool resolveIsMockMode({
@@ -110,7 +119,7 @@ class Env {
     required bool isProduction,
     required bool enableTesterFullAccess,
   }) {
-    return !isProduction || enableTesterFullAccess;
+    return !isProduction && enableTesterFullAccess;
   }
 
   static bool get isProduction =>
@@ -145,12 +154,10 @@ class Env {
     if (!force && !enforceProductionReadiness && !isProduction) {
       return const <String>[];
     }
+
     final List<String> issues = <String>[];
     if (enableCrashReporting == false) {
       issues.add('Crash reporting is disabled.');
-    }
-    if (enableAnalytics == false) {
-      issues.add('Analytics is disabled.');
     }
     if (enableMockLogin) {
       issues.add('Mock login bypass is enabled.');
@@ -164,30 +171,46 @@ class Env {
     if (enableTesterFullAccess) {
       issues.add('Tester full-access override is enabled.');
     }
-    final String endpoint = receiptVerifyEndpoint.trim();
-    if (endpoint.isEmpty) {
-      issues.add('Receipt verification endpoint is not configured.');
-    } else {
-      final Uri? uri = Uri.tryParse(endpoint);
-      if (uri == null || !uri.hasAuthority || uri.scheme != 'https') {
-        issues.add('Receipt verification endpoint must be a valid HTTPS URL.');
-      }
+    if (!isSupabaseConfigured) {
+      issues.add('Supabase authentication is not configured.');
     }
-    final String aiEndpoint = aiProxyEndpoint.trim();
-    if (aiEndpoint.isEmpty) {
-      issues.add('AI proxy endpoint is not configured.');
-    } else {
-      final Uri? uri = Uri.tryParse(aiEndpoint);
-      if (uri == null || !uri.hasAuthority || uri.scheme != 'https') {
-        issues.add('AI proxy endpoint must be a valid HTTPS URL.');
-      }
+    _validateHttpsEndpoint(
+      receiptVerifyEndpoint,
+      label: 'Receipt verification endpoint',
+      issues: issues,
+    );
+    _validateHttpsEndpoint(
+      aiProxyEndpoint,
+      label: 'AI proxy endpoint',
+      issues: issues,
+    );
+    _validateHttpsEndpoint(
+      accountDeleteEndpoint,
+      label: 'Account deletion endpoint',
+      issues: issues,
+    );
+    if (appLinksAndroidSha256.trim().isEmpty) {
+      issues.add('Android App Links SHA-256 fingerprint is not configured.');
     }
-    if (appLinksAndroidSha256.contains('REPLACE_WITH_')) {
-      issues.add('Android App Links SHA-256 fingerprint is a placeholder.');
-    }
-    if (appLinksIosTeamId.contains('REPLACE_WITH_')) {
-      issues.add('iOS associated domains team ID is a placeholder.');
+    if (appLinksIosTeamId.trim().isEmpty) {
+      issues.add('iOS associated domains team ID is not configured.');
     }
     return issues;
+  }
+
+  static void _validateHttpsEndpoint(
+    String value, {
+    required String label,
+    required List<String> issues,
+  }) {
+    final String endpoint = value.trim();
+    if (endpoint.isEmpty) {
+      issues.add('$label is not configured.');
+      return;
+    }
+    final Uri? uri = Uri.tryParse(endpoint);
+    if (uri == null || !uri.hasAuthority || uri.scheme != 'https') {
+      issues.add('$label must be a valid HTTPS URL.');
+    }
   }
 }
