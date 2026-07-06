@@ -7,8 +7,8 @@ import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
-import 'package:fantastic_guacamole/engine/optimizer/optimization_config.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
+import 'package:fantastic_guacamole/engine/optimizer/optimization_config.dart';
 import 'package:fantastic_guacamole/engine/scoring/session_scoring_engine.dart';
 import 'package:fantastic_guacamole/engine/tasks/task_filter.dart';
 import 'package:fantastic_guacamole/engine/tasks/task_ranker.dart';
@@ -29,9 +29,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
   final List<TaskEntity> tasks = await ref.read(getTasksUseCaseProvider).call();
-  final OptimizationConfig optimization = await ref.watch(
-    optimizationConfigProvider.future,
-  );
+  final OptimizationConfig optimization = await ref.watch(optimizationConfigProvider.future);
   final si = ref.watch(siStateProvider);
   final learning = ref.watch(learningProvider);
   final SiStateEntity siState = SiStateEntity(
@@ -71,29 +69,14 @@ class TaskActions {
     }
 
     final DateTime now = DateTime.now();
-    final TaskEntity normalized = entity.copyWith(
-      title: trimmed,
-      createdAt: entity.createdAt,
-    );
+    final TaskEntity normalized = entity.copyWith(title: trimmed, createdAt: entity.createdAt);
 
     await _ref.read(createTaskUseCaseProvider).call(normalized);
-    unawaited(
-      _recordCreationSideEffects(
-        task: normalized,
-        timestamp: now,
-        notify: notify,
-      ),
-    );
+    unawaited(_recordCreationSideEffects(task: normalized, timestamp: now, notify: notify));
 
     _ref
         .read(eventBusProvider)
-        .emit(
-          TaskLifecycleEvent(
-            taskId: normalized.id,
-            title: trimmed,
-            action: 'created',
-          ),
-        );
+        .emit(TaskLifecycleEvent(taskId: normalized.id, title: trimmed, action: 'created'));
 
     _ref.invalidate(tasksProvider);
     _ref.invalidate(goalProgressProvider);
@@ -126,14 +109,13 @@ class TaskActions {
       }
     }
 
+    selectedTask ??= await _taskFromRepository(id);
+
     await _ref.read(completeTaskUseCaseProvider).call(id);
 
     if (selectedTask != null) {
       final DateTime now = DateTime.now();
-      final int estimatedSeconds = (selectedTask.difficulty * 300).clamp(
-        60,
-        1800,
-      );
+      final int estimatedSeconds = (selectedTask.difficulty * 300).clamp(60, 1800);
       final double energy = _ref.read(siStateProvider).energy;
       final score = _scoringEngine.calculate(
         seconds: estimatedSeconds,
@@ -182,6 +164,17 @@ class TaskActions {
     _ref.invalidate(goalProgressProvider);
   }
 
+  Future<Task?> _taskFromRepository(String id) async {
+    if (id.trim().isEmpty) {
+      return null;
+    }
+    final TaskEntity? entity = await _ref.read(domainTaskRepositoryProvider).getTaskById(id);
+    if (entity == null || entity.isCompleted || entity.isCanceled) {
+      return null;
+    }
+    return _taskFromEntity(entity);
+  }
+
   Future<void> skipTask(String id, {bool notify = true}) async {
     final List<Task> tasks = await _ref.read(tasksProvider.future);
     Task? selectedTask;
@@ -215,20 +208,14 @@ class TaskActions {
           ),
         );
     if (notify) {
-      await _ref
-          .read(notificationActionsProvider)
-          .pushMirroredTaskSkipped(selectedTask.title);
+      await _ref.read(notificationActionsProvider).pushMirroredTaskSkipped(selectedTask.title);
     }
     await _refreshCoachDecision(notify: notify);
 
     _ref
         .read(eventBusProvider)
         .emit(
-          TaskLifecycleEvent(
-            taskId: selectedTask.id,
-            title: selectedTask.title,
-            action: 'skipped',
-          ),
+          TaskLifecycleEvent(taskId: selectedTask.id, title: selectedTask.title, action: 'skipped'),
         );
 
     _ref.invalidate(tasksProvider);
@@ -237,9 +224,7 @@ class TaskActions {
 
   Future<void> _refreshCoachDecision({required bool notify}) async {
     try {
-      final decision = await _ref
-          .read(generateSiDecisionUseCaseProvider)
-          .call();
+      final decision = await _ref.read(generateSiDecisionUseCaseProvider).call();
       _ref.invalidate(domainSiDecisionProvider);
       if (!notify) {
         return;
@@ -257,9 +242,7 @@ class TaskActions {
       if (selectedTitle.isEmpty) {
         return;
       }
-      await _ref
-          .read(notificationActionsProvider)
-          .pushMirroredDecision(selectedTitle);
+      await _ref.read(notificationActionsProvider).pushMirroredDecision(selectedTitle);
     } catch (_) {
       // Skip coach refresh errors to avoid blocking task mutations.
     }
@@ -302,9 +285,7 @@ class TaskActions {
     required DateTime timestamp,
     required bool notify,
   }) async {
-    await _bestEffort(
-      () => _ref.read(localMetricsAccumulatorProvider).recordTaskCreated(),
-    );
+    await _bestEffort(() => _ref.read(localMetricsAccumulatorProvider).recordTaskCreated());
     await _bestEffort(
       () => _ref
           .read(logsActionsProvider)
@@ -343,13 +324,9 @@ class TaskActions {
     required bool notify,
   }) async {
     await _bestEffort(
-      () => _ref
-          .read(learningProvider.notifier)
-          .update(success: true, difficulty: task.difficulty),
+      () => _ref.read(learningProvider.notifier).update(success: true, difficulty: task.difficulty),
     );
-    await _bestEffort(
-      () => _ref.read(localMetricsAccumulatorProvider).recordTaskCompleted(),
-    );
+    await _bestEffort(() => _ref.read(localMetricsAccumulatorProvider).recordTaskCompleted());
     await _bestEffort(
       () => _recordCompletionLearning(
         task: task,
@@ -359,9 +336,7 @@ class TaskActions {
       ),
     );
     await _bestEffort(
-      () => _ref
-          .read(logsActionsProvider)
-          .addCompletedTask(task: task.title, mirrored: true),
+      () => _ref.read(logsActionsProvider).addCompletedTask(task: task.title, mirrored: true),
     );
     await _bestEffort(
       () => _ref
@@ -378,9 +353,7 @@ class TaskActions {
     );
     if (notify) {
       await _bestEffort(
-        () => _ref
-            .read(notificationActionsProvider)
-            .pushMirroredCompletionFeedback(task.title),
+        () => _ref.read(notificationActionsProvider).pushMirroredCompletionFeedback(task.title),
       );
     }
     await _refreshCoachDecision(notify: notify);
