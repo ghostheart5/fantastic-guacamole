@@ -1,64 +1,103 @@
+// Dart SDK imports.
 import 'dart:async';
 
-import 'package:fantastic_guacamole/app/app.dart';
+// Package imports.
+import 'package:fantastic_guacamole/app/app_root.dart';
+import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/config/env.dart';
-import 'package:fantastic_guacamole/firebase_options.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/observers/riverpod_observer.dart';
-import 'package:fantastic_guacamole/core/storage/hive_service.dart';
-import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
-import 'package:fantastic_guacamole/core/storage/storage_migration.dart';
-import 'package:fantastic_guacamole/features/notifications/notification_scheduler.dart';
-import 'package:fantastic_guacamole/state/intelligence/intelligence_service.dart';
+import 'package:fantastic_guacamole/data/services/supabase_client_service.dart';
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:fantastic_guacamole/data/storage/sensitive_prefs_store.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/data/storage/storage_migration.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart'
+    show
+        onboardingCompleteProvider,
+        onboardingCompleteStorageKey,
+        onboardingContentVersionStorageKey;
+import 'package:fantastic_guacamole/state/core/state_bootstrap.dart'
+    show stateBootstrapProvider;
+import 'package:fantastic_guacamole/state/providers/service_providers.dart'
+    show identityServiceProvider;
+import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
+import 'package:fantastic_guacamole/system/firebase/firebase_bootstrap.dart';
+import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/system/system_boot.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as sb;
-import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  final config = AppConfig.fromEnv();
-  final intelligence = const IntelligenceService().environmentOnly();
-  Logger.enabled = config.verboseLogs;
-  Logger.info(
-    'Startup begin. Flavor=${intelligence.environment.appFlavor}, '
-    'mockMode=${intelligence.flags.mockMode}, '
-    'paywallDisabled=${intelligence.flags.paywallDisabled}, '
-    'mockLogin=${intelligence.flags.mockLoginEnabled}.',
-  );
-  RuntimeDiagnostics.recordState(
-    'startup.begin',
-    message: 'startup initialized',
-    data: intelligence.toMap(),
-  );
-
-  FlutterError.onError = (errorDetails) {
-    if (Firebase.apps.isNotEmpty) {
-      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-    }
-  };
-
   runZonedGuarded(
-    () => runApp(
-      ProviderScope(
-        observers: [AppObserver()],
-        child: const _StartupBootstrapGate(),
-      ),
-    ),
+    () {
+      WidgetsFlutterBinding.ensureInitialized();
+
+      final config = AppConfig.fromEnv();
+      final intelligence = const IntelligenceService().environmentOnly();
+      Logger.enabled = config.verboseLogs;
+      Logger.info(
+        'Startup begin. Flavor=${config.flavor.value}, '
+        'mockMode=${intelligence.flags.mockMode}, '
+        'paywallDisabled=${intelligence.flags.paywallDisabled}, '
+        'mockLogin=${intelligence.flags.mockLoginEnabled}.',
+      );
+      RuntimeDiagnostics.recordState(
+        'startup.begin',
+        message: 'startup initialized',
+        data: intelligence.toMap(),
+      );
+
+      FlutterError.onError = (errorDetails) {
+        FlutterError.presentError(errorDetails);
+        RuntimeDiagnostics.record(
+          'Flutter framework error: ${errorDetails.exceptionAsString()}',
+        );
+        if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+          FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+        }
+      };
+
+      PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+        RuntimeDiagnostics.record('Platform dispatcher uncaught error: $error');
+        if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+          FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        }
+        return true;
+      };
+
+      runApp(
+        ProviderScope(
+          observers: [AppObserver()],
+          child: const _StartupBootstrapGate(),
+        ),
+      );
+    },
     (error, stack) {
-      if (Firebase.apps.isNotEmpty) {
+      FlutterError.presentError(
+        FlutterErrorDetails(exception: error, stack: stack),
+      );
+      RuntimeDiagnostics.record('Uncaught zone error: $error');
+      if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
         FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       }
     },
   );
 }
+
+bool get _supportsCrashlytics =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS);
 
 class _StartupBootstrapGate extends ConsumerStatefulWidget {
   const _StartupBootstrapGate();
@@ -182,11 +221,6 @@ Future<_StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
     'supabase',
     () => _initSupabaseSafe(isMockMode: intelligence.flags.mockMode),
   );
-  final Future<String?> notificationIssueFuture = _measureIssueStage(
-    'notifications',
-    () =>
-        _initNotificationSchedulerSafe(isMockMode: intelligence.flags.mockMode),
-  );
   final Future<String?> identityIssueFuture = _measureIssueStage(
     'identity',
     () => _initIdentitySafe(ref),
@@ -195,15 +229,25 @@ Future<_StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
     _loadPrefsSafe,
   );
 
-  final List<String?> startupIssues =
-      await Future.wait<String?>(<Future<String?>>[
-        storageIssueFuture,
-        firebaseIssueFuture,
-        supabaseIssueFuture,
-        notificationIssueFuture,
-        identityIssueFuture,
-      ]);
+  final List<String?> startupIssues = await Future.wait<String?>(
+    <Future<String?>>[
+      storageIssueFuture,
+      firebaseIssueFuture,
+      supabaseIssueFuture,
+      identityIssueFuture,
+    ],
+  );
   final _PrefsLoadResult prefsResult = await prefsResultFuture;
+
+  unawaited(
+    _measureIssueStage(
+      'notifications',
+      () => _initNotificationSchedulerSafe(
+        isMockMode: intelligence.flags.mockMode,
+      ),
+    ),
+  );
+  unawaited(_measureIssueStage('deep_links', _initDeepLinksSafe));
 
   for (final String? issue in startupIssues) {
     startupError = _appendStartupIssue(startupError, issue ?? '');
@@ -266,6 +310,7 @@ Future<String?> _initStorageSafe() async {
     RuntimeDiagnostics.record('Initializing local storage...');
     await HiveService.init();
     await SharedPrefsService.init();
+    await SensitivePrefsStore.instance.init();
     await StorageMigration.run();
     Logger.log('Startup', 'Local storage initialized.');
     RuntimeDiagnostics.record('Local storage initialized.');
@@ -312,35 +357,20 @@ Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
     RuntimeDiagnostics.record('Mock mode active: Firebase startup skipped.');
     return null;
   }
-  try {
-    if (Firebase.apps.isEmpty) {
-      Logger.log('Startup', 'Initializing Firebase...');
-      RuntimeDiagnostics.record('Initializing Firebase...');
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      ).timeout(const Duration(seconds: 12));
-      await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
-      Logger.log('Startup', 'Firebase initialized.');
-      RuntimeDiagnostics.record('Firebase initialized.');
-    }
-    return null;
-  } on FirebaseException catch (error) {
-    // Hot restarts and some plugin startup paths can race into duplicate init.
-    if (error.code == 'duplicate-app') {
-      return null;
-    }
-    Logger.error('Firebase initialization failed.', error);
-    RuntimeDiagnostics.record('Firebase initialization failed: $error');
-    return 'Firebase initialization failed: $error';
-  } on TimeoutException {
-    Logger.warn('Firebase initialization timed out.');
-    RuntimeDiagnostics.record('Firebase initialization timed out.');
-    return 'Firebase initialization timed out. The app started in degraded mode.';
-  } on Exception catch (error) {
-    Logger.error('Firebase initialization failed.', error);
-    RuntimeDiagnostics.record('Firebase initialization failed: $error');
-    return 'Firebase initialization failed: $error';
+
+  Logger.log('Startup', 'Initializing Firebase...');
+  RuntimeDiagnostics.record('Initializing Firebase...');
+  final String? issue = await const FirebaseBootstrap().initialize(
+    isMockMode: isMockMode,
+  );
+  if (issue == null) {
+    Logger.log('Startup', 'Firebase initialized.');
+    RuntimeDiagnostics.record('Firebase initialized.');
+  } else {
+    Logger.error('Firebase initialization failed.', issue);
+    RuntimeDiagnostics.record('Firebase initialization failed: $issue');
   }
+  return issue;
 }
 
 Future<String?> _initSupabaseSafe({required bool isMockMode}) async {
@@ -352,25 +382,20 @@ Future<String?> _initSupabaseSafe({required bool isMockMode}) async {
     RuntimeDiagnostics.record('Supabase startup skipped.');
     return null;
   }
-  try {
-    Logger.log('Startup', 'Initializing Supabase...');
-    RuntimeDiagnostics.record('Initializing Supabase...');
-    await sb.Supabase.initialize(
-      url: Env.supabaseUrl,
-      publishableKey: Env.supabaseAnonKey,
-    ).timeout(const Duration(seconds: 12));
+
+  Logger.log('Startup', 'Initializing Supabase...');
+  RuntimeDiagnostics.record('Initializing Supabase...');
+  final String? issue = await const SupabaseClientService().initialize(
+    isMockMode: isMockMode,
+  );
+  if (issue == null) {
     Logger.log('Startup', 'Supabase initialized.');
     RuntimeDiagnostics.record('Supabase initialized.');
-    return null;
-  } on TimeoutException {
-    Logger.warn('Supabase initialization timed out.');
-    RuntimeDiagnostics.record('Supabase initialization timed out.');
-    return 'Supabase initialization timed out. Auth will be unavailable.';
-  } on Exception catch (error) {
-    Logger.error('Supabase initialization failed.', error);
-    RuntimeDiagnostics.record('Supabase initialization failed: $error');
-    return 'Supabase initialization failed: $error';
+  } else {
+    Logger.error('Supabase initialization failed.', issue);
+    RuntimeDiagnostics.record('Supabase initialization failed: $issue');
   }
+  return issue;
 }
 
 Future<String?> _initNotificationSchedulerSafe({
@@ -408,6 +433,31 @@ Future<String?> _initNotificationSchedulerSafe({
   }
 }
 
+Future<String?> _initDeepLinksSafe() async {
+  try {
+    Logger.log('Startup', 'Initializing deep links...');
+    RuntimeDiagnostics.record('Initializing deep links...');
+    await DeepLinkService.instance.initializeEarly().timeout(
+      const Duration(seconds: 6),
+    );
+    Logger.log('Startup', 'Deep links initialized.');
+    RuntimeDiagnostics.record('Deep links initialized.');
+    return null;
+  } on TimeoutException {
+    Logger.warn('Deep link initialization timed out (non-fatal).');
+    RuntimeDiagnostics.record(
+      'Deep link initialization timed out (non-fatal).',
+    );
+    return null;
+  } on Exception catch (error) {
+    Logger.warn('Deep link initialization failed (non-fatal): $error');
+    RuntimeDiagnostics.record(
+      'Deep link initialization failed (non-fatal): $error',
+    );
+    return null;
+  }
+}
+
 Future<String?> _initIdentitySafe(WidgetRef ref) async {
   try {
     Logger.log('Startup', 'Bootstrapping identity...');
@@ -440,6 +490,28 @@ Future<_PrefsLoadResult> _loadPrefsSafe() async {
       const Duration(seconds: 6),
     );
     hasOnboarded = prefs.getBool(onboardingCompleteStorageKey) ?? false;
+    final int storedOnboardingVersion =
+        prefs.getInt(onboardingContentVersionStorageKey) ?? 0;
+    final int currentOnboardingVersion = TutorialContent.contentVersion;
+
+    if (storedOnboardingVersion < currentOnboardingVersion) {
+      hasOnboarded = false;
+      await prefs.setBool(onboardingCompleteStorageKey, false);
+      await prefs.setInt(
+        onboardingContentVersionStorageKey,
+        currentOnboardingVersion,
+      );
+      Logger.log(
+        'Startup',
+        'Onboarding content version updated '
+            '($storedOnboardingVersion -> $currentOnboardingVersion); replay required.',
+      );
+      RuntimeDiagnostics.record(
+        'Onboarding content version updated '
+        '($storedOnboardingVersion -> $currentOnboardingVersion); replay required.',
+      );
+    }
+
     Logger.log(
       'Startup',
       'Local preferences loaded. onboardingComplete=$hasOnboarded',
