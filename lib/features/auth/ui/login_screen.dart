@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/core/constants/app_assets.dart';
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -295,7 +295,7 @@ class _LoginScreenState extends State<LoginScreen>
                           const SizedBox(width: 8),
                           Expanded(
                             child: _SecondaryButton(
-                              label: 'Forgot PW',
+                              label: 'Reset Key',
                               icon: Icons.lock_reset_rounded,
                               color: AppColors.neonCyan,
                               onTap: widget.onForgotPassword,
@@ -306,8 +306,8 @@ class _LoginScreenState extends State<LoginScreen>
                             Expanded(
                               child: _SecondaryButton(
                                 label: widget.isSignUpMode
-                                    ? 'Sign In'
-                                    : 'Sign Up',
+                                    ? 'Log In'
+                                    : 'Create',
                                 icon: widget.isSignUpMode
                                     ? Icons.arrow_back_rounded
                                     : Icons.person_add_rounded,
@@ -346,7 +346,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                                 SizedBox(width: 8),
                                 Text(
-                                  'TESTER ACCESS  ·  MOCK LOGIN',
+                                  'TESTER ACCESS  ·  COMMAND LOGIN',
                                   style: TextStyle(
                                     color: Color(0xFFFFDFA3),
                                     fontWeight: FontWeight.w700,
