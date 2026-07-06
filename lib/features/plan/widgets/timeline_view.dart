@@ -1,12 +1,13 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/data/models/time_block.dart';
+import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/time_block_widget.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class TimelineView extends StatelessWidget {
-  const TimelineView({super.key, required this.blocks});
+  const TimelineView({super.key, required this.blocks, this.onCompleteTask});
 
   final List<TimeBlock> blocks;
+  final Future<void> Function(String taskId)? onCompleteTask;
 
   Color _blockColor(int index) {
     const List<Color> colors = <Color>[
@@ -31,10 +32,13 @@ class TimelineView extends StatelessWidget {
         final String end =
             '${block.end.hour}:${block.end.minute.toString().padLeft(2, '0')}';
         return TimeBlockWidget(
+          taskId: block.taskId,
           title: block.title,
           start: start,
           end: end,
           accent: _blockColor(index),
+          completed: block.completed,
+          onCompleteTask: onCompleteTask,
         );
       },
     );

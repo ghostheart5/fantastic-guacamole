@@ -1,3 +1,0 @@
-class PlanService {
-  const PlanService();
-}
