@@ -20,8 +20,6 @@ final productInsightsProvider = FutureProvider<List<ProductInsight>>((
       nextSeen: 0,
       started: 0,
       completed: 0,
-      focusStarted: 0,
-      focusCompleted: 0,
       momentumPeak: 0,
     );
   }
