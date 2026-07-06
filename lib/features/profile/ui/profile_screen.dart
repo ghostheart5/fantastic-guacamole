@@ -1,32 +1,16 @@
-import 'package:fantastic_guacamole/core/constants/app_assets.dart';
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
-import 'package:fantastic_guacamole/engine/si/offline/user_growth_engine.dart';
-import 'package:fantastic_guacamole/features/profile/services/profile_provider.dart';
-import 'package:fantastic_guacamole/features/profile/state/profile_state.dart';
 import 'package:fantastic_guacamole/features/profile/ui/widgets/profile_header.dart';
 import 'package:fantastic_guacamole/features/profile/ui/widgets/stats_card.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/models/profile_view_state.dart';
+import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
+import 'package:fantastic_guacamole/state/providers/profile_provider.dart';
+import 'package:fantastic_guacamole/state/providers/profile_values_provider.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-final _userGrowthProvider = Provider<UserGrowthState>((ref) {
-  final profile = ref.watch(profileProvider);
-  final traj = ref.watch(trajectorySummaryProvider);
-  final consistency = traj.momentum > 0.6
-      ? 0.9
-      : traj.momentum > 0.3
-      ? 0.6
-      : 0.3;
-  return const UserGrowthEngine().update(
-    const UserGrowthState(),
-    completedTasks: profile.xp ~/ 10,
-    streak: profile.streak,
-    consistency: consistency,
-  );
-});
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -60,7 +44,6 @@ class _ProfileBody extends ConsumerWidget {
         ProfileHeader(
           name: data.name,
           level: data.level,
-          onOpenProgression: actions.openProgression,
           onOpenSettings: actions.openSettings,
         ),
         const SizedBox(height: 16),
@@ -120,9 +103,8 @@ class _IdentityCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final identity = ref.watch(identityStateProvider);
     final notifier = ref.watch(identityStateProvider.notifier);
-    final growth = ref.watch(_userGrowthProvider);
+    final growthTitle = ref.watch(userGrowthTitleProvider);
     final archetype = notifier.archetype;
-    final growthTitle = const UserGrowthEngine().growthTitle(growth);
 
     return Container(
       width: double.infinity,
@@ -269,7 +251,6 @@ class _ValuesCard extends ConsumerStatefulWidget {
 }
 
 class _ValuesCardState extends ConsumerState<_ValuesCard> {
-  static const _key = 'profile_values';
   static const _allValues = [
     'Discipline',
     'Growth',
@@ -283,10 +264,7 @@ class _ValuesCardState extends ConsumerState<_ValuesCard> {
   @override
   void initState() {
     super.initState();
-    final raw = SharedPrefsService.load(_key);
-    if (raw != null) {
-      _selected = raw.split(',').where((s) => s.isNotEmpty).toSet();
-    }
+    _selected = ref.read(profileValuesStoreProvider).load();
   }
 
   Future<void> _toggle(String value) async {
@@ -297,7 +275,7 @@ class _ValuesCardState extends ConsumerState<_ValuesCard> {
         _selected = Set.from(_selected)..add(value);
       }
     });
-    await SharedPrefsService.save(_key, _selected.join(','));
+    await ref.read(profileValuesStoreProvider).save(_selected);
   }
 
   @override
@@ -389,7 +367,7 @@ class _NavButtons extends StatelessWidget {
       children: [
         Expanded(
           child: _NavBtn(
-            label: 'TIMELINE',
+            label: 'TIMELINE OPS',
             icon: Icons.timeline_rounded,
             color: AppColors.neonViolet,
             onTap: onTimeline,
@@ -398,7 +376,7 @@ class _NavButtons extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _NavBtn(
-            label: 'PROGRESSION',
+            label: 'PROGRESSION INTEL',
             icon: Icons.bolt,
             color: AppColors.memoryAmber,
             onTap: onProgression,
@@ -534,7 +512,7 @@ class _NameEditorState extends State<_NameEditor> {
             controller: _controller,
             style: const TextStyle(color: Colors.white, fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'Enter profile name',
+              hintText: 'Enter identity callsign',
               hintStyle: const TextStyle(color: Colors.white30),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.03),
@@ -561,7 +539,7 @@ class _NameEditorState extends State<_NameEditor> {
                 if (nextName.isEmpty) return;
                 widget.onSave(nextName);
               },
-              child: const Text('Update Name'),
+              child: const Text('Update Identity'),
             ),
           ),
         ],
