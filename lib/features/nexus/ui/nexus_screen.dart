@@ -10,7 +10,6 @@ import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
-import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
@@ -47,36 +46,39 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
     final ProfileState profile = model?.aggregation.profile ?? ref.watch(profileProvider);
     final double energy = model?.aggregation.siState.energy ?? ref.watch(energyProvider);
     final SIState siState = model?.aggregation.siState ?? ref.watch(siStateProvider);
-    final trajectory = model?.aggregation.trajectory ?? ref.watch(trajectorySummaryProvider);
+    final fallbackTrajectory = ref.watch(trajectorySummaryProvider);
+    final trajectory = model?.aggregation.trajectory;
+    final double momentum = trajectory?.momentum ?? fallbackTrajectory.momentum;
+    final int completedTasks = trajectory?.completedTasks ?? fallbackTrajectory.completedTasks;
 
-    final String consistencySignal = trajectory.momentum >= 0.65
-      ? 'High'
-      : trajectory.momentum >= 0.4
-      ? 'Medium'
-      : 'Low';
+    final String consistencySignal = momentum >= 0.65
+        ? 'High'
+        : momentum >= 0.4
+        ? 'Medium'
+        : 'Low';
     final String loadSignal = siState.fatigue >= 0.75
-      ? 'Heavy'
-      : siState.fatigue >= 0.45
-      ? 'Moderate'
-      : 'Light';
+        ? 'Heavy'
+        : siState.fatigue >= 0.45
+        ? 'Moderate'
+        : 'Light';
     final String growthTitle = profile.streak >= 21
-      ? 'Compounding Momentum'
-      : profile.streak >= 7
-      ? 'Stable Growth Arc'
-      : trajectory.completedTasks > 0
-      ? 'Early Growth Signal'
-      : 'Growth Engine Priming';
-    final String narrativeSummary = trajectory.completedTasks > 0
-      ? 'Momentum is active. Keep the next action small and immediate.'
-      : 'No completed actions yet. Start with one clear task to establish narrative continuity.';
+        ? 'Compounding Momentum'
+        : profile.streak >= 7
+        ? 'Stable Growth Arc'
+        : completedTasks > 0
+        ? 'Early Growth Signal'
+        : 'Growth Engine Priming';
+    final String narrativeSummary = completedTasks > 0
+        ? 'Momentum is active. Keep the next action small and immediate.'
+        : 'No completed actions yet. Start with one clear task to establish narrative continuity.';
     final int soulContinuityPct =
-      ((((1 - siState.fatigue) * 0.55) + (trajectory.momentum * 0.45)).clamp(0.0, 1.0) * 100)
-        .round();
-    final int narrativePresencePct =
-      ((((trajectory.completedTasks > 0 ? 0.5 : 0.28) + (profile.streak.clamp(0, 14) / 14) * 0.5)
-            .clamp(0.0, 1.0) *
-          100)
-        .round();
+        ((((1 - siState.fatigue) * 0.55) + (momentum * 0.45)).clamp(0.0, 1.0) * 100).round();
+    final double narrativePresence =
+        ((completedTasks > 0 ? 0.5 : 0.28) + (profile.streak.clamp(0, 14) / 14) * 0.5).clamp(
+          0.0,
+          1.0,
+        );
+    final int narrativePresencePct = (narrativePresence * 100).round();
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/nexus_bg.jpg',
@@ -713,7 +715,6 @@ class _CoreSignalsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),

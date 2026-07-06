@@ -35,11 +35,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class NavigationShell extends ConsumerStatefulWidget {
-  const NavigationShell({
-    super.key,
-    this.initialView = AppView.coach,
-    this.initialTabIndex = 0,
-  });
+  const NavigationShell({super.key, this.initialView = AppView.coach, this.initialTabIndex = 0});
 
   final AppView initialView;
   final int initialTabIndex;
@@ -48,8 +44,7 @@ class NavigationShell extends ConsumerStatefulWidget {
   ConsumerState<NavigationShell> createState() => _NavigationShellState();
 }
 
-class _NavigationShellState extends ConsumerState<NavigationShell>
-    with WidgetsBindingObserver {
+class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsBindingObserver {
   late int _index;
   late final SystemScheduler _systemScheduler;
   late final DataHygieneScheduler _dataHygieneScheduler;
@@ -88,20 +83,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
     });
-    _learningSubscription = ref.listenManual<LearningState>(learningProvider, (
-      _,
-      _,
-    ) {
+    _learningSubscription = ref.listenManual<LearningState>(learningProvider, (_, _) {
       ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
     });
-    _viewSubscription = ref.listenManual<AppView>(appFlowProvider, (
-      _,
-      AppView next,
-    ) {
-      unawaited(
-        ref.read(sessionRecoveryProvider).saveState(lastRoute: next.name),
-      );
+    _viewSubscription = ref.listenManual<AppView>(appFlowProvider, (_, AppView next) {
+      unawaited(ref.read(sessionRecoveryProvider).saveState(lastRoute: next.name));
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -119,6 +106,27 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     _learningSubscription.close();
     _viewSubscription.close();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant NavigationShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.initialTabIndex != widget.initialTabIndex) {
+      final int nextIndex = widget.initialTabIndex.clamp(0, _screens.length - 1);
+      if (_index != nextIndex) {
+        setState(() => _index = nextIndex);
+      }
+    }
+
+    if (oldWidget.initialView != widget.initialView) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        ref.read(appFlowProvider.notifier).show(widget.initialView);
+      });
+    }
   }
 
   @override
@@ -176,11 +184,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     }
   }
 
-  BottomNavigationBarItem _navItem(
-    String assetPath,
-    String label,
-    bool active,
-  ) {
+  BottomNavigationBarItem _navItem(String assetPath, String label, bool active) {
     return BottomNavigationBarItem(
       label: label,
       icon: SvgPicture.asset(
