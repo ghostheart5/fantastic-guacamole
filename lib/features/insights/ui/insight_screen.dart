@@ -1,15 +1,15 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
-import 'package:fantastic_guacamole/features/insights/models/insight_model.dart';
-import 'package:fantastic_guacamole/features/insights/state/insights_state.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/completion_insight_view.dart';
+import 'package:fantastic_guacamole/state/models/insight_model.dart';
+import 'package:fantastic_guacamole/state/models/insights_models.dart';
 import 'package:fantastic_guacamole/state/models/session_score_view.dart';
 import 'package:fantastic_guacamole/state/providers/behavior_provider.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
@@ -21,10 +21,10 @@ class InsightScreen extends ConsumerStatefulWidget {
   ConsumerState<InsightScreen> createState() => _InsightScreenState();
 }
 
-class _InsightScreenState extends ConsumerState<InsightScreen>
-    with SingleTickerProviderStateMixin {
+class _InsightScreenState extends ConsumerState<InsightScreen> with SingleTickerProviderStateMixin {
   late final AnimationController _levelUpAnim;
   bool _levelUpShown = false;
+  String? _lastPublishedInsightSignature;
 
   @override
   void initState() {
@@ -49,12 +49,25 @@ class _InsightScreenState extends ConsumerState<InsightScreen>
     final insightsBundle = ref.watch(insightsBundleProvider);
     final profile = ref.watch(profileProvider);
     final insights = insightsBundle.items;
-    final CompletionInsightView? completionInsight = ref.watch(
-      completionInsightProvider,
-    );
+    final CompletionInsightView? completionInsight = ref.watch(completionInsightProvider);
     final SessionScoreView? score = ref.watch(sessionScoreProvider);
     final pattern = ref.watch(patternInsightProvider);
     final bool showLevelUp = profile.leveledUp && !_levelUpShown;
+    final String publishSignature = _publishSignatureFor(
+      insightsBundle: insightsBundle,
+      patternState: pattern,
+      completionInsight: completionInsight,
+    );
+
+    if (publishSignature.isNotEmpty && publishSignature != _lastPublishedInsightSignature) {
+      _lastPublishedInsightSignature = publishSignature;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        ref.read(insightsActionsProvider).publishBundle(insightsBundle);
+      });
+    }
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/insigh_bg.jpg',
@@ -73,7 +86,6 @@ class _InsightScreenState extends ConsumerState<InsightScreen>
                       children: [
                         SmartPressable(
                           onTap: () {
-                            ref.read(focusControllerProvider.notifier).reset();
                             ref.read(sessionScoreProvider.notifier).set(null);
                             ref.read(appFlowProvider.notifier).toCoach();
                           },
@@ -83,11 +95,7 @@ class _InsightScreenState extends ConsumerState<InsightScreen>
                             decoration: BoxDecoration(
                               color: AppColors.neonCyan.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: AppColors.neonCyan.withValues(
-                                  alpha: 0.3,
-                                ),
-                              ),
+                              border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
                             ),
                             child: const Icon(
                               Icons.arrow_back_ios_new,
@@ -106,13 +114,9 @@ class _InsightScreenState extends ConsumerState<InsightScreen>
                                 fit: BoxFit.scaleDown,
                                 alignment: Alignment.centerLeft,
                                 child: ShaderMask(
-                                  shaderCallback: (bounds) =>
-                                      const LinearGradient(
-                                        colors: [
-                                          AppColors.neonCyan,
-                                          AppColors.neonViolet,
-                                        ],
-                                      ).createShader(bounds),
+                                  shaderCallback: (bounds) => const LinearGradient(
+                                    colors: [AppColors.neonCyan, AppColors.neonViolet],
+                                  ).createShader(bounds),
                                   child: const Text(
                                     'SYSTEM INSIGHTS',
                                     style: TextStyle(
@@ -146,9 +150,7 @@ class _InsightScreenState extends ConsumerState<InsightScreen>
                   if (completionInsight != null)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                      child: _CompletionInsightPanel(
-                        insight: completionInsight,
-                      ),
+                      child: _CompletionInsightPanel(insight: completionInsight),
                     ),
                   if (score != null)
                     Padding(
@@ -159,8 +161,7 @@ class _InsightScreenState extends ConsumerState<InsightScreen>
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                     child: pattern.when(
                       data: (text) => _PatternInsightPanel(text: text),
-                      loading: () =>
-                          const Center(child: CircularProgressIndicator()),
+                      loading: () => const Center(child: CircularProgressIndicator()),
                       error: (e, _) => const Text('Error'),
                     ),
                   ),
@@ -188,10 +189,8 @@ class _InsightScreenState extends ConsumerState<InsightScreen>
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                             itemCount: insights.length,
-                            separatorBuilder: (context, i) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (context, index) =>
-                                _InsightCard(insight: insights[index]),
+                            separatorBuilder: (context, i) => const SizedBox(height: 12),
+                            itemBuilder: (context, index) => _InsightCard(insight: insights[index]),
                           ),
                   ),
                 ],
@@ -218,6 +217,24 @@ class _InsightScreenState extends ConsumerState<InsightScreen>
         ),
       ),
     );
+  }
+
+  String _publishSignatureFor({
+    required InsightsBundle insightsBundle,
+    required AsyncValue<String> patternState,
+    required CompletionInsightView? completionInsight,
+  }) {
+    final String pattern = patternState.maybeWhen(
+      data: (String value) => value.trim(),
+      orElse: () => '',
+    );
+    final String completion = completionInsight == null
+        ? ''
+        : '${completionInsight.summary}|${completionInsight.observation}|${completionInsight.suggestion}';
+    final String items = insightsBundle.items
+        .map((Insight item) => '${item.title}|${item.description}')
+        .join('::');
+    return '${insightsBundle.summary}|${insightsBundle.healthScore.toStringAsFixed(3)}|$completion|$pattern|$items';
   }
 }
 
@@ -248,10 +265,10 @@ class _WeeklyXpRow extends ConsumerWidget {
     final qualBars = List.generate(5, (i) {
       if (i == 4) return curQ;
       final double decay = math.pow(0.8, 4 - i).toDouble();
-      return (curQ *
-              decay *
-              (0.8 + math.Random(profile.xp + i).nextDouble() * 0.4))
-          .clamp(0.0, 1.0);
+      return (curQ * decay * (0.8 + math.Random(profile.xp + i).nextDouble() * 0.4)).clamp(
+        0.0,
+        1.0,
+      );
     });
 
     return Padding(
@@ -265,10 +282,7 @@ class _WeeklyXpRow extends ConsumerWidget {
               child: SizedBox(
                 height: 60,
                 child: CustomPaint(
-                  painter: _BarChartPainter(
-                    bars: normalised,
-                    color: AppColors.memoryAmber,
-                  ),
+                  painter: _BarChartPainter(bars: normalised, color: AppColors.memoryAmber),
                   size: Size.infinite,
                 ),
               ),
@@ -282,10 +296,7 @@ class _WeeklyXpRow extends ConsumerWidget {
               child: SizedBox(
                 height: 60,
                 child: CustomPaint(
-                  painter: _BarChartPainter(
-                    bars: qualBars,
-                    color: AppColors.neonCyan,
-                  ),
+                  painter: _BarChartPainter(bars: qualBars, color: AppColors.neonCyan),
                   size: Size.infinite,
                 ),
               ),
@@ -374,16 +385,11 @@ class _BehaviorIdentityRow extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: AppColors.neonCyan.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: AppColors.neonCyan.withValues(alpha: 0.4),
-                      ),
+                      border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.4)),
                     ),
                     child: Text(
                       archetype,
@@ -423,11 +429,7 @@ class _BehaviorIdentityRow extends ConsumerWidget {
 }
 
 class _MiniBar extends StatelessWidget {
-  const _MiniBar({
-    required this.value,
-    required this.color,
-    required this.label,
-  });
+  const _MiniBar({required this.value, required this.color, required this.label});
   final double value;
   final Color color;
   final String label;
@@ -461,11 +463,7 @@ class _MiniBar extends StatelessWidget {
 }
 
 class _NeonCard extends StatelessWidget {
-  const _NeonCard({
-    required this.label,
-    required this.color,
-    required this.child,
-  });
+  const _NeonCard({required this.label, required this.color, required this.child});
   final String label;
   final Color color;
   final Widget child;
@@ -558,22 +556,13 @@ class _SystemHealthPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            summary,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Colors.white70,
-              height: 1.5,
-            ),
-          ),
+          Text(summary, style: const TextStyle(fontSize: 13, color: Colors.white70, height: 1.5)),
           const SizedBox(height: 10),
           LinearProgressIndicator(
             value: healthScore,
             minHeight: 4,
             backgroundColor: Colors.white12,
-            valueColor: const AlwaysStoppedAnimation<Color>(
-              AppColors.neonViolet,
-            ),
+            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.neonViolet),
           ),
         ],
       ),
@@ -608,14 +597,7 @@ class _PatternInsightPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            text,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Colors.white70,
-              height: 1.5,
-            ),
-          ),
+          Text(text, style: const TextStyle(fontSize: 13, color: Colors.white70, height: 1.5)),
         ],
       ),
     );
@@ -672,11 +654,7 @@ class _ScorePanel extends StatelessWidget {
             spacing: 12,
             runSpacing: 12,
             children: [
-              _StatChip(
-                label: 'XP',
-                value: '+${score.xp}',
-                color: AppColors.memoryAmber,
-              ),
+              _StatChip(label: 'XP', value: '+${score.xp}', color: AppColors.memoryAmber),
               _StatChip(
                 label: 'QUALITY',
                 value: '${(score.quality * 100).toInt()}%',
@@ -701,11 +679,7 @@ class _ScorePanel extends StatelessWidget {
 }
 
 class _StatChip extends StatelessWidget {
-  const _StatChip({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+  const _StatChip({required this.label, required this.value, required this.color});
   final String label;
   final String value;
   final Color color;
@@ -733,11 +707,7 @@ class _StatChip extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 16,
-              color: color,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.w800),
           ),
         ],
       ),
@@ -756,9 +726,7 @@ class _CompletionInsightPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0A0D1A),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.memoryAmber.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.35)),
         boxShadow: [
           BoxShadow(
             color: AppColors.memoryAmber.withValues(alpha: 0.08),
@@ -795,20 +763,12 @@ class _CompletionInsightPanel extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             insight.summary,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
           Text(
             insight.observation,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.white70,
-              height: 1.5,
-            ),
+            style: const TextStyle(fontSize: 12, color: Colors.white70, height: 1.5),
           ),
           const SizedBox(height: 4),
           Text(
@@ -874,11 +834,7 @@ class _InsightCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             insight.description,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Colors.white70,
-              height: 1.5,
-            ),
+            style: const TextStyle(fontSize: 13, color: Colors.white70, height: 1.5),
           ),
         ],
       ),
