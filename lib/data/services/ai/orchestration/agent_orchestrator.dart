@@ -74,18 +74,43 @@ class AgentOrchestrator {
 
   AgentKind _selectAgent(String prompt, Map<String, dynamic> context) {
     final String lowered = prompt.toLowerCase();
-    if (lowered.contains('remind') || lowered.contains('notify')) {
+    final String intent = context['intent']?.toString().toLowerCase() ?? '';
+
+    if (intent == 'planning') {
+      return AgentKind.planning;
+    }
+    if (intent == 'task_recommendation' || intent == 'recommendation') {
+      return AgentKind.recommendation;
+    }
+    if (intent == 'reminder' || intent == 'schedule') {
       return AgentKind.reminder;
     }
-    if (lowered.contains('plan') || lowered.contains('schedule')) {
+    if (intent == 'summary' ||
+        intent == 'history' ||
+        intent == 'summarization') {
+      return AgentKind.summarization;
+    }
+    if (intent == 'research' || intent == 'task_context') {
+      return AgentKind.research;
+    }
+
+    if (lowered.contains('remind') ||
+        lowered.contains('notify') ||
+        lowered.contains('schedule')) {
+      return AgentKind.reminder;
+    }
+    if (lowered.contains('plan')) {
       return AgentKind.planning;
     }
     if (lowered.contains('research') ||
         lowered.contains('find out') ||
-        lowered.contains('lookup')) {
+        lowered.contains('lookup') ||
+        lowered.contains('task context')) {
       return AgentKind.research;
     }
-    if (lowered.contains('summarize') || lowered.contains('summary')) {
+    if (lowered.contains('summarize') ||
+        lowered.contains('summary') ||
+        lowered.contains('history')) {
       return AgentKind.summarization;
     }
     if (lowered.contains('classify') ||
@@ -95,7 +120,8 @@ class AgentOrchestrator {
     }
     if (lowered.contains('recommend') ||
         lowered.contains('suggest') ||
-        lowered.contains('best')) {
+        lowered.contains('best') ||
+        lowered.contains('what should i do')) {
       return AgentKind.recommendation;
     }
     if (lowered.contains('custom')) {
@@ -133,11 +159,37 @@ class AgentOrchestrator {
     required int durationMs,
   }) {
     final Map<String, dynamic> normalized = Map<String, dynamic>.from(payload);
-    normalized['message'] ??=
-        normalized['response'] ?? normalized['summary'] ?? '';
-    normalized['reasoning'] ??= normalized['message'];
-    normalized['emotion'] ??= 'balanced';
-    normalized['confidence'] ??= 0.5;
+    final List<String> defaultedFields = <String>[];
+    if (normalized['message'] is! String ||
+        (normalized['message'] as String).trim().isEmpty) {
+      normalized['message'] =
+          normalized['response']?.toString() ??
+          normalized['summary']?.toString() ??
+          '';
+      defaultedFields.add('message');
+    }
+    if (normalized['reasoning'] is! String ||
+        (normalized['reasoning'] as String).trim().isEmpty) {
+      normalized['reasoning'] = normalized['message'];
+      defaultedFields.add('reasoning');
+    }
+    if (normalized['emotion'] is! String ||
+        (normalized['emotion'] as String).trim().isEmpty) {
+      normalized['emotion'] = 'balanced';
+      defaultedFields.add('emotion');
+    }
+    final Object? rawConfidence = normalized['confidence'];
+    if (rawConfidence is! num || !rawConfidence.toDouble().isFinite) {
+      normalized['confidence'] = 0.5;
+      defaultedFields.add('confidence');
+    } else {
+      normalized['confidence'] = rawConfidence.toDouble().clamp(0.0, 1.0);
+    }
+    normalized['usedDefaults'] = defaultedFields.isNotEmpty;
+    normalized['defaultedFields'] = defaultedFields;
+    normalized['quality'] = defaultedFields.isEmpty
+        ? 'agent_native'
+        : 'agent_defaulted';
     normalized['durationMs'] = durationMs;
     return normalized;
   }

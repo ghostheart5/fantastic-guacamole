@@ -17,21 +17,22 @@ class ReminderAgent extends AiAgent {
       'prompt': reminder,
     });
     final String window = plan['window']?.toString() ?? 'today';
-    final bool scheduled = plan['scheduled'] == true;
+    final bool prepared = plan['scheduled'] == true;
 
     return <String, dynamic>{
       'agent': name,
       'mode': 'reminder',
       'reminder': reminder,
       'window': window,
-      'scheduled': scheduled,
-      'message': scheduled
-          ? 'Reminder queued for $window: $reminder'
+      'scheduled': false,
+      'prepared': prepared,
+      'message': prepared
+          ? 'Reminder plan prepared for $window: $reminder. Confirm it to schedule the notification.'
           : 'No reminder text provided.',
       'reasoning':
-          'Detected time window from the prompt and prepared reminder metadata.',
+          'Detected a time window and prepared metadata without claiming the notification was scheduled.',
       'emotion': 'balanced',
-      'confidence': scheduled ? 0.8 : 0.3,
+      'confidence': prepared ? 0.68 : 0.3,
       'status': 'ready',
     };
   }
