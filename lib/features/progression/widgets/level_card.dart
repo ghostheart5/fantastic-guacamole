@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/features/progression/models/user_progress.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/state/models/user_progress.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:flutter/material.dart';
 
