@@ -78,8 +78,18 @@ linux/flutter/ephemeral/
 
 # Logs
 *.log
+/logs/
+bugreport-*
+**/anr/
 
 # Secrets
 .env
 
 ~$*.docx
+
+# Temp/generated artifacts
+.tmp_*.ps1
+debug_log.txt
+lib_files.txt
+.claude/scheduled_tasks.lock
+*.code-workspace
