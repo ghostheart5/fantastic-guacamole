@@ -1,3 +1,0 @@
-class EmotionService {
-  const EmotionService();
-}

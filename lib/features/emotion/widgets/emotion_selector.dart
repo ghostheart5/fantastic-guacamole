@@ -1,6 +1,6 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
-import 'package:fantastic_guacamole/features/emotion/emotional_state.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
+import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter/material.dart';
 
 class EmotionSelector extends StatelessWidget {
