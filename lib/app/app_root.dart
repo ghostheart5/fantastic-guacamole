@@ -1,36 +1,101 @@
 import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_overlay.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-class AppRoot extends ConsumerWidget {
+class AppRoot extends ConsumerStatefulWidget {
   const AppRoot({super.key, this.startupError});
 
   final String? startupError;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final String startupMessage = startupError?.trim() ?? '';
-    final bool showQaDiagnostics = ref
-        .watch(intelligenceStateProvider)
-        .flags
-        .testerFullAccess;
+  ConsumerState<AppRoot> createState() => _AppRootState();
+}
+
+class _AppRootState extends ConsumerState<AppRoot> {
+  static const List<String> _tutorialAssets = <String>[
+    'assets/tutorials/home.json',
+    'assets/tutorials/tasks.json',
+  ];
+
+  GoRouter? _router;
+  VoidCallback? _routerListener;
+  bool _tutorialAssetsLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(() async {
+      final controller = ref.read(tutorialControllerProvider);
+      if (!_tutorialAssetsLoaded) {
+        await controller.loadAssets(_tutorialAssets);
+        _tutorialAssetsLoaded = true;
+      }
+      _attachRouterListener(ref.read(appRouterProvider));
+    });
+  }
+
+  void _attachRouterListener(GoRouter router) {
+    if (identical(_router, router)) {
+      return;
+    }
+    if (_router != null && _routerListener != null) {
+      _router!.routerDelegate.removeListener(_routerListener!);
+    }
+    _router = router;
+    _routerListener = () {
+      final controller = ref.read(tutorialControllerProvider);
+      final String route = _router!.routeInformationProvider.value.uri.toString();
+      controller.updateRoute(route);
+    };
+    _router!.routerDelegate.addListener(_routerListener!);
+    _routerListener!.call();
+  }
+
+  @override
+  void dispose() {
+    if (_router != null && _routerListener != null) {
+      _router!.routerDelegate.removeListener(_routerListener!);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final WidgetRef ref = this.ref;
+    final themeEntity = ref.watch(currentThemeProvider).asData?.value;
+    final String startupMessage = widget.startupError?.trim() ?? '';
+    final bool showQaDiagnostics = ref.watch(intelligenceStateProvider).flags.testerFullAccess;
+    final GoRouter router = ref.watch(appRouterProvider);
+    final tutorialController = ref.watch(tutorialControllerProvider);
+
+    _attachRouterListener(router);
 
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      title: 'ChronoSpark',
-      theme: appTheme,
-      routerConfig: ref.watch(appRouterProvider),
+      title: AppConfig.fromEnv().appName,
+      theme: (themeEntity?.isDark ?? true) ? appTheme : ThemeData.light(useMaterial3: true),
+      routerConfig: router,
       builder: (context, child) {
+        final Widget appChild = TutorialHost(
+          controller: tutorialController,
+          child: child ?? const SizedBox.shrink(),
+        );
+
         if (startupMessage.isEmpty && !showQaDiagnostics) {
-          return child ?? const SizedBox.shrink();
+          return appChild;
         }
 
         return Stack(
           children: [
-            child ?? const SizedBox.shrink(),
+            appChild,
             if (startupMessage.isNotEmpty)
               Align(
                 alignment: Alignment.bottomCenter,
@@ -44,16 +109,11 @@ class AppRoot extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: Colors.redAccent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.redAccent.withValues(alpha: 0.35),
-                        ),
+                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
                       ),
                       child: Text(
                         startupMessage,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
                       ),
                     ),
                   ),
@@ -68,11 +128,7 @@ class AppRoot extends ConsumerWidget {
                     heroTag: 'qa_diagnostics_fab',
                     backgroundColor: Colors.black.withValues(alpha: 0.72),
                     onPressed: () => _showDiagnosticsSheet(context),
-                    child: const Icon(
-                      Icons.bug_report_outlined,
-                      color: Colors.white,
-                      size: 18,
-                    ),
+                    child: const Icon(Icons.bug_report_outlined, color: Colors.white, size: 18),
                   ),
                 ),
               ),
@@ -118,10 +174,7 @@ class AppRoot extends ConsumerWidget {
                         return const Center(
                           child: Text(
                             'No diagnostics captured yet.',
-                            style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 13,
-                            ),
+                            style: TextStyle(color: Colors.white54, fontSize: 13),
                           ),
                         );
                       }
