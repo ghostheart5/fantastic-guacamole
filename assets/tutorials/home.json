@@ -1,0 +1,58 @@
+{
+    "id": "home_onboarding",
+    "title": "Home Tutorial",
+    "version": 1,
+    "steps": [
+        {
+            "id": "welcome",
+            "title": "Welcome to ChronoSpark",
+            "body": "This walkthrough shows you how to start your first focus session.",
+            "trigger": "manual",
+            "blockMode": "blockAll",
+            "nextStepId": "start_focus"
+        },
+        {
+            "id": "start_focus",
+            "title": "Start a Focus Session",
+            "body": "Tap this button to begin a focused work block.",
+            "targetId": "home.start_focus_button",
+            "trigger": "tap",
+            "blockMode": "allowTarget",
+            "nextStepId": "tasks_route"
+        },
+        {
+            "id": "tasks_route",
+            "title": "Go to Tasks",
+            "body": "Navigate to the task screen.",
+            "route": "/tasks",
+            "trigger": "route",
+            "delayMs": 250,
+            "nextStepId": "create_task"
+        },
+        {
+            "id": "create_task",
+            "title": "Create a Task",
+            "body": "Type your first task title.",
+            "targetId": "tasks.title_input",
+            "trigger": "input",
+            "inputKey": "task_title",
+            "expectedValue": "Plan tomorrow",
+            "branches": [
+                {
+                    "whenKey": "has_created_task",
+                    "equals": true,
+                    "goto": "finish"
+                }
+            ],
+            "nextStepId": "finish"
+        },
+        {
+            "id": "finish",
+            "title": "You are ready",
+            "body": "You completed the core workflow.",
+            "trigger": "manual",
+            "autoAdvance": true,
+            "delayMs": 800
+        }
+    ]
+}
