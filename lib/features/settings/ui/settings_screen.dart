@@ -1,15 +1,22 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/app/router/route_paths.dart';
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/constants/app_urls.dart';
-import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
-import 'package:fantastic_guacamole/data/di/services_providers.dart';
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
-import 'package:fantastic_guacamole/features/notifications/notification_scheduler.dart';
+import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_reset_service.dart';
+import 'package:fantastic_guacamole/tutorial/widgets/micro_tutorial_card.dart';
+import 'package:fantastic_guacamole/tutorial/widgets/show_me_again_button.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -21,10 +28,17 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final routes = ref.watch(routeSurfaceProvider);
     final soundEnabled = ref.watch(soundEnabledProvider);
     final access = ref.watch(appAccessProvider);
     final hasMockSession = ref.watch(mockAuthSessionProvider);
     final intelligence = ref.watch(intelligenceStateProvider);
+    final bool accountDeletionConfigured = _hasSecureHttpsEndpoint(
+      Env.accountDeleteEndpoint,
+    );
+    final bool reflectionTutorialEnabled = ref.watch(
+      featureFlagEnabledProvider('daily_reflection_tutorial_enabled'),
+    );
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/settings_bg.jpg',
@@ -84,7 +98,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ),
                         const Text(
-                          'SYSTEM CONFIG',
+                          'COMMAND MATRIX',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -101,19 +115,20 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 28),
 
               _Section(
-                label: 'PREFERENCES',
+                label: 'SYSTEM TUNING',
                 accentColor: AppColors.neonCyan,
                 child: Column(
                   children: [
                     _NeonToggleTile(
-                      title: 'Sound Effects',
+                      title: 'Audio FX',
                       value: soundEnabled,
                       onChanged: (v) =>
                           ref.read(soundEnabledProvider.notifier).set(v),
                     ),
                     ValueListenableBuilder<bool?>(
-                      valueListenable:
-                          NotificationScheduler.permissionGrantedListenable,
+                      valueListenable: ref.watch(
+                        notificationPermissionListenableProvider,
+                      ),
                       builder: (context, granted, _) {
                         final String subtitle = switch (granted) {
                           true => 'Granted',
@@ -121,8 +136,40 @@ class SettingsScreen extends ConsumerWidget {
                           null => 'Unknown until app initializes notifications',
                         };
                         return _NeonStatusTile(
-                          title: 'Notification Permission',
+                          title: 'Alert Permission',
                           subtitle: subtitle,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    ValueListenableBuilder<bool?>(
+                      valueListenable: ref.watch(
+                        notificationPermissionListenableProvider,
+                      ),
+                      builder: (context, granted, _) {
+                        return NotificationPermissionPrompt(
+                          permissionGranted: granted,
+                          onRequestPermission: () async {
+                            final bool granted = await ref
+                                .read(settingsUiActionsProvider)
+                                .requestNotificationPermission();
+                            return granted;
+                          },
+                          onOpenSystemSettings: () async {
+                            final bool opened = await ref
+                                .read(settingsUiActionsProvider)
+                                .openSystemAppSettings();
+                            if (!context.mounted || opened) {
+                              return;
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Open your device app settings and enable notifications for ChronoSpark.',
+                                ),
+                              ),
+                            );
+                          },
                         );
                       },
                     ),
@@ -132,10 +179,14 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               const _ReflectionReminderSection(),
+              if (reflectionTutorialEnabled) ...[
+                const SizedBox(height: 12),
+                const _DailyReflectionTutorialPanel(),
+              ],
               const SizedBox(height: 16),
 
               _Section(
-                label: 'ACCOUNT',
+                label: 'IDENTITY & ACCESS',
                 accentColor: AppColors.neonViolet,
                 child: Column(
                   children: [
@@ -144,7 +195,7 @@ class SettingsScreen extends ConsumerWidget {
                           ? 'Tester Access'
                           : 'Subscription',
                       subtitle: access.subscriptionStatusDetail,
-                      onTap: () => context.go(RoutePaths.paywall),
+                      onTap: () => context.go(routes.paywall),
                     ),
                     if (hasMockSession)
                       _NeonNavTile(
@@ -153,16 +204,48 @@ class SettingsScreen extends ConsumerWidget {
                             'Return to login and disable the current tester mock auth session.',
                         onTap: () {
                           ref.read(mockAuthSessionProvider.notifier).set(false);
-                          context.go(RoutePaths.login);
+                          context.go(routes.login);
                         },
                       ),
+                    if (access.hasTesterFullAccess)
+                      _NeonNavTile(
+                        title: 'Reset Tester Data',
+                        subtitle:
+                            'Erase local test content and restart onboarding.',
+                        onTap: () =>
+                            unawaited(_confirmTesterReset(context, ref)),
+                      ),
+                    if (!hasMockSession)
+                      accountDeletionConfigured
+                          ? _NeonNavTile(
+                              title: 'Delete Account',
+                              subtitle:
+                                  'Permanently delete your account and all synced data.',
+                              onTap: () => unawaited(
+                                _confirmDeleteAccount(context, ref),
+                              ),
+                            )
+                          : _NeonNavTile(
+                              title: 'Delete Account',
+                              subtitle:
+                                  'Temporarily unavailable in this build while account deletion is being finalized.',
+                              onTap: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Account deletion is not configured for this build yet.',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
 
               _Section(
-                label: 'RUNTIME MODE',
+                label: 'RUNTIME FLAGS',
                 accentColor: AppColors.neonCyan,
                 child: Column(
                   children: [
@@ -194,22 +277,14 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               _Section(
-                label: 'LEGAL',
+                label: 'LEGAL PROTOCOLS',
                 accentColor: AppColors.memoryAmber,
                 child: Column(
                   children: [
                     _NeonNavTile(
                       title: 'Privacy Policy',
                       subtitle: AppUrls.privacy,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const _InfoScreen(
-                            title: 'Privacy Policy',
-                            body: _kPrivacyPolicy,
-                          ),
-                        ),
-                      ),
+                      onTap: () => context.push(routes.privacy),
                     ),
                     _NeonNavTile(
                       title: 'Terms of Service',
@@ -268,6 +343,8 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 const _GlobalMetricsDebugSection(),
+                const SizedBox(height: 16),
+                const _TutorialLifecycleDebugSection(),
               ],
             ],
           ),
@@ -275,6 +352,203 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _confirmTesterReset(BuildContext context, WidgetRef ref) async {
+    final routes = ref.read(routeSurfaceProvider);
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: const Text('Purge tester runtime data?'),
+              content: const Text(
+                'This permanently removes local tasks, goals, memories, '
+                'timeline history, profile progress, focus recovery, logs, '
+                'SI state, and tester settings on this device.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Abort'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Purge Data'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Purging local tester runtime data...')),
+    );
+
+    try {
+      await ref.read(testerDataResetControllerProvider).reset();
+      if (context.mounted) {
+        context.go(routes.onboarding);
+      }
+    } on Exception {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Tester data purge did not complete. Restart and retry.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final routes = ref.read(routeSurfaceProvider);
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: const Text('Initiate permanent account purge?'),
+              content: const Text(
+                'This action cannot be undone. Your account and synced data will be permanently removed.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Abort'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Continue'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    final TextEditingController passwordController = TextEditingController();
+    bool obscurePassword = true;
+    final String? password = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (BuildContext _, StateSetter setState) {
+            return AlertDialog(
+              title: const Text('Authorize account purge'),
+              content: TextField(
+                controller: passwordController,
+                obscureText: obscurePassword,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Account password',
+                  suffixIcon: IconButton(
+                    onPressed: () => setState(() {
+                      obscurePassword = !obscurePassword;
+                    }),
+                    icon: Icon(
+                      obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    ),
+                  ),
+                ),
+                onSubmitted: (String value) {
+                  Navigator.of(dialogContext).pop(value.trim());
+                },
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Abort'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(
+                    dialogContext,
+                  ).pop(passwordController.text.trim()),
+                  child: const Text('Purge Account'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    passwordController.dispose();
+
+    final String secret = password?.trim() ?? '';
+    if (secret.isEmpty || !context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Executing account purge...')));
+
+    try {
+      await ref
+          .read(authServiceProvider)
+          .deleteCurrentAccount(password: secret);
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Account purge complete.')));
+      context.go(routes.login);
+    } on FirebaseAuthException catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_friendlyDeleteError(error))));
+    } on Exception {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account purge failed. Retry.')),
+      );
+    }
+  }
+
+  String _friendlyDeleteError(FirebaseAuthException error) {
+    final String message = error.message?.trim() ?? '';
+    switch (error.code) {
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Password is incorrect.';
+      case 'missing-password':
+      case 'missing-email':
+      case 'operation-not-supported':
+      case 'operation-failed':
+      case 'network-request-failed':
+        return message.isNotEmpty ? message : 'Account purge failed.';
+      case 'no-current-user':
+        return 'Session expired. Sign in again.';
+      default:
+        if (message.isNotEmpty) {
+          return message;
+        }
+        return 'Account purge failed. Retry.';
+    }
+  }
+}
+
+bool _hasSecureHttpsEndpoint(String value) {
+  final Uri? uri = Uri.tryParse(value.trim());
+  return uri != null && uri.hasAuthority && uri.scheme == 'https';
 }
 
 class _ReflectionReminderSection extends ConsumerStatefulWidget {
@@ -285,12 +559,51 @@ class _ReflectionReminderSection extends ConsumerStatefulWidget {
       _ReflectionReminderSectionState();
 }
 
+class _DailyReflectionTutorialPanel extends ConsumerWidget {
+  const _DailyReflectionTutorialPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progressAsync = ref.watch(tutorialProgressProvider);
+    final TutorialStepContent step = TutorialContent.steps.firstWhere(
+      (TutorialStepContent content) => content.id == 'daily_reflection',
+      orElse: () => TutorialContent.steps.first,
+    );
+
+    return progressAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (progress) {
+        if (progress.isStepCompleted(step.id)) {
+          return const SizedBox.shrink();
+        }
+
+        if (progress.isStepDismissed(step.id)) {
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: ShowMeAgainButton(
+              stepId: step.id,
+              label: 'Show Reflection Tutorial Again',
+            ),
+          );
+        }
+
+        return MicroTutorialCard(
+          step: step,
+          onComplete: () {
+            ref.read(tutorialProgressProvider.notifier).markIntroSeen();
+          },
+          onDismiss: () {
+            ref.read(tutorialProgressProvider.notifier).markIntroSeen();
+          },
+        );
+      },
+    );
+  }
+}
+
 class _ReflectionReminderSectionState
     extends ConsumerState<_ReflectionReminderSection> {
-  static const _enabledKey = 'reflection_reminder_enabled';
-  static const _timeKey = 'reflection_reminder_time';
-  static const _notifId = 'reflection_reminder';
-
   bool _enabled = false;
   TimeOfDay _time = const TimeOfDay(hour: 20, minute: 0);
 
@@ -301,37 +614,23 @@ class _ReflectionReminderSectionState
   }
 
   void _load() {
-    final enabledStr = SharedPrefsService.load(_enabledKey);
-    final timeStr = SharedPrefsService.load(_timeKey);
+    final ReflectionReminderPrefs prefs = ref
+        .read(settingsUiActionsProvider)
+        .loadReflectionReminderPrefs();
     setState(() {
-      _enabled = enabledStr == 'true';
-      if (timeStr != null) {
-        final parts = timeStr.split(':');
-        if (parts.length == 2) {
-          _time = TimeOfDay(
-            hour: int.tryParse(parts[0]) ?? 20,
-            minute: int.tryParse(parts[1]) ?? 0,
-          );
-        }
-      }
+      _enabled = prefs.enabled;
+      _time = prefs.time;
     });
   }
 
   Future<void> _toggle(bool value) async {
-    setState(() => _enabled = value);
-    await SharedPrefsService.save(_enabledKey, value.toString());
-    final scheduler = ref.read(notificationSchedulerProvider);
-    if (value) {
-      await scheduler.scheduleDailyAt(
-        id: _notifId,
-        title: 'Time to reflect',
-        body: 'Capture your thoughts and energy for today.',
-        hour: _time.hour,
-        minute: _time.minute,
-      );
-    } else {
-      await scheduler.cancel(_notifId);
+    final bool enabled = await ref
+        .read(settingsUiActionsProvider)
+        .setReflectionReminderEnabled(enabled: value, time: _time);
+    if (!mounted) {
+      return;
     }
+    setState(() => _enabled = enabled);
   }
 
   Future<void> _pickTime() async {
@@ -352,17 +651,13 @@ class _ReflectionReminderSectionState
     );
     if (picked == null || !mounted) return;
     setState(() => _time = picked);
-    await SharedPrefsService.save(_timeKey, '${picked.hour}:${picked.minute}');
+    await ref
+        .read(settingsUiActionsProvider)
+        .setReflectionReminderTime(time: picked);
     if (_enabled) {
-      final scheduler = ref.read(notificationSchedulerProvider);
-      await scheduler.cancel(_notifId);
-      await scheduler.scheduleDailyAt(
-        id: _notifId,
-        title: 'Time to reflect',
-        body: 'Capture your thoughts and energy for today.',
-        hour: picked.hour,
-        minute: picked.minute,
-      );
+      await ref
+          .read(settingsUiActionsProvider)
+          .setReflectionReminderEnabled(enabled: true, time: picked);
     }
   }
 
@@ -470,6 +765,81 @@ class _GlobalMetricsDebugSection extends ConsumerWidget {
             onTap: () {
               ref.invalidate(optimizationConfigProvider);
             },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TutorialLifecycleDebugSection extends ConsumerWidget {
+  const _TutorialLifecycleDebugSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progressAsync = ref.watch(tutorialProgressProvider);
+
+    return _Section(
+      label: 'TUTORIAL LIFECYCLE',
+      accentColor: AppColors.neonViolet,
+      child: Column(
+        children: [
+          progressAsync.when(
+            data: (progress) => _NeonStatusTile(
+              title: 'Status',
+              subtitle:
+                  'started=${progress.started} · introSeen=${progress.hasSeenIntro} · '
+                  'version=${progress.contentVersion} · completed=${progress.completedStepIds.length} · '
+                  'skipped=${progress.dismissedStepIds.length} · forever=${progress.skippedForeverStepIds.length}',
+            ),
+            loading: () => const _NeonStatusTile(
+              title: 'Status',
+              subtitle: 'Loading tutorial state...',
+            ),
+            error: (e, _) =>
+                _NeonStatusTile(title: 'Status Error', subtitle: e.toString()),
+          ),
+          _NeonNavTile(
+            title: 'Start Tutorial',
+            subtitle: 'Marks tutorial started for current content version',
+            onTap: () => unawaited(
+              ref.read(tutorialProgressProvider.notifier).startTutorial(),
+            ),
+          ),
+          _NeonNavTile(
+            title: 'Update Content Version',
+            subtitle:
+                'Applies version migration/reset semantics for tutorial state',
+            onTap: () => unawaited(
+              ref
+                  .read(tutorialProgressProvider.notifier)
+                  .updateTutorialContentVersion(),
+            ),
+          ),
+          _NeonNavTile(
+            title: 'Show First Step Again',
+            subtitle:
+                'Reveals ${TutorialContent.steps.first.id} if hidden or skipped forever',
+            onTap: () => unawaited(
+              ref
+                  .read(tutorialResetServiceProvider)
+                  .showAgain(TutorialContent.steps.first.id),
+            ),
+          ),
+          _NeonNavTile(
+            title: 'Reset Tutorial Progress',
+            subtitle:
+                'Clears completion, skip, and start state for tutorial lifecycle',
+            onTap: () =>
+                unawaited(ref.read(tutorialResetServiceProvider).resetAll()),
+          ),
+          _NeonNavTile(
+            title: 'Replay Onboarding',
+            subtitle:
+                'Marks onboarding incomplete so onboarding flow can be replayed',
+            onTap: () => unawaited(
+              ref.read(tutorialResetServiceProvider).replayOnboarding(),
+            ),
           ),
         ],
       ),
@@ -746,16 +1116,6 @@ class _InfoScreen extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Legal text
 // ---------------------------------------------------------------------------
-
-const _kPrivacyPolicy = '''
-ChronoSpark collects and processes task data, energy metrics, and session history solely to provide its productivity features. All data is stored locally on your device unless you opt in to cloud sync.
-
-We do not sell, share, or transmit your personal data to third parties. Analytics, if enabled, are aggregated and anonymised.
-
-You may delete your local data at any time by uninstalling the app. For questions, contact support through the app store listing.
-
-Last updated: 2025.
-''';
 
 const _kTermsOfService = '''
 By using ChronoSpark, you agree to use the app for personal productivity purposes only.
