@@ -28,6 +28,27 @@ class AnimatedSystemBackground extends StatefulWidget {
 class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  bool _isAnimating = false;
+
+  bool _shouldAnimate(BuildContext context) {
+    final bool reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return widget.animate && !reduceMotion;
+  }
+
+  void _syncAnimationState() {
+    final bool shouldAnimate = _shouldAnimate(context);
+    if (shouldAnimate == _isAnimating) {
+      return;
+    }
+    _isAnimating = shouldAnimate;
+    if (_isAnimating) {
+      _controller.repeat(reverse: true);
+    } else {
+      _controller.stop();
+      _controller.value = 0;
+    }
+  }
 
   @override
   void initState() {
@@ -36,25 +57,19 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
       vsync: this,
       duration: const Duration(seconds: 18),
     );
-    if (widget.animate) {
-      _controller.repeat(reverse: true);
-    } else {
-      _controller.value = 0;
-    }
+    _controller.value = 0;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncAnimationState();
   }
 
   @override
   void didUpdateWidget(covariant AnimatedSystemBackground oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.animate == widget.animate) {
-      return;
-    }
-    if (widget.animate) {
-      _controller.repeat(reverse: true);
-    } else {
-      _controller.stop();
-      _controller.value = 0;
-    }
+    _syncAnimationState();
   }
 
   @override
@@ -90,7 +105,8 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
         ),
       ),
       builder: (BuildContext context, Widget? child) {
-        final double t = _controller.value;
+        final bool showGlow = widget.showGlowOverlay && _isAnimating;
+        final double t = _isAnimating ? _controller.value : 0;
         final Color color1 = Color.lerp(
           const Color(0x3A08040E),
           const Color(0x3A170C1F),
@@ -126,7 +142,7 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
                   ),
                 ),
               ),
-            if (widget.showGlowOverlay)
+            if (showGlow)
               Opacity(
                 opacity: t > 0.02
                     ? 0.35 * widget.overlayOpacity.clamp(0.0, 1.0)

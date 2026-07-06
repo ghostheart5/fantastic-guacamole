@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/core/services/audio_service.dart';
+import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter/material.dart';
 
 class TypingText extends StatefulWidget {

@@ -32,8 +32,7 @@ class NeonButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final NeonEffects effects =
-        Theme.of(context).extension<NeonEffects>() ?? defaultNeonEffects;
+    final NeonEffects effects = Theme.of(context).extension<NeonEffects>() ?? defaultNeonEffects;
     final Color glowColor = accentColor ?? neonCyan;
 
     return DecoratedBox(
@@ -51,9 +50,7 @@ class NeonButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: buttonRadius,
             side: BorderSide(
-              color: glowColor.withValues(
-                alpha: effects.hologramOpacity + 0.08,
-              ),
+              color: glowColor.withValues(alpha: effects.hologramOpacity + 0.08),
               width: effects.borderThickness,
             ),
           ),
@@ -61,17 +58,24 @@ class NeonButton extends StatelessWidget {
           elevation: 0,
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             if (icon case final Widget iconWidget) ...<Widget>[
               iconWidget,
               const SizedBox(width: 10),
             ],
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: glowColor,
-                letterSpacing: 2,
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(color: glowColor, letterSpacing: 2),
+                ),
               ),
             ),
           ],
