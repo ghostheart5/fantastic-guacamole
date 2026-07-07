@@ -28,7 +28,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('SIEngineService', () {
     test('does not accept repeated output when dedup check fails', () {
-      final SiEngineService service = SiEngineService(
+      final StateSiEngineService service = StateSiEngineService(
         _NoopSiEngineRepository(),
         dependencies: _fakeDependencies(),
       );
@@ -43,7 +43,7 @@ void main() {
     });
 
     test('accepts non-repeated output when validation flags are healthy', () {
-      final SiEngineService service = SiEngineService(
+      final StateSiEngineService service = StateSiEngineService(
         _NoopSiEngineRepository(),
         dependencies: _fakeDependencies(),
       );

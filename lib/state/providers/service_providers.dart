@@ -48,8 +48,8 @@ final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
   );
 });
 
-final siEngineServiceProvider = Provider<SiEngineService>((Ref ref) {
-  return SiEngineService(
+final siEngineServiceProvider = Provider<StateSiEngineService>((Ref ref) {
+  return StateSiEngineService(
     ref.read(siEngineRepositoryProvider),
     dependencies: ref.read(siEngineDependenciesProvider),
   );

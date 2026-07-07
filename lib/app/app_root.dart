@@ -79,7 +79,6 @@ class _AppRootState extends ConsumerState<AppRoot> {
 
   @override
   Widget build(BuildContext context) {
-    final WidgetRef ref = this.ref;
     final themeEntity = ref.watch(currentThemeProvider).asData?.value;
     final String startupMessage = widget.startupError?.trim() ?? '';
     final bool showQaDiagnostics = ref.watch(intelligenceStateProvider).flags.testerFullAccess;
