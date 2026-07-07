@@ -23,6 +23,7 @@ extension AuthServiceContractResultX on AuthServiceContract {
     return AppResult.guard<UserCredential>(
       () => signIn(email: email, password: password),
       messageFor: (Object error) => 'Sign-in failed: $error',
+      errorCodeFor: _authErrorCodeFor,
     );
   }
 
@@ -33,6 +34,7 @@ extension AuthServiceContractResultX on AuthServiceContract {
     return AppResult.guard<UserCredential>(
       () => signUp(email: email, password: password),
       messageFor: (Object error) => 'Sign-up failed: $error',
+      errorCodeFor: _authErrorCodeFor,
     );
   }
 
@@ -40,6 +42,7 @@ extension AuthServiceContractResultX on AuthServiceContract {
     return AppResult.guard<UserCredential>(
       signInWithGoogle,
       messageFor: (Object error) => 'Google sign-in failed: $error',
+      errorCodeFor: _authErrorCodeFor,
     );
   }
 
@@ -47,6 +50,7 @@ extension AuthServiceContractResultX on AuthServiceContract {
     return AppResult.guard<void>(
       () => sendPasswordReset(email),
       messageFor: (Object error) => 'Password reset failed: $error',
+      errorCodeFor: _authErrorCodeFor,
     );
   }
 
@@ -54,6 +58,33 @@ extension AuthServiceContractResultX on AuthServiceContract {
     return AppResult.guard<void>(
       () => deleteCurrentAccount(password: password),
       messageFor: (Object error) => 'Account deletion failed: $error',
+      errorCodeFor: _authErrorCodeFor,
     );
+  }
+
+  AppResultErrorCode _authErrorCodeFor(Object error) {
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'wrong-password':
+        case 'invalid-credential':
+        case 'invalid-email':
+        case 'weak-password':
+        case 'missing-email':
+        case 'missing-password':
+          return AppResultErrorCode.validation;
+        case 'too-many-requests':
+          return AppResultErrorCode.timeout;
+        case 'network-request-failed':
+          return AppResultErrorCode.network;
+        case 'no-current-user':
+          return AppResultErrorCode.unauthorized;
+        case 'email-already-in-use':
+          return AppResultErrorCode.conflict;
+        case 'operation-not-supported':
+        case 'auth-unavailable':
+          return AppResultErrorCode.unavailable;
+      }
+    }
+    return AppResultErrorCode.unknown;
   }
 }

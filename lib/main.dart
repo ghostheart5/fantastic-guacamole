@@ -27,6 +27,7 @@ import 'package:fantastic_guacamole/system/firebase/firebase_bootstrap.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/system/system_boot.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
+import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
@@ -74,6 +75,7 @@ class AppBootstrapper {
         '${appLine.isEmpty ? '' : 'app: $appLine\n'}'
         '$stack',
       );
+      ErrorBoundary.reportGlobalError(errorDetails.exception, errorDetails.stack);
       if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
         FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
       }
@@ -81,6 +83,7 @@ class AppBootstrapper {
 
     PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
       RuntimeDiagnostics.record('Platform dispatcher uncaught error: $error');
+      ErrorBoundary.reportGlobalError(error, stack);
       if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
         FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       }
@@ -93,6 +96,7 @@ class AppBootstrapper {
   void _handleUncaughtZoneError(Object error, StackTrace stack) {
     FlutterError.presentError(FlutterErrorDetails(exception: error, stack: stack));
     RuntimeDiagnostics.record('Uncaught zone error: $error');
+    ErrorBoundary.reportGlobalError(error, stack);
     if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     }

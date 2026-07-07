@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_overlay.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
+import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -82,6 +83,10 @@ class _AppRootState extends ConsumerState<AppRoot> {
     final themeEntity = ref.watch(currentThemeProvider).asData?.value;
     final String startupMessage = widget.startupError?.trim() ?? '';
     final bool showQaDiagnostics = ref.watch(intelligenceStateProvider).flags.testerFullAccess;
+    final String startupBannerMessage = _startupBannerMessage(
+      startupMessage,
+      showQaDiagnostics: showQaDiagnostics,
+    );
     final GoRouter router = ref.watch(appRouterProvider);
     final tutorialController = ref.watch(tutorialControllerProvider);
 
@@ -93,19 +98,21 @@ class _AppRootState extends ConsumerState<AppRoot> {
       theme: (themeEntity?.isDark ?? true) ? appTheme : appLightTheme,
       routerConfig: router,
       builder: (context, child) {
-        final Widget appChild = TutorialHost(
-          controller: tutorialController,
-          child: child ?? const SizedBox.shrink(),
+        final Widget appChild = ErrorBoundary(
+          child: TutorialHost(
+            controller: tutorialController,
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
 
-        if (startupMessage.isEmpty && !showQaDiagnostics) {
+        if (startupBannerMessage.isEmpty && !showQaDiagnostics) {
           return appChild;
         }
 
         return Stack(
           children: [
             appChild,
-            if (startupMessage.isNotEmpty)
+            if (startupBannerMessage.isNotEmpty)
               Align(
                 alignment: Alignment.bottomCenter,
                 child: SafeArea(
@@ -121,7 +128,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
                         border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
                       ),
                       child: Text(
-                        startupMessage,
+                        startupBannerMessage,
                         style: const TextStyle(color: Colors.white, fontSize: 12),
                       ),
                     ),
@@ -145,6 +152,16 @@ class _AppRootState extends ConsumerState<AppRoot> {
         );
       },
     );
+  }
+
+  String _startupBannerMessage(String startupMessage, {required bool showQaDiagnostics}) {
+    if (startupMessage.trim().isEmpty) {
+      return '';
+    }
+    if (showQaDiagnostics) {
+      return startupMessage;
+    }
+    return 'App started in limited mode. Some services may be unavailable.';
   }
 
   void _showDiagnosticsSheet() {

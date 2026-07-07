@@ -69,7 +69,7 @@ class AuthService implements AuthServiceContract {
         _signInBlockedUntil = now.add(Duration(seconds: seconds));
       }
       throw mapped;
-    } on Exception {
+    } on Object {
       throw FirebaseAuthException(
         code: 'auth-unavailable',
         message: 'Authentication backend is unavailable.',
@@ -84,6 +84,11 @@ class AuthService implements AuthServiceContract {
       return UserCredential(user: _mapUser(response.user));
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
+    } on Object {
+      throw FirebaseAuthException(
+        code: 'auth-unavailable',
+        message: 'Authentication backend is unavailable.',
+      );
     }
   }
 
@@ -98,6 +103,11 @@ class AuthService implements AuthServiceContract {
       return UserCredential(user: currentUser);
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
+    } on Object {
+      throw FirebaseAuthException(
+        code: 'auth-unavailable',
+        message: 'Google sign-in is currently unavailable.',
+      );
     }
   }
 
@@ -107,6 +117,11 @@ class AuthService implements AuthServiceContract {
       await _auth.auth.resetPasswordForEmail(email);
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
+    } on Object {
+      throw FirebaseAuthException(
+        code: 'auth-unavailable',
+        message: 'Password reset is currently unavailable.',
+      );
     }
   }
 
@@ -121,6 +136,11 @@ class AuthService implements AuthServiceContract {
       await _auth.auth.resend(type: sb.OtpType.signup, email: email);
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
+    } on Object {
+      throw FirebaseAuthException(
+        code: 'auth-unavailable',
+        message: 'Email verification is currently unavailable.',
+      );
     }
   }
 
@@ -131,6 +151,11 @@ class AuthService implements AuthServiceContract {
       return currentUser;
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
+    } on Object {
+      throw FirebaseAuthException(
+        code: 'auth-unavailable',
+        message: 'Unable to refresh the current session.',
+      );
     }
   }
 
@@ -143,6 +168,11 @@ class AuthService implements AuthServiceContract {
       return _auth.auth.currentSession?.accessToken;
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
+    } on Object {
+      throw FirebaseAuthException(
+        code: 'auth-unavailable',
+        message: 'Unable to retrieve the authentication token.',
+      );
     }
   }
 
