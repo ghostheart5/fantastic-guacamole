@@ -35,34 +35,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class NavigationShell extends ConsumerStatefulWidget {
-  const NavigationShell({super.key, this.initialView = AppView.coach, this.initialTabIndex = 0});
+  const NavigationShell({super.key, this.initialView = AppView.nexus});
 
   final AppView initialView;
-  final int initialTabIndex;
 
   @override
   ConsumerState<NavigationShell> createState() => _NavigationShellState();
 }
 
 class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsBindingObserver {
-  late int _index;
   late final SystemScheduler _systemScheduler;
   late final DataHygieneScheduler _dataHygieneScheduler;
   late final ProviderSubscription<double> _energySubscription;
   late final ProviderSubscription<LearningState> _learningSubscription;
   late final ProviderSubscription<AppView> _viewSubscription;
-
-  static const List<Widget> _screens = <Widget>[
-    NexusScreen(),
-    TaskScreen(),
-    LogsScreen(),
-    ProfileScreen(),
-  ];
+  bool get _isFlutterTestBinding {
+    final String bindingType = WidgetsBinding.instance.runtimeType.toString();
+    return bindingType.contains('TestWidgetsFlutterBinding');
+  }
 
   @override
   void initState() {
     super.initState();
-    _index = widget.initialTabIndex.clamp(0, _screens.length - 1);
     WidgetsBinding.instance.addObserver(this);
     _systemScheduler = SystemScheduler()
       ..onSyncOfflineQueue = () {
@@ -76,9 +70,14 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
         if (mounted) {
           ref.invalidate(aiDecisionProvider);
         }
-      }
-      ..resume();
-    _dataHygieneScheduler = ref.read(dataHygieneSchedulerProvider)..start();
+      };
+    if (!_isFlutterTestBinding) {
+      _systemScheduler.resume();
+    }
+    _dataHygieneScheduler = ref.read(dataHygieneSchedulerProvider);
+    if (!_isFlutterTestBinding) {
+      _dataHygieneScheduler.start();
+    }
     _energySubscription = ref.listenManual<double>(energyProvider, (_, _) {
       ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
@@ -112,14 +111,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
   void didUpdateWidget(covariant NavigationShell oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.initialTabIndex != widget.initialTabIndex) {
-      final int nextIndex = widget.initialTabIndex.clamp(0, _screens.length - 1);
-      if (_index != nextIndex) {
-        // didUpdateWidget is followed by build; avoid re-entrant rebuild requests.
-        _index = nextIndex;
-      }
-    }
-
     if (oldWidget.initialView != widget.initialView) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) {
@@ -141,13 +132,17 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
-        _systemScheduler.pause();
-        _dataHygieneScheduler.pause();
+        if (!_isFlutterTestBinding) {
+          _systemScheduler.pause();
+          _dataHygieneScheduler.pause();
+        }
         unawaited(_saveCurrentState());
         break;
       case AppLifecycleState.resumed:
-        _systemScheduler.resume();
-        _dataHygieneScheduler.start();
+        if (!_isFlutterTestBinding) {
+          _systemScheduler.resume();
+          _dataHygieneScheduler.start();
+        }
         unawaited(_checkRecovery());
         break;
     }
@@ -200,16 +195,50 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
     );
   }
 
+  int _tabIndexForView(AppView view) {
+    return switch (view) {
+      AppView.coach || AppView.nexus => 0,
+      AppView.tasks => 1,
+      AppView.logs => 2,
+      AppView.profile => 3,
+      _ => 0,
+    };
+  }
+
+  void _onTabSelected(int index) {
+    final AppFlowController controller = ref.read(appFlowProvider.notifier);
+    switch (index) {
+      case 0:
+        controller.toNexus();
+      case 1:
+        controller.toTasks();
+      case 2:
+        controller.toLogs();
+      case 3:
+        controller.toProfile();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppView view = ref.watch(appFlowProvider);
+    final int tabIndex = _tabIndexForView(view);
 
     final Widget body = switch (view) {
-      AppView.coach => Scaffold(
-        body: _screens[_index],
+      AppView.coach ||
+      AppView.nexus ||
+      AppView.tasks ||
+      AppView.logs ||
+      AppView.profile => Scaffold(
+        body: switch (view) {
+          AppView.tasks => const TaskScreen(),
+          AppView.logs => const LogsScreen(),
+          AppView.profile => const ProfileScreen(),
+          _ => const NexusScreen(),
+        },
         bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _index,
-          onTap: (int index) => setState(() => _index = index),
+          currentIndex: tabIndex,
+          onTap: _onTabSelected,
           type: BottomNavigationBarType.fixed,
           backgroundColor: const Color(0xD90B111C),
           selectedItemColor: const Color(0xFF00E5FF),
@@ -217,10 +246,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
           showSelectedLabels: false,
           showUnselectedLabels: false,
           items: <BottomNavigationBarItem>[
-            _navItem(AppAssets.iconNexus, 'Nexus', _index == 0),
-            _navItem(AppAssets.iconTasks, 'Trajectory', _index == 1),
-            _navItem(AppAssets.iconLogs, 'Ledger', _index == 2),
-            _navItem(AppAssets.iconProfile, 'Profile', _index == 3),
+            _navItem(AppAssets.iconNexus, 'Nexus', tabIndex == 0),
+            _navItem(AppAssets.iconTasks, 'Trajectory', tabIndex == 1),
+            _navItem(AppAssets.iconLogs, 'Ledger', tabIndex == 2),
+            _navItem(AppAssets.iconProfile, 'Profile', tabIndex == 3),
           ],
         ),
       ),

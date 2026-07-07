@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
@@ -32,14 +34,19 @@ class _AppRootState extends ConsumerState<AppRoot> {
   @override
   void initState() {
     super.initState();
-    Future<void>.microtask(() async {
-      final controller = ref.read(tutorialControllerProvider);
-      if (!_tutorialAssetsLoaded) {
-        await controller.loadAssets(_tutorialAssets);
-        _tutorialAssetsLoaded = true;
-      }
-      _attachRouterListener(ref.read(appRouterProvider));
-    });
+    unawaited(_loadTutorialAssetsIfNeeded());
+  }
+
+  Future<void> _loadTutorialAssetsIfNeeded() async {
+    if (_tutorialAssetsLoaded) {
+      return;
+    }
+    final controller = ref.read(tutorialControllerProvider);
+    await controller.loadAssets(_tutorialAssets);
+    if (!mounted) {
+      return;
+    }
+    _tutorialAssetsLoaded = true;
   }
 
   void _attachRouterListener(GoRouter router) {
@@ -51,9 +58,11 @@ class _AppRootState extends ConsumerState<AppRoot> {
     }
     _router = router;
     _routerListener = () {
+      if (!mounted || _router == null) {
+        return;
+      }
       final controller = ref.read(tutorialControllerProvider);
-      final String route = _router!.routeInformationProvider.value.uri
-          .toString();
+      final String route = _router!.routeInformationProvider.value.uri.toString();
       controller.updateRoute(route);
     };
     _router!.routerDelegate.addListener(_routerListener!);
@@ -73,10 +82,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
     final WidgetRef ref = this.ref;
     final themeEntity = ref.watch(currentThemeProvider).asData?.value;
     final String startupMessage = widget.startupError?.trim() ?? '';
-    final bool showQaDiagnostics = ref
-        .watch(intelligenceStateProvider)
-        .flags
-        .testerFullAccess;
+    final bool showQaDiagnostics = ref.watch(intelligenceStateProvider).flags.testerFullAccess;
     final GoRouter router = ref.watch(appRouterProvider);
     final tutorialController = ref.watch(tutorialControllerProvider);
 
@@ -85,9 +91,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: AppConfig.fromEnv().appName,
-      theme: (themeEntity?.isDark ?? true)
-          ? appTheme
-          : ThemeData.light(useMaterial3: true),
+      theme: (themeEntity?.isDark ?? true) ? appTheme : ThemeData.light(useMaterial3: true),
       routerConfig: router,
       builder: (context, child) {
         final Widget appChild = TutorialHost(
@@ -115,16 +119,11 @@ class _AppRootState extends ConsumerState<AppRoot> {
                       decoration: BoxDecoration(
                         color: Colors.redAccent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.redAccent.withValues(alpha: 0.35),
-                        ),
+                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
                       ),
                       child: Text(
                         startupMessage,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
                       ),
                     ),
                   ),
@@ -139,11 +138,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
                     heroTag: 'qa_diagnostics_fab',
                     backgroundColor: Colors.black.withValues(alpha: 0.72),
                     onPressed: _showDiagnosticsSheet,
-                    child: const Icon(
-                      Icons.bug_report_outlined,
-                      color: Colors.white,
-                      size: 18,
-                    ),
+                    child: const Icon(Icons.bug_report_outlined, color: Colors.white, size: 18),
                   ),
                 ),
               ),
@@ -154,8 +149,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
   }
 
   void _showDiagnosticsSheet() {
-    final NavigatorState? navigatorState =
-        _router?.routerDelegate.navigatorKey.currentState;
+    final NavigatorState? navigatorState = _router?.routerDelegate.navigatorKey.currentState;
     if (navigatorState == null) {
       return;
     }
@@ -195,10 +189,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
                         return const Center(
                           child: Text(
                             'No diagnostics captured yet.',
-                            style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 13,
-                            ),
+                            style: TextStyle(color: Colors.white54, fontSize: 13),
                           ),
                         );
                       }

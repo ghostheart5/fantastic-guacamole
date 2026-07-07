@@ -2,6 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum AppView {
   coach,
+  nexus,
+  tasks,
+  logs,
+  profile,
   smartCoach,
   insight,
   console,
@@ -29,15 +33,17 @@ AppView? appViewFromName(String? value) {
   return null;
 }
 
-final appFlowProvider = NotifierProvider<AppFlowController, AppView>(
-  AppFlowController.new,
-);
+final appFlowProvider = NotifierProvider<AppFlowController, AppView>(AppFlowController.new);
 
 class AppFlowController extends Notifier<AppView> {
   @override
-  AppView build() => AppView.coach;
+  AppView build() => AppView.nexus;
 
-  void toCoach() => state = AppView.coach;
+  void toCoach() => state = AppView.nexus;
+  void toNexus() => state = AppView.nexus;
+  void toTasks() => state = AppView.tasks;
+  void toLogs() => state = AppView.logs;
+  void toProfile() => state = AppView.profile;
   void toSmartCoach() => state = AppView.smartCoach;
   void toInsight() => state = AppView.insight;
   void toConsole() => state = AppView.console;

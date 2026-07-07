@@ -35,61 +35,68 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
-void main() {
-  runZonedGuarded(
-    () {
-      WidgetsFlutterBinding.ensureInitialized();
+void main() => const AppBootstrapper().run();
 
-      final config = AppConfig.fromEnv();
-      final intelligence = const IntelligenceService().environmentOnly();
-      Logger.enabled = config.verboseLogs;
-      Logger.info(
-        'Startup begin. Flavor=${config.flavor.value}, '
-        'mockMode=${intelligence.flags.mockMode}, '
-        'paywallDisabled=${intelligence.flags.paywallDisabled}, '
-        'mockLogin=${intelligence.flags.mockLoginEnabled}.',
+class AppBootstrapper {
+  const AppBootstrapper();
+
+  void run() {
+    runZonedGuarded(_runApp, _handleUncaughtZoneError);
+  }
+
+  void _runApp() {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    final config = AppConfig.fromEnv();
+    final intelligence = const IntelligenceService().environmentOnly();
+    Logger.enabled = config.verboseLogs;
+    Logger.info(
+      'Startup begin. Flavor=${config.flavor.value}, '
+      'mockMode=${intelligence.flags.mockMode}, '
+      'paywallDisabled=${intelligence.flags.paywallDisabled}, '
+      'mockLogin=${intelligence.flags.mockLoginEnabled}.',
+    );
+    RuntimeDiagnostics.recordState(
+      'startup.begin',
+      message: 'startup initialized',
+      data: intelligence.toMap(),
+    );
+
+    FlutterError.onError = (errorDetails) {
+      FlutterError.presentError(errorDetails);
+      final String stack = (errorDetails.stack ?? StackTrace.current).toString();
+      final String appLine = stack
+          .split('\n')
+          .firstWhere((line) => line.contains('package:fantastic_guacamole/'), orElse: () => '')
+          .trim();
+      RuntimeDiagnostics.record(
+        'Flutter framework error: ${errorDetails.exceptionAsString()}\n'
+        '${appLine.isEmpty ? '' : 'app: $appLine\n'}'
+        '$stack',
       );
-      RuntimeDiagnostics.recordState(
-        'startup.begin',
-        message: 'startup initialized',
-        data: intelligence.toMap(),
-      );
+      if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+        FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+      }
+    };
 
-      FlutterError.onError = (errorDetails) {
-        FlutterError.presentError(errorDetails);
-        final String stack = (errorDetails.stack ?? StackTrace.current).toString();
-        final String appLine = stack
-            .split('\n')
-            .firstWhere((line) => line.contains('package:fantastic_guacamole/'), orElse: () => '')
-            .trim();
-        RuntimeDiagnostics.record(
-          'Flutter framework error: ${errorDetails.exceptionAsString()}\n'
-          '${appLine.isEmpty ? '' : 'app: $appLine\n'}'
-          '$stack',
-        );
-        if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-          FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-        }
-      };
-
-      PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-        RuntimeDiagnostics.record('Platform dispatcher uncaught error: $error');
-        if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-          FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-        }
-        return true;
-      };
-
-      runApp(ProviderScope(observers: [AppObserver()], child: const _StartupBootstrapGate()));
-    },
-    (error, stack) {
-      FlutterError.presentError(FlutterErrorDetails(exception: error, stack: stack));
-      RuntimeDiagnostics.record('Uncaught zone error: $error');
+    PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+      RuntimeDiagnostics.record('Platform dispatcher uncaught error: $error');
       if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
         FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       }
-    },
-  );
+      return true;
+    };
+
+    runApp(ProviderScope(observers: [AppObserver()], child: const _StartupBootstrapGate()));
+  }
+
+  void _handleUncaughtZoneError(Object error, StackTrace stack) {
+    FlutterError.presentError(FlutterErrorDetails(exception: error, stack: stack));
+    RuntimeDiagnostics.record('Uncaught zone error: $error');
+    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    }
+  }
 }
 
 bool get _supportsCrashlytics =>
