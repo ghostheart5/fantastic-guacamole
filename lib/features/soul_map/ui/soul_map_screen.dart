@@ -1,32 +1,12 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
-import 'package:fantastic_guacamole/engine/si/experimental/si_synthetic_soul_layer.dart';
-import 'package:fantastic_guacamole/features/emotion/emotion_provider.dart';
-import 'package:fantastic_guacamole/features/emotion/emotional_state.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-final soulStateProvider = Provider<SoulState>((ref) {
-  final si = ref.watch(siStateProvider);
-  final traj = ref.watch(trajectorySummaryProvider);
-  final emotion = ref.watch(emotionProvider);
-  final mood =
-      emotion == EmotionalState.anxious ||
-          emotion == EmotionalState.fatigued ||
-          emotion == EmotionalState.scattered
-      ? 'stressed'
-      : 'neutral';
-  return const SyntheticSoulLayer().harmonize(
-    presence: si.energy.clamp(0.0, 1.0),
-    emergence: traj.momentum.clamp(0.0, 1.0),
-    mood: mood,
-    hasNarrative: traj.completedTasks > 0,
-  );
-});
 
 class SoulMapScreen extends ConsumerWidget {
   const SoulMapScreen({super.key});
@@ -72,7 +52,8 @@ class SoulMapScreen extends ConsumerWidget {
                 Row(
                   children: [
                     SmartPressable(
-                      onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
+                      onTap: () =>
+                          ref.read(appFlowProvider.notifier).toSmartCoach(),
                       child: Container(
                         width: 36,
                         height: 36,

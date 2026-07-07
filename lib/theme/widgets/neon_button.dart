@@ -61,17 +61,25 @@ class NeonButton extends StatelessWidget {
           elevation: 0,
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             if (icon case final Widget iconWidget) ...<Widget>[
               iconWidget,
               const SizedBox(width: 10),
             ],
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: glowColor,
-                letterSpacing: 2,
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: glowColor,
+                    letterSpacing: 2,
+                  ),
+                ),
               ),
             ),
           ],

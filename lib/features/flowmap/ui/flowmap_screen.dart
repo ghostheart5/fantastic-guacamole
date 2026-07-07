@@ -1,16 +1,44 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
-import 'package:fantastic_guacamole/features/flowmap/models/flowmap_node.dart';
+import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class FlowmapScreen extends ConsumerWidget {
   const FlowmapScreen({super.key});
 
+  static const String _featureReadPathFlag = 'flowmap_feature_read_path';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(flowmapProvider);
+    final bool useFeatureReadPath = ref.watch(
+      featureFlagEnabledProvider(_featureReadPathFlag),
+    );
+    final AsyncValue<List<FlowmapNode>> legacyState = ref.watch(
+      flowmapProvider,
+    );
+    final AsyncValue<List<FlowmapNode>> featureState = ref
+        .watch(featureFlowmapGraphProvider)
+        .whenData(
+          (graph) =>
+              graph.nodes
+                  .map(
+                    (node) => FlowmapNode(
+                      id: node.id,
+                      title: node.title,
+                      description: node.description,
+                      tags: node.tags,
+                      createdAt: node.createdAt ?? DateTime.now(),
+                    ),
+                  )
+                  .toList()
+                ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
+        );
+
+    final AsyncValue<List<FlowmapNode>> state = useFeatureReadPath
+        ? featureState
+        : legacyState;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B111C),
@@ -43,7 +71,7 @@ class FlowmapScreen extends ConsumerWidget {
               ),
             ),
             const Text(
-              'MIND ARCHITECTURE',
+              'ADAPTIVE MAP CORE',
               style: TextStyle(
                 fontSize: 9,
                 letterSpacing: 2,
@@ -99,7 +127,15 @@ class FlowmapScreen extends ConsumerWidget {
         onAdd: (title, description, tags) {
           ref
               .read(flowmapProvider.notifier)
-              .addNode(title: title, description: description, tags: tags);
+              .addNode(
+                title: title,
+                description: description,
+                tags: tags,
+                refreshCoach: true,
+                syncSoulMap: true,
+                updateInsights: true,
+                awardProgression: true,
+              );
         },
       ),
     );
@@ -222,7 +258,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const Text(
-            'NO NODES',
+            'NO FLOW NODES',
             style: TextStyle(
               color: Colors.white38,
               fontSize: 11,
@@ -232,7 +268,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Tap + to add your first node',
+            'Tap + to create your first node',
             style: TextStyle(color: Colors.white24, fontSize: 12),
           ),
         ],
@@ -307,7 +343,7 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
               ),
               const SizedBox(width: 10),
               const Text(
-                'NEW NODE',
+                'CREATE NODE',
                 style: TextStyle(
                   fontSize: 12,
                   letterSpacing: 2.5,
@@ -318,17 +354,17 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
             ],
           ),
           const SizedBox(height: 16),
-          _SheetField(controller: _titleCtrl, hint: 'Title *'),
+          _SheetField(controller: _titleCtrl, hint: 'Node title *'),
           const SizedBox(height: 10),
           _SheetField(
             controller: _descCtrl,
-            hint: 'Description (optional)',
+            hint: 'Node briefing (optional)',
             maxLines: 3,
           ),
           const SizedBox(height: 10),
           _SheetField(
             controller: _tagsCtrl,
-            hint: 'Tags — comma separated (optional)',
+            hint: 'Tags - comma separated (optional)',
           ),
           const SizedBox(height: 16),
           SmartPressable(
@@ -344,7 +380,7 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
                 ),
               ),
               child: const Text(
-                'ADD NODE',
+                'CREATE NODE',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,

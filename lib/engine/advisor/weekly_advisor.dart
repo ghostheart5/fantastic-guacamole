@@ -23,9 +23,6 @@ class WeeklyAdvisor {
     for (final insight in insights) {
       if (insight.issue.contains("don't start")) {
         parts.add('users are seeing next steps but not acting on them');
-      } else if (insight.issue.contains('Focus sessions abandoned') ||
-          insight.issue.contains('Focus completion rate')) {
-        parts.add('focus sessions appear too long or challenging');
       } else if (insight.issue.contains('Low momentum')) {
         parts.add('momentum chains are short — actions are not flowing');
       } else if (insight.issue.contains('not completed')) {

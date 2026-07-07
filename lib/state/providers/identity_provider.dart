@@ -1,7 +1,6 @@
-import 'dart:convert';
-
-import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/domain/entities/identity_profile_entity.dart';
 import 'package:fantastic_guacamole/engine/si/offline/identity_engine.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final identityStateProvider = NotifierProvider<IdentityNotifier, IdentityState>(
@@ -9,26 +8,29 @@ final identityStateProvider = NotifierProvider<IdentityNotifier, IdentityState>(
 );
 
 class IdentityNotifier extends Notifier<IdentityState> {
-  static const _key = 'identity_state_v1';
   static const _engine = IdentityEngine();
 
   @override
   IdentityState build() {
-    final raw = SharedPrefsService.load(_key);
-    if (raw != null) {
-      try {
-        final j = jsonDecode(raw) as Map<String, dynamic>;
-        return IdentityState(
-          disciplineIdentity: (j['discipline'] as num?)?.toDouble() ?? 0.1,
-          focusIdentity: (j['focus'] as num?)?.toDouble() ?? 0.1,
-          growthIdentity: (j['growth'] as num?)?.toDouble() ?? 0.1,
-        );
-      } catch (_) {}
-    }
+    _hydrate();
     return const IdentityState(
       disciplineIdentity: 0.1,
       focusIdentity: 0.1,
       growthIdentity: 0.1,
+    );
+  }
+
+  Future<void> _hydrate() async {
+    final IdentityProfileEntity? profile = await ref
+        .read(getIdentityProfileUseCaseProvider)
+        .call();
+    if (profile == null) {
+      return;
+    }
+    state = IdentityState(
+      disciplineIdentity: profile.disciplineIdentity,
+      focusIdentity: profile.focusIdentity,
+      growthIdentity: profile.growthIdentity,
     );
   }
 
@@ -58,13 +60,14 @@ class IdentityNotifier extends Notifier<IdentityState> {
   }
 
   Future<void> _persist() async {
-    await SharedPrefsService.save(
-      _key,
-      jsonEncode({
-        'discipline': state.disciplineIdentity,
-        'focus': state.focusIdentity,
-        'growth': state.growthIdentity,
-      }),
-    );
+    await ref
+        .read(saveIdentityProfileUseCaseProvider)
+        .call(
+          IdentityProfileEntity(
+            disciplineIdentity: state.disciplineIdentity,
+            focusIdentity: state.focusIdentity,
+            growthIdentity: state.growthIdentity,
+          ),
+        );
   }
 }

@@ -1,3 +1,0 @@
-class LogsService {
-  const LogsService();
-}

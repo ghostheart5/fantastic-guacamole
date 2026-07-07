@@ -11,10 +11,10 @@
 
 1. No real upload keystore or `android/key.properties` yet.
 2. No verified signed `.aab` has been produced yet.
-3. Real Play Billing flow is not implemented.
-4. Direct account deletion still depends on a future backend workflow.
-5. `lib/config/firebase_options.dart` still contains placeholder values.
-6. There is no active `test/` suite.
+3. Billing verification endpoint (`CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT`) still needs production-ready deployment and validation.
+4. Direct account deletion still depends on a deployed HTTPS backend workflow.
+5. Firebase options should be re-verified against release Firebase project settings in `lib/firebase_options.dart`.
+6. Final pre-upload validation run is still required on the current branch (`flutter analyze`, tests, and signed bundle install check).
 
 ## Listing Content Checklist
 

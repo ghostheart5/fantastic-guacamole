@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 enum AppView {
   coach,
   smartCoach,
-  focus,
   insight,
-  reflect,
   console,
   settings,
   progression,
@@ -18,6 +16,19 @@ enum AppView {
   timeline,
 }
 
+AppView? appViewFromName(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return null;
+  }
+  final String target = value.trim();
+  for (final AppView view in AppView.values) {
+    if (view.name == target) {
+      return view;
+    }
+  }
+  return null;
+}
+
 final appFlowProvider = NotifierProvider<AppFlowController, AppView>(
   AppFlowController.new,
 );
@@ -28,9 +39,7 @@ class AppFlowController extends Notifier<AppView> {
 
   void toCoach() => state = AppView.coach;
   void toSmartCoach() => state = AppView.smartCoach;
-  void toFocus() => state = AppView.focus;
   void toInsight() => state = AppView.insight;
-  void toReflect() => state = AppView.reflect;
   void toConsole() => state = AppView.console;
   void toSettings() => state = AppView.settings;
   void toProgression() => state = AppView.progression;
@@ -41,4 +50,5 @@ class AppFlowController extends Notifier<AppView> {
   void toMemories() => state = AppView.memories;
   void toSoulMap() => state = AppView.soulMap;
   void toTimeline() => state = AppView.timeline;
+  void show(AppView view) => state = view;
 }

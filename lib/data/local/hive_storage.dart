@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/core/storage/hive_service.dart';
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:hive/hive.dart';
 
 /// ChronoSpark HiveStorage
@@ -36,37 +36,20 @@ class HiveStorage<T> {
     return _hive.box<T>(boxKey);
   }
 
-  Future<bool> exists() async {
-    await _hive.init();
-    return _hive.isBoxOpen(boxKey);
-  }
-
   // ------------------------------------------------------------
   // READ
   // ------------------------------------------------------------
 
   T? get(String key) {
-    try {
-      return box().get(key);
-    } catch (_) {
-      return null;
-    }
+    return box().get(key);
   }
 
   T getOrDefault(String key, T fallback) {
-    try {
-      return box().get(key) ?? fallback;
-    } catch (_) {
-      return fallback;
-    }
+    return box().get(key) ?? fallback;
   }
 
   Map<dynamic, T> getAll() {
-    try {
-      return box().toMap().cast<dynamic, T>();
-    } catch (_) {
-      return {};
-    }
+    return box().toMap().cast<dynamic, T>();
   }
 
   // ------------------------------------------------------------
@@ -114,31 +97,6 @@ class HiveStorage<T> {
   Future<void> close() async {
     if (_hive.isBoxOpen(boxKey)) {
       await box().close();
-    }
-  }
-
-  Future<void> reopen() async {
-    await close();
-    await open();
-  }
-
-  // ------------------------------------------------------------
-  // SAFE CHECKS
-  // ------------------------------------------------------------
-
-  bool contains(String key) {
-    try {
-      return box().containsKey(key);
-    } catch (_) {
-      return false;
-    }
-  }
-
-  int count() {
-    try {
-      return box().length;
-    } catch (_) {
-      return 0;
     }
   }
 }

@@ -1,50 +1,62 @@
-class ParadoxV2Resolution {
-  const ParadoxV2Resolution({
-    required this.axes,
+// lib/engine/si/si_synthetic_paradox_engine_v2.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIParadoxV2 {
+  const SIParadoxV2({
     required this.detected,
-    required this.layers,
-    required this.resolution,
+    required this.code,
+    required this.severity,
+    required this.memory,
   });
-
-  final List<String> axes;
   final bool detected;
-  final List<String> layers;
-  final String resolution;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'axes': axes,
-      'detected': detected,
-      'layers': layers,
-      'resolution': resolution,
-    };
-  }
+  final String code;
+  final double severity;
+  final SIMemoryStore memory;
 }
 
-class SyntheticParadoxEngineV2 {
-  const SyntheticParadoxEngineV2();
+class SISyntheticParadoxEngineV2 {
+  const SISyntheticParadoxEngineV2();
 
-  ParadoxV2Resolution resolve({
-    required String mood,
-    required String intent,
-    required bool memoryConflict,
-    required bool multiverseConflict,
+  SIParadoxV2 detect({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    required SIMemoryStore memory,
+    SIDecision? decision,
+    DateTime? now,
   }) {
-    final List<String> axes = <String>[
-      if (mood == 'stressed' && intent == 'start_focus') 'emotional',
-      if (intent == 'reflect' && mood == 'excited') 'narrative',
-      if (memoryConflict) 'memory',
-      if (multiverseConflict) 'multiverse',
-      if (intent == 'general_query') 'intent',
-    ];
-
-    return ParadoxV2Resolution(
-      axes: axes,
-      detected: axes.isNotEmpty,
-      layers: <String>['detect', 'reframe', 'stabilize', 'resolve'],
-      resolution: axes.isNotEmpty
-          ? 'Layered reconciliation: preserve goal direction while reducing friction.'
-          : 'No paradox pressure detected.',
+    final t = now ?? DateTime.now();
+    String code = 'none';
+    double sev = 0;
+    if (instinct.safetyFirst &&
+        decision != null &&
+        decision.action != 'respond_conversationally') {
+      code = 'safety_vs_action';
+      sev = .75;
+    } else if (intent.confidence < .45 &&
+        decision != null &&
+        decision.action != 'respond_conversationally') {
+      code = 'uncertainty_vs_action';
+      sev = .55;
+    }
+    final next = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content: 'paradox_v2|$code|severity=${sev.toStringAsFixed(2)}',
+            timestamp: t,
+            relevance: sev,
+            confidence: .7,
+            emotionalWeight: sev,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SIParadoxV2(
+      detected: sev >= .45,
+      code: code,
+      severity: siClamp01(sev),
+      memory: next,
     );
   }
 }

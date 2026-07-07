@@ -1,56 +1,63 @@
-class TemporalLoopState {
-  const TemporalLoopState({
-    required this.cycles,
-    required this.negativeLoops,
-    required this.positiveLoops,
-    required this.breakAction,
-    required this.reinforceAction,
+// lib/engine/si/si_synthetic_temporal_loop_engine.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SITemporalLoop {
+  const SITemporalLoop({
+    required this.detected,
+    required this.loopKey,
+    required this.strength,
+    required this.advice,
+    required this.memory,
   });
-
-  final List<String> cycles;
-  final List<String> negativeLoops;
-  final List<String> positiveLoops;
-  final String breakAction;
-  final String reinforceAction;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'cycles': cycles,
-      'negative_loops': negativeLoops,
-      'positive_loops': positiveLoops,
-      'break_action': breakAction,
-      'reinforce_action': reinforceAction,
-    };
-  }
+  final bool detected;
+  final String loopKey;
+  final double strength;
+  final String advice;
+  final SIMemoryStore memory;
 }
 
-class SyntheticTemporalLoopEngine {
-  const SyntheticTemporalLoopEngine();
+class SISyntheticTemporalLoopEngine {
+  const SISyntheticTemporalLoopEngine();
 
-  TemporalLoopState evaluate({
-    required List<String> history,
-    required String mood,
+  SITemporalLoop detect({
+    required SIMemoryStore memory,
+    required SIContext context,
+    DateTime? now,
   }) {
-    final bool repeatedStress =
-        history
-            .where((String h) => h.toLowerCase().contains('stressed'))
-            .length >=
-        2;
-    final bool repeatedFocus =
-        history.where((String h) => h.toLowerCase().contains('focus')).length >=
-        2;
-
-    return TemporalLoopState(
-      cycles: <String>[
-        if (repeatedStress) 'stress_cycle',
-        if (repeatedFocus) 'focus_cycle',
-      ],
-      negativeLoops: <String>[
-        if (repeatedStress || mood == 'stressed') 'overload_loop',
-      ],
-      positiveLoops: <String>[if (repeatedFocus) 'momentum_loop'],
-      breakAction: 'Insert reset and reduce scope when overload loop appears.',
-      reinforceAction: 'Reward and repeat successful focus loop signals.',
+    final t = now ?? DateTime.now();
+    final counts = <String, int>{};
+    for (final s in memory.snapshots.take(24)) {
+      final key = siClean(s.taskId);
+      if (key.isNotEmpty) counts[key] = (counts[key] ?? 0) + 1;
+    }
+    final entry = counts.entries.isEmpty
+        ? const MapEntry('none', 0)
+        : (counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
+              .first;
+    final strength = siClamp01(entry.value / 6);
+    final detected = strength >= .5;
+    final next = memory
+        .pushRecord(
+          MemoryTier.midTerm,
+          MemoryRecord(
+            content:
+                'temporal_loop|key=${entry.key}|strength=${strength.toStringAsFixed(2)}',
+            timestamp: t,
+            relevance: strength,
+            confidence: memory.snapshots.length >= 4 ? .7 : .42,
+            emotionalWeight: context.userState.stress,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SITemporalLoop(
+      detected: detected,
+      loopKey: entry.key,
+      strength: strength,
+      advice: detected
+          ? 'Use the loop intentionally or shrink the repeated task.'
+          : 'No strong loop detected.',
+      memory: next,
     );
   }
 }

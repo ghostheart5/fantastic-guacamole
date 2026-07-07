@@ -1,53 +1,61 @@
-class SyntheticDimensionalPhysics {
-  const SyntheticDimensionalPhysics({
-    required this.emotionalDimension,
-    required this.temporalDimension,
-    required this.narrativeDimension,
-    required this.multiverseDimension,
-    required this.cognitiveDimension,
-    required this.rules,
+// lib/engine/si/si_synthetic_dimensional_physics_engine.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIDimensionalVector {
+  const SIDimensionalVector({
+    required this.values,
+    required this.dominant,
+    required this.guidance,
+    required this.memory,
   });
-
-  final double emotionalDimension;
-  final double temporalDimension;
-  final double narrativeDimension;
-  final double multiverseDimension;
-  final double cognitiveDimension;
-  final List<String> rules;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'emotional_dimension': emotionalDimension,
-      'temporal_dimension': temporalDimension,
-      'narrative_dimension': narrativeDimension,
-      'multiverse_dimension': multiverseDimension,
-      'cognitive_dimension': cognitiveDimension,
-      'rules': rules,
-    };
-  }
+  final Map<String, double> values;
+  final String dominant;
+  final String guidance;
+  final SIMemoryStore memory;
 }
 
-class SyntheticDimensionalPhysicsEngine {
-  const SyntheticDimensionalPhysicsEngine();
+class SISyntheticDimensionalPhysicsEngine {
+  const SISyntheticDimensionalPhysicsEngine();
 
-  SyntheticDimensionalPhysics compute({
-    required String mood,
-    required double temporalDecay,
-    required double narrativePull,
-    required double multiverseSignal,
-    required double confidence,
+  SIDimensionalVector compute({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    return SyntheticDimensionalPhysics(
-      emotionalDimension: mood == 'stressed' ? 0.82 : 0.6,
-      temporalDimension: temporalDecay,
-      narrativeDimension: narrativePull,
-      multiverseDimension: multiverseSignal,
-      cognitiveDimension: confidence,
-      rules: <String>[
-        'high_emotional_dimension_requires_stabilization',
-        'narrative_pull_biases_memory_retrieval',
-        'multiverse_dimension_above_0_7_requires_identity_sync',
-      ],
+    final t = now ?? DateTime.now();
+    final v = <String, double>{
+      'clarity': intent.confidence,
+      'load': context.userState.cognitiveLoad,
+      'stress': context.userState.stress,
+      'momentum': context.userState.motivation,
+      'safety': instinct.safetyFirst ? .9 : .55,
+    }.map((k, v) => MapEntry(k, siClamp01(v)));
+    final dominant =
+        (v.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
+            .first
+            .key;
+    final next = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content: 'dimensional_physics|dominant=$dominant',
+            timestamp: t,
+            relevance: v[dominant]!,
+            confidence: .7,
+            emotionalWeight: context.userState.stress,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SIDimensionalVector(
+      values: Map.unmodifiable(v),
+      dominant: dominant,
+      guidance: dominant == 'load' || dominant == 'stress'
+          ? 'compress_and_stabilize'
+          : 'act_with_clarity',
+      memory: next,
     );
   }
 }

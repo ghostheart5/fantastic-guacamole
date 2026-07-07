@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/data/models/task.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
 
 class TaskView {
   const TaskView({

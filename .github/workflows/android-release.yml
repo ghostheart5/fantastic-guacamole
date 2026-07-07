@@ -20,6 +20,10 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Run security secret guard
+        shell: pwsh
+        run: ./scripts/security_secret_guard.ps1
+
       - name: Decode keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
 
@@ -32,8 +36,36 @@ jobs:
           storeFile=app/key.jks
           EOF
 
+      - name: Validate production configuration
+        env:
+          SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
+          RECEIPT_ENDPOINT: ${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
+          AI_ENDPOINT: ${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
+          DELETE_ENDPOINT: ${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
+          ANDROID_SHA256: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
+          IOS_TEAM_ID: ${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
+        run: |
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_ANON_KEY"
+          test -n "$RECEIPT_ENDPOINT"
+          test -n "$AI_ENDPOINT"
+          test -n "$DELETE_ENDPOINT"
+          test -n "$ANDROID_SHA256"
+          test -n "$IOS_TEAM_ID"
+
       - name: Build signed AAB
-        run: flutter build appbundle --release
+        run: >-
+          flutter build appbundle --release
+          --dart-define=CHRONOSPARK_APP_FLAVOR=prod
+          --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true
+          --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
+          --dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
+          --dart-define=CHRONOSPARK_AI_PROXY_ENDPOINT=${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
+          --dart-define=CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
+          --dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
+          --dart-define=CHRONOSPARK_IOS_TEAM_ID=${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4

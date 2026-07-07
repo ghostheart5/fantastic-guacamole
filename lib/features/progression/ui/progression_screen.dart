@@ -1,35 +1,14 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
-import 'package:fantastic_guacamole/domain/usecases/get_progress_signals.dart';
-import 'package:fantastic_guacamole/engine/si/offline/narrative_engine.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/level_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/streak_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/weekly_summary_card.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
+import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-final progressSignalsProvider = Provider<ProgressSignals>((ref) {
-  final traj = ref.watch(trajectorySummaryProvider);
-  return GetProgressSignals()(traj);
-});
-
-final narrativeProvider = Provider<UserNarrative>((ref) {
-  final profile = ref.watch(profileProvider);
-  final signals = ref.watch(progressSignalsProvider);
-  final consistency = signals.consistency.startsWith('High')
-      ? 0.9
-      : signals.consistency.startsWith('Med')
-      ? 0.6
-      : 0.3;
-  return const NarrativeEngine().generate(
-    streak: profile.streak,
-    completedTasks: profile.xp ~/ 10,
-    consistency: consistency,
-  );
-});
 
 class ProgressionScreen extends ConsumerWidget {
   const ProgressionScreen({super.key});
@@ -95,7 +74,7 @@ class ProgressionScreen extends ConsumerWidget {
                             ),
                           ),
                           const Text(
-                            'GROWTH MATRIX',
+                            'MOMENTUM INTEL + HISTORY',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -160,7 +139,7 @@ class _ProgressSignalsCard extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                'SIGNALS',
+                'TACTICAL SIGNALS',
                 style: TextStyle(
                   fontSize: 10,
                   letterSpacing: 2.5,
@@ -253,7 +232,7 @@ class _NarrativeCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'YOUR STORY',
+            'TRAJECTORY NARRATIVE',
             style: TextStyle(
               fontSize: 9,
               letterSpacing: 2.5,
@@ -304,7 +283,7 @@ class _AdvisorSummaryCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'SYSTEM INSIGHT',
+            'SYSTEM INTEL',
             style: TextStyle(
               fontSize: 9,
               letterSpacing: 2.5,
@@ -323,11 +302,11 @@ class _AdvisorSummaryCard extends ConsumerWidget {
               ),
             ),
             loading: () => const Text(
-              'Analyzing...',
+              'Scanning signal matrix...',
               style: TextStyle(color: Colors.white38, fontSize: 12),
             ),
             error: (_, _) => const Text(
-              'Not enough data yet.',
+              'Insufficient signal data.',
               style: TextStyle(color: Colors.white38, fontSize: 12),
             ),
           ),

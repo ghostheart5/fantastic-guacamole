@@ -17,7 +17,7 @@ class ProductAdvisorEngine {
     ProductInsight(
       issue: 'Not enough data yet',
       cause: 'Keep using the app to generate insights',
-      recommendation: 'Complete focus sessions and tasks to unlock insights',
+      recommendation: 'Complete tasks to unlock insights',
     ),
   ];
 
@@ -25,8 +25,6 @@ class ProductAdvisorEngine {
     required int nextSeen,
     required int started,
     required int completed,
-    required int focusStarted,
-    required int focusCompleted,
     required int momentumPeak,
   }) {
     final insights = <ProductInsight>[];
@@ -41,28 +39,7 @@ class ProductAdvisorEngine {
       );
     }
 
-    if (focusStarted > 5 && focusCompleted == 0) {
-      insights.add(
-        const ProductInsight(
-          issue: 'Focus sessions abandoned',
-          cause: 'Sessions too long or too hard',
-          recommendation: 'Reduce default session length',
-        ),
-      );
-    } else if (focusStarted > 0 &&
-        focusCompleted / focusStarted < 0.4 &&
-        focusStarted >= 3) {
-      insights.add(
-        const ProductInsight(
-          issue: 'Focus completion rate is low',
-          cause: 'Sessions may be too long for current energy levels',
-          recommendation:
-              'Try shorter sessions (10–15 min) until streak builds',
-        ),
-      );
-    }
-
-    if (momentumPeak < 2 && (focusCompleted > 0 || completed > 0)) {
+    if (momentumPeak < 2 && completed > 0) {
       insights.add(
         const ProductInsight(
           issue: 'Low momentum',
@@ -82,7 +59,7 @@ class ProductAdvisorEngine {
       );
     }
 
-    if (insights.isEmpty && focusStarted == 0 && completed == 0) {
+    if (insights.isEmpty && completed == 0) {
       return _fallback;
     }
 
@@ -107,8 +84,6 @@ class ProductAdvisorEngine {
       nextSeen: snapshot['tasks_created'] as int? ?? 0,
       started: snapshot['tasks_created'] as int? ?? 0,
       completed: snapshot['tasks_completed'] as int? ?? 0,
-      focusStarted: snapshot['focus_sessions'] as int? ?? 0,
-      focusCompleted: snapshot['focus_completed'] as int? ?? 0,
       momentumPeak: momentumChainCount,
     );
   }

@@ -47,4 +47,36 @@ class SiDecisionEntity {
       reasoningTrace: reasoningTrace ?? this.reasoningTrace,
     );
   }
+
+  // Domain behavior
+  bool get hasSelectedTask => selectedTaskId != null;
+
+  bool get isBreakRecommendation => shouldTakeBreak && selectedTaskId == null;
+
+  bool get hasOrderedTasks => orderedTaskIds.isNotEmpty;
+
+  String? get firstTask =>
+      orderedTaskIds.isNotEmpty ? orderedTaskIds.first : null;
+
+  List<String> get remainingTasks =>
+      orderedTaskIds.length <= 1 ? [] : orderedTaskIds.sublist(1);
+
+  Duration get focusDuration => Duration(minutes: recommendedFocusMinutes);
+
+  bool get isShortFocus => recommendedFocusMinutes <= 15;
+  bool get isLongFocus => recommendedFocusMinutes >= 45;
+
+  bool get hasReasoningTrace => reasoningTrace.trim().isNotEmpty;
+
+  void validate() {
+    if (shouldTakeBreak && selectedTaskId != null) {
+      throw StateError(
+        'Decision cannot recommend a break and a task at the same time',
+      );
+    }
+
+    if (recommendedFocusMinutes <= 0) {
+      throw StateError('Focus minutes must be positive');
+    }
+  }
 }

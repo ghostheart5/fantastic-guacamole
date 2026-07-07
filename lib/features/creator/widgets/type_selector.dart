@@ -1,18 +1,14 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 
 class TypeSelector extends StatelessWidget {
-  const TypeSelector({
-    super.key,
-    required this.selected,
-    required this.onSelect,
-  });
+  const TypeSelector({super.key, required this.selected, required this.onSelect});
 
   final String selected;
   final ValueChanged<String> onSelect;
 
-  static const _types = ['Task', 'Focus', 'Mission', 'Note', 'Routine'];
+  static const _types = ['Task', 'Routine', 'Note', 'Goal'];
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +47,7 @@ class TypeSelector extends StatelessWidget {
               onTap: () => onSelect(type),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 7,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? AppColors.memoryAmber.withValues(alpha: 0.15)

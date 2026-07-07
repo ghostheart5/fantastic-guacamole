@@ -1,86 +1,303 @@
-class CognitiveEcosystemSnapshot {
-  const CognitiveEcosystemSnapshot({
-    required this.microReasoners,
-    required this.microEmotionAgents,
-    required this.microMemoryCells,
-    required this.microIntentDetectors,
-    required this.microPersonaFragments,
-    required this.emergenceScore,
+// lib/engine/si/si_cognitive_ecosystem_layer.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/si_cognitive_micro_pattern_engine.dart';
+
+enum EcosystemNodeType { task, intent, mood, pattern, action, state }
+
+class EcosystemNode {
+  const EcosystemNode({
+    required this.id,
+    required this.type,
+    required this.label,
+    required this.weight,
+    required this.lastSeen,
+    this.hits = 1,
   });
 
-  final List<String> microReasoners;
-  final List<String> microEmotionAgents;
-  final List<String> microMemoryCells;
-  final List<String> microIntentDetectors;
-  final List<String> microPersonaFragments;
-  final double emergenceScore;
+  final String id;
+  final EcosystemNodeType type;
+  final String label;
+  final double weight;
+  final DateTime lastSeen;
+  final int hits;
 
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'micro_reasoners': microReasoners,
-      'micro_emotion_agents': microEmotionAgents,
-      'micro_memory_cells': microMemoryCells,
-      'micro_intent_detectors': microIntentDetectors,
-      'micro_persona_fragments': microPersonaFragments,
-      'emergence_score': emergenceScore,
-    };
+  EcosystemNode bump(DateTime now, double amount) {
+    return EcosystemNode(
+      id: id,
+      type: type,
+      label: label,
+      weight: siClamp01(weight + amount),
+      lastSeen: now,
+      hits: hits + 1,
+    );
+  }
+
+  EcosystemNode decay(DateTime now, double amount) {
+    return EcosystemNode(
+      id: id,
+      type: type,
+      label: label,
+      weight: siClamp01(weight - amount),
+      lastSeen: now,
+      hits: hits,
+    );
   }
 }
 
-class CognitiveEcosystemLayer {
-  const CognitiveEcosystemLayer();
+class EcosystemEdge {
+  const EcosystemEdge({
+    required this.from,
+    required this.to,
+    required this.weight,
+    required this.lastSeen,
+    this.hits = 1,
+  });
 
-  CognitiveEcosystemSnapshot run({
-    required String intent,
-    required String mood,
-    required List<String> history,
-    required String persona,
-  }) {
-    final List<String> reasoners = <String>[
-      'task_reasoner',
-      'risk_reasoner',
-      if (intent == 'insight_request') 'pattern_reasoner',
-    ];
+  final String from;
+  final String to;
+  final double weight;
+  final DateTime lastSeen;
+  final int hits;
 
-    final List<String> emotions = <String>[
-      'stability_agent',
-      if (mood == 'stressed') 'calming_agent',
-      if (mood == 'excited') 'momentum_agent',
-    ];
+  String get id => '$from->$to';
 
-    final List<String> memoryCells = <String>[
-      'recent_context_cell',
-      if (history.isNotEmpty) 'pattern_cell',
-      if (history.length > 5) 'continuity_cell',
-    ];
-
-    final List<String> detectors = <String>[
-      'explicit_intent_detector',
-      'implicit_intent_detector',
-      if (intent == 'general_query') 'ambiguity_detector',
-    ];
-
-    final List<String> fragments = <String>[
-      '${persona.toLowerCase()}_fragment',
-      'supportive_fragment',
-      'strategic_fragment',
-    ];
-
-    final double emergence =
-        ((reasoners.length * 0.22) +
-                (emotions.length * 0.16) +
-                (memoryCells.length * 0.2) +
-                (detectors.length * 0.2) +
-                (fragments.length * 0.14))
-            .clamp(0.0, 1.0);
-
-    return CognitiveEcosystemSnapshot(
-      microReasoners: reasoners,
-      microEmotionAgents: emotions,
-      microMemoryCells: memoryCells,
-      microIntentDetectors: detectors,
-      microPersonaFragments: fragments,
-      emergenceScore: emergence,
+  EcosystemEdge bump(DateTime now, double amount) {
+    return EcosystemEdge(
+      from: from,
+      to: to,
+      weight: siClamp01(weight + amount),
+      lastSeen: now,
+      hits: hits + 1,
     );
+  }
+
+  EcosystemEdge decay(DateTime now, double amount) {
+    return EcosystemEdge(
+      from: from,
+      to: to,
+      weight: siClamp01(weight - amount),
+      lastSeen: now,
+      hits: hits,
+    );
+  }
+}
+
+class SIEcosystemState {
+  const SIEcosystemState({
+    this.nodes = const <String, EcosystemNode>{},
+    this.edges = const <String, EcosystemEdge>{},
+    this.updatedAt,
+  });
+
+  final Map<String, EcosystemNode> nodes;
+  final Map<String, EcosystemEdge> edges;
+  final DateTime? updatedAt;
+
+  EcosystemNode? node(String id) => nodes[id];
+}
+
+class EcosystemUpdate {
+  const EcosystemUpdate({
+    required this.state,
+    required this.memory,
+    required this.focusNodes,
+    required this.summary,
+  });
+
+  final SIEcosystemState state;
+  final SIMemoryStore memory;
+  final List<EcosystemNode> focusNodes;
+  final String summary;
+}
+
+class SICognitiveEcosystemLayer {
+  const SICognitiveEcosystemLayer();
+
+  EcosystemUpdate observe({
+    required SIEcosystemState current,
+    required SIMemoryStore memory,
+    required SIContext context,
+    SIIntent? intent,
+    SIDecision? decision,
+    SIResponse? response,
+    MicroPatternReport? patterns,
+    DateTime? now,
+  }) {
+    final DateTime timestamp = now ?? DateTime.now();
+    final Map<String, EcosystemNode> nodes = Map<String, EcosystemNode>.from(
+      current.nodes,
+    );
+    final Map<String, EcosystemEdge> edges = Map<String, EcosystemEdge>.from(
+      current.edges,
+    );
+
+    final String moodId = _nodeId(
+      EcosystemNodeType.mood,
+      context.userState.emotion,
+    );
+    _bumpNode(
+      nodes,
+      moodId,
+      EcosystemNodeType.mood,
+      context.userState.emotion,
+      timestamp,
+      0.08,
+    );
+
+    final String stateId = _nodeId(
+      EcosystemNodeType.state,
+      context.userState.stability,
+    );
+    _bumpNode(
+      nodes,
+      stateId,
+      EcosystemNodeType.state,
+      context.userState.stability,
+      timestamp,
+      0.06,
+    );
+    _bumpEdge(edges, moodId, stateId, timestamp, 0.05);
+
+    if (intent != null) {
+      final String intentId = _nodeId(
+        EcosystemNodeType.intent,
+        intent.primary.label,
+      );
+      _bumpNode(
+        nodes,
+        intentId,
+        EcosystemNodeType.intent,
+        intent.primary.label,
+        timestamp,
+        0.08,
+      );
+      _bumpEdge(edges, moodId, intentId, timestamp, 0.05);
+    }
+
+    if (decision != null) {
+      final String actionId = _nodeId(
+        EcosystemNodeType.action,
+        decision.action,
+      );
+      _bumpNode(
+        nodes,
+        actionId,
+        EcosystemNodeType.action,
+        decision.action,
+        timestamp,
+        0.08,
+      );
+      _bumpEdge(edges, stateId, actionId, timestamp, 0.06);
+
+      final String task = siClean(decision.task?.title);
+      if (task.isNotEmpty) {
+        final String taskId = _nodeId(EcosystemNodeType.task, task);
+        _bumpNode(nodes, taskId, EcosystemNodeType.task, task, timestamp, 0.12);
+        _bumpEdge(edges, actionId, taskId, timestamp, 0.07);
+      }
+    }
+
+    if (patterns != null) {
+      for (final MicroPattern pattern in patterns.patterns.take(6)) {
+        final String patternId = _nodeId(
+          EcosystemNodeType.pattern,
+          pattern.type.name,
+        );
+        _bumpNode(
+          nodes,
+          patternId,
+          EcosystemNodeType.pattern,
+          pattern.label,
+          timestamp,
+          0.08 + pattern.strength * 0.08,
+        );
+        _bumpEdge(edges, stateId, patternId, timestamp, 0.05);
+      }
+    }
+
+    final SIEcosystemState next = SIEcosystemState(
+      nodes: Map<String, EcosystemNode>.unmodifiable(nodes),
+      edges: Map<String, EcosystemEdge>.unmodifiable(edges),
+      updatedAt: timestamp,
+    );
+
+    final List<EcosystemNode> focus = _focusNodes(next);
+
+    SIMemoryStore updatedMemory = memory.pushRecord(
+      MemoryTier.midTerm,
+      MemoryRecord(
+        content:
+            'ecosystem|nodes=${nodes.length}|edges=${edges.length}|focus=${focus.map((e) => e.label).take(3).join(",")}',
+        timestamp: timestamp,
+        relevance: focus.isEmpty ? 0.45 : focus.first.weight,
+        confidence: 0.7,
+        recency: 1.0,
+        emotionalWeight: siClamp01(context.userState.stress),
+        reinforcement: 1,
+      ),
+    );
+
+    updatedMemory = updatedMemory.dedupe().decay(timestamp);
+
+    return EcosystemUpdate(
+      state: next,
+      memory: updatedMemory,
+      focusNodes: List<EcosystemNode>.unmodifiable(focus),
+      summary: focus.isEmpty
+          ? 'Ecosystem initialized.'
+          : 'Active ecosystem nodes: ${focus.map((EcosystemNode n) => n.label).take(3).join(', ')}.',
+    );
+  }
+
+  void _bumpNode(
+    Map<String, EcosystemNode> nodes,
+    String id,
+    EcosystemNodeType type,
+    String label,
+    DateTime now,
+    double amount,
+  ) {
+    final EcosystemNode? existing = nodes[id];
+    nodes[id] = existing == null
+        ? EcosystemNode(
+            id: id,
+            type: type,
+            label: label,
+            weight: siClamp01(0.45 + amount),
+            lastSeen: now,
+          )
+        : existing.bump(now, amount);
+  }
+
+  void _bumpEdge(
+    Map<String, EcosystemEdge> edges,
+    String from,
+    String to,
+    DateTime now,
+    double amount,
+  ) {
+    final String id = '$from->$to';
+    final EcosystemEdge? existing = edges[id];
+    edges[id] = existing == null
+        ? EcosystemEdge(
+            from: from,
+            to: to,
+            weight: siClamp01(0.35 + amount),
+            lastSeen: now,
+          )
+        : existing.bump(now, amount);
+  }
+
+  List<EcosystemNode> _focusNodes(SIEcosystemState state) {
+    final List<EcosystemNode> out = state.nodes.values.toList()
+      ..sort(
+        (EcosystemNode a, EcosystemNode b) => b.weight.compareTo(a.weight),
+      );
+    return out.take(8).toList();
+  }
+
+  String _nodeId(EcosystemNodeType type, String value) {
+    return '${type.name}:${siClean(value, fallback: 'unknown').toLowerCase()}';
   }
 }

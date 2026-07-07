@@ -55,7 +55,50 @@ class SiStateEntity {
     );
   }
 
-  SiStateEntity withConfidenceDelta(double delta) {
-    return copyWith(confidence: confidence + delta);
+  // Domain transitions
+  SiStateEntity withConfidenceDelta(double delta) =>
+      copyWith(confidence: confidence + delta);
+
+  SiStateEntity withEnergyDelta(double delta) =>
+      copyWith(energy: (energy + delta).clamp(0.0, 1.0));
+
+  SiStateEntity withFocusDelta(double delta) =>
+      copyWith(focus: (focus + delta).clamp(0.0, 1.0));
+
+  SiStateEntity withFatigueDelta(double delta) =>
+      copyWith(fatigue: (fatigue + delta).clamp(0.0, 1.0));
+
+  // Semantic helpers
+  bool get isLowEnergy => energy < 0.3;
+  bool get isHighEnergy => energy > 0.7;
+
+  bool get isLowFocus => focus < 0.3;
+  bool get isHighFocus => focus > 0.7;
+
+  bool get isFatigued => fatigue > 0.6;
+
+  bool get isPositiveMood => mood == 'positive';
+  bool get isNegativeMood => mood == 'negative';
+  bool get isNeutralMood => mood == 'neutral';
+
+  bool get isHighFrictionState => highFriction || frictionScore > 0.7;
+  bool get isLowFrictionState => frictionScore < 0.3;
+
+  bool get instinctProgressFirst => primaryInstinct == 'progress_first';
+  bool get instinctSafetyFirst => primaryInstinct == 'safety_first';
+  bool get instinctExplore => primaryInstinct == 'explore';
+
+  bool get isStale => DateTime.now().difference(lastUpdated).inMinutes > 10;
+
+  void validate() {
+    if (energy < 0 || energy > 1) {
+      throw StateError('Energy must be between 0 and 1');
+    }
+    if (focus < 0 || focus > 1) {
+      throw StateError('Focus must be between 0 and 1');
+    }
+    if (fatigue < 0 || fatigue > 1) {
+      throw StateError('Fatigue must be between 0 and 1');
+    }
   }
 }

@@ -1,9 +1,7 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
-import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,7 +32,8 @@ class GoalsScreen extends ConsumerWidget {
                 child: Row(
                   children: [
                     GestureDetector(
-                      onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
+                      onTap: () =>
+                          ref.read(appFlowProvider.notifier).toSmartCoach(),
                       child: Container(
                         width: 36,
                         height: 36,
@@ -258,10 +257,12 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
 
   @override
   Widget build(BuildContext context) {
-    final tasks = ref.watch(tasksProvider).asData?.value ?? [];
-    final linked = tasks.where((t) => t.goalId == widget.goal.id).toList();
-    final total = linked.length;
-    final progress = total > 0 ? linked.length / total : 0.0;
+    final goalProgress =
+        ref.watch(goalProgressProvider(widget.goal.id)).value ??
+        const GoalProgressView.empty();
+    final linked = goalProgress.tasks;
+    final int total = goalProgress.totalCount;
+    final double progress = goalProgress.fraction;
 
     final now = DateTime.now();
     final targetDate = widget.goal.targetDate;
@@ -273,18 +274,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
       key: Key(widget.goal.id),
       direction: DismissDirection.endToStart,
       onDismissed: (_) {
-        ref.read(goalsProvider.notifier).remove(widget.goal.id);
-        ref
-            .read(timelineProvider.notifier)
-            .record(
-              TimelineEventEntity(
-                id: 'gc_${widget.goal.id}_${DateTime.now().millisecondsSinceEpoch}',
-                type: TimelineEventType.goalComplete,
-                title: 'Goal completed',
-                detail: widget.goal.title,
-                timestamp: DateTime.now(),
-              ),
-            );
+        ref.read(goalsProvider.notifier).complete(widget.goal.id);
       },
       background: Container(
         alignment: Alignment.centerRight,

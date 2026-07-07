@@ -1,71 +1,61 @@
-class ModalityFusion {
-  const ModalityFusion({
-    required this.emotional,
-    required this.logical,
-    required this.temporal,
-    required this.narrative,
-    required this.sensory,
-    required this.contextual,
-    required this.multiverseIdentity,
-    required this.fusionScore,
+// lib/engine/si/si_synthetic_modality_fusion_layer.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIModalityFusion {
+  const SIModalityFusion({
+    required this.fusedText,
+    required this.modalities,
+    required this.confidence,
+    required this.memory,
   });
-
-  final double emotional;
-  final double logical;
-  final double temporal;
-  final double narrative;
-  final double sensory;
-  final double contextual;
-  final double multiverseIdentity;
-  final double fusionScore;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'emotional': emotional,
-      'logical': logical,
-      'temporal': temporal,
-      'narrative': narrative,
-      'sensory': sensory,
-      'contextual': contextual,
-      'multiverse_identity': multiverseIdentity,
-      'fusion_score': fusionScore,
-    };
-  }
+  final String fusedText;
+  final List<String> modalities;
+  final double confidence;
+  final SIMemoryStore memory;
 }
 
-class SyntheticModalityFusionLayer {
-  const SyntheticModalityFusionLayer();
+class SISyntheticModalityFusionLayer {
+  const SISyntheticModalityFusionLayer();
 
-  ModalityFusion fuse({
-    required double emotional,
-    required double logical,
-    required double temporal,
-    required double narrative,
-    required double contextual,
-    required bool hasSensory,
-    required bool multiverseActive,
+  SIModalityFusion fuse({
+    required SIInputPacket input,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    final double sensory = hasSensory ? 0.68 : 0.35;
-    final double multiverseIdentity = multiverseActive ? 0.8 : 0.45;
-    final double fusionScore =
-        ((emotional * 0.18) +
-                (logical * 0.2) +
-                (temporal * 0.14) +
-                (narrative * 0.14) +
-                (sensory * 0.1) +
-                (contextual * 0.12) +
-                (multiverseIdentity * 0.12))
-            .clamp(0.0, 1.0);
-
-    return ModalityFusion(
-      emotional: emotional,
-      logical: logical,
-      temporal: temporal,
-      narrative: narrative,
-      sensory: sensory,
-      contextual: contextual,
-      multiverseIdentity: multiverseIdentity,
-      fusionScore: fusionScore,
+    final t = now ?? DateTime.now();
+    final parts = <String>[
+      input.text,
+      if (input.nonText.voiceToText != null) input.nonText.voiceToText!,
+      ...input.nonText.imageLabels,
+      ...input.nonText.timeTriggers,
+      ...input.nonText.behaviorPatterns,
+    ].map(siClean).where((x) => x.isNotEmpty).toList();
+    final modalities = <String>[
+      if (input.text.trim().isNotEmpty) 'text',
+      if (input.nonText.voiceToText != null) 'voice',
+      if (input.nonText.imageLabels.isNotEmpty) 'image',
+      if (input.nonText.timeTriggers.isNotEmpty) 'time',
+      if (input.nonText.behaviorPatterns.isNotEmpty) 'behavior',
+    ];
+    final confidence = siClamp01(.35 + modalities.length * .12);
+    final next = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content: 'modality_fusion|modalities=${modalities.join(",")}',
+            timestamp: t,
+            relevance: confidence,
+            confidence: confidence,
+            emotionalWeight: .35,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SIModalityFusion(
+      fusedText: parts.join(' '),
+      modalities: List.unmodifiable(modalities),
+      confidence: confidence,
+      memory: next,
     );
   }
 }

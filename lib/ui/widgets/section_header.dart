@@ -1,5 +1,5 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/constants/app_sizes.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:flutter/material.dart';
 
 class SectionHeader extends StatelessWidget {

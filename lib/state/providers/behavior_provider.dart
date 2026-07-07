@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/engine/si/offline/behavior_shaping_engine.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

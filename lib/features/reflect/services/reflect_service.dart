@@ -1,3 +1,0 @@
-class ReflectService {
-  const ReflectService();
-}

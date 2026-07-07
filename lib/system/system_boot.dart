@@ -1,6 +1,7 @@
-import 'package:fantastic_guacamole/data/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
-import 'package:fantastic_guacamole/engine/si/si_snapshot.dart';
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
+    show SIState;
+import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
 
 class SystemBoot {
   const SystemBoot();

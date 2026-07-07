@@ -1,10 +1,10 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
 import 'package:fantastic_guacamole/core/extensions/date_extensions.dart';
 import 'package:fantastic_guacamole/core/extensions/string_extensions.dart';
-import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
-import 'package:fantastic_guacamole/features/notifications/controllers/notification_controller.dart';
+import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,8 +13,7 @@ class NotificationsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.watch(notificationControllerProvider);
-    final async = controller.watch();
+    final List<NotificationEntity> items = ref.watch(notificationProvider);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/nexus_bg.jpg',
@@ -26,40 +25,25 @@ class NotificationsPage extends ConsumerWidget {
             children: [
               _Header(onBack: () => Navigator.of(context).pop()),
               Expanded(
-                child: async.when(
-                  loading: () => const Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.neonCyan,
-                      strokeWidth: 2,
-                    ),
-                  ),
-                  error: (e, _) => Center(
-                    child: Text(
-                      'Error: $e',
-                      style: const TextStyle(
-                        color: AppColors.recallRed,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  data: (items) => items.isEmpty
-                      ? const _EmptyState()
-                      : RefreshIndicator(
-                          onRefresh: controller.refresh,
-                          color: AppColors.neonCyan,
-                          backgroundColor: const Color(0xFF0B111C),
-                          child: ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                            itemCount: items.length,
-                            itemBuilder: (context, i) => _NotificationTile(
-                              item: items[i],
-                              onMarkRead: () =>
-                                  controller.markRead(items[i].id),
-                              onDelete: () => controller.delete(items[i].id),
-                            ),
-                          ),
+                child: items.isEmpty
+                    ? const _EmptyState()
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        itemCount: items.length,
+                        itemBuilder: (context, i) => _NotificationTile(
+                          item: items[i],
+                          onMarkRead: () async {
+                            await ref
+                                .read(notificationProvider.notifier)
+                                .markRead(items[i].id);
+                          },
+                          onDelete: () async {
+                            await ref
+                                .read(notificationProvider.notifier)
+                                .delete(items[i].id);
+                          },
                         ),
-                ),
+                      ),
               ),
             ],
           ),
@@ -146,8 +130,8 @@ class _NotificationTile extends StatelessWidget {
   });
 
   final NotificationEntity item;
-  final VoidCallback onMarkRead;
-  final VoidCallback onDelete;
+  final Future<void> Function() onMarkRead;
+  final Future<void> Function() onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +155,9 @@ class _NotificationTile extends StatelessWidget {
       ),
       onDismissed: (_) => onDelete(),
       child: SmartPressable(
-        onTap: onMarkRead,
+        onTap: () {
+          onMarkRead();
+        },
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),

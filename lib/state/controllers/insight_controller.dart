@@ -1,10 +1,9 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/di/services_providers.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/engine/insights/insight_engine.dart';
 import 'package:fantastic_guacamole/engine/insights/pattern_insight_engine.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
-import 'package:fantastic_guacamole/state/controllers/focus_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/models/completion_insight_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,16 +19,16 @@ final patternInsightEngineProvider = Provider<PatternInsightEngine>((ref) {
 });
 
 final completionInsightProvider = Provider<CompletionInsightView?>((ref) {
-  final focus = ref.watch(focusControllerProvider);
+  final score = ref.watch(sessionScoreProvider);
   final energy = ref.watch(energyProvider);
 
-  if (!focus.completed) return null;
+  if (score == null) return null;
 
   final CompletionInsightEngine engine = ref.read(
     completionInsightEngineProvider,
   );
   return CompletionInsightView.fromInsight(
-    engine.generate(seconds: focus.seconds, energy: energy),
+    engine.generate(seconds: score.durationSeconds, energy: energy),
   );
 });
 

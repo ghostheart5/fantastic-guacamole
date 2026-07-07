@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final tasksAsync = ref.watch(tasksProvider);
   final profile = ref.watch(profileProvider);
-  final focus = ref.watch(focusControllerProvider);
   final energy = ref.watch(energyProvider);
   final learning = ref.watch(learningProvider);
   final learningMetrics = ref.watch(learningMetricsProvider);
@@ -28,7 +27,6 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final int pressureIndex =
       ((pendingTasks * 16) +
               ((1 - energy) * 32) +
-              (focus.active ? 12 : 0) +
               ((1 - learningMetrics.momentum) * 18))
           .clamp(0.0, 100.0)
           .round();

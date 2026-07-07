@@ -1,24 +1,38 @@
-import 'package:fantastic_guacamole/data/models/si_state.dart';
-import 'package:fantastic_guacamole/data/models/task.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/engine/learning/adaptive_learning.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/si/si_decision.dart';
-import 'package:fantastic_guacamole/engine/si/si_engine.dart';
 
 class SICore {
-  SICore({required this.si, required this.learning})
-    : engine = SIEngine(si, learning);
+  SICore({required this.si, required this.learning});
 
-  late final SIEngine engine;
   final SIState si;
   final LearningState learning;
 
   Decision? decide(List<Task> tasks) {
-    return engine.decide(tasks);
+    if (tasks.isEmpty) {
+      return null;
+    }
+
+    Task best = tasks.first;
+    double bestScore = -1;
+    for (final Task task in tasks) {
+      final double urgency = task.priority.toDouble() * 0.5;
+      final double energyFit = (si.energy - (task.energyRequired / 5)).abs();
+      final double difficultyPenalty = (task.difficulty / 5) * si.fatigue;
+      final double score = urgency + (1 - energyFit) - difficultyPenalty;
+      if (score > bestScore) {
+        bestScore = score;
+        best = task;
+      }
+    }
+
+    return Decision(task: best, score: bestScore, reasoning: explain(best));
   }
 
   String explain(Task task) {
-    return engine.reasoning(task);
+    return 'Selected ${task.title} using priority, energy fit, and fatigue-aware scoring.';
   }
 
   SICoreUpdate onComplete(Task task) {

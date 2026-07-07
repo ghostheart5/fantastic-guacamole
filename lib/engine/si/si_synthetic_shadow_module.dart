@@ -1,51 +1,55 @@
-class ShadowInsight {
-  const ShadowInsight({
-    required this.fears,
-    required this.insecurities,
-    required this.blockers,
-    required this.blindSpots,
-    required this.gentleNavigation,
+// lib/engine/si/si_synthetic_shadow_module.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIShadowSignal {
+  const SIShadowSignal({
+    required this.resistance,
+    required this.trigger,
+    required this.reframe,
+    required this.memory,
   });
-
-  final List<String> fears;
-  final List<String> insecurities;
-  final List<String> blockers;
-  final List<String> blindSpots;
-  final String gentleNavigation;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'fears': fears,
-      'insecurities': insecurities,
-      'blockers': blockers,
-      'blind_spots': blindSpots,
-      'gentle_navigation': gentleNavigation,
-    };
-  }
+  final double resistance;
+  final String trigger;
+  final String reframe;
+  final SIMemoryStore memory;
 }
 
-class SyntheticShadowModule {
-  const SyntheticShadowModule();
+class SISyntheticShadowModule {
+  const SISyntheticShadowModule();
 
-  ShadowInsight inspect({required String input, required String mood}) {
-    final String lowered = input.toLowerCase();
-    return ShadowInsight(
-      fears: <String>[
-        if (lowered.contains('fail')) 'fear_of_failure',
-        if (lowered.contains('behind')) 'fear_of_falling_behind',
-      ],
-      insecurities: <String>[
-        if (lowered.contains('not good enough')) 'self_efficacy_doubt',
-      ],
-      blockers: <String>[
-        if (mood == 'stressed') 'stress_overload',
-        if (lowered.contains('stuck')) 'execution_stall',
-      ],
-      blindSpots: <String>[
-        if (lowered.contains('all or nothing')) 'perfectionism_pattern',
-      ],
-      gentleNavigation:
-          'Validate emotion, reduce scope, and choose one concrete action.',
+  SIShadowSignal detect({
+    required SIContext context,
+    required SIMemoryStore memory,
+    DateTime? now,
+  }) {
+    final t = now ?? DateTime.now();
+    final resistance = siClamp01(
+      context.userState.frustration * .35 +
+          context.userState.cognitiveLoad * .35 +
+          context.userState.fatigue * .3,
+    );
+    final trigger = resistance >= .65 ? 'resistance_high' : 'resistance_low';
+    final next = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content:
+                'shadow|$trigger|resistance=${resistance.toStringAsFixed(2)}',
+            timestamp: t,
+            relevance: resistance,
+            confidence: .66,
+            emotionalWeight: resistance,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SIShadowSignal(
+      resistance: resistance,
+      trigger: trigger,
+      reframe: resistance >= .65
+          ? 'Shrink the task until it feels possible.'
+          : 'Proceed with steady clarity.',
+      memory: next,
     );
   }
 }

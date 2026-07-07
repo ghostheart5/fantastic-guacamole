@@ -1,67 +1,60 @@
-// Module 4 — Instinct
-// Pipeline step: SIContext + SIIntent → InstinctGuidance
-// This is the hard constraint layer — all downstream modules respect these flags.
-// Source: si_synthetic_instinct_system
+// lib/engine/si/core/si_instinct_module.dart
 
-// ─── Data contract ────────────────────────────────────────────────────────────
-
-class InstinctGuidance {
-  const InstinctGuidance({
-    required this.protectUser,
-    required this.reduceConfusion,
-    required this.increaseClarity,
-    required this.maintainEmotionalSafety,
-    required this.avoidOverwhelm,
-    required this.encourageProgress,
-    required this.maintainContinuity,
-    required this.primaryInstinct,
-  });
-
-  final bool protectUser;
-  final bool reduceConfusion;
-  final bool increaseClarity;
-  final bool maintainEmotionalSafety;
-  final bool avoidOverwhelm;
-  final bool encourageProgress;
-  final bool maintainContinuity;
-  final String primaryInstinct;
-
-  bool get safetyFirst => primaryInstinct == 'safety_first';
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    'protect_user': protectUser,
-    'reduce_confusion': reduceConfusion,
-    'increase_clarity': increaseClarity,
-    'maintain_emotional_safety': maintainEmotionalSafety,
-    'avoid_overwhelm': avoidOverwhelm,
-    'encourage_progress': encourageProgress,
-    'maintain_continuity': maintainContinuity,
-    'primary_instinct': primaryInstinct,
-  };
-}
-
-// ─── Module ───────────────────────────────────────────────────────────────────
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 
 class SIInstinctModule {
   const SIInstinctModule();
 
   InstinctGuidance evaluate({
-    required String mood,
-    required bool anticipatesConfusion,
-    required double confidence,
+    required SIContext context,
+    required SIIntent intent,
   }) {
+    final SIUserState user = context.userState;
+    final double confidence = siClamp01(intent.confidence);
+    final String mood = siNormalizeMood(user.emotion);
+
     final bool lowConfidence = confidence < 0.55;
-    final bool overwhelmed = mood == 'stressed' || anticipatesConfusion;
+    final bool emotionalRisk =
+        mood == 'stressed' ||
+        mood == 'confused' ||
+        mood == 'frustrated' ||
+        user.stress >= 0.65 ||
+        user.cognitiveLoad >= 0.72;
+
+    final bool confusionRisk =
+        lowConfidence ||
+        mood == 'confused' ||
+        user.cognitiveLoad >= 0.7 ||
+        intent.isComplex;
+
+    final bool overwhelmed =
+        emotionalRisk ||
+        context.input.latent.hesitation >= 0.65 ||
+        context.input.latent.confusion >= 0.65;
 
     return InstinctGuidance(
-      protectUser: true,
-      reduceConfusion: anticipatesConfusion || lowConfidence,
+      protectUser: emotionalRisk || lowConfidence,
+      reduceConfusion: confusionRisk,
       increaseClarity: true,
-      maintainEmotionalSafety: mood == 'stressed' || mood == 'confused',
+      maintainEmotionalSafety: emotionalRisk,
       avoidOverwhelm: overwhelmed,
-      encourageProgress: true,
-      maintainContinuity: true,
-      primaryInstinct: overwhelmed ? 'safety_first' : 'progress_first',
+      encourageProgress: !overwhelmed || confidence >= 0.7,
+      maintainContinuity: confidence >= 0.4,
+      primaryInstinct: _primary(
+        emotionalRisk: emotionalRisk,
+        overwhelmed: overwhelmed,
+        confidence: confidence,
+      ),
     );
+  }
+
+  String _primary({
+    required bool emotionalRisk,
+    required bool overwhelmed,
+    required double confidence,
+  }) {
+    if (emotionalRisk || overwhelmed) return 'safety_first';
+    if (confidence < 0.4) return 'stabilize_first';
+    return 'progress_first';
   }
 }

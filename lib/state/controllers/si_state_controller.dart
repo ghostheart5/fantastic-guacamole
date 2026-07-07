@@ -1,10 +1,11 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SIStateController extends Notifier<SIState> {
+  /// Owns live SI operating state used by chat and recommendation flows.
   @override
   SIState build() {
     _loadFromAsset();

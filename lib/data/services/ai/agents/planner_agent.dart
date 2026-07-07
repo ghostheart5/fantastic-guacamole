@@ -1,15 +1,15 @@
-import 'package:fantastic_guacamole/data/models/si_state.dart';
-import 'package:fantastic_guacamole/data/models/task.dart';
 import 'package:fantastic_guacamole/data/services/ai/agents/ai_agent.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
 import 'package:fantastic_guacamole/engine/si/ai_response.dart';
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/si/si_ai_service.dart';
 
 class PlannerAgent extends AiAgent {
-  const PlannerAgent({this.service = const SIAIService()});
+  const PlannerAgent({this.service});
 
-  final SIAIService service;
+  final SIAIService? service;
 
   @override
   String get name => 'planning';
@@ -26,7 +26,7 @@ class PlannerAgent extends AiAgent {
         ? request['personality'] as AIPersonality
         : AIPersonality.coach;
 
-    final AIResponse response = service.generate(
+    final AIResponse response = await (service ?? SIAIService()).generate(
       tasks: tasks,
       si: si ?? const SIState(),
       learning: learning ?? const LearningState(),

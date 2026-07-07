@@ -1,64 +1,76 @@
-class AlignmentState {
-  const AlignmentState({
-    required this.wellbeing,
-    required this.growth,
-    required this.goals,
-    required this.emotionalSafety,
-    required this.multiverseRules,
-    required this.appConstraints,
-    required this.total,
+// lib/engine/si/si_synthetic_alignment_engine.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIAlignmentResult {
+  const SIAlignmentResult({
+    required this.aligned,
+    required this.score,
+    required this.guidance,
+    required this.memory,
   });
-
-  final double wellbeing;
-  final double growth;
-  final double goals;
-  final double emotionalSafety;
-  final double multiverseRules;
-  final double appConstraints;
-  final double total;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'wellbeing': wellbeing,
-      'growth': growth,
-      'goals': goals,
-      'emotional_safety': emotionalSafety,
-      'multiverse_rules': multiverseRules,
-      'app_constraints': appConstraints,
-      'total': total,
-    };
-  }
+  final bool aligned;
+  final double score;
+  final String guidance;
+  final SIMemoryStore memory;
 }
 
-class SyntheticAlignmentEngine {
-  const SyntheticAlignmentEngine();
+class SISyntheticAlignmentEngine {
+  const SISyntheticAlignmentEngine();
 
-  AlignmentState evaluate({
-    required bool safe,
-    required double goalFit,
-    required double growth,
-    required double emotionalSafety,
+  SIAlignmentResult evaluate({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    required SIMemoryStore memory,
+    SIDecision? decision,
+    DateTime? now,
   }) {
-    final double wellbeing = safe ? 0.84 : 0.4;
-    final double multiverseRules = 0.76;
-    final double appConstraints = safe ? 0.82 : 0.5;
-    final double total =
-        ((wellbeing * 0.24) +
-                (growth * 0.18) +
-                (goalFit * 0.2) +
-                (emotionalSafety * 0.2) +
-                (multiverseRules * 0.09) +
-                (appConstraints * 0.09))
-            .clamp(0.0, 1.0);
-
-    return AlignmentState(
-      wellbeing: wellbeing,
-      growth: growth,
-      goals: goalFit,
-      emotionalSafety: emotionalSafety,
-      multiverseRules: multiverseRules,
-      appConstraints: appConstraints,
-      total: total,
+    final t = now ?? DateTime.now();
+    final score = siClamp01(
+      intent.confidence * .28 +
+          (1 - context.userState.stress) * .22 +
+          (1 - context.userState.cognitiveLoad) * .2 +
+          (decision?.safe == false ? 0 : .2) +
+          (instinct.safetyFirst ? .1 : .2),
+    );
+    final guidance = score >= .7
+        ? 'aligned_action'
+        : instinct.safetyFirst
+        ? 'stabilize_first'
+        : 'clarify_then_act';
+    final next = _write(
+      memory,
+      t,
+      'synthetic_alignment|score=${score.toStringAsFixed(2)}|$guidance',
+      score,
+      context.userState.stress,
+    );
+    return SIAlignmentResult(
+      aligned: score >= .62,
+      score: score,
+      guidance: guidance,
+      memory: next,
     );
   }
+
+  SIMemoryStore _write(
+    SIMemoryStore m,
+    DateTime t,
+    String c,
+    double r,
+    double e,
+  ) => m
+      .pushRecord(
+        MemoryTier.shortTerm,
+        MemoryRecord(
+          content: c,
+          timestamp: t,
+          relevance: r,
+          confidence: .72,
+          emotionalWeight: siClamp01(e),
+          reinforcement: r >= .7 ? 1 : 0,
+        ),
+      )
+      .dedupe()
+      .decay(t);
 }

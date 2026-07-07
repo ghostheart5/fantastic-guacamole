@@ -1,4 +1,13 @@
 #!/bin/sh
 set -eu
 
-"$(git rev-parse --show-toplevel)/scripts/release_guard.ps1"
+ROOT="$(git rev-parse --show-toplevel)"
+
+if command -v pwsh >/dev/null 2>&1; then
+	pwsh -NoProfile -ExecutionPolicy Bypass -File "$ROOT/scripts/strict_gate.ps1"
+elif command -v powershell >/dev/null 2>&1; then
+	powershell -NoProfile -ExecutionPolicy Bypass -File "$ROOT/scripts/strict_gate.ps1"
+else
+	echo "PowerShell is required to run strict gate." >&2
+	exit 1
+fi

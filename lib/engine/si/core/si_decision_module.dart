@@ -1,68 +1,7 @@
-// Module 6 — Decision
-// Pipeline step: SICognitionState + InstinctGuidance → SIDecision
-// Merges: si_decision + si_policy + si_ethics_layer
+// lib/engine/si/core/si_decision_module.dart
 
-import 'package:fantastic_guacamole/data/models/task.dart';
-
-// ─── Data contracts ───────────────────────────────────────────────────────────
-
-class SIDecision {
-  const SIDecision({
-    required this.action,
-    this.task,
-    required this.score,
-    required this.reasoning,
-    required this.ethics,
-    required this.policyApplied,
-  });
-
-  final String action;
-  final Task? task;
-  final double score;
-  final String reasoning;
-  final EthicsAssessment ethics;
-  final bool policyApplied;
-
-  bool get safe => ethics.safe;
-}
-
-class EthicsAssessment {
-  const EthicsAssessment({
-    required this.safe,
-    required this.flags,
-    required this.adjustments,
-  });
-
-  final bool safe;
-  final List<String> flags;
-  final List<String> adjustments;
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    'safe': safe,
-    'flags': flags,
-    'adjustments': adjustments,
-  };
-}
-
-class SIDecisionPolicy {
-  const SIDecisionPolicy({
-    this.safety = true,
-    this.tone = 'balanced',
-    this.domainRules = const <String>['productivity'],
-    this.emotionalRules = const <String>['be_supportive', 'avoid_harshness'],
-    this.appConstraints = const <String>[
-      'no_destructive_actions_without_confirmation',
-    ],
-  });
-
-  final bool safety;
-  final String tone;
-  final List<String> domainRules;
-  final List<String> emotionalRules;
-  final List<String> appConstraints;
-}
-
-// ─── Module ───────────────────────────────────────────────────────────────────
+import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 
 class SIDecisionModule {
   const SIDecisionModule({this.policy = const SIDecisionPolicy()});
@@ -70,67 +9,121 @@ class SIDecisionModule {
   final SIDecisionPolicy policy;
 
   SIDecision make({
-    required String intent,
-    required String reply,
-    required String mood,
-    required bool simplify,
-    required double score,
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    required SICognitionState cognition,
     Task? task,
   }) {
-    final EthicsAssessment ethics = _assess(
-      reply: reply,
-      mood: mood,
-      simplify: simplify,
-    );
-    final String safeReply = policy.safety ? _applyPolicy(reply) : reply;
-    final String action = _resolveAction(intent);
+    final String reasoning = _reasoning(context, intent, instinct, cognition);
+    final EthicsAssessment ethics = _assess(reasoning, context, instinct);
+    final String safeReasoning = policy.safety
+        ? _applyPolicy(reasoning, ethics, instinct)
+        : reasoning;
 
     return SIDecision(
-      action: action,
+      action: _action(intent.primary.label),
       task: task,
-      score: score,
-      reasoning: safeReply,
+      score: _score(intent, cognition, instinct),
+      reasoning: siClean(safeReasoning, fallback: 'I am ready when you are.'),
       ethics: ethics,
       policyApplied: policy.safety,
     );
   }
 
-  EthicsAssessment _assess({
-    required String reply,
-    required String mood,
-    required bool simplify,
-  }) {
-    final String lowered = reply.toLowerCase();
+  double _score(
+    SIIntent intent,
+    SICognitionState cognition,
+    InstinctGuidance instinct,
+  ) {
+    final double base =
+        (intent.confidence * 0.45) +
+        (cognition.prediction.safeProbability * 0.35) +
+        ((1 - cognition.meta.misunderstandingRisk) * 0.2);
+    return siClamp01(instinct.safetyFirst ? base * 0.8 : base);
+  }
+
+  String _reasoning(
+    SIContext context,
+    SIIntent intent,
+    InstinctGuidance instinct,
+    SICognitionState cognition,
+  ) {
+    if (cognition.meta.askClarification) {
+      return 'I may need one detail before acting. ${cognition.summary}';
+    }
+    if (instinct.safetyFirst) {
+      return 'Let’s keep this simple and safe. ${cognition.summary}';
+    }
+    return cognition.summary;
+  }
+
+  EthicsAssessment _assess(
+    String reply,
+    SIContext context,
+    InstinctGuidance instinct,
+  ) {
+    final String text = reply.toLowerCase();
     final List<String> flags = <String>[];
     final List<String> adjustments = <String>[];
 
-    if (lowered.contains('ignore sleep') || lowered.contains('skip eating')) {
+    if (text.contains('ignore sleep') || text.contains('skip eating')) {
       flags.add('wellbeing_risk');
       adjustments.add('replace with sustainable pacing guidance');
     }
-    if (lowered.contains('you must') && mood == 'stressed') {
+    if (text.contains('you must') &&
+        (context.userState.emotion == 'stressed' || instinct.avoidOverwhelm)) {
       flags.add('emotional_pressure_risk');
-      adjustments.add('use supportive language');
+      adjustments.add('soften pressure language');
     }
-    if (simplify && reply.length > 260) {
+    if (instinct.avoidOverwhelm && reply.length > 260) {
       flags.add('overwhelm_risk');
-      adjustments.add('compress response length');
+      adjustments.add('compress response');
+    }
+    if (text.contains('lazy') || text.contains('failure')) {
+      flags.add('negative_tone_risk');
+      adjustments.add('remove judgmental language');
     }
 
     return EthicsAssessment(
       safe: flags.isEmpty,
-      flags: flags,
-      adjustments: adjustments,
+      flags: List<String>.unmodifiable(flags),
+      adjustments: List<String>.unmodifiable(adjustments),
     );
   }
 
-  String _applyPolicy(String reply) {
-    final String normalized = reply.trim();
-    if (normalized.isEmpty) return 'I am ready when you are.';
-    return normalized;
+  String _applyPolicy(
+    String reply,
+    EthicsAssessment ethics,
+    InstinctGuidance instinct,
+  ) {
+    String result = reply.trim();
+    if (result.isEmpty) return 'I am ready when you are.';
+
+    if (ethics.flags.contains('wellbeing_risk')) {
+      result =
+          'Take a balanced approach. Focus matters, but rest and basic needs come first.';
+    }
+    if (ethics.flags.contains('emotional_pressure_risk')) {
+      result = result
+          .replaceAll(
+            RegExp(r'\byou must\b', caseSensitive: false),
+            'you could',
+          )
+          .replaceAll(RegExp(r'\bhave to\b', caseSensitive: false), 'can');
+    }
+    if (ethics.flags.contains('negative_tone_risk')) {
+      result = result
+          .replaceAll(RegExp(r'\blazy\b|\bfailure\b', caseSensitive: false), '')
+          .trim();
+    }
+    if (ethics.flags.contains('overwhelm_risk') || instinct.avoidOverwhelm) {
+      result = _truncate(result, 220);
+    }
+    return siClean(result, fallback: 'Let’s take one small step.');
   }
 
-  String _resolveAction(String intent) {
+  String _action(String intent) {
     switch (intent) {
       case 'start_focus':
         return 'launch_focus_session';
@@ -143,5 +136,13 @@ class SIDecisionModule {
       default:
         return 'respond_conversationally';
     }
+  }
+
+  String _truncate(String text, int max) {
+    final String clean = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (clean.length <= max) return clean;
+    final String cut = clean.substring(0, max).trim();
+    final int space = cut.lastIndexOf(' ');
+    return space > 40 ? '${cut.substring(0, space)}...' : '$cut...';
   }
 }

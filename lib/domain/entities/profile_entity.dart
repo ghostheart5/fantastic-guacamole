@@ -19,4 +19,30 @@ class ProfileEntity {
       leveledUp: leveledUp ?? this.leveledUp,
     );
   }
+
+  // Domain logic
+  int get xpToNextLevel => level * 100;
+
+  ProfileEntity addXp(int amount) {
+    int newXp = xp + amount;
+    int newLevel = level;
+    bool didLevelUp = false;
+
+    while (newXp >= newLevel * 100) {
+      newXp -= newLevel * 100;
+      newLevel++;
+      didLevelUp = true;
+    }
+
+    return copyWith(xp: newXp, level: newLevel, leveledUp: didLevelUp);
+  }
+
+  ProfileEntity incrementStreak() => copyWith(streak: streak + 1);
+
+  ProfileEntity resetStreak() => copyWith(streak: 0);
+
+  void validate() {
+    if (xp < 0) throw StateError('XP cannot be negative');
+    if (level < 1) throw StateError('Level must be at least 1');
+  }
 }

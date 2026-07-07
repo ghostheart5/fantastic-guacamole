@@ -1,14 +1,30 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/data/network/secure_endpoint.dart'
+    as secure_endpoint;
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 class AuthService implements AuthServiceContract {
-  AuthService({required sb.SupabaseClient supabaseClient, required this._store})
-    : _auth = supabaseClient;
+  AuthService({
+    required sb.SupabaseClient supabaseClient,
+    required this._store,
+    http.Client? httpClient,
+    String? accountDeleteEndpoint,
+  }) : _auth = supabaseClient,
+       _httpClient = httpClient ?? http.Client(),
+       _accountDeleteEndpoint =
+           accountDeleteEndpoint ?? Env.accountDeleteEndpoint;
 
   final sb.SupabaseClient _auth;
   final SecureStore _store;
+  final http.Client _httpClient;
+  final String _accountDeleteEndpoint;
   int _failedSignInAttempts = 0;
   DateTime? _signInBlockedUntil;
 
@@ -83,7 +99,10 @@ class AuthService implements AuthServiceContract {
   @override
   Future<UserCredential> signInWithGoogle() async {
     try {
-      await _auth.auth.signInWithOAuth(sb.OAuthProvider.google);
+      await _auth.auth.signInWithOAuth(
+        sb.OAuthProvider.google,
+        redirectTo: 'https://chronospark.app/app/auth/callback',
+      );
       return UserCredential(user: currentUser);
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
@@ -166,18 +185,85 @@ class AuthService implements AuthServiceContract {
       );
     }
 
-    try {
-      await _auth.auth.signInWithPassword(email: email, password: password);
+    final String endpoint = _accountDeleteEndpoint.trim();
+    if (endpoint.isEmpty) {
       throw FirebaseAuthException(
         code: 'operation-not-supported',
-        message: 'Direct account deletion requires a secure server endpoint.',
+        message:
+            'Account deletion is unavailable because CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT is not configured.',
       );
+    }
+
+    final Uri? uri = parseSecureHttpsEndpoint(endpoint);
+    if (uri == null) {
+      throw FirebaseAuthException(
+        code: 'operation-not-supported',
+        message: 'Account deletion endpoint must be a valid HTTPS URL.',
+      );
+    }
+
+    bool deleted = false;
+
+    try {
+      await _auth.auth.signInWithPassword(email: email, password: password);
+
+      final String? accessToken = _auth.auth.currentSession?.accessToken;
+      if (accessToken == null || accessToken.trim().isEmpty) {
+        throw FirebaseAuthException(
+          code: 'auth-unavailable',
+          message: 'Session token missing after re-authentication.',
+        );
+      }
+
+      final http.Response response = await _httpClient
+          .post(
+            uri,
+            headers: <String, String>{
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $accessToken',
+            },
+            body: jsonEncode(<String, String>{
+              'userId': user.id,
+              'email': email,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw FirebaseAuthException(
+          code: 'operation-failed',
+          message: deletionFailureMessage(
+            statusCode: response.statusCode,
+            responseBody: response.body,
+          ),
+        );
+      }
+
+      deleted = true;
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
+    } on TimeoutException {
+      throw FirebaseAuthException(
+        code: 'network-request-failed',
+        message: 'Account deletion timed out. Check your connection and retry.',
+      );
     } finally {
-      await _store.deleteAll();
-      await _auth.auth.signOut();
+      if (deleted) {
+        await _store.deleteAll();
+        await _auth.auth.signOut();
+      }
     }
+  }
+
+  static Uri? parseSecureHttpsEndpoint(String endpoint) {
+    return secure_endpoint.parseSecureHttpsEndpoint(endpoint);
+  }
+
+  static String deletionFailureMessage({
+    required int statusCode,
+    required String responseBody,
+  }) {
+    return 'Account deletion failed ($statusCode). Please try again later.';
   }
 
   bool _isCredentialFailure(String code) {

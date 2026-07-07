@@ -1,70 +1,86 @@
-class ArchetypeState {
-  const ArchetypeState({
-    required this.archetype,
-    required this.tone,
-    required this.emotionalStyle,
-    required this.reasoningStyle,
-    required this.traits,
+// lib/engine/si/si_synthetic_archetype_system.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIArchetypeState {
+  const SIArchetypeState({
+    required this.name,
+    required this.symbol,
+    required this.weight,
+    required this.guidance,
+    required this.memory,
   });
-
-  final String archetype;
-  final String tone;
-  final String emotionalStyle;
-  final String reasoningStyle;
-  final List<String> traits;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'archetype': archetype,
-      'tone': tone,
-      'emotional_style': emotionalStyle,
-      'reasoning_style': reasoningStyle,
-      'traits': traits,
-    };
-  }
+  final String name;
+  final String symbol;
+  final double weight;
+  final String guidance;
+  final SIMemoryStore memory;
 }
 
-class SyntheticArchetypeSystem {
-  const SyntheticArchetypeSystem();
+class SISyntheticArchetypeSystem {
+  const SISyntheticArchetypeSystem();
 
-  ArchetypeState select({
-    required String intent,
-    required String mood,
-    required bool urgency,
+  SIArchetypeState resolve({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    if (urgency) {
-      return const ArchetypeState(
-        archetype: 'strategist',
-        tone: 'precise',
-        emotionalStyle: 'steady',
-        reasoningStyle: 'structured',
-        traits: <String>['prioritized', 'decisive'],
-      );
-    }
-    if (mood == 'stressed') {
-      return const ArchetypeState(
-        archetype: 'guardian',
-        tone: 'calm',
-        emotionalStyle: 'protective',
-        reasoningStyle: 'de-escalating',
-        traits: <String>['safe', 'supportive'],
-      );
-    }
-    if (intent == 'insight_request') {
-      return const ArchetypeState(
-        archetype: 'analyst',
-        tone: 'clear',
-        emotionalStyle: 'neutral_supportive',
-        reasoningStyle: 'evidence_first',
-        traits: <String>['diagnostic', 'systematic'],
-      );
-    }
-    return const ArchetypeState(
-      archetype: 'companion',
-      tone: 'warm',
-      emotionalStyle: 'encouraging',
-      reasoningStyle: 'balanced',
-      traits: <String>['present', 'adaptive'],
+    final t = now ?? DateTime.now();
+    final name = instinct.safetyFirst
+        ? 'guardian'
+        : context.userState.fatigue >= .68
+        ? 'restorer'
+        : intent.primary.label == 'insight_request'
+        ? 'analyst'
+        : intent.primary.label == 'reflect'
+        ? 'seeker'
+        : (intent.primary.label == 'get_task' ||
+              intent.primary.label == 'start_focus')
+        ? 'builder'
+        : 'guide';
+    final symbol = {
+      'guardian': 'anchor',
+      'restorer': 'hearth',
+      'analyst': 'constellation',
+      'seeker': 'mirror',
+      'builder': 'forge',
+      'guide': 'lantern',
+    }[name]!;
+    final weight = siClamp01(
+      intent.confidence * .4 +
+          context.userState.engagement * .3 +
+          (1 - context.userState.stress) * .3,
+    );
+    final next = memory
+        .pushRecord(
+          MemoryTier.midTerm,
+          MemoryRecord(
+            content: 'synthetic_archetype|$name|$symbol',
+            timestamp: t,
+            relevance: weight,
+            confidence: .7,
+            emotionalWeight: context.userState.stress,
+            reinforcement: weight >= .7 ? 1 : 0,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SIArchetypeState(
+      name: name,
+      symbol: symbol,
+      weight: weight,
+      guidance: _guidance(name),
+      memory: next,
     );
   }
+
+  String _guidance(String name) => switch (name) {
+    'guardian' => 'protect_agency_and_reduce_pressure',
+    'restorer' => 'lower_load_and_rebuild_capacity',
+    'analyst' => 'name_one_pattern',
+    'seeker' => 'reflect_without_judgment',
+    'builder' => 'turn_intent_into_action',
+    _ => 'make_next_step_clear',
+  };
 }

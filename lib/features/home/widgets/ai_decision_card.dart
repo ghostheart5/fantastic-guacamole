@@ -6,12 +6,14 @@ class AIDecisionCard extends StatefulWidget {
   const AIDecisionCard({
     super.key,
     required this.task,
+    this.title = 'AI RECOMMENDATION',
     this.reasoning,
     this.emotion,
     this.confidence,
   });
 
   final TaskView task;
+  final String title;
   final String? reasoning;
   final String? emotion;
   final double? confidence;
@@ -70,9 +72,9 @@ class _AIDecisionCardState extends State<AIDecisionCard>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const AppText(
-            'SYSTEM RECOMMENDATION',
-            style: TextStyle(
+          AppText(
+            widget.title,
+            style: const TextStyle(
               fontSize: 11,
               letterSpacing: 2,
               color: Colors.white54,

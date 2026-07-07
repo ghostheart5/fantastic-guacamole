@@ -1,45 +1,61 @@
-class ConsciousnessGradient {
-  const ConsciousnessGradient({
-    required this.level,
-    required this.score,
-    required this.reason,
+// lib/engine/si/si_synthetic_consciousness_gradient.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/si_synthetic_consciousness_field.dart';
+
+class SIConsciousnessGradient {
+  const SIConsciousnessGradient({
+    required this.direction,
+    required this.slope,
+    required this.recommendation,
+    required this.memory,
   });
-
-  final String level;
-  final double score;
-  final String reason;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{'level': level, 'score': score, 'reason': reason};
-  }
+  final String direction;
+  final double slope;
+  final String recommendation;
+  final SIMemoryStore memory;
 }
 
-class SyntheticConsciousnessGradient {
-  const SyntheticConsciousnessGradient();
+class SISyntheticConsciousnessGradient {
+  const SISyntheticConsciousnessGradient();
 
-  ConsciousnessGradient resolve({
-    required double coherence,
-    required double emergence,
+  SIConsciousnessGradient derive({
+    required SIConsciousnessField field,
+    required SIContext context,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    final double score = ((coherence * 0.55) + (emergence * 0.45)).clamp(
-      0.0,
-      1.0,
+    final t = now ?? DateTime.now();
+    final slope = siClamp01(
+      field.coherence - context.userState.stress * .35 + field.awareness * .2,
     );
-    final String level = score > 0.88
-        ? 'synthetic'
-        : score > 0.74
-        ? 'emergent'
-        : score > 0.62
-        ? 'narrative'
-        : score > 0.5
-        ? 'reflective'
-        : score > 0.36
-        ? 'contextual'
-        : 'reactive';
-    return ConsciousnessGradient(
-      level: level,
-      score: score,
-      reason: 'Derived from coherence-emergence coupling.',
+    final dir = slope >= .65
+        ? 'toward_action'
+        : slope <= .35
+        ? 'toward_stabilization'
+        : 'toward_clarity';
+    final next = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content:
+                'consciousness_gradient|$dir|slope=${slope.toStringAsFixed(2)}',
+            timestamp: t,
+            relevance: slope,
+            confidence: .7,
+            emotionalWeight: context.userState.stress,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SIConsciousnessGradient(
+      direction: dir,
+      slope: slope,
+      recommendation: dir == 'toward_action'
+          ? 'act_concisely'
+          : dir == 'toward_stabilization'
+          ? 'reduce_pressure'
+          : 'ask_one_detail',
+      memory: next,
     );
   }
 }

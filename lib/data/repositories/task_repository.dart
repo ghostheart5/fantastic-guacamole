@@ -1,47 +1,30 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/errors/exceptions.dart';
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
+import 'package:fantastic_guacamole/data/local/task_entity_mapper.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 
 /// ChronoSpark TaskRepository
 /// Implements ITaskRepository using `HiveStorage<String>` (JSON-serialised TaskEntity).
 class TaskRepository implements ITaskRepository {
-  TaskRepository({required this._storage});
+  TaskRepository({required HiveStorage<String> storage})
+    // Public constructor keeps the established `storage` parameter.
+    // ignore: prefer_initializing_formals
+    : _storage = storage,
+      _secureStore = null;
 
-  final HiveStorage<String> _storage;
+  TaskRepository.secure(
+    SecureStore secureStore, {
+    HiveStorage<String>? legacyStorage,
+  }) : _storage = legacyStorage,
+       _secureStore = secureStore;
 
-  // ------------------------------------------------------------------
-  // SERIALISATION
-  // ------------------------------------------------------------------
-
-  static TaskEntity _fromJson(Map<String, dynamic> json) {
-    final durMs = json['estimatedDurationMs'] as int?;
-    return TaskEntity(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      isCompleted: json['isCompleted'] as bool? ?? false,
-      priority: json['priority'] as int? ?? 3,
-      difficulty: json['difficulty'] as int? ?? 3,
-      energyRequired: json['energyRequired'] as int? ?? 3,
-      estimatedDuration: durMs != null ? Duration(milliseconds: durMs) : null,
-    );
-  }
-
-  static Map<String, dynamic> _toJson(TaskEntity e) => {
-    'id': e.id,
-    'title': e.title,
-    'description': e.description,
-    'createdAt': e.createdAt.toIso8601String(),
-    'isCompleted': e.isCompleted,
-    'priority': e.priority,
-    'difficulty': e.difficulty,
-    'energyRequired': e.energyRequired,
-    'estimatedDurationMs': e.estimatedDuration?.inMilliseconds,
-  };
+  static const String _secureKey = 'task_entries_v2';
+  final HiveStorage<String>? _storage;
+  final SecureStore? _secureStore;
 
   // ------------------------------------------------------------------
   // ITaskRepository
@@ -50,9 +33,20 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<List<TaskEntity>> getAllTasks() async {
     try {
-      final map = _storage.getAll();
+      final Map<dynamic, String> map;
+      if (_secureStore != null) {
+        map = await _readSecureMap();
+      } else {
+        final HiveStorage<String> storage = _storage!;
+        await storage.open();
+        map = storage.getAll();
+      }
       return map.values
-          .map((raw) => _fromJson(jsonDecode(raw) as Map<String, dynamic>))
+          .map(
+            (raw) => TaskEntityMapper.fromJson(
+              jsonDecode(raw) as Map<String, dynamic>,
+            ),
+          )
           .toList();
     } catch (e) {
       throw StorageException('Failed to load tasks: $e');
@@ -62,9 +56,16 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<TaskEntity?> getTaskById(String id) async {
     try {
-      final raw = _storage.get(id);
+      final String? raw;
+      if (_secureStore != null) {
+        raw = (await _readSecureMap())[id];
+      } else {
+        final HiveStorage<String> storage = _storage!;
+        await storage.open();
+        raw = storage.get(id);
+      }
       if (raw == null) return null;
-      return _fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      return TaskEntityMapper.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (e) {
       throw StorageException('Failed to get task $id: $e');
     }
@@ -73,7 +74,14 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<void> saveTask(TaskEntity task) async {
     try {
-      await _storage.put(task.id, jsonEncode(_toJson(task)));
+      final String encoded = jsonEncode(TaskEntityMapper.toJson(task));
+      if (_secureStore != null) {
+        final Map<dynamic, String> entries = await _readSecureMap();
+        entries[task.id] = encoded;
+        await _writeSecureMap(entries);
+      } else {
+        await _storage!.put(task.id, encoded);
+      }
     } catch (e) {
       throw StorageException('Failed to save task ${task.id}: $e');
     }
@@ -82,9 +90,41 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<void> deleteTask(String id) async {
     try {
-      await _storage.delete(id);
+      if (_secureStore != null) {
+        final Map<dynamic, String> entries = await _readSecureMap();
+        entries.remove(id);
+        await _writeSecureMap(entries);
+      } else {
+        await _storage!.delete(id);
+      }
     } catch (e) {
       throw StorageException('Failed to delete task $id: $e');
     }
+  }
+
+  Future<Map<dynamic, String>> _readSecureMap() async {
+    final String? raw = await _secureStore!.readString(_secureKey);
+    if (raw != null && raw.trim().isNotEmpty) {
+      final Object? decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        return decoded.map(
+          (dynamic key, dynamic value) =>
+              MapEntry(key.toString(), value.toString()),
+        );
+      }
+    }
+    final HiveStorage<String>? legacy = _storage;
+    if (legacy == null) return <dynamic, String>{};
+    await legacy.open();
+    final Map<dynamic, String> migrated = legacy.getAll();
+    if (migrated.isNotEmpty) {
+      await _writeSecureMap(migrated);
+      await legacy.clear();
+    }
+    return migrated;
+  }
+
+  Future<void> _writeSecureMap(Map<dynamic, String> entries) {
+    return _secureStore!.writeString(_secureKey, jsonEncode(entries));
   }
 }

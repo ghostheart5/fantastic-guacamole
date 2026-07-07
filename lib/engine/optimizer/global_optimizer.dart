@@ -1,11 +1,10 @@
-import 'package:fantastic_guacamole/core/analytics/global_metrics.dart';
 import 'package:fantastic_guacamole/engine/optimizer/optimization_config.dart';
 
 class GlobalOptimizer {
   const GlobalOptimizer();
 
-  OptimizationConfig compute(GlobalMetrics metrics) {
-    final double rate = metrics.avgFocusCompletionRate;
+  OptimizationConfig compute({required double averageTaskCompletionRate}) {
+    final double rate = averageTaskCompletionRate;
     final double multiplier;
     if (rate > 0.7) {
       // Most users finish long sessions — push harder

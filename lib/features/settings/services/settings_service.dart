@@ -1,3 +1,0 @@
-class SettingsService {
-  const SettingsService();
-}

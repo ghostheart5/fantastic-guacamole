@@ -2,7 +2,7 @@
 // Runs the full pipeline in order:
 //   Input → UserState → Intent → Instinct → Reasoning → Decision → Response → Memory Update
 
-import 'package:fantastic_guacamole/data/models/task.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/core/si_decision_module.dart';
 import 'package:fantastic_guacamole/engine/si/core/si_input_module.dart';
@@ -11,33 +11,36 @@ import 'package:fantastic_guacamole/engine/si/core/si_intent_module.dart';
 import 'package:fantastic_guacamole/engine/si/core/si_memory_module.dart';
 import 'package:fantastic_guacamole/engine/si/core/si_reasoning_module.dart';
 import 'package:fantastic_guacamole/engine/si/core/si_response_module.dart';
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 
-export 'package:fantastic_guacamole/engine/si/core/si_decision_module.dart'
-    show SIDecision, EthicsAssessment, SIDecisionPolicy;
-export 'package:fantastic_guacamole/engine/si/core/si_input_module.dart'
-    show SIContext, SIInputPacket, SILatentInputs, SINonTextInputs, SIUserState;
-export 'package:fantastic_guacamole/engine/si/core/si_instinct_module.dart'
-    show InstinctGuidance;
-export 'package:fantastic_guacamole/engine/si/core/si_intent_module.dart'
-    show IntentCandidate, SIIntent;
-export 'package:fantastic_guacamole/engine/si/core/si_memory_module.dart'
-    show
-        MemoryRecord,
-        MemoryTier,
-        SIMemoryModule,
-        SIMemoryStore,
-        SIMemoryUpdate,
-        SISnapshot,
-        SITieredMemory;
-export 'package:fantastic_guacamole/engine/si/core/si_reasoning_module.dart'
+export 'package:fantastic_guacamole/engine/si/models/si_state.dart'
     show
         AgentNote,
+        EmotionalSignal,
+        EthicsAssessment,
+        InstinctGuidance,
+        IntentCandidate,
+        MemoryRecord,
+        MemoryTier,
         MetaReasoning,
+        PersonalityTraits,
         ReasoningTrace,
+        SIContext,
         SICognitionState,
-        SIPrediction;
-export 'package:fantastic_guacamole/engine/si/core/si_response_module.dart'
-    show EmotionalSignal, PersonalityTraits, SIPersona, SIResponse;
+        SIDecision,
+        SIDecisionPolicy,
+        SIInputPacket,
+        SIIntent,
+        SIMemoryStore,
+        SIMemoryUpdate,
+        SIPersona,
+        SIPrediction,
+        SIResponse,
+        SISnapshot,
+        SITieredMemory,
+        SILatentInputs,
+        SINonTextInputs,
+        SIUserState;
 
 // ─── Full pipeline result ─────────────────────────────────────────────────────
 
@@ -69,7 +72,7 @@ class SICore {
       _input = const SIInputModule(),
       _intent = const SIIntentModule(),
       _instinct = const SIInstinctModule(),
-      _reasoning = const SIReasoningModule(),
+      _reasoning = SIReasoningModule(),
       _decision = SIDecisionModule(policy: policy ?? const SIDecisionPolicy()),
       _response = const SIResponseModule(),
       _memoryModule = const SIMemoryModule();
@@ -98,62 +101,65 @@ class SICore {
     int completed = 0,
     int skipped = 0,
   }) {
+    final SIInputPacket enrichedInput = SIInputPacket(
+      text: input.text,
+      history: input.history,
+      metadata: <String, dynamic>{
+        ...input.metadata,
+        'completed': completed,
+        'skipped': skipped,
+        if (task != null) 'taskId': task.id,
+      },
+      context: input.context,
+      nonText: input.nonText,
+      latent: input.latent,
+    );
+
     // Step 1 — Input → SIContext
-    final SIContext context = _input.process(input, mood: mood);
+    final SIContext context = _input.process(enrichedInput, mood: mood);
 
     // Step 2 — Intent
-    final SIIntent intent = _intent.extract(input.text);
+    final SIIntent intent = _intent.extract(context);
 
     // Step 3 — Instinct (hard constraint layer — established before reasoning)
     final InstinctGuidance instinct = _instinct.evaluate(
-      mood: context.userState.emotion,
-      anticipatesConfusion: intent.isComplex,
-      confidence: intent.confidence,
+      context: context,
+      intent: intent,
     );
 
     // Step 4 — Reasoning
     final SICognitionState cognition = _reasoning.process(
-      intent: intent.primary.label,
-      mood: context.userState.emotion,
-      input: input.text,
-      anticipatesConfusion: intent.isComplex,
-      confidence: intent.confidence,
+      context: context,
+      intent: intent,
+      instinct: instinct,
       history: history,
       task: task?.title ?? '',
     );
 
     // Step 5 — Decision (constrained by instinct)
     final SIDecision decision = _decision.make(
-      intent: intent.primary.label,
-      reply: cognition.summary,
-      mood: context.userState.emotion,
-      simplify: instinct.avoidOverwhelm,
-      score: intent.confidence,
+      context: context,
+      intent: intent,
+      instinct: instinct,
+      cognition: cognition,
       task: task,
     );
 
     // Step 6 — Response (shaped by instinct + decision)
     final SIResponse response = _response.generate(
-      intent: intent.primary.label,
-      mood: context.userState.emotion,
-      reasoning: decision.reasoning,
-      confidence: decision.score,
-      safetyFirst: instinct.safetyFirst,
-      avoidOverwhelm: instinct.avoidOverwhelm,
-      latent: input.latent,
-      task: task,
+      decision: decision,
+      instinct: instinct,
+      context: context,
+      cognition: cognition,
       previousMood: _memory.latest?.reasoning,
     );
 
     // Step 7 — Memory update
     final SIMemoryUpdate memUpdate = _memoryModule.update(
       current: _memory,
-      energy: energy,
-      fatigue: fatigue,
-      completed: completed,
-      skipped: skipped,
-      taskId: task?.id.toString(),
-      reasoning: cognition.summary,
+      context: context,
+      decision: decision,
+      response: response,
     );
 
     _memory = memUpdate.store;

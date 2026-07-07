@@ -2,22 +2,12 @@ import 'package:fantastic_guacamole/app/navigation_shell.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
-import 'package:fantastic_guacamole/features/coach/ui/coach_screen.dart';
-import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
-import 'package:fantastic_guacamole/features/focus/ui/focus_screen.dart';
-import 'package:fantastic_guacamole/features/insights/ui/insight_screen.dart';
-import 'package:fantastic_guacamole/features/logs/ui/logs_screen.dart';
-import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
-import 'package:fantastic_guacamole/features/plan/ui/plan_screen.dart';
-import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
-import 'package:fantastic_guacamole/features/progression/ui/progression_screen.dart';
-import 'package:fantastic_guacamole/features/reflect/ui/reflect_screen.dart';
-import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
-import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
-import 'package:fantastic_guacamole/features/tasks/ui/task_screen.dart';
 import 'package:fantastic_guacamole/onboarding/onboarding_screen.dart';
+import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
+import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
+    hide authenticatedGuardProvider;
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -25,9 +15,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final bool onboardingComplete = ref.watch(onboardingCompleteGuardProvider);
   final bool isAuthenticated = ref.watch(authenticatedGuardProvider);
-  final bool hasPremiumAccess = ref.watch(premiumAccessGuardProvider);
+  final bool onboardingComplete = ref.watch(onboardingCompleteGuardProvider);
   final intelligence = ref.watch(intelligenceStateProvider);
   final mockLoginConfig = ref.watch(mockLoginConfigProvider);
 
@@ -37,132 +26,129 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       final String location = state.matchedLocation;
 
-      if (location == RoutePaths.shell &&
-          onboardingComplete &&
-          isAuthenticated) {
-        return RoutePaths.home;
-      }
-
-      if (location == RoutePaths.onboarding && onboardingComplete) {
-        return isAuthenticated ? RoutePaths.home : RoutePaths.login;
-      }
-
       if (!onboardingComplete && location != RoutePaths.onboarding) {
         return RoutePaths.onboarding;
       }
 
-      if (!isAuthenticated &&
-          location != RoutePaths.login &&
-          location != RoutePaths.onboarding) {
+      if (location == RoutePaths.shell && isAuthenticated) {
+        return RoutePaths.home;
+      }
+
+      if (location == RoutePaths.onboarding) {
+        if (isAuthenticated) {
+          return RoutePaths.home;
+        }
+        if (!onboardingComplete) {
+          return null;
+        }
         return RoutePaths.login;
+      }
+
+      if (!isAuthenticated &&
+          onboardingComplete &&
+          location != RoutePaths.login) {
+        return RoutePaths.login;
+      }
+
+      if (location == RoutePaths.login && !onboardingComplete) {
+        return RoutePaths.onboarding;
       }
 
       if (location == RoutePaths.login && isAuthenticated) {
         return RoutePaths.home;
       }
 
-      if (!hasPremiumAccess &&
-          (location == RoutePaths.feature1 ||
-              location == RoutePaths.feature2 ||
-              location == RoutePaths.feature3)) {
-        return RoutePaths.paywall;
-      }
-
       return null;
     },
     routes: <RouteBase>[
-      ShellRoute(
-        builder: (BuildContext context, GoRouterState state, Widget child) {
-          return Scaffold(body: child);
-        },
-        routes: <RouteBase>[
-          GoRoute(
-            path: RoutePaths.home,
-            builder: (BuildContext context, GoRouterState state) =>
-                const NavigationShell(),
-          ),
-        ],
+      // Primary surfaces: Now, Plan, Add, Reflect, Settings.
+      GoRoute(
+        path: RoutePaths.onboarding,
+        builder: (BuildContext context, GoRouterState state) =>
+            const OnboardingScreen(),
       ),
       GoRoute(
-        path: RoutePaths.coach,
+        path: RoutePaths.home,
         builder: (BuildContext context, GoRouterState state) =>
-            const CoachScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.focus,
-        builder: (BuildContext context, GoRouterState state) =>
-            const FocusScreen(),
+            const NavigationShell(),
       ),
       GoRoute(
         path: RoutePaths.plan,
         builder: (BuildContext context, GoRouterState state) =>
-            const PlanScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.create,
-        builder: (BuildContext context, GoRouterState state) =>
-            const CreatorScreen(),
+            const NavigationShell(initialView: AppView.plan),
       ),
       GoRoute(
         path: RoutePaths.creator,
         builder: (BuildContext context, GoRouterState state) =>
-            const CreatorScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.reflect,
-        builder: (BuildContext context, GoRouterState state) =>
-            const ReflectScreen(),
+            const NavigationShell(initialView: AppView.creator),
       ),
       GoRoute(
         path: RoutePaths.insights,
         builder: (BuildContext context, GoRouterState state) =>
-            const InsightScreen(),
+            const NavigationShell(initialView: AppView.insight),
       ),
       GoRoute(
-        path: RoutePaths.logs,
+        path: RoutePaths.settings,
         builder: (BuildContext context, GoRouterState state) =>
-            const LogsScreen(),
+            const NavigationShell(initialView: AppView.settings),
       ),
-      GoRoute(
-        path: RoutePaths.nexus,
-        builder: (BuildContext context, GoRouterState state) =>
-            const NexusScreen(),
-      ),
+
+      // Secondary and advanced routes.
       GoRoute(
         path: RoutePaths.notifications,
         builder: (BuildContext context, GoRouterState state) =>
             const NotificationsPage(),
       ),
       GoRoute(
-        path: RoutePaths.progression,
+        path: RoutePaths.logs,
         builder: (BuildContext context, GoRouterState state) =>
-            const ProgressionScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.temporal,
-        builder: (BuildContext context, GoRouterState state) =>
-            const ProgressionScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.si,
-        builder: (BuildContext context, GoRouterState state) =>
-            hasPremiumAccess ? const SIConsoleScreen() : const PaywallPage(),
+            const NavigationShell(initialTabIndex: 2),
       ),
       GoRoute(
         path: RoutePaths.tasks,
         builder: (BuildContext context, GoRouterState state) =>
-            const TaskScreen(),
+            const NavigationShell(initialTabIndex: 1),
       ),
       GoRoute(
         path: RoutePaths.profile,
         builder: (BuildContext context, GoRouterState state) =>
-            const ProfileScreen(),
+            const NavigationShell(initialTabIndex: 3),
       ),
       GoRoute(
-        path: RoutePaths.onboarding,
+        path: RoutePaths.progression,
         builder: (BuildContext context, GoRouterState state) =>
-            const OnboardingScreen(),
+            const NavigationShell(initialView: AppView.progression),
       ),
+      GoRoute(
+        path: RoutePaths.si,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.console),
+      ),
+
+      // Legacy top-level routes redirect into the secondary hierarchy.
+      GoRoute(
+        path: RoutePaths.legacyCoach,
+        redirect: (_, _) => RoutePaths.home,
+      ),
+      GoRoute(path: RoutePaths.legacyLogs, redirect: (_, _) => RoutePaths.logs),
+      GoRoute(
+        path: RoutePaths.legacyNotifications,
+        redirect: (_, _) => RoutePaths.notifications,
+      ),
+      GoRoute(
+        path: RoutePaths.legacyProgression,
+        redirect: (_, _) => RoutePaths.progression,
+      ),
+      GoRoute(path: RoutePaths.legacySi, redirect: (_, _) => RoutePaths.si),
+      GoRoute(
+        path: RoutePaths.legacyTasks,
+        redirect: (_, _) => RoutePaths.tasks,
+      ),
+      GoRoute(
+        path: RoutePaths.legacyProfile,
+        redirect: (_, _) => RoutePaths.profile,
+      ),
+
       GoRoute(
         path: RoutePaths.login,
         builder: (BuildContext context, GoRouterState state) => AuthGate(
@@ -171,11 +157,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           mockLoginPassword: mockLoginConfig.password,
           child: const NavigationShell(),
         ),
-      ),
-      GoRoute(
-        path: RoutePaths.settings,
-        builder: (BuildContext context, GoRouterState state) =>
-            const SettingsScreen(),
       ),
       GoRoute(
         path: RoutePaths.paywall,
@@ -210,24 +191,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.about,
         builder: (BuildContext context, GoRouterState state) =>
             const WebPageView(title: 'About', body: 'ChronoSpark'),
-      ),
-      GoRoute(
-        path: RoutePaths.feature1,
-        builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'Feature 1', body: 'Feature 1 scaffold'),
-      ),
-      GoRoute(
-        path: RoutePaths.feature2,
-        builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'Feature 2', body: 'Feature 2 scaffold'),
-      ),
-      GoRoute(
-        path: RoutePaths.feature3,
-        builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(
-              title: 'Feature 3',
-              body: 'Premium route scaffold',
-            ),
       ),
     ],
   );

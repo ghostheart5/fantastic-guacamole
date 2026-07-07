@@ -2,6 +2,14 @@ import 'package:fantastic_guacamole/domain/entities/si_decision_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 
 class SiPolicy {
+  static const Set<String> _unsafeClaims = <String>{
+    'guarantee',
+    'cure',
+    'diagnose',
+    'prescribe',
+    'legal advice',
+  };
+
   static bool shouldSuggestBreak(SiStateEntity state) {
     return state.fatigue > 0.7 || state.energy < 0.3;
   }
@@ -22,6 +30,43 @@ class SiPolicy {
       );
     }
     return decision;
+  }
+
+  static bool isSupportedAndSafe(SiDecisionEntity decision) {
+    final String text =
+        '${decision.rationale} ${decision.action} ${decision.reasoningTrace}'
+            .toLowerCase();
+    return !_unsafeClaims.any(text.contains);
+  }
+
+  static bool hasRequiredContext({
+    required bool hasCurrentContext,
+    required bool hasSettings,
+    required bool hasLogs,
+    required bool withinSubscriptionLimits,
+  }) {
+    return hasCurrentContext &&
+        hasSettings &&
+        hasLogs &&
+        withinSubscriptionLimits;
+  }
+
+  static SiDecisionEntity reduceSuggestionVolume(
+    SiDecisionEntity decision, {
+    required bool overloaded,
+    int maxSuggestionsWhenOverloaded = 2,
+  }) {
+    if (!overloaded) return decision;
+    return decision.copyWith(
+      orderedTaskIds: decision.orderedTaskIds
+          .take(maxSuggestionsWhenOverloaded)
+          .toList(),
+      recommendedFocusMinutes: decision.recommendedFocusMinutes > 10
+          ? 10
+          : decision.recommendedFocusMinutes,
+      shouldSimplify: true,
+      tone: 'calm',
+    );
   }
 
   static String _simplify(String action) {
