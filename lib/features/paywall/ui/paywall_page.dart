@@ -16,6 +16,7 @@ import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PaywallPage extends ConsumerStatefulWidget {
   const PaywallPage({super.key});
@@ -25,6 +26,8 @@ class PaywallPage extends ConsumerStatefulWidget {
 }
 
 class _PaywallPageState extends ConsumerState<PaywallPage> {
+  static const String _autoRestorePromptedKey = 'paywall_auto_restore_prompted_v1';
+
   String? _statusMessage;
   bool _showAllPlans = false;
   bool _showComparison = false;
@@ -36,6 +39,29 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       'paywall_viewed',
       params: <String, Object?>{'testing_mode': paywallTestingMode},
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeAutoRestorePrompt();
+    });
+  }
+
+  Future<void> _maybeAutoRestorePrompt() async {
+    if (!mounted || paywallTestingMode) {
+      return;
+    }
+
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final bool prompted = prefs.getBool(_autoRestorePromptedKey) ?? false;
+    if (prompted) {
+      return;
+    }
+    await prefs.setBool(_autoRestorePromptedKey, true);
+
+    final SubscriptionState subscription = await ref.read(paywallSubscriptionProvider.future);
+    if (subscription.isActive) {
+      return;
+    }
+
+    await _restore(autoPrompt: true);
   }
 
   Future<void> _unlock(String planId) async {
@@ -76,7 +102,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     }
   }
 
-  Future<void> _restore() async {
+  Future<void> _restore({bool autoPrompt = false}) async {
     try {
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
@@ -88,25 +114,38 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         return;
       }
       setState(() {
-        _statusMessage = paywallTestingMode ? 'Unlocked for testing.' : 'Purchases restored.';
+        if (autoPrompt) {
+          _statusMessage = subscription.isActive
+              ? 'We found your previous subscription and restored it.'
+              : 'Restore check complete. No previous subscription was found yet.';
+        } else {
+          _statusMessage = paywallTestingMode ? 'Unlocked for testing.' : 'Purchases restored.';
+        }
       });
       AppAnalytics.track(
-        'paywall_restore',
-        params: <String, Object?>{'testing_mode': paywallTestingMode},
+        autoPrompt ? 'paywall_auto_restore' : 'paywall_restore',
+        params: <String, Object?>{
+          'testing_mode': paywallTestingMode,
+          'restored_active': subscription.isActive,
+        },
       );
     } on StateError catch (error) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _statusMessage = error.message;
+        if (!autoPrompt) {
+          _statusMessage = error.message;
+        }
       });
     } catch (_) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _statusMessage = 'Purchase restore failed. Retry.';
+        if (!autoPrompt) {
+          _statusMessage = 'Purchase restore failed. Retry.';
+        }
       });
     }
   }
@@ -152,6 +191,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     final SubscriptionState? subscription = subscriptionAsync.asData?.value;
     final AiCreditWallet? wallet = walletAsync.asData?.value;
     final bool canRestore = paywallTestingMode || config.plans.any((plan) => plan.isAvailable);
+    final int trialDays = _resolveTrialDays(config.plans);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgSettings,
@@ -230,6 +270,10 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                 wallet: wallet,
                 aiProxyConfigured: aiProxyConfigured,
               ),
+              if (!(isPremium || paywallTestingMode || subscription?.isActive == true)) ...[
+                const SizedBox(height: 14),
+                _SoftGatePreviewCard(trialDays: trialDays, aiProxyConfigured: aiProxyConfigured),
+              ],
               if (prompt != null) ...[const SizedBox(height: 14), _PromptBanner(prompt: prompt)],
               if (_statusMessage != null) ...[
                 const SizedBox(height: 14),
@@ -391,6 +435,13 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                             ),
                           ],
                         ),
+                        if (!paywallTestingMode && plan.freeTrialDays > 0) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Includes a ${plan.freeTrialDays}-day free trial for eligible new subscribers.',
+                            style: const TextStyle(color: Colors.white38, fontSize: 11),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -440,6 +491,16 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       return <PaywallPlan>[firstFeatured, firstOther];
     }
     return plans.take(2).toList(growable: false);
+  }
+
+  int _resolveTrialDays(List<PaywallPlan> plans) {
+    int maxDays = 0;
+    for (final PaywallPlan plan in plans) {
+      if (plan.freeTrialDays > maxDays) {
+        maxDays = plan.freeTrialDays;
+      }
+    }
+    return maxDays;
   }
 }
 
@@ -736,6 +797,49 @@ class _PromptBanner extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SoftGatePreviewCard extends StatelessWidget {
+  const _SoftGatePreviewCard({required this.trialDays, required this.aiProxyConfigured});
+
+  final int trialDays;
+  final bool aiProxyConfigured;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Preview Premium Before You Commit',
+            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            trialDays > 0
+                ? 'Start with a $trialDays-day free trial, then keep access only if it is useful for your routine.'
+                : 'Preview premium capabilities before you commit to a recurring plan.',
+            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            aiProxyConfigured
+                ? 'Example premium output: Prioritize a 40-minute deep work block now, then queue a low-energy admin sweep later.'
+                : 'Example premium output: Prioritize a 40-minute focus block now, then queue a low-energy admin sweep later.',
+            style: const TextStyle(color: AppColors.neonCyan, fontSize: 11, height: 1.4),
+          ),
         ],
       ),
     );

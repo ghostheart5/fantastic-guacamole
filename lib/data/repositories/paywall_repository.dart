@@ -41,7 +41,9 @@ class PaywallRepository implements IPaywallRepository {
         priceLabel: 'from \$9.99 / month',
         description: 'Best for active users who want full $coachingLabel and recurring credits.',
         aiCreditsIncluded: 300,
+        freeTrialDays: 7,
         benefits: <String>[
+          '7-day free trial for eligible new subscribers',
           '300 $creditLabel every month',
           responseLabel,
           'Advanced memory and insights',
@@ -54,7 +56,9 @@ class PaywallRepository implements IPaywallRepository {
         priceLabel: 'from \$89.99 / year',
         description: 'Best value for users committed to long-term habit building.',
         aiCreditsIncluded: 360,
+        freeTrialDays: 7,
         benefits: <String>[
+          '7-day free trial for eligible new subscribers',
           '360 $creditLabel every month',
           'Yearly billing discount',
           'Unlimited access to premium tools',
@@ -74,6 +78,7 @@ class PaywallRepository implements IPaywallRepository {
             priceLabel: plan.priceLabel,
             description: plan.description,
             aiCreditsIncluded: plan.aiCreditsIncluded,
+            freeTrialDays: plan.freeTrialDays,
             benefits: plan.benefits,
             isAvailable: _testingMode,
             isFeatured: plan.isFeatured,

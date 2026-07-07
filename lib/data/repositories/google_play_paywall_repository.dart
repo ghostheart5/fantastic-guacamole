@@ -13,6 +13,8 @@ import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
 import 'package:http/http.dart' as http;
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const Map<String, String> _kProductIds = <String, String>{
@@ -147,6 +149,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
               priceLabel: plan.priceLabel,
               description: plan.description,
               aiCreditsIncluded: plan.aiCreditsIncluded,
+              freeTrialDays: 0,
               benefits: plan.benefits,
               isAvailable: false,
               isFeatured: plan.isFeatured,
@@ -178,7 +181,8 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
               priceLabel: detail?.price ?? plan.priceLabel,
               description: plan.description,
               aiCreditsIncluded: plan.aiCreditsIncluded,
-              benefits: plan.benefits,
+              freeTrialDays: detail == null ? 0 : _detectFreeTrialDays(detail),
+              benefits: _mergeTrialBenefit(plan.benefits, detail),
               isAvailable: detail != null,
               isFeatured: plan.isFeatured,
             );
@@ -188,6 +192,61 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       Logger.error('getAvailablePlans failed', error);
       return _plans;
     }
+  }
+
+  List<String> _mergeTrialBenefit(List<String> benefits, ProductDetails? detail) {
+    final int trialDays = detail == null ? 0 : _detectFreeTrialDays(detail);
+    final List<String> merged = benefits
+        .where((String b) => !b.toLowerCase().contains('free trial'))
+        .toList(growable: true);
+    if (trialDays > 0) {
+      merged.insert(0, '$trialDays-day free trial for eligible new subscribers');
+    }
+    return List<String>.unmodifiable(merged);
+  }
+
+  int _detectFreeTrialDays(ProductDetails detail) {
+    if (detail is! GooglePlayProductDetails) {
+      return 0;
+    }
+    final List<SubscriptionOfferDetailsWrapper>? offers =
+        detail.productDetails.subscriptionOfferDetails;
+    if (offers == null || offers.isEmpty) {
+      return 0;
+    }
+
+    int maxTrialDays = 0;
+    for (final SubscriptionOfferDetailsWrapper offer in offers) {
+      for (final PricingPhaseWrapper phase in offer.pricingPhases) {
+        final int cycleCount = phase.billingCycleCount.toInt();
+        if (phase.priceAmountMicros != 0 || cycleCount <= 0) {
+          continue;
+        }
+        final int unitDays = _iso8601PeriodToApproxDays(phase.billingPeriod);
+        if (unitDays <= 0) {
+          continue;
+        }
+        final int days = unitDays * cycleCount;
+        if (days > maxTrialDays) {
+          maxTrialDays = days;
+        }
+      }
+    }
+    return maxTrialDays;
+  }
+
+  int _iso8601PeriodToApproxDays(String value) {
+    final RegExpMatch? match = RegExp(
+      r'^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$',
+    ).firstMatch(value);
+    if (match == null) {
+      return 0;
+    }
+    final int years = int.tryParse(match.group(1) ?? '') ?? 0;
+    final int months = int.tryParse(match.group(2) ?? '') ?? 0;
+    final int weeks = int.tryParse(match.group(3) ?? '') ?? 0;
+    final int days = int.tryParse(match.group(4) ?? '') ?? 0;
+    return (years * 365) + (months * 30) + (weeks * 7) + days;
   }
 
   @override
