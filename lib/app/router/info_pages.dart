@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:flutter/material.dart';
 
 class SupportPage extends StatelessWidget {
@@ -82,6 +83,16 @@ class AboutPage extends StatelessWidget {
             title: 'Guiding Principle',
             body:
                 'Reduce friction between intent and action. Keep planning lightweight, execution clear, and reflection actionable.',
+          ),
+          const _Section(
+            title: 'Privacy and Support',
+            body:
+                'Official privacy policy: ${Env.privacyPolicyUrl}. Support: ${Env.supportEmail}. Terms and release-facing help live on public HTTPS pages so store reviewers and users see the same current information.',
+          ),
+          const _Section(
+            title: 'Voice Features',
+            body:
+                'Microphone access powers optional voice-to-text in coaching and the SI console. Audio is used only after you start a voice action and remains off during normal planning flows.',
           ),
         ],
       ),

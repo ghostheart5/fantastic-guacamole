@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/onboarding/onboarding_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     hide authenticatedGuardProvider;
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -171,14 +172,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.privacy,
         builder: (BuildContext context, GoRouterState state) => const WebPageView(
           title: 'Privacy Policy',
-          assetPath: 'assets/legal/privacy_policy.txt',
+          body:
+              'ChronoSpark publishes its authoritative privacy policy at the public HTTPS URL below. Use the hosted policy for the current data handling, retention, and support terms reviewed for release.',
+          externalUrl: AppUrls.privacy,
+          callToActionLabel: 'Open Hosted Privacy Policy',
         ),
       ),
       GoRoute(
         path: RoutePaths.terms,
         builder: (BuildContext context, GoRouterState state) => const WebPageView(
           title: 'Terms of Service',
-          assetPath: 'assets/legal/terms_of_service.txt',
+          body:
+              'ChronoSpark maintains its current Terms of Service on the public HTTPS page below so release builds and store listings reference the same source of truth.',
+          externalUrl: AppUrls.terms,
+          callToActionLabel: 'Open Hosted Terms',
         ),
       ),
       GoRoute(

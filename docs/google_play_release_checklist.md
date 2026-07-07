@@ -34,6 +34,8 @@
 - [x] Host privacy policy at public URL (`https://chronospark.app/privacy/` or equivalent deployed path)
 - [x] Host terms URL (`https://chronospark.app/terms/` or equivalent deployed path)
 - [x] Host support URL (`https://chronospark.app/support/` or equivalent deployed path)
+- [ ] Set Play Console privacy policy field to `https://chronospark.app/privacy`
+- [ ] Add Play Console microphone disclosure: optional voice-to-text for coaching and SI console, only after user taps voice controls
 - [ ] Confirm Play Console developer support email/contact is configured
 
 ## Versioning and Release

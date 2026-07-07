@@ -32,9 +32,9 @@ class PermissionExplainers {
   static const PermissionExplainer voice = PermissionExplainer(
     title: 'Enable Voice Access',
     whyItMatters:
-        'Voice input and playback reduce friction so you can interact hands-free during planning and coaching.',
+        'Voice input and spoken responses let you capture thoughts hands-free in coaching and the SI console.',
     whenUsed:
-        'Used only when you tap voice actions. Audio is not captured unless you explicitly start voice input.',
+        'Used only when you tap a microphone or voice playback control. Audio is never captured during normal planning or background use.',
     primaryActionLabel: 'Allow Microphone',
   );
 }

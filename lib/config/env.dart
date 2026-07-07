@@ -3,6 +3,10 @@ import 'package:flutter/foundation.dart';
 
 abstract final class Env {
   static const String appName = 'ChronoSpark';
+  static const String privacyPolicyUrl = 'https://chronospark.app/privacy';
+  static const String termsOfServiceUrl = 'https://chronospark.app/terms';
+  static const String supportUrl = 'https://chronospark.app/support';
+  static const String supportEmail = 'support@chronospark.app';
   static const String appFlavor = String.fromEnvironment(
     'CHRONOSPARK_APP_FLAVOR',
     defaultValue: 'prod',
@@ -43,7 +47,7 @@ abstract final class Env {
     'CHRONOSPARK_MOCK_LOGIN_PASSWORD',
     defaultValue: '',
   );
-  static const String receiptVerifyEndpoint = String.fromEnvironment(
+  static const String _receiptVerifyEndpointOverride = String.fromEnvironment(
     'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
     defaultValue: '',
   );
@@ -152,6 +156,26 @@ abstract final class Env {
 
   static bool get isSupabaseConfigured =>
       supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
+
+  static String get receiptVerifyEndpoint =>
+      resolveReceiptVerifyEndpoint(_receiptVerifyEndpointOverride, supabaseUrl: supabaseUrl);
+
+  static String resolveReceiptVerifyEndpoint(
+    String configuredValue, {
+    required String supabaseUrl,
+  }) {
+    final String configured = configuredValue.trim();
+    if (configured.isNotEmpty) {
+      return configured;
+    }
+
+    final Uri? supabaseUri = Uri.tryParse(supabaseUrl.trim());
+    if (supabaseUri != null && supabaseUri.hasAuthority && supabaseUri.scheme == 'https') {
+      return supabaseUri.resolve('/functions/v1/verify-receipt').toString();
+    }
+
+    return 'https://chronospark.app/verify-receipt';
+  }
 
   static List<String> productionReadinessIssues({bool force = false}) {
     if (!force && !enforceProductionReadiness && !isProduction) {
