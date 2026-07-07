@@ -55,6 +55,10 @@ abstract final class Env {
     'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
     defaultValue: '',
   );
+  static const String oauthRedirectUrl = String.fromEnvironment(
+    'CHRONOSPARK_OAUTH_REDIRECT_URL',
+    defaultValue: 'https://chronospark.app/app/auth/callback',
+  );
   static const String supabaseUrl = String.fromEnvironment(
     'CHRONOSPARK_SUPABASE_URL',
     defaultValue: '',
@@ -82,20 +86,14 @@ abstract final class Env {
 
   static AppFlavor get flavor => AppFlavor.parse(appFlavor);
 
-  static bool resolveIsProduction(
-    String flavor, {
-    required bool isReleaseMode,
-  }) {
+  static bool resolveIsProduction(String flavor, {required bool isReleaseMode}) {
     // Release artifacts always use production security rules. A missing or
     // mistyped flavor must never enable QA authentication or entitlement
     // bypasses in a distributable build.
     return isReleaseMode;
   }
 
-  static bool resolveIsMockMode({
-    required bool isProduction,
-    required bool enableMockMode,
-  }) {
+  static bool resolveIsMockMode({required bool isProduction, required bool enableMockMode}) {
     return !isProduction && enableMockMode;
   }
 
@@ -122,13 +120,10 @@ abstract final class Env {
     return !isProduction && enableTesterFullAccess;
   }
 
-  static bool get isProduction =>
-      resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
+  static bool get isProduction => resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
 
-  static bool get isMockMode => resolveIsMockMode(
-    isProduction: isProduction,
-    enableMockMode: enableMockMode,
-  );
+  static bool get isMockMode =>
+      resolveIsMockMode(isProduction: isProduction, enableMockMode: enableMockMode);
 
   static bool get isPaywallDisabled => resolveIsPaywallDisabled(
     isProduction: isProduction,
@@ -179,11 +174,7 @@ abstract final class Env {
       label: 'Receipt verification endpoint',
       issues: issues,
     );
-    _validateHttpsEndpoint(
-      aiProxyEndpoint,
-      label: 'AI proxy endpoint',
-      issues: issues,
-    );
+    _validateHttpsEndpoint(aiProxyEndpoint, label: 'AI proxy endpoint', issues: issues);
     _validateHttpsEndpoint(
       accountDeleteEndpoint,
       label: 'Account deletion endpoint',

@@ -4,6 +4,8 @@ import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// Persists sensitive key/value data in platform secure storage (Keychain/Keystore)
+// and migrates known legacy values previously saved in SharedPreferences.
 class SensitivePrefsStore implements SharedPrefsStore {
   SensitivePrefsStore._();
 
@@ -29,10 +31,7 @@ class SensitivePrefsStore implements SharedPrefsStore {
         final Object? decoded = jsonDecode(raw);
         if (decoded is Map) {
           _values.addAll(
-            decoded.map(
-              (dynamic key, dynamic value) =>
-                  MapEntry(key.toString(), value.toString()),
-            ),
+            decoded.map((dynamic key, dynamic value) => MapEntry(key.toString(), value.toString())),
           );
         }
       } on FormatException {

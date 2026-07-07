@@ -10,7 +10,6 @@ import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     hide authenticatedGuardProvider;
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -156,7 +155,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final intelligence = ref.read(intelligenceStateProvider);
           final mockLoginConfig = ref.read(mockLoginConfigProvider);
           return AuthGate(
-            enableMockLogin: intelligence.flags.mockLoginEnabled || !kReleaseMode,
+            enableMockLogin: intelligence.flags.mockLoginEnabled,
             mockLoginEmail: mockLoginConfig.email,
             mockLoginPassword: mockLoginConfig.password,
             child: const NavigationShell(),
