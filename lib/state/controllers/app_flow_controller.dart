@@ -37,9 +37,9 @@ final appFlowProvider = NotifierProvider<AppFlowController, AppView>(AppFlowCont
 
 class AppFlowController extends Notifier<AppView> {
   @override
-  AppView build() => AppView.nexus;
+  AppView build() => AppView.coach;
 
-  void toCoach() => state = AppView.nexus;
+  void toCoach() => state = AppView.coach;
   void toNexus() => state = AppView.nexus;
   void toTasks() => state = AppView.tasks;
   void toLogs() => state = AppView.logs;
