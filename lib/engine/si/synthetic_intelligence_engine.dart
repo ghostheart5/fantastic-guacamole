@@ -12,8 +12,7 @@ import 'package:fantastic_guacamole/engine/si/si_engine_service.dart';
 typedef SyntheticIntelligenceOutput = SIFinalOutputBundle;
 
 class SyntheticIntelligenceEngine {
-  SyntheticIntelligenceEngine({SIEngineService? service})
-    : _service = service ?? SIEngineService();
+  SyntheticIntelligenceEngine({SIEngineService? service}) : _service = service ?? SIEngineService();
 
   final SIEngineService _service;
 
@@ -39,8 +38,7 @@ class SyntheticIntelligenceEngine {
     List<String> goals = const <String>[],
     SIEngineRuntimeState? runtime,
   }) async {
-    final SILatentInputs resolvedLatent =
-        latent ?? _inferLatent(input: input, nonText: nonText);
+    final SILatentInputs resolvedLatent = latent ?? _inferLatent(input: input, nonText: nonText);
 
     final Map<String, dynamic> mergedMetadata = _mergeMetadata(
       metadata: metadata,
@@ -73,11 +71,7 @@ class SyntheticIntelligenceEngine {
       packet,
       history: neuralHistory,
       task: task,
-      goals: _mergedGoals(
-        explicitGoals: goals,
-        metadata: mergedMetadata,
-        context: mergedContext,
-      ),
+      goals: _mergedGoals(explicitGoals: goals, metadata: mergedMetadata, context: mergedContext),
       previousMood: previousMood,
       runtime: runtime,
     );
@@ -155,10 +149,7 @@ class SyntheticIntelligenceEngine {
     _service.clear();
   }
 
-  SILatentInputs _inferLatent({
-    required String input,
-    required SINonTextInputs nonText,
-  }) {
+  SILatentInputs _inferLatent({required String input, required SINonTextInputs nonText}) {
     final String lowered = input.toLowerCase().trim();
     final List<String> behavior = nonText.behaviorPatterns
         .map((String value) => value.toLowerCase())
@@ -166,9 +157,7 @@ class SyntheticIntelligenceEngine {
 
     final bool pausePattern = behavior.any(
       (String pattern) =>
-          pattern.contains('pause') ||
-          pattern.contains('hesitat') ||
-          pattern.contains('delay'),
+          pattern.contains('pause') || pattern.contains('hesitat') || pattern.contains('delay'),
     );
 
     double frustration = 0.1;
@@ -237,16 +226,21 @@ class SyntheticIntelligenceEngine {
     required AIResponse? response,
     required Object? policy,
   }) {
-    return Map<String, dynamic>.unmodifiable(<String, dynamic>{
-      ...metadata,
-      'si_engine': 'synthetic_intelligence_engine',
-      'timestamp': now.toIso8601String(),
-      'app_state': appState,
-      'platform': platform,
-      if (personality != null) 'personality': _safeObject(personality),
-      if (response != null) 'seed_response': response.toJson(),
-      if (policy != null) 'policy': _safeObject(policy),
-    });
+    final Map<String, dynamic> merged = Map<String, dynamic>.of(metadata);
+    merged['si_engine'] = 'synthetic_intelligence_engine';
+    merged['timestamp'] = now.toIso8601String();
+    merged['app_state'] = appState;
+    merged['platform'] = platform;
+    if (personality != null) {
+      merged['personality'] = _safeObject(personality);
+    }
+    if (response != null) {
+      merged['seed_response'] = response.toJson();
+    }
+    if (policy != null) {
+      merged['policy'] = _safeObject(policy);
+    }
+    return merged;
   }
 
   Map<String, dynamic> _mergeContext({
@@ -256,16 +250,19 @@ class SyntheticIntelligenceEngine {
     required AIResponse? response,
     required List<String> goals,
   }) {
-    return Map<String, dynamic>.unmodifiable(<String, dynamic>{
-      ...context,
-      'app_state': appState,
-      'platform': platform,
-      if (response?.message.trim().isNotEmpty == true)
-        'seed_response_message': response!.message,
-      if (response?.taskTitle?.trim().isNotEmpty == true)
-        'seed_response_task_title': response!.taskTitle,
-      if (goals.isNotEmpty) 'goals': List<String>.unmodifiable(goals),
-    });
+    final Map<String, dynamic> merged = Map<String, dynamic>.of(context);
+    merged['app_state'] = appState;
+    merged['platform'] = platform;
+    if (response?.message.trim().isNotEmpty == true) {
+      merged['seed_response_message'] = response!.message;
+    }
+    if (response?.taskTitle?.trim().isNotEmpty == true) {
+      merged['seed_response_task_title'] = response!.taskTitle;
+    }
+    if (goals.isNotEmpty) {
+      merged['goals'] = goals;
+    }
+    return merged;
   }
 
   List<String> _mergedGoals({
@@ -304,21 +301,13 @@ class SyntheticIntelligenceEngine {
   }
 
   Object _safeObject(Object value) {
-    if (value is String ||
-        value is num ||
-        value is bool ||
-        value is List ||
-        value is Map) {
+    if (value is String || value is num || value is bool || value is List || value is Map) {
       return value;
     }
 
     try {
       final Object? json = jsonDecode(jsonEncode(value));
-      if (json is String ||
-          json is num ||
-          json is bool ||
-          json is List ||
-          json is Map) {
+      if (json is String || json is num || json is bool || json is List || json is Map) {
         return json as Object;
       }
     } catch (_) {

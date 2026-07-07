@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart'
     as secure_endpoint;
-import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:http/http.dart' as http;
@@ -17,9 +17,11 @@ class AuthService implements AuthServiceContract {
     http.Client? httpClient,
     String? accountDeleteEndpoint,
   }) : _auth = supabaseClient,
-       _httpClient = httpClient ?? http.Client(),
+       _httpClient = httpClient ?? _sharedHttpClient,
        _accountDeleteEndpoint =
            accountDeleteEndpoint ?? Env.accountDeleteEndpoint;
+
+  static final http.Client _sharedHttpClient = http.Client();
 
   final sb.SupabaseClient _auth;
   final SecureStore _store;

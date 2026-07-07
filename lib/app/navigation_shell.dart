@@ -49,6 +49,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
   late final ProviderSubscription<double> _energySubscription;
   late final ProviderSubscription<LearningState> _learningSubscription;
   late final ProviderSubscription<AppView> _viewSubscription;
+  final Set<int> _initializedTabIndexes = <int>{0};
   bool get _isFlutterTestBinding {
     final String bindingType = WidgetsBinding.instance.runtimeType.toString();
     return bindingType.contains('TestWidgetsFlutterBinding');
@@ -87,6 +88,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
       ref.invalidate(aiResponseProvider);
     });
     _viewSubscription = ref.listenManual<AppView>(appFlowProvider, (_, AppView next) {
+      _initializedTabIndexes.add(_tabIndexForView(next));
       unawaited(ref.read(sessionRecoveryProvider).saveState(lastRoute: next.name));
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -206,6 +208,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
   }
 
   void _onTabSelected(int index) {
+    _initializedTabIndexes.add(index);
     final AppFlowController controller = ref.read(appFlowProvider.notifier);
     switch (index) {
       case 0:
@@ -217,6 +220,25 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
       case 3:
         controller.toProfile();
     }
+  }
+
+  Widget _buildTabbedBody(int tabIndex) {
+    Widget tabAt(int index) {
+      if (!_initializedTabIndexes.contains(index)) {
+        return const SizedBox.shrink();
+      }
+      return switch (index) {
+        1 => const TaskScreen(),
+        2 => const LogsScreen(),
+        3 => const ProfileScreen(),
+        _ => const NexusScreen(),
+      };
+    }
+
+    return IndexedStack(
+      index: tabIndex,
+      children: <Widget>[tabAt(0), tabAt(1), tabAt(2), tabAt(3)],
+    );
   }
 
   void _showNavigationMap() {
@@ -267,6 +289,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
   Widget build(BuildContext context) {
     final AppView view = ref.watch(appFlowProvider);
     final int tabIndex = _tabIndexForView(view);
+    _initializedTabIndexes.add(tabIndex);
 
     final Widget body = switch (view) {
       AppView.coach ||
@@ -278,12 +301,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
           onPressed: _showNavigationMap,
           child: const Icon(Icons.map_outlined),
         ),
-        body: switch (view) {
-          AppView.tasks => const TaskScreen(),
-          AppView.logs => const LogsScreen(),
-          AppView.profile => const ProfileScreen(),
-          _ => const NexusScreen(),
-        },
+        body: _buildTabbedBody(tabIndex),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: tabIndex,
           onTap: _onTabSelected,
