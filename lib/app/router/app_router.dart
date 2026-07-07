@@ -141,6 +141,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // Legacy top-level routes redirect into the secondary hierarchy.
+      // Sunset target is tracked in docs/LEGACY_ROUTE_SUNSET.md and reviewed by 2026-10-01.
       GoRoute(path: RoutePaths.legacyCoach, redirect: (_, _) => RoutePaths.home),
       GoRoute(path: RoutePaths.legacyLogs, redirect: (_, _) => RoutePaths.logs),
       GoRoute(path: RoutePaths.legacyNotifications, redirect: (_, _) => RoutePaths.notifications),
