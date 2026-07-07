@@ -582,6 +582,7 @@ class _FollowUpBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
+                  tooltip: sending ? 'Sending message' : 'Send message',
                   onPressed: sending ? null : onSend,
                   icon: sending
                       ? const SizedBox.square(

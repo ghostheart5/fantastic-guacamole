@@ -67,7 +67,7 @@ final ThemeData appTheme = ThemeData(
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
     fillColor: surfaceDark.withValues(alpha: 0.82),
-    hintStyle: neonTextTheme.bodyLarge?.copyWith(color: hologramWhite.withValues(alpha: 0.48)),
+    hintStyle: neonTextTheme.bodyLarge?.copyWith(color: hologramWhite.withValues(alpha: 0.72)),
     labelStyle: neonTextTheme.labelLarge,
     contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
     enabledBorder: OutlineInputBorder(
