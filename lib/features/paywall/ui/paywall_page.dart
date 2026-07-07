@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/config/app_config.dart';
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
@@ -118,6 +119,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     final AsyncValue<AiCreditWallet> walletAsync = ref.watch(aiCreditWalletProvider);
     final PaywallPrompt? prompt = ref.watch(paywallPromptProvider);
     final bool isPremium = ref.watch(appAccessProvider).hasPremiumAccess;
+    final bool aiProxyConfigured = Env.isAiProxyConfigured;
     final List<PaywallPlan> prioritizedPlans = _prioritizePlans(
       configAsync.asData?.value.plans ?? const <PaywallPlan>[],
     );
@@ -138,11 +140,13 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
 
     final PaywallEntity config =
         configAsync.asData?.value ??
-        const PaywallEntity(
+        PaywallEntity(
           featureId: 'premium',
-          title: 'AI Credits + Premium',
-          body: 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.',
-          plans: <PaywallPlan>[],
+          title: aiProxyConfigured ? 'AI Credits + Premium' : 'Smart Credits + Premium',
+          body: aiProxyConfigured
+              ? 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.'
+              : 'Unlock smart credits, premium coaching, deeper memory, and advanced tools.',
+          plans: const <PaywallPlan>[],
           isUnlocked: false,
         );
     final SubscriptionState? subscription = subscriptionAsync.asData?.value;
@@ -224,6 +228,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                 body: config.body,
                 isPremium: isPremium || paywallTestingMode || subscription?.isActive == true,
                 wallet: wallet,
+                aiProxyConfigured: aiProxyConfigured,
               ),
               if (prompt != null) ...[const SizedBox(height: 14), _PromptBanner(prompt: prompt)],
               if (_statusMessage != null) ...[
@@ -253,7 +258,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
-                    child: _ComparisonGrid(wallet: wallet),
+                    child: _ComparisonGrid(wallet: wallet, aiProxyConfigured: aiProxyConfigured),
                   ),
                 ],
               ),
@@ -333,7 +338,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                         if (plan.aiCreditsIncluded > 0) ...[
                           const SizedBox(height: 6),
                           Text(
-                            '${plan.aiCreditsIncluded} AI credits included',
+                            '${plan.aiCreditsIncluded} ${aiProxyConfigured ? 'AI' : 'smart'} credits included',
                             style: const TextStyle(
                               color: AppColors.neonCyan,
                               fontSize: 12,
@@ -444,12 +449,14 @@ class _HeroCard extends StatelessWidget {
     required this.body,
     required this.isPremium,
     required this.wallet,
+    required this.aiProxyConfigured,
   });
 
   final String title;
   final String body;
   final bool isPremium;
   final AiCreditWallet? wallet;
+  final bool aiProxyConfigured;
 
   @override
   Widget build(BuildContext context) {
@@ -480,7 +487,9 @@ class _HeroCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                isPremium ? 'PREMIUM ACTIVE' : 'AI CREDIT GATE',
+                isPremium
+                    ? 'PREMIUM ACTIVE'
+                    : (aiProxyConfigured ? 'AI CREDIT GATE' : 'SMART CREDIT GATE'),
                 style: TextStyle(
                   color: isPremium ? AppColors.neonCyan : AppColors.neonViolet,
                   fontSize: 11,
@@ -570,9 +579,10 @@ class _CreditStat extends StatelessWidget {
 }
 
 class _ComparisonGrid extends StatelessWidget {
-  const _ComparisonGrid({required this.wallet});
+  const _ComparisonGrid({required this.wallet, required this.aiProxyConfigured});
 
   final AiCreditWallet? wallet;
+  final bool aiProxyConfigured;
 
   @override
   Widget build(BuildContext context) {
@@ -584,19 +594,19 @@ class _ComparisonGrid extends StatelessWidget {
           title: 'Free',
           subtitle: 'Keep the habit alive',
           color: Colors.white54,
-          bullets: const <String>[
+          bullets: <String>[
             'Basic focus and planning',
-            'Starter AI credits',
+            'Starter ${aiProxyConfigured ? 'AI' : 'smart'} credits',
             'Limited voice and memory',
           ],
           badge: wallet?.tier == 'free' ? 'Current' : null,
         ),
         _ComparisonCard(
           title: 'Premium',
-          subtitle: 'Scale the AI workflow',
+          subtitle: aiProxyConfigured ? 'Scale the AI workflow' : 'Scale the smart workflow',
           color: AppColors.neonCyan,
-          bullets: const <String>[
-            'Monthly AI credit bundle',
+          bullets: <String>[
+            'Monthly ${aiProxyConfigured ? 'AI' : 'smart'} credit bundle',
             'Deeper memory and insights',
             'Voice and advanced agents',
           ],

@@ -1,7 +1,7 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart'
     show appPaywallRepositoryProvider;
-import 'package:fantastic_guacamole/data/di/storage_providers.dart'
-    show sharedPrefsStoreProvider;
+import 'package:fantastic_guacamole/data/di/storage_providers.dart' show sharedPrefsStoreProvider;
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
@@ -43,16 +43,13 @@ final paywallActionsProvider = Provider<PaywallActions>((ref) {
   return PaywallActions(ref);
 });
 
-final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((
-  ref,
-) async {
+final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((ref) async {
   return ref.read(paywallRepositoryProvider).getUserSubscriptionState();
 });
 
 final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
-  final List<PaywallPlan> plans = await ref
-      .read(getAvailablePlansUseCaseProvider)
-      .call();
+  final bool aiProxyConfigured = Env.isAiProxyConfigured;
+  final List<PaywallPlan> plans = await ref.read(getAvailablePlansUseCaseProvider).call();
   final SubscriptionState subscription = await ref
       .read(paywallRepositoryProvider)
       .getUserSubscriptionState();
@@ -60,10 +57,12 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
     featureId: 'premium',
     title: subscription.isTesting
         ? 'Unlocked for testing'
-        : 'AI Credits + Premium',
+        : (aiProxyConfigured ? 'AI Credits + Premium' : 'Smart Credits + Premium'),
     body: subscription.isTesting
         ? 'Premium gates are bypassed in this build.'
-        : 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.',
+        : (aiProxyConfigured
+              ? 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.'
+              : 'Unlock smart credits, premium coaching, deeper memory, and advanced tools.'),
     plans: plans,
     isUnlocked: subscription.isActive,
   );
@@ -83,10 +82,9 @@ class PaywallActions {
   }
 }
 
-final paywallPromptProvider =
-    NotifierProvider<PaywallPromptNotifier, PaywallPrompt?>(
-      PaywallPromptNotifier.new,
-    );
+final paywallPromptProvider = NotifierProvider<PaywallPromptNotifier, PaywallPrompt?>(
+  PaywallPromptNotifier.new,
+);
 
 class PaywallPromptNotifier extends Notifier<PaywallPrompt?> {
   @override

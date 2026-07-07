@@ -30,8 +30,7 @@ abstract class BillingClient {
 }
 
 class InAppPurchaseBillingClient implements BillingClient {
-  InAppPurchaseBillingClient([InAppPurchase? iap])
-    : _iap = iap ?? InAppPurchase.instance;
+  InAppPurchaseBillingClient([InAppPurchase? iap]) : _iap = iap ?? InAppPurchase.instance;
 
   final InAppPurchase _iap;
 
@@ -68,15 +67,13 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
     String? receiptVerifyEndpoint,
     SecureStore? secureStore,
   }) : _billingClient = billingClient ?? InAppPurchaseBillingClient(),
-       _sharedPreferencesLoader =
-           sharedPreferencesLoader ?? SharedPreferences.getInstance,
+       _sharedPreferencesLoader = sharedPreferencesLoader ?? SharedPreferences.getInstance,
        _httpClient = httpClient ?? http.Client(),
        _paywallTestingMode = paywallTestingModeOverride ?? paywallTestingMode,
        // Named public parameter intentionally maps to a private field.
        // ignore: prefer_initializing_formals
        _secureStore = secureStore,
-       _receiptVerifyEndpoint =
-           receiptVerifyEndpoint ?? Env.receiptVerifyEndpoint {
+       _receiptVerifyEndpoint = receiptVerifyEndpoint ?? Env.receiptVerifyEndpoint {
     _purchaseSub = _billingClient.purchaseStream.listen(
       _onPurchaseUpdate,
       onError: (Object error) => Logger.error('IAP stream error', error),
@@ -111,12 +108,11 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       id: 'monthly',
       title: 'Premium Monthly',
       priceLabel: 'from \$9.99 / month',
-      description:
-          'Best for active users who want full AI coaching and recurring credits.',
+      description: 'Best for active users who want full smart coaching and recurring credits.',
       aiCreditsIncluded: 300,
       benefits: <String>[
-        '300 AI credits every month',
-        'Priority AI responses',
+        '300 smart guidance credits every month',
+        'Priority smart suggestions',
         'Advanced memory and insights',
       ],
       isFeatured: true,
@@ -125,11 +121,10 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       id: 'annual',
       title: 'Premium Yearly',
       priceLabel: 'from \$89.99 / year',
-      description:
-          'Best value for users committed to long-term habit building.',
+      description: 'Best value for users committed to long-term habit building.',
       aiCreditsIncluded: 360,
       benefits: <String>[
-        '360 AI credits every month',
+        '360 smart guidance credits every month',
         'Yearly billing discount',
         'Unlimited access to premium tools',
       ],
@@ -162,8 +157,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
 
     try {
       final Set<String> ids = _kProductIds.values.toSet();
-      final ProductDetailsResponse response = await _billingClient
-          .queryProductDetails(ids);
+      final ProductDetailsResponse response = await _billingClient.queryProductDetails(ids);
       if (response.error != null || response.productDetails.isEmpty) {
         return _plans;
       }
@@ -204,11 +198,13 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       featureId: 'premium',
       title: _paywallTestingMode
           ? 'Unlocked for testing'
-          : 'AI Credits + Premium',
+          : (Env.isAiProxyConfigured ? 'AI Credits + Premium' : 'Smart Credits + Premium'),
       body: _paywallTestingMode
           ? 'Premium gates are bypassed in this build.'
           : (billingReady
-                ? 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.'
+                ? (Env.isAiProxyConfigured
+                      ? 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.'
+                      : 'Unlock smart credits, premium coaching, deeper memory, and advanced tools.')
                 : 'Purchases are temporarily unavailable while billing verification is being finalized.'),
       plans: await getAvailablePlans(),
       isUnlocked: _paywallTestingMode || _state.isActive,
@@ -250,9 +246,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
     }
 
     if (!_hasReceiptVerification) {
-      throw StateError(
-        'Purchases are temporarily unavailable. Please update and try again soon.',
-      );
+      throw StateError('Purchases are temporarily unavailable. Please update and try again soon.');
     }
 
     final String? gpId = _kProductIds[planId];
@@ -260,19 +254,17 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       throw ArgumentError('Unknown plan: $planId');
     }
 
-    final ProductDetailsResponse response = await _billingClient
-        .queryProductDetails(<String>{gpId});
+    final ProductDetailsResponse response = await _billingClient.queryProductDetails(<String>{
+      gpId,
+    });
     if (response.productDetails.isEmpty) {
       throw StateError('Product $gpId not found in Google Play.');
     }
 
-    final Completer<SubscriptionState> completer =
-        Completer<SubscriptionState>();
+    final Completer<SubscriptionState> completer = Completer<SubscriptionState>();
     _pending[gpId] = completer;
 
-    final PurchaseParam param = PurchaseParam(
-      productDetails: response.productDetails.first,
-    );
+    final PurchaseParam param = PurchaseParam(productDetails: response.productDetails.first);
     await _billingClient.buyNonConsumable(purchaseParam: param);
 
     return completer.future.timeout(
@@ -314,13 +306,10 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
     }
 
     if (!_hasReceiptVerification) {
-      throw StateError(
-        'Restore is temporarily unavailable. Please update and try again soon.',
-      );
+      throw StateError('Restore is temporarily unavailable. Please update and try again soon.');
     }
 
-    final Completer<SubscriptionState> completer =
-        Completer<SubscriptionState>();
+    final Completer<SubscriptionState> completer = Completer<SubscriptionState>();
     _pending['__restore__'] = completer;
     await _billingClient.restorePurchases();
 
@@ -351,16 +340,13 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
         if (verified) {
           final String planId = _kProductIds.entries
               .firstWhere(
-                (MapEntry<String, String> entry) =>
-                    entry.value == purchase.productID,
+                (MapEntry<String, String> entry) => entry.value == purchase.productID,
                 orElse: () => const MapEntry<String, String>('monthly', ''),
               )
               .key;
           _state = SubscriptionState(
             isActive: true,
-            status: purchase.status == PurchaseStatus.restored
-                ? 'restored'
-                : 'active',
+            status: purchase.status == PurchaseStatus.restored ? 'restored' : 'active',
             source: 'google_play',
             planId: planId,
             renewalDate: DateTime.now().add(const Duration(days: 30)),
@@ -381,9 +367,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
         await _billingClient.completePurchase(purchase);
       } else if (purchase.status == PurchaseStatus.error) {
         Logger.error('IAP purchase error', purchase.error);
-        _pending[purchase.productID]?.completeError(
-          purchase.error ?? 'Purchase failed',
-        );
+        _pending[purchase.productID]?.completeError(purchase.error ?? 'Purchase failed');
         _pending.remove(purchase.productID);
         if (purchase.pendingCompletePurchase) {
           await _billingClient.completePurchase(purchase);
@@ -394,9 +378,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
 
   Future<bool> _verifyWithServer(PurchaseDetails purchase) async {
     if (!_hasReceiptVerification) {
-      Logger.error(
-        'Receipt verification is unavailable; purchase remains locked.',
-      );
+      Logger.error('Receipt verification is unavailable; purchase remains locked.');
       return false;
     }
     final Uri endpoint = parseSecureHttpsEndpoint(_receiptVerifyEndpoint)!;
@@ -426,8 +408,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
         Logger.error('Receipt verify HTTP ${response.statusCode}');
         return false;
       }
-      final Map<String, dynamic> body =
-          jsonDecode(response.body) as Map<String, dynamic>;
+      final Map<String, dynamic> body = jsonDecode(response.body) as Map<String, dynamic>;
       return body['valid'] == true;
     } on Exception catch (error) {
       Logger.error('Receipt verification request failed', error);
@@ -440,24 +421,20 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       final SharedPreferences prefs = await _sharedPreferencesLoader();
       if (_secureStore == null) {
         if (Env.isProduction) {
-          Logger.error(
-            'Secure storage is unavailable in production; using locked paywall state.',
-          );
+          Logger.error('Secure storage is unavailable in production; using locked paywall state.');
           return;
         }
         final String? fallbackRaw = prefs.getString(_kPrefsKey);
         if (fallbackRaw == null) {
           return;
         }
-        final Map<String, dynamic> fallbackMap =
-            jsonDecode(fallbackRaw) as Map<String, dynamic>;
+        final Map<String, dynamic> fallbackMap = jsonDecode(fallbackRaw) as Map<String, dynamic>;
         final DateTime? fallbackRenewal = fallbackMap['renewalDate'] != null
             ? DateTime.tryParse(fallbackMap['renewalDate'] as String)
             : null;
         final bool fallbackIsActive =
             fallbackMap['isActive'] == true &&
-            (fallbackRenewal == null ||
-                fallbackRenewal.isAfter(DateTime.now()));
+            (fallbackRenewal == null || fallbackRenewal.isAfter(DateTime.now()));
         _state = SubscriptionState(
           isActive: fallbackIsActive,
           status: fallbackMap['status'] as String? ?? 'locked',
@@ -482,8 +459,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
           ? DateTime.tryParse(map['renewalDate'] as String)
           : null;
       final bool isActive =
-          map['isActive'] == true &&
-          (renewal == null || renewal.isAfter(DateTime.now()));
+          map['isActive'] == true && (renewal == null || renewal.isAfter(DateTime.now()));
       _state = SubscriptionState(
         isActive: isActive,
         status: map['status'] as String? ?? 'locked',
