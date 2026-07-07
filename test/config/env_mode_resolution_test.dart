@@ -117,5 +117,12 @@ void main() {
     test('privacy policy URL stays on the public HTTPS domain', () {
       expect(Env.privacyPolicyUrl, 'https://chronospark.app/privacy');
     });
+
+    test('AI proxy configuration requires a valid HTTPS endpoint', () {
+      expect(Env.resolveIsAiProxyConfigured(''), isFalse);
+      expect(Env.resolveIsAiProxyConfigured('http://localhost:8787/ai'), isFalse);
+      expect(Env.resolveIsAiProxyConfigured('not-a-url'), isFalse);
+      expect(Env.resolveIsAiProxyConfigured('https://chronospark.app/functions/v1/ai'), isTrue);
+    });
   });
 }

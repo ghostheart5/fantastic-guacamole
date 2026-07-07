@@ -766,7 +766,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
       final List<SISnapshot> recentSnapshots = ref
           .read(siMemoryProvider)
           .entries
-          .take(8)
+          .take(20)
           .toList(growable: false);
       final SIIntent intent = classifySIIntent(input ?? '');
       final List<String> selectedMemorySummaries = selectRelevantMemorySummaries(
@@ -1276,15 +1276,15 @@ List<Map<String, dynamic>> _appendMemoryEvent({
             .toList(growable: true)
       : <Map<String, dynamic>>[];
   existing.add(memoryEvent);
-  if (existing.length > 24) {
-    return existing.sublist(existing.length - 24);
+  if (existing.length > 120) {
+    return existing.sublist(existing.length - 120);
   }
   return existing;
 }
 
 List<Map<String, String>> _summarizeHistory(List<Map<String, String>> history) {
-  final Iterable<Map<String, String>> tail = history.length > 6
-      ? history.sublist(history.length - 6)
+  final Iterable<Map<String, String>> tail = history.length > 20
+      ? history.sublist(history.length - 20)
       : history;
   return tail
       .map(

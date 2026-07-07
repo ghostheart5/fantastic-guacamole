@@ -57,7 +57,7 @@ class StateSiEngineService {
     return <String, dynamic>{
       ...?currentState,
       'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
-      'memoryEvents': events.length > 24 ? events.sublist(events.length - 24) : events,
+      'memoryEvents': events.length > 120 ? events.sublist(events.length - 120) : events,
       'memoryEvent': memoryEvent,
     };
   }

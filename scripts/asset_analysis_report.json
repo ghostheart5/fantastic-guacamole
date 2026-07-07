@@ -1,0 +1,137 @@
+{
+  "timestamp": "2026-07-07T09:25:26.107759",
+  "summary": {
+    "totalFiles": 71,
+    "totalSizeMb": "9.62"
+  },
+  "byCategory": {
+    "overlay": {
+      "count": 1,
+      "totalSizeMb": "1.33",
+      "largestFiles": [
+        {
+          "path": "assets\\overlays\\noise.png",
+          "sizeMb": "1.33"
+        }
+      ]
+    },
+    "icon": {
+      "count": 21,
+      "totalSizeMb": "1.20",
+      "largestFiles": [
+        {
+          "path": "assets\\icons\\app_icon.png",
+          "sizeMb": "1.19"
+        },
+        {
+          "path": "assets\\icons\\coach.svg",
+          "sizeMb": "0.00"
+        },
+        {
+          "path": "assets\\icons\\settings.svg",
+          "sizeMb": "0.00"
+        },
+        {
+          "path": "assets\\icons\\tasks.svg",
+          "sizeMb": "0.00"
+        },
+        {
+          "path": "assets\\icons\\si_console.svg",
+          "sizeMb": "0.00"
+        }
+      ]
+    },
+    "other": {
+      "count": 27,
+      "totalSizeMb": "5.05",
+      "largestFiles": [
+        {
+          "path": "assets\\screenshots\\Screenshot_1783105770.png",
+          "sizeMb": "0.75"
+        },
+        {
+          "path": "assets\\screenshots\\Screenshot_1783103349.png",
+          "sizeMb": "0.74"
+        },
+        {
+          "path": "assets\\screenshots\\Screenshot_1783105713.png",
+          "sizeMb": "0.43"
+        },
+        {
+          "path": "assets\\screenshots\\Screenshot_1783105785.png",
+          "sizeMb": "0.43"
+        },
+        {
+          "path": "assets\\screenshots\\Screenshot_1783105740.png",
+          "sizeMb": "0.40"
+        }
+      ]
+    },
+    "font": {
+      "count": 3,
+      "totalSizeMb": "1.19",
+      "largestFiles": [
+        {
+          "path": "assets\\fonts\\Inter-Bold.ttf",
+          "sizeMb": "0.40"
+        },
+        {
+          "path": "assets\\fonts\\Inter-Medium.ttf",
+          "sizeMb": "0.40"
+        },
+        {
+          "path": "assets\\fonts\\Inter-Regular.ttf",
+          "sizeMb": "0.39"
+        }
+      ]
+    },
+    "background": {
+      "count": 15,
+      "totalSizeMb": "0.73",
+      "largestFiles": [
+        {
+          "path": "assets\\backgrounds\\login_bg.jpg",
+          "sizeMb": "0.07"
+        },
+        {
+          "path": "assets\\backgrounds\\settings_bg.jpg",
+          "sizeMb": "0.07"
+        },
+        {
+          "path": "assets\\backgrounds\\si_console_bg.jpg",
+          "sizeMb": "0.07"
+        },
+        {
+          "path": "assets\\backgrounds\\creator_bg.jpg",
+          "sizeMb": "0.06"
+        },
+        {
+          "path": "assets\\backgrounds\\logs_bg.jpg",
+          "sizeMb": "0.06"
+        }
+      ]
+    },
+    "audio": {
+      "count": 4,
+      "totalSizeMb": "0.13",
+      "largestFiles": [
+        {
+          "path": "assets\\audio\\ai_decision.wav",
+          "sizeMb": "0.03"
+        },
+        {
+          "path": "assets\\audio\\error_soft.wav",
+          "sizeMb": "0.03"
+        },
+        {
+          "path": "assets\\audio\\focus_start.wav",
+          "sizeMb": "0.03"
+        },
+        {
+          "path": "assets\\audio\\task_complete.wav",
+          "sizeMb": "0.03"
+        }
+      ]
+    }
+  }
+}

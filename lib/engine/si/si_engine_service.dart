@@ -1,5 +1,6 @@
 // lib/engine/si/si_engine_service.dart
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
@@ -73,6 +74,7 @@ class SIEngineService {
     String? taskId,
     Map<String, dynamic> context = const <String, dynamic>{},
   }) async {
+    final bool aiProxyConfigured = Env.isAiProxyConfigured;
     final SIFinalOutputBundle output = await handleText(input);
     final String resolvedMessage = output.response.message.trim().isEmpty
         ? message
@@ -85,6 +87,8 @@ class SIEngineService {
       'reasoning': context['reasoning']?.toString() ?? output.decision.reasoning,
       'emotion': output.response.emotion.isEmpty ? emotion : output.response.emotion,
       'confidence': output.response.confidence.clamp(0.0, 1.0),
+      'generationMode': aiProxyConfigured ? 'proxy_llm' : 'deterministic_local',
+      'isDeterministicLocal': !aiProxyConfigured,
       'engineDecision': output.decision.action,
     };
   }
@@ -117,7 +121,7 @@ class SIEngineService {
     return <String, dynamic>{
       ...?currentState,
       'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
-      'memoryEvents': events.length > 24 ? events.sublist(events.length - 24) : events,
+      'memoryEvents': events.length > 120 ? events.sublist(events.length - 120) : events,
       'memoryEvent': memoryEvent,
     };
   }

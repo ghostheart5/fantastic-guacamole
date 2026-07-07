@@ -157,6 +157,17 @@ abstract final class Env {
   static bool get isSupabaseConfigured =>
       supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
 
+  static bool get isAiProxyConfigured => resolveIsAiProxyConfigured(aiProxyEndpoint);
+
+  static bool resolveIsAiProxyConfigured(String endpoint) {
+    final String trimmed = endpoint.trim();
+    if (trimmed.isEmpty) {
+      return false;
+    }
+    final Uri? uri = Uri.tryParse(trimmed);
+    return uri != null && uri.hasAuthority && uri.scheme == 'https';
+  }
+
   static String get receiptVerifyEndpoint =>
       resolveReceiptVerifyEndpoint(_receiptVerifyEndpointOverride, supabaseUrl: supabaseUrl);
 
