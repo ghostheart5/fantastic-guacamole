@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/config/app_config.dart';
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/entitlement.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
@@ -7,8 +8,9 @@ import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
 
 class PaywallRepository implements IPaywallRepository {
-  PaywallRepository({bool? testingModeOverride})
-    : _testingMode = testingModeOverride ?? paywallTestingMode {
+  PaywallRepository({bool? testingModeOverride, bool? aiProxyConfiguredOverride})
+    : _testingMode = testingModeOverride ?? paywallTestingMode,
+      _aiProxyConfigured = aiProxyConfiguredOverride ?? Env.isAiProxyConfigured {
     _subscriptionState = SubscriptionState(
       isActive: _testingMode,
       status: _testingMode ? 'unlocked_for_testing' : 'locked',
@@ -17,46 +19,58 @@ class PaywallRepository implements IPaywallRepository {
     );
   }
 
-  static const List<PaywallPlan> _plans = <PaywallPlan>[
-    PaywallPlan(
-      id: 'monthly',
-      title: 'Premium Monthly',
-      priceLabel: 'from \$9.99 / month',
-      description:
-          'Best for active users who want full AI coaching and recurring credits.',
-      aiCreditsIncluded: 300,
-      benefits: <String>[
-        '300 AI credits every month',
-        'Priority AI responses',
-        'Advanced memory and insights',
-      ],
-      isFeatured: true,
-    ),
-    PaywallPlan(
-      id: 'annual',
-      title: 'Premium Yearly',
-      priceLabel: 'from \$89.99 / year',
-      description:
-          'Best value for users committed to long-term habit building.',
-      aiCreditsIncluded: 360,
-      benefits: <String>[
-        '360 AI credits every month',
-        'Yearly billing discount',
-        'Unlimited access to premium tools',
-      ],
-    ),
-  ];
-
   static SubscriptionState _subscriptionState = const SubscriptionState(
     isActive: false,
     status: 'locked',
     source: 'platform_unavailable',
   );
   final bool _testingMode;
+  final bool _aiProxyConfigured;
+
+  List<PaywallPlan> _buildPlans() {
+    final String creditLabel = _aiProxyConfigured ? 'AI credits' : 'smart guidance credits';
+    final String coachingLabel = _aiProxyConfigured ? 'AI coaching' : 'smart coaching';
+    final String responseLabel = _aiProxyConfigured
+        ? 'Priority AI responses'
+        : 'Priority smart suggestions';
+
+    return <PaywallPlan>[
+      PaywallPlan(
+        id: 'monthly',
+        title: 'Premium Monthly',
+        priceLabel: 'from \$9.99 / month',
+        description: 'Best for active users who want full $coachingLabel and recurring credits.',
+        aiCreditsIncluded: 300,
+        freeTrialDays: 7,
+        benefits: <String>[
+          '7-day free trial for eligible new subscribers',
+          '300 $creditLabel every month',
+          responseLabel,
+          'Advanced memory and insights',
+        ],
+        isFeatured: true,
+      ),
+      PaywallPlan(
+        id: 'annual',
+        title: 'Premium Yearly',
+        priceLabel: 'from \$89.99 / year',
+        description: 'Best value for users committed to long-term habit building.',
+        aiCreditsIncluded: 360,
+        freeTrialDays: 7,
+        benefits: <String>[
+          '7-day free trial for eligible new subscribers',
+          '360 $creditLabel every month',
+          'Yearly billing discount',
+          'Unlimited access to premium tools',
+        ],
+      ),
+    ];
+  }
 
   @override
   Future<List<PaywallPlan>> getAvailablePlans() async {
-    return _plans
+    final List<PaywallPlan> plans = _buildPlans();
+    return plans
         .map(
           (PaywallPlan plan) => PaywallPlan(
             id: plan.id,
@@ -64,6 +78,7 @@ class PaywallRepository implements IPaywallRepository {
             priceLabel: plan.priceLabel,
             description: plan.description,
             aiCreditsIncluded: plan.aiCreditsIncluded,
+            freeTrialDays: plan.freeTrialDays,
             benefits: plan.benefits,
             isAvailable: _testingMode,
             isFeatured: plan.isFeatured,
@@ -74,12 +89,15 @@ class PaywallRepository implements IPaywallRepository {
 
   @override
   Future<PaywallEntity> getPaywallConfig() async {
+    final bool aiMode = _aiProxyConfigured;
     return PaywallEntity(
       featureId: 'premium',
       title: _testingMode ? 'Unlocked for testing' : 'Billing unavailable',
       body: _testingMode
           ? 'Premium gates are bypassed in this build so QA can verify the full app.'
-          : 'Purchases are currently supported through Google Play on Android.',
+          : (aiMode
+                ? 'Purchases are currently supported through Google Play on Android.'
+                : 'Purchases are currently supported through Google Play on Android for Smart Coaching.'),
       plans: await getAvailablePlans(),
       isUnlocked: _testingMode || _subscriptionState.isActive,
     );

@@ -4,6 +4,8 @@ import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
@@ -28,8 +30,11 @@ class SmartCoachScreen extends ConsumerStatefulWidget {
 class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   double _energy = 0.7;
   EmotionalState _emotion = EmotionalState.neutral;
+  late final Future<void> Function(String) _speakVoice;
+  late final Future<void> Function() _stopVoice;
   final _notesController = TextEditingController();
   final _followUpController = TextEditingController();
+  final _quickTaskController = TextEditingController();
   final ScrollController _scroll = ScrollController();
 
   String? _coachingMessage;
@@ -40,6 +45,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   bool _saved = false;
   bool _gettingCoaching = false;
   bool _sendingFollowUp = false;
+  bool _quickTaskOpen = false;
 
   List<_Exchange> get _visibleFollowUps {
     const int maxVisibleFollowUps = 20;
@@ -52,17 +58,44 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   @override
   void initState() {
     super.initState();
+    final voiceService = ref.read(voiceServiceProvider);
+    _speakVoice = voiceService.speak;
+    _stopVoice = voiceService.stop;
     _energy = ref.read(siStateProvider).energy;
     _emotion = ref.read(emotionProvider);
   }
 
   @override
   void dispose() {
-    unawaited(ref.read(voiceServiceProvider).stop());
+    unawaited(_stopVoice());
     _notesController.dispose();
     _followUpController.dispose();
+    _quickTaskController.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _openQuickTaskCreator() {
+    setState(() {
+      _quickTaskOpen = true;
+    });
+  }
+
+  Future<void> _submitQuickTask() async {
+    final String title = _quickTaskController.text.trim();
+    if (title.isEmpty) {
+      return;
+    }
+
+    await ref
+        .read(creatorActionsProvider)
+        .createTask(CreatorFormData(title: title, type: 'Task', priority: 3));
+
+    if (!mounted) return;
+    setState(() {
+      _quickTaskController.clear();
+      _quickTaskOpen = false;
+    });
   }
 
   Future<void> _getCoaching() async {
@@ -116,9 +149,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
     );
 
     // Speak the coaching message
-    unawaited(ref.read(voiceServiceProvider).speak(result.message));
+    unawaited(_speakVoice(result.message));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (_scroll.hasClients) {
         _scroll.animateTo(
           _scroll.position.maxScrollExtent,
@@ -141,7 +175,8 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
     );
 
     if (coach.detectsCrisis(text)) {
-      showCrisisDialog(context);
+      if (!mounted) return;
+      await showCrisisDialog(context);
       return;
     }
     _followUpController.clear();
@@ -166,8 +201,9 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
         'smart_coach_followup_response_rendered',
         params: <String, Object?>{'reply_length': reply.length},
       );
-      unawaited(ref.read(voiceServiceProvider).speak(reply));
+      unawaited(_speakVoice(reply));
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         if (_scroll.hasClients) {
           _scroll.animateTo(
             _scroll.position.maxScrollExtent,
@@ -234,6 +270,42 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     const SizedBox(height: 12),
                     const _QuickNavRow(),
                     const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _openQuickTaskCreator,
+                      child: const Text('CREATE TASK'),
+                    ),
+                    if (_quickTaskOpen) ...[
+                      const SizedBox(height: 12),
+                      _CoachPanel(
+                        label: 'QUICK TASK CREATOR',
+                        accentColor: AppColors.neonCyan,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: _quickTaskController,
+                              style: const TextStyle(color: Colors.white, fontSize: 14),
+                              decoration: const InputDecoration(
+                                hintText: 'Task title',
+                                hintStyle: TextStyle(color: Colors.white38),
+                                filled: true,
+                                fillColor: Color(0xFF1A2440),
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: ElevatedButton(
+                                onPressed: _submitQuickTask,
+                                child: const Text('ADD'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
                     _CoachPanel(
                       label: 'ENERGY',
                       accentColor: AppColors.neonCyan,
@@ -510,6 +582,7 @@ class _FollowUpBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
+                  tooltip: sending ? 'Sending message' : 'Send message',
                   onPressed: sending ? null : onSend,
                   icon: sending
                       ? const SizedBox.square(

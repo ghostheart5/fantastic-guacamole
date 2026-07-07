@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/si_decision_entity.dart';
-import 'package:fantastic_guacamole/engine/si/si_engine_service.dart';
+import 'package:fantastic_guacamole/engine/si/api.dart';
 
 class GetNextAction {
   GetNextAction(this._siEngine);

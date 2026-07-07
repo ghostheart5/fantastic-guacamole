@@ -1930,7 +1930,7 @@ The four core systems work together in an integrated feedback loop:
     └────────────┼────────────┘
                  │
         [Feedback Loop]
-        Logs → Patterns → 
+        Logs → Patterns →
         Settings Tune → Better Plans
 ```
 
@@ -2340,7 +2340,7 @@ Time       Task                    Energy  Priority
 10:00-11:00 Complete quick task    Low     High
 [Rest suggested for recovery]
 
-[Suggestion] You usually focus better after 2pm. 
+[Suggestion] You usually focus better after 2pm.
 Schedule heavy work then? Y/N
 ```
 
@@ -2414,7 +2414,7 @@ Intent → Command → Context + Settings → Action
 
 ### Overview
 
-ChronoSpark implements a **subscription-only, no-ads, premium-focused monetization model** with three tiers: **Base (Free)**, **Premium**, and **Ultimate**. The system uses mock billing for development and integrates cleanly with existing architecture.
+ChronoSpark implements a **subscription-only, no-ads, premium-focused monetization model** with two tiers: **Base (Free)** and **Premium**. The system uses mock billing for development and integrates cleanly with existing architecture.
 
 ### Tiers & Pricing
 
@@ -2435,23 +2435,12 @@ ChronoSpark implements a **subscription-only, no-ads, premium-focused monetizati
 - Full adaptive learning
 - Decision Refresh: 30 minutes
 
-**ULTIMATE ✦✦✦**
-- Price: $12.99/month | $99.99/year (saves $56.88/year)
-- All Premium features PLUS:
-- Unlimited history (365 days)
-- Advanced analytics & trends
-- SI Engine: 7 focus tasks, enhanced output
-- Deep SI insights & predictions
-- Custom themes & advanced tagging
-- Decision Refresh: 15 minutes
-- Early access to new features
-
 ### How It Works
 
 1. **Base users** get trial quotas (5 + 8 opens)
 2. When trials exhaust → `PremiumFeatureGate` prompts upgrade
 3. **Upgrade flow** is non-intrusive, available in Settings
-4. **Premium+ users** bypass all quotas and get full feature access
+4. **Premium users** bypass all quotas and get full feature access
 5. **Downgrade** at any time, keeps all data intact
 6. **Refund eligible** for 14 days after signup (mocked)
 
@@ -2462,7 +2451,6 @@ ChronoSpark implements a **subscription-only, no-ads, premium-focused monetizati
 late SubscriptionSnapshot _subscription;
 SubscriptionPlan get currentPlan => _subscription.plan;
 bool get isPremium => _subscription.plan.isPremium;
-bool get isUltimate => _subscription.plan.isUltimate;
 ```
 
 **Trial Quota Logic (Updated)**:
@@ -2470,10 +2458,10 @@ bool get isUltimate => _subscription.plan.isUltimate;
 Future<bool> consumeTemporalOpsTrialIfNeeded() async {
   // Premium+ users have unlimited access
   if (isPremium) return true;
-  
+
   // Base tier uses trial system
   if (temporalTrialRemaining <= 0) return false;
-  
+
   _temporalTrialUses += 1;
   await _autoSave();
   return true;
@@ -2483,12 +2471,10 @@ Future<bool> consumeTemporalOpsTrialIfNeeded() async {
 **SI Engine Scaling**:
 - Base: 2 focus tasks, no optional action
 - Premium: 5 focus tasks, full output
-- Ultimate: 7 focus tasks, enhanced reasoning
 
 **Adaptive Learning Scaling**:
 - Base: 7-day retention, 0.6x learning depth
 - Premium: 30-day retention, 1.0x learning depth
-- Ultimate: 365-day retention, 1.4x learning depth + analytics
 
 **Persistence**:
 ```json

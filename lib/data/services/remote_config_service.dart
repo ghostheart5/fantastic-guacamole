@@ -1,20 +1,59 @@
 import 'dart:collection';
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
+
 class RemoteConfigService {
   RemoteConfigService({
     Map<String, Object?> initialValues = const <String, Object?>{},
+    this._firebaseRemoteConfig,
   }) : _values = Map<String, Object?>.from(initialValues);
 
   final Map<String, Object?> _values;
+  final FirebaseRemoteConfig? _firebaseRemoteConfig;
   bool _envSnapshotApplied = false;
+  bool _firebaseSnapshotApplied = false;
 
-  static const String _envSnapshot = String.fromEnvironment(
-    'CHRONOSPARK_REMOTE_CONFIG_JSON',
-    defaultValue: '',
-  );
+  static String get _envSnapshot => Env.remoteConfigDefaultsJson;
 
   Future<void> refresh() async {
+    await _applyFirebaseSnapshotIfAvailable();
+    await _applyEnvSnapshotIfPresent();
+  }
+
+  Future<void> _applyFirebaseSnapshotIfAvailable() async {
+    if (_firebaseSnapshotApplied || !Env.isFirebaseFeatureFlagRuntimeReady) {
+      return;
+    }
+    if (Firebase.apps.isEmpty) {
+      return;
+    }
+
+    final FirebaseRemoteConfig remoteConfig =
+        _firebaseRemoteConfig ?? FirebaseRemoteConfig.instance;
+    await remoteConfig.setConfigSettings(
+      RemoteConfigSettings(
+        fetchTimeout: const Duration(seconds: 8),
+        minimumFetchInterval: Env.isProduction
+            ? const Duration(hours: 4)
+            : const Duration(minutes: 5),
+      ),
+    );
+    await remoteConfig.setDefaults(_values);
+    try {
+      await remoteConfig.fetchAndActivate();
+      for (final String key in remoteConfig.getAll().keys) {
+        final RemoteConfigValue value = remoteConfig.getValue(key);
+        _values[key] = value.asString();
+      }
+    } finally {
+      _firebaseSnapshotApplied = true;
+    }
+  }
+
+  Future<void> _applyEnvSnapshotIfPresent() async {
     if (_envSnapshotApplied || _envSnapshot.trim().isEmpty) {
       return;
     }

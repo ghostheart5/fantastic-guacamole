@@ -101,6 +101,10 @@ class _TypingTextState extends State<TypingText> {
   @override
   Widget build(BuildContext context) {
     final String text = widget.animate ? (_showCursor ? '$_visible|' : _visible) : _visible;
-    return Text(text, style: widget.style);
+    return Semantics(
+      label: widget.text,
+      readOnly: true,
+      child: ExcludeSemantics(child: Text(text, style: widget.style)),
+    );
   }
 }

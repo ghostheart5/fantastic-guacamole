@@ -3,6 +3,16 @@ import 'package:fantastic_guacamole/state/models/streak.dart';
 class StreakService {
   const StreakService();
 
+  bool didBreak(Streak streak, DateTime today) {
+    final DateTime day = DateTime(today.year, today.month, today.day);
+    final DateTime? active = streak.lastActiveDate;
+    if (active == null || streak.current <= 0) {
+      return false;
+    }
+    final DateTime last = DateTime(active.year, active.month, active.day);
+    return day.difference(last).inDays > 1;
+  }
+
   Streak update(Streak streak, DateTime today) {
     final DateTime day = DateTime(today.year, today.month, today.day);
     final DateTime? active = streak.lastActiveDate;

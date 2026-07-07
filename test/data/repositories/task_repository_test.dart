@@ -64,6 +64,27 @@ void main() {
     expect(await repository.getTaskById('task-delete'), isNull);
   });
 
+  test('returns paged tasks newest first with cursor continuation', () async {
+    final repository = TaskRepository(storage: storage);
+    await repository.saveTask(
+      TaskEntity(id: 'task-1', title: 'One', createdAt: DateTime.utc(2026, 7, 5, 8)),
+    );
+    await repository.saveTask(
+      TaskEntity(id: 'task-2', title: 'Two', createdAt: DateTime.utc(2026, 7, 5, 9)),
+    );
+    await repository.saveTask(
+      TaskEntity(id: 'task-3', title: 'Three', createdAt: DateTime.utc(2026, 7, 5, 10)),
+    );
+
+    final firstPage = await repository.getTasksPage(limit: 2);
+    final secondPage = await repository.getTasksPage(cursor: firstPage.nextCursor, limit: 2);
+
+    expect(firstPage.items.map((TaskEntity task) => task.id), <String>['task-3', 'task-2']);
+    expect(firstPage.nextCursor, 'task-2');
+    expect(secondPage.items.map((TaskEntity task) => task.id), <String>['task-1']);
+    expect(secondPage.nextCursor, isNull);
+  });
+
   test('secure mode migrates legacy hive entries and clears legacy box', () async {
     final legacy = HiveStorage<String>('legacy_tasks_box', hive: _DirectHiveStore());
     await legacy.open();

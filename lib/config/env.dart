@@ -3,6 +3,10 @@ import 'package:flutter/foundation.dart';
 
 abstract final class Env {
   static const String appName = 'ChronoSpark';
+  static const String privacyPolicyUrl = 'https://chronospark.app/privacy';
+  static const String termsOfServiceUrl = 'https://chronospark.app/terms';
+  static const String supportUrl = 'https://chronospark.app/support';
+  static const String supportEmail = 'support@chronospark.app';
   static const String appFlavor = String.fromEnvironment(
     'CHRONOSPARK_APP_FLAVOR',
     defaultValue: 'prod',
@@ -43,7 +47,7 @@ abstract final class Env {
     'CHRONOSPARK_MOCK_LOGIN_PASSWORD',
     defaultValue: '',
   );
-  static const String receiptVerifyEndpoint = String.fromEnvironment(
+  static const String _receiptVerifyEndpointOverride = String.fromEnvironment(
     'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
     defaultValue: '',
   );
@@ -53,6 +57,18 @@ abstract final class Env {
   );
   static const String accountDeleteEndpoint = String.fromEnvironment(
     'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
+    defaultValue: '',
+  );
+  static const String oauthRedirectUrl = String.fromEnvironment(
+    'CHRONOSPARK_OAUTH_REDIRECT_URL',
+    defaultValue: 'https://chronospark.app/app/auth/callback',
+  );
+  static const bool enableRuntimeFeatureFlags = bool.fromEnvironment(
+    'CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS',
+    defaultValue: true,
+  );
+  static const String remoteConfigDefaultsJson = String.fromEnvironment(
+    'CHRONOSPARK_REMOTE_CONFIG_JSON',
     defaultValue: '',
   );
   static const String supabaseUrl = String.fromEnvironment(
@@ -82,20 +98,14 @@ abstract final class Env {
 
   static AppFlavor get flavor => AppFlavor.parse(appFlavor);
 
-  static bool resolveIsProduction(
-    String flavor, {
-    required bool isReleaseMode,
-  }) {
+  static bool resolveIsProduction(String flavor, {required bool isReleaseMode}) {
     // Release artifacts always use production security rules. A missing or
     // mistyped flavor must never enable QA authentication or entitlement
     // bypasses in a distributable build.
     return isReleaseMode;
   }
 
-  static bool resolveIsMockMode({
-    required bool isProduction,
-    required bool enableMockMode,
-  }) {
+  static bool resolveIsMockMode({required bool isProduction, required bool enableMockMode}) {
     return !isProduction && enableMockMode;
   }
 
@@ -122,13 +132,10 @@ abstract final class Env {
     return !isProduction && enableTesterFullAccess;
   }
 
-  static bool get isProduction =>
-      resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
+  static bool get isProduction => resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
 
-  static bool get isMockMode => resolveIsMockMode(
-    isProduction: isProduction,
-    enableMockMode: enableMockMode,
-  );
+  static bool get isMockMode =>
+      resolveIsMockMode(isProduction: isProduction, enableMockMode: enableMockMode);
 
   static bool get isPaywallDisabled => resolveIsPaywallDisabled(
     isProduction: isProduction,
@@ -149,6 +156,37 @@ abstract final class Env {
 
   static bool get isSupabaseConfigured =>
       supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
+
+  static bool get isAiProxyConfigured => resolveIsAiProxyConfigured(aiProxyEndpoint);
+
+  static bool resolveIsAiProxyConfigured(String endpoint) {
+    final String trimmed = endpoint.trim();
+    if (trimmed.isEmpty) {
+      return false;
+    }
+    final Uri? uri = Uri.tryParse(trimmed);
+    return uri != null && uri.hasAuthority && uri.scheme == 'https';
+  }
+
+  static String get receiptVerifyEndpoint =>
+      resolveReceiptVerifyEndpoint(_receiptVerifyEndpointOverride, supabaseUrl: supabaseUrl);
+
+  static String resolveReceiptVerifyEndpoint(
+    String configuredValue, {
+    required String supabaseUrl,
+  }) {
+    final String configured = configuredValue.trim();
+    if (configured.isNotEmpty) {
+      return configured;
+    }
+
+    final Uri? supabaseUri = Uri.tryParse(supabaseUrl.trim());
+    if (supabaseUri != null && supabaseUri.hasAuthority && supabaseUri.scheme == 'https') {
+      return supabaseUri.resolve('/functions/v1/verify-receipt').toString();
+    }
+
+    return 'https://chronospark.app/verify-receipt';
+  }
 
   static List<String> productionReadinessIssues({bool force = false}) {
     if (!force && !enforceProductionReadiness && !isProduction) {
@@ -179,16 +217,15 @@ abstract final class Env {
       label: 'Receipt verification endpoint',
       issues: issues,
     );
-    _validateHttpsEndpoint(
-      aiProxyEndpoint,
-      label: 'AI proxy endpoint',
-      issues: issues,
-    );
+    _validateHttpsEndpoint(aiProxyEndpoint, label: 'AI proxy endpoint', issues: issues);
     _validateHttpsEndpoint(
       accountDeleteEndpoint,
       label: 'Account deletion endpoint',
       issues: issues,
     );
+    if (enableRuntimeFeatureFlags && !isFirebaseFeatureFlagRuntimeReady) {
+      issues.add('Runtime feature flags require Firebase to be configured.');
+    }
     if (appLinksAndroidSha256.trim().isEmpty) {
       issues.add('Android App Links SHA-256 fingerprint is not configured.');
     }
@@ -213,4 +250,9 @@ abstract final class Env {
       issues.add('$label must be a valid HTTPS URL.');
     }
   }
+
+  static bool get isFirebaseFeatureFlagRuntimeReady =>
+      !isMockMode && enableRuntimeFeatureFlags && _hasFirebaseRuntime;
+
+  static bool get _hasFirebaseRuntime => true;
 }

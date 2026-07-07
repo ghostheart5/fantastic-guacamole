@@ -10,7 +10,7 @@ class RetentionPolicy {
   final Duration hygieneInterval;
 
   static const RetentionPolicy standard = RetentionPolicy(
-    sessionMaxAge: Duration(days: 7),
+    sessionMaxAge: Duration(days: 30),
     staleNotificationAge: Duration(days: 14),
     hygieneInterval: Duration(hours: 6),
   );

@@ -3,16 +3,15 @@ import 'package:fantastic_guacamole/engine/si/ai_response.dart';
 import 'package:fantastic_guacamole/engine/si/si_response_policy.dart';
 import 'package:fantastic_guacamole/state/services/si_engine_dependencies.dart';
 
-class SiEngineService {
-  SiEngineService(this._repository, {required this.dependencies});
+class StateSiEngineService {
+  StateSiEngineService(this._repository, {required this.dependencies});
 
   final SiEngineRepository _repository;
   final SiEngineDependencies dependencies;
 
   Future<Map<String, dynamic>?> loadState() => _repository.loadState();
 
-  Future<void> saveState(Map<String, dynamic> state) =>
-      _repository.saveState(state);
+  Future<void> saveState(Map<String, dynamic> state) => _repository.saveState(state);
 
   Future<Map<String, dynamic>> generateResponse({
     required String input,
@@ -58,9 +57,7 @@ class SiEngineService {
     return <String, dynamic>{
       ...?currentState,
       'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
-      'memoryEvents': events.length > 24
-          ? events.sublist(events.length - 24)
-          : events,
+      'memoryEvents': events.length > 120 ? events.sublist(events.length - 120) : events,
       'memoryEvent': memoryEvent,
     };
   }

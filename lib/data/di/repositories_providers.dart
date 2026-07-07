@@ -2,7 +2,7 @@
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
-import 'package:fantastic_guacamole/data/repositories/flowmap_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/flowmap_nodes_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/goal_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/google_play_paywall_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/identity_repository.dart';
@@ -30,10 +30,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 TaskRepository taskRepository(Ref ref) {
   return TaskRepository.secure(
     ref.read(secureStoreProvider),
-    legacyStorage: HiveStorage<String>(
-      HiveBoxes.tasks,
-      hive: ref.read(hiveStoreProvider),
-    ),
+    legacyStorage: HiveStorage<String>(HiveBoxes.tasks, hive: ref.read(hiveStoreProvider)),
   );
 }
 
@@ -42,10 +39,7 @@ final taskRepositoryProvider = Provider<TaskRepository>(taskRepository);
 final flowmapRepositoryProvider = Provider<FlowmapRepository>((Ref ref) {
   return FlowmapRepository.secure(
     ref.read(secureStoreProvider),
-    legacyStorage: HiveStorage<String>(
-      HiveBoxes.flowmap,
-      hive: ref.read(hiveStoreProvider),
-    ),
+    legacyStorage: HiveStorage<String>(HiveBoxes.flowmap, hive: ref.read(hiveStoreProvider)),
   );
 });
 
@@ -69,9 +63,7 @@ final planRepositoryProvider = Provider<PlanRepository>((Ref ref) {
   return PlanRepository(ref.read(sharedPrefsStoreProvider));
 });
 
-final progressionRepositoryProvider = Provider<ProgressionRepository>((
-  Ref ref,
-) {
+final progressionRepositoryProvider = Provider<ProgressionRepository>((Ref ref) {
   return ProgressionRepository(ref.read(secureStoreProvider));
 });
 
@@ -79,9 +71,7 @@ final notificationSchedulerProvider = Provider<NotificationScheduler>(
   (Ref ref) => NotificationScheduler(),
 );
 
-final notificationsRepositoryProvider = Provider<NotificationsRepository>((
-  Ref ref,
-) {
+final notificationsRepositoryProvider = Provider<NotificationsRepository>((Ref ref) {
   return NotificationsRepository(
     ref.read(notificationSchedulerProvider),
     ref.read(secureStoreProvider),

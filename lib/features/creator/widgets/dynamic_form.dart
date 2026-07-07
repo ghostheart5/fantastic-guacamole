@@ -158,7 +158,7 @@ class _DynamicFormState extends State<DynamicForm> {
                       ),
                     )
                   : const Text(
-                      'FORGE ENTRY',
+                      'FORGE TASK',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,

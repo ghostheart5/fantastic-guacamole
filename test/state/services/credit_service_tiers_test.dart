@@ -15,13 +15,13 @@ void main() {
       final ultimateLikeWallet = await ultimateService.loadWallet(premium: true);
 
       expect(baseWallet.tier, 'free');
-      expect(baseWallet.allowance, 10);
+      expect(baseWallet.allowance, 20);
       expect(premiumWallet.tier, 'premium');
       expect(premiumWallet.allowance, 300);
       expect(ultimateLikeWallet.tier, 'premium');
       expect(ultimateLikeWallet.allowance, 300);
 
-      final baseDenied = await baseService.spend(premium: false, amount: 11);
+      final baseDenied = await baseService.spend(premium: false, amount: 21);
       expect(baseDenied.allowed, isFalse);
 
       final premiumAllowed = await premiumService.spend(premium: true, amount: 250);

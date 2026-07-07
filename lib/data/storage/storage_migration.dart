@@ -7,8 +7,8 @@ class StorageMigration {
   static Future<void>? _runFuture;
 
   static Future<void> run() async {
-    final Future<void> inFlight = _runFuture ??= _runInternal();
-    await inFlight;
+    _runFuture ??= _runInternal().whenComplete(() => _runFuture = null);
+    await _runFuture!;
   }
 
   static Future<void> _runInternal() async {

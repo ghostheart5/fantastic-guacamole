@@ -7,8 +7,8 @@ class CreditService {
   CreditService({required this._prefs});
 
   static const String _walletKey = 'ai_credit_wallet';
-  static const int _freeAllowance = 10;
-  static const int _freeDailyRefill = 2;
+  static const int _freeAllowance = 20;
+  static const int _freeDailyRefill = 20;
   static const int _premiumAllowance = 300;
   final SharedPrefsStore _prefs;
 

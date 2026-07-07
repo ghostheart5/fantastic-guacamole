@@ -72,7 +72,7 @@ export 'package:fantastic_guacamole/domain/usecases/get_all_themes.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_available_plans.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_calendar_entries.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_current_theme.dart';
-export 'package:fantastic_guacamole/domain/usecases/get_flowmap.dart';
+export 'package:fantastic_guacamole/domain/usecases/get_flowmap_nodes.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_identity_profile.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_insights.dart';

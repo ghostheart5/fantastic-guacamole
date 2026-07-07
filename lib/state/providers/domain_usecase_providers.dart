@@ -34,7 +34,7 @@ import 'package:fantastic_guacamole/domain/usecases/generate_insight_from_event.
 import 'package:fantastic_guacamole/domain/usecases/generate_si_decision.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_all_themes.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_current_theme.dart';
-import 'package:fantastic_guacamole/domain/usecases/get_flowmap.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_flowmap_nodes.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_identity_profile.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_insights.dart';
@@ -69,9 +69,7 @@ final domainTaskRepositoryProvider = Provider<ITaskRepository>((ref) {
   return ref.read(taskRepositoryProvider);
 });
 
-final domainNotificationRepositoryProvider = Provider<INotificationRepository>((
-  ref,
-) {
+final domainNotificationRepositoryProvider = Provider<INotificationRepository>((ref) {
   return ref.read(notificationsRepositoryProvider);
 });
 
@@ -99,9 +97,7 @@ final domainProfileRepositoryProvider = Provider<IProfileRepository>((ref) {
   return ref.read(profileRepositoryProvider);
 });
 
-final domainProgressionRepositoryProvider = Provider<IProgressionRepository>((
-  ref,
-) {
+final domainProgressionRepositoryProvider = Provider<IProgressionRepository>((ref) {
   return ref.read(progressionRepositoryProvider);
 });
 
@@ -141,12 +137,9 @@ final addInsightUseCaseProvider = Provider<AddInsight>((ref) {
   return AddInsight(ref.read(domainInsightRepositoryProvider));
 });
 
-final generateInsightFromEventUseCaseProvider =
-    Provider<GenerateInsightFromEvent>((ref) {
-      return GenerateInsightFromEvent(
-        ref.read(domainInsightRepositoryProvider),
-      );
-    });
+final generateInsightFromEventUseCaseProvider = Provider<GenerateInsightFromEvent>((ref) {
+  return GenerateInsightFromEvent(ref.read(domainInsightRepositoryProvider));
+});
 
 final getLogsUseCaseProvider = Provider<GetLogs>((ref) {
   return GetLogs(ref.read(domainLogRepositoryProvider));
@@ -295,9 +288,7 @@ final deleteTaskUseCaseProvider = Provider<DeleteTask>((ref) {
   return DeleteTask(ref.read(domainTaskRepositoryProvider));
 });
 
-final scheduleNotificationUseCaseProvider = Provider<ScheduleNotification>((
-  ref,
-) {
+final scheduleNotificationUseCaseProvider = Provider<ScheduleNotification>((ref) {
   return ScheduleNotification(ref.read(domainNotificationRepositoryProvider));
 });
 
@@ -313,17 +304,13 @@ final generateSiDecisionUseCaseProvider = Provider<GenerateSiDecision>((ref) {
 });
 
 final domainSiDecisionProvider = FutureProvider<Task?>((ref) async {
-  final SiDecisionEntity decision = await ref
-      .read(generateSiDecisionUseCaseProvider)
-      .call();
+  final SiDecisionEntity decision = await ref.read(generateSiDecisionUseCaseProvider).call();
   final String? selectedTaskId = decision.selectedTaskId;
   if (selectedTaskId == null || selectedTaskId.isEmpty) {
     return null;
   }
 
-  final TaskEntity? task = await ref
-      .read(domainTaskRepositoryProvider)
-      .getTaskById(selectedTaskId);
+  final TaskEntity? task = await ref.read(domainTaskRepositoryProvider).getTaskById(selectedTaskId);
   return task == null ? null : _taskFromEntity(task);
 });
 
@@ -354,8 +341,6 @@ class _SiRepositoryAdapter implements ISiRepository {
 
   @override
   Future<void> saveState(SiStateEntity state) async {
-    _ref
-        .read(siStateProvider.notifier)
-        .replaceState(energy: state.energy, fatigue: state.fatigue);
+    _ref.read(siStateProvider.notifier).replaceState(energy: state.energy, fatigue: state.fatigue);
   }
 }
