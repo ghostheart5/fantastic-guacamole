@@ -22,7 +22,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.d
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
 import 'package:fantastic_guacamole/state/services/si_engine_dependencies.dart';
-import 'package:fantastic_guacamole/state/services/si_engine_service.dart';
+import 'package:fantastic_guacamole/state/services/state_si_engine_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

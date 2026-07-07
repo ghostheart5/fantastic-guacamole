@@ -26,7 +26,7 @@ import 'package:fantastic_guacamole/domain/usecases/delete_flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_memory.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_si_decision.dart';
-import 'package:fantastic_guacamole/domain/usecases/get_flowmap.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_flowmap_nodes.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_memories.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';

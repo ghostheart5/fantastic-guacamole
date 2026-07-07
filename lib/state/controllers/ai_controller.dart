@@ -17,9 +17,9 @@ import 'package:fantastic_guacamole/engine/si/ai_response.dart';
 import 'package:fantastic_guacamole/engine/si/core/si_core.dart' as modular_si;
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
     show SIPersona, PersonalityTraits;
-import 'package:fantastic_guacamole/engine/si/si_core.dart';
 import 'package:fantastic_guacamole/engine/si/si_decision.dart';
 import 'package:fantastic_guacamole/engine/si/si_response_policy.dart';
+import 'package:fantastic_guacamole/engine/si/si_task_core.dart';
 import 'package:fantastic_guacamole/engine/si/synthetic_intelligence_engine.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_memory_selection.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
@@ -64,32 +64,22 @@ final nextActionTextProvider = Provider<String>((ref) {
   return 'Focus on: ${tasks.first.title}';
 });
 
-final aiTriggerProvider = NotifierProvider<AITriggerNotifier, int>(
-  AITriggerNotifier.new,
+final aiTriggerProvider = NotifierProvider<AITriggerNotifier, int>(AITriggerNotifier.new);
+final aiAgentTraceProvider = NotifierProvider<AIAgentTraceNotifier, AgentResult?>(
+  AIAgentTraceNotifier.new,
 );
-final aiAgentTraceProvider =
-    NotifierProvider<AIAgentTraceNotifier, AgentResult?>(
-      AIAgentTraceNotifier.new,
-    );
-final aiPersonalityProvider =
-    NotifierProvider<AIPersonalityNotifier, AIPersonality>(
-      AIPersonalityNotifier.new,
-    );
-final aiInputProvider = NotifierProvider<AIInputNotifier, String?>(
-  AIInputNotifier.new,
+final aiPersonalityProvider = NotifierProvider<AIPersonalityNotifier, AIPersonality>(
+  AIPersonalityNotifier.new,
 );
-final aiExecutionStatusProvider =
-    NotifierProvider<AIExecutionStatusNotifier, AIExecutionStatus>(
-      AIExecutionStatusNotifier.new,
-    );
+final aiInputProvider = NotifierProvider<AIInputNotifier, String?>(AIInputNotifier.new);
+final aiExecutionStatusProvider = NotifierProvider<AIExecutionStatusNotifier, AIExecutionStatus>(
+  AIExecutionStatusNotifier.new,
+);
 final aiMessageThrottleProvider = Provider<Throttle>((_) {
   return Throttle(const Duration(milliseconds: 900));
 });
 final aiSuggestionRateLimiterProvider = Provider<SlidingWindowRateLimiter>((_) {
-  return SlidingWindowRateLimiter(
-    maxRequests: 3,
-    window: const Duration(seconds: 20),
-  );
+  return SlidingWindowRateLimiter(maxRequests: 3, window: const Duration(seconds: 20));
 });
 
 class AITriggerNotifier extends Notifier<int> {
@@ -128,12 +118,7 @@ class AIExecutionStatusNotifier extends Notifier<AIExecutionStatus> {
 }
 
 class AIExecutionStatus {
-  const AIExecutionStatus({
-    required this.phase,
-    this.requestId,
-    this.durationMs,
-    this.error,
-  });
+  const AIExecutionStatus({required this.phase, this.requestId, this.durationMs, this.error});
 
   const AIExecutionStatus.idle()
     : this(phase: 'idle', requestId: null, durationMs: null, error: null);
@@ -143,12 +128,7 @@ class AIExecutionStatus {
   final int? durationMs;
   final String? error;
 
-  AIExecutionStatus copyWith({
-    String? phase,
-    String? requestId,
-    int? durationMs,
-    String? error,
-  }) {
+  AIExecutionStatus copyWith({String? phase, String? requestId, int? durationMs, String? error}) {
     return AIExecutionStatus(
       phase: phase ?? this.phase,
       requestId: requestId ?? this.requestId,
@@ -178,8 +158,7 @@ class AIController {
     final Throttle throttle = _ref.read(aiMessageThrottleProvider);
     if (!throttle.isReady) {
       return const AIRecommendation(
-        message:
-            'Rapid repeat detected. Pause for a moment so I can give you a better response.',
+        message: 'Rapid repeat detected. Pause for a moment so I can give you a better response.',
         reasoning: 'throttled',
         emotion: 'balanced',
         confidence: 0.6,
@@ -192,8 +171,7 @@ class AIController {
     });
     if (!accepted) {
       return const AIRecommendation(
-        message:
-            'Rapid repeat detected. Pause for a moment so I can give you a better response.',
+        message: 'Rapid repeat detected. Pause for a moment so I can give you a better response.',
         reasoning: 'throttled',
         emotion: 'balanced',
         confidence: 0.6,
@@ -220,8 +198,7 @@ class AIController {
     final soulState = _ref.read(soulStateProvider);
     final trajectory = _ref.read(trajectorySummaryProvider);
     final List<String> coreValues =
-        _ref.read(profileValuesStoreProvider).load().toList(growable: false)
-          ..sort();
+        _ref.read(profileValuesStoreProvider).load().toList(growable: false)..sort();
 
     final List<Map<String, String>> history = <Map<String, String>>[];
     final dynamic rawHistory = previousState?['historySummary'];
@@ -247,10 +224,7 @@ class AIController {
         .take(3)
         .map((block) => block.title)
         .toList(growable: false);
-    final List<String> matchedSurfaces = _detectQuerySurfaces(
-      input,
-      forcedSurface: forcedSurface,
-    );
+    final List<String> matchedSurfaces = _detectQuerySurfaces(input, forcedSurface: forcedSurface);
     final String primarySurface = matchedSurfaces.first;
 
     final Map<String, dynamic> context = <String, dynamic>{
@@ -308,17 +282,11 @@ class AIController {
         'insights': <String, dynamic>{
           'count': insightsBundle.items.length,
           'summary': insightsBundle.summary,
-          'top': insightsBundle.items
-              .take(5)
-              .map((item) => item.title)
-              .toList(growable: false),
+          'top': insightsBundle.items.take(5).map((item) => item.title).toList(growable: false),
         },
         'logs': <String, dynamic>{
           'count': logsState.entries.length,
-          'recent': logsState.entries
-              .take(5)
-              .map((entry) => entry.message)
-              .toList(growable: false),
+          'recent': logsState.entries.take(5).map((entry) => entry.message).toList(growable: false),
         },
         'memories': <String, dynamic>{
           'count': memories.length,
@@ -327,27 +295,15 @@ class AIController {
         'notifications': <String, dynamic>{
           'count': notifications.length,
           'unread': notifications.where((item) => !item.isRead).length,
-          'recent': notifications
-              .take(5)
-              .map((item) => item.title)
-              .toList(growable: false),
+          'recent': notifications.take(5).map((item) => item.title).toList(growable: false),
         },
-        'plan': <String, dynamic>{
-          'preview': planPreview,
-          'generatedFromEnergy': si.energy,
-        },
+        'plan': <String, dynamic>{'preview': planPreview, 'generatedFromEnergy': si.energy},
         'flowmap': <String, dynamic>{'count': flowmapNodeCount},
-        'emotions': <String, dynamic>{
-          'current': emotion.name,
-          'fatigue': si.fatigue,
-        },
+        'emotions': <String, dynamic>{'current': emotion.name, 'fatigue': si.fatigue},
         'soulmap': soulState.toJson(),
         'timeline': <String, dynamic>{
           'count': timelineEvents.length,
-          'recent': timelineEvents
-              .take(5)
-              .map((e) => e.title)
-              .toList(growable: false),
+          'recent': timelineEvents.take(5).map((e) => e.title).toList(growable: false),
         },
         'trajectory': <String, dynamic>{
           'pressure': trajectory.pressureIndex,
@@ -383,17 +339,12 @@ class AIController {
 
   Future<List<TaskEntity>> _loadConsoleTaskEntities() async {
     try {
-      final List<TaskEntity> entities = await _ref
-          .read(domainTaskRepositoryProvider)
-          .getAllTasks();
+      final List<TaskEntity> entities = await _ref.read(domainTaskRepositoryProvider).getAllTasks();
       final List<TaskEntity> active =
           entities
               .where((TaskEntity item) => !item.isCompleted && !item.isCanceled)
               .toList(growable: true)
-            ..sort(
-              (TaskEntity a, TaskEntity b) =>
-                  b.createdAt.compareTo(a.createdAt),
-            );
+            ..sort((TaskEntity a, TaskEntity b) => b.createdAt.compareTo(a.createdAt));
       return active;
     } catch (_) {
       final List<Task> fallback = await _ref.read(tasksProvider.future);
@@ -452,15 +403,7 @@ class AIController {
       'progression': <String>['xp', 'level', 'streak', 'progress', 'rank'],
       'goals': <String>['goal', 'target', 'objective', 'mission'],
       'insights': <String>['insight', 'signal', 'pattern', 'analysis'],
-      'logs': <String>[
-        'log',
-        'ledger',
-        'activity',
-        'record',
-        'created',
-        'added',
-        'made',
-      ],
+      'logs': <String>['log', 'ledger', 'activity', 'record', 'created', 'added', 'made'],
       'memories': <String>['memory', 'remember', 'recall', 'history'],
       'notifications': <String>['notification', 'alert', 'reminder', 'prompt'],
       'plan': <String>['plan', 'schedule', 'calendar', 'time block'],
@@ -468,12 +411,7 @@ class AIController {
       'emotions': <String>['emotion', 'mood', 'energy', 'fatigue', 'feel'],
       'soulmap': <String>['soul', 'identity', 'continuity', 'narrative'],
       'timeline': <String>['timeline', 'milestone', 'event', 'chronology'],
-      'trajectory': <String>[
-        'trajectory',
-        'momentum',
-        'pressure',
-        'prediction',
-      ],
+      'trajectory': <String>['trajectory', 'momentum', 'pressure', 'prediction'],
     };
 
     final List<String> matched = <String>[];
@@ -539,8 +477,7 @@ class AIController {
     if (matchedSurfaces.contains('plan')) {
       return 'planning';
     }
-    if (matchedSurfaces.contains('tasks') ||
-        matchedSurfaces.contains('trajectory')) {
+    if (matchedSurfaces.contains('tasks') || matchedSurfaces.contains('trajectory')) {
       return 'recommendation';
     }
     if (matchedSurfaces.contains('timeline') ||
@@ -554,10 +491,7 @@ class AIController {
     return 'chat';
   }
 
-  Map<String, dynamic> _responseContract(
-    String primarySurface,
-    List<String> matchedSurfaces,
-  ) {
+  Map<String, dynamic> _responseContract(String primarySurface, List<String> matchedSurfaces) {
     return <String, dynamic>{
       'style': 'module_brief',
       'sections': <String>['signal', 'insight', 'next_actions'],
@@ -584,8 +518,7 @@ class AIController {
     final store = _ref.read(secureStoreProvider);
     final String? raw = await store.readString(_neuralDumpKey);
 
-    final List<Map<String, dynamic>> existing =
-        (raw == null || raw.trim().isEmpty)
+    final List<Map<String, dynamic>> existing = (raw == null || raw.trim().isEmpty)
         ? <Map<String, dynamic>>[]
         : ((jsonDecode(raw) as List<dynamic>)
               .whereType<Map<String, dynamic>>()
@@ -607,8 +540,7 @@ class AIController {
 
   Future<AIRecommendation?> retryMessage(String messageId) async {
     final siEngineService = _ref.read(siEngineServiceProvider);
-    final Map<String, dynamic>? previousState = await siEngineService
-        .loadState();
+    final Map<String, dynamic>? previousState = await siEngineService.loadState();
     final String id = messageId.trim();
     if (id.isEmpty || previousState == null) {
       return null;
@@ -641,9 +573,7 @@ class AIController {
     });
     _ref.read(aiInputProvider.notifier).set(null);
     _ref.read(aiAgentTraceProvider.notifier).set(null);
-    _ref
-        .read(aiExecutionStatusProvider.notifier)
-        .set(const AIExecutionStatus.idle());
+    _ref.read(aiExecutionStatusProvider.notifier).set(const AIExecutionStatus.idle());
     _ref.read(siMemoryProvider.notifier).clear();
     _ref.invalidate(aiResponseProvider);
     _ref.invalidate(siEngineStateProvider);
@@ -657,10 +587,7 @@ class AIController {
     await _recordSuggestionFeedback(actionId: actionId, accepted: false);
   }
 
-  Future<void> _recordSuggestionFeedback({
-    required String actionId,
-    required bool accepted,
-  }) async {
+  Future<void> _recordSuggestionFeedback({required String actionId, required bool accepted}) async {
     final String id = actionId.trim();
     if (id.isEmpty) {
       return;
@@ -679,18 +606,13 @@ class AIController {
       ...?state,
       'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
       'memoryEvents': events,
-      'lastSuggestionFeedback': <String, dynamic>{
-        'actionId': id,
-        'accepted': accepted,
-      },
+      'lastSuggestionFeedback': <String, dynamic>{'actionId': id, 'accepted': accepted},
     });
     _ref.invalidate(siEngineStateProvider);
   }
 }
 
-final siEngineStateProvider = FutureProvider<Map<String, dynamic>?>((
-  ref,
-) async {
+final siEngineStateProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   final siEngineService = ref.read(siEngineServiceProvider);
   return siEngineService.loadState();
 });
@@ -704,18 +626,15 @@ final aiDecisionProvider = FutureProvider<Decision?>((ref) async {
   final Decision? decision = core.decide(tasks);
 
   if (decision != null) {
-    ref
-        .read(notificationActionsProvider)
-        .pushMirroredDecision(decision.task.title);
+    ref.read(notificationActionsProvider).pushMirroredDecision(decision.task.title);
   }
 
   return decision;
 });
 
-final aiResponseProvider =
-    AsyncNotifierProvider<AIResponseController, AIRecommendation?>(
-      AIResponseController.new,
-    );
+final aiResponseProvider = AsyncNotifierProvider<AIResponseController, AIRecommendation?>(
+  AIResponseController.new,
+);
 
 class AIResponseController extends AsyncNotifier<AIRecommendation?> {
   static int _requestCounter = 0;
@@ -771,12 +690,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
     ref
         .read(aiExecutionStatusProvider.notifier)
         .set(
-          AIExecutionStatus(
-            phase: 'running',
-            requestId: requestId,
-            durationMs: null,
-            error: null,
-          ),
+          AIExecutionStatus(phase: 'running', requestId: requestId, durationMs: null, error: null),
         );
     RuntimeDiagnostics.record('AI[$requestId] started');
 
@@ -784,18 +698,14 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
       final List<Task> tasks = await ref.read(tasksProvider.future);
       final siEngineService = ref.read(siEngineServiceProvider);
       final agentOrchestrator = ref.read(agentOrchestratorProvider);
-      final bool hasPremiumAccess = ref
-          .read(appAccessProvider)
-          .hasPremiumAccess;
+      final bool hasPremiumAccess = ref.read(appAccessProvider).hasPremiumAccess;
       final CreditService creditService = ref.read(creditServiceProvider);
 
       final si = ref.read(siStateProvider);
       final learning = ref.read(learningProvider);
       final intelligence = ref.read(intelligenceStateProvider);
       final AIPersonality personality =
-          personalityOverride ??
-          ref.read(aiPersonalityProvider) ??
-          AIPersonality.coach;
+          personalityOverride ?? ref.read(aiPersonalityProvider) ?? AIPersonality.coach;
       final input = inputOverride ?? ref.read(aiInputProvider);
 
       final AiCreditSpendResult spend = await creditService.spend(
@@ -843,22 +753,15 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
 
       ref.read(paywallPromptProvider.notifier).set(null);
 
-      final Map<String, dynamic>? previousState = await siEngineService
-          .loadState();
-      final List<Map<String, String>> conversationHistory =
-          List<Map<String, String>>.from(history);
-      final String previousMessage =
-          previousState?['message']?.toString().trim() ?? '';
+      final Map<String, dynamic>? previousState = await siEngineService.loadState();
+      final List<Map<String, String>> conversationHistory = List<Map<String, String>>.from(history);
+      final String previousMessage = previousState?['message']?.toString().trim() ?? '';
       final bool alreadyContainsPrevious = conversationHistory.any(
         (Map<String, String> item) =>
-            item['role'] == 'assistant' &&
-            item['content']?.trim() == previousMessage,
+            item['role'] == 'assistant' && item['content']?.trim() == previousMessage,
       );
       if (previousMessage.isNotEmpty && !alreadyContainsPrevious) {
-        conversationHistory.add(<String, String>{
-          'role': 'assistant',
-          'content': previousMessage,
-        });
+        conversationHistory.add(<String, String>{'role': 'assistant', 'content': previousMessage});
       }
       final List<SISnapshot> recentSnapshots = ref
           .read(siMemoryProvider)
@@ -866,13 +769,12 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
           .take(8)
           .toList(growable: false);
       final SIIntent intent = classifySIIntent(input ?? '');
-      final List<String> selectedMemorySummaries =
-          selectRelevantMemorySummaries(
-            query: input ?? '',
-            intent: intent,
-            recentSnapshots: recentSnapshots,
-            previousState: previousState,
-          );
+      final List<String> selectedMemorySummaries = selectRelevantMemorySummaries(
+        query: input ?? '',
+        intent: intent,
+        recentSnapshots: recentSnapshots,
+        previousState: previousState,
+      );
       final SIInputContext siInputContext = SIInputContext(
         query: input ?? '',
         availableTaskIds: tasks.map((Task t) => t.id).toSet(),
@@ -949,8 +851,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         emotion: response.emotion,
         confidence: response.confidence,
       );
-      final double baseConfidenceSeed = (baseRecommendation.confidence ?? 0.55)
-          .clamp(0.0, 1.0);
+      final double baseConfidenceSeed = (baseRecommendation.confidence ?? 0.55).clamp(0.0, 1.0);
       final double calibratedBaseConfidence = agentResult.usedDefaults
           ? (baseConfidenceSeed - 0.18).clamp(0.25, 1.0)
           : baseConfidenceSeed;
@@ -964,12 +865,8 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         recentSnapshots: recentSnapshots,
         previousState: previousState,
       );
-      final String? previousTaskId = recentSnapshots.isEmpty
-          ? null
-          : recentSnapshots.first.taskId;
-      final bool userRecentlySkipping = _recentSkipPressure(
-        ref.read(learningHistoryProvider),
-      );
+      final String? previousTaskId = recentSnapshots.isEmpty ? null : recentSnapshots.first.taskId;
+      final bool userRecentlySkipping = _recentSkipPressure(ref.read(learningHistoryProvider));
 
       final List<SIResponseCandidate> candidates = <SIResponseCandidate>[
         SIResponseCandidate(
@@ -993,9 +890,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         previousSnapshot: previousState ?? const <String, dynamic>{},
       );
 
-      final int selectedIndex = selection.index
-          .clamp(0, candidates.length - 1)
-          .toInt();
+      final int selectedIndex = selection.index.clamp(0, candidates.length - 1).toInt();
       final SIResponseCandidate selected = candidates[selectedIndex];
       final SIValidatedDecision validatedDecision = validateSIResponseDecision(
         inputContext: siInputContext,
@@ -1003,8 +898,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         candidate: selected,
       );
       Task? selectedTask;
-      if (validatedDecision.taskId != null &&
-          validatedDecision.taskId!.isNotEmpty) {
+      if (validatedDecision.taskId != null && validatedDecision.taskId!.isNotEmpty) {
         for (final Task t in tasks) {
           if (t.id == validatedDecision.taskId) {
             selectedTask = t;
@@ -1023,9 +917,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         confidence: selected.confidence,
       );
 
-      final SlidingWindowRateLimiter suggestionLimiter = ref.read(
-        aiSuggestionRateLimiterProvider,
-      );
+      final SlidingWindowRateLimiter suggestionLimiter = ref.read(aiSuggestionRateLimiterProvider);
       if (selection.repeatedTask && !suggestionLimiter.tryAcquire()) {
         recommendation = const AIRecommendation(
           task: null,
@@ -1042,8 +934,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
           task: recommendation.task,
           message:
               'I cannot produce a grounded answer yet. Rephrase with a specific task, status, or energy question.',
-          reasoning:
-              '${recommendation.reasoning ?? 'policy'} | policy_fallback',
+          reasoning: '${recommendation.reasoning ?? 'policy'} | policy_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: (recommendation.confidence ?? 0.6).clamp(0.0, 1.0),
         );
@@ -1064,8 +955,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
             recentResponseHashes: recentHashes,
             recentResponseSummaries: recentSummaries,
           ),
-          reasoning:
-              '${recommendation.reasoning ?? 'response'} | final_dedup_fallback',
+          reasoning: '${recommendation.reasoning ?? 'response'} | final_dedup_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: recommendation.confidence,
         );
@@ -1077,13 +967,9 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         );
       }
 
-      final bool usedGroundingFallback =
-          validatedDecision.violations.isNotEmpty;
-      final bool emittedPolicyAccepted = isPolicyAcceptableResponse(
-        recommendation.message,
-      );
-      final bool emittedGrounded =
-          validatedDecision.grounded || usedGroundingFallback;
+      final bool usedGroundingFallback = validatedDecision.violations.isNotEmpty;
+      final bool emittedPolicyAccepted = isPolicyAcceptableResponse(recommendation.message);
+      final bool emittedGrounded = validatedDecision.grounded || usedGroundingFallback;
       final bool facadeValidated = siEngineService.validateOutput(
         message: recommendation.message,
         confidence: (recommendation.confidence ?? 0.0),
@@ -1097,16 +983,14 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
           task: recommendation.task,
           message:
               'I could not validate that output against current state. Ask again with clearer task, plan, or status context.',
-          reasoning:
-              '${recommendation.reasoning ?? 'validation'} | facade_validation_fallback',
+          reasoning: '${recommendation.reasoning ?? 'validation'} | facade_validation_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: (recommendation.confidence ?? 0.5).clamp(0.0, 1.0),
         );
       }
 
       final bool facadeFallback =
-          recommendation.reasoning?.contains('facade_validation_fallback') ==
-          true;
+          recommendation.reasoning?.contains('facade_validation_fallback') == true;
       final bool repeatedAfterValidation = isSubstantiallyRepeatedResponse(
         message: recommendation.message,
         recentResponseHashes: recentHashes,
@@ -1121,8 +1005,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
             recentResponseHashes: recentHashes,
             recentResponseSummaries: recentSummaries,
           ),
-          reasoning:
-              '${recommendation.reasoning ?? 'response'} | final_dedup_fallback',
+          reasoning: '${recommendation.reasoning ?? 'response'} | final_dedup_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: recommendation.confidence,
         );
@@ -1142,8 +1025,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         noveltyScore: finalNovelty,
         memoryUsed: selectedMemorySummaries.isNotEmpty,
         usedDefaults: agentResult.usedDefaults,
-        usedFallback:
-            usedGroundingFallback || usedFinalDedupFallback || facadeFallback,
+        usedFallback: usedGroundingFallback || usedFinalDedupFallback || facadeFallback,
       );
       recommendation = AIRecommendation(
         task: recommendation.task,
@@ -1155,36 +1037,24 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
 
       stopwatch.stop();
 
-      final Map<String, dynamic> generatedResponse = await siEngineService
-          .generateResponse(
-            input: input ?? '',
-            message: recommendation.message,
-            emotion: recommendation.emotion ?? 'balanced',
-            confidence: recommendation.confidence ?? 0.5,
-            taskId: recommendation.task?.id,
-            context: <String, dynamic>{
-              'reasoning': recommendation.reasoning ?? '',
-            },
-          );
-      final String responseHash =
-          generatedResponse['responseHash']?.toString() ?? '';
-      final String responseSummary =
-          generatedResponse['responseSummary']?.toString() ?? '';
-      final String actionKey = recommendation.task?.id ?? responseHash;
-      final bool persistFullHistory =
-          conversationContext['persistFullHistory'] == true;
-      final String memoryType = _classifyMemoryType(
-        intent: intent,
-        recommendation: recommendation,
+      final Map<String, dynamic> generatedResponse = await siEngineService.generateResponse(
+        input: input ?? '',
+        message: recommendation.message,
+        emotion: recommendation.emotion ?? 'balanced',
+        confidence: recommendation.confidence ?? 0.5,
+        taskId: recommendation.task?.id,
+        context: <String, dynamic>{'reasoning': recommendation.reasoning ?? ''},
       );
+      final String responseHash = generatedResponse['responseHash']?.toString() ?? '';
+      final String responseSummary = generatedResponse['responseSummary']?.toString() ?? '';
+      final String actionKey = recommendation.task?.id ?? responseHash;
+      final bool persistFullHistory = conversationContext['persistFullHistory'] == true;
+      final String memoryType = _classifyMemoryType(intent: intent, recommendation: recommendation);
       final Map<String, dynamic> memoryEvent = <String, dynamic>{
         'timestampUtc': DateTime.now().toUtc().toIso8601String(),
         'type': memoryType,
         'intent': intent.label,
-        'summary': _summarizeInteraction(
-          input: input ?? '',
-          output: recommendation.message,
-        ),
+        'summary': _summarizeInteraction(input: input ?? '', output: recommendation.message),
         'taskId': recommendation.task?.id,
         'responseHash': responseHash,
       };
@@ -1196,13 +1066,12 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         currentState: previousState,
         memoryEvent: memoryEvent,
       );
-      final Map<String, dynamic> communicationContract =
-          buildSICommunicationContract(
-            inputContext: siInputContext,
-            intent: intent,
-            candidateActions: candidates,
-            decision: validatedDecision,
-          );
+      final Map<String, dynamic> communicationContract = buildSICommunicationContract(
+        inputContext: siInputContext,
+        intent: intent,
+        candidateActions: candidates,
+        decision: validatedDecision,
+      );
 
       await siEngineService.saveState(<String, dynamic>{
         'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
@@ -1227,10 +1096,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         'actionKey': actionKey,
         'grounded': validatedDecision.grounded,
         'validationViolations': validatedDecision.violations,
-        'intent': <String, dynamic>{
-          'label': intent.label,
-          'confidence': intent.confidence,
-        },
+        'intent': <String, dynamic>{'label': intent.label, 'confidence': intent.confidence},
         'communicationContract': communicationContract,
       });
       ref.invalidate(siEngineStateProvider);
@@ -1263,9 +1129,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
               error: null,
             ),
           );
-      RuntimeDiagnostics.record(
-        'AI[$requestId] completed in ${stopwatch.elapsedMilliseconds}ms',
-      );
+      RuntimeDiagnostics.record('AI[$requestId] completed in ${stopwatch.elapsedMilliseconds}ms');
       return recommendation;
     } on Exception catch (error, stackTrace) {
       stopwatch.stop();
@@ -1289,10 +1153,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
   }
 }
 
-int _aiCreditCost({
-  required String? input,
-  required AIPersonality personality,
-}) {
+int _aiCreditCost({required String? input, required AIPersonality personality}) {
   final String text = input?.trim() ?? '';
   final int lengthBonus = text.length > 120 ? 1 : 0;
   final int toneBonus = personality == AIPersonality.strict ? 1 : 0;
@@ -1303,9 +1164,7 @@ bool _recentSkipPressure(List<LearningHistoryEntry> history) {
   if (history.isEmpty) {
     return false;
   }
-  final List<LearningHistoryEntry> recent = history
-      .take(6)
-      .toList(growable: false);
+  final List<LearningHistoryEntry> recent = history.take(6).toList(growable: false);
   final int skipped = recent
       .where((LearningHistoryEntry e) => e.type == LearningEventType.skipped)
       .length;
@@ -1386,10 +1245,7 @@ String _leastRepeatedSafeFallback({
   return best;
 }
 
-String _classifyMemoryType({
-  required SIIntent intent,
-  required AIRecommendation recommendation,
-}) {
+String _classifyMemoryType({required SIIntent intent, required AIRecommendation recommendation}) {
   if (recommendation.task != null) {
     return 'task_recommendation';
   }
@@ -1444,10 +1300,7 @@ List<String> recentResponseSummariesForTesting({
   required List<SISnapshot> recentSnapshots,
   required Map<String, dynamic>? previousState,
 }) {
-  return recentResponseSummaries(
-    recentSnapshots: recentSnapshots,
-    previousState: previousState,
-  );
+  return recentResponseSummaries(recentSnapshots: recentSnapshots, previousState: previousState);
 }
 
 List<String> selectRelevantMemorySummariesForTesting({
@@ -1493,52 +1346,34 @@ AIResponse _responseFromAgentResult({
   );
 }
 
-final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
-  ref,
-) async {
+final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final String input = ref.watch(aiInputProvider) ?? '';
   final AIPersonality personality = ref.watch(aiPersonalityProvider);
   final si = ref.watch(siStateProvider);
   final learning = ref.watch(learningProvider);
-  final AIRecommendation? recommendation = ref
-      .watch(aiResponseProvider)
-      .asData
-      ?.value;
+  final AIRecommendation? recommendation = ref.watch(aiResponseProvider).asData?.value;
   final AIResponse? response = recommendation == null
       ? null
       : AIResponse(
           message: recommendation.message,
           emotion: recommendation.emotion ?? 'balanced',
           confidence: recommendation.confidence ?? 0.5,
-          personality: _profileFor(
-            personality,
-            mood: recommendation.emotion ?? 'balanced',
-          ),
-          action: recommendation.task == null
-              ? 'respond_conversationally'
-              : 'recommend_task',
+          personality: _profileFor(personality, mood: recommendation.emotion ?? 'balanced'),
+          action: recommendation.task == null ? 'respond_conversationally' : 'recommend_task',
           safe: true,
           taskTitle: recommendation.task?.title,
-          metadata: <String, dynamic>{
-            'reasoning': recommendation.reasoning ?? '',
-          },
+          metadata: <String, dynamic>{'reasoning': recommendation.reasoning ?? ''},
         );
   final List<Task> tasks = await ref.watch(tasksProvider.future);
-  final Task? selectedTask =
-      recommendation?.task?.toTask() ?? (tasks.isEmpty ? null : tasks.first);
-  final Map<String, dynamic>? previousState = await ref.watch(
-    siEngineStateProvider.future,
-  );
-  final String previousMessage =
-      previousState?['message']?.toString().trim() ?? '';
+  final Task? selectedTask = recommendation?.task?.toTask() ?? (tasks.isEmpty ? null : tasks.first);
+  final Map<String, dynamic>? previousState = await ref.watch(siEngineStateProvider.future);
+  final String previousMessage = previousState?['message']?.toString().trim() ?? '';
   final modular_si.SIPipelineResult coreResult = ref
       .read(modularSiCoreProvider)
       .run(
         input: modular_si.SIInputPacket(
           text: input,
-          history: previousMessage.isEmpty
-              ? const <String>[]
-              : <String>[previousMessage],
+          history: previousMessage.isEmpty ? const <String>[] : <String>[previousMessage],
           context: const <String, dynamic>{'appState': 'coach'},
           latent: modular_si.SILatentInputs(
             frustration: si.fatigue,
@@ -1560,10 +1395,7 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
         message: coreResult.response.message,
         emotion: coreResult.response.emotion,
         confidence: coreResult.response.confidence,
-        personality: _profileFor(
-          personality,
-          mood: coreResult.response.emotion,
-        ),
+        personality: _profileFor(personality, mood: coreResult.response.emotion),
         action: coreResult.decision.action,
         safe: coreResult.decision.safe,
         taskTitle: coreResult.response.task?.title,
@@ -1585,9 +1417,7 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
     response: effectiveResponse,
     appState: 'coach',
     platform: 'flutter',
-    history: previousMessage.isEmpty
-        ? const <String>[]
-        : <String>[previousMessage],
+    history: previousMessage.isEmpty ? const <String>[] : <String>[previousMessage],
     context: coreContext,
   );
 
@@ -1608,14 +1438,9 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
   };
 });
 
-final modularSiCoreProvider = Provider<modular_si.SICore>(
-  (_) => modular_si.SICore(),
-);
+final modularSiCoreProvider = Provider<modular_si.SICore>((_) => modular_si.SICore());
 
-AIPersonalityProfile _profileFor(
-  AIPersonality personality, {
-  String mood = 'balanced',
-}) {
+AIPersonalityProfile _profileFor(AIPersonality personality, {String mood = 'balanced'}) {
   switch (personality) {
     case AIPersonality.strict:
       return const AIPersonalityProfile(
