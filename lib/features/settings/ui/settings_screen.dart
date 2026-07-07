@@ -33,7 +33,9 @@ class SettingsScreen extends ConsumerWidget {
     final access = ref.watch(appAccessProvider);
     final hasMockSession = ref.watch(mockAuthSessionProvider);
     final intelligence = ref.watch(intelligenceStateProvider);
-    final bool accountDeletionConfigured = _hasSecureHttpsEndpoint(Env.accountDeleteEndpoint);
+    final bool accountDeletionConfigured = _hasSecureHttpsEndpoint(
+      Env.accountDeleteEndpoint,
+    );
     final bool reflectionTutorialEnabled = ref.watch(
       featureFlagEnabledProvider('daily_reflection_tutorial_enabled'),
     );
@@ -63,7 +65,9 @@ class SettingsScreen extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: AppColors.neonCyan.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: AppColors.neonCyan.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: const Icon(
                         Icons.arrow_back_ios_new,
@@ -97,7 +101,11 @@ class SettingsScreen extends ConsumerWidget {
                           'COMMAND MATRIX',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
+                          style: TextStyle(
+                            fontSize: 10,
+                            letterSpacing: 2,
+                            color: Colors.white38,
+                          ),
                         ),
                       ],
                     ),
@@ -114,22 +122,30 @@ class SettingsScreen extends ConsumerWidget {
                     _NeonToggleTile(
                       title: 'Audio FX',
                       value: soundEnabled,
-                      onChanged: (v) => ref.read(soundEnabledProvider.notifier).set(v),
+                      onChanged: (v) =>
+                          ref.read(soundEnabledProvider.notifier).set(v),
                     ),
                     ValueListenableBuilder<bool?>(
-                      valueListenable: ref.watch(notificationPermissionListenableProvider),
+                      valueListenable: ref.watch(
+                        notificationPermissionListenableProvider,
+                      ),
                       builder: (context, granted, _) {
                         final String subtitle = switch (granted) {
                           true => 'Granted',
                           false => 'Denied (scheduling disabled)',
                           null => 'Unknown until app initializes notifications',
                         };
-                        return _NeonStatusTile(title: 'Alert Permission', subtitle: subtitle);
+                        return _NeonStatusTile(
+                          title: 'Alert Permission',
+                          subtitle: subtitle,
+                        );
                       },
                     ),
                     const SizedBox(height: 8),
                     ValueListenableBuilder<bool?>(
-                      valueListenable: ref.watch(notificationPermissionListenableProvider),
+                      valueListenable: ref.watch(
+                        notificationPermissionListenableProvider,
+                      ),
                       builder: (context, granted, _) {
                         return NotificationPermissionPrompt(
                           permissionGranted: granted,
@@ -175,7 +191,9 @@ class SettingsScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     _NeonNavTile(
-                      title: access.hasTesterFullAccess ? 'Tester Access' : 'Subscription',
+                      title: access.hasTesterFullAccess
+                          ? 'Tester Access'
+                          : 'Subscription',
                       subtitle: access.subscriptionStatusDetail,
                       onTap: () => context.go(routes.paywall),
                     ),
@@ -192,15 +210,20 @@ class SettingsScreen extends ConsumerWidget {
                     if (access.hasTesterFullAccess)
                       _NeonNavTile(
                         title: 'Reset Tester Data',
-                        subtitle: 'Erase local test content and restart onboarding.',
-                        onTap: () => unawaited(_confirmTesterReset(context, ref)),
+                        subtitle:
+                            'Erase local test content and restart onboarding.',
+                        onTap: () =>
+                            unawaited(_confirmTesterReset(context, ref)),
                       ),
                     if (!hasMockSession)
                       accountDeletionConfigured
                           ? _NeonNavTile(
                               title: 'Delete Account',
-                              subtitle: 'Permanently delete your account and all synced data.',
-                              onTap: () => unawaited(_confirmDeleteAccount(context, ref)),
+                              subtitle:
+                                  'Permanently delete your account and all synced data.',
+                              onTap: () => unawaited(
+                                _confirmDeleteAccount(context, ref),
+                              ),
                             )
                           : _NeonNavTile(
                               title: 'Delete Account',
@@ -226,7 +249,10 @@ class SettingsScreen extends ConsumerWidget {
                 accentColor: AppColors.neonCyan,
                 child: Column(
                   children: [
-                    _NeonStatusTile(title: 'Flavor', subtitle: intelligence.environment.appFlavor),
+                    _NeonStatusTile(
+                      title: 'Flavor',
+                      subtitle: intelligence.environment.appFlavor,
+                    ),
                     _NeonStatusTile(
                       title: 'Mock Mode',
                       subtitle: intelligence.flags.mockMode
@@ -241,7 +267,9 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     _NeonStatusTile(
                       title: 'Mock Login',
-                      subtitle: intelligence.flags.mockLoginEnabled ? 'Enabled' : 'Disabled',
+                      subtitle: intelligence.flags.mockLoginEnabled
+                          ? 'Enabled'
+                          : 'Disabled',
                     ),
                   ],
                 ),
@@ -263,8 +291,10 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) =>
-                              const _InfoScreen(title: 'Terms of Service', body: _kTermsOfService),
+                          builder: (_) => const _InfoScreen(
+                            title: 'Terms of Service',
+                            body: _kTermsOfService,
+                          ),
                         ),
                       ),
                     ),
@@ -274,7 +304,10 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) => const _InfoScreen(title: 'Support', body: _kSupportInfo),
+                          builder: (_) => const _InfoScreen(
+                            title: 'Support',
+                            body: _kSupportInfo,
+                          ),
                         ),
                       ),
                     ),
@@ -289,7 +322,8 @@ class SettingsScreen extends ConsumerWidget {
                   child: _NeonNavTile(
                     title: 'Generate Test Data',
                     subtitle: '20 tasks · XP 2400 · streak 14 · energy 75%',
-                    onTap: () => unawaited(TestDataGenerator.generate(ref, context)),
+                    onTap: () =>
+                        unawaited(TestDataGenerator.generate(ref, context)),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -301,7 +335,9 @@ class SettingsScreen extends ConsumerWidget {
                     subtitle: 'Insights, recommendations, and optimizer state',
                     onTap: () => Navigator.push<void>(
                       context,
-                      MaterialPageRoute<void>(builder: (_) => const ProductAdvisorScreen()),
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ProductAdvisorScreen(),
+                      ),
                     ),
                   ),
                 ),
@@ -348,9 +384,9 @@ class SettingsScreen extends ConsumerWidget {
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Purging local tester runtime data...')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Purging local tester runtime data...')),
+    );
 
     try {
       await ref.read(testerDataResetControllerProvider).reset();
@@ -360,13 +396,20 @@ class SettingsScreen extends ConsumerWidget {
     } on Exception {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tester data purge did not complete. Restart and retry.')),
+          const SnackBar(
+            content: Text(
+              'Tester data purge did not complete. Restart and retry.',
+            ),
+          ),
         );
       }
     }
   }
 
-  Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final routes = ref.read(routeSurfaceProvider);
     final bool confirmed =
         await showDialog<bool>(
@@ -412,11 +455,15 @@ class SettingsScreen extends ConsumerWidget {
                 decoration: InputDecoration(
                   labelText: 'Account password',
                   suffixIcon: IconButton(
-                    tooltip: obscurePassword ? 'Show password' : 'Hide password',
+                    tooltip: obscurePassword
+                        ? 'Show password'
+                        : 'Hide password',
                     onPressed: () => setState(() {
                       obscurePassword = !obscurePassword;
                     }),
-                    icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),
+                    icon: Icon(
+                      obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    ),
                   ),
                 ),
                 onSubmitted: (String value) {
@@ -429,7 +476,9 @@ class SettingsScreen extends ConsumerWidget {
                   child: const Text('Abort'),
                 ),
                 FilledButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(passwordController.text.trim()),
+                  onPressed: () => Navigator.of(
+                    dialogContext,
+                  ).pop(passwordController.text.trim()),
                   child: const Text('Purge Account'),
                 ),
               ],
@@ -450,7 +499,9 @@ class SettingsScreen extends ConsumerWidget {
     ).showSnackBar(const SnackBar(content: Text('Executing account purge...')));
 
     try {
-      await ref.read(authServiceProvider).deleteCurrentAccount(password: secret);
+      await ref
+          .read(authServiceProvider)
+          .deleteCurrentAccount(password: secret);
       if (!context.mounted) {
         return;
       }
@@ -469,9 +520,9 @@ class SettingsScreen extends ConsumerWidget {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Account purge failed. Retry.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account purge failed. Retry.')),
+      );
     }
   }
 
@@ -507,7 +558,8 @@ class _ReflectionReminderSection extends ConsumerStatefulWidget {
   const _ReflectionReminderSection();
 
   @override
-  ConsumerState<_ReflectionReminderSection> createState() => _ReflectionReminderSectionState();
+  ConsumerState<_ReflectionReminderSection> createState() =>
+      _ReflectionReminderSectionState();
 }
 
 class _DailyReflectionTutorialPanel extends ConsumerWidget {
@@ -532,7 +584,10 @@ class _DailyReflectionTutorialPanel extends ConsumerWidget {
         if (progress.isStepDismissed(step.id)) {
           return Align(
             alignment: Alignment.centerLeft,
-            child: ShowMeAgainButton(stepId: step.id, label: 'Show Reflection Tutorial Again'),
+            child: ShowMeAgainButton(
+              stepId: step.id,
+              label: 'Show Reflection Tutorial Again',
+            ),
           );
         }
 
@@ -550,7 +605,8 @@ class _DailyReflectionTutorialPanel extends ConsumerWidget {
   }
 }
 
-class _ReflectionReminderSectionState extends ConsumerState<_ReflectionReminderSection> {
+class _ReflectionReminderSectionState
+    extends ConsumerState<_ReflectionReminderSection> {
   bool _enabled = false;
   TimeOfDay _time = const TimeOfDay(hour: 20, minute: 0);
 
@@ -598,7 +654,9 @@ class _ReflectionReminderSectionState extends ConsumerState<_ReflectionReminderS
     );
     if (picked == null || !mounted) return;
     setState(() => _time = picked);
-    await ref.read(settingsUiActionsProvider).setReflectionReminderTime(time: picked);
+    await ref
+        .read(settingsUiActionsProvider)
+        .setReflectionReminderTime(time: picked);
     if (_enabled) {
       await ref
           .read(settingsUiActionsProvider)
@@ -613,13 +671,20 @@ class _ReflectionReminderSectionState extends ConsumerState<_ReflectionReminderS
       accentColor: AppColors.neonViolet,
       child: Column(
         children: [
-          _NeonToggleTile(title: 'Reflection Reminder', value: _enabled, onChanged: _toggle),
+          _NeonToggleTile(
+            title: 'Reflection Reminder',
+            value: _enabled,
+            onChanged: _toggle,
+          ),
           if (_enabled)
             GestureDetector(
               onTap: _pickTime,
               behavior: HitTestBehavior.opaque,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -628,11 +693,16 @@ class _ReflectionReminderSectionState extends ConsumerState<_ReflectionReminderS
                       style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.neonViolet.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.4)),
+                        border: Border.all(
+                          color: AppColors.neonViolet.withValues(alpha: 0.4),
+                        ),
                       ),
                       child: Text(
                         _time.format(context),
@@ -687,7 +757,10 @@ class _GlobalMetricsDebugSection extends ConsumerWidget {
                 ),
               ),
             ),
-            error: (e, _) => _NeonStatusTile(title: 'Optimizer Error', subtitle: e.toString()),
+            error: (e, _) => _NeonStatusTile(
+              title: 'Optimizer Error',
+              subtitle: e.toString(),
+            ),
           ),
           _NeonNavTile(
             title: 'Refresh Global Metrics',
@@ -722,38 +795,54 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
                   'version=${progress.contentVersion} · completed=${progress.completedStepIds.length} · '
                   'skipped=${progress.dismissedStepIds.length} · forever=${progress.skippedForeverStepIds.length}',
             ),
-            loading: () =>
-                const _NeonStatusTile(title: 'Status', subtitle: 'Loading tutorial state...'),
-            error: (e, _) => _NeonStatusTile(title: 'Status Error', subtitle: e.toString()),
+            loading: () => const _NeonStatusTile(
+              title: 'Status',
+              subtitle: 'Loading tutorial state...',
+            ),
+            error: (e, _) =>
+                _NeonStatusTile(title: 'Status Error', subtitle: e.toString()),
           ),
           _NeonNavTile(
             title: 'Start Tutorial',
             subtitle: 'Marks tutorial started for current content version',
-            onTap: () => unawaited(ref.read(tutorialProgressProvider.notifier).startTutorial()),
+            onTap: () => unawaited(
+              ref.read(tutorialProgressProvider.notifier).startTutorial(),
+            ),
           ),
           _NeonNavTile(
             title: 'Update Content Version',
-            subtitle: 'Applies version migration/reset semantics for tutorial state',
+            subtitle:
+                'Applies version migration/reset semantics for tutorial state',
             onTap: () => unawaited(
-              ref.read(tutorialProgressProvider.notifier).updateTutorialContentVersion(),
+              ref
+                  .read(tutorialProgressProvider.notifier)
+                  .updateTutorialContentVersion(),
             ),
           ),
           _NeonNavTile(
             title: 'Show First Step Again',
-            subtitle: 'Reveals ${TutorialContent.steps.first.id} if hidden or skipped forever',
+            subtitle:
+                'Reveals ${TutorialContent.steps.first.id} if hidden or skipped forever',
             onTap: () => unawaited(
-              ref.read(tutorialResetServiceProvider).showAgain(TutorialContent.steps.first.id),
+              ref
+                  .read(tutorialResetServiceProvider)
+                  .showAgain(TutorialContent.steps.first.id),
             ),
           ),
           _NeonNavTile(
             title: 'Reset Tutorial Progress',
-            subtitle: 'Clears completion, skip, and start state for tutorial lifecycle',
-            onTap: () => unawaited(ref.read(tutorialResetServiceProvider).resetAll()),
+            subtitle:
+                'Clears completion, skip, and start state for tutorial lifecycle',
+            onTap: () =>
+                unawaited(ref.read(tutorialResetServiceProvider).resetAll()),
           ),
           _NeonNavTile(
             title: 'Replay Onboarding',
-            subtitle: 'Marks onboarding incomplete so onboarding flow can be replayed',
-            onTap: () => unawaited(ref.read(tutorialResetServiceProvider).replayOnboarding()),
+            subtitle:
+                'Marks onboarding incomplete so onboarding flow can be replayed',
+            onTap: () => unawaited(
+              ref.read(tutorialResetServiceProvider).replayOnboarding(),
+            ),
           ),
         ],
       ),
@@ -762,7 +851,11 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({required this.label, required this.child, required this.accentColor});
+  const _Section({
+    required this.label,
+    required this.child,
+    required this.accentColor,
+  });
   final String label;
   final Widget child;
   final Color accentColor;
@@ -776,7 +869,11 @@ class _Section extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
         boxShadow: [
-          BoxShadow(color: accentColor.withValues(alpha: 0.06), blurRadius: 16, spreadRadius: -2),
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.06),
+            blurRadius: 16,
+            spreadRadius: -2,
+          ),
         ],
       ),
       child: Column(
@@ -817,7 +914,11 @@ class _Section extends StatelessWidget {
 }
 
 class _NeonToggleTile extends StatelessWidget {
-  const _NeonToggleTile({required this.title, required this.value, required this.onChanged});
+  const _NeonToggleTile({
+    required this.title,
+    required this.value,
+    required this.onChanged,
+  });
   final String title;
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -829,7 +930,10 @@ class _NeonToggleTile extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
           Switch(
             value: value,
             onChanged: onChanged,
@@ -864,14 +968,21 @@ class _NeonNavTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                  Text(
+                    title,
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
                   if (subtitle != null)
                     Text(
                       subtitle ?? '',
                       maxLines: 3,
                       softWrap: true,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.35),
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
                     ),
                 ],
               ),
@@ -901,13 +1012,20 @@ class _NeonStatusTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
                 Text(
                   subtitle,
                   maxLines: 2,
                   softWrap: true,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.35),
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -948,7 +1066,9 @@ class _InfoScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppColors.neonCyan.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: AppColors.neonCyan.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: const Icon(
                           Icons.arrow_back_ios_new,
@@ -980,7 +1100,11 @@ class _InfoScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                   child: Text(
                     body,
-                    style: const TextStyle(fontSize: 13, color: Colors.white60, height: 1.75),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.white60,
+                      height: 1.75,
+                    ),
                   ),
                 ),
               ),

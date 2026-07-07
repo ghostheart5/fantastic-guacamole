@@ -71,12 +71,18 @@ class _ExternalLinkPage extends StatelessWidget {
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: () async {
-                  final bool opened = await const ExternalUrlService().open(Uri.parse(externalUrl));
+                  final bool opened = await const ExternalUrlService().open(
+                    Uri.parse(externalUrl),
+                  );
                   if (!context.mounted || opened) {
                     return;
                   }
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Unable to open the website from this device.')),
+                    const SnackBar(
+                      content: Text(
+                        'Unable to open the website from this device.',
+                      ),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.open_in_new),
@@ -154,7 +160,10 @@ class _AssetTextPageState extends State<_AssetTextPage> {
             ? const Center(child: Text('Could not load content.'))
             : _content == null
             ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(padding: const EdgeInsets.all(24), child: Text(_content!)),
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Text(_content!),
+              ),
       ),
     );
   }

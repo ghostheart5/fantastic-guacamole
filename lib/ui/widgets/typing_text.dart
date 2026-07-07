@@ -32,7 +32,8 @@ class _TypingTextState extends State<TypingText> {
   void _safeSetState(VoidCallback fn) {
     if (!mounted) return;
     final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
-    if (phase == SchedulerPhase.idle || phase == SchedulerPhase.postFrameCallbacks) {
+    if (phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks) {
       setState(fn);
       return;
     }
@@ -100,7 +101,9 @@ class _TypingTextState extends State<TypingText> {
 
   @override
   Widget build(BuildContext context) {
-    final String text = widget.animate ? (_showCursor ? '$_visible|' : _visible) : _visible;
+    final String text = widget.animate
+        ? (_showCursor ? '$_visible|' : _visible)
+        : _visible;
     return Semantics(
       label: widget.text,
       readOnly: true,

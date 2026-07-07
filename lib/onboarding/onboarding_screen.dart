@@ -16,7 +16,8 @@ class OnboardingScreen extends ConsumerStatefulWidget {
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with TickerProviderStateMixin {
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
+    with TickerProviderStateMixin {
   final PageController _page = PageController();
   int _current = 0;
   final _nameCtrl = TextEditingController();
@@ -88,7 +89,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Ticker
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(onboardingCompleteStorageKey, true);
-    await prefs.setInt(onboardingContentVersionStorageKey, TutorialContent.contentVersion);
+    await prefs.setInt(
+      onboardingContentVersionStorageKey,
+      TutorialContent.contentVersion,
+    );
     AppAnalytics.track(
       'onboarding_completed',
       params: <String, Object?>{'selected_goal_type': _selectedGoalType ?? ''},
@@ -103,7 +107,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Ticker
         'onboarding_step_advanced',
         params: <String, Object?>{'step_index': _current},
       );
-      _page.nextPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+      _page.nextPage(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
     } else {
       _complete();
     }
@@ -137,7 +144,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Ticker
               return _PersonalizationSlide(
                 nameCtrl: _nameCtrl,
                 selectedGoalType: _selectedGoalType,
-                onGoalTypeSelected: (v) => setState(() => _selectedGoalType = v),
+                onGoalTypeSelected: (v) =>
+                    setState(() => _selectedGoalType = v),
               );
             },
           ),
@@ -160,7 +168,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Ticker
                                 final bool active = i == _current;
                                 return AnimatedContainer(
                                   duration: const Duration(milliseconds: 250),
-                                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 3,
+                                  ),
                                   width: active ? 20 : 6,
                                   height: 6,
                                   decoration: BoxDecoration(
@@ -171,7 +181,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Ticker
                                     boxShadow: active
                                         ? [
                                             BoxShadow(
-                                              color: AppColors.neonCyan.withValues(alpha: 0.6),
+                                              color: AppColors.neonCyan
+                                                  .withValues(alpha: 0.6),
                                               blurRadius: 8,
                                             ),
                                           ]
@@ -185,7 +196,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Ticker
                           SizedBox(
                             width: 180,
                             child: _GradientButton(
-                              label: _current == _totalPages - 1 ? 'INITIALIZE' : 'NEXT',
+                              label: _current == _totalPages - 1
+                                  ? 'INITIALIZE'
+                                  : 'NEXT',
                               onTap: _next,
                             ),
                           ),
@@ -195,7 +208,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Ticker
                               onTap: () {
                                 AppAnalytics.track(
                                   'onboarding_skipped',
-                                  params: <String, Object?>{'step_index': _current},
+                                  params: <String, Object?>{
+                                    'step_index': _current,
+                                  },
                                 );
                                 _complete();
                               },
@@ -223,7 +238,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Ticker
                               final bool active = i == _current;
                               return AnimatedContainer(
                                 duration: const Duration(milliseconds: 250),
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
                                 width: active ? 22 : 6,
                                 height: 6,
                                 decoration: BoxDecoration(
@@ -234,7 +251,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Ticker
                                   boxShadow: active
                                       ? [
                                           BoxShadow(
-                                            color: AppColors.neonCyan.withValues(alpha: 0.6),
+                                            color: AppColors.neonCyan
+                                                .withValues(alpha: 0.6),
                                             blurRadius: 8,
                                           ),
                                         ]
@@ -247,7 +265,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Ticker
 
                           // Primary action button
                           _GradientButton(
-                            label: _current == _totalPages - 1 ? 'INITIALIZE SYSTEM' : 'NEXT',
+                            label: _current == _totalPages - 1
+                                ? 'INITIALIZE SYSTEM'
+                                : 'NEXT',
                             onTap: _next,
                           ),
                           const SizedBox(height: 14),
@@ -258,7 +278,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Ticker
                               onTap: () {
                                 AppAnalytics.track(
                                   'onboarding_skipped',
-                                  params: <String, Object?>{'step_index': _current},
+                                  params: <String, Object?>{
+                                    'step_index': _current,
+                                  },
                                 );
                                 _complete();
                               },
@@ -313,7 +335,8 @@ class _SlideView extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool wideLayout = constraints.maxWidth >= 760;
-        final bool landscapeCompact = constraints.maxWidth > constraints.maxHeight * 1.15;
+        final bool landscapeCompact =
+            constraints.maxWidth > constraints.maxHeight * 1.15;
         final EdgeInsets padding = EdgeInsets.fromLTRB(
           wideLayout ? (landscapeCompact ? 40 : 56) : 28,
           wideLayout ? (landscapeCompact ? 32 : 64) : 40,
@@ -325,7 +348,9 @@ class _SlideView extends StatelessWidget {
         if (wideLayout) {
           content = Center(
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: landscapeCompact ? 980 : 1040),
+              constraints: BoxConstraints(
+                maxWidth: landscapeCompact ? 980 : 1040,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -353,15 +378,24 @@ class _SlideView extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: Icon(slide.icon, color: slide.iconColor, size: 36),
+                          child: Icon(
+                            slide.icon,
+                            color: slide.iconColor,
+                            size: 36,
+                          ),
                         ),
                         const SizedBox(height: 20),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: slide.iconColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: slide.iconColor.withValues(alpha: 0.3)),
+                            border: Border.all(
+                              color: slide.iconColor.withValues(alpha: 0.3),
+                            ),
                           ),
                           child: Text(
                             slide.tag,
@@ -384,7 +418,10 @@ class _SlideView extends StatelessWidget {
                       children: [
                         ShaderMask(
                           shaderCallback: (bounds) => LinearGradient(
-                            colors: [Colors.white, slide.iconColor.withValues(alpha: 0.8)],
+                            colors: [
+                              Colors.white,
+                              slide.iconColor.withValues(alpha: 0.8),
+                            ],
                           ).createShader(bounds),
                           child: Text(
                             slide.title,
@@ -443,7 +480,10 @@ class _SlideView extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: slide.iconColor.withValues(alpha: 0.08),
-                  border: Border.all(color: slide.iconColor.withValues(alpha: 0.35), width: 1.5),
+                  border: Border.all(
+                    color: slide.iconColor.withValues(alpha: 0.35),
+                    width: 1.5,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: slide.iconColor.withValues(alpha: 0.3),
@@ -456,11 +496,16 @@ class _SlideView extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: slide.iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: slide.iconColor.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: slide.iconColor.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Text(
                   slide.tag,
@@ -475,7 +520,10 @@ class _SlideView extends StatelessWidget {
               const SizedBox(height: 12),
               ShaderMask(
                 shaderCallback: (bounds) => LinearGradient(
-                  colors: [Colors.white, slide.iconColor.withValues(alpha: 0.8)],
+                  colors: [
+                    Colors.white,
+                    slide.iconColor.withValues(alpha: 0.8),
+                  ],
                 ).createShader(bounds),
                 child: Text(
                   slide.title,
@@ -552,21 +600,26 @@ class _PersonalizationSlide extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool wideLayout = constraints.maxWidth >= 820;
-        final bool landscapeCompact = constraints.maxWidth > constraints.maxHeight * 1.15;
+        final bool landscapeCompact =
+            constraints.maxWidth > constraints.maxHeight * 1.15;
         final EdgeInsets padding = EdgeInsets.fromLTRB(
           wideLayout ? (landscapeCompact ? 40 : 56) : 28,
           wideLayout ? (landscapeCompact ? 32 : 64) : 40,
           wideLayout ? (landscapeCompact ? 40 : 56) : 28,
           wideLayout ? (landscapeCompact ? 150 : 188) : 160,
         );
-        final int goalColumns = constraints.maxWidth >= 980 ? 4 : (landscapeCompact ? 3 : 2);
+        final int goalColumns = constraints.maxWidth >= 980
+            ? 4
+            : (landscapeCompact ? 3 : 2);
 
         final Widget formCard = Container(
           width: wideLayout ? (landscapeCompact ? 440 : 460) : double.infinity,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.18)),
+            border: Border.all(
+              color: AppColors.neonCyan.withValues(alpha: 0.18),
+            ),
           ),
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -587,7 +640,9 @@ class _PersonalizationSlide extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.25)),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.25),
+                  ),
                 ),
                 child: TextField(
                   controller: nameCtrl,
@@ -596,7 +651,10 @@ class _PersonalizationSlide extends StatelessWidget {
                   decoration: const InputDecoration(
                     hintText: 'Enter your name...',
                     hintStyle: TextStyle(color: Colors.white24),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     border: InputBorder.none,
                   ),
                 ),
@@ -616,7 +674,9 @@ class _PersonalizationSlide extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: goalColumns,
-                childAspectRatio: goalColumns >= 4 ? 2.1 : (landscapeCompact ? 3.0 : 2.6),
+                childAspectRatio: goalColumns >= 4
+                    ? 2.1
+                    : (landscapeCompact ? 3.0 : 2.6),
                 mainAxisSpacing: 8,
                 crossAxisSpacing: 8,
                 children: _goalTypes.map((entry) {
@@ -641,7 +701,11 @@ class _PersonalizationSlide extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: Row(
                         children: [
-                          Icon(icon, color: selected ? color : Colors.white38, size: 16),
+                          Icon(
+                            icon,
+                            color: selected ? color : Colors.white38,
+                            size: 16,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -649,7 +713,9 @@ class _PersonalizationSlide extends StatelessWidget {
                               style: TextStyle(
                                 color: selected ? color : Colors.white54,
                                 fontSize: 11,
-                                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -667,7 +733,9 @@ class _PersonalizationSlide extends StatelessWidget {
         final Widget content = wideLayout
             ? Center(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: landscapeCompact ? 1020 : 1080),
+                  constraints: BoxConstraints(
+                    maxWidth: landscapeCompact ? 1020 : 1080,
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -689,9 +757,13 @@ class _PersonalizationSlide extends StatelessWidget {
                               ),
                               const SizedBox(height: 12),
                               ShaderMask(
-                                shaderCallback: (bounds) => const LinearGradient(
-                                  colors: [Colors.white, AppColors.neonCyan],
-                                ).createShader(bounds),
+                                shaderCallback: (bounds) =>
+                                    const LinearGradient(
+                                      colors: [
+                                        Colors.white,
+                                        AppColors.neonCyan,
+                                      ],
+                                    ).createShader(bounds),
                                 child: const Text(
                                   'YOUR MISSION',
                                   style: TextStyle(
@@ -716,7 +788,10 @@ class _PersonalizationSlide extends StatelessWidget {
                               const SizedBox(height: 22),
                               const SizedBox(
                                 width: 48,
-                                child: Divider(color: AppColors.neonCyan, thickness: 2),
+                                child: Divider(
+                                  color: AppColors.neonCyan,
+                                  thickness: 2,
+                                ),
                               ),
                               const SizedBox(height: 16),
                               const Text(
@@ -741,11 +816,16 @@ class _PersonalizationSlide extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.neonCyan.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: AppColors.neonCyan.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: const Text(
                       'PERSONALIZE',
@@ -829,7 +909,9 @@ class _GradientButton extends StatelessWidget {
         height: 52,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          gradient: const LinearGradient(colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)]),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
+          ),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFF00E5FF).withValues(alpha: 0.3),
@@ -877,7 +959,10 @@ class _StarfieldBackgroundState extends State<_StarfieldBackground>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
   }
 
   @override
@@ -890,8 +975,10 @@ class _StarfieldBackgroundState extends State<_StarfieldBackground>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (context, _) =>
-          CustomPaint(painter: _StarPainter(_stars, _ctrl.value), child: const SizedBox.expand()),
+      builder: (context, _) => CustomPaint(
+        painter: _StarPainter(_stars, _ctrl.value),
+        child: const SizedBox.expand(),
+      ),
     );
   }
 }
@@ -922,12 +1009,15 @@ class _StarPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint();
     for (final star in stars) {
-      final alpha = (0.35 + 0.45 * math.sin(t * math.pi * 2 * star.speed + star.phase)).clamp(
-        0.0,
-        1.0,
-      );
+      final alpha =
+          (0.35 + 0.45 * math.sin(t * math.pi * 2 * star.speed + star.phase))
+              .clamp(0.0, 1.0);
       paint.color = Colors.white.withValues(alpha: alpha);
-      canvas.drawCircle(Offset(star.x * size.width, star.y * size.height), star.size, paint);
+      canvas.drawCircle(
+        Offset(star.x * size.width, star.y * size.height),
+        star.size,
+        paint,
+      );
     }
   }
 

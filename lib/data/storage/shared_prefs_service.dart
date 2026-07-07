@@ -75,7 +75,9 @@ class SharedPrefsService {
     }
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
-      Logger.error('SharedPrefsService save skipped because storage is unavailable.');
+      Logger.error(
+        'SharedPrefsService save skipped because storage is unavailable.',
+      );
       return;
     }
     await prefs.setString(key, value);
@@ -89,7 +91,9 @@ class SharedPrefsService {
     await init();
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
-      Logger.error('SharedPrefsService delete skipped because storage is unavailable.');
+      Logger.error(
+        'SharedPrefsService delete skipped because storage is unavailable.',
+      );
       return;
     }
     await prefs.remove(key);
@@ -99,7 +103,9 @@ class SharedPrefsService {
     await init();
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
-      Logger.error('SharedPrefsService clear skipped because storage is unavailable.');
+      Logger.error(
+        'SharedPrefsService clear skipped because storage is unavailable.',
+      );
       return;
     }
     await prefs.clear();

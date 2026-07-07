@@ -7,12 +7,14 @@ class ErrorBoundary extends StatefulWidget {
   const ErrorBoundary({required this.child, super.key});
 
   final Widget child;
-  static final ValueNotifier<Object?> _globalErrorNotifier = ValueNotifier<Object?>(null);
+  static final ValueNotifier<Object?> _globalErrorNotifier =
+      ValueNotifier<Object?>(null);
 
   static ErrorBoundaryState? of(BuildContext context) =>
       context.findAncestorStateOfType<ErrorBoundaryState>();
 
-  static ValueListenable<Object?> get globalErrorListenable => _globalErrorNotifier;
+  static ValueListenable<Object?> get globalErrorListenable =>
+      _globalErrorNotifier;
 
   static void reportGlobalError(Object error, [StackTrace? stackTrace]) {
     Logger.error('Global error captured', error);
@@ -56,7 +58,11 @@ class ErrorBoundaryState extends State<ErrorBoundary> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  const Icon(Icons.warning_amber_rounded, color: AppColors.memoryAmber, size: 48),
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: AppColors.memoryAmber,
+                    size: 48,
+                  ),
                   const SizedBox(height: 20),
                   const Text(
                     'Something went wrong',

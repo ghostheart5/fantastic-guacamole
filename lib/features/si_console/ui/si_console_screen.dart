@@ -56,7 +56,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   void _runAfterBuild(VoidCallback action) {
     if (!mounted) return;
     final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
-    if (phase == SchedulerPhase.idle || phase == SchedulerPhase.postFrameCallbacks) {
+    if (phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks) {
       action();
       return;
     }
@@ -74,23 +75,28 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   void initState() {
     super.initState();
     _voiceService = ref.read(voiceServiceProvider);
-    _goalEventSubscription = ref.read(eventBusProvider).on<GoalLifecycleEvent>().listen((event) {
-      if (!mounted) {
-        return;
-      }
-      _safeSetState(() {
-        _messages.add(
-          _Msg(
-            text: 'GOAL SYNC: ${event.action.toUpperCase()} ${event.title}',
-            isUser: false,
-            emotion: 'focused',
-          ),
-        );
-      });
-      _scrollToBottom();
-    });
-    _typingAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
-      ..repeat();
+    _goalEventSubscription = ref
+        .read(eventBusProvider)
+        .on<GoalLifecycleEvent>()
+        .listen((event) {
+          if (!mounted) {
+            return;
+          }
+          _safeSetState(() {
+            _messages.add(
+              _Msg(
+                text: 'GOAL SYNC: ${event.action.toUpperCase()} ${event.title}',
+                isUser: false,
+                emotion: 'focused',
+              ),
+            );
+          });
+          _scrollToBottom();
+        });
+    _typingAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
 
     // Greeting after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -114,7 +120,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   }
 
   void _addSI(String text, {String emotion = 'balanced'}) {
-    _safeSetState(() => _messages.add(_Msg(text: text, isUser: false, emotion: emotion)));
+    _safeSetState(
+      () => _messages.add(_Msg(text: text, isUser: false, emotion: emotion)),
+    );
     _scrollToBottom();
   }
 
@@ -143,7 +151,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   bool _handleLocalCommand(String text) {
     final String normalized = text.trim().toLowerCase();
     final String command = normalized.split(RegExp(r'\s+')).first;
-    final SIConsoleScreenModel? consoleModel = ref.read(siConsoleScreenModelProvider).asData?.value;
+    final SIConsoleScreenModel? consoleModel = ref
+        .read(siConsoleScreenModelProvider)
+        .asData
+        ?.value;
     final SIStateAggregation? aggregation = consoleModel?.aggregation;
 
     if (normalized == '/help' || normalized == 'help') {
@@ -241,7 +252,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             .take(3)
             .map((g) => g.title)
             .toList(growable: false);
-        final String topText = top.isEmpty ? 'No goals found.' : top.map((g) => '- $g').join('\n');
+        final String topText = top.isEmpty
+            ? 'No goals found.'
+            : top.map((g) => '- $g').join('\n');
         return 'GOALS SNAPSHOT\n\nGoals: ${aggregation.goals.length}\n\nTop goals:\n$topText\n\nPrompt: "which goal is drifting and what is the next corrective action?"';
       case '/plan':
         final String blocks = aggregation.planPreview.isEmpty
@@ -266,7 +279,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   Future<void> _dispatchQuery(String text) async {
     try {
-      final recommendation = await ref.read(aiControllerProvider).sendMessage(text);
+      final recommendation = await ref
+          .read(aiControllerProvider)
+          .sendMessage(text);
       if (!mounted) return;
       final String message = recommendation?.message.trim() ?? '';
       if (message.isEmpty) {
@@ -287,7 +302,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       _safeSetState(() {
         _typing = false;
         _messages.add(
-          _Msg(text: message, isUser: false, emotion: recommendation?.emotion ?? 'balanced'),
+          _Msg(
+            text: message,
+            isUser: false,
+            emotion: recommendation?.emotion ?? 'balanced',
+          ),
         );
       });
       _scrollToBottom();
@@ -373,7 +392,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                                 itemCount: _messages.length + (_typing ? 1 : 0),
                                 itemBuilder: (context, i) {
                                   if (_typing && i == _messages.length) {
-                                    return _TypingIndicator(animation: _typingAnim);
+                                    return _TypingIndicator(
+                                      animation: _typingAnim,
+                                    );
                                   }
                                   return _BubbleTile(msg: _messages[i]);
                                 },
@@ -386,7 +407,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                         child: Padding(
                           padding: EdgeInsets.only(bottom: composerBottomInset),
                           child: ConstrainedBox(
-                            constraints: BoxConstraints(maxHeight: composerMaxHeight),
+                            constraints: BoxConstraints(
+                              maxHeight: composerMaxHeight,
+                            ),
                             child: _InputBar(
                               controller: _input,
                               onSend: _send,
@@ -428,13 +451,20 @@ class _Header extends StatelessWidget {
         children: [
           GestureDetector(
             onTap: onBack,
-            child: const Icon(Icons.arrow_back_ios, color: Colors.white54, size: 18),
+            child: const Icon(
+              Icons.arrow_back_ios,
+              color: Colors.white54,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 12),
           Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: Colors.greenAccent,
+              shape: BoxShape.circle,
+            ),
           ),
           const SizedBox(width: 8),
           const Flexible(
@@ -462,7 +492,11 @@ class _Header extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   child: Text(
                     'ONLINE',
-                    style: TextStyle(fontSize: 9, letterSpacing: 2, color: Colors.greenAccent),
+                    style: TextStyle(
+                      fontSize: 9,
+                      letterSpacing: 2,
+                      color: Colors.greenAccent,
+                    ),
                   ),
                 ),
                 if (engineSnapshot != null) ...[
@@ -472,7 +506,11 @@ class _Header extends StatelessWidget {
                     alignment: Alignment.centerRight,
                     child: Text(
                       engineSnapshot ?? '',
-                      style: const TextStyle(fontSize: 8, letterSpacing: 1, color: Colors.white54),
+                      style: const TextStyle(
+                        fontSize: 8,
+                        letterSpacing: 1,
+                        color: Colors.white54,
+                      ),
                     ),
                   ),
                 ],
@@ -501,17 +539,27 @@ class _BubbleTile extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
-          if (!isUser) ...[_SIAvatar(emotion: msg.emotion), const SizedBox(width: 8)],
+          if (!isUser) ...[
+            _SIAvatar(emotion: msg.emotion),
+            const SizedBox(width: 8),
+          ],
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
-                    color: isUser ? const Color(0xFF1E1330) : const Color(0xFF0D1A2A),
+                    color: isUser
+                        ? const Color(0xFF1E1330)
+                        : const Color(0xFF0D1A2A),
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
                       topRight: const Radius.circular(16),
@@ -542,7 +590,9 @@ class _BubbleTile extends ConsumerWidget {
                         ),
                       TypingText(
                         msg.text,
-                        key: ValueKey<String>('si-msg-${msg.isUser}-${msg.text}'),
+                        key: ValueKey<String>(
+                          'si-msg-${msg.isUser}-${msg.text}',
+                        ),
                         animate: false,
                         style: TextStyle(
                           fontSize: 13,
@@ -557,18 +607,29 @@ class _BubbleTile extends ConsumerWidget {
                 if (!isUser) ...[
                   const SizedBox(height: 4),
                   GestureDetector(
-                    onTap: () => unawaited(ref.read(voiceServiceProvider).speak(msg.text)),
+                    onTap: () => unawaited(
+                      ref.read(voiceServiceProvider).speak(msg.text),
+                    ),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.neonCyan.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.25)),
+                        border: Border.all(
+                          color: AppColors.neonCyan.withValues(alpha: 0.25),
+                        ),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.volume_up_rounded, color: AppColors.neonCyan, size: 12),
+                          Icon(
+                            Icons.volume_up_rounded,
+                            color: AppColors.neonCyan,
+                            size: 12,
+                          ),
                           SizedBox(width: 4),
                           Text(
                             'SPEAK',
@@ -624,7 +685,9 @@ class _SIAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         color: const Color(0xFF0A1520),
         border: Border.all(color: _color.withValues(alpha: 0.5)),
-        boxShadow: [BoxShadow(color: _color.withValues(alpha: 0.25), blurRadius: 8)],
+        boxShadow: [
+          BoxShadow(color: _color.withValues(alpha: 0.25), blurRadius: 8),
+        ],
       ),
       child: Center(
         child: Text(
@@ -711,7 +774,9 @@ class _TypingIndicator extends StatelessWidget {
                 bottomRight: Radius.circular(16),
                 bottomLeft: Radius.circular(4),
               ),
-              border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.18)),
+              border: Border.all(
+                color: AppColors.neonCyan.withValues(alpha: 0.18),
+              ),
             ),
             child: AnimatedBuilder(
               animation: animation,
@@ -719,8 +784,12 @@ class _TypingIndicator extends StatelessWidget {
                 return Row(
                   mainAxisSize: MainAxisSize.min,
                   children: List.generate(3, (i) {
-                    final double phase = (animation.value - i * 0.2).clamp(0.0, 1.0);
-                    final double opacity = 0.3 + 0.7 * math.sin(phase * math.pi);
+                    final double phase = (animation.value - i * 0.2).clamp(
+                      0.0,
+                      1.0,
+                    );
+                    final double opacity =
+                        0.3 + 0.7 * math.sin(phase * math.pi);
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       child: Opacity(
@@ -751,7 +820,11 @@ class _TypingIndicator extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _InputBar extends StatelessWidget {
-  const _InputBar({required this.controller, required this.onSend, this.compact = false});
+  const _InputBar({
+    required this.controller,
+    required this.onSend,
+    this.compact = false,
+  });
   final TextEditingController controller;
   final VoidCallback onSend;
   final bool compact;
@@ -776,7 +849,8 @@ class _InputBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final bool forceCompact = constraints.hasBoundedHeight && constraints.maxHeight < 150;
+        final bool forceCompact =
+            constraints.hasBoundedHeight && constraints.maxHeight < 150;
         final bool effectiveCompact = compact || forceCompact;
 
         return Container(
@@ -819,12 +893,19 @@ class _InputBar extends StatelessWidget {
                                   onSend();
                                 },
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.neonCyan.withValues(alpha: 0.08),
+                                    color: AppColors.neonCyan.withValues(
+                                      alpha: 0.08,
+                                    ),
                                     borderRadius: BorderRadius.circular(999),
                                     border: Border.all(
-                                      color: AppColors.neonCyan.withValues(alpha: 0.28),
+                                      color: AppColors.neonCyan.withValues(
+                                        alpha: 0.28,
+                                      ),
                                     ),
                                   ),
                                   child: Text(
@@ -852,15 +933,24 @@ class _InputBar extends StatelessWidget {
                         controller: controller,
                         minLines: 1,
                         maxLines: 1,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
                         cursorColor: AppColors.neonCyan,
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
                           hintText: 'Query the system...',
-                          hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
+                          hintStyle: const TextStyle(
+                            color: Colors.white24,
+                            fontSize: 13,
+                          ),
                           filled: true,
                           fillColor: const Color(0xFF0A1520),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24),
                             borderSide: BorderSide(
@@ -892,9 +982,15 @@ class _InputBar extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppColors.neonCyan.withValues(alpha: 0.12),
-                          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.4)),
+                          border: Border.all(
+                            color: AppColors.neonCyan.withValues(alpha: 0.4),
+                          ),
                         ),
-                        child: const Icon(Icons.send_rounded, color: AppColors.neonCyan, size: 18),
+                        child: const Icon(
+                          Icons.send_rounded,
+                          color: AppColors.neonCyan,
+                          size: 18,
+                        ),
                       ),
                     ),
                   ],

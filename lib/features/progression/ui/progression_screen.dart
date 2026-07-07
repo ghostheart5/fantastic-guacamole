@@ -45,7 +45,9 @@ class ProgressionScreen extends ConsumerWidget {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Share sheet unavailable. Progress snapshot copied to clipboard.'),
+        content: Text(
+          'Share sheet unavailable. Progress snapshot copied to clipboard.',
+        ),
       ),
     );
   }
@@ -75,7 +77,9 @@ class ProgressionScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: AppColors.neonCyan.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: AppColors.neonCyan.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: const Icon(
                           Icons.arrow_back_ios_new,
@@ -91,7 +95,10 @@ class ProgressionScreen extends ConsumerWidget {
                         children: [
                           ShaderMask(
                             shaderCallback: (bounds) => const LinearGradient(
-                              colors: [AppColors.memoryAmber, AppColors.neonCyan],
+                              colors: [
+                                AppColors.memoryAmber,
+                                AppColors.neonCyan,
+                              ],
                             ).createShader(bounds),
                             child: const Text(
                               'PROGRESSION',
@@ -109,7 +116,11 @@ class ProgressionScreen extends ConsumerWidget {
                             'MOMENTUM INTEL + HISTORY',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
+                            style: TextStyle(
+                              fontSize: 10,
+                              letterSpacing: 2,
+                              color: Colors.white38,
+                            ),
                           ),
                         ],
                       ),
@@ -117,7 +128,10 @@ class ProgressionScreen extends ConsumerWidget {
                     IconButton(
                       tooltip: 'Share progress snapshot',
                       onPressed: () => _shareProgressCard(context, ref),
-                      icon: const Icon(Icons.ios_share_rounded, color: AppColors.memoryAmber),
+                      icon: const Icon(
+                        Icons.ios_share_rounded,
+                        color: AppColors.memoryAmber,
+                      ),
                     ),
                   ],
                 ),
@@ -229,7 +243,11 @@ class _SignalRow extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(color: Colors.white38, fontSize: 12, letterSpacing: 0.5),
+          style: const TextStyle(
+            color: Colors.white38,
+            fontSize: 12,
+            letterSpacing: 0.5,
+          ),
         ),
         Text(
           value,
@@ -284,7 +302,11 @@ class _NarrativeCard extends ConsumerWidget {
           const SizedBox(height: 6),
           Text(
             narrative.trajectory,
-            style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4),
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
+              height: 1.4,
+            ),
           ),
         ],
       ),
@@ -322,7 +344,11 @@ class _AdvisorSummaryCard extends ConsumerWidget {
           summaryAsync.when(
             data: (summary) => Text(
               summary,
-              style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.55),
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                height: 1.55,
+              ),
             ),
             loading: () => const Text(
               'Scanning signal matrix...',
@@ -393,7 +419,10 @@ class _XpProgressChartCard extends ConsumerWidget {
     );
   }
 
-  List<_XpPoint> _buildXpPoints(int currentXp, List<LearningHistoryEntry> history) {
+  List<_XpPoint> _buildXpPoints(
+    int currentXp,
+    List<LearningHistoryEntry> history,
+  ) {
     final DateTime now = DateTime.now();
     final DateTime windowStart = DateTime(
       now.year,
@@ -404,7 +433,11 @@ class _XpProgressChartCard extends ConsumerWidget {
 
     for (final LearningHistoryEntry entry in history) {
       final DateTime timestamp = entry.timestamp;
-      final DateTime day = DateTime(timestamp.year, timestamp.month, timestamp.day);
+      final DateTime day = DateTime(
+        timestamp.year,
+        timestamp.month,
+        timestamp.day,
+      );
       if (day.isBefore(windowStart)) {
         continue;
       }
@@ -427,15 +460,18 @@ class _XpProgressChartCard extends ConsumerWidget {
       });
     }
 
-    final List<MapEntry<String, int>> sorted = completedByDay.entries.toList(growable: true)
-      ..sort((a, b) => a.key.compareTo(b.key));
+    final List<MapEntry<String, int>> sorted = completedByDay.entries.toList(
+      growable: true,
+    )..sort((a, b) => a.key.compareTo(b.key));
     final int maxCompleted = sorted.last.value <= 0 ? 1 : sorted.last.value;
 
     final List<_XpPoint> points = <_XpPoint>[];
     int lastXp = 0;
     for (final MapEntry<String, int> entry in sorted) {
       final DateTime day = DateTime.parse(entry.key);
-      final int estimate = ((currentXp * (entry.value / maxCompleted))).round().clamp(0, currentXp);
+      final int estimate = ((currentXp * (entry.value / maxCompleted)))
+          .round()
+          .clamp(0, currentXp);
       lastXp = math.max(lastXp, estimate);
       points.add(_XpPoint(day, lastXp));
     }
@@ -506,7 +542,8 @@ class _XpLineChartPainter extends CustomPainter {
       return true;
     }
     for (int i = 0; i < points.length; i++) {
-      if (oldDelegate.points[i].xp != points[i].xp || oldDelegate.points[i].day != points[i].day) {
+      if (oldDelegate.points[i].xp != points[i].xp ||
+          oldDelegate.points[i].day != points[i].day) {
         return true;
       }
     }
