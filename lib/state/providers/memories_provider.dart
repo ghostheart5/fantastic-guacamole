@@ -37,7 +37,11 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
     return ref.read(getMemoriesUseCaseProvider).call();
   }
 
-  Future<void> capture(String text, {bool refreshCoach = true, bool syncSoulMap = true}) async {
+  Future<void> capture(
+    String text, {
+    bool refreshCoach = true,
+    bool syncSoulMap = true,
+  }) async {
     final String normalizedText = text.trim();
     if (normalizedText.isEmpty) {
       return;
@@ -48,7 +52,9 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
       date: DateTime.now(),
     );
     final updated = [memory, ...state];
-    state = updated.length > _maxEntries ? updated.sublist(0, _maxEntries) : updated;
+    state = updated.length > _maxEntries
+        ? updated.sublist(0, _maxEntries)
+        : updated;
     await ref.read(saveMemoryUseCaseProvider).call(memory);
 
     if (syncSoulMap) {
@@ -57,7 +63,9 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
     if (refreshCoach) {
       await _refreshCoachDecision();
     }
-    ref.read(eventBusProvider).emit(MemoryLifecycleEvent(memoryId: memory.id, text: memory.text));
+    ref
+        .read(eventBusProvider)
+        .emit(MemoryLifecycleEvent(memoryId: memory.id, text: memory.text));
   }
 
   Future<void> toggleStar(String id) async {

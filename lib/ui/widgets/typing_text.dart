@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 class TypingText extends StatefulWidget {
   const TypingText(
@@ -28,6 +29,19 @@ class _TypingTextState extends State<TypingText> {
   int _index = 0;
   bool _showCursor = true;
 
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.idle || phase == SchedulerPhase.postFrameCallbacks) {
+      setState(fn);
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(fn);
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -48,17 +62,17 @@ class _TypingTextState extends State<TypingText> {
     _index = 0;
     _showCursor = true;
 
-    _cursorTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
-      if (!mounted) return;
-      setState(() => _showCursor = !_showCursor);
-    });
-
     if (!widget.animate) {
-      setState(() => _visible = widget.text);
+      _safeSetState(() => _visible = widget.text);
       return;
     }
 
-    setState(() => _visible = '');
+    _cursorTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!mounted) return;
+      _safeSetState(() => _showCursor = !_showCursor);
+    });
+
+    _safeSetState(() => _visible = '');
     _timer = Timer.periodic(widget.step, (timer) {
       if (!mounted) {
         timer.cancel();
@@ -69,7 +83,7 @@ class _TypingTextState extends State<TypingText> {
         return;
       }
 
-      setState(() {
+      _safeSetState(() {
         _visible += widget.text[_index];
         _index++;
       });
@@ -86,6 +100,7 @@ class _TypingTextState extends State<TypingText> {
 
   @override
   Widget build(BuildContext context) {
-    return Text(_showCursor ? '$_visible|' : _visible, style: widget.style);
+    final String text = widget.animate ? (_showCursor ? '$_visible|' : _visible) : _visible;
+    return Text(text, style: widget.style);
   }
 }

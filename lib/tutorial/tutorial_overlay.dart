@@ -8,7 +8,11 @@ import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:flutter/material.dart';
 
 class TutorialHost extends StatefulWidget {
-  const TutorialHost({super.key, required this.controller, required this.child});
+  const TutorialHost({
+    super.key,
+    required this.controller,
+    required this.child,
+  });
 
   final TutorialController controller;
   final Widget child;
@@ -62,30 +66,26 @@ class _TutorialOverlay extends StatelessWidget {
 
     return IgnorePointer(
       ignoring: nonBlocking,
-      child: AnimatedOpacity(
-        opacity: 1,
-        duration: const Duration(milliseconds: 160),
-        child: Stack(
-          children: <Widget>[
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTapUp: (details) {
-                  if (target != null && target.contains(details.globalPosition)) {
-                    controller.reportEvent('tap:${step.targetId}');
-                  }
-                },
-                onLongPressStart: (details) {
-                  if (target != null && target.contains(details.globalPosition)) {
-                    controller.reportEvent('longPress:${step.targetId}');
-                  }
-                },
-                child: CustomPaint(painter: _TutorialPainter(target: target)),
-              ),
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapUp: (details) {
+                if (target != null && target.contains(details.globalPosition)) {
+                  controller.reportEvent('tap:${step.targetId}');
+                }
+              },
+              onLongPressStart: (details) {
+                if (target != null && target.contains(details.globalPosition)) {
+                  controller.reportEvent('longPress:${step.targetId}');
+                }
+              },
+              child: CustomPaint(painter: _TutorialPainter(target: target)),
             ),
-            _TooltipCard(step: step, target: target, controller: controller),
-          ],
-        ),
+          ),
+          _TooltipCard(step: step, target: target, controller: controller),
+        ],
       ),
     );
   }
@@ -107,7 +107,8 @@ class _TutorialPainter extends CustomPainter {
     }
 
     final Rect hole = target!.inflate(8);
-    final Path cutout = Path()..addRRect(RRect.fromRectAndRadius(hole, const Radius.circular(16)));
+    final Path cutout = Path()
+      ..addRRect(RRect.fromRectAndRadius(hole, const Radius.circular(16)));
 
     canvas.drawPath(Path.combine(PathOperation.difference, full, cutout), dim);
 
@@ -116,7 +117,10 @@ class _TutorialPainter extends CustomPainter {
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
-    canvas.drawRRect(RRect.fromRectAndRadius(hole, const Radius.circular(16)), border);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(hole, const Radius.circular(16)),
+      border,
+    );
   }
 
   @override
@@ -126,7 +130,11 @@ class _TutorialPainter extends CustomPainter {
 }
 
 class _TooltipCard extends StatelessWidget {
-  const _TooltipCard({required this.step, required this.target, required this.controller});
+  const _TooltipCard({
+    required this.step,
+    required this.target,
+    required this.controller,
+  });
 
   final TutorialStep step;
   final Rect? target;
@@ -144,7 +152,10 @@ class _TooltipCard extends StatelessWidget {
       top = target!.bottom + 18;
       if (top + 220 > screen.height) top = target!.top - 220;
       top = top.clamp(24, screen.height - 240);
-      left = (target!.center.dx - width / 2).clamp(16, screen.width - width - 16);
+      left = (target!.center.dx - width / 2).clamp(
+        16,
+        screen.width - width - 16,
+      );
     }
 
     return Positioned(
@@ -155,7 +166,9 @@ class _TooltipCard extends StatelessWidget {
         color: Colors.transparent,
         child: Card(
           elevation: 12,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: DefaultTextStyle(
@@ -164,16 +177,28 @@ class _TooltipCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(step.title, style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    step.title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 8),
                   Text(step.body),
                   const SizedBox(height: 16),
                   Row(
                     children: <Widget>[
-                      TextButton(onPressed: controller.pause, child: const Text('Pause')),
-                      TextButton(onPressed: controller.skip, child: const Text('Skip')),
+                      TextButton(
+                        onPressed: controller.pause,
+                        child: const Text('Pause'),
+                      ),
+                      TextButton(
+                        onPressed: controller.skip,
+                        child: const Text('Skip'),
+                      ),
                       const Spacer(),
-                      FilledButton(onPressed: controller.next, child: const Text('Next')),
+                      FilledButton(
+                        onPressed: controller.next,
+                        child: const Text('Next'),
+                      ),
                     ],
                   ),
                 ],

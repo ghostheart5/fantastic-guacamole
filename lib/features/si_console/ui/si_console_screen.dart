@@ -9,7 +9,6 @@ import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
-import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -18,6 +17,7 @@ import 'package:fantastic_guacamole/ui/widgets/error_view.dart';
 import 'package:fantastic_guacamole/ui/widgets/loading_overlay.dart';
 import 'package:fantastic_guacamole/ui/widgets/typing_text.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ---------------------------------------------------------------------------
@@ -49,18 +49,33 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   final ScrollController _scroll = ScrollController();
   bool _typing = false;
   late final AnimationController _typingAnim;
-  late final VoiceService _voiceService;
   StreamSubscription<GoalLifecycleEvent>? _goalEventSubscription;
+
+  void _runAfterBuild(VoidCallback action) {
+    if (!mounted) return;
+    final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.idle || phase == SchedulerPhase.postFrameCallbacks) {
+      action();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      action();
+    });
+  }
+
+  void _safeSetState(VoidCallback fn) {
+    _runAfterBuild(() => setState(fn));
+  }
 
   @override
   void initState() {
     super.initState();
-    _voiceService = ref.read(voiceServiceProvider);
     _goalEventSubscription = ref.read(eventBusProvider).on<GoalLifecycleEvent>().listen((event) {
       if (!mounted) {
         return;
       }
-      setState(() {
+      _safeSetState(() {
         _messages.add(
           _Msg(
             text: 'GOAL SYNC: ${event.action.toUpperCase()} ${event.title}',
@@ -87,7 +102,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   @override
   void dispose() {
-    unawaited(_voiceService.stop());
+    unawaited(ref.read(voiceServiceProvider).stop());
     unawaited(_goalEventSubscription?.cancel());
     _input.dispose();
     _scroll.dispose();
@@ -96,25 +111,154 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   }
 
   void _addSI(String text, {String emotion = 'balanced'}) {
-    setState(() => _messages.add(_Msg(text: text, isUser: false, emotion: emotion)));
+    _safeSetState(() => _messages.add(_Msg(text: text, isUser: false, emotion: emotion)));
     _scrollToBottom();
   }
 
   void _send() {
     final String text = _input.text.trim();
     if (text.isEmpty) return;
+
+    if (_handleLocalCommand(text)) {
+      _input.clear();
+      return;
+    }
+
     if (ref.read(siConsoleQueryControllerProvider).detectsCrisis(text)) {
       showCrisisDialog(context);
       return;
     }
     _input.clear();
 
-    setState(() => _messages.add(_Msg(text: text, isUser: true)));
+    _safeSetState(() => _messages.add(_Msg(text: text, isUser: true)));
     _scrollToBottom();
-    setState(() => _typing = true);
-    _scrollToBottom();
+    _safeSetState(() => _typing = true);
 
     _dispatchQuery(text);
+  }
+
+  bool _handleLocalCommand(String text) {
+    final String normalized = text.trim().toLowerCase();
+    final String command = normalized.split(RegExp(r'\s+')).first;
+    final SIConsoleScreenModel? consoleModel = ref.read(siConsoleScreenModelProvider).asData?.value;
+    final SIStateAggregation? aggregation = consoleModel?.aggregation;
+
+    if (normalized == '/help' || normalized == 'help') {
+      _safeSetState(() {
+        _messages.add(_Msg(text: text, isUser: true));
+        _messages.add(
+          const _Msg(
+            text:
+                'SI COMMAND GUIDE\n\n'
+                'Quick commands:\n'
+                '- /tasks: inspect active tasks and next actions\n'
+                '- /goals: summarize goals and drift\n'
+                '- /plan: summarize schedule and next blocks\n'
+                '- /timeline: summarize recent milestones/events\n'
+                '- /trajectory: summarize momentum, pressure, and prediction\n\n'
+                'High-signal prompts SI responds well to:\n'
+                '- "List my 3 newest tasks and what to do first."\n'
+                '- "Did I create a task just now? Show the latest task title."\n'
+                '- "Summarize trajectory pressure and one corrective action."\n'
+                '- "Show plan risks for today and 3 next actions."\n'
+                '- "Summarize goals at risk and what to do next."\n\n'
+                'Tip: use a command first, then add intent. Example: /tasks what should I execute now?',
+            isUser: false,
+            emotion: 'focused',
+          ),
+        );
+      });
+      _scrollToBottom();
+      return true;
+    }
+
+    if (normalized == '/status' || normalized == 'status') {
+      final String status = (aggregation == null)
+          ? 'SI STATUS\n\n'
+                'Model is still initializing. Retry /status in a second.\n'
+                'If this persists, use /tasks or /plan to warm providers.'
+          : 'SI STATUS\n\n'
+                'Connected surfaces:\n'
+                '- tasks: ${aggregation.tasks.length}\n'
+                '- goals: ${aggregation.goals.length}\n'
+                '- logs: ${aggregation.logs.length}\n'
+                '- memories: ${aggregation.memories.length}\n'
+                '- notifications: ${aggregation.notifications.length}\n'
+                '- timeline: ${aggregation.timeline.length}\n'
+                '- flowmap: ${aggregation.flowmapNodes.length}\n'
+                '- plan preview blocks: ${aggregation.planPreview.length}\n\n'
+                'Trajectory:\n'
+                '- pressure: ${aggregation.trajectory.pressureIndex}\n'
+                '- momentum: ${(aggregation.trajectory.momentum * 100).round()}%\n'
+                '- divergence: ${aggregation.trajectory.behaviorDivergence}%\n\n'
+                'Use /tasks, /goals, /plan, /timeline, /trajectory for module-specific responses.';
+
+      _safeSetState(() {
+        _messages.add(_Msg(text: text, isUser: true));
+        _messages.add(_Msg(text: status, isUser: false, emotion: 'focused'));
+      });
+      _scrollToBottom();
+      return true;
+    }
+
+    if (command == '/tasks' ||
+        command == '/goals' ||
+        command == '/plan' ||
+        command == '/timeline' ||
+        command == '/trajectory') {
+      final String response = _localSurfaceSummary(command, aggregation);
+      _safeSetState(() {
+        _messages.add(_Msg(text: text, isUser: true));
+        _messages.add(_Msg(text: response, isUser: false, emotion: 'focused'));
+      });
+      _scrollToBottom();
+      return true;
+    }
+
+    return false;
+  }
+
+  String _localSurfaceSummary(String command, SIStateAggregation? aggregation) {
+    if (aggregation == null) {
+      return 'SI is still loading module data. Retry the command in a second.';
+    }
+
+    switch (command) {
+      case '/tasks':
+        final List<String> top = aggregation.tasks
+            .take(3)
+            .map((t) => t.title)
+            .toList(growable: false);
+        final String topText = top.isEmpty
+            ? 'No active tasks yet.'
+            : top.map((t) => '- $t').join('\n');
+        return 'TASKS SNAPSHOT\n\nActive tasks: ${aggregation.tasks.length}\n\nTop tasks:\n$topText\n\nPrompt: "which one should I execute first and why?"';
+      case '/goals':
+        final List<String> top = aggregation.goals
+            .take(3)
+            .map((g) => g.title)
+            .toList(growable: false);
+        final String topText = top.isEmpty ? 'No goals found.' : top.map((g) => '- $g').join('\n');
+        return 'GOALS SNAPSHOT\n\nGoals: ${aggregation.goals.length}\n\nTop goals:\n$topText\n\nPrompt: "which goal is drifting and what is the next corrective action?"';
+      case '/plan':
+        final String blocks = aggregation.planPreview.isEmpty
+            ? 'No adaptive blocks generated yet.'
+            : aggregation.planPreview.take(3).map((b) => '- $b').join('\n');
+        return 'PLAN SNAPSHOT\n\nPlan preview blocks: ${aggregation.planPreview.length}\n\nUpcoming blocks:\n$blocks\n\nPrompt: "what should I move or drop to reduce pressure today?"';
+      case '/timeline':
+        final List<String> events = aggregation.timeline
+            .take(3)
+            .map((e) => '${e.shortLabel}: ${e.title}')
+            .toList(growable: false);
+        final String eventsText = events.isEmpty
+            ? 'No timeline events yet.'
+            : events.map((e) => '- $e').join('\n');
+        return 'TIMELINE SNAPSHOT\n\nEvents: ${aggregation.timeline.length}\n\nRecent events:\n$eventsText\n\nPrompt: "summarize the last events and what pattern they show."';
+      case '/trajectory':
+        return 'TRAJECTORY SNAPSHOT\n\nPressure: ${aggregation.trajectory.pressureIndex}\nMomentum: ${(aggregation.trajectory.momentum * 100).round()}%\nDivergence: ${aggregation.trajectory.behaviorDivergence}%\nAlert: ${aggregation.trajectory.alert}\n\nPrompt: "give me one action to improve momentum today."';
+      default:
+        return 'Module command not recognized.';
+    }
   }
 
   Future<void> _dispatchQuery(String text) async {
@@ -123,7 +267,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       if (!mounted) return;
       final String message = recommendation?.message.trim() ?? '';
       if (message.isEmpty) {
-        setState(() {
+        _safeSetState(() {
           _typing = false;
           _messages.add(
             const _Msg(
@@ -137,7 +281,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _scrollToBottom();
         return;
       }
-      setState(() {
+      _safeSetState(() {
         _typing = false;
         _messages.add(
           _Msg(text: message, isUser: false, emotion: recommendation?.emotion ?? 'balanced'),
@@ -146,7 +290,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       _scrollToBottom();
     } on Exception {
       if (!mounted) return;
-      setState(() {
+      _safeSetState(() {
         _typing = false;
         _messages.add(
           const _Msg(
@@ -164,11 +308,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
-        _scroll.animateTo(
-          _scroll.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOut,
-        );
+        _scroll.jumpTo(_scroll.position.maxScrollExtent);
       }
     });
   }
@@ -179,12 +319,22 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final SIConsoleScreenModel? consoleModel = consoleModelAsync.asData?.value;
     final Object? consoleError = consoleModelAsync.asError?.error;
     final String? engineSnapshot = consoleModel?.engineSnapshot;
+    final MediaQueryData mediaQuery = MediaQuery.of(context);
+    final double keyboardInset = mediaQuery.viewInsets.bottom;
+    final bool keyboardVisible = keyboardInset > 0;
+    final double composerBottomInset = keyboardInset > 0
+        ? keyboardInset
+        : mediaQuery.padding.bottom;
+    final double composerMaxHeight = keyboardVisible ? 120 : 220;
+    final double composerReservedHeight = composerMaxHeight;
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgSiConsole,
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: false,
         body: SafeArea(
+          bottom: false,
           child: LoadingOverlay(
             isLoading: consoleModelAsync.isLoading && _messages.isEmpty,
             message: 'Initializing SI context...',
@@ -192,33 +342,59 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
               children: [
                 _Header(
                   onBack: () {
-                    unawaited(_voiceService.stop());
+                    unawaited(ref.read(voiceServiceProvider).stop());
                     ref.read(appFlowProvider.notifier).toCoach();
                   },
                   engineSnapshot: engineSnapshot,
                 ),
                 Expanded(
-                  child: (consoleError != null && _messages.isEmpty)
-                      ? ErrorView(
-                          title: 'SI Context Error',
-                          message: consoleError.toString(),
-                          onRetry: () {
-                            ref.invalidate(siConsoleScreenModelProvider);
-                          },
-                        )
-                      : ListView.builder(
-                          controller: _scroll,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          itemCount: _messages.length + (_typing ? 1 : 0),
-                          itemBuilder: (context, i) {
-                            if (_typing && i == _messages.length) {
-                              return _TypingIndicator(animation: _typingAnim);
-                            }
-                            return _BubbleTile(msg: _messages[i]);
-                          },
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: (consoleError != null && _messages.isEmpty)
+                            ? ErrorView(
+                                title: 'SI Context Error',
+                                message: consoleError.toString(),
+                                onRetry: () {
+                                  ref.invalidate(siConsoleScreenModelProvider);
+                                },
+                              )
+                            : ListView.builder(
+                                controller: _scroll,
+                                padding: EdgeInsets.fromLTRB(
+                                  16,
+                                  8,
+                                  16,
+                                  composerReservedHeight + composerBottomInset,
+                                ),
+                                itemCount: _messages.length + (_typing ? 1 : 0),
+                                itemBuilder: (context, i) {
+                                  if (_typing && i == _messages.length) {
+                                    return _TypingIndicator(animation: _typingAnim);
+                                  }
+                                  return _BubbleTile(msg: _messages[i]);
+                                },
+                              ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: composerBottomInset),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxHeight: composerMaxHeight),
+                            child: _InputBar(
+                              controller: _input,
+                              onSend: _send,
+                              compact: keyboardVisible,
+                            ),
+                          ),
                         ),
+                      ),
+                    ],
+                  ),
                 ),
-                _InputBar(controller: _input, onSend: _send),
               ],
             ),
           ),
@@ -364,7 +540,7 @@ class _BubbleTile extends ConsumerWidget {
                       TypingText(
                         msg.text,
                         key: ValueKey<String>('si-msg-${msg.isUser}-${msg.text}'),
-                        animate: !isUser,
+                        animate: false,
                         style: TextStyle(
                           fontSize: 13,
                           height: 1.55,
@@ -572,11 +748,14 @@ class _TypingIndicator extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _InputBar extends StatelessWidget {
-  const _InputBar({required this.controller, required this.onSend});
+  const _InputBar({required this.controller, required this.onSend, this.compact = false});
   final TextEditingController controller;
   final VoidCallback onSend;
+  final bool compact;
 
   static const List<String> _commands = <String>[
+    '/help',
+    '/status',
     '/tasks',
     '/goals',
     '/plan',
@@ -592,105 +771,136 @@ class _InputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.white10)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Quick commands',
-            style: TextStyle(
-              color: Colors.white38,
-              fontSize: 10,
-              letterSpacing: 1.2,
-              fontWeight: FontWeight.w600,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool forceCompact = constraints.hasBoundedHeight && constraints.maxHeight < 150;
+        final bool effectiveCompact = compact || forceCompact;
+
+        return Container(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            effectiveCompact ? 8 : 10,
+            16,
+            effectiveCompact ? 10 : 16,
           ),
-          const SizedBox(height: 6),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _commands
-                  .map(
-                    (command) => Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: GestureDetector(
-                        onTap: () => _insertCommand(command),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: AppColors.neonCyan.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Colors.white10)),
+          ),
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!effectiveCompact) ...[
+                  const Text(
+                    'Quick commands',
+                    style: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 10,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _commands
+                          .map(
+                            (command) => Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: GestureDetector(
+                                onTap: () {
+                                  _insertCommand(command);
+                                  onSend();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.neonCyan.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color: AppColors.neonCyan.withValues(alpha: 0.28),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    command,
+                                    style: const TextStyle(
+                                      color: AppColors.neonCyan,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        minLines: 1,
+                        maxLines: 1,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        cursorColor: AppColors.neonCyan,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          hintText: 'Query the system...',
+                          hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
+                          filled: true,
+                          fillColor: const Color(0xFF0A1520),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide(
+                              color: AppColors.neonCyan.withValues(alpha: 0.2),
+                            ),
                           ),
-                          child: Text(
-                            command,
-                            style: const TextStyle(
-                              color: AppColors.neonCyan,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide(
+                              color: AppColors.neonCyan.withValues(alpha: 0.15),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide(
+                              color: AppColors.neonCyan.withValues(alpha: 0.5),
                             ),
                           ),
                         ),
+                        onSubmitted: (_) => onSend(),
                       ),
                     ),
-                  )
-                  .toList(growable: false),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: onSend,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.neonCyan.withValues(alpha: 0.12),
+                          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.4)),
+                        ),
+                        child: const Icon(Icons.send_rounded, color: AppColors.neonCyan, size: 18),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  cursorColor: AppColors.neonCyan,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    hintText: 'Query the system...',
-                    hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
-                    filled: true,
-                    fillColor: const Color(0xFF0A1520),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.2)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.15)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.5)),
-                    ),
-                  ),
-                  onSubmitted: (_) => onSend(),
-                ),
-              ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: onSend,
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.neonCyan.withValues(alpha: 0.12),
-                    border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.4)),
-                  ),
-                  child: const Icon(Icons.send_rounded, color: AppColors.neonCyan, size: 18),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -66,7 +66,10 @@ final soulStateProvider = Provider<SoulState>((ref) {
   final List<TimelineEventEntity> timelineEvents = ref.watch(timelineProvider);
   final List<FlowmapNode> flowNodes = ref
       .watch(flowmapProvider)
-      .maybeWhen(data: (List<FlowmapNode> nodes) => nodes, orElse: () => const <FlowmapNode>[]);
+      .maybeWhen(
+        data: (List<FlowmapNode> nodes) => nodes,
+        orElse: () => const <FlowmapNode>[],
+      );
   final String mood =
       emotion == EmotionalState.anxious ||
           emotion == EmotionalState.fatigued ||
@@ -76,50 +79,81 @@ final soulStateProvider = Provider<SoulState>((ref) {
 
   final int nodeCount = flowNodes.length;
   final int describedCount = flowNodes
-      .where((FlowmapNode node) => (node.description?.trim().isNotEmpty ?? false))
+      .where(
+        (FlowmapNode node) => (node.description?.trim().isNotEmpty ?? false),
+      )
       .length;
-  final int taggedCount = flowNodes.where((FlowmapNode node) => node.tags.isNotEmpty).length;
+  final int taggedCount = flowNodes
+      .where((FlowmapNode node) => node.tags.isNotEmpty)
+      .length;
   final int connectedCount = flowNodes
       .where((FlowmapNode node) => node.connectedTo.isNotEmpty)
       .length;
   final int memoryCount = memories.length;
-  final int recentMemoryCount = memories.where((MemoryEntity memory) => memory.isRecent).length;
-  final int starredMemoryCount = memories.where((MemoryEntity memory) => memory.starred).length;
+  final int recentMemoryCount = memories
+      .where((MemoryEntity memory) => memory.isRecent)
+      .length;
+  final int starredMemoryCount = memories
+      .where((MemoryEntity memory) => memory.starred)
+      .length;
   final int insightCount = insightsBundle.items.length;
   final int recentLogCount = logsState.entries
       .where((LogEntryEntity entry) => entry.isRecent)
       .length;
-  final int logSourceCount = logsState.entries.map((entry) => entry.source).toSet().length;
-  final int recentTimelineCount = timelineEvents.where((event) => event.isRecent).length;
+  final int logSourceCount = logsState.entries
+      .map((entry) => entry.source)
+      .toSet()
+      .length;
+  final int recentTimelineCount = timelineEvents
+      .where((event) => event.isRecent)
+      .length;
   final int milestoneTimelineCount = timelineEvents
       .where(
-        (TimelineEventEntity event) => event.isGoalComplete || event.isLevelUp || event.isStreak,
+        (TimelineEventEntity event) =>
+            event.isGoalComplete || event.isLevelUp || event.isStreak,
       )
       .length;
   final double mapDensity = nodeCount == 0
       ? 0.0
-      : ((describedCount + taggedCount + connectedCount) / (nodeCount * 3)).clamp(0.0, 1.0);
+      : ((describedCount + taggedCount + connectedCount) / (nodeCount * 3))
+            .clamp(0.0, 1.0);
   final double flowPresenceBoost = (nodeCount * 0.035).clamp(0.0, 0.18);
-  final double flowEmergenceBoost = ((nodeCount * 0.02) + (mapDensity * 0.16)).clamp(0.0, 0.22);
+  final double flowEmergenceBoost = ((nodeCount * 0.02) + (mapDensity * 0.16))
+      .clamp(0.0, 0.22);
   final bool hasFlowNarrative = nodeCount >= 3 || connectedCount > 0;
   final double memoryPresenceBoost = (memoryCount * 0.012).clamp(0.0, 0.10);
-  final double memoryEmergenceBoost = ((recentMemoryCount * 0.018) + (starredMemoryCount * 0.02))
-      .clamp(0.0, 0.14);
-  final bool hasMemoryNarrative = recentMemoryCount > 0 || starredMemoryCount > 0;
-  final double insightPresenceBoost = ((insightCount * 0.015) + (insightsBundle.healthScore * 0.04))
-      .clamp(0.0, 0.12);
-  final double insightEmergenceBoost = ((insightCount * 0.02) + (insightsBundle.healthScore * 0.05))
-      .clamp(0.0, 0.16);
+  final double memoryEmergenceBoost =
+      ((recentMemoryCount * 0.018) + (starredMemoryCount * 0.02)).clamp(
+        0.0,
+        0.14,
+      );
+  final bool hasMemoryNarrative =
+      recentMemoryCount > 0 || starredMemoryCount > 0;
+  final double insightPresenceBoost =
+      ((insightCount * 0.015) + (insightsBundle.healthScore * 0.04)).clamp(
+        0.0,
+        0.12,
+      );
+  final double insightEmergenceBoost =
+      ((insightCount * 0.02) + (insightsBundle.healthScore * 0.05)).clamp(
+        0.0,
+        0.16,
+      );
   final bool hasInsightNarrative = insightCount > 0;
-  final double timelinePresenceBoost = (recentTimelineCount * 0.015).clamp(0.0, 0.10);
-  final double timelineEmergenceBoost =
-      ((milestoneTimelineCount * 0.025) + (recentTimelineCount * 0.01)).clamp(0.0, 0.16);
-  final bool hasTimelineNarrative = milestoneTimelineCount > 0 || recentTimelineCount >= 3;
-  final double logPresenceBoost = (recentLogCount * 0.01).clamp(0.0, 0.08);
-  final double logEmergenceBoost = ((logSourceCount * 0.015) + (recentLogCount * 0.008)).clamp(
+  final double timelinePresenceBoost = (recentTimelineCount * 0.015).clamp(
     0.0,
-    0.12,
+    0.10,
   );
+  final double timelineEmergenceBoost =
+      ((milestoneTimelineCount * 0.025) + (recentTimelineCount * 0.01)).clamp(
+        0.0,
+        0.16,
+      );
+  final bool hasTimelineNarrative =
+      milestoneTimelineCount > 0 || recentTimelineCount >= 3;
+  final double logPresenceBoost = (recentLogCount * 0.01).clamp(0.0, 0.08);
+  final double logEmergenceBoost =
+      ((logSourceCount * 0.015) + (recentLogCount * 0.008)).clamp(0.0, 0.12);
   final bool hasLogNarrative = recentLogCount > 0 || logSourceCount >= 2;
 
   return const SyntheticSoulLayer().harmonize(

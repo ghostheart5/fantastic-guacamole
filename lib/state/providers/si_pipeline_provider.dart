@@ -1,13 +1,16 @@
 import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
+import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final siStateAggregationProvider = FutureProvider<SIStateAggregation>((Ref ref) async {
-  final List<Task> tasks = await ref.watch(tasksProvider.future);
+  final List<Task> tasks = await _loadAllActiveTasks(ref);
   final goals = ref.watch(goalsProvider);
   final insights = ref.watch(insightsBundleProvider);
   final logs = ref.watch(logsProvider).entries;
@@ -16,6 +19,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((Ref ref) 
   final notifications = ref.watch(notificationProvider);
   final profile = ref.watch(profileProvider);
   final siState = ref.watch(siStateProvider);
+  final EmotionalState emotion = ref.watch(emotionProvider);
   final trajectory = ref.watch(trajectorySummaryProvider);
   final double energy = ref.watch(energyProvider);
   final AsyncValue<List<FlowmapNode>> flowmapAsync = ref.watch(flowmapProvider);
@@ -40,6 +44,15 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((Ref ref) 
       : 'fragile';
   final bool goalDrift = goals.isNotEmpty && trajectory.behaviorDivergence >= 40;
   final bool taskAvoidance = logs.where((entry) => entry.source == 'task_skipped').length >= 2;
+  final bool emotionalStrain =
+      emotion == EmotionalState.anxious ||
+      emotion == EmotionalState.scattered ||
+      emotion == EmotionalState.negative ||
+      emotion == EmotionalState.fatigued;
+  final bool emotionalStability =
+      emotion == EmotionalState.calm ||
+      emotion == EmotionalState.focused ||
+      emotion == EmotionalState.positive;
   final Set<String> patterns = <String>{};
   if (insights.summary.toLowerCase().contains('overload')) {
     patterns.add('overload_pattern');
@@ -49,6 +62,12 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((Ref ref) 
   }
   if (flowmapNodes.any((node) => node.tags.contains('goal'))) {
     patterns.add('goal_pressure_pattern');
+  }
+  if (emotionalStrain) {
+    patterns.add('emotional_strain');
+  }
+  if (emotionalStability) {
+    patterns.add('emotional_stability');
   }
 
   return SIStateAggregation(
@@ -70,10 +89,33 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((Ref ref) 
       streakHealth: streakHealth,
       goalDrift: goalDrift,
       taskAvoidance: taskAvoidance,
+      emotion: emotion.name,
+      emotionalStrain: emotionalStrain,
+      emotionalStability: emotionalStability,
       emotionalPatterns: patterns.toList(growable: false),
     ),
   );
 });
+
+Future<List<Task>> _loadAllActiveTasks(Ref ref) async {
+  final List<TaskEntity> entities = await ref.read(domainTaskRepositoryProvider).getAllTasks();
+  return entities
+      .where((TaskEntity item) => !item.isCompleted && !item.isCanceled)
+      .map(
+        (TaskEntity item) => Task(
+          id: item.id,
+          title: item.title,
+          priority: item.priority,
+          difficulty: item.difficulty,
+          energyRequired: item.energyRequired,
+          scheduledFor: item.scheduledFor,
+          goalId: item.goalId,
+          subtasks: item.subtasks,
+          recurrenceRule: item.recurrenceRule,
+        ),
+      )
+      .toList(growable: false);
+}
 
 final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((Ref ref) async {
   final SIStateAggregation aggregation = await ref.watch(siStateAggregationProvider.future);
@@ -83,6 +125,8 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((Ref ref) asyn
     if (aggregation.signals.overwhelm) 'Overwhelm risk is elevated.',
     if (aggregation.signals.goalDrift) 'Goal drift detected in recent trajectory.',
     if (aggregation.signals.taskAvoidance) 'Task avoidance pattern detected.',
+    if (aggregation.signals.emotionalStrain)
+      'Emotional strain detected (${aggregation.signals.emotion}).',
   ];
 
   final String nextAction =
@@ -98,6 +142,9 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((Ref ref) asyn
   final List<String> insightPrompts = <String>[
     if (aggregation.signals.friction) 'What is creating the most friction right now?',
     if (aggregation.signals.goalDrift) 'Which goal has drifted and why?',
+    if (aggregation.signals.emotionalStrain) 'What would reduce emotional load in the next hour?',
+    if (aggregation.signals.emotionalStability)
+      'How can you convert this stable state into one decisive action?',
     if (aggregation.memories.isNotEmpty) 'What memory should inform this decision?',
   ];
 

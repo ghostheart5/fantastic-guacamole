@@ -33,19 +33,25 @@ class TutorialProgressController extends AsyncNotifier<TutorialProgress> {
 
   @override
   Future<TutorialProgress> build() async {
-    return _repository.loadProgressWithVersion(contentVersion: TutorialContent.contentVersion);
+    return _repository.loadProgressWithVersion(
+      contentVersion: TutorialContent.contentVersion,
+    );
   }
 
   Future<void> startTutorial() async {
     final TutorialProgress current = await _current();
-    final TutorialProgress updated = current.start(targetVersion: TutorialContent.contentVersion);
+    final TutorialProgress updated = current.start(
+      targetVersion: TutorialContent.contentVersion,
+    );
     await _save(updated);
     _analytics.trackStarted(contentVersion: TutorialContent.contentVersion);
   }
 
   Future<void> updateTutorialContentVersion() async {
     final TutorialProgress current = await _current();
-    final TutorialProgress updated = current.applyContentVersion(TutorialContent.contentVersion);
+    final TutorialProgress updated = current.applyContentVersion(
+      TutorialContent.contentVersion,
+    );
     await _save(updated);
     _analytics.trackContentVersionUpdated(
       fromVersion: current.contentVersion,
@@ -106,8 +112,12 @@ class TutorialProgressController extends AsyncNotifier<TutorialProgress> {
   }
 
   Future<void> reset() async {
-    await _repository.resetToVersion(contentVersion: TutorialContent.contentVersion);
-    state = const AsyncData(TutorialProgress(contentVersion: TutorialContent.contentVersion));
+    await _repository.resetToVersion(
+      contentVersion: TutorialContent.contentVersion,
+    );
+    state = const AsyncData(
+      TutorialProgress(contentVersion: TutorialContent.contentVersion),
+    );
     _analytics.trackReset();
   }
 

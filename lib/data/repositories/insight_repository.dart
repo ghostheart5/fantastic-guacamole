@@ -19,7 +19,10 @@ class InsightRepository implements IInsightRepository {
     }
     try {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
-      return list.whereType<Map<String, dynamic>>().map(_fromJson).toList(growable: false);
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(_fromJson)
+          .toList(growable: false);
     } catch (_) {
       return const <InsightEntity>[];
     }
@@ -27,14 +30,21 @@ class InsightRepository implements IInsightRepository {
 
   @override
   Future<void> saveInsight(InsightEntity insight) async {
-    final List<InsightEntity> existing = (await getInsights()).toList(growable: true);
-    final int index = existing.indexWhere((InsightEntity item) => item.id == insight.id);
+    final List<InsightEntity> existing = (await getInsights()).toList(
+      growable: true,
+    );
+    final int index = existing.indexWhere(
+      (InsightEntity item) => item.id == insight.id,
+    );
     if (index >= 0) {
       existing[index] = insight;
     } else {
       existing.insert(0, insight);
     }
-    await _store.save(_key, jsonEncode(existing.map(_toJson).toList(growable: false)));
+    await _store.save(
+      _key,
+      jsonEncode(existing.map(_toJson).toList(growable: false)),
+    );
   }
 
   @override
@@ -48,7 +58,10 @@ class InsightRepository implements IInsightRepository {
     final List<InsightEntity> next = (await getInsights())
         .where((InsightEntity item) => item.id != id)
         .toList(growable: false);
-    await _store.save(_key, jsonEncode(next.map(_toJson).toList(growable: false)));
+    await _store.save(
+      _key,
+      jsonEncode(next.map(_toJson).toList(growable: false)),
+    );
   }
 
   @override
@@ -58,7 +71,9 @@ class InsightRepository implements IInsightRepository {
       return getInsights();
     }
     final List<InsightEntity> insights = await getInsights();
-    return insights.where((InsightEntity item) => item.matches(normalized)).toList(growable: false);
+    return insights
+        .where((InsightEntity item) => item.matches(normalized))
+        .toList(growable: false);
   }
 
   static InsightEntity _fromJson(Map<String, dynamic> json) {
@@ -66,8 +81,11 @@ class InsightRepository implements IInsightRepository {
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? 'Untitled Insight',
       summary: json['summary'] as String? ?? '',
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
-      tags: (json['tags'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.now(),
+      tags: (json['tags'] as List<dynamic>? ?? const <dynamic>[])
+          .cast<String>(),
       action: json['action'] as String?,
     );
   }

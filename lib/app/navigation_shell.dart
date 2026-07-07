@@ -115,7 +115,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
     if (oldWidget.initialTabIndex != widget.initialTabIndex) {
       final int nextIndex = widget.initialTabIndex.clamp(0, _screens.length - 1);
       if (_index != nextIndex) {
-        setState(() => _index = nextIndex);
+        // didUpdateWidget is followed by build; avoid re-entrant rebuild requests.
+        _index = nextIndex;
       }
     }
 

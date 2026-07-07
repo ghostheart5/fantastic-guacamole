@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
 
@@ -26,14 +27,29 @@ class _InsightScreenState extends ConsumerState<InsightScreen> with SingleTicker
   bool _levelUpShown = false;
   String? _lastPublishedInsightSignature;
 
+  void _runAfterBuild(VoidCallback action) {
+    if (!mounted) return;
+    final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.idle || phase == SchedulerPhase.postFrameCallbacks) {
+      action();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      action();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _levelUpAnim = AnimationController(vsync: this);
     _levelUpAnim.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        ref.read(profileProvider.notifier).clearLeveledUp();
-        setState(() => _levelUpShown = true);
+        _runAfterBuild(() {
+          ref.read(profileProvider.notifier).clearLeveledUp();
+          setState(() => _levelUpShown = true);
+        });
       }
     });
   }
@@ -76,123 +92,145 @@ class _InsightScreenState extends ConsumerState<InsightScreen> with SingleTicker
         body: Stack(
           children: [
             SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        SmartPressable(
-                          onTap: () {
-                            ref.read(sessionScoreProvider.notifier).set(null);
-                            ref.read(appFlowProvider.notifier).toCoach();
-                          },
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: AppColors.neonCyan.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
-                            ),
-                            child: const Icon(
-                              Icons.arrow_back_ios_new,
-                              color: AppColors.neonCyan,
-                              size: 16,
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SmartPressable(
+                            onTap: () {
+                              ref.read(sessionScoreProvider.notifier).set(null);
+                              ref.read(appFlowProvider.notifier).toCoach();
+                            },
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: AppColors.neonCyan.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: AppColors.neonCyan.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.arrow_back_ios_new,
+                                color: AppColors.neonCyan,
+                                size: 16,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: ShaderMask(
-                                  shaderCallback: (bounds) => const LinearGradient(
-                                    colors: [AppColors.neonCyan, AppColors.neonViolet],
-                                  ).createShader(bounds),
-                                  child: const Text(
-                                    'SYSTEM INSIGHTS',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 3,
-                                      color: Colors.white,
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: ShaderMask(
+                                    shaderCallback: (bounds) => const LinearGradient(
+                                      colors: [AppColors.neonCyan, AppColors.neonViolet],
+                                    ).createShader(bounds),
+                                    child: const Text(
+                                      'SYSTEM INSIGHTS',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 3,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  'SI STATE INTERPRETATION',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    letterSpacing: 2,
-                                    color: Colors.white38,
+                                const FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'SI STATE INTERPRETATION',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      letterSpacing: 2,
+                                      color: Colors.white38,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
                   if (completionInsight != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                      child: _CompletionInsightPanel(insight: completionInsight),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                        child: _CompletionInsightPanel(insight: completionInsight),
+                      ),
                     ),
                   if (score != null)
-                    Padding(
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                        child: _ScorePanel(score: score),
+                      ),
+                    ),
+                  SliverToBoxAdapter(
+                    child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                      child: _ScorePanel(score: score),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                    child: pattern.when(
-                      data: (text) => _PatternInsightPanel(text: text),
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (e, _) => const Text('Error'),
+                      child: pattern.when(
+                        data: (text) => _PatternInsightPanel(text: text),
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => const Text('Error'),
+                      ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                    child: _SystemHealthPanel(
-                      summary: insightsBundle.summary,
-                      healthScore: insightsBundle.healthScore,
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: _SystemHealthPanel(
+                        summary: insightsBundle.summary,
+                        healthScore: insightsBundle.healthScore,
+                      ),
                     ),
                   ),
-                  const _WeeklyXpRow(),
-                  const _BehaviorIdentityRow(),
-                  Expanded(
-                    child: insights.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'No insights yet',
-                              style: TextStyle(
-                                color: Colors.white38,
-                                fontSize: 13,
-                                letterSpacing: 1.5,
-                              ),
+                  const SliverToBoxAdapter(child: _WeeklyXpRow()),
+                  const SliverToBoxAdapter(child: _BehaviorIdentityRow()),
+                  if (insights.isEmpty)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
+                        child: Center(
+                          child: Text(
+                            'No insights yet',
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 13,
+                              letterSpacing: 1.5,
                             ),
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                            itemCount: insights.length,
-                            separatorBuilder: (context, i) => const SizedBox(height: 12),
-                            itemBuilder: (context, index) => _InsightCard(insight: insights[index]),
                           ),
-                  ),
+                        ),
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final int contentIndex = index ~/ 2;
+                          if (index.isOdd) {
+                            return const SizedBox(height: 12);
+                          }
+                          return _InsightCard(insight: insights[contentIndex]);
+                        }, childCount: insights.length * 2 - 1),
+                      ),
+                    ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
                 ],
               ),
             ),

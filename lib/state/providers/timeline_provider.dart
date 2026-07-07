@@ -10,23 +10,34 @@ final timelineActionsProvider = Provider<TimelineActions>((Ref ref) {
   return TimelineActions(ref);
 });
 
-final timelineProvider = NotifierProvider<TimelineNotifier, List<TimelineEventEntity>>(
-  TimelineNotifier.new,
-);
+final timelineProvider =
+    NotifierProvider<TimelineNotifier, List<TimelineEventEntity>>(
+      TimelineNotifier.new,
+    );
 
 class TimelineActions {
   const TimelineActions(this._ref);
 
   final Ref _ref;
 
-  Future<void> addEvent({required TimelineEventEntity event, bool awardProgression = false}) {
-    return _ref.read(timelineProvider.notifier).record(event, awardProgression: awardProgression);
+  Future<void> addEvent({
+    required TimelineEventEntity event,
+    bool awardProgression = false,
+  }) {
+    return _ref
+        .read(timelineProvider.notifier)
+        .record(event, awardProgression: awardProgression);
   }
 
   Future<void> addMirroredEvent(TimelineEventEntity event) {
     return _ref
         .read(timelineProvider.notifier)
-        .record(event, refreshCoach: false, syncSoulMap: false, awardProgression: false);
+        .record(
+          event,
+          refreshCoach: false,
+          syncSoulMap: false,
+          awardProgression: false,
+        );
   }
 }
 
@@ -46,7 +57,9 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
   }) async {
     await ref.read(addTimelineEventUseCaseProvider).call(event);
     final updated = [event, ...state];
-    state = updated.length > _maxEvents ? updated.sublist(0, _maxEvents) : updated;
+    state = updated.length > _maxEvents
+        ? updated.sublist(0, _maxEvents)
+        : updated;
 
     if (syncSoulMap) {
       ref.invalidate(soulStateProvider);
@@ -59,7 +72,13 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
     }
     ref
         .read(eventBusProvider)
-        .emit(TimelineLifecycleEvent(eventId: event.id, title: event.title, type: event.type.name));
+        .emit(
+          TimelineLifecycleEvent(
+            eventId: event.id,
+            title: event.title,
+            type: event.type.name,
+          ),
+        );
   }
 
   Future<void> remove(String id) async {

@@ -52,7 +52,8 @@ class _AppRootState extends ConsumerState<AppRoot> {
     _router = router;
     _routerListener = () {
       final controller = ref.read(tutorialControllerProvider);
-      final String route = _router!.routeInformationProvider.value.uri.toString();
+      final String route = _router!.routeInformationProvider.value.uri
+          .toString();
       controller.updateRoute(route);
     };
     _router!.routerDelegate.addListener(_routerListener!);
@@ -72,7 +73,10 @@ class _AppRootState extends ConsumerState<AppRoot> {
     final WidgetRef ref = this.ref;
     final themeEntity = ref.watch(currentThemeProvider).asData?.value;
     final String startupMessage = widget.startupError?.trim() ?? '';
-    final bool showQaDiagnostics = ref.watch(intelligenceStateProvider).flags.testerFullAccess;
+    final bool showQaDiagnostics = ref
+        .watch(intelligenceStateProvider)
+        .flags
+        .testerFullAccess;
     final GoRouter router = ref.watch(appRouterProvider);
     final tutorialController = ref.watch(tutorialControllerProvider);
 
@@ -81,7 +85,9 @@ class _AppRootState extends ConsumerState<AppRoot> {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: AppConfig.fromEnv().appName,
-      theme: (themeEntity?.isDark ?? true) ? appTheme : ThemeData.light(useMaterial3: true),
+      theme: (themeEntity?.isDark ?? true)
+          ? appTheme
+          : ThemeData.light(useMaterial3: true),
       routerConfig: router,
       builder: (context, child) {
         final Widget appChild = TutorialHost(
@@ -109,11 +115,16 @@ class _AppRootState extends ConsumerState<AppRoot> {
                       decoration: BoxDecoration(
                         color: Colors.redAccent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
+                        border: Border.all(
+                          color: Colors.redAccent.withValues(alpha: 0.35),
+                        ),
                       ),
                       child: Text(
                         startupMessage,
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ),
@@ -127,8 +138,12 @@ class _AppRootState extends ConsumerState<AppRoot> {
                   child: FloatingActionButton.small(
                     heroTag: 'qa_diagnostics_fab',
                     backgroundColor: Colors.black.withValues(alpha: 0.72),
-                    onPressed: () => _showDiagnosticsSheet(context),
-                    child: const Icon(Icons.bug_report_outlined, color: Colors.white, size: 18),
+                    onPressed: _showDiagnosticsSheet,
+                    child: const Icon(
+                      Icons.bug_report_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
@@ -138,9 +153,15 @@ class _AppRootState extends ConsumerState<AppRoot> {
     );
   }
 
-  void _showDiagnosticsSheet(BuildContext context) {
+  void _showDiagnosticsSheet() {
+    final NavigatorState? navigatorState =
+        _router?.routerDelegate.navigatorKey.currentState;
+    if (navigatorState == null) {
+      return;
+    }
+
     showModalBottomSheet<void>(
-      context: context,
+      context: navigatorState.context,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF050D1A),
       shape: const RoundedRectangleBorder(
@@ -174,7 +195,10 @@ class _AppRootState extends ConsumerState<AppRoot> {
                         return const Center(
                           child: Text(
                             'No diagnostics captured yet.',
-                            style: TextStyle(color: Colors.white54, fontSize: 13),
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 13,
+                            ),
                           ),
                         );
                       }

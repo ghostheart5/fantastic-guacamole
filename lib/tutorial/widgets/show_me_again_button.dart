@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ShowMeAgainButton extends ConsumerWidget {
-  const ShowMeAgainButton({super.key, required this.stepId, this.label = 'Show Me Again'});
+  const ShowMeAgainButton({
+    super.key,
+    required this.stepId,
+    this.label = 'Show Me Again',
+  });
 
   final String stepId;
   final String label;
@@ -17,14 +21,18 @@ class ShowMeAgainButton extends ConsumerWidget {
           constraints: BoxConstraints(maxWidth: constraints.maxWidth),
           child: TextButton(
             onPressed: () async {
-              await ref.read(tutorialProgressProvider.notifier).showAgain(stepId);
+              await ref
+                  .read(tutorialProgressProvider.notifier)
+                  .showAgain(stepId);
 
               if (!context.mounted) {
                 return;
               }
 
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Tutorial tip re-enabled for this screen.')),
+                const SnackBar(
+                  content: Text('Tutorial tip re-enabled for this screen.'),
+                ),
               );
             },
             style: TextButton.styleFrom(

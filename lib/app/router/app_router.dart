@@ -26,6 +26,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       final String location = state.matchedLocation;
 
+      if (!onboardingComplete && location != RoutePaths.onboarding) {
+        return RoutePaths.onboarding;
+      }
+
       if (location == RoutePaths.shell && isAuthenticated) {
         return RoutePaths.home;
       }
@@ -40,11 +44,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return RoutePaths.login;
       }
 
-      if (!isAuthenticated && !onboardingComplete && location != RoutePaths.onboarding) {
-        return RoutePaths.onboarding;
-      }
-
-      if (!isAuthenticated && onboardingComplete && location != RoutePaths.login) {
+      if (!isAuthenticated &&
+          onboardingComplete &&
+          location != RoutePaths.login) {
         return RoutePaths.login;
       }
 
@@ -62,11 +64,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Primary surfaces: Now, Plan, Add, Reflect, Settings.
       GoRoute(
         path: RoutePaths.onboarding,
-        builder: (BuildContext context, GoRouterState state) => const OnboardingScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const OnboardingScreen(),
       ),
       GoRoute(
         path: RoutePaths.home,
-        builder: (BuildContext context, GoRouterState state) => const NavigationShell(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(),
       ),
       GoRoute(
         path: RoutePaths.plan,
@@ -92,7 +96,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Secondary and advanced routes.
       GoRoute(
         path: RoutePaths.notifications,
-        builder: (BuildContext context, GoRouterState state) => const NotificationsPage(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const NotificationsPage(),
       ),
       GoRoute(
         path: RoutePaths.logs,
@@ -121,13 +126,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // Legacy top-level routes redirect into the secondary hierarchy.
-      GoRoute(path: RoutePaths.legacyCoach, redirect: (_, _) => RoutePaths.home),
+      GoRoute(
+        path: RoutePaths.legacyCoach,
+        redirect: (_, _) => RoutePaths.home,
+      ),
       GoRoute(path: RoutePaths.legacyLogs, redirect: (_, _) => RoutePaths.logs),
-      GoRoute(path: RoutePaths.legacyNotifications, redirect: (_, _) => RoutePaths.notifications),
-      GoRoute(path: RoutePaths.legacyProgression, redirect: (_, _) => RoutePaths.progression),
+      GoRoute(
+        path: RoutePaths.legacyNotifications,
+        redirect: (_, _) => RoutePaths.notifications,
+      ),
+      GoRoute(
+        path: RoutePaths.legacyProgression,
+        redirect: (_, _) => RoutePaths.progression,
+      ),
       GoRoute(path: RoutePaths.legacySi, redirect: (_, _) => RoutePaths.si),
-      GoRoute(path: RoutePaths.legacyTasks, redirect: (_, _) => RoutePaths.tasks),
-      GoRoute(path: RoutePaths.legacyProfile, redirect: (_, _) => RoutePaths.profile),
+      GoRoute(
+        path: RoutePaths.legacyTasks,
+        redirect: (_, _) => RoutePaths.tasks,
+      ),
+      GoRoute(
+        path: RoutePaths.legacyProfile,
+        redirect: (_, _) => RoutePaths.profile,
+      ),
 
       GoRoute(
         path: RoutePaths.login,
@@ -140,28 +160,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.paywall,
-        builder: (BuildContext context, GoRouterState state) => const PaywallPage(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const PaywallPage(),
       ),
       GoRoute(
         path: RoutePaths.privacy,
-        builder: (BuildContext context, GoRouterState state) => const WebPageView(
-          title: 'Privacy Policy',
-          assetPath: 'assets/legal/privacy_policy.txt',
-        ),
+        builder: (BuildContext context, GoRouterState state) =>
+            const WebPageView(
+              title: 'Privacy Policy',
+              assetPath: 'assets/legal/privacy_policy.txt',
+            ),
       ),
       GoRoute(
         path: RoutePaths.terms,
-        builder: (BuildContext context, GoRouterState state) => const WebPageView(
-          title: 'Terms of Service',
-          assetPath: 'assets/legal/terms_of_service.txt',
-        ),
+        builder: (BuildContext context, GoRouterState state) =>
+            const WebPageView(
+              title: 'Terms of Service',
+              assetPath: 'assets/legal/terms_of_service.txt',
+            ),
       ),
       GoRoute(
         path: RoutePaths.support,
-        builder: (BuildContext context, GoRouterState state) => const WebPageView(
-          title: 'Support',
-          body: 'For support, contact ghostheart131517@gmail.com',
-        ),
+        builder: (BuildContext context, GoRouterState state) =>
+            const WebPageView(
+              title: 'Support',
+              body: 'For support, contact ghostheart131517@gmail.com',
+            ),
       ),
       GoRoute(
         path: RoutePaths.about,

@@ -26,7 +26,8 @@ final eventBusProvider = Provider<EventBus>((Ref ref) {
 
 final eventBusBootstrapProvider = Provider<void>((Ref ref) {
   final EventBus bus = ref.read(eventBusProvider);
-  final List<StreamSubscription<dynamic>> subscriptions = <StreamSubscription<dynamic>>[
+  final List<StreamSubscription<dynamic>>
+  subscriptions = <StreamSubscription<dynamic>>[
     bus.on<TaskLifecycleEvent>().listen((TaskLifecycleEvent _) {
       ref.invalidate(tasksProvider);
       ref.invalidate(goalProgressProvider);

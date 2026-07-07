@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
+import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/widgets/micro_tutorial_card.dart';
@@ -36,9 +37,7 @@ class CreatorScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: AppColors.neonCyan.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.neonCyan.withValues(alpha: 0.3),
-                          ),
+                          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
                         ),
                         child: const Icon(
                           Icons.arrow_back_ios_new,
@@ -69,10 +68,7 @@ class CreatorScreen extends ConsumerWidget {
                         children: [
                           ShaderMask(
                             shaderCallback: (bounds) => const LinearGradient(
-                              colors: [
-                                AppColors.neonCyan,
-                                AppColors.neonViolet,
-                              ],
+                              colors: [AppColors.neonCyan, AppColors.neonViolet],
                             ).createShader(bounds),
                             child: const Text(
                               'CREATOR',
@@ -87,14 +83,10 @@ class CreatorScreen extends ConsumerWidget {
                             ),
                           ),
                           const Text(
-                            'OPTIONAL TASK FORGE',
+                            'OPTIONAL ENTRY FORGE',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 2,
-                              color: Colors.white38,
-                            ),
+                            style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
                           ),
                         ],
                       ),
@@ -106,12 +98,25 @@ class CreatorScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 const _CreatorPurposeCard(),
                 const SizedBox(height: 16),
-                const _TypeGuideCard(),
-                const SizedBox(height: 16),
                 DynamicForm(
                   onSubmit: (data) async {
                     await ref.read(creatorActionsProvider).createTask(data);
+                    await ref.read(localMetricsAccumulatorProvider).recordTaskCreated();
+                    ref.invalidate(tasksProvider);
+                    ref.invalidate(goalProgressProvider);
+                    ref.read(tutorialControllerProvider).updateState('has_created_task', true);
                     if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Entry created.'),
+                          action: SnackBarAction(
+                            label: 'TRAJECTORY',
+                            onPressed: () {
+                              ref.read(appFlowProvider.notifier).toPlan();
+                            },
+                          ),
+                        ),
+                      );
                       ref.read(appFlowProvider.notifier).toPlan();
                     }
                   },
@@ -147,10 +152,7 @@ class _CreatorTutorialPanel extends ConsumerWidget {
         if (progress.isStepDismissed(step.id)) {
           return Align(
             alignment: Alignment.centerLeft,
-            child: ShowMeAgainButton(
-              stepId: step.id,
-              label: 'Show Creator Tutorial Again',
-            ),
+            child: ShowMeAgainButton(stepId: step.id, label: 'Show Creator Tutorial Again'),
           );
         }
 
@@ -185,94 +187,6 @@ class _CreatorPurposeCard extends StatelessWidget {
         'Creator is optional. Use Smart Coach, Day Plan, and Flowmap for guided workflows. Use Creator when you want direct, manual task forging.',
         style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.45),
       ),
-    );
-  }
-}
-
-class _TypeGuideCard extends StatelessWidget {
-  const _TypeGuideCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.15)),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'TYPES',
-            style: TextStyle(
-              fontSize: 9,
-              letterSpacing: 2.5,
-              color: AppColors.neonViolet,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          SizedBox(height: 10),
-          _TypeRow(
-            icon: Icons.check_circle_outline,
-            label: 'Task',
-            desc: 'something to complete',
-          ),
-          SizedBox(height: 6),
-          _TypeRow(
-            icon: Icons.repeat_rounded,
-            label: 'Routine',
-            desc: 'repeat daily',
-          ),
-          SizedBox(height: 6),
-          _TypeRow(
-            icon: Icons.timer_outlined,
-            label: 'Focus',
-            desc: 'timed session',
-          ),
-          SizedBox(height: 6),
-          _TypeRow(
-            icon: Icons.flag_outlined,
-            label: 'Mission',
-            desc: 'long-term goal',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TypeRow extends StatelessWidget {
-  const _TypeRow({required this.icon, required this.label, required this.desc});
-  final IconData icon;
-  final String label;
-  final String desc;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: AppColors.neonCyan, size: 13),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            '— $desc',
-            style: const TextStyle(color: Colors.white38, fontSize: 11),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
     );
   }
 }

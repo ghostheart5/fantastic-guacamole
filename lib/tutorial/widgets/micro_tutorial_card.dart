@@ -7,7 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class MicroTutorialCard extends ConsumerStatefulWidget {
-  const MicroTutorialCard({super.key, required this.step, this.onComplete, this.onDismiss});
+  const MicroTutorialCard({
+    super.key,
+    required this.step,
+    this.onComplete,
+    this.onDismiss,
+  });
 
   final TutorialStepContent step;
   final VoidCallback? onComplete;
@@ -74,7 +79,11 @@ class _MicroTutorialCardState extends ConsumerState<MicroTutorialCard> {
 
           Text(
             widget.step.description,
-            style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.35),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              height: 1.35,
+            ),
           ),
 
           if (_contextHint != null && _contextHint!.trim().isNotEmpty) ...[
@@ -98,12 +107,16 @@ class _MicroTutorialCardState extends ConsumerState<MicroTutorialCard> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () async {
-                    await ref.read(tutorialProgressProvider.notifier).skipStep(widget.step.id);
+                    await ref
+                        .read(tutorialProgressProvider.notifier)
+                        .skipStep(widget.step.id);
 
                     widget.onDismiss?.call();
                   },
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: AppColors.neonViolet.withValues(alpha: 0.40)),
+                    side: BorderSide(
+                      color: AppColors.neonViolet.withValues(alpha: 0.40),
+                    ),
                     foregroundColor: Colors.white70,
                     textStyle: const TextStyle(decoration: TextDecoration.none),
                   ),
@@ -116,7 +129,9 @@ class _MicroTutorialCardState extends ConsumerState<MicroTutorialCard> {
               Expanded(
                 child: FilledButton(
                   onPressed: () async {
-                    await ref.read(tutorialProgressProvider.notifier).completeStep(widget.step.id);
+                    await ref
+                        .read(tutorialProgressProvider.notifier)
+                        .completeStep(widget.step.id);
 
                     widget.onComplete?.call();
                   },
@@ -137,12 +152,17 @@ class _MicroTutorialCardState extends ConsumerState<MicroTutorialCard> {
             alignment: Alignment.centerLeft,
             child: TextButton(
               onPressed: () async {
-                await ref.read(tutorialProgressProvider.notifier).skipStepForever(widget.step.id);
+                await ref
+                    .read(tutorialProgressProvider.notifier)
+                    .skipStepForever(widget.step.id);
 
                 widget.onDismiss?.call();
               },
               style: TextButton.styleFrom(foregroundColor: Colors.white54),
-              child: const Text('Hide This Tip', style: TextStyle(decoration: TextDecoration.none)),
+              child: const Text(
+                'Hide This Tip',
+                style: TextStyle(decoration: TextDecoration.none),
+              ),
             ),
           ),
         ],

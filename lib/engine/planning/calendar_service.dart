@@ -1,11 +1,11 @@
 import 'package:fantastic_guacamole/domain/entities/calendar_entry.dart';
+import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 
 class CalendarService {
   final Map<String, CalendarEntry> _entries = <String, CalendarEntry>{};
-  final Map<String, List<TimeBlock>> _timeBlocksByDay =
-      <String, List<TimeBlock>>{};
+  final Map<String, List<TimeBlock>> _timeBlocksByDay = <String, List<TimeBlock>>{};
   final Map<String, List<Task>> _tasksByDay = <String, List<Task>>{};
 
   /// Generate an adaptive day plan using a simple energy-aware ranking.
@@ -26,39 +26,41 @@ class CalendarService {
 
     final List<TimeBlock> blocks = <TimeBlock>[];
     final Map<String, DateTime> cursorsByDay = <String, DateTime>{};
+    final Set<String> plannedTaskDayKeys = <String>{};
 
     for (final Task task in ranked) {
-      final DateTime scheduled = task.scheduledFor ?? now;
-      final DateTime dayStart = _startForPlanningDay(scheduled, now);
-      final String dayKey = _keyFor(dayStart);
-      final DateTime cursor = cursorsByDay[dayKey] ?? dayStart;
-      final Duration duration = _estimateAdaptiveDuration(
-        task,
-        normalizedEnergy,
-      );
-      final DateTime end = cursor.add(duration);
+      final List<DateTime> occurrences = _planningOccurrences(task, now);
+      for (final DateTime occurrence in occurrences) {
+        final DateTime dayStart = _startForPlanningDay(occurrence, now);
+        final String dayKey = _keyFor(dayStart);
+        final String taskDayKey = '${task.id}@$dayKey';
+        if (plannedTaskDayKeys.contains(taskDayKey)) {
+          continue;
+        }
+        final DateTime cursor = cursorsByDay[dayKey] ?? dayStart;
+        final Duration duration = _estimateAdaptiveDuration(task, normalizedEnergy);
+        final DateTime end = cursor.add(duration);
 
-      blocks.add(
-        TimeBlock(
-          id: '${task.id}-${cursor.millisecondsSinceEpoch}',
-          taskId: task.id,
-          title: task.title,
-          start: cursor,
-          end: end,
-        ),
-      );
+        blocks.add(
+          TimeBlock(
+            id: '${task.id}-${occurrence.millisecondsSinceEpoch}-${cursor.millisecondsSinceEpoch}',
+            taskId: task.id,
+            title: task.title,
+            start: cursor,
+            end: end,
+          ),
+        );
 
-      cursorsByDay[dayKey] = end.add(_adaptiveBreak(normalizedEnergy));
+        plannedTaskDayKeys.add(taskDayKey);
+        cursorsByDay[dayKey] = end.add(_adaptiveBreak(normalizedEnergy));
+      }
     }
 
     return blocks;
   }
 
   /// Generate a simple day plan from tasks.
-  List<TimeBlock> generateDayPlan({
-    required List<Task> tasks,
-    DateTime? startTime,
-  }) {
+  List<TimeBlock> generateDayPlan({required List<Task> tasks, DateTime? startTime}) {
     final DateTime now = startTime ?? DateTime.now();
 
     // Sort tasks by priority (high first) while avoiding in-place mutation.
@@ -100,14 +102,10 @@ class CalendarService {
     }
 
     final String key = _keyFor(date);
-    final List<TimeBlock> blocks = _timeBlocksByDay.putIfAbsent(
-      key,
-      () => <TimeBlock>[],
-    );
+    final List<TimeBlock> blocks = _timeBlocksByDay.putIfAbsent(key, () => <TimeBlock>[]);
     final bool hasConflict = blocks.any(
       (TimeBlock existing) =>
-          block.start.isBefore(existing.end) &&
-          block.end.isAfter(existing.start),
+          block.start.isBefore(existing.end) && block.end.isAfter(existing.start),
     );
 
     if (hasConflict) {
@@ -155,8 +153,7 @@ class CalendarService {
     return '${normalized.year}-$month-$day';
   }
 
-  DateTime _normalizedDate(DateTime date) =>
-      DateTime(date.year, date.month, date.day);
+  DateTime _normalizedDate(DateTime date) => DateTime(date.year, date.month, date.day);
 
   CalendarEntry _defaultEntry(DateTime date, String key) {
     final DateTime start = DateTime(date.year, date.month, date.day);
@@ -173,9 +170,7 @@ class CalendarService {
     final DateTime start = DateTime(date.year, date.month, date.day);
     return CalendarEntry(
       id: key,
-      title: blocks.isEmpty
-          ? 'Day Plan'
-          : '${blocks.length} block${blocks.length == 1 ? '' : 's'}',
+      title: blocks.isEmpty ? 'Day Plan' : '${blocks.length} block${blocks.length == 1 ? '' : 's'}',
       start: start,
       end: start.add(const Duration(hours: 24)),
     );
@@ -202,16 +197,13 @@ class CalendarService {
   double _adaptiveTaskScore(Task task, double energy) {
     final double priorityWeight = task.priority * 10.0;
     final double normalizedRequirement = task.energyRequired / 5.0;
-    final double effortFit =
-        (1 - (normalizedRequirement - energy).abs()).clamp(0.0, 1.0) * 30;
+    final double effortFit = (1 - (normalizedRequirement - energy).abs()).clamp(0.0, 1.0) * 30;
     return priorityWeight + effortFit;
   }
 
   DateTime _startForPlanningDay(DateTime scheduled, DateTime now) {
     final bool isToday =
-        scheduled.year == now.year &&
-        scheduled.month == now.month &&
-        scheduled.day == now.day;
+        scheduled.year == now.year && scheduled.month == now.month && scheduled.day == now.day;
     if (isToday) return now;
     if (scheduled.hour != 0 || scheduled.minute != 0) return scheduled;
     return DateTime(scheduled.year, scheduled.month, scheduled.day, 9);
@@ -236,5 +228,40 @@ class CalendarService {
       return const Duration(minutes: 15);
     }
     return const Duration(minutes: 10);
+  }
+
+  List<DateTime> _planningOccurrences(Task task, DateTime now) {
+    final DateTime scheduled = task.scheduledFor ?? now;
+    switch (task.recurrenceRule) {
+      case RecurrenceRule.daily:
+        final DateTime startDate = DateTime(now.year, now.month, now.day);
+        final int hour = (scheduled.hour == 0 && scheduled.minute == 0) ? now.hour : scheduled.hour;
+        final int minute = (scheduled.hour == 0 && scheduled.minute == 0)
+            ? now.minute
+            : scheduled.minute;
+        return List<DateTime>.generate(
+          7,
+          (int index) =>
+              DateTime(startDate.year, startDate.month, startDate.day + index, hour, minute),
+        );
+      case RecurrenceRule.weekly:
+        DateTime candidate = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          scheduled.hour,
+          scheduled.minute,
+        );
+        final int targetWeekday = scheduled.weekday;
+        while (candidate.weekday != targetWeekday) {
+          candidate = candidate.add(const Duration(days: 1));
+        }
+        if (candidate.isBefore(now)) {
+          candidate = candidate.add(const Duration(days: 7));
+        }
+        return <DateTime>[candidate];
+      case RecurrenceRule.none:
+        return <DateTime>[scheduled];
+    }
   }
 }

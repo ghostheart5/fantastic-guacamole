@@ -11,7 +11,8 @@ class TutorialController extends ChangeNotifier {
 
   final TutorialAssetLoader loader;
 
-  final Map<String, TutorialDefinition> _tutorials = <String, TutorialDefinition>{};
+  final Map<String, TutorialDefinition> _tutorials =
+      <String, TutorialDefinition>{};
   final Set<String> _completedTutorialIds = <String>{};
   final Map<String, Object?> _state = <String, Object?>{};
   final Map<String, String> _inputs = <String, String>{};
@@ -119,7 +120,9 @@ class TutorialController extends ChangeNotifier {
     if (nextId != null && nextId.isNotEmpty) {
       nextStep = _stepById(nextId);
     } else {
-      final int index = _activeTutorial!.steps.indexWhere((s) => s.id == current.id);
+      final int index = _activeTutorial!.steps.indexWhere(
+        (s) => s.id == current.id,
+      );
       if (index >= 0 && index + 1 < _activeTutorial!.steps.length) {
         nextStep = _activeTutorial!.steps[index + 1];
       }
@@ -142,7 +145,8 @@ class TutorialController extends ChangeNotifier {
 
     final bool complete = switch (step.trigger) {
       TutorialTriggerType.tap => _state['event'] == 'tap:${step.targetId}',
-      TutorialTriggerType.longPress => _state['event'] == 'longPress:${step.targetId}',
+      TutorialTriggerType.longPress =>
+        _state['event'] == 'longPress:${step.targetId}',
       TutorialTriggerType.route => step.route == _route,
       TutorialTriggerType.state => _state[step.stateKey] == step.stateValue,
       TutorialTriggerType.input => _inputs[step.inputKey] == step.expectedValue,

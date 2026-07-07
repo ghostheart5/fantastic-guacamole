@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
+
 class CreatorFormData {
   const CreatorFormData({
     required this.title,
@@ -5,6 +7,7 @@ class CreatorFormData {
     required this.type,
     required this.priority,
     this.scheduledFor,
+    this.recurrenceRule = RecurrenceRule.none,
   });
 
   final String title;
@@ -12,4 +15,5 @@ class CreatorFormData {
   final String type;
   final int priority;
   final DateTime? scheduledFor;
+  final RecurrenceRule recurrenceRule;
 }

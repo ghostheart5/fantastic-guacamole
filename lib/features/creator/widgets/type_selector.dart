@@ -8,7 +8,7 @@ class TypeSelector extends StatelessWidget {
   final String selected;
   final ValueChanged<String> onSelect;
 
-  static const _types = ['Task', 'Focus', 'Project', 'Note', 'Routine'];
+  static const _types = ['Task', 'Routine', 'Note', 'Goal'];
 
   @override
   Widget build(BuildContext context) {

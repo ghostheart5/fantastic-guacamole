@@ -12,17 +12,23 @@ import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final goalsProvider = NotifierProvider<GoalsNotifier, List<GoalEntity>>(GoalsNotifier.new);
+final goalsProvider = NotifierProvider<GoalsNotifier, List<GoalEntity>>(
+  GoalsNotifier.new,
+);
 
 final goalProgressProvider = FutureProvider.family<GoalProgressView, String>((
   Ref ref,
   String goalId,
 ) async {
-  final List<TaskEntity> tasks = await ref.watch(getTasksUseCaseProvider).call();
+  final List<TaskEntity> tasks = await ref
+      .watch(getTasksUseCaseProvider)
+      .call();
   final List<TaskEntity> linked = tasks
       .where((TaskEntity task) => task.goalId == goalId)
       .toList(growable: false);
-  final int completed = linked.where((TaskEntity task) => task.isCompleted).length;
+  final int completed = linked
+      .where((TaskEntity task) => task.isCompleted)
+      .length;
   return GoalProgressView(tasks: linked, completedCount: completed);
 });
 
@@ -32,12 +38,18 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     return ref.read(getGoalsUseCaseProvider).call();
   }
 
-  Future<void> add({required String title, String? description, DateTime? targetDate}) async {
+  Future<void> add({
+    required String title,
+    String? description,
+    DateTime? targetDate,
+  }) async {
     final goal = GoalEntity(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title.trim(),
       createdAt: DateTime.now(),
-      description: description?.trim().isEmpty ?? true ? null : description?.trim(),
+      description: description?.trim().isEmpty ?? true
+          ? null
+          : description?.trim(),
       targetDate: targetDate,
     );
     await ref.read(createGoalUseCaseProvider).call(goal);
@@ -74,7 +86,10 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     ref.invalidate(goalProgressProvider);
   }
 
-  Future<void> _fanOutGoalEvent({required GoalEntity goal, required _GoalAction action}) async {
+  Future<void> _fanOutGoalEvent({
+    required GoalEntity goal,
+    required _GoalAction action,
+  }) async {
     final DateTime now = DateTime.now();
     final String actionName = action.name;
     final String detailPrefix = switch (action) {
@@ -119,7 +134,13 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     await _refreshCoachDecision();
     ref
         .read(eventBusProvider)
-        .emit(GoalLifecycleEvent(goalId: goal.id, title: goal.title, action: actionName));
+        .emit(
+          GoalLifecycleEvent(
+            goalId: goal.id,
+            title: goal.title,
+            action: actionName,
+          ),
+        );
   }
 
   Future<void> _refreshCoachDecision() async {

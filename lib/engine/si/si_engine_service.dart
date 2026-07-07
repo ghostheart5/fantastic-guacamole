@@ -65,6 +65,81 @@ class SIEngineService {
     );
   }
 
+  Future<Map<String, dynamic>> generateResponse({
+    required String input,
+    required String message,
+    String emotion = 'balanced',
+    double confidence = 0.5,
+    String? taskId,
+    Map<String, dynamic> context = const <String, dynamic>{},
+  }) async {
+    final SIFinalOutputBundle output = await handleText(input);
+    final String resolvedMessage = output.response.message.trim().isEmpty
+        ? message
+        : output.response.message;
+
+    return <String, dynamic>{
+      'input': input,
+      'taskId': taskId,
+      'message': resolvedMessage,
+      'reasoning': context['reasoning']?.toString() ?? output.decision.reasoning,
+      'emotion': output.response.emotion.isEmpty ? emotion : output.response.emotion,
+      'confidence': output.response.confidence.clamp(0.0, 1.0),
+      'engineDecision': output.decision.action,
+    };
+  }
+
+  Map<String, dynamic> generateDecision({
+    required String input,
+    required Map<String, dynamic> context,
+  }) {
+    final String trimmed = input.trim();
+    return <String, dynamic>{
+      'action': trimmed.isEmpty ? 'idle' : 'respond',
+      'input': input,
+      'taskId': context['taskId']?.toString(),
+      'intent': context['intent']?.toString() ?? 'general',
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+
+  Map<String, dynamic> updateMemory({
+    required Map<String, dynamic>? currentState,
+    required Map<String, dynamic> memoryEvent,
+  }) {
+    final List<Map<String, dynamic>> events =
+        ((currentState?['memoryEvents'] as List?) ?? const <dynamic>[])
+            .whereType<Map<dynamic, dynamic>>()
+            .map((Map<dynamic, dynamic> e) => e.cast<String, dynamic>())
+            .toList(growable: true);
+    events.add(memoryEvent);
+
+    return <String, dynamic>{
+      ...?currentState,
+      'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
+      'memoryEvents': events.length > 24 ? events.sublist(events.length - 24) : events,
+      'memoryEvent': memoryEvent,
+    };
+  }
+
+  bool validateOutput({
+    required String message,
+    required double confidence,
+    bool coherent = true,
+    bool deduped = true,
+    bool policyAccepted = true,
+    bool grounded = true,
+  }) {
+    final String text = message.trim();
+    if (text.isEmpty) {
+      return false;
+    }
+    if (confidence.isNaN || confidence < 0.3) {
+      return false;
+    }
+    return coherent && deduped && policyAccepted && grounded;
+  }
+
   void replaceRuntime(SIEngineRuntimeState runtime) {
     _runtime = runtime;
   }

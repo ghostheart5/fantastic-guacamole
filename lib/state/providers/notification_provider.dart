@@ -9,13 +9,16 @@ final notificationActionsProvider = Provider<NotificationActions>((Ref ref) {
   return NotificationActions(ref);
 });
 
-final notificationProvider = NotifierProvider<NotificationNotifier, List<NotificationEntity>>(
-  NotificationNotifier.new,
-);
+final notificationProvider =
+    NotifierProvider<NotificationNotifier, List<NotificationEntity>>(
+      NotificationNotifier.new,
+    );
 
 final unreadNotificationsProvider = Provider<int>(
-  (Ref ref) =>
-      ref.watch(notificationProvider).where((NotificationEntity item) => !item.isRead).length,
+  (Ref ref) => ref
+      .watch(notificationProvider)
+      .where((NotificationEntity item) => !item.isRead)
+      .length,
 );
 
 class NotificationActions {
@@ -36,7 +39,11 @@ class NotificationActions {
   Future<void> pushMirroredCompletionFeedback(String taskTitle) {
     return _ref
         .read(notificationProvider.notifier)
-        .pushCompletionFeedback(taskTitle, refreshCoach: false, refreshPlan: true);
+        .pushCompletionFeedback(
+          taskTitle,
+          refreshCoach: false,
+          refreshPlan: true,
+        );
   }
 
   Future<void> pushMirroredTaskSkipped(String taskTitle) {
@@ -49,32 +56,36 @@ class NotificationActions {
 class NotificationNotifier extends Notifier<List<NotificationEntity>> {
   @override
   List<NotificationEntity> build() {
-    final notificationRepository = ref.read(domainNotificationRepositoryProvider);
+    final notificationRepository = ref.read(
+      domainNotificationRepositoryProvider,
+    );
     bool disposed = false;
     ref.onDispose(() {
       disposed = true;
     });
 
     Future<void>(() async {
-      final List<NotificationEntity> notifications = await notificationRepository
-          .getNotifications();
+      final List<NotificationEntity> notifications =
+          await notificationRepository.getNotifications();
 
       if (disposed) {
         return;
       }
 
-      final Map<String, NotificationEntity> mergedById = <String, NotificationEntity>{
-        for (final NotificationEntity item in notifications) item.id: item,
-      };
+      final Map<String, NotificationEntity> mergedById =
+          <String, NotificationEntity>{
+            for (final NotificationEntity item in notifications) item.id: item,
+          };
 
       for (final NotificationEntity item in state) {
         mergedById[item.id] = item;
       }
 
-      final List<NotificationEntity> merged = mergedById.values.toList(growable: false)
-        ..sort(
-          (NotificationEntity a, NotificationEntity b) => b.scheduledAt.compareTo(a.scheduledAt),
-        );
+      final List<NotificationEntity> merged =
+          mergedById.values.toList(growable: false)..sort(
+            (NotificationEntity a, NotificationEntity b) =>
+                b.scheduledAt.compareTo(a.scheduledAt),
+          );
 
       state = merged;
     });
@@ -107,7 +118,11 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
         );
   }
 
-  Future<void> pushDecision(String taskTitle, {bool refreshCoach = true, bool refreshPlan = true}) {
+  Future<void> pushDecision(
+    String taskTitle, {
+    bool refreshCoach = true,
+    bool refreshPlan = true,
+  }) {
     return push(
       _notification(
         title: 'Decision Alert',
@@ -124,7 +139,10 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     bool refreshPlan = true,
   }) {
     return push(
-      _notification(title: 'Completion', message: '$taskTitle completed. Recomputing next move.'),
+      _notification(
+        title: 'Completion',
+        message: '$taskTitle completed. Recomputing next move.',
+      ),
       refreshCoach: refreshCoach,
       refreshPlan: refreshPlan,
     );
@@ -173,10 +191,18 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
         break;
       }
     }
-    state = state.where((NotificationEntity item) => item.id != id).toList(growable: false);
+    state = state
+        .where((NotificationEntity item) => item.id != id)
+        .toList(growable: false);
     ref
         .read(eventBusProvider)
-        .emit(NotificationLifecycleEvent(notificationId: id, title: title, action: 'deleted'));
+        .emit(
+          NotificationLifecycleEvent(
+            notificationId: id,
+            title: title,
+            action: 'deleted',
+          ),
+        );
   }
 
   void clear() => state = const <NotificationEntity>[];
@@ -190,7 +216,10 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     }
   }
 
-  NotificationEntity _notification({required String title, required String message}) {
+  NotificationEntity _notification({
+    required String title,
+    required String message,
+  }) {
     final DateTime now = DateTime.now();
     return NotificationEntity(
       id: 'notification-${now.microsecondsSinceEpoch}',

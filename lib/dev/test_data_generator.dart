@@ -41,7 +41,11 @@ class TestDataGenerator {
       final si = ref.read(siStateProvider);
       ref
           .read(siStateProvider.notifier)
-          .replaceState(energy: 0.75, fatigue: si.fatigue, completedToday: si.completedToday);
+          .replaceState(
+            energy: 0.75,
+            fatigue: si.fatigue,
+            completedToday: si.completedToday,
+          );
 
       final int seed = DateTime.now().microsecondsSinceEpoch;
       for (final MapEntry<int, String> entry in _taskTitles.asMap().entries) {
@@ -62,16 +66,18 @@ class TestDataGenerator {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Test data generated: 20 tasks · XP +2400 · energy 75%'),
+            content: Text(
+              'Test data generated: 20 tasks · XP +2400 · energy 75%',
+            ),
             duration: Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Test data generation failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Test data generation failed: $e')),
+        );
       }
     }
   }

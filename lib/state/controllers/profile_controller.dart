@@ -50,7 +50,9 @@ class ProfileState {
       leveledUp: leveledUp ?? this.leveledUp,
       name: name ?? this.name,
       soundEnabled: soundEnabled ?? this.soundEnabled,
-      lastActiveDate: clearLastActiveDate ? null : (lastActiveDate ?? this.lastActiveDate),
+      lastActiveDate: clearLastActiveDate
+          ? null
+          : (lastActiveDate ?? this.lastActiveDate),
     );
   }
 
@@ -77,7 +79,9 @@ class ProfileState {
   );
 }
 
-final profileProvider = NotifierProvider<ProfileController, ProfileState>(ProfileController.new);
+final profileProvider = NotifierProvider<ProfileController, ProfileState>(
+  ProfileController.new,
+);
 
 class ProfileController extends Notifier<ProfileState> {
   @override
@@ -89,7 +93,10 @@ class ProfileController extends Notifier<ProfileState> {
   static const _boxKey = 'profile_box';
   static const _stateKey = 'profile_state';
   static const _secureStateKey = 'profile_state_v2';
-  final HiveStorage<String> _storage = HiveStorage<String>(_boxKey, hive: const HiveStoreAdapter());
+  final HiveStorage<String> _storage = HiveStorage<String>(
+    _boxKey,
+    hive: const HiveStoreAdapter(),
+  );
   static const _streakLogic = StreakService();
 
   SecureStore get _secureStore => ref.read(secureStoreProvider);
@@ -144,7 +151,9 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   void updateName(String name) {
-    state = state.copyWith(name: name.trim().isEmpty ? state.name : name.trim());
+    state = state.copyWith(
+      name: name.trim().isEmpty ? state.name : name.trim(),
+    );
     _save();
   }
 

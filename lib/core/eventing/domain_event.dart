@@ -1,5 +1,6 @@
 abstract class DomainEvent {
-  DomainEvent({DateTime? occurredAt}) : occurredAt = occurredAt ?? DateTime.now();
+  DomainEvent({DateTime? occurredAt})
+    : occurredAt = occurredAt ?? DateTime.now();
 
   final DateTime occurredAt;
 }
@@ -31,7 +32,11 @@ class GoalLifecycleEvent extends DomainEvent {
 }
 
 class InsightLifecycleEvent extends DomainEvent {
-  InsightLifecycleEvent({required this.summary, required this.titles, super.occurredAt});
+  InsightLifecycleEvent({
+    required this.summary,
+    required this.titles,
+    super.occurredAt,
+  });
 
   final String summary;
   final List<String> titles;
@@ -92,7 +97,11 @@ class ProgressionLifecycleEvent extends DomainEvent {
 }
 
 class MemoryLifecycleEvent extends DomainEvent {
-  MemoryLifecycleEvent({required this.memoryId, required this.text, super.occurredAt});
+  MemoryLifecycleEvent({
+    required this.memoryId,
+    required this.text,
+    super.occurredAt,
+  });
 
   final String memoryId;
   final String text;

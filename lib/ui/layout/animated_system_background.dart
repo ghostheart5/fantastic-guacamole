@@ -80,6 +80,16 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
 
   @override
   Widget build(BuildContext context) {
+    Color tint(Color color, double opacity) {
+      final double clampedOpacity = opacity.clamp(0.0, 1.0);
+      return Color.fromRGBO(
+        (color.r * 255.0).round(),
+        (color.g * 255.0).round(),
+        (color.b * 255.0).round(),
+        (color.a * clampedOpacity).clamp(0.0, 1.0),
+      );
+    }
+
     return AnimatedBuilder(
       animation: _controller,
       child: RepaintBoundary(
@@ -107,6 +117,7 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
       builder: (BuildContext context, Widget? child) {
         final bool showGlow = widget.showGlowOverlay && _isAnimating;
         final double t = _isAnimating ? _controller.value : 0;
+        final double overlayOpacity = widget.overlayOpacity.clamp(0.0, 1.0);
         final Color color1 = Color.lerp(
           const Color(0x3A08040E),
           const Color(0x3A170C1F),
@@ -125,33 +136,28 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
             // ignore: use_null_aware_elements
             if (child case final child?) child,
             if (widget.showGradientOverlay)
-              Opacity(
-                opacity: widget.overlayOpacity.clamp(0.0, 1.0),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: begin,
-                      end: end,
-                      colors: <Color>[
-                        color1,
-                        color2,
-                        Color.lerp(color2, color1, 0.5)!,
-                        color2,
-                      ],
-                    ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: begin,
+                    end: end,
+                    colors: <Color>[
+                      tint(color1, overlayOpacity),
+                      tint(color2, overlayOpacity),
+                      tint(Color.lerp(color2, color1, 0.5)!, overlayOpacity),
+                      tint(color2, overlayOpacity),
+                    ],
                   ),
                 ),
               ),
             if (showGlow)
-              Opacity(
-                opacity: t > 0.02
-                    ? 0.35 * widget.overlayOpacity.clamp(0.0, 1.0)
-                    : 0,
-                child: RepaintBoundary(
-                  child: CustomPaint(
-                    painter: _GlowPainter(progress: t),
-                    size: Size.infinite,
+              RepaintBoundary(
+                child: CustomPaint(
+                  painter: _GlowPainter(
+                    progress: t,
+                    opacity: t > 0.02 ? 0.35 * overlayOpacity : 0,
                   ),
+                  size: Size.infinite,
                 ),
               ),
             ?widget.child,
@@ -163,17 +169,18 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
 }
 
 class _GlowPainter extends CustomPainter {
-  const _GlowPainter({required this.progress});
+  const _GlowPainter({required this.progress, required this.opacity});
 
   final double progress;
+  final double opacity;
 
   @override
   void paint(Canvas canvas, Size size) {
     final Paint pinkGlow = Paint()
-      ..color = const Color(0x14FF7BB7)
+      ..color = Color.fromARGB((0x14 * opacity).round(), 0xFF, 0x7B, 0xB7)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 44);
     final Paint lavenderGlow = Paint()
-      ..color = const Color(0x14C2A7FF)
+      ..color = Color.fromARGB((0x14 * opacity).round(), 0xC2, 0xA7, 0xFF)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 52);
 
     final Offset p1 = Offset(

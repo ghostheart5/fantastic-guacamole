@@ -53,7 +53,8 @@ class PlanRepository implements IPlanRepository {
   }
 
   static PlanEntity _fromJson(Map<String, dynamic> json) {
-    final List<dynamic> rawBlocks = json['blocks'] as List<dynamic>? ?? const <dynamic>[];
+    final List<dynamic> rawBlocks =
+        json['blocks'] as List<dynamic>? ?? const <dynamic>[];
     return PlanEntity(
       id: json['id'] as String? ?? '',
       date: DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
@@ -65,7 +66,9 @@ class PlanRepository implements IPlanRepository {
               id: block['id'] as String? ?? '',
               taskId: block['taskId'] as String? ?? '',
               title: block['title'] as String? ?? 'Untitled',
-              start: DateTime.tryParse(block['start'] as String? ?? '') ?? DateTime.now(),
+              start:
+                  DateTime.tryParse(block['start'] as String? ?? '') ??
+                  DateTime.now(),
               end:
                   DateTime.tryParse(block['end'] as String? ?? '') ??
                   DateTime.now().add(const Duration(minutes: 30)),

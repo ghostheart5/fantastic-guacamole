@@ -20,8 +20,7 @@ class NotificationsRepository implements INotificationRepository {
 
   final NotificationScheduler _scheduler;
   final SecureStore _store;
-  final Future<void> Function(NotificationEntity notification)?
-  _scheduleNotification;
+  final Future<void> Function(NotificationEntity notification)? _scheduleNotification;
   final Future<void> Function(String id)? _cancelScheduledNotification;
   final Future<void> Function()? _cancelAllScheduledNotifications;
 
@@ -37,6 +36,7 @@ class NotificationsRepository implements INotificationRepository {
         throw const FormatException('Notification storage is not a list.');
       }
       final List<NotificationEntity> entries = <NotificationEntity>[];
+      int malformedCount = 0;
       for (final Object? value in decoded) {
         if (value is! Map) {
           continue;
@@ -44,18 +44,21 @@ class NotificationsRepository implements INotificationRepository {
         try {
           entries.add(
             NotificationRecord.fromJson(
-              value.map(
-                (dynamic key, dynamic item) => MapEntry(key.toString(), item),
-              ),
+              value.map((dynamic key, dynamic item) => MapEntry(key.toString(), item)),
             ).toEntity(),
           );
         } on FormatException catch (error) {
-          Logger.warn('Skipping malformed notification: $error');
+          malformedCount++;
+          if (malformedCount == 1) {
+            Logger.warn('Skipping malformed notification: $error');
+          }
         }
       }
+      if (malformedCount > 1) {
+        Logger.warn('Skipped $malformedCount malformed notifications while reading storage.');
+      }
       entries.sort(
-        (NotificationEntity a, NotificationEntity b) =>
-            b.scheduledAt.compareTo(a.scheduledAt),
+        (NotificationEntity a, NotificationEntity b) => b.scheduledAt.compareTo(a.scheduledAt),
       );
       return entries;
     } on FormatException catch (error) {
@@ -137,15 +140,11 @@ class NotificationsRepository implements INotificationRepository {
         await _scheduler.cancel(id);
       }
     } catch (error) {
-      Logger.warn(
-        'Failed to cancel scheduled notification during delete $id: $error',
-      );
+      Logger.warn('Failed to cancel scheduled notification during delete $id: $error');
     }
     final List<NotificationEntity> entries = await getNotifications();
     await _save(
-      entries
-          .where((NotificationEntity entry) => entry.id != id)
-          .toList(growable: false),
+      entries.where((NotificationEntity entry) => entry.id != id).toList(growable: false),
     );
   }
 
@@ -181,9 +180,7 @@ class NotificationsRepository implements INotificationRepository {
     final List<NotificationEntity> entries = await getNotifications();
     await _save(<NotificationEntity>[
       notification,
-      ...entries.where(
-        (NotificationEntity entry) => entry.id != notification.id,
-      ),
+      ...entries.where((NotificationEntity entry) => entry.id != notification.id),
     ]);
   }
 
@@ -192,10 +189,7 @@ class NotificationsRepository implements INotificationRepository {
       _storageKey,
       jsonEncode(
         entries
-            .map(
-              (NotificationEntity entry) =>
-                  NotificationRecord.fromEntity(entry).toJson(),
-            )
+            .map((NotificationEntity entry) => NotificationRecord.fromEntity(entry).toJson())
             .toList(growable: false),
       ),
     );

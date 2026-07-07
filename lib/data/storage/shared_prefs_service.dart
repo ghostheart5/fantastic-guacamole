@@ -40,6 +40,8 @@ class SharedPrefsStoreAdapter implements SharedPrefsStore {
 
 class SharedPrefsService {
   static SharedPreferences? _prefs;
+  static Future<void>? _initFuture;
+  static bool _didLogInitialized = false;
   static const List<String> _sensitiveKeyMarkers = <String>[
     'token',
     'secret',
@@ -49,8 +51,18 @@ class SharedPrefsService {
   ];
 
   static Future<void> init() async {
-    _prefs ??= await SharedPreferences.getInstance();
-    Logger.log('SharedPrefsService', 'Initialized');
+    final SharedPreferences? existing = _prefs;
+    if (existing != null) {
+      return;
+    }
+    final Future<void> inFlight = _initFuture ??= () async {
+      _prefs ??= await SharedPreferences.getInstance();
+      if (!_didLogInitialized) {
+        Logger.log('SharedPrefsService', 'Initialized');
+        _didLogInitialized = true;
+      }
+    }();
+    await inFlight;
   }
 
   static Future<void> save(String key, String value) async {
@@ -63,9 +75,7 @@ class SharedPrefsService {
     }
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
-      Logger.error(
-        'SharedPrefsService save skipped because storage is unavailable.',
-      );
+      Logger.error('SharedPrefsService save skipped because storage is unavailable.');
       return;
     }
     await prefs.setString(key, value);
@@ -79,9 +89,7 @@ class SharedPrefsService {
     await init();
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
-      Logger.error(
-        'SharedPrefsService delete skipped because storage is unavailable.',
-      );
+      Logger.error('SharedPrefsService delete skipped because storage is unavailable.');
       return;
     }
     await prefs.remove(key);
@@ -91,9 +99,7 @@ class SharedPrefsService {
     await init();
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
-      Logger.error(
-        'SharedPrefsService clear skipped because storage is unavailable.',
-      );
+      Logger.error('SharedPrefsService clear skipped because storage is unavailable.');
       return;
     }
     await prefs.clear();

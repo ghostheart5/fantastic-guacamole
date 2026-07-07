@@ -5,9 +5,7 @@ import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.da
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
-import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
-import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -19,7 +17,6 @@ import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 class SmartCoachScreen extends ConsumerStatefulWidget {
   const SmartCoachScreen({super.key});
@@ -31,7 +28,6 @@ class SmartCoachScreen extends ConsumerStatefulWidget {
 class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   double _energy = 0.7;
   EmotionalState _emotion = EmotionalState.neutral;
-  late final VoiceService _voiceService;
   final _notesController = TextEditingController();
   final _followUpController = TextEditingController();
   final ScrollController _scroll = ScrollController();
@@ -58,12 +54,11 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
     super.initState();
     _energy = ref.read(siStateProvider).energy;
     _emotion = ref.read(emotionProvider);
-    _voiceService = ref.read(voiceServiceProvider);
   }
 
   @override
   void dispose() {
-    unawaited(_voiceService.stop());
+    unawaited(ref.read(voiceServiceProvider).stop());
     _notesController.dispose();
     _followUpController.dispose();
     _scroll.dispose();
@@ -121,7 +116,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
     );
 
     // Speak the coaching message
-    unawaited(_voiceService.speak(result.message));
+    unawaited(ref.read(voiceServiceProvider).speak(result.message));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
@@ -171,7 +166,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
         'smart_coach_followup_response_rendered',
         params: <String, Object?>{'reply_length': reply.length},
       );
-      unawaited(_voiceService.speak(reply));
+      unawaited(ref.read(voiceServiceProvider).speak(reply));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scroll.hasClients) {
           _scroll.animateTo(
@@ -235,13 +230,9 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     const SizedBox(height: 4),
                     const _DisclaimerText(),
                     const SizedBox(height: 12),
-                    const _NextStepCard(),
-                    const SizedBox(height: 12),
                     const _ProgressionBanner(),
                     const SizedBox(height: 12),
                     const _QuickNavRow(),
-                    const SizedBox(height: 8),
-                    const _QuickAddButton(),
                     const SizedBox(height: 16),
                     _CoachPanel(
                       label: 'ENERGY',
@@ -719,116 +710,6 @@ class _MicButton extends ConsumerWidget {
   }
 }
 
-// ─── Next step card ───────────────────────────────────────────────────────────
-
-class _NextStepCard extends ConsumerWidget {
-  const _NextStepCard();
-
-  static const String _tasksRoute = '/settings/advanced/tasks';
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final String text = ref.watch(nextActionTextProvider);
-    final momentum = ref.watch(momentumProvider);
-
-    return SmartPressable(
-      onTap: () => context.go(_tasksRoute),
-      pressedScale: 0.97,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.neonCyan.withValues(alpha: 0.10),
-              AppColors.neonViolet.withValues(alpha: 0.06),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.30)),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.neonCyan.withValues(alpha: 0.10),
-              blurRadius: 24,
-              spreadRadius: -2,
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 2,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: AppColors.neonCyan,
-                    borderRadius: BorderRadius.circular(1),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'NEXT STEP',
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 2.5,
-                    color: AppColors.neonCyan,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              text,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                height: 1.4,
-              ),
-            ),
-            if (momentum.active) ...[
-              const SizedBox(height: 6),
-              Text(
-                'MOMENTUM  ×${momentum.chainCount}',
-                style: TextStyle(
-                  color: AppColors.memoryAmber.withValues(alpha: 0.85),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.8,
-                ),
-              ),
-            ],
-            const SizedBox(height: 10),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '+10 XP when complete',
-                  style: TextStyle(color: AppColors.memoryAmber, fontSize: 11, letterSpacing: 0.5),
-                ),
-                Text(
-                  'OPEN TRAJECTORY VIEW  →',
-                  style: TextStyle(
-                    color: AppColors.neonCyan,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ─── Progression banner ───────────────────────────────────────────────────────
 
 class _ProgressionBanner extends ConsumerWidget {
@@ -1005,131 +886,5 @@ class _DisclaimerText extends StatelessWidget {
       'This app is not a substitute for professional mental health care.',
       style: TextStyle(color: Colors.white30, fontSize: 10, letterSpacing: 0.3, height: 1.4),
     );
-  }
-}
-
-// ─── Quick add button ─────────────────────────────────────────────────────────
-
-class _QuickAddButton extends ConsumerWidget {
-  const _QuickAddButton();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onTap: () => _showQuickAdd(context, ref),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.neonCyan.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.25)),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add_rounded, color: AppColors.neonCyan, size: 16),
-            SizedBox(width: 6),
-            Text(
-              'CREATE TASK',
-              style: TextStyle(
-                color: AppColors.neonCyan,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showQuickAdd(BuildContext context, WidgetRef ref) {
-    final ctrl = TextEditingController();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF0B111C),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 24,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'QUICK TASK CREATOR',
-              style: TextStyle(
-                color: AppColors.neonCyan,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TutorialTarget(
-              id: 'tasks.title_input',
-              child: TextField(
-                controller: ctrl,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white, fontSize: 15),
-                textInputAction: TextInputAction.done,
-                decoration: InputDecoration(
-                  hintText: 'Task objective...',
-                  hintStyle: const TextStyle(color: Colors.white30),
-                  filled: true,
-                  fillColor: const Color(0xFF1A2440),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                onChanged: (String value) {
-                  ref.read(tutorialControllerProvider).updateInput('task_title', value);
-                },
-                onSubmitted: (_) => _submit(ctx, ref, ctrl),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => _submit(ctx, ref, ctrl),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.neonCyan,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                child: const Text(
-                  'ADD',
-                  style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1.5),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _submit(BuildContext ctx, WidgetRef ref, TextEditingController ctrl) async {
-    final String title = ctrl.text.trim();
-    if (title.isEmpty) return;
-    ref.read(tutorialControllerProvider).updateState('has_created_task', true);
-    Navigator.of(ctx).pop();
-    await ref.read(taskActionsProvider).createQuickTask(title);
-    await ref.read(localMetricsAccumulatorProvider).recordTaskCreated();
-    ref.invalidate(tasksProvider);
-    ref.invalidate(goalProgressProvider);
   }
 }

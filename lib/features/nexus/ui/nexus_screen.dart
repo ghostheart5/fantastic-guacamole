@@ -6,7 +6,6 @@ import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
-import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
@@ -45,7 +44,9 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
     final NexusScreenModel? model = ref.watch(nexusScreenModelProvider).asData?.value;
     final ProfileState profile = model?.aggregation.profile ?? ref.watch(profileProvider);
     final double energy = model?.aggregation.siState.energy ?? ref.watch(energyProvider);
-    final SIState siState = model?.aggregation.siState ?? ref.watch(siStateProvider);
+    final siState = model?.aggregation.siState;
+    final double fatigue = siState?.fatigue ?? ref.watch(siStateProvider).fatigue;
+    final int completedToday = siState?.completedToday ?? ref.watch(siStateProvider).completedToday;
     final fallbackTrajectory = ref.watch(trajectorySummaryProvider);
     final trajectory = model?.aggregation.trajectory;
     final double momentum = trajectory?.momentum ?? fallbackTrajectory.momentum;
@@ -56,9 +57,9 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
         : momentum >= 0.4
         ? 'Medium'
         : 'Low';
-    final String loadSignal = siState.fatigue >= 0.75
+    final String loadSignal = fatigue >= 0.75
         ? 'Heavy'
-        : siState.fatigue >= 0.45
+        : fatigue >= 0.45
         ? 'Moderate'
         : 'Light';
     final String growthTitle = profile.streak >= 21
@@ -72,7 +73,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
         ? 'Momentum is active. Keep the next action small and immediate.'
         : 'No completed actions yet. Start with one clear task to establish narrative continuity.';
     final int soulContinuityPct =
-        ((((1 - siState.fatigue) * 0.55) + (momentum * 0.45)).clamp(0.0, 1.0) * 100).round();
+        ((((1 - fatigue) * 0.55) + (momentum * 0.45)).clamp(0.0, 1.0) * 100).round();
     final double narrativePresence =
         ((completedTasks > 0 ? 0.5 : 0.28) + (profile.streak.clamp(0, 14) / 14) * 0.5).clamp(
           0.0,
@@ -94,12 +95,12 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
                   child: AnimatedBuilder(
                     animation: _pulse,
                     builder: (context, _) =>
-                        _SystemRings(energy: energy, fatigue: siState.fatigue, pulse: _pulse.value),
+                        _SystemRings(energy: energy, fatigue: fatigue, pulse: _pulse.value),
                   ),
                 ),
               ),
               SliverToBoxAdapter(
-                child: _RingLabels(energy: energy, fatigue: siState.fatigue),
+                child: _RingLabels(energy: energy, fatigue: fatigue),
               ),
               SliverToBoxAdapter(
                 child: Padding(
@@ -107,7 +108,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
                   child: _NexusBridgeCard(
                     profile: profile,
                     energy: energy,
-                    completedToday: siState.completedToday,
+                    completedToday: completedToday,
                   ),
                 ),
               ),
@@ -796,7 +797,16 @@ class _DependencyMesh extends ConsumerWidget {
         .where((Task task) => task.goalId != null && task.goalId!.isNotEmpty)
         .length;
 
-    final String goalHeadline = goals.isEmpty ? 'No active goals' : goals.first.title;
+    final List<String> goalTitles = goals
+        .map((GoalEntity goal) => goal.title.trim())
+        .where((String title) => title.isNotEmpty)
+        .toList(growable: false);
+    final String goalHeadline = goalTitles.isEmpty
+        ? 'No active goals'
+        : goalTitles.firstWhere(
+            (String title) => title.toLowerCase() != nextTaskTitle.toLowerCase(),
+            orElse: () => 'Goal linked to "$nextTaskTitle"',
+          );
     final int goalsWithTarget = goals.where((GoalEntity goal) => goal.targetDate != null).length;
 
     final insights = aggregation?.insights;
@@ -827,15 +837,30 @@ class _DependencyMesh extends ConsumerWidget {
     final int connectedNodes = flowNodesData
         .where((FlowmapNode node) => node.connectedTo.isNotEmpty)
         .length;
-    final String flowHeadline = flowNodesData.isEmpty
+    final List<String> flowTitles = flowNodesData
+        .map((FlowmapNode node) => node.title.trim())
+        .where((String title) => title.isNotEmpty)
+        .toList(growable: false);
+    final String flowHeadline = flowTitles.isEmpty
         ? 'No mapped threads'
-        : flowNodesData.first.title;
+        : flowTitles.firstWhere((String title) {
+            final String lowered = title.toLowerCase();
+            return lowered != nextTaskTitle.toLowerCase() && lowered != goalHeadline.toLowerCase();
+          }, orElse: () => 'Flow linked to "$nextTaskTitle"');
+    final String syncStatus = modelAsync.isLoading
+        ? 'SYNCING'
+        : (modelAsync.hasError ? 'DEGRADED' : 'LIVE');
+    final DateTime now = DateTime.now();
+    final String syncTime =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
     final progress = progression.progress;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _NexusSyncStrip(status: syncStatus, timestamp: syncTime),
+        const SizedBox(height: 10),
         const Padding(
           padding: EdgeInsets.only(bottom: 10),
           child: Text(
@@ -944,6 +969,56 @@ class _SignalPill extends StatelessWidget {
       child: Text(
         '$label: $value',
         style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+class _NexusSyncStrip extends StatelessWidget {
+  const _NexusSyncStrip({required this.status, required this.timestamp});
+
+  final String status;
+  final String timestamp;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool degraded = status == 'DEGRADED';
+    final Color accent = degraded ? AppColors.recallRed : AppColors.neonCyan;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        color: Colors.black.withValues(alpha: 0.22),
+        border: Border.all(color: accent.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: accent,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 8)],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'NEXUS CORE SYNC: $status',
+            style: TextStyle(
+              color: accent,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.4,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            timestamp,
+            style: const TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1),
+          ),
+        ],
       ),
     );
   }

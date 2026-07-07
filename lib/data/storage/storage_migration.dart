@@ -4,8 +4,14 @@ import 'package:hive/hive.dart';
 
 class StorageMigration {
   static const int latestVersion = 2;
+  static Future<void>? _runFuture;
 
   static Future<void> run() async {
+    final Future<void> inFlight = _runFuture ??= _runInternal();
+    await inFlight;
+  }
+
+  static Future<void> _runInternal() async {
     final box = await Hive.openBox<dynamic>(StorageKeys.settings);
 
     final Object? rawVersion = box.get(StorageKeys.storageVersion);

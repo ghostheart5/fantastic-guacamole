@@ -17,6 +17,9 @@ class SISignalExtraction {
     required this.streakHealth,
     required this.goalDrift,
     required this.taskAvoidance,
+    required this.emotion,
+    required this.emotionalStrain,
+    required this.emotionalStability,
     required this.emotionalPatterns,
   });
 
@@ -25,6 +28,9 @@ class SISignalExtraction {
   final String streakHealth;
   final bool goalDrift;
   final bool taskAvoidance;
+  final String emotion;
+  final bool emotionalStrain;
+  final bool emotionalStability;
   final List<String> emotionalPatterns;
 }
 

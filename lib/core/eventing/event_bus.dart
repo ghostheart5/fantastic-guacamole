@@ -16,7 +16,9 @@ class EventBus {
   }
 
   Stream<T> on<T extends DomainEvent>() {
-    return _controller.stream.where((DomainEvent event) => event is T).cast<T>();
+    return _controller.stream
+        .where((DomainEvent event) => event is T)
+        .cast<T>();
   }
 
   Future<void> dispose() async {

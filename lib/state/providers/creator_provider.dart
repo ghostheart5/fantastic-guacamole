@@ -13,32 +13,33 @@ class CreatorActions {
 
   Future<void> createTask(CreatorFormData data) async {
     final String kind = data.type.trim().toLowerCase();
-    final RecurrenceRule recurrence = switch (kind) {
-      'routine' => RecurrenceRule.daily,
-      _ => RecurrenceRule.none,
-    };
+    final RecurrenceRule recurrence = data.recurrenceRule != RecurrenceRule.none
+        ? data.recurrenceRule
+        : switch (kind) {
+            'routine' => RecurrenceRule.daily,
+            _ => RecurrenceRule.none,
+          };
 
     final int difficulty = switch (kind) {
-      'focus' => 4,
-      'mission' => 5,
+      'goal' => 4,
       _ => 3,
     };
 
     final int energyRequired = switch (kind) {
-      'focus' => 4,
+      'goal' => 4,
       'routine' => 2,
       'note' => 1,
       _ => 3,
     };
 
     final int priority = switch (kind) {
-      'mission' => data.priority < 4 ? 4 : data.priority,
+      'goal' => data.priority < 4 ? 4 : data.priority,
       'note' => 1,
       _ => data.priority,
     };
 
     final entity = TaskEntity(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
       title: data.title,
       description: data.description,
       createdAt: DateTime.now(),

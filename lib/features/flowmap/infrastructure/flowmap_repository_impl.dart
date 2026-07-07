@@ -1,4 +1,5 @@
-import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart' as legacy;
+import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart'
+    as legacy;
 import 'package:fantastic_guacamole/domain/interfaces/i_flowmap_repository.dart';
 import 'package:fantastic_guacamole/features/flowmap/domain/flowmap_edge_entity.dart';
 import 'package:fantastic_guacamole/features/flowmap/domain/flowmap_graph_entity.dart';
@@ -13,13 +14,18 @@ class FlowmapRepositoryImpl implements FlowmapRepository {
   @override
   Future<FlowmapGraphEntity> getFlowmap() async {
     final List<legacy.FlowmapNode> nodes = await _legacyRepository.getNodes();
-    final List<FlowmapNodeEntity> mappedNodes = nodes.map(_toNodeEntity).toList();
+    final List<FlowmapNodeEntity> mappedNodes = nodes
+        .map(_toNodeEntity)
+        .toList();
 
     final Set<String> seenEdges = <String>{};
     final List<FlowmapEdgeEntity> edges = <FlowmapEdgeEntity>[];
     for (final legacy.FlowmapNode node in nodes) {
       for (final String targetId in node.connectedTo) {
-        final FlowmapEdgeEntity edge = FlowmapEdgeEntity(fromNodeId: node.id, toNodeId: targetId);
+        final FlowmapEdgeEntity edge = FlowmapEdgeEntity(
+          fromNodeId: node.id,
+          toNodeId: targetId,
+        );
         if (seenEdges.add(edge.id)) {
           edges.add(edge);
         }
@@ -36,7 +42,9 @@ class FlowmapRepositoryImpl implements FlowmapRepository {
     };
 
     for (final FlowmapEdgeEntity edge in graph.edges) {
-      outgoing.putIfAbsent(edge.fromNodeId, () => <String>{}).add(edge.toNodeId);
+      outgoing
+          .putIfAbsent(edge.fromNodeId, () => <String>{})
+          .add(edge.toNodeId);
     }
 
     final List<legacy.FlowmapNode> nodes = graph.nodes
@@ -68,15 +76,22 @@ class FlowmapRepositoryImpl implements FlowmapRepository {
   @override
   Future<void> addEdge(FlowmapEdgeEntity edge) async {
     final List<legacy.FlowmapNode> nodes = await _legacyRepository.getNodes();
-    final int fromIndex = nodes.indexWhere((legacy.FlowmapNode node) => node.id == edge.fromNodeId);
-    final bool toExists = nodes.any((legacy.FlowmapNode node) => node.id == edge.toNodeId);
+    final int fromIndex = nodes.indexWhere(
+      (legacy.FlowmapNode node) => node.id == edge.fromNodeId,
+    );
+    final bool toExists = nodes.any(
+      (legacy.FlowmapNode node) => node.id == edge.toNodeId,
+    );
 
     if (fromIndex < 0 || !toExists) {
       throw StateError('Cannot add edge for unknown node ids: ${edge.id}');
     }
 
     final legacy.FlowmapNode from = nodes[fromIndex];
-    final Set<String> updatedConnections = <String>{...from.connectedTo, edge.toNodeId};
+    final Set<String> updatedConnections = <String>{
+      ...from.connectedTo,
+      edge.toNodeId,
+    };
     await _legacyRepository.saveNode(
       from.copyWith(connectedTo: updatedConnections.toList()..sort()),
     );

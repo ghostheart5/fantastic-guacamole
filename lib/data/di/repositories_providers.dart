@@ -30,7 +30,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 TaskRepository taskRepository(Ref ref) {
   return TaskRepository.secure(
     ref.read(secureStoreProvider),
-    legacyStorage: HiveStorage<String>(HiveBoxes.tasks, hive: ref.read(hiveStoreProvider)),
+    legacyStorage: HiveStorage<String>(
+      HiveBoxes.tasks,
+      hive: ref.read(hiveStoreProvider),
+    ),
   );
 }
 
@@ -39,7 +42,10 @@ final taskRepositoryProvider = Provider<TaskRepository>(taskRepository);
 final flowmapRepositoryProvider = Provider<FlowmapRepository>((Ref ref) {
   return FlowmapRepository.secure(
     ref.read(secureStoreProvider),
-    legacyStorage: HiveStorage<String>(HiveBoxes.flowmap, hive: ref.read(hiveStoreProvider)),
+    legacyStorage: HiveStorage<String>(
+      HiveBoxes.flowmap,
+      hive: ref.read(hiveStoreProvider),
+    ),
   );
 });
 
@@ -63,7 +69,9 @@ final planRepositoryProvider = Provider<PlanRepository>((Ref ref) {
   return PlanRepository(ref.read(sharedPrefsStoreProvider));
 });
 
-final progressionRepositoryProvider = Provider<ProgressionRepository>((Ref ref) {
+final progressionRepositoryProvider = Provider<ProgressionRepository>((
+  Ref ref,
+) {
   return ProgressionRepository(ref.read(secureStoreProvider));
 });
 
@@ -71,7 +79,9 @@ final notificationSchedulerProvider = Provider<NotificationScheduler>(
   (Ref ref) => NotificationScheduler(),
 );
 
-final notificationsRepositoryProvider = Provider<NotificationsRepository>((Ref ref) {
+final notificationsRepositoryProvider = Provider<NotificationsRepository>((
+  Ref ref,
+) {
   return NotificationsRepository(
     ref.read(notificationSchedulerProvider),
     ref.read(secureStoreProvider),

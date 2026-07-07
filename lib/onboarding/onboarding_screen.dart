@@ -125,6 +125,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.sizeOf(context);
+    final bool landscape = media.width > media.height;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
@@ -155,74 +157,147 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             bottom: 0,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Dot indicators
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(_totalPages, (i) {
-                        final bool active = i == _current;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: active ? 22 : 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: active
-                                ? AppColors.neonCyan
-                                : Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(3),
-                            boxShadow: active
-                                ? [
-                                    BoxShadow(
-                                      color: AppColors.neonCyan.withValues(
-                                        alpha: 0.6,
-                                      ),
-                                      blurRadius: 8,
-                                    ),
-                                  ]
-                                : null,
+                padding: EdgeInsets.fromLTRB(24, 0, 24, landscape ? 14 : 24),
+                child: landscape
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(_totalPages, (i) {
+                                final bool active = i == _current;
+                                return AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 3,
+                                  ),
+                                  width: active ? 20 : 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: active
+                                        ? AppColors.neonCyan
+                                        : Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(3),
+                                    boxShadow: active
+                                        ? [
+                                            BoxShadow(
+                                              color: AppColors.neonCyan
+                                                  .withValues(alpha: 0.6),
+                                              blurRadius: 8,
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                );
+                              }),
+                            ),
                           ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Primary action button
-                    _GradientButton(
-                      label: _current == _totalPages - 1
-                          ? 'INITIALIZE SYSTEM'
-                          : 'NEXT',
-                      onTap: _next,
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Skip link
-                    if (_current < _totalPages - 1)
-                      GestureDetector(
-                        onTap: () {
-                          AppAnalytics.track(
-                            'onboarding_skipped',
-                            params: <String, Object?>{'step_index': _current},
-                          );
-                          _complete();
-                        },
-                        child: const Text(
-                          'SKIP',
-                          style: TextStyle(
-                            color: Colors.white38,
-                            fontSize: 12,
-                            letterSpacing: 2,
-                            fontWeight: FontWeight.w600,
+                          const SizedBox(width: 18),
+                          SizedBox(
+                            width: 180,
+                            child: _GradientButton(
+                              label: _current == _totalPages - 1
+                                  ? 'INITIALIZE'
+                                  : 'NEXT',
+                              onTap: _next,
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 16),
+                          if (_current < _totalPages - 1)
+                            GestureDetector(
+                              onTap: () {
+                                AppAnalytics.track(
+                                  'onboarding_skipped',
+                                  params: <String, Object?>{
+                                    'step_index': _current,
+                                  },
+                                );
+                                _complete();
+                              },
+                              child: const Text(
+                                'SKIP',
+                                style: TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 12,
+                                  letterSpacing: 2,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            )
+                          else
+                            const SizedBox(width: 40),
+                        ],
                       )
-                    else
-                      const SizedBox(height: 17),
-                  ],
-                ),
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Dot indicators
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(_totalPages, (i) {
+                              final bool active = i == _current;
+                              return AnimatedContainer(
+                                duration: const Duration(milliseconds: 250),
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                width: active ? 22 : 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: active
+                                      ? AppColors.neonCyan
+                                      : Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(3),
+                                  boxShadow: active
+                                      ? [
+                                          BoxShadow(
+                                            color: AppColors.neonCyan
+                                                .withValues(alpha: 0.6),
+                                            blurRadius: 8,
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                              );
+                            }),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Primary action button
+                          _GradientButton(
+                            label: _current == _totalPages - 1
+                                ? 'INITIALIZE SYSTEM'
+                                : 'NEXT',
+                            onTap: _next,
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Skip link
+                          if (_current < _totalPages - 1)
+                            GestureDetector(
+                              onTap: () {
+                                AppAnalytics.track(
+                                  'onboarding_skipped',
+                                  params: <String, Object?>{
+                                    'step_index': _current,
+                                  },
+                                );
+                                _complete();
+                              },
+                              child: const Text(
+                                'SKIP',
+                                style: TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 12,
+                                  letterSpacing: 2,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            )
+                          else
+                            const SizedBox(height: 17),
+                        ],
+                      ),
               ),
             ),
           ),
@@ -257,111 +332,247 @@ class _SlideView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 40, 28, 160),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Icon orb
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: slide.iconColor.withValues(alpha: 0.08),
-                border: Border.all(
-                  color: slide.iconColor.withValues(alpha: 0.35),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: slide.iconColor.withValues(alpha: 0.3),
-                    blurRadius: 24,
-                    spreadRadius: 2,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool wideLayout = constraints.maxWidth >= 760;
+        final bool landscapeCompact =
+            constraints.maxWidth > constraints.maxHeight * 1.15;
+        final EdgeInsets padding = EdgeInsets.fromLTRB(
+          wideLayout ? (landscapeCompact ? 40 : 56) : 28,
+          wideLayout ? (landscapeCompact ? 32 : 64) : 40,
+          wideLayout ? (landscapeCompact ? 40 : 56) : 28,
+          wideLayout ? (landscapeCompact ? 152 : 188) : 160,
+        );
+
+        Widget content;
+        if (wideLayout) {
+          content = Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: landscapeCompact ? 980 : 1040,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: landscapeCompact ? 310 : 340,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 92,
+                          height: 92,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: slide.iconColor.withValues(alpha: 0.08),
+                            border: Border.all(
+                              color: slide.iconColor.withValues(alpha: 0.35),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: slide.iconColor.withValues(alpha: 0.3),
+                                blurRadius: 28,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            slide.icon,
+                            color: slide.iconColor,
+                            size: 36,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: slide.iconColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: slide.iconColor.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Text(
+                            slide.tag,
+                            style: TextStyle(
+                              color: slide.iconColor,
+                              fontSize: 10,
+                              letterSpacing: 2.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 64),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ShaderMask(
+                          shaderCallback: (bounds) => LinearGradient(
+                            colors: [
+                              Colors.white,
+                              slide.iconColor.withValues(alpha: 0.8),
+                            ],
+                          ).createShader(bounds),
+                          child: Text(
+                            slide.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 40,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.5,
+                              height: 1.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          slide.subtitle,
+                          style: TextStyle(
+                            color: slide.iconColor.withValues(alpha: 0.75),
+                            fontSize: 15,
+                            letterSpacing: 0.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        Container(
+                          width: 48,
+                          height: 2,
+                          decoration: BoxDecoration(
+                            color: slide.iconColor.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          slide.body,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 17,
+                            height: 1.75,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              child: Icon(slide.icon, color: slide.iconColor, size: 32),
             ),
-            const SizedBox(height: 28),
-
-            // Tag
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: slide.iconColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: slide.iconColor.withValues(alpha: 0.3),
+          );
+        } else {
+          content = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: slide.iconColor.withValues(alpha: 0.08),
+                  border: Border.all(
+                    color: slide.iconColor.withValues(alpha: 0.35),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: slide.iconColor.withValues(alpha: 0.3),
+                      blurRadius: 24,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Icon(slide.icon, color: slide.iconColor, size: 32),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: slide.iconColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: slide.iconColor.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  slide.tag,
+                  style: TextStyle(
+                    color: slide.iconColor,
+                    fontSize: 10,
+                    letterSpacing: 2.5,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              child: Text(
-                slide.tag,
+              const SizedBox(height: 12),
+              ShaderMask(
+                shaderCallback: (bounds) => LinearGradient(
+                  colors: [
+                    Colors.white,
+                    slide.iconColor.withValues(alpha: 0.8),
+                  ],
+                ).createShader(bounds),
+                child: Text(
+                  slide.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 36,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                slide.subtitle,
                 style: TextStyle(
-                  color: slide.iconColor,
-                  fontSize: 10,
-                  letterSpacing: 2.5,
-                  fontWeight: FontWeight.w700,
+                  color: slide.iconColor.withValues(alpha: 0.75),
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
-
-            // Title
-            ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                colors: [Colors.white, slide.iconColor.withValues(alpha: 0.8)],
-              ).createShader(bounds),
-              child: Text(
-                slide.title,
+              const SizedBox(height: 22),
+              Container(
+                width: 40,
+                height: 2,
+                decoration: BoxDecoration(
+                  color: slide.iconColor.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                slide.body,
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                  height: 1.0,
+                  color: Colors.white70,
+                  fontSize: 15,
+                  height: 1.65,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
-            ),
-            const SizedBox(height: 6),
+            ],
+          );
+        }
 
-            // Subtitle
-            Text(
-              slide.subtitle,
-              style: TextStyle(
-                color: slide.iconColor.withValues(alpha: 0.75),
-                fontSize: 13,
-                letterSpacing: 0.5,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 28),
-
-            // Divider
-            Container(
-              width: 40,
-              height: 2,
-              decoration: BoxDecoration(
-                color: slide.iconColor.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-            const SizedBox(height: 22),
-
-            // Body
-            Text(
-              slide.body,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 15,
-                height: 1.65,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
+        return SafeArea(
+          child: SingleChildScrollView(padding: padding, child: content),
+        );
+      },
     );
   }
 }
@@ -386,167 +597,300 @@ class _PersonalizationSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 40, 28, 160),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.neonCyan.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: AppColors.neonCyan.withValues(alpha: 0.3),
-                ),
-              ),
-              child: const Text(
-                'PERSONALIZE',
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool wideLayout = constraints.maxWidth >= 820;
+        final bool landscapeCompact =
+            constraints.maxWidth > constraints.maxHeight * 1.15;
+        final EdgeInsets padding = EdgeInsets.fromLTRB(
+          wideLayout ? (landscapeCompact ? 40 : 56) : 28,
+          wideLayout ? (landscapeCompact ? 32 : 64) : 40,
+          wideLayout ? (landscapeCompact ? 40 : 56) : 28,
+          wideLayout ? (landscapeCompact ? 150 : 188) : 160,
+        );
+        final int goalColumns = constraints.maxWidth >= 980
+            ? 4
+            : (landscapeCompact ? 3 : 2);
+
+        final Widget formCard = Container(
+          width: wideLayout ? (landscapeCompact ? 440 : 460) : double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: AppColors.neonCyan.withValues(alpha: 0.18),
+            ),
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'WHAT SHOULD I CALL YOU?',
                 style: TextStyle(
-                  color: AppColors.neonCyan,
+                  color: Colors.white38,
                   fontSize: 10,
-                  letterSpacing: 2.5,
-                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Colors.white, AppColors.neonCyan],
-              ).createShader(bounds),
-              child: const Text(
-                'YOUR MISSION',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                  height: 1.0,
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Help us calibrate your experience',
-              style: TextStyle(
-                color: AppColors.neonCyan,
-                fontSize: 13,
-                letterSpacing: 0.5,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 28),
-            Container(
-              width: 40,
-              height: 2,
-              decoration: BoxDecoration(
-                color: AppColors.neonCyan.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'WHAT SHOULD I CALL YOU?',
-              style: TextStyle(
-                color: Colors.white38,
-                fontSize: 10,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.neonCyan.withValues(alpha: 0.25),
-                ),
-              ),
-              child: TextField(
-                controller: nameCtrl,
-                style: const TextStyle(color: Colors.white, fontSize: 15),
-                decoration: const InputDecoration(
-                  hintText: 'Enter your name...',
-                  hintStyle: TextStyle(color: Colors.white24),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
+              const SizedBox(height: 10),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.25),
                   ),
-                  border: InputBorder.none,
+                ),
+                child: TextField(
+                  controller: nameCtrl,
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    hintText: 'Enter your name...',
+                    hintStyle: TextStyle(color: Colors.white24),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    border: InputBorder.none,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'PRIMARY GOAL',
-              style: TextStyle(
-                color: Colors.white38,
-                fontSize: 10,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w600,
+              const SizedBox(height: 20),
+              const Text(
+                'PRIMARY GOAL',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 10,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              childAspectRatio: 2.6,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              children: _goalTypes.map((entry) {
-                final (label, icon, color) = entry;
-                final selected = selectedGoalType == label;
-                return GestureDetector(
-                  onTap: () => onGoalTypeSelected(label),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? color.withValues(alpha: 0.15)
-                          : Colors.white.withValues(alpha: 0.04),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
+              const SizedBox(height: 10),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: goalColumns,
+                childAspectRatio: goalColumns >= 4
+                    ? 2.1
+                    : (landscapeCompact ? 3.0 : 2.6),
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                children: _goalTypes.map((entry) {
+                  final (label, icon, color) = entry;
+                  final selected = selectedGoalType == label;
+                  return GestureDetector(
+                    onTap: () => onGoalTypeSelected(label),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      decoration: BoxDecoration(
                         color: selected
-                            ? color.withValues(alpha: 0.7)
-                            : Colors.white.withValues(alpha: 0.1),
-                        width: selected ? 1.5 : 1,
+                            ? color.withValues(alpha: 0.15)
+                            : Colors.white.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: selected
+                              ? color.withValues(alpha: 0.7)
+                              : Colors.white.withValues(alpha: 0.1),
+                          width: selected ? 1.5 : 1,
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            icon,
+                            color: selected ? color : Colors.white38,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                color: selected ? color : Colors.white54,
+                                fontSize: 11,
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Row(
-                      children: [
-                        Icon(
-                          icon,
-                          color: selected ? color : Colors.white38,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            label,
-                            style: TextStyle(
-                              color: selected ? color : Colors.white54,
-                              fontSize: 11,
-                              fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w400,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+
+        final Widget content = wideLayout
+            ? Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: landscapeCompact ? 1020 : 1080,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 40, top: 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'PERSONALIZE',
+                                style: TextStyle(
+                                  color: AppColors.neonCyan,
+                                  fontSize: 10,
+                                  letterSpacing: 2.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ShaderMask(
+                                shaderCallback: (bounds) =>
+                                    const LinearGradient(
+                                      colors: [
+                                        Colors.white,
+                                        AppColors.neonCyan,
+                                      ],
+                                    ).createShader(bounds),
+                                child: const Text(
+                                  'YOUR MISSION',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 42,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.5,
+                                    height: 1.0,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Help us calibrate your experience',
+                                style: TextStyle(
+                                  color: AppColors.neonCyan,
+                                  fontSize: 14,
+                                  letterSpacing: 0.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 22),
+                              const SizedBox(
+                                width: 48,
+                                child: Divider(
+                                  color: AppColors.neonCyan,
+                                  thickness: 2,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'A clean profile makes the first setup feel anchored. Pick a name and goal, then we tune the rest.',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 16,
+                                  height: 1.7,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
+                      ),
+                      formCard,
+                    ],
+                  ),
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.neonCyan.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: AppColors.neonCyan.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: const Text(
+                      'PERSONALIZE',
+                      style: TextStyle(
+                        color: AppColors.neonCyan,
+                        fontSize: 10,
+                        letterSpacing: 2.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
+                  const SizedBox(height: 14),
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [Colors.white, AppColors.neonCyan],
+                    ).createShader(bounds),
+                    child: const Text(
+                      'YOUR MISSION',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 36,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Help us calibrate your experience',
+                    style: TextStyle(
+                      color: AppColors.neonCyan,
+                      fontSize: 13,
+                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  Container(
+                    width: 40,
+                    height: 2,
+                    decoration: BoxDecoration(
+                      color: AppColors.neonCyan.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'This takes under a minute. The goal is just to make the first launch feel like it already knows your shape.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 15,
+                      height: 1.65,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  formCard,
+                ],
+              );
+
+        return SafeArea(
+          child: SingleChildScrollView(padding: padding, child: content),
+        );
+      },
     );
   }
 }

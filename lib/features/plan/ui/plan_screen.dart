@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class PlanScreen extends ConsumerStatefulWidget {
@@ -21,32 +22,54 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
   int _selectedDay = DateTime.now().weekday - 1;
   final Set<String> _completingTaskIds = <String>{};
 
+  void _runAfterBuild(VoidCallback action) {
+    if (!mounted) return;
+    final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.idle || phase == SchedulerPhase.postFrameCallbacks) {
+      action();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      action();
+    });
+  }
+
   Future<void> _completePlannedTask(String taskId) async {
     if (_completingTaskIds.contains(taskId)) return;
-    setState(() => _completingTaskIds.add(taskId));
+    _completingTaskIds.add(taskId);
     try {
       await ref.read(taskActionsProvider).completeTask(taskId, notify: false);
       if (!mounted) {
         return;
       }
       final bool hasScore = ref.read(sessionScoreProvider) != null;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task completed.')));
-      if (hasScore) {
-        ref.read(appFlowProvider.notifier).toInsight();
-      }
+      _runAfterBuild(() {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Task completed.'), behavior: SnackBarBehavior.floating),
+        );
+        if (hasScore) {
+          ref.read(appFlowProvider.notifier).toInsight();
+        }
+      });
     } catch (error) {
       Logger.error('Plan task completion failed.', error);
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Could not complete that task. Please retry.')));
-      ref.invalidate(tasksProvider);
+      _runAfterBuild(() {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not complete that task. Please retry.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        ref.invalidate(tasksProvider);
+      });
     } finally {
-      if (mounted) {
-        setState(() => _completingTaskIds.remove(taskId));
-      }
+      _completingTaskIds.remove(taskId);
     }
   }
 
@@ -60,6 +83,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
       backgroundAssetPath: 'assets/backgrounds/plan_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: false,
         body: SafeArea(
           child: tasksAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),

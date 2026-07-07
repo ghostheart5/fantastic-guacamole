@@ -28,7 +28,8 @@ class IntelligenceService {
       enableTesterFullAccess: Env.enableTesterFullAccess,
     );
     final bool effectiveMockTesting = !isProduction && hasMockSession;
-    final bool effectivePaywallDisabled = isPaywallDisabled || effectiveMockTesting;
+    final bool effectivePaywallDisabled =
+        isPaywallDisabled || effectiveMockTesting;
     final bool effectiveTesterFullAccess =
         hasTesterFullAccess || isMockMode || effectivePaywallDisabled;
 
@@ -60,7 +61,10 @@ class IntelligenceService {
   }
 
   MockLoginConfigState mockLoginConfig() {
-    return MockLoginConfigState(email: Env.mockLoginEmail.trim(), password: Env.mockLoginPassword);
+    return MockLoginConfigState(
+      email: Env.mockLoginEmail.trim(),
+      password: Env.mockLoginPassword,
+    );
   }
 
   List<String> productionReadinessIssues({bool force = false}) {

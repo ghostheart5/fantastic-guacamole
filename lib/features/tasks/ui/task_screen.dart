@@ -28,15 +28,25 @@ class TaskScreen extends ConsumerWidget {
             children: [
               const Text(
                 'TRAJECTORY ENGINE',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: 2),
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                ),
               ),
               const SizedBox(height: 6),
               const Text(
                 'PREDICTIVE INTEL · TRAJECTORY SIGNALS · SI ALERTS',
-                style: TextStyle(fontSize: 10, color: Colors.white54, letterSpacing: 1.8),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.white54,
+                  letterSpacing: 1.8,
+                ),
               ),
               const SizedBox(height: 12),
-              _FlowmapAccessCard(onTap: () => ref.read(appFlowProvider.notifier).toFlowmap()),
+              _FlowmapAccessCard(
+                onTap: () => ref.read(appFlowProvider.notifier).toFlowmap(),
+              ),
               const SizedBox(height: 12),
               const _TaskQuickCapturePanel(),
               const SizedBox(height: 12),
@@ -57,10 +67,12 @@ class _TaskQuickCapturePanel extends ConsumerStatefulWidget {
   const _TaskQuickCapturePanel();
 
   @override
-  ConsumerState<_TaskQuickCapturePanel> createState() => _TaskQuickCapturePanelState();
+  ConsumerState<_TaskQuickCapturePanel> createState() =>
+      _TaskQuickCapturePanelState();
 }
 
-class _TaskQuickCapturePanelState extends ConsumerState<_TaskQuickCapturePanel> {
+class _TaskQuickCapturePanelState
+    extends ConsumerState<_TaskQuickCapturePanel> {
   final TextEditingController _titleController = TextEditingController();
   bool _isSubmitting = false;
 
@@ -85,12 +97,16 @@ class _TaskQuickCapturePanelState extends ConsumerState<_TaskQuickCapturePanel> 
       await ref.read(localMetricsAccumulatorProvider).recordTaskCreated();
       ref.invalidate(tasksProvider);
       ref.invalidate(goalProgressProvider);
-      ref.read(tutorialControllerProvider).updateState('has_created_task', true);
+      ref
+          .read(tutorialControllerProvider)
+          .updateState('has_created_task', true);
       _titleController.clear();
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task created.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Task created.')));
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -131,14 +147,19 @@ class _TaskQuickCapturePanelState extends ConsumerState<_TaskQuickCapturePanel> 
                 hintStyle: const TextStyle(color: Colors.white38),
                 filled: true,
                 fillColor: const Color(0xFF0C1526),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
                 ),
               ),
               onChanged: (String value) {
-                ref.read(tutorialControllerProvider).updateInput('task_title', value);
+                ref
+                    .read(tutorialControllerProvider)
+                    .updateInput('task_title', value);
               },
               onSubmitted: (_) => _submit(),
             ),
@@ -172,7 +193,9 @@ class _FlowmapAccessCard extends ConsumerWidget {
       id: 'tasks.add_button',
       child: InkWell(
         onTap: () {
-          ref.read(tutorialControllerProvider).reportEvent('tap:tasks.add_button');
+          ref
+              .read(tutorialControllerProvider)
+              .reportEvent('tap:tasks.add_button');
           onTap();
         },
         borderRadius: BorderRadius.circular(14),
@@ -182,7 +205,9 @@ class _FlowmapAccessCard extends ConsumerWidget {
           decoration: BoxDecoration(
             color: AppColors.neonViolet.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: AppColors.neonViolet.withValues(alpha: 0.3),
+            ),
           ),
           child: const Row(
             children: [
@@ -204,7 +229,11 @@ class _FlowmapAccessCard extends ConsumerWidget {
                     SizedBox(height: 4),
                     Text(
                       'Open Flowmap to map branching paths before committing your next move.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),
@@ -241,7 +270,10 @@ class _TrajectoryTutorialPanel extends ConsumerWidget {
         if (progress.isStepDismissed(step.id)) {
           return Align(
             alignment: Alignment.centerLeft,
-            child: ShowMeAgainButton(stepId: step.id, label: 'Re-Arm Trajectory Tutorial'),
+            child: ShowMeAgainButton(
+              stepId: step.id,
+              label: 'Re-Arm Trajectory Tutorial',
+            ),
           );
         }
 
@@ -268,7 +300,8 @@ class _TrajectorySummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final double predictionProbability = summary.predictionProbability ?? 0.0;
     final String predictionExplanation =
-        summary.predictionExplanation ?? 'Prediction details are unavailable right now.';
+        summary.predictionExplanation ??
+        'Prediction details are unavailable right now.';
 
     return Container(
       width: double.infinity,
@@ -296,39 +329,65 @@ class _TrajectorySummaryCard extends StatelessWidget {
             runSpacing: 10,
             children: [
               _MetricChip(label: 'PENDING', value: '${summary.pendingTasks}'),
-              _MetricChip(label: 'COMPLETED', value: '${summary.completedTasks}'),
+              _MetricChip(
+                label: 'COMPLETED',
+                value: '${summary.completedTasks}',
+              ),
               _MetricChip(label: 'LEVEL', value: 'L${summary.level}'),
               _MetricChip(label: 'STREAK', value: '${summary.streak}d'),
               _MetricChip(label: 'TODAY', value: '${summary.completedToday}'),
               _MetricChip(label: 'PRESSURE', value: '${summary.pressureIndex}'),
-              _MetricChip(label: 'DIVERGENCE', value: '${summary.behaviorDivergence}%'),
+              _MetricChip(
+                label: 'DIVERGENCE',
+                value: '${summary.behaviorDivergence}%',
+              ),
             ],
           ),
           const SizedBox(height: 14),
           Text(
             summary.alert,
-            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             'XP ${summary.lastSessionXp}  ·  Quality ${(summary.lastSessionQuality * 100).round()}%  ·  Momentum ${(summary.momentum * 100).round()}%',
-            style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4),
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             'Adaptability ${(summary.adaptability * 100).round()}%',
-            style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4),
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
+              height: 1.4,
+            ),
           ),
           if (summary.hasPrediction) ...[
             const SizedBox(height: 12),
             Text(
               'Prediction: ${summary.predictionOutcome} · ${(predictionProbability * 100).round()}%',
-              style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4),
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               predictionExplanation,
-              style: const TextStyle(color: Colors.white38, fontSize: 12, height: 1.4),
+              style: const TextStyle(
+                color: Colors.white38,
+                fontSize: 12,
+                height: 1.4,
+              ),
             ),
           ],
         ],
@@ -346,11 +405,14 @@ class _PredictiveSiReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final double predictionProbability = summary.predictionProbability ?? 0.0;
     final String predictionExplanation =
-        summary.predictionExplanation ?? 'Prediction details are unavailable right now.';
+        summary.predictionExplanation ??
+        'Prediction details are unavailable right now.';
     final String forecast = summary.hasPrediction
         ? '${summary.predictionTitle}: ${summary.predictionOutcome} · ${(predictionProbability * 100).round()}%'
         : 'No explicit model prediction yet. Using live trajectory signals.';
-    final String guidance = summary.hasPrediction ? predictionExplanation : summary.alert;
+    final String guidance = summary.hasPrediction
+        ? predictionExplanation
+        : summary.alert;
 
     return Container(
       width: double.infinity,
@@ -383,17 +445,36 @@ class _PredictiveSiReportCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Text(guidance, style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.5)),
+          Text(
+            guidance,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
           const SizedBox(height: 14),
           Wrap(
             spacing: 10,
             runSpacing: 10,
             children: [
-              _MetricChip(label: 'ENERGY', value: '${(summary.energy * 100).round()}%'),
-              _MetricChip(label: 'MOMENTUM', value: '${(summary.momentum * 100).round()}%'),
-              _MetricChip(label: 'ADAPTABILITY', value: '${(summary.adaptability * 100).round()}%'),
+              _MetricChip(
+                label: 'ENERGY',
+                value: '${(summary.energy * 100).round()}%',
+              ),
+              _MetricChip(
+                label: 'MOMENTUM',
+                value: '${(summary.momentum * 100).round()}%',
+              ),
+              _MetricChip(
+                label: 'ADAPTABILITY',
+                value: '${(summary.adaptability * 100).round()}%',
+              ),
               _MetricChip(label: 'PRESSURE', value: '${summary.pressureIndex}'),
-              _MetricChip(label: 'DIVERGENCE', value: '${summary.behaviorDivergence}%'),
+              _MetricChip(
+                label: 'DIVERGENCE',
+                value: '${summary.behaviorDivergence}%',
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -438,7 +519,11 @@ class _MetricChip extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: 15,
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),

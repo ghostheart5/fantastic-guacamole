@@ -25,6 +25,7 @@ class LogRepository implements ILogRepository {
         throw const FormatException('Log storage is not a list.');
       }
       final List<LogEntryEntity> entries = <LogEntryEntity>[];
+      int malformedCount = 0;
       for (final Object? value in decoded) {
         if (value is! Map) {
           continue;
@@ -35,13 +36,16 @@ class LogRepository implements ILogRepository {
           );
           entries.add(LogEntryRecord.fromJson(json).toEntity());
         } on FormatException catch (error) {
-          Logger.warn('Skipping malformed log entry: $error');
+          malformedCount++;
+          if (malformedCount == 1) {
+            Logger.warn('Skipping malformed log entry: $error');
+          }
         }
       }
-      entries.sort(
-        (LogEntryEntity a, LogEntryEntity b) =>
-            b.timestamp.compareTo(a.timestamp),
-      );
+      if (malformedCount > 1) {
+        Logger.warn('Skipped $malformedCount malformed log entries while reading storage.');
+      }
+      entries.sort((LogEntryEntity a, LogEntryEntity b) => b.timestamp.compareTo(a.timestamp));
       return entries;
     } on FormatException catch (error) {
       Logger.error('Stored logs are corrupt.', error);
@@ -60,9 +64,7 @@ class LogRepository implements ILogRepository {
       _entriesKey,
       jsonEncode(
         updated
-            .map(
-              (LogEntryEntity item) => LogEntryRecord.fromEntity(item).toJson(),
-            )
+            .map((LogEntryEntity item) => LogEntryRecord.fromEntity(item).toJson())
             .toList(growable: false),
       ),
     );

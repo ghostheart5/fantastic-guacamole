@@ -36,14 +36,18 @@ class TutorialRepository {
     }
   }
 
-  Future<TutorialProgress> loadProgressWithVersion({required int contentVersion}) async {
+  Future<TutorialProgress> loadProgressWithVersion({
+    required int contentVersion,
+  }) async {
     final TutorialProgress current = loadProgress();
 
     if (current.contentVersion == contentVersion) {
       return current;
     }
 
-    final TutorialProgress migrated = current.applyContentVersion(contentVersion);
+    final TutorialProgress migrated = current.applyContentVersion(
+      contentVersion,
+    );
 
     await saveProgress(migrated);
 

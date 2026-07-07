@@ -16,5 +16,7 @@ final stateBootstrapProvider = FutureProvider<void>((ref) async {
   // Riverpod forbids mutating other providers while this provider is building.
   // Deferring by one event-loop turn avoids the initialization-time mutation.
   await Future<void>.delayed(Duration.zero);
-  ref.read(siMemoryProvider.notifier).capture(boot.initialSnapshot(si: si, learning: learning));
+  ref
+      .read(siMemoryProvider.notifier)
+      .capture(boot.initialSnapshot(si: si, learning: learning));
 });

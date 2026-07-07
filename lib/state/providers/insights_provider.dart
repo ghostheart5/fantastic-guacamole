@@ -13,7 +13,9 @@ import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/services/insights_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final insightsServiceProvider = Provider<InsightsService>((Ref ref) => const InsightsService());
+final insightsServiceProvider = Provider<InsightsService>(
+  (Ref ref) => const InsightsService(),
+);
 
 final insightsBundleProvider = Provider<InsightsBundle>((Ref ref) {
   return ref.watch(insightsServiceProvider).build(ref.watch(siStateProvider));
@@ -49,7 +51,9 @@ class InsightsActions {
         .map((Insight item) => item.title.trim())
         .where((String title) => title.isNotEmpty)
         .toList(growable: false);
-    final String memoryText = topTitles.isEmpty ? summary : '$summary :: ${topTitles.join(' | ')}';
+    final String memoryText = topTitles.isEmpty
+        ? summary
+        : '$summary :: ${topTitles.join(' | ')}';
 
     await _ref
         .read(logsActionsProvider)
@@ -75,7 +79,9 @@ class InsightsActions {
     await _ref.read(memoriesActionsProvider).saveMirroredMemory(memoryText);
     _ref.invalidate(soulStateProvider);
     await _refreshCoachDecision();
-    _ref.read(eventBusProvider).emit(InsightLifecycleEvent(summary: summary, titles: topTitles));
+    _ref
+        .read(eventBusProvider)
+        .emit(InsightLifecycleEvent(summary: summary, titles: topTitles));
     _ref.read(_publishedInsightSignatureProvider.notifier).set(signature);
   }
 
