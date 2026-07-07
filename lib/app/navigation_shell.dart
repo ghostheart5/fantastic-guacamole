@@ -219,6 +219,50 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
     }
   }
 
+  void _showNavigationMap() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext context) {
+        Widget navItem(String title, String subtitle, AppView target) {
+          return ListTile(
+            dense: true,
+            title: Text(title),
+            subtitle: Text(subtitle),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).pop();
+              ref.read(appFlowProvider.notifier).show(target);
+            },
+          );
+        }
+
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(10, 6, 10, 14),
+            children: [
+              const ListTile(
+                title: Text('Navigation Map'),
+                subtitle: Text('Core first, advanced when needed.'),
+              ),
+              const Divider(),
+              navItem('Nexus', 'Main command center', AppView.nexus),
+              navItem('Trajectory', 'Task execution lane', AppView.tasks),
+              navItem('Ledger', 'Logs and review trail', AppView.logs),
+              navItem('Profile', 'Identity and progression', AppView.profile),
+              const Divider(),
+              navItem('Plan', 'Adaptive schedule', AppView.plan),
+              navItem('Creator', 'Task and goal creation', AppView.creator),
+              navItem('Insights', 'Pattern and trend analysis', AppView.insight),
+              navItem('Settings', 'Preferences and controls', AppView.settings),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppView view = ref.watch(appFlowProvider);
@@ -230,6 +274,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
       AppView.tasks ||
       AppView.logs ||
       AppView.profile => Scaffold(
+        floatingActionButton: FloatingActionButton.small(
+          onPressed: _showNavigationMap,
+          child: const Icon(Icons.map_outlined),
+        ),
         body: switch (view) {
           AppView.tasks => const TaskScreen(),
           AppView.logs => const LogsScreen(),

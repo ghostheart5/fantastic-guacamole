@@ -25,6 +25,8 @@ class PaywallPage extends ConsumerStatefulWidget {
 
 class _PaywallPageState extends ConsumerState<PaywallPage> {
   String? _statusMessage;
+  bool _showAllPlans = false;
+  bool _showComparison = false;
 
   @override
   void initState() {
@@ -40,28 +42,21 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
           .startSubscription(planId);
-      ref
-          .read(runtimePremiumAccessProvider.notifier)
-          .set(subscription.isActive);
+      ref.read(runtimePremiumAccessProvider.notifier).set(subscription.isActive);
       ref.invalidate(paywallSubscriptionProvider);
       ref.invalidate(aiCreditWalletProvider);
       if (!mounted) {
         return;
       }
       setState(() {
-        _statusMessage = paywallTestingMode
-            ? 'Unlocked for testing.'
-            : 'Subscription activated.';
+        _statusMessage = paywallTestingMode ? 'Unlocked for testing.' : 'Subscription activated.';
       });
       if (paywallTestingMode) {
         Logger.log('Paywall', 'Unlocked for testing.');
       }
       AppAnalytics.track(
         'paywall_unlock',
-        params: <String, Object?>{
-          'plan_id': planId,
-          'testing_mode': paywallTestingMode,
-        },
+        params: <String, Object?>{'plan_id': planId, 'testing_mode': paywallTestingMode},
       );
     } on StateError catch (error) {
       if (!mounted) {
@@ -85,18 +80,14 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
           .restorePurchases();
-      ref
-          .read(runtimePremiumAccessProvider.notifier)
-          .set(subscription.isActive);
+      ref.read(runtimePremiumAccessProvider.notifier).set(subscription.isActive);
       ref.invalidate(paywallSubscriptionProvider);
       ref.invalidate(aiCreditWalletProvider);
       if (!mounted) {
         return;
       }
       setState(() {
-        _statusMessage = paywallTestingMode
-            ? 'Unlocked for testing.'
-            : 'Purchases restored.';
+        _statusMessage = paywallTestingMode ? 'Unlocked for testing.' : 'Purchases restored.';
       });
       AppAnalytics.track(
         'paywall_restore',
@@ -122,31 +113,23 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
   @override
   Widget build(BuildContext context) {
     final routes = ref.watch(routeSurfaceProvider);
-    final AsyncValue<PaywallEntity> configAsync = ref.watch(
-      paywallConfigProvider,
-    );
-    final AsyncValue<SubscriptionState> subscriptionAsync = ref.watch(
-      paywallSubscriptionProvider,
-    );
-    final AsyncValue<AiCreditWallet> walletAsync = ref.watch(
-      aiCreditWalletProvider,
-    );
+    final AsyncValue<PaywallEntity> configAsync = ref.watch(paywallConfigProvider);
+    final AsyncValue<SubscriptionState> subscriptionAsync = ref.watch(paywallSubscriptionProvider);
+    final AsyncValue<AiCreditWallet> walletAsync = ref.watch(aiCreditWalletProvider);
     final PaywallPrompt? prompt = ref.watch(paywallPromptProvider);
     final bool isPremium = ref.watch(appAccessProvider).hasPremiumAccess;
+    final List<PaywallPlan> prioritizedPlans = _prioritizePlans(
+      configAsync.asData?.value.plans ?? const <PaywallPlan>[],
+    );
 
-    if (configAsync.isLoading ||
-        subscriptionAsync.isLoading ||
-        walletAsync.isLoading) {
+    if (configAsync.isLoading || subscriptionAsync.isLoading || walletAsync.isLoading) {
       return const AnimatedSystemBackground(
         backgroundAssetPath: AppAssets.bgSettings,
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: SafeArea(
             child: Center(
-              child: CircularProgressIndicator(
-                color: AppColors.neonCyan,
-                strokeWidth: 2,
-              ),
+              child: CircularProgressIndicator(color: AppColors.neonCyan, strokeWidth: 2),
             ),
           ),
         ),
@@ -158,15 +141,13 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         const PaywallEntity(
           featureId: 'premium',
           title: 'AI Credits + Premium',
-          body:
-              'Unlock AI credits, premium coaching, deeper memory, and advanced tools.',
+          body: 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.',
           plans: <PaywallPlan>[],
           isUnlocked: false,
         );
     final SubscriptionState? subscription = subscriptionAsync.asData?.value;
     final AiCreditWallet? wallet = walletAsync.asData?.value;
-    final bool canRestore =
-        paywallTestingMode || config.plans.any((plan) => plan.isAvailable);
+    final bool canRestore = paywallTestingMode || config.plans.any((plan) => plan.isAvailable);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgSettings,
@@ -192,9 +173,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                       decoration: BoxDecoration(
                         color: AppColors.neonCyan.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: AppColors.neonCyan.withValues(alpha: 0.3),
-                        ),
+                        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
                       ),
                       child: const Icon(
                         Icons.arrow_back_ios_new,
@@ -225,9 +204,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                           ),
                         ),
                         Text(
-                          paywallTestingMode
-                              ? 'UNLOCKED FOR TESTING'
-                              : 'SUBSCRIPTION ACCESS',
+                          paywallTestingMode ? 'UNLOCKED FOR TESTING' : 'SUBSCRIPTION ACCESS',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -245,16 +222,10 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
               _HeroCard(
                 title: config.title,
                 body: config.body,
-                isPremium:
-                    isPremium ||
-                    paywallTestingMode ||
-                    subscription?.isActive == true,
+                isPremium: isPremium || paywallTestingMode || subscription?.isActive == true,
                 wallet: wallet,
               ),
-              if (prompt != null) ...[
-                const SizedBox(height: 14),
-                _PromptBanner(prompt: prompt),
-              ],
+              if (prompt != null) ...[const SizedBox(height: 14), _PromptBanner(prompt: prompt)],
               if (_statusMessage != null) ...[
                 const SizedBox(height: 14),
                 Text(
@@ -264,7 +235,28 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                 ),
               ],
               const SizedBox(height: 18),
-              _ComparisonGrid(wallet: wallet),
+              ExpansionTile(
+                initiallyExpanded: _showComparison,
+                onExpansionChanged: (bool expanded) {
+                  if (!mounted) {
+                    return;
+                  }
+                  setState(() {
+                    _showComparison = expanded;
+                  });
+                },
+                title: const Text(
+                  'Compare Free vs Premium',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: const Text('Open only if you need the full breakdown.'),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+                    child: _ComparisonGrid(wallet: wallet),
+                  ),
+                ],
+              ),
               const SizedBox(height: 18),
               if (paywallTestingMode || subscription?.isActive == true) ...[
                 Container(
@@ -273,9 +265,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                   decoration: BoxDecoration(
                     color: AppColors.neonCyan.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.neonCyan.withValues(alpha: 0.25),
-                    ),
+                    border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.25)),
                   ),
                   child: const Text(
                     'Unlocked for testing',
@@ -290,7 +280,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                 ),
                 const SizedBox(height: 14),
               ],
-              ...config.plans.map(
+              ...(_showAllPlans ? config.plans : prioritizedPlans).map(
                 (PaywallPlan plan) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Container(
@@ -338,10 +328,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                         const SizedBox(height: 6),
                         Text(
                           plan.priceLabel,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                          ),
+                          style: const TextStyle(color: Colors.white70, fontSize: 13),
                         ),
                         if (plan.aiCreditsIncluded > 0) ...[
                           const SizedBox(height: 6),
@@ -357,11 +344,7 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                         const SizedBox(height: 6),
                         Text(
                           plan.description,
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
+                          style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4),
                         ),
                         if (plan.benefits.isNotEmpty) ...[
                           const SizedBox(height: 10),
@@ -397,14 +380,8 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                           children: [
                             Expanded(
                               child: FilledButton(
-                                onPressed: plan.isAvailable
-                                    ? () => _unlock(plan.id)
-                                    : null,
-                                child: Text(
-                                  paywallTestingMode
-                                      ? 'Simulate unlock'
-                                      : 'Choose plan',
-                                ),
+                                onPressed: plan.isAvailable ? () => _unlock(plan.id) : null,
+                                child: Text(paywallTestingMode ? 'Simulate unlock' : 'Choose plan'),
                               ),
                             ),
                           ],
@@ -414,6 +391,19 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                   ),
                 ),
               ),
+              if (config.plans.length > prioritizedPlans.length)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _showAllPlans = !_showAllPlans;
+                      });
+                    },
+                    icon: Icon(_showAllPlans ? Icons.expand_less : Icons.expand_more),
+                    label: Text(_showAllPlans ? 'Show fewer plans' : 'Show all plans'),
+                  ),
+                ),
               const SizedBox(height: 8),
               OutlinedButton(
                 onPressed: canRestore ? _restore : null,
@@ -425,17 +415,26 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                     ? 'Testing mode is active; purchases are simulated.'
                     : 'Cancel anytime. Credits renew automatically. No hidden fees.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 11,
-                  height: 1.4,
-                ),
+                style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.4),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  List<PaywallPlan> _prioritizePlans(List<PaywallPlan> plans) {
+    if (plans.length <= 2) {
+      return plans;
+    }
+    final List<PaywallPlan> featured = plans.where((p) => p.isFeatured).toList(growable: false);
+    if (featured.isNotEmpty) {
+      final PaywallPlan firstFeatured = featured.first;
+      final PaywallPlan firstOther = plans.firstWhere((p) => p.id != firstFeatured.id);
+      return <PaywallPlan>[firstFeatured, firstOther];
+    }
+    return plans.take(2).toList(growable: false);
   }
 }
 
@@ -502,14 +501,7 @@ class _HeroCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Text(
-            body,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              height: 1.5,
-            ),
-          ),
+          Text(body, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5)),
           if (wallet case final AiCreditWallet safeWallet) ...[
             const SizedBox(height: 16),
             Container(
@@ -523,22 +515,13 @@ class _HeroCard extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: _CreditStat(
-                      label: 'Credits left',
-                      value: '${safeWallet.balance}',
-                    ),
+                    child: _CreditStat(label: 'Credits left', value: '${safeWallet.balance}'),
                   ),
                   Expanded(
-                    child: _CreditStat(
-                      label: 'Tier',
-                      value: safeWallet.tier.toUpperCase(),
-                    ),
+                    child: _CreditStat(label: 'Tier', value: safeWallet.tier.toUpperCase()),
                   ),
                   Expanded(
-                    child: _CreditStat(
-                      label: 'Resets',
-                      value: _formatReset(safeWallet.resetAt),
-                    ),
+                    child: _CreditStat(label: 'Resets', value: _formatReset(safeWallet.resetAt)),
                   ),
                 ],
               ),
@@ -574,20 +557,12 @@ class _CreditStat extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white38,
-            fontSize: 9,
-            letterSpacing: 1.2,
-          ),
+          style: const TextStyle(color: Colors.white38, fontSize: 9, letterSpacing: 1.2),
         ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
+          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ],
     );
@@ -668,40 +643,26 @@ class _ComparisonCard extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w700),
               ),
               if (badge != null) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     badge ?? '',
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
-          ),
+          Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
           const SizedBox(height: 10),
           ...bullets.map(
             (String bullet) => Padding(
@@ -714,11 +675,7 @@ class _ComparisonCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       bullet,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        height: 1.35,
-                      ),
+                      style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.35),
                     ),
                   ),
                 ],
@@ -751,20 +708,12 @@ class _PromptBanner extends StatelessWidget {
         children: [
           Text(
             prompt.title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           Text(
             prompt.message,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              height: 1.4,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
           ),
           if (prompt.remainingCredits != null) ...[
             const SizedBox(height: 6),

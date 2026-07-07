@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
@@ -182,15 +183,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.support,
-        builder: (BuildContext context, GoRouterState state) => const WebPageView(
-          title: 'Support',
-          body: 'For support, contact ghostheart131517@gmail.com',
-        ),
+        builder: (BuildContext context, GoRouterState state) => const SupportPage(),
       ),
       GoRoute(
         path: RoutePaths.about,
-        builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'About', body: 'ChronoSpark'),
+        builder: (BuildContext context, GoRouterState state) => const AboutPage(),
       ),
     ],
   );

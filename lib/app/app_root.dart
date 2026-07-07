@@ -90,7 +90,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: AppConfig.fromEnv().appName,
-      theme: (themeEntity?.isDark ?? true) ? appTheme : ThemeData.light(useMaterial3: true),
+      theme: (themeEntity?.isDark ?? true) ? appTheme : appLightTheme,
       routerConfig: router,
       builder: (context, child) {
         final Widget appChild = TutorialHost(
