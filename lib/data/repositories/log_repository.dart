@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/data/models/log_entry_record.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_log_repository.dart';
+import 'package:fantastic_guacamole/domain/models/paged_result.dart';
 
 class LogRepository implements ILogRepository {
   LogRepository(this._store);
@@ -51,6 +52,24 @@ class LogRepository implements ILogRepository {
       Logger.error('Stored logs are corrupt.', error);
       return const <LogEntryEntity>[];
     }
+  }
+
+  Future<PagedResult<LogEntryEntity>> getLogsPage({String? cursor, int limit = 50}) async {
+    final List<LogEntryEntity> entries = await getLogs();
+    final int safeLimit = limit < 1 ? 1 : limit;
+    final int startIndex = cursor == null
+        ? 0
+        : entries.indexWhere((LogEntryEntity entry) => entry.id == cursor) + 1;
+    if (startIndex >= entries.length) {
+      return const PagedResult<LogEntryEntity>(items: <LogEntryEntity>[], nextCursor: null);
+    }
+    final List<LogEntryEntity> page = entries
+        .skip(startIndex)
+        .take(safeLimit)
+        .toList(growable: false);
+    final int nextIndex = startIndex + page.length;
+    final String? nextCursor = nextIndex < entries.length && page.isNotEmpty ? page.last.id : null;
+    return PagedResult<LogEntryEntity>(items: page, nextCursor: nextCursor);
   }
 
   @override

@@ -59,6 +59,14 @@ abstract final class Env {
     'CHRONOSPARK_OAUTH_REDIRECT_URL',
     defaultValue: 'https://chronospark.app/app/auth/callback',
   );
+  static const bool enableRuntimeFeatureFlags = bool.fromEnvironment(
+    'CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS',
+    defaultValue: true,
+  );
+  static const String remoteConfigDefaultsJson = String.fromEnvironment(
+    'CHRONOSPARK_REMOTE_CONFIG_JSON',
+    defaultValue: '',
+  );
   static const String supabaseUrl = String.fromEnvironment(
     'CHRONOSPARK_SUPABASE_URL',
     defaultValue: '',
@@ -180,6 +188,9 @@ abstract final class Env {
       label: 'Account deletion endpoint',
       issues: issues,
     );
+    if (enableRuntimeFeatureFlags && !isFirebaseFeatureFlagRuntimeReady) {
+      issues.add('Runtime feature flags require Firebase to be configured.');
+    }
     if (appLinksAndroidSha256.trim().isEmpty) {
       issues.add('Android App Links SHA-256 fingerprint is not configured.');
     }
@@ -204,4 +215,9 @@ abstract final class Env {
       issues.add('$label must be a valid HTTPS URL.');
     }
   }
+
+  static bool get isFirebaseFeatureFlagRuntimeReady =>
+      !isMockMode && enableRuntimeFeatureFlags && _hasFirebaseRuntime;
+
+  static bool get _hasFirebaseRuntime => true;
 }

@@ -58,6 +58,41 @@ void main() {
     expect(entries.single.message, 'Updated');
   });
 
+  test('returns paged logs with cursor continuation', () async {
+    await repository.addLog(
+      LogEntryEntity(
+        id: 'log-1',
+        message: 'First',
+        source: 'daily_log',
+        timestamp: DateTime.utc(2026, 7, 4, 10),
+      ),
+    );
+    await repository.addLog(
+      LogEntryEntity(
+        id: 'log-2',
+        message: 'Second',
+        source: 'daily_log',
+        timestamp: DateTime.utc(2026, 7, 4, 11),
+      ),
+    );
+    await repository.addLog(
+      LogEntryEntity(
+        id: 'log-3',
+        message: 'Third',
+        source: 'daily_log',
+        timestamp: DateTime.utc(2026, 7, 4, 12),
+      ),
+    );
+
+    final firstPage = await repository.getLogsPage(limit: 2);
+    final secondPage = await repository.getLogsPage(cursor: firstPage.nextCursor, limit: 2);
+
+    expect(firstPage.items.map((LogEntryEntity entry) => entry.id), <String>['log-3', 'log-2']);
+    expect(firstPage.nextCursor, 'log-2');
+    expect(secondPage.items.map((LogEntryEntity entry) => entry.id), <String>['log-1']);
+    expect(secondPage.nextCursor, isNull);
+  });
+
   test('returns empty logs when persisted storage is corrupt', () async {
     await SecureStore(backend: backend).writeString('chrono_log_entries_v2', '{not-json');
 
