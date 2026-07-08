@@ -38,10 +38,11 @@ jobs:
 
       - name: Copy legal pages to build
         run: |
-          mkdir -p build/web/privacy build/web/terms build/web/support
+          mkdir -p build/web/privacy build/web/terms build/web/support build/web/delete-account
           cp assets/legal/privacy_policy.html build/web/privacy/index.html
           cp assets/legal/terms_of_service.html build/web/terms/index.html
           cp assets/legal/support.html build/web/support/index.html
+          cp assets/legal/delete_account.html build/web/delete-account/index.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
