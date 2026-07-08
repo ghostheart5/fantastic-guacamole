@@ -25,14 +25,17 @@ class NexusScreen extends ConsumerStatefulWidget {
   ConsumerState<NexusScreen> createState() => _NexusScreenState();
 }
 
-class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProviderStateMixin {
+class _NexusScreenState extends ConsumerState<NexusScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
 
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(vsync: this, duration: const Duration(seconds: 3))
-      ..repeat(reverse: true);
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -43,16 +46,24 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    final NexusScreenModel? model = ref.watch(nexusScreenModelProvider).asData?.value;
-    final ProfileState profile = model?.aggregation.profile ?? ref.watch(profileProvider);
-    final double energy = model?.aggregation.siState.energy ?? ref.watch(energyProvider);
+    final NexusScreenModel? model = ref
+        .watch(nexusScreenModelProvider)
+        .asData
+        ?.value;
+    final ProfileState profile =
+        model?.aggregation.profile ?? ref.watch(profileProvider);
+    final double energy =
+        model?.aggregation.siState.energy ?? ref.watch(energyProvider);
     final siState = model?.aggregation.siState;
-    final double fatigue = siState?.fatigue ?? ref.watch(siStateProvider).fatigue;
-    final int completedToday = siState?.completedToday ?? ref.watch(siStateProvider).completedToday;
+    final double fatigue =
+        siState?.fatigue ?? ref.watch(siStateProvider).fatigue;
+    final int completedToday =
+        siState?.completedToday ?? ref.watch(siStateProvider).completedToday;
     final fallbackTrajectory = ref.watch(trajectorySummaryProvider);
     final trajectory = model?.aggregation.trajectory;
     final double momentum = trajectory?.momentum ?? fallbackTrajectory.momentum;
-    final int completedTasks = trajectory?.completedTasks ?? fallbackTrajectory.completedTasks;
+    final int completedTasks =
+        trajectory?.completedTasks ?? fallbackTrajectory.completedTasks;
 
     final String consistencySignal = momentum >= 0.65
         ? 'High'
@@ -75,12 +86,12 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
         ? 'Momentum is active. Keep the next action small and immediate.'
         : 'No completed actions yet. Start with one clear task to establish narrative continuity.';
     final int soulContinuityPct =
-        ((((1 - fatigue) * 0.55) + (momentum * 0.45)).clamp(0.0, 1.0) * 100).round();
+        ((((1 - fatigue) * 0.55) + (momentum * 0.45)).clamp(0.0, 1.0) * 100)
+            .round();
     final double narrativePresence =
-        ((completedTasks > 0 ? 0.5 : 0.28) + (profile.streak.clamp(0, 14) / 14) * 0.5).clamp(
-          0.0,
-          1.0,
-        );
+        ((completedTasks > 0 ? 0.5 : 0.28) +
+                (profile.streak.clamp(0, 14) / 14) * 0.5)
+            .clamp(0.0, 1.0);
     final int narrativePresencePct = (narrativePresence * 100).round();
 
     return AnimatedSystemBackground(
@@ -96,8 +107,11 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: AnimatedBuilder(
                     animation: _pulse,
-                    builder: (context, _) =>
-                        _SystemRings(energy: energy, fatigue: fatigue, pulse: _pulse.value),
+                    builder: (context, _) => _SystemRings(
+                      energy: energy,
+                      fatigue: fatigue,
+                      pulse: _pulse.value,
+                    ),
                   ),
                 ),
               ),
@@ -134,7 +148,10 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
                 ),
               ),
               const SliverToBoxAdapter(
-                child: Padding(padding: EdgeInsets.fromLTRB(16, 10, 16, 24), child: _ActionGrid()),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, 10, 16, 24),
+                  child: _ActionGrid(),
+                ),
               ),
             ],
           ),
@@ -143,4 +160,3 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
     );
   }
 }
-

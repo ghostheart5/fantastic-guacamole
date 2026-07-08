@@ -135,7 +135,12 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
   @override
   void initState() {
     super.initState();
-    _bootstrap();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(_bootstrap());
+    });
   }
 
   Future<void> _bootstrap() async {

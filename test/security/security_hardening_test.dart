@@ -5,23 +5,18 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('security hardening', () {
-    test('release mode always enables production restrictions', () {
-      expect(Env.resolveIsProduction('dev', isReleaseMode: true), isTrue);
+    test('production restrictions require release mode and prod flavor', () {
+      expect(Env.resolveIsProduction('dev', isReleaseMode: true), isFalse);
+      expect(Env.resolveIsProduction('prod', isReleaseMode: true), isTrue);
       expect(
-        Env.resolveHasTesterFullAccess(
-          isProduction: true,
-          enableTesterFullAccess: true,
-        ),
+        Env.resolveHasTesterFullAccess(isProduction: true, enableTesterFullAccess: true),
         isFalse,
       );
     });
 
     test('dynamic network endpoints must be HTTPS without credentials', () {
       expect(parseSecureHttpsEndpoint('http://example.com'), isNull);
-      expect(
-        parseSecureHttpsEndpoint('https://user:password@example.com/path'),
-        isNull,
-      );
+      expect(parseSecureHttpsEndpoint('https://user:password@example.com/path'), isNull);
       expect(
         parseSecureHttpsEndpoint('https://api.chronospark.app/path'),
         Uri.parse('https://api.chronospark.app/path'),

@@ -37,9 +37,7 @@ class CreatorScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: AppColors.neonCyan.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.neonCyan.withValues(alpha: 0.3),
-                          ),
+                          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
                         ),
                         child: const Icon(
                           Icons.arrow_back_ios_new,
@@ -70,10 +68,7 @@ class CreatorScreen extends ConsumerWidget {
                         children: [
                           ShaderMask(
                             shaderCallback: (bounds) => const LinearGradient(
-                              colors: [
-                                AppColors.neonCyan,
-                                AppColors.neonViolet,
-                              ],
+                              colors: [AppColors.neonCyan, AppColors.neonViolet],
                             ).createShader(bounds),
                             child: const Text(
                               'CREATOR',
@@ -91,11 +86,7 @@ class CreatorScreen extends ConsumerWidget {
                             'OPTIONAL ENTRY FORGE',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 2,
-                              color: Colors.white38,
-                            ),
+                            style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
                           ),
                         ],
                       ),
@@ -110,26 +101,21 @@ class CreatorScreen extends ConsumerWidget {
                 DynamicForm(
                   onSubmit: (data) async {
                     await ref.read(creatorActionsProvider).createTask(data);
-                    await ref
-                        .read(localMetricsAccumulatorProvider)
-                        .recordTaskCreated();
+                    await ref.read(localMetricsAccumulatorProvider).recordTaskCreated();
                     ref.invalidate(tasksProvider);
                     ref.invalidate(goalProgressProvider);
-                    ref
-                        .read(tutorialControllerProvider)
-                        .updateState('has_created_task', true);
+                    ref.read(tutorialControllerProvider).updateState('has_created_task', true);
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Entry created.'),
-                          action: SnackBarAction(
-                            label: 'TRAJECTORY',
-                            onPressed: () {
-                              ref.read(appFlowProvider.notifier).toPlan();
-                            },
+                      final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+                      messenger
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          const SnackBar(
+                            content: Text('Entry created.'),
+                            duration: Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
                           ),
-                        ),
-                      );
+                        );
                       ref.read(appFlowProvider.notifier).toPlan();
                     }
                   },
@@ -165,10 +151,7 @@ class _CreatorTutorialPanel extends ConsumerWidget {
         if (progress.isStepDismissed(step.id)) {
           return Align(
             alignment: Alignment.centerLeft,
-            child: ShowMeAgainButton(
-              stepId: step.id,
-              label: 'Show Creator Tutorial Again',
-            ),
+            child: ShowMeAgainButton(stepId: step.id, label: 'Show Creator Tutorial Again'),
           );
         }
 

@@ -665,13 +665,18 @@ class _LoginFormCard extends StatelessWidget {
                       color: Color(0xFFFFC857),
                     ),
                     SizedBox(width: 8),
-                    Text(
-                      'TESTER ACCESS  ·  COMMAND LOGIN',
-                      style: TextStyle(
-                        color: Color(0xFFFFDFA3),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                        letterSpacing: 1.5,
+                    Flexible(
+                      child: Text(
+                        'TESTER ACCESS  ·  COMMAND LOGIN',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFFFFDFA3),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          letterSpacing: 1.5,
+                        ),
                       ),
                     ),
                   ],

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -7,6 +8,7 @@ import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -99,6 +101,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     );
     if (!mounted) return;
     ref.read(onboardingCompleteProvider.notifier).set(true);
+
+    final bool isAuthenticated = ref
+        .read(intelligenceStateProvider)
+        .auth
+        .isAuthenticated;
+    final GoRouter? router = GoRouter.maybeOf(context);
+    if (router != null) {
+      context.go(isAuthenticated ? RoutePaths.home : RoutePaths.login);
+    }
   }
 
   void _next() {

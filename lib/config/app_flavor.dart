@@ -12,6 +12,9 @@ enum AppFlavor {
 
   static AppFlavor parse(String value) {
     final String normalized = value.trim().toLowerCase();
+    if (normalized == 'qa') {
+      return AppFlavor.testing;
+    }
     return AppFlavor.values.firstWhere(
       (AppFlavor flavor) => flavor.value == normalized,
       orElse: () => AppFlavor.development,

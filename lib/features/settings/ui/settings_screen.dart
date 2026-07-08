@@ -555,4 +555,3 @@ bool _hasSecureHttpsEndpoint(String value) {
   final Uri? uri = Uri.tryParse(value.trim());
   return uri != null && uri.hasAuthority && uri.scheme == 'https';
 }
-

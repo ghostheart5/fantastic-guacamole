@@ -1,6 +1,9 @@
 part of 'ai_controller.dart';
 
-int _aiCreditCost({required String? input, required AIPersonality personality}) {
+int _aiCreditCost({
+  required String? input,
+  required AIPersonality personality,
+}) {
   final String text = input?.trim() ?? '';
   final int lengthBonus = text.length > 120 ? 1 : 0;
   final int toneBonus = personality == AIPersonality.strict ? 1 : 0;
@@ -11,7 +14,9 @@ bool _recentSkipPressure(List<LearningHistoryEntry> history) {
   if (history.isEmpty) {
     return false;
   }
-  final List<LearningHistoryEntry> recent = history.take(6).toList(growable: false);
+  final List<LearningHistoryEntry> recent = history
+      .take(6)
+      .toList(growable: false);
   final int skipped = recent
       .where((LearningHistoryEntry e) => e.type == LearningEventType.skipped)
       .length;
@@ -92,7 +97,10 @@ String _leastRepeatedSafeFallback({
   return best;
 }
 
-String _classifyMemoryType({required SIIntent intent, required AIRecommendation recommendation}) {
+String _classifyMemoryType({
+  required SIIntent intent,
+  required AIRecommendation recommendation,
+}) {
   if (recommendation.task != null) {
     return 'task_recommendation';
   }
@@ -147,7 +155,10 @@ List<String> recentResponseSummariesForTesting({
   required List<SISnapshot> recentSnapshots,
   required Map<String, dynamic>? previousState,
 }) {
-  return recentResponseSummaries(recentSnapshots: recentSnapshots, previousState: previousState);
+  return recentResponseSummaries(
+    recentSnapshots: recentSnapshots,
+    previousState: previousState,
+  );
 }
 
 List<String> selectRelevantMemorySummariesForTesting({
@@ -193,34 +204,52 @@ AIResponse _responseFromAgentResult({
   );
 }
 
-final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
+  ref,
+) async {
   final String input = ref.watch(aiInputProvider) ?? '';
   final AIPersonality personality = ref.watch(aiPersonalityProvider);
   final si = ref.watch(siStateProvider);
   final learning = ref.watch(learningProvider);
-  final AIRecommendation? recommendation = ref.watch(aiResponseProvider).asData?.value;
+  final AIRecommendation? recommendation = ref
+      .watch(aiResponseProvider)
+      .asData
+      ?.value;
   final AIResponse? response = recommendation == null
       ? null
       : AIResponse(
           message: recommendation.message,
           emotion: recommendation.emotion ?? 'balanced',
           confidence: recommendation.confidence ?? 0.5,
-          personality: _profileFor(personality, mood: recommendation.emotion ?? 'balanced'),
-          action: recommendation.task == null ? 'respond_conversationally' : 'recommend_task',
+          personality: _profileFor(
+            personality,
+            mood: recommendation.emotion ?? 'balanced',
+          ),
+          action: recommendation.task == null
+              ? 'respond_conversationally'
+              : 'recommend_task',
           safe: true,
           taskTitle: recommendation.task?.title,
-          metadata: <String, dynamic>{'reasoning': recommendation.reasoning ?? ''},
+          metadata: <String, dynamic>{
+            'reasoning': recommendation.reasoning ?? '',
+          },
         );
   final List<Task> tasks = await ref.watch(tasksProvider.future);
-  final Task? selectedTask = recommendation?.task?.toTask() ?? (tasks.isEmpty ? null : tasks.first);
-  final Map<String, dynamic>? previousState = await ref.watch(siEngineStateProvider.future);
-  final String previousMessage = previousState?['message']?.toString().trim() ?? '';
+  final Task? selectedTask =
+      recommendation?.task?.toTask() ?? (tasks.isEmpty ? null : tasks.first);
+  final Map<String, dynamic>? previousState = await ref.watch(
+    siEngineStateProvider.future,
+  );
+  final String previousMessage =
+      previousState?['message']?.toString().trim() ?? '';
   final modular_si.SIPipelineResult coreResult = ref
       .read(modularSiCoreProvider)
       .run(
         input: modular_si.SIInputPacket(
           text: input,
-          history: previousMessage.isEmpty ? const <String>[] : <String>[previousMessage],
+          history: previousMessage.isEmpty
+              ? const <String>[]
+              : <String>[previousMessage],
           context: const <String, dynamic>{'appState': 'coach'},
           latent: modular_si.SILatentInputs(
             frustration: si.fatigue,
@@ -242,7 +271,10 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((ref) async 
         message: coreResult.response.message,
         emotion: coreResult.response.emotion,
         confidence: coreResult.response.confidence,
-        personality: _profileFor(personality, mood: coreResult.response.emotion),
+        personality: _profileFor(
+          personality,
+          mood: coreResult.response.emotion,
+        ),
         action: coreResult.decision.action,
         safe: coreResult.decision.safe,
         taskTitle: coreResult.response.task?.title,
@@ -264,7 +296,9 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((ref) async 
     response: effectiveResponse,
     appState: 'coach',
     platform: 'flutter',
-    history: previousMessage.isEmpty ? const <String>[] : <String>[previousMessage],
+    history: previousMessage.isEmpty
+        ? const <String>[]
+        : <String>[previousMessage],
     context: coreContext,
   );
 
@@ -285,9 +319,14 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((ref) async 
   };
 });
 
-final modularSiCoreProvider = Provider<modular_si.SICore>((_) => modular_si.SICore());
+final modularSiCoreProvider = Provider<modular_si.SICore>(
+  (_) => modular_si.SICore(),
+);
 
-AIPersonalityProfile _profileFor(AIPersonality personality, {String mood = 'balanced'}) {
+AIPersonalityProfile _profileFor(
+  AIPersonality personality, {
+  String mood = 'balanced',
+}) {
   switch (personality) {
     case AIPersonality.strict:
       return const AIPersonalityProfile(

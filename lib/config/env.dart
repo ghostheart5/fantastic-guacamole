@@ -102,10 +102,9 @@ abstract final class Env {
     String flavor, {
     required bool isReleaseMode,
   }) {
-    // Release artifacts always use production security rules. A missing or
-    // mistyped flavor must never enable QA authentication or entitlement
-    // bypasses in a distributable build.
-    return isReleaseMode;
+    // Production hardening is enabled only for release + production flavor.
+    // QA/testing release builds can still exercise tester-only access paths.
+    return isReleaseMode && AppFlavor.parse(flavor).isProduction;
   }
 
   static bool resolveIsMockMode({

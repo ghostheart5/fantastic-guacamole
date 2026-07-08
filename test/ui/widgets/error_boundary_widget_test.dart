@@ -12,12 +12,14 @@ void main() {
     await Logger.withMutedErrors(() async {
       await tester.tap(find.text('trigger-error'));
       await tester.pump();
+      await tester.pump();
     });
 
     expect(find.text('Something went wrong'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
 
     await tester.tap(find.text('Retry'));
+    await tester.pump();
     await tester.pump();
 
     expect(find.text('child-ready'), findsOneWidget);

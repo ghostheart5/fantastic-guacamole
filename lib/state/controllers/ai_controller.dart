@@ -53,9 +53,9 @@ import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+part 'ai_controller.helpers.dart';
 part 'ai_controller.providers.dart';
 part 'ai_controller.response.dart';
-part 'ai_controller.helpers.dart';
 
 final aiControllerProvider = Provider<AIController>((ref) => AIController(ref));
 
@@ -88,7 +88,8 @@ class AIController {
     final Throttle throttle = _ref.read(aiMessageThrottleProvider);
     if (!throttle.isReady) {
       return const AIRecommendation(
-        message: 'Rapid repeat detected. Pause for a moment so I can give you a better response.',
+        message:
+            'Rapid repeat detected. Pause for a moment so I can give you a better response.',
         reasoning: 'throttled',
         emotion: 'balanced',
         confidence: 0.6,
@@ -101,7 +102,8 @@ class AIController {
     });
     if (!accepted) {
       return const AIRecommendation(
-        message: 'Rapid repeat detected. Pause for a moment so I can give you a better response.',
+        message:
+            'Rapid repeat detected. Pause for a moment so I can give you a better response.',
         reasoning: 'throttled',
         emotion: 'balanced',
         confidence: 0.6,
@@ -128,7 +130,8 @@ class AIController {
     final soulState = _ref.read(soulStateProvider);
     final trajectory = _ref.read(trajectorySummaryProvider);
     final List<String> coreValues =
-        _ref.read(profileValuesStoreProvider).load().toList(growable: false)..sort();
+        _ref.read(profileValuesStoreProvider).load().toList(growable: false)
+          ..sort();
 
     final List<Map<String, String>> history = <Map<String, String>>[];
     final dynamic rawHistory = previousState?['historySummary'];
@@ -154,7 +157,10 @@ class AIController {
         .take(3)
         .map((block) => block.title)
         .toList(growable: false);
-    final List<String> matchedSurfaces = _detectQuerySurfaces(input, forcedSurface: forcedSurface);
+    final List<String> matchedSurfaces = _detectQuerySurfaces(
+      input,
+      forcedSurface: forcedSurface,
+    );
     final String primarySurface = matchedSurfaces.first;
 
     final Map<String, dynamic> context = <String, dynamic>{
@@ -212,11 +218,17 @@ class AIController {
         'insights': <String, dynamic>{
           'count': insightsBundle.items.length,
           'summary': insightsBundle.summary,
-          'top': insightsBundle.items.take(5).map((item) => item.title).toList(growable: false),
+          'top': insightsBundle.items
+              .take(5)
+              .map((item) => item.title)
+              .toList(growable: false),
         },
         'logs': <String, dynamic>{
           'count': logsState.entries.length,
-          'recent': logsState.entries.take(5).map((entry) => entry.message).toList(growable: false),
+          'recent': logsState.entries
+              .take(5)
+              .map((entry) => entry.message)
+              .toList(growable: false),
         },
         'memories': <String, dynamic>{
           'count': memories.length,
@@ -225,15 +237,27 @@ class AIController {
         'notifications': <String, dynamic>{
           'count': notifications.length,
           'unread': notifications.where((item) => !item.isRead).length,
-          'recent': notifications.take(5).map((item) => item.title).toList(growable: false),
+          'recent': notifications
+              .take(5)
+              .map((item) => item.title)
+              .toList(growable: false),
         },
-        'plan': <String, dynamic>{'preview': planPreview, 'generatedFromEnergy': si.energy},
+        'plan': <String, dynamic>{
+          'preview': planPreview,
+          'generatedFromEnergy': si.energy,
+        },
         'flowmap': <String, dynamic>{'count': flowmapNodeCount},
-        'emotions': <String, dynamic>{'current': emotion.name, 'fatigue': si.fatigue},
+        'emotions': <String, dynamic>{
+          'current': emotion.name,
+          'fatigue': si.fatigue,
+        },
         'soulmap': soulState.toJson(),
         'timeline': <String, dynamic>{
           'count': timelineEvents.length,
-          'recent': timelineEvents.take(5).map((e) => e.title).toList(growable: false),
+          'recent': timelineEvents
+              .take(5)
+              .map((e) => e.title)
+              .toList(growable: false),
         },
         'trajectory': <String, dynamic>{
           'pressure': trajectory.pressureIndex,
@@ -269,12 +293,17 @@ class AIController {
 
   Future<List<TaskEntity>> _loadConsoleTaskEntities() async {
     try {
-      final List<TaskEntity> entities = await _ref.read(domainTaskRepositoryProvider).getAllTasks();
+      final List<TaskEntity> entities = await _ref
+          .read(domainTaskRepositoryProvider)
+          .getAllTasks();
       final List<TaskEntity> active =
           entities
               .where((TaskEntity item) => !item.isCompleted && !item.isCanceled)
               .toList(growable: true)
-            ..sort((TaskEntity a, TaskEntity b) => b.createdAt.compareTo(a.createdAt));
+            ..sort(
+              (TaskEntity a, TaskEntity b) =>
+                  b.createdAt.compareTo(a.createdAt),
+            );
       return active;
     } catch (_) {
       final List<Task> fallback = await _ref.read(tasksProvider.future);
@@ -333,7 +362,15 @@ class AIController {
       'progression': <String>['xp', 'level', 'streak', 'progress', 'rank'],
       'goals': <String>['goal', 'target', 'objective', 'mission'],
       'insights': <String>['insight', 'signal', 'pattern', 'analysis'],
-      'logs': <String>['log', 'ledger', 'activity', 'record', 'created', 'added', 'made'],
+      'logs': <String>[
+        'log',
+        'ledger',
+        'activity',
+        'record',
+        'created',
+        'added',
+        'made',
+      ],
       'memories': <String>['memory', 'remember', 'recall', 'history'],
       'notifications': <String>['notification', 'alert', 'reminder', 'prompt'],
       'plan': <String>['plan', 'schedule', 'calendar', 'time block'],
@@ -341,7 +378,12 @@ class AIController {
       'emotions': <String>['emotion', 'mood', 'energy', 'fatigue', 'feel'],
       'soulmap': <String>['soul', 'identity', 'continuity', 'narrative'],
       'timeline': <String>['timeline', 'milestone', 'event', 'chronology'],
-      'trajectory': <String>['trajectory', 'momentum', 'pressure', 'prediction'],
+      'trajectory': <String>[
+        'trajectory',
+        'momentum',
+        'pressure',
+        'prediction',
+      ],
     };
 
     final List<String> matched = <String>[];
@@ -407,7 +449,8 @@ class AIController {
     if (matchedSurfaces.contains('plan')) {
       return 'planning';
     }
-    if (matchedSurfaces.contains('tasks') || matchedSurfaces.contains('trajectory')) {
+    if (matchedSurfaces.contains('tasks') ||
+        matchedSurfaces.contains('trajectory')) {
       return 'recommendation';
     }
     if (matchedSurfaces.contains('timeline') ||
@@ -421,7 +464,10 @@ class AIController {
     return 'chat';
   }
 
-  Map<String, dynamic> _responseContract(String primarySurface, List<String> matchedSurfaces) {
+  Map<String, dynamic> _responseContract(
+    String primarySurface,
+    List<String> matchedSurfaces,
+  ) {
     return <String, dynamic>{
       'style': 'module_brief',
       'sections': <String>['signal', 'insight', 'next_actions'],
@@ -448,7 +494,8 @@ class AIController {
     final store = _ref.read(secureStoreProvider);
     final String? raw = await store.readString(_neuralDumpKey);
 
-    final List<Map<String, dynamic>> existing = (raw == null || raw.trim().isEmpty)
+    final List<Map<String, dynamic>> existing =
+        (raw == null || raw.trim().isEmpty)
         ? <Map<String, dynamic>>[]
         : ((jsonDecode(raw) as List<dynamic>)
               .whereType<Map<String, dynamic>>()
@@ -470,7 +517,8 @@ class AIController {
 
   Future<AIRecommendation?> retryMessage(String messageId) async {
     final siEngineService = _ref.read(siEngineServiceProvider);
-    final Map<String, dynamic>? previousState = await siEngineService.loadState();
+    final Map<String, dynamic>? previousState = await siEngineService
+        .loadState();
     final String id = messageId.trim();
     if (id.isEmpty || previousState == null) {
       return null;
@@ -503,7 +551,9 @@ class AIController {
     });
     _ref.read(aiInputProvider.notifier).set(null);
     _ref.read(aiAgentTraceProvider.notifier).set(null);
-    _ref.read(aiExecutionStatusProvider.notifier).set(const AIExecutionStatus.idle());
+    _ref
+        .read(aiExecutionStatusProvider.notifier)
+        .set(const AIExecutionStatus.idle());
     _ref.read(siMemoryProvider.notifier).clear();
     _ref.invalidate(aiResponseProvider);
     _ref.invalidate(siEngineStateProvider);
@@ -517,7 +567,10 @@ class AIController {
     await _recordSuggestionFeedback(actionId: actionId, accepted: false);
   }
 
-  Future<void> _recordSuggestionFeedback({required String actionId, required bool accepted}) async {
+  Future<void> _recordSuggestionFeedback({
+    required String actionId,
+    required bool accepted,
+  }) async {
     final String id = actionId.trim();
     if (id.isEmpty) {
       return;
@@ -536,9 +589,11 @@ class AIController {
       ...?state,
       'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
       'memoryEvents': events,
-      'lastSuggestionFeedback': <String, dynamic>{'actionId': id, 'accepted': accepted},
+      'lastSuggestionFeedback': <String, dynamic>{
+        'actionId': id,
+        'accepted': accepted,
+      },
     });
     _ref.invalidate(siEngineStateProvider);
   }
 }
-

@@ -35,7 +35,12 @@ class _AppRootState extends ConsumerState<AppRoot> {
   @override
   void initState() {
     super.initState();
-    unawaited(_loadTutorialAssetsIfNeeded());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(_loadTutorialAssetsIfNeeded());
+    });
   }
 
   Future<void> _loadTutorialAssetsIfNeeded() async {

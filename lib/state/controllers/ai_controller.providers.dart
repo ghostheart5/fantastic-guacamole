@@ -1,21 +1,31 @@
 part of 'ai_controller.dart';
 
-final aiTriggerProvider = NotifierProvider<AITriggerNotifier, int>(AITriggerNotifier.new);
-final aiAgentTraceProvider = NotifierProvider<AIAgentTraceNotifier, AgentResult?>(
-  AIAgentTraceNotifier.new,
+final aiTriggerProvider = NotifierProvider<AITriggerNotifier, int>(
+  AITriggerNotifier.new,
 );
-final aiPersonalityProvider = NotifierProvider<AIPersonalityNotifier, AIPersonality>(
-  AIPersonalityNotifier.new,
+final aiAgentTraceProvider =
+    NotifierProvider<AIAgentTraceNotifier, AgentResult?>(
+      AIAgentTraceNotifier.new,
+    );
+final aiPersonalityProvider =
+    NotifierProvider<AIPersonalityNotifier, AIPersonality>(
+      AIPersonalityNotifier.new,
+    );
+final aiInputProvider = NotifierProvider<AIInputNotifier, String?>(
+  AIInputNotifier.new,
 );
-final aiInputProvider = NotifierProvider<AIInputNotifier, String?>(AIInputNotifier.new);
-final aiExecutionStatusProvider = NotifierProvider<AIExecutionStatusNotifier, AIExecutionStatus>(
-  AIExecutionStatusNotifier.new,
-);
+final aiExecutionStatusProvider =
+    NotifierProvider<AIExecutionStatusNotifier, AIExecutionStatus>(
+      AIExecutionStatusNotifier.new,
+    );
 final aiMessageThrottleProvider = Provider<Throttle>((_) {
   return Throttle(const Duration(milliseconds: 900));
 });
 final aiSuggestionRateLimiterProvider = Provider<SlidingWindowRateLimiter>((_) {
-  return SlidingWindowRateLimiter(maxRequests: 3, window: const Duration(seconds: 20));
+  return SlidingWindowRateLimiter(
+    maxRequests: 3,
+    window: const Duration(seconds: 20),
+  );
 });
 
 class AITriggerNotifier extends Notifier<int> {
@@ -54,7 +64,12 @@ class AIExecutionStatusNotifier extends Notifier<AIExecutionStatus> {
 }
 
 class AIExecutionStatus {
-  const AIExecutionStatus({required this.phase, this.requestId, this.durationMs, this.error});
+  const AIExecutionStatus({
+    required this.phase,
+    this.requestId,
+    this.durationMs,
+    this.error,
+  });
 
   const AIExecutionStatus.idle()
     : this(phase: 'idle', requestId: null, durationMs: null, error: null);
@@ -64,7 +79,12 @@ class AIExecutionStatus {
   final int? durationMs;
   final String? error;
 
-  AIExecutionStatus copyWith({String? phase, String? requestId, int? durationMs, String? error}) {
+  AIExecutionStatus copyWith({
+    String? phase,
+    String? requestId,
+    int? durationMs,
+    String? error,
+  }) {
     return AIExecutionStatus(
       phase: phase ?? this.phase,
       requestId: requestId ?? this.requestId,

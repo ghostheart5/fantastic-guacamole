@@ -16,14 +16,21 @@ class _NexusHeader extends ConsumerWidget {
         final bool compact = constraints.maxWidth < 390;
         final bool ultraCompact = constraints.maxWidth < 340;
         return Padding(
-          padding: EdgeInsets.fromLTRB(ultraCompact ? 12 : 20, 16, ultraCompact ? 12 : 20, 0),
+          padding: EdgeInsets.fromLTRB(
+            ultraCompact ? 12 : 20,
+            16,
+            ultraCompact ? 12 : 20,
+            0,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SmartPressable(
-                onTap: () => Navigator.of(
-                  context,
-                ).push<void>(MaterialPageRoute<void>(builder: (_) => const NotificationsPage())),
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const NotificationsPage(),
+                  ),
+                ),
                 child: Badge(
                   isLabelVisible: unread > 0,
                   label: Text('$unread'),
@@ -47,7 +54,9 @@ class _NexusHeader extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: ultraCompact ? 25 : (compact ? 29 : 32),
                           fontWeight: FontWeight.w900,
-                          letterSpacing: ultraCompact ? 3.2 : (compact ? 4.8 : 6),
+                          letterSpacing: ultraCompact
+                              ? 3.2
+                              : (compact ? 4.8 : 6),
                           color: Colors.white,
                         ),
                       ),
@@ -59,11 +68,17 @@ class _NexusHeader extends ConsumerWidget {
                         'ADAPTIVE LOGIC CORE',
                         style: TextStyle(
                           fontSize: ultraCompact ? 7 : (compact ? 8 : 9),
-                          letterSpacing: ultraCompact ? 1.3 : (compact ? 2.0 : 2.4),
+                          letterSpacing: ultraCompact
+                              ? 1.3
+                              : (compact ? 2.0 : 2.4),
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
                           shadows: const [
-                            Shadow(color: Colors.black87, blurRadius: 6, offset: Offset(0, 1)),
+                            Shadow(
+                              color: Colors.black87,
+                              blurRadius: 6,
+                              offset: Offset(0, 1),
+                            ),
                           ],
                         ),
                       ),
@@ -73,7 +88,9 @@ class _NexusHeader extends ConsumerWidget {
               ),
               SizedBox(width: ultraCompact ? 2 : (compact ? 4 : 8)),
               ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: ultraCompact ? 72 : (compact ? 86 : 102)),
+                constraints: BoxConstraints(
+                  maxWidth: ultraCompact ? 72 : (compact ? 86 : 102),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -86,7 +103,9 @@ class _NexusHeader extends ConsumerWidget {
                           'ONLINE',
                           style: TextStyle(
                             fontSize: ultraCompact ? 7 : (compact ? 8 : 9),
-                            letterSpacing: ultraCompact ? 0.8 : (compact ? 1.4 : 2),
+                            letterSpacing: ultraCompact
+                                ? 0.8
+                                : (compact ? 1.4 : 2),
                             color: Colors.greenAccent,
                             fontWeight: FontWeight.w600,
                           ),
@@ -123,14 +142,17 @@ class _PulseDot extends StatefulWidget {
   State<_PulseDot> createState() => _PulseDotState();
 }
 
-class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _c;
 
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
-      ..repeat(reverse: true);
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -166,7 +188,11 @@ class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixi
 // ---------------------------------------------------------------------------
 
 class _SystemRings extends StatelessWidget {
-  const _SystemRings({required this.energy, required this.fatigue, required this.pulse});
+  const _SystemRings({
+    required this.energy,
+    required this.fatigue,
+    required this.pulse,
+  });
 
   final double energy;
   final double fatigue;
@@ -217,7 +243,11 @@ class _SystemRings extends StatelessWidget {
               ),
               CustomPaint(
                 size: const Size(210, 210),
-                painter: _RingPainter(energy: energy, fatigue: fatigue, pulse: pulse),
+                painter: _RingPainter(
+                  energy: energy,
+                  fatigue: fatigue,
+                  pulse: pulse,
+                ),
               ),
               Container(
                 width: 88,
@@ -230,9 +260,14 @@ class _SystemRings extends StatelessWidget {
                       const Color(0xFF061624),
                     ],
                   ),
-                  border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.45)),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.45),
+                  ),
                   boxShadow: [
-                    BoxShadow(color: AppColors.neonCyan.withValues(alpha: 0.26), blurRadius: 16),
+                    BoxShadow(
+                      color: AppColors.neonCyan.withValues(alpha: 0.26),
+                      blurRadius: 16,
+                    ),
                     BoxShadow(
                       color: AppColors.neonViolet.withValues(alpha: 0.16),
                       blurRadius: 20,
@@ -273,7 +308,11 @@ class _SystemRings extends StatelessWidget {
 }
 
 class _RingPainter extends CustomPainter {
-  const _RingPainter({required this.energy, required this.fatigue, required this.pulse});
+  const _RingPainter({
+    required this.energy,
+    required this.fatigue,
+    required this.pulse,
+  });
 
   final double energy;
   final double fatigue;
@@ -289,8 +328,22 @@ class _RingPainter extends CustomPainter {
 
     _drawTicks(canvas, c);
     _drawAura(canvas, c);
-    _drawRing(canvas, c, _outerR, energy, const Color(0xFF00E5FF), reversed: false);
-    _drawRing(canvas, c, _innerR, 1 - fatigue, const Color(0xFF9B8AFB), reversed: false);
+    _drawRing(
+      canvas,
+      c,
+      _outerR,
+      energy,
+      const Color(0xFF00E5FF),
+      reversed: false,
+    );
+    _drawRing(
+      canvas,
+      c,
+      _innerR,
+      1 - fatigue,
+      const Color(0xFF9B8AFB),
+      reversed: false,
+    );
 
     // Center glow
     canvas.drawCircle(
@@ -493,7 +546,11 @@ class _NexusBridgeCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             greeting,
-            style: TextStyle(color: Colors.white70, fontSize: ultraCompact ? 11 : 12, height: 1.35),
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: ultraCompact ? 11 : 12,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -513,7 +570,11 @@ class _NexusBridgeCard extends StatelessWidget {
 }
 
 class _RingLabel extends StatelessWidget {
-  const _RingLabel({required this.label, required this.value, required this.color});
+  const _RingLabel({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
   final String label;
   final String value;
   final Color color;
@@ -529,7 +590,9 @@ class _RingLabel extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: color,
-            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 6)],
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 6),
+            ],
           ),
         ),
         const SizedBox(width: 8),
@@ -538,11 +601,19 @@ class _RingLabel extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(fontSize: 8, letterSpacing: 2, color: Colors.white38),
+              style: const TextStyle(
+                fontSize: 8,
+                letterSpacing: 2,
+                color: Colors.white38,
+              ),
             ),
             Text(
               value,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ],
         ),
@@ -605,12 +676,20 @@ class _CoreSignalsStrip extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             growthTitle,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             narrativeSummary,
-            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.35),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -619,7 +698,10 @@ class _CoreSignalsStrip extends StatelessWidget {
             children: [
               _SignalPill(label: 'Consistency', value: consistencySignal),
               _SignalPill(label: 'Load', value: loadSignal),
-              _SignalPill(label: 'Soul Continuity', value: '$soulContinuityPct%'),
+              _SignalPill(
+                label: 'Soul Continuity',
+                value: '$soulContinuityPct%',
+              ),
               _SignalPill(label: 'Narrative', value: '$narrativePresencePct%'),
             ],
           ),
@@ -641,11 +723,14 @@ class _DependencyMesh extends ConsumerWidget {
     final decision = model?.decision;
     final List<Task> tasks = aggregation?.tasks ?? const <Task>[];
     final List<GoalEntity> goals = aggregation?.goals ?? const <GoalEntity>[];
-    final List<MemoryEntity> memories = aggregation?.memories ?? const <MemoryEntity>[];
-    final List<LogEntryEntity> logs = aggregation?.logs ?? const <LogEntryEntity>[];
+    final List<MemoryEntity> memories =
+        aggregation?.memories ?? const <MemoryEntity>[];
+    final List<LogEntryEntity> logs =
+        aggregation?.logs ?? const <LogEntryEntity>[];
     final List<TimelineEventEntity> timeline =
         aggregation?.timeline ?? const <TimelineEventEntity>[];
-    final List<FlowmapNode> flowNodesData = aggregation?.flowmapNodes ?? const <FlowmapNode>[];
+    final List<FlowmapNode> flowNodesData =
+        aggregation?.flowmapNodes ?? const <FlowmapNode>[];
 
     final int pendingTasks = tasks.length;
     final String nextTaskTitle = aggregation == null
@@ -662,29 +747,44 @@ class _DependencyMesh extends ConsumerWidget {
     final String goalHeadline = goalTitles.isEmpty
         ? 'No active goals'
         : goalTitles.firstWhere(
-            (String title) => title.toLowerCase() != nextTaskTitle.toLowerCase(),
+            (String title) =>
+                title.toLowerCase() != nextTaskTitle.toLowerCase(),
             orElse: () => 'Goal linked to "$nextTaskTitle"',
           );
-    final int goalsWithTarget = goals.where((GoalEntity goal) => goal.targetDate != null).length;
+    final int goalsWithTarget = goals
+        .where((GoalEntity goal) => goal.targetDate != null)
+        .length;
 
     final insights = aggregation?.insights;
     final String insightsHeadline = (insights == null || insights.items.isEmpty)
         ? 'No insight bundle published'
         : insights.items.first.title;
 
-    final int recentMemories = memories.where((MemoryEntity memory) => memory.isRecent).length;
+    final int recentMemories = memories
+        .where((MemoryEntity memory) => memory.isRecent)
+        .length;
     final String memoryHeadline = memories.isEmpty
         ? 'No recent memory capture'
         : memories.first.text;
 
-    final int recentLogs = logs.where((LogEntryEntity entry) => entry.isRecent).length;
-    final int logSources = logs.map((LogEntryEntity entry) => entry.source).toSet().length;
-    final String logHeadline = logs.isEmpty ? 'No live telemetry' : logs.first.message;
+    final int recentLogs = logs
+        .where((LogEntryEntity entry) => entry.isRecent)
+        .length;
+    final int logSources = logs
+        .map((LogEntryEntity entry) => entry.source)
+        .toSet()
+        .length;
+    final String logHeadline = logs.isEmpty
+        ? 'No live telemetry'
+        : logs.first.message;
 
-    final int recentTimeline = timeline.where((TimelineEventEntity event) => event.isRecent).length;
+    final int recentTimeline = timeline
+        .where((TimelineEventEntity event) => event.isRecent)
+        .length;
     final int milestoneTimeline = timeline
         .where(
-          (TimelineEventEntity event) => event.isGoalComplete || event.isLevelUp || event.isStreak,
+          (TimelineEventEntity event) =>
+              event.isGoalComplete || event.isLevelUp || event.isStreak,
         )
         .length;
     final String timelineHeadline = timeline.isEmpty
@@ -703,7 +803,8 @@ class _DependencyMesh extends ConsumerWidget {
         ? 'No mapped threads'
         : flowTitles.firstWhere((String title) {
             final String lowered = title.toLowerCase();
-            return lowered != nextTaskTitle.toLowerCase() && lowered != goalHeadline.toLowerCase();
+            return lowered != nextTaskTitle.toLowerCase() &&
+                lowered != goalHeadline.toLowerCase();
           }, orElse: () => 'Flow linked to "$nextTaskTitle"');
     final String syncStatus = modelAsync.isLoading
         ? 'SYNCING'
@@ -765,7 +866,8 @@ class _DependencyMesh extends ConsumerWidget {
               accent: AppColors.neonViolet,
               value: '${insights?.items.length ?? 0} signals',
               headline: insightsHeadline,
-              detail: 'Health ${(((insights?.healthScore ?? 0) * 100).round())}%.',
+              detail:
+                  'Health ${(((insights?.healthScore ?? 0) * 100).round())}%.',
             ),
             _DependencyCard(
               label: 'Flowmap',
@@ -826,7 +928,11 @@ class _SignalPill extends StatelessWidget {
       ),
       child: Text(
         '$label: $value',
-        style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -858,7 +964,9 @@ class _NexusSyncStrip extends StatelessWidget {
             decoration: BoxDecoration(
               color: accent,
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 8)],
+              boxShadow: [
+                BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 8),
+              ],
             ),
           ),
           const SizedBox(width: 8),
@@ -874,7 +982,11 @@ class _NexusSyncStrip extends StatelessWidget {
           const Spacer(),
           Text(
             timestamp,
-            style: const TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1),
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 10,
+              letterSpacing: 1,
+            ),
           ),
         ],
       ),
@@ -910,7 +1022,11 @@ class _DependencyCard extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.24),
         border: Border.all(color: accent.withValues(alpha: 0.26)),
         boxShadow: [
-          BoxShadow(color: accent.withValues(alpha: 0.10), blurRadius: 16, spreadRadius: -6),
+          BoxShadow(
+            color: accent.withValues(alpha: 0.10),
+            blurRadius: 16,
+            spreadRadius: -6,
+          ),
         ],
       ),
       child: Column(
@@ -924,7 +1040,12 @@ class _DependencyCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: accent,
-                  boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.45), blurRadius: 8)],
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.45),
+                      blurRadius: 8,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
@@ -962,7 +1083,14 @@ class _DependencyCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(detail, style: const TextStyle(color: Colors.white60, fontSize: 11, height: 1.35)),
+          Text(
+            detail,
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
         ],
       ),
     );
@@ -1094,7 +1222,8 @@ class _ActionGrid extends ConsumerWidget {
                 Expanded(
                   child: HoloButton(
                     label: 'Smart Coach',
-                    onTap: () => ref.read(appFlowProvider.notifier).toSmartCoach(),
+                    onTap: () =>
+                        ref.read(appFlowProvider.notifier).toSmartCoach(),
                   ),
                 ),
                 const SizedBox(width: 12),
