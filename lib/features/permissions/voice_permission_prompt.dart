@@ -40,12 +40,20 @@ class VoicePermissionPrompt extends StatelessWidget {
         children: <Widget>[
           Text(
             title,
-            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 6),
           const Text(
             'Allow microphone access to use voice-to-text and spoken coaching in the SI console.',
-            style: TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.35),
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 12.5,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 10),
           FilledButton(

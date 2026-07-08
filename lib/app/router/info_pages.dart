@@ -13,7 +13,10 @@ class SupportPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Text('We can help you recover momentum quickly.', style: theme.textTheme.headlineSmall),
+          Text(
+            'We can help you recover momentum quickly.',
+            style: theme.textTheme.headlineSmall,
+          ),
           const SizedBox(height: 10),
           Text(
             'Best way to get support:\n'
@@ -33,7 +36,9 @@ class SupportPage extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.22)),
+              border: Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.22),
+              ),
               color: theme.colorScheme.primary.withValues(alpha: 0.06),
             ),
             child: Text(
@@ -116,7 +121,9 @@ class _Section extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.18)),
+          border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.18),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

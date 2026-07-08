@@ -22,7 +22,8 @@ class InsightScreen extends ConsumerStatefulWidget {
   ConsumerState<InsightScreen> createState() => _InsightScreenState();
 }
 
-class _InsightScreenState extends ConsumerState<InsightScreen> with SingleTickerProviderStateMixin {
+class _InsightScreenState extends ConsumerState<InsightScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _levelUpAnim;
   bool _levelUpShown = false;
   String? _lastPublishedInsightSignature;
@@ -30,7 +31,8 @@ class _InsightScreenState extends ConsumerState<InsightScreen> with SingleTicker
   void _runAfterBuild(VoidCallback action) {
     if (!mounted) return;
     final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
-    if (phase == SchedulerPhase.idle || phase == SchedulerPhase.postFrameCallbacks) {
+    if (phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks) {
       action();
       return;
     }
@@ -65,7 +67,9 @@ class _InsightScreenState extends ConsumerState<InsightScreen> with SingleTicker
     final insightsBundle = ref.watch(insightsBundleProvider);
     final profile = ref.watch(profileProvider);
     final insights = insightsBundle.items;
-    final CompletionInsightView? completionInsight = ref.watch(completionInsightProvider);
+    final CompletionInsightView? completionInsight = ref.watch(
+      completionInsightProvider,
+    );
     final SessionScoreView? score = ref.watch(sessionScoreProvider);
     final pattern = ref.watch(patternInsightProvider);
     final bool showLevelUp = profile.leveledUp && !_levelUpShown;
@@ -75,7 +79,8 @@ class _InsightScreenState extends ConsumerState<InsightScreen> with SingleTicker
       completionInsight: completionInsight,
     );
 
-    if (publishSignature.isNotEmpty && publishSignature != _lastPublishedInsightSignature) {
+    if (publishSignature.isNotEmpty &&
+        publishSignature != _lastPublishedInsightSignature) {
       _lastPublishedInsightSignature = publishSignature;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) {
@@ -109,10 +114,14 @@ class _InsightScreenState extends ConsumerState<InsightScreen> with SingleTicker
                               width: 36,
                               height: 36,
                               decoration: BoxDecoration(
-                                color: AppColors.neonCyan.withValues(alpha: 0.08),
+                                color: AppColors.neonCyan.withValues(
+                                  alpha: 0.08,
+                                ),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: AppColors.neonCyan.withValues(alpha: 0.3),
+                                  color: AppColors.neonCyan.withValues(
+                                    alpha: 0.3,
+                                  ),
                                 ),
                               ),
                               child: const Icon(
@@ -132,9 +141,13 @@ class _InsightScreenState extends ConsumerState<InsightScreen> with SingleTicker
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerLeft,
                                   child: ShaderMask(
-                                    shaderCallback: (bounds) => const LinearGradient(
-                                      colors: [AppColors.neonCyan, AppColors.neonViolet],
-                                    ).createShader(bounds),
+                                    shaderCallback: (bounds) =>
+                                        const LinearGradient(
+                                          colors: [
+                                            AppColors.neonCyan,
+                                            AppColors.neonViolet,
+                                          ],
+                                        ).createShader(bounds),
                                     child: const Text(
                                       'SYSTEM INSIGHTS',
                                       style: TextStyle(
@@ -170,7 +183,9 @@ class _InsightScreenState extends ConsumerState<InsightScreen> with SingleTicker
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                        child: _CompletionInsightPanel(insight: completionInsight),
+                        child: _CompletionInsightPanel(
+                          insight: completionInsight,
+                        ),
                       ),
                     ),
                   if (score != null)
@@ -185,7 +200,8 @@ class _InsightScreenState extends ConsumerState<InsightScreen> with SingleTicker
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                       child: pattern.when(
                         data: (text) => _PatternInsightPanel(text: text),
-                        loading: () => const Center(child: CircularProgressIndicator()),
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
                         error: (e, _) => const Text('Error'),
                       ),
                     ),
@@ -303,10 +319,10 @@ class _WeeklyXpRow extends ConsumerWidget {
     final qualBars = List.generate(5, (i) {
       if (i == 4) return curQ;
       final double decay = math.pow(0.8, 4 - i).toDouble();
-      return (curQ * decay * (0.8 + math.Random(profile.xp + i).nextDouble() * 0.4)).clamp(
-        0.0,
-        1.0,
-      );
+      return (curQ *
+              decay *
+              (0.8 + math.Random(profile.xp + i).nextDouble() * 0.4))
+          .clamp(0.0, 1.0);
     });
 
     return Padding(
@@ -320,7 +336,10 @@ class _WeeklyXpRow extends ConsumerWidget {
               child: SizedBox(
                 height: 60,
                 child: CustomPaint(
-                  painter: _BarChartPainter(bars: normalised, color: AppColors.memoryAmber),
+                  painter: _BarChartPainter(
+                    bars: normalised,
+                    color: AppColors.memoryAmber,
+                  ),
                   size: Size.infinite,
                 ),
               ),
@@ -334,7 +353,10 @@ class _WeeklyXpRow extends ConsumerWidget {
               child: SizedBox(
                 height: 60,
                 child: CustomPaint(
-                  painter: _BarChartPainter(bars: qualBars, color: AppColors.neonCyan),
+                  painter: _BarChartPainter(
+                    bars: qualBars,
+                    color: AppColors.neonCyan,
+                  ),
                   size: Size.infinite,
                 ),
               ),
@@ -423,11 +445,16 @@ class _BehaviorIdentityRow extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.neonCyan.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.4)),
+                      border: Border.all(
+                        color: AppColors.neonCyan.withValues(alpha: 0.4),
+                      ),
                     ),
                     child: Text(
                       archetype,
@@ -467,7 +494,11 @@ class _BehaviorIdentityRow extends ConsumerWidget {
 }
 
 class _MiniBar extends StatelessWidget {
-  const _MiniBar({required this.value, required this.color, required this.label});
+  const _MiniBar({
+    required this.value,
+    required this.color,
+    required this.label,
+  });
   final double value;
   final Color color;
   final String label;
@@ -501,7 +532,11 @@ class _MiniBar extends StatelessWidget {
 }
 
 class _NeonCard extends StatelessWidget {
-  const _NeonCard({required this.label, required this.color, required this.child});
+  const _NeonCard({
+    required this.label,
+    required this.color,
+    required this.child,
+  });
   final String label;
   final Color color;
   final Widget child;
@@ -594,13 +629,22 @@ class _SystemHealthPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(summary, style: const TextStyle(fontSize: 13, color: Colors.white70, height: 1.5)),
+          Text(
+            summary,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.white70,
+              height: 1.5,
+            ),
+          ),
           const SizedBox(height: 10),
           LinearProgressIndicator(
             value: healthScore,
             minHeight: 4,
             backgroundColor: Colors.white12,
-            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.neonViolet),
+            valueColor: const AlwaysStoppedAnimation<Color>(
+              AppColors.neonViolet,
+            ),
           ),
         ],
       ),
@@ -635,7 +679,14 @@ class _PatternInsightPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(text, style: const TextStyle(fontSize: 13, color: Colors.white70, height: 1.5)),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.white70,
+              height: 1.5,
+            ),
+          ),
         ],
       ),
     );
@@ -692,7 +743,11 @@ class _ScorePanel extends StatelessWidget {
             spacing: 12,
             runSpacing: 12,
             children: [
-              _StatChip(label: 'XP', value: '+${score.xp}', color: AppColors.memoryAmber),
+              _StatChip(
+                label: 'XP',
+                value: '+${score.xp}',
+                color: AppColors.memoryAmber,
+              ),
               _StatChip(
                 label: 'QUALITY',
                 value: '${(score.quality * 100).toInt()}%',
@@ -717,7 +772,11 @@ class _ScorePanel extends StatelessWidget {
 }
 
 class _StatChip extends StatelessWidget {
-  const _StatChip({required this.label, required this.value, required this.color});
+  const _StatChip({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
   final String label;
   final String value;
   final Color color;
@@ -745,7 +804,11 @@ class _StatChip extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.w800),
+            style: TextStyle(
+              fontSize: 16,
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
@@ -764,7 +827,9 @@ class _CompletionInsightPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0A0D1A),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.35)),
+        border: Border.all(
+          color: AppColors.memoryAmber.withValues(alpha: 0.35),
+        ),
         boxShadow: [
           BoxShadow(
             color: AppColors.memoryAmber.withValues(alpha: 0.08),
@@ -801,12 +866,20 @@ class _CompletionInsightPanel extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             insight.summary,
-            style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             insight.observation,
-            style: const TextStyle(fontSize: 12, color: Colors.white70, height: 1.5),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.white70,
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -872,7 +945,11 @@ class _InsightCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             insight.description,
-            style: const TextStyle(fontSize: 13, color: Colors.white70, height: 1.5),
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.white70,
+              height: 1.5,
+            ),
           ),
         ],
       ),

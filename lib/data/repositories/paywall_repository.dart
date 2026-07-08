@@ -8,9 +8,12 @@ import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
 
 class PaywallRepository implements IPaywallRepository {
-  PaywallRepository({bool? testingModeOverride, bool? aiProxyConfiguredOverride})
-    : _testingMode = testingModeOverride ?? paywallTestingMode,
-      _aiProxyConfigured = aiProxyConfiguredOverride ?? Env.isAiProxyConfigured {
+  PaywallRepository({
+    bool? testingModeOverride,
+    bool? aiProxyConfiguredOverride,
+  }) : _testingMode = testingModeOverride ?? paywallTestingMode,
+       _aiProxyConfigured =
+           aiProxyConfiguredOverride ?? Env.isAiProxyConfigured {
     _subscriptionState = SubscriptionState(
       isActive: _testingMode,
       status: _testingMode ? 'unlocked_for_testing' : 'locked',
@@ -28,8 +31,12 @@ class PaywallRepository implements IPaywallRepository {
   final bool _aiProxyConfigured;
 
   List<PaywallPlan> _buildPlans() {
-    final String creditLabel = _aiProxyConfigured ? 'AI credits' : 'smart guidance credits';
-    final String coachingLabel = _aiProxyConfigured ? 'AI coaching' : 'smart coaching';
+    final String creditLabel = _aiProxyConfigured
+        ? 'AI credits'
+        : 'smart guidance credits';
+    final String coachingLabel = _aiProxyConfigured
+        ? 'AI coaching'
+        : 'smart coaching';
     final String responseLabel = _aiProxyConfigured
         ? 'Priority AI responses'
         : 'Priority smart suggestions';
@@ -39,7 +46,8 @@ class PaywallRepository implements IPaywallRepository {
         id: 'monthly',
         title: 'Premium Monthly',
         priceLabel: 'from \$9.99 / month',
-        description: 'Best for active users who want full $coachingLabel and recurring credits.',
+        description:
+            'Best for active users who want full $coachingLabel and recurring credits.',
         aiCreditsIncluded: 300,
         freeTrialDays: 7,
         benefits: <String>[
@@ -54,7 +62,8 @@ class PaywallRepository implements IPaywallRepository {
         id: 'annual',
         title: 'Premium Yearly',
         priceLabel: 'from \$89.99 / year',
-        description: 'Best value for users committed to long-term habit building.',
+        description:
+            'Best value for users committed to long-term habit building.',
         aiCreditsIncluded: 360,
         freeTrialDays: 7,
         benefits: <String>[

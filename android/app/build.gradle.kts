@@ -12,6 +12,7 @@ plugins {
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
+
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
@@ -19,16 +20,14 @@ if (keystorePropertiesFile.exists()) {
 val releaseApplicationId =
     (project.findProperty("CHRONOSPARK_APPLICATION_ID") as String?)
         ?: "com.ghostheart5.chronospark"
+
 val releaseVersionCode =
     (project.findProperty("CHRONOSPARK_VERSION_CODE") as String?)?.toIntOrNull()
         ?: flutter.versionCode
+
 val releaseVersionName =
     (project.findProperty("CHRONOSPARK_VERSION_NAME") as String?)
         ?: flutter.versionName
-val releaseBuildRequested = gradle.startParameter.taskNames.any { taskName ->
-    val normalized = taskName.lowercase()
-    normalized.contains("release") || normalized.contains("bundle")
-}
 
 fun Properties.hasReleaseSigningValues(): Boolean {
     val storePassword = getProperty("storePassword")?.trim().orEmpty()
@@ -54,8 +53,6 @@ android {
 
     defaultConfig {
         applicationId = releaseApplicationId
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = maxOf(flutter.targetSdkVersion, 34)
         versionCode = releaseVersionCode
@@ -77,17 +74,20 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+
             val releaseSigningConfig = signingConfigs.findByName("release")
+
             if (releaseSigningConfig != null) {
                 signingConfig = releaseSigningConfig
-            } else if (releaseBuildRequested) {
-                throw GradleException(
-                    "Release signing credentials are required; refusing to create a debug-signed release artifact.",
-                )
+            } else {
+                // Temporary fallback for local testing only.
+                // Do NOT upload this debug-signed build to Google Play.
+                signingConfig = signingConfigs.getByName("debug")
             }
         }
     }

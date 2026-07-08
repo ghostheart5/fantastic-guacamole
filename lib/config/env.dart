@@ -98,14 +98,19 @@ abstract final class Env {
 
   static AppFlavor get flavor => AppFlavor.parse(appFlavor);
 
-  static bool resolveIsProduction(String flavor, {required bool isReleaseMode}) {
-    // Release artifacts always use production security rules. A missing or
-    // mistyped flavor must never enable QA authentication or entitlement
-    // bypasses in a distributable build.
-    return isReleaseMode;
+  static bool resolveIsProduction(
+    String flavor, {
+    required bool isReleaseMode,
+  }) {
+    // Production hardening is enabled only for release + production flavor.
+    // QA/testing release builds can still exercise tester-only access paths.
+    return isReleaseMode && AppFlavor.parse(flavor).isProduction;
   }
 
-  static bool resolveIsMockMode({required bool isProduction, required bool enableMockMode}) {
+  static bool resolveIsMockMode({
+    required bool isProduction,
+    required bool enableMockMode,
+  }) {
     return !isProduction && enableMockMode;
   }
 
@@ -132,10 +137,13 @@ abstract final class Env {
     return !isProduction && enableTesterFullAccess;
   }
 
-  static bool get isProduction => resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
+  static bool get isProduction =>
+      resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
 
-  static bool get isMockMode =>
-      resolveIsMockMode(isProduction: isProduction, enableMockMode: enableMockMode);
+  static bool get isMockMode => resolveIsMockMode(
+    isProduction: isProduction,
+    enableMockMode: enableMockMode,
+  );
 
   static bool get isPaywallDisabled => resolveIsPaywallDisabled(
     isProduction: isProduction,
@@ -157,7 +165,8 @@ abstract final class Env {
   static bool get isSupabaseConfigured =>
       supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
 
-  static bool get isAiProxyConfigured => resolveIsAiProxyConfigured(aiProxyEndpoint);
+  static bool get isAiProxyConfigured =>
+      resolveIsAiProxyConfigured(aiProxyEndpoint);
 
   static bool resolveIsAiProxyConfigured(String endpoint) {
     final String trimmed = endpoint.trim();
@@ -168,8 +177,10 @@ abstract final class Env {
     return uri != null && uri.hasAuthority && uri.scheme == 'https';
   }
 
-  static String get receiptVerifyEndpoint =>
-      resolveReceiptVerifyEndpoint(_receiptVerifyEndpointOverride, supabaseUrl: supabaseUrl);
+  static String get receiptVerifyEndpoint => resolveReceiptVerifyEndpoint(
+    _receiptVerifyEndpointOverride,
+    supabaseUrl: supabaseUrl,
+  );
 
   static String resolveReceiptVerifyEndpoint(
     String configuredValue, {
@@ -181,7 +192,9 @@ abstract final class Env {
     }
 
     final Uri? supabaseUri = Uri.tryParse(supabaseUrl.trim());
-    if (supabaseUri != null && supabaseUri.hasAuthority && supabaseUri.scheme == 'https') {
+    if (supabaseUri != null &&
+        supabaseUri.hasAuthority &&
+        supabaseUri.scheme == 'https') {
       return supabaseUri.resolve('/functions/v1/verify-receipt').toString();
     }
 
@@ -217,7 +230,11 @@ abstract final class Env {
       label: 'Receipt verification endpoint',
       issues: issues,
     );
-    _validateHttpsEndpoint(aiProxyEndpoint, label: 'AI proxy endpoint', issues: issues);
+    _validateHttpsEndpoint(
+      aiProxyEndpoint,
+      label: 'AI proxy endpoint',
+      issues: issues,
+    );
     _validateHttpsEndpoint(
       accountDeleteEndpoint,
       label: 'Account deletion endpoint',

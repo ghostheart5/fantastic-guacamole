@@ -2,7 +2,12 @@ import 'package:fantastic_guacamole/theme/theme.dart' as neon;
 import 'package:flutter/material.dart';
 
 class HoloButton extends StatefulWidget {
-  const HoloButton({super.key, required this.label, required this.onTap, this.color});
+  const HoloButton({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
 
   final String label;
   final VoidCallback onTap;
@@ -12,14 +17,18 @@ class HoloButton extends StatefulWidget {
   State<HoloButton> createState() => _HoloButtonState();
 }
 
-class _HoloButtonState extends State<HoloButton> with SingleTickerProviderStateMixin {
+class _HoloButtonState extends State<HoloButton>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _press;
   late final Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
-    _press = AnimationController(vsync: this, duration: const Duration(milliseconds: 110));
+    _press = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 110),
+    );
     _scale = Tween<double>(
       begin: 1.0,
       end: 0.95,

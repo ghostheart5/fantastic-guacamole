@@ -5,7 +5,8 @@ import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 
 class CalendarService {
   final Map<String, CalendarEntry> _entries = <String, CalendarEntry>{};
-  final Map<String, List<TimeBlock>> _timeBlocksByDay = <String, List<TimeBlock>>{};
+  final Map<String, List<TimeBlock>> _timeBlocksByDay =
+      <String, List<TimeBlock>>{};
   final Map<String, List<Task>> _tasksByDay = <String, List<Task>>{};
 
   /// Generate an adaptive day plan using a simple energy-aware ranking.
@@ -38,7 +39,10 @@ class CalendarService {
           continue;
         }
         final DateTime cursor = cursorsByDay[dayKey] ?? dayStart;
-        final Duration duration = _estimateAdaptiveDuration(task, normalizedEnergy);
+        final Duration duration = _estimateAdaptiveDuration(
+          task,
+          normalizedEnergy,
+        );
         final DateTime end = cursor.add(duration);
 
         blocks.add(
@@ -60,7 +64,10 @@ class CalendarService {
   }
 
   /// Generate a simple day plan from tasks.
-  List<TimeBlock> generateDayPlan({required List<Task> tasks, DateTime? startTime}) {
+  List<TimeBlock> generateDayPlan({
+    required List<Task> tasks,
+    DateTime? startTime,
+  }) {
     final DateTime now = startTime ?? DateTime.now();
 
     // Sort tasks by priority (high first) while avoiding in-place mutation.
@@ -102,10 +109,14 @@ class CalendarService {
     }
 
     final String key = _keyFor(date);
-    final List<TimeBlock> blocks = _timeBlocksByDay.putIfAbsent(key, () => <TimeBlock>[]);
+    final List<TimeBlock> blocks = _timeBlocksByDay.putIfAbsent(
+      key,
+      () => <TimeBlock>[],
+    );
     final bool hasConflict = blocks.any(
       (TimeBlock existing) =>
-          block.start.isBefore(existing.end) && block.end.isAfter(existing.start),
+          block.start.isBefore(existing.end) &&
+          block.end.isAfter(existing.start),
     );
 
     if (hasConflict) {
@@ -153,7 +164,8 @@ class CalendarService {
     return '${normalized.year}-$month-$day';
   }
 
-  DateTime _normalizedDate(DateTime date) => DateTime(date.year, date.month, date.day);
+  DateTime _normalizedDate(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
 
   CalendarEntry _defaultEntry(DateTime date, String key) {
     final DateTime start = DateTime(date.year, date.month, date.day);
@@ -170,7 +182,9 @@ class CalendarService {
     final DateTime start = DateTime(date.year, date.month, date.day);
     return CalendarEntry(
       id: key,
-      title: blocks.isEmpty ? 'Day Plan' : '${blocks.length} block${blocks.length == 1 ? '' : 's'}',
+      title: blocks.isEmpty
+          ? 'Day Plan'
+          : '${blocks.length} block${blocks.length == 1 ? '' : 's'}',
       start: start,
       end: start.add(const Duration(hours: 24)),
     );
@@ -197,13 +211,16 @@ class CalendarService {
   double _adaptiveTaskScore(Task task, double energy) {
     final double priorityWeight = task.priority * 10.0;
     final double normalizedRequirement = task.energyRequired / 5.0;
-    final double effortFit = (1 - (normalizedRequirement - energy).abs()).clamp(0.0, 1.0) * 30;
+    final double effortFit =
+        (1 - (normalizedRequirement - energy).abs()).clamp(0.0, 1.0) * 30;
     return priorityWeight + effortFit;
   }
 
   DateTime _startForPlanningDay(DateTime scheduled, DateTime now) {
     final bool isToday =
-        scheduled.year == now.year && scheduled.month == now.month && scheduled.day == now.day;
+        scheduled.year == now.year &&
+        scheduled.month == now.month &&
+        scheduled.day == now.day;
     if (isToday) return now;
     if (scheduled.hour != 0 || scheduled.minute != 0) return scheduled;
     return DateTime(scheduled.year, scheduled.month, scheduled.day, 9);
@@ -235,14 +252,21 @@ class CalendarService {
     switch (task.recurrenceRule) {
       case RecurrenceRule.daily:
         final DateTime startDate = DateTime(now.year, now.month, now.day);
-        final int hour = (scheduled.hour == 0 && scheduled.minute == 0) ? now.hour : scheduled.hour;
+        final int hour = (scheduled.hour == 0 && scheduled.minute == 0)
+            ? now.hour
+            : scheduled.hour;
         final int minute = (scheduled.hour == 0 && scheduled.minute == 0)
             ? now.minute
             : scheduled.minute;
         return List<DateTime>.generate(
           7,
-          (int index) =>
-              DateTime(startDate.year, startDate.month, startDate.day + index, hour, minute),
+          (int index) => DateTime(
+            startDate.year,
+            startDate.month,
+            startDate.day + index,
+            hour,
+            minute,
+          ),
         );
       case RecurrenceRule.weekly:
         DateTime candidate = DateTime(

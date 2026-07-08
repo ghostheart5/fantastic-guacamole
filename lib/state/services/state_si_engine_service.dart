@@ -11,7 +11,8 @@ class StateSiEngineService {
 
   Future<Map<String, dynamic>?> loadState() => _repository.loadState();
 
-  Future<void> saveState(Map<String, dynamic> state) => _repository.saveState(state);
+  Future<void> saveState(Map<String, dynamic> state) =>
+      _repository.saveState(state);
 
   Future<Map<String, dynamic>> generateResponse({
     required String input,
@@ -57,7 +58,9 @@ class StateSiEngineService {
     return <String, dynamic>{
       ...?currentState,
       'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
-      'memoryEvents': events.length > 120 ? events.sublist(events.length - 120) : events,
+      'memoryEvents': events.length > 120
+          ? events.sublist(events.length - 120)
+          : events,
       'memoryEvent': memoryEvent,
     };
   }

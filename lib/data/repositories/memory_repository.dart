@@ -24,7 +24,9 @@ class MemoryRepository implements IMemoryRepository {
           .whereType<Map<String, dynamic>>()
           .map(MemoryEntity.fromJson)
           .toList(growable: false);
-      memories.sort((MemoryEntity a, MemoryEntity b) => b.date.compareTo(a.date));
+      memories.sort(
+        (MemoryEntity a, MemoryEntity b) => b.date.compareTo(a.date),
+      );
       return memories;
     } catch (_) {
       return const <MemoryEntity>[];
@@ -38,21 +40,28 @@ class MemoryRepository implements IMemoryRepository {
         ? 0
         : memories.indexWhere((MemoryEntity memory) => memory.id == cursor) + 1;
     if (startIndex >= memories.length) {
-      return const PagedResult<MemoryEntity>(items: <MemoryEntity>[], nextCursor: null);
+      return const PagedResult<MemoryEntity>(
+        items: <MemoryEntity>[],
+        nextCursor: null,
+      );
     }
     final List<MemoryEntity> page = memories
         .skip(startIndex)
         .take(safeLimit)
         .toList(growable: false);
     final int nextIndex = startIndex + page.length;
-    final String? nextCursor = nextIndex < memories.length && page.isNotEmpty ? page.last.id : null;
+    final String? nextCursor = nextIndex < memories.length && page.isNotEmpty
+        ? page.last.id
+        : null;
     return PagedResult<MemoryEntity>(items: page, nextCursor: nextCursor);
   }
 
   @override
   Future<void> saveMemory(MemoryEntity memory) {
     final List<MemoryEntity> existing = getMemories().toList(growable: true);
-    final int index = existing.indexWhere((MemoryEntity item) => item.id == memory.id);
+    final int index = existing.indexWhere(
+      (MemoryEntity item) => item.id == memory.id,
+    );
     if (index >= 0) {
       existing[index] = memory;
     } else {
@@ -63,7 +72,10 @@ class MemoryRepository implements IMemoryRepository {
 
   @override
   Future<void> saveMemories(List<MemoryEntity> memories) {
-    return _store.save(_key, jsonEncode(memories.map((MemoryEntity m) => m.toJson()).toList()));
+    return _store.save(
+      _key,
+      jsonEncode(memories.map((MemoryEntity m) => m.toJson()).toList()),
+    );
   }
 
   @override

@@ -35,7 +35,12 @@ class _AppRootState extends ConsumerState<AppRoot> {
   @override
   void initState() {
     super.initState();
-    unawaited(_loadTutorialAssetsIfNeeded());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(_loadTutorialAssetsIfNeeded());
+    });
   }
 
   Future<void> _loadTutorialAssetsIfNeeded() async {
@@ -63,7 +68,8 @@ class _AppRootState extends ConsumerState<AppRoot> {
         return;
       }
       final controller = ref.read(tutorialControllerProvider);
-      final String route = _router!.routeInformationProvider.value.uri.toString();
+      final String route = _router!.routeInformationProvider.value.uri
+          .toString();
       controller.updateRoute(route);
     };
     _router!.routerDelegate.addListener(_routerListener!);
@@ -82,7 +88,10 @@ class _AppRootState extends ConsumerState<AppRoot> {
   Widget build(BuildContext context) {
     final themeEntity = ref.watch(currentThemeProvider).asData?.value;
     final String startupMessage = widget.startupError?.trim() ?? '';
-    final bool showQaDiagnostics = ref.watch(intelligenceStateProvider).flags.testerFullAccess;
+    final bool showQaDiagnostics = ref
+        .watch(intelligenceStateProvider)
+        .flags
+        .testerFullAccess;
     final String startupBannerMessage = _startupBannerMessage(
       startupMessage,
       showQaDiagnostics: showQaDiagnostics,
@@ -125,11 +134,16 @@ class _AppRootState extends ConsumerState<AppRoot> {
                       decoration: BoxDecoration(
                         color: Colors.redAccent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
+                        border: Border.all(
+                          color: Colors.redAccent.withValues(alpha: 0.35),
+                        ),
                       ),
                       child: Text(
                         startupBannerMessage,
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ),
@@ -144,7 +158,11 @@ class _AppRootState extends ConsumerState<AppRoot> {
                     heroTag: 'qa_diagnostics_fab',
                     backgroundColor: Colors.black.withValues(alpha: 0.72),
                     onPressed: _showDiagnosticsSheet,
-                    child: const Icon(Icons.bug_report_outlined, color: Colors.white, size: 18),
+                    child: const Icon(
+                      Icons.bug_report_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
@@ -154,7 +172,10 @@ class _AppRootState extends ConsumerState<AppRoot> {
     );
   }
 
-  String _startupBannerMessage(String startupMessage, {required bool showQaDiagnostics}) {
+  String _startupBannerMessage(
+    String startupMessage, {
+    required bool showQaDiagnostics,
+  }) {
     if (startupMessage.trim().isEmpty) {
       return '';
     }
@@ -165,7 +186,8 @@ class _AppRootState extends ConsumerState<AppRoot> {
   }
 
   void _showDiagnosticsSheet() {
-    final NavigatorState? navigatorState = _router?.routerDelegate.navigatorKey.currentState;
+    final NavigatorState? navigatorState =
+        _router?.routerDelegate.navigatorKey.currentState;
     if (navigatorState == null) {
       return;
     }
@@ -205,7 +227,10 @@ class _AppRootState extends ConsumerState<AppRoot> {
                         return const Center(
                           child: Text(
                             'No diagnostics captured yet.',
-                            style: TextStyle(color: Colors.white54, fontSize: 13),
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 13,
+                            ),
                           ),
                         );
                       }

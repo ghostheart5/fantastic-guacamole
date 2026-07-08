@@ -19,7 +19,11 @@ class ProductAdvisorScreen extends ConsumerWidget {
         elevation: 0,
         leading: IconButton(
           tooltip: 'Back',
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.neonCyan, size: 18),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: AppColors.neonCyan,
+            size: 18,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: ShaderMask(
@@ -153,7 +157,10 @@ class _InsightCard extends StatelessWidget {
               Container(
                 width: 3,
                 height: 14,
-                decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(1.5)),
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(1.5),
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -252,7 +259,10 @@ class _StatRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white54, fontSize: 12),
+        ),
         Text(
           value,
           style: const TextStyle(
@@ -310,13 +320,20 @@ class _ErrorTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Text('Error: $message', style: const TextStyle(color: Colors.red, fontSize: 12)),
+      child: Text(
+        'Error: $message',
+        style: const TextStyle(color: Colors.red, fontSize: 12),
+      ),
     );
   }
 }
 
 class _InsightView {
-  const _InsightView({required this.issue, required this.cause, required this.recommendation});
+  const _InsightView({
+    required this.issue,
+    required this.cause,
+    required this.recommendation,
+  });
 
   final String issue;
   final String cause;
@@ -348,7 +365,9 @@ class _RefreshButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.neonViolet.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.3)),
+          border: Border.all(
+            color: AppColors.neonViolet.withValues(alpha: 0.3),
+          ),
         ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,

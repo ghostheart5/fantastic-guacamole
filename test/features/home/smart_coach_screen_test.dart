@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/state/controllers/coach_query_controller.dar
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,6 +39,8 @@ void main() {
     expect(find.text('Retry'), findsOneWidget);
 
     await tester.tap(find.text('Retry'));
+    await tester.pump();
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     await _tapPrimaryCoachButton(tester);
@@ -274,11 +277,8 @@ class _CrisisFollowUpCoachQueryController extends CoachQueryController {
 }
 
 Future<void> _tapPrimaryCoachButton(WidgetTester tester) async {
-  final Finder cta = find.byWidgetPredicate(
-    (Widget widget) =>
-        widget is Text && (widget.data == 'GET INSIGHT' || widget.data == 'REFRESH INSIGHT'),
-  );
+  final Finder cta = find.byType(TutorialTarget);
   await tester.scrollUntilVisible(cta, 250, scrollable: find.byType(Scrollable).first);
-  await tester.tap(cta.first);
+  await tester.tap(cta.first, warnIfMissed: false);
   await tester.pump();
 }

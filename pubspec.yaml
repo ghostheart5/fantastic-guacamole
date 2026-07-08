@@ -50,6 +50,7 @@ dependencies:
   flutter_svg: ^2.3.0
   lottie: ^3.4.0
   audioplayers: ^6.8.1
+  flutter_tts: ^4.2.3
   vibration: ^3.2.0
   riverpod_annotation: ^4.0.3
   intl: ^0.20.0

@@ -85,7 +85,10 @@ class SIDecisionOutput {
 }
 
 class SmartCoachScreenModel {
-  const SmartCoachScreenModel({required this.aggregation, required this.decision});
+  const SmartCoachScreenModel({
+    required this.aggregation,
+    required this.decision,
+  });
 
   final SIStateAggregation aggregation;
   final SIDecisionOutput decision;

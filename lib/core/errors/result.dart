@@ -30,7 +30,8 @@ class AppResult<T> {
     this.stackTrace,
   });
 
-  factory AppResult.success(T data) => AppResult._(status: AppResultStatus.success, data: data);
+  factory AppResult.success(T data) =>
+      AppResult._(status: AppResultStatus.success, data: data);
 
   factory AppResult.failure(
     String message, {
@@ -69,7 +70,9 @@ class AppResult<T> {
     if (error is TimeoutException || message.contains('timed out')) {
       return AppResultErrorCode.timeout;
     }
-    if (error is ArgumentError || error is FormatException || error is StateError) {
+    if (error is ArgumentError ||
+        error is FormatException ||
+        error is StateError) {
       return AppResultErrorCode.validation;
     }
     if (message.contains('network') ||

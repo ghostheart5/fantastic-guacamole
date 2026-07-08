@@ -5,7 +5,10 @@ import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/prediction.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final predictionProvider = FutureProvider.family<Prediction, String>((ref, String taskTitle) async {
+final predictionProvider = FutureProvider.family<Prediction, String>((
+  ref,
+  String taskTitle,
+) async {
   final secureStore = ref.read(secureStoreProvider);
   final String? raw = await secureStore.readString('neural_dump');
 
@@ -37,7 +40,8 @@ final predictionProvider = FutureProvider.family<Prediction, String>((ref, Strin
 
   final List<NeuralEntry> matching = history
       .where(
-        (NeuralEntry entry) => entry.task.trim().toLowerCase() == taskTitle.trim().toLowerCase(),
+        (NeuralEntry entry) =>
+            entry.task.trim().toLowerCase() == taskTitle.trim().toLowerCase(),
       )
       .toList(growable: false);
   final List<NeuralEntry> sample = matching.isEmpty ? history : matching;
@@ -52,9 +56,10 @@ final predictionProvider = FutureProvider.family<Prediction, String>((ref, Strin
           .map((NeuralEntry entry) => entry.confidence.clamp(0.0, 1.0))
           .fold<double>(0, (double a, double b) => a + b) /
       sample.length;
-  final double probability = (((meanQuality * 0.65) + (meanConfidence * 0.35)) as num)
-      .toDouble()
-      .clamp(0.0, 1.0);
+  final double probability =
+      (((meanQuality * 0.65) + (meanConfidence * 0.35)) as num)
+          .toDouble()
+          .clamp(0.0, 1.0);
 
   return Prediction(
     outcome: probability >= 0.6 ? 'Likely Success' : 'Risk of Failure',

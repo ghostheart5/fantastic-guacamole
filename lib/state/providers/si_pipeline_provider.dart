@@ -9,7 +9,9 @@ import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final siStateAggregationProvider = FutureProvider<SIStateAggregation>((Ref ref) async {
+final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
+  Ref ref,
+) async {
   final List<Task> tasks = await _loadAllActiveTasks(ref);
   final goals = ref.watch(goalsProvider);
   final insights = ref.watch(insightsBundleProvider);
@@ -36,14 +38,17 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((Ref ref) 
       .toList(growable: false);
 
   final bool friction = trajectory.pressureIndex >= 60 || energy < 0.35;
-  final bool overwhelm = trajectory.pressureIndex >= 75 || trajectory.behaviorDivergence >= 50;
+  final bool overwhelm =
+      trajectory.pressureIndex >= 75 || trajectory.behaviorDivergence >= 50;
   final String streakHealth = profile.streak >= 10
       ? 'strong'
       : profile.streak >= 3
       ? 'stable'
       : 'fragile';
-  final bool goalDrift = goals.isNotEmpty && trajectory.behaviorDivergence >= 40;
-  final bool taskAvoidance = logs.where((entry) => entry.source == 'task_skipped').length >= 2;
+  final bool goalDrift =
+      goals.isNotEmpty && trajectory.behaviorDivergence >= 40;
+  final bool taskAvoidance =
+      logs.where((entry) => entry.source == 'task_skipped').length >= 2;
   final bool emotionalStrain =
       emotion == EmotionalState.anxious ||
       emotion == EmotionalState.scattered ||
@@ -98,7 +103,9 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((Ref ref) 
 });
 
 Future<List<Task>> _loadAllActiveTasks(Ref ref) async {
-  final List<TaskEntity> entities = await ref.read(domainTaskRepositoryProvider).getAllTasks();
+  final List<TaskEntity> entities = await ref
+      .read(domainTaskRepositoryProvider)
+      .getAllTasks();
   return entities
       .where((TaskEntity item) => !item.isCompleted && !item.isCanceled)
       .map(
@@ -117,13 +124,18 @@ Future<List<Task>> _loadAllActiveTasks(Ref ref) async {
       .toList(growable: false);
 }
 
-final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((Ref ref) async {
-  final SIStateAggregation aggregation = await ref.watch(siStateAggregationProvider.future);
+final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
+  Ref ref,
+) async {
+  final SIStateAggregation aggregation = await ref.watch(
+    siStateAggregationProvider.future,
+  );
   final Task? nextTask = await ref.watch(domainSiDecisionProvider.future);
 
   final List<String> warnings = <String>[
     if (aggregation.signals.overwhelm) 'Overwhelm risk is elevated.',
-    if (aggregation.signals.goalDrift) 'Goal drift detected in recent trajectory.',
+    if (aggregation.signals.goalDrift)
+      'Goal drift detected in recent trajectory.',
     if (aggregation.signals.taskAvoidance) 'Task avoidance pattern detected.',
     if (aggregation.signals.emotionalStrain)
       'Emotional strain detected (${aggregation.signals.emotion}).',
@@ -131,21 +143,29 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((Ref ref) asyn
 
   final String nextAction =
       nextTask?.title ??
-      (aggregation.tasks.isEmpty ? 'Capture one high-value task.' : aggregation.tasks.first.title);
+      (aggregation.tasks.isEmpty
+          ? 'Capture one high-value task.'
+          : aggregation.tasks.first.title);
 
   final List<String> planAdjustments = <String>[
-    if (aggregation.signals.overwhelm) 'Reduce today to one critical task block.',
-    if (aggregation.tasks.length > 5) 'Split remaining tasks into tomorrow queue.',
-    if (aggregation.planPreview.isEmpty) 'Generate a 3-block adaptive plan for today.',
+    if (aggregation.signals.overwhelm)
+      'Reduce today to one critical task block.',
+    if (aggregation.tasks.length > 5)
+      'Split remaining tasks into tomorrow queue.',
+    if (aggregation.planPreview.isEmpty)
+      'Generate a 3-block adaptive plan for today.',
   ];
 
   final List<String> insightPrompts = <String>[
-    if (aggregation.signals.friction) 'What is creating the most friction right now?',
+    if (aggregation.signals.friction)
+      'What is creating the most friction right now?',
     if (aggregation.signals.goalDrift) 'Which goal has drifted and why?',
-    if (aggregation.signals.emotionalStrain) 'What would reduce emotional load in the next hour?',
+    if (aggregation.signals.emotionalStrain)
+      'What would reduce emotional load in the next hour?',
     if (aggregation.signals.emotionalStability)
       'How can you convert this stable state into one decisive action?',
-    if (aggregation.memories.isNotEmpty) 'What memory should inform this decision?',
+    if (aggregation.memories.isNotEmpty)
+      'What memory should inform this decision?',
   ];
 
   final String progressionFeedback = aggregation.profile.streak >= 7
@@ -168,26 +188,46 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((Ref ref) asyn
   );
 });
 
-final smartCoachScreenModelProvider = FutureProvider<SmartCoachScreenModel>((Ref ref) async {
-  final SIStateAggregation aggregation = await ref.watch(siStateAggregationProvider.future);
-  final SIDecisionOutput decision = await ref.watch(siDecisionOutputProvider.future);
+final smartCoachScreenModelProvider = FutureProvider<SmartCoachScreenModel>((
+  Ref ref,
+) async {
+  final SIStateAggregation aggregation = await ref.watch(
+    siStateAggregationProvider.future,
+  );
+  final SIDecisionOutput decision = await ref.watch(
+    siDecisionOutputProvider.future,
+  );
   return SmartCoachScreenModel(aggregation: aggregation, decision: decision);
 });
 
-final nexusScreenModelProvider = FutureProvider<NexusScreenModel>((Ref ref) async {
-  final SIStateAggregation aggregation = await ref.watch(siStateAggregationProvider.future);
-  final SIDecisionOutput decision = await ref.watch(siDecisionOutputProvider.future);
+final nexusScreenModelProvider = FutureProvider<NexusScreenModel>((
+  Ref ref,
+) async {
+  final SIStateAggregation aggregation = await ref.watch(
+    siStateAggregationProvider.future,
+  );
+  final SIDecisionOutput decision = await ref.watch(
+    siDecisionOutputProvider.future,
+  );
   return NexusScreenModel(aggregation: aggregation, decision: decision);
 });
 
-final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((Ref ref) async {
-  final SIStateAggregation aggregation = await ref.watch(siStateAggregationProvider.future);
-  final SIDecisionOutput decision = await ref.watch(siDecisionOutputProvider.future);
+final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
+  Ref ref,
+) async {
+  final SIStateAggregation aggregation = await ref.watch(
+    siStateAggregationProvider.future,
+  );
+  final SIDecisionOutput decision = await ref.watch(
+    siDecisionOutputProvider.future,
+  );
   final intelligence = ref.watch(intelligenceStateProvider);
   final latestSnapshot = ref.watch(latestSiSnapshotProvider);
   final Object? state = await ref.watch(siEngineStateProvider.future);
 
-  final List<String> chunks = <String>[intelligence.environment.appFlavor.toUpperCase()];
+  final List<String> chunks = <String>[
+    intelligence.environment.appFlavor.toUpperCase(),
+  ];
 
   if (state == null) {
     if (latestSnapshot != null) {
@@ -205,7 +245,8 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((Ref r
       if (personality.isNotEmpty) personality,
       if (emotion.isNotEmpty) emotion,
       if (confidence.isNotEmpty) confidence,
-      if (latestSnapshot != null) 'MEM ${latestSnapshot.completed}/${latestSnapshot.skipped}',
+      if (latestSnapshot != null)
+        'MEM ${latestSnapshot.completed}/${latestSnapshot.skipped}',
     ]);
   }
 
