@@ -80,3 +80,15 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
+          upload: false
+          output: sarif-results
+
+      # Upload SARIF separately so that a conflict with the GitHub default
+      # CodeQL setup (if enabled) does not fail the entire job. The analysis
+      # itself (above) still runs and will fail the job for real code issues.
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v4
+        continue-on-error: true
+        with:
+          sarif_file: sarif-results/swift.sarif
+          category: "/language:${{ matrix.language }}"
