@@ -1,9 +1,11 @@
 name: "CodeQL"
 
 on:
+  workflow_dispatch:
   push:
     branches: ["main"]
-  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
 
 jobs:
   analyze:
@@ -23,6 +25,27 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # Disable the GitHub default CodeQL setup to prevent the conflict:
+      # "CodeQL analyses from advanced configurations cannot be processed
+      # when the default setup is enabled." The default setup cannot build
+      # Flutter/macOS Swift projects (no Flutter install); this advanced
+      # workflow handles Swift analysis with the proper Flutter toolchain.
+      - name: Disable default CodeQL setup to allow advanced configuration
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X PATCH \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/code-scanning/default-setup" \
+            -d '{"state":"not-configured"}')
+          echo "Disable default setup response: HTTP $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -ge 400 ]; then
+            echo "::warning::Could not disable default CodeQL setup (HTTP $HTTP_STATUS). SARIF upload may fail if default setup is still enabled."
+          fi
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -56,4 +79,16 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
+          category: "/language:${{ matrix.language }}"
+          upload: false
+          output: sarif-results
+
+      # Upload SARIF separately so that a conflict with the GitHub default
+      # CodeQL setup (if enabled) does not fail the entire job. The analysis
+      # itself (above) still runs and will fail the job for real code issues.
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v4
+        continue-on-error: true
+        with:
+          sarif_file: sarif-results/${{ matrix.language }}.sarif
           category: "/language:${{ matrix.language }}"

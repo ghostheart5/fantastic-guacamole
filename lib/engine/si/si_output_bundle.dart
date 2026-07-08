@@ -1,92 +1,70 @@
-class SIOutputBundle {
-  SIOutputBundle({
-    required this.reply,
-    required this.summary,
-    required this.keywords,
-    required this.actions,
-    required this.mood,
-    required this.confidence,
-    required this.intent,
-    required this.tags,
-    required this.memoryShouldWrite,
-    required this.memoryData,
-    required this.uiComponent,
-    required this.uiPriority,
-    required this.nextQuestion,
-    this.outputMode = 'conversational',
-    this.persona = 'assistant',
-    this.pipelines = const <String>[],
-    this.cognitiveStyle = 'analytical',
-    this.compressedReasoning = '',
-    this.agencyMode = 'assistive',
-    this.linkedGoal,
-    this.gravityScore = 0.0,
-    this.intuitionHint = '',
-    this.temporalHint = '',
-    this.loadLevel = 'medium',
-    this.presenceScore = 0.0,
-    this.reasoning = const <String, dynamic>{},
+// lib/engine/si/si_output_bundle.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIDebugTrace {
+  const SIDebugTrace({
+    required this.events,
+    this.warnings = const <String>[],
+    this.metadata = const <String, dynamic>{},
   });
 
-  final String reply;
-  final String summary;
-  final List<String> keywords;
-  final List<String> actions;
-  final String mood;
-  final double confidence;
-  final String intent;
-  final List<String> tags;
-  final bool memoryShouldWrite;
-  final Map<String, dynamic> memoryData;
-  final String uiComponent;
-  final String uiPriority;
-  final String nextQuestion;
-  final String outputMode;
-  final String persona;
-  final List<String> pipelines;
-  final String cognitiveStyle;
-  final String compressedReasoning;
-  final String agencyMode;
-  final String? linkedGoal;
-  final double gravityScore;
-  final String intuitionHint;
-  final String temporalHint;
-  final String loadLevel;
-  final double presenceScore;
-  final Map<String, dynamic> reasoning;
+  final List<String> events;
+  final List<String> warnings;
+  final Map<String, dynamic> metadata;
 
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'reply': reply,
-      'summary': summary,
-      'keywords': keywords,
-      'actions': actions,
-      'mood': mood,
-      'confidence': confidence,
-      'intent': intent,
-      'tags': tags,
-      'memory_updates': <String, dynamic>{
-        'should_write': memoryShouldWrite,
-        'data': memoryData,
-      },
-      'ui_hints': <String, dynamic>{
-        'component': uiComponent,
-        'priority': uiPriority,
-      },
-      'next_question': nextQuestion,
-      'output_mode': outputMode,
-      'persona': persona,
-      'pipelines': pipelines,
-      'cognitive_style': cognitiveStyle,
-      'compressed_reasoning': compressedReasoning,
-      'agency_mode': agencyMode,
-      'linked_goal': linkedGoal,
-      'gravity_score': gravityScore,
-      'intuition_hint': intuitionHint,
-      'temporal_hint': temporalHint,
-      'load_level': loadLevel,
-      'presence_score': presenceScore,
-      'reasoning': reasoning,
-    };
+  factory SIDebugTrace.empty() => const SIDebugTrace(events: <String>[]);
+
+  SIDebugTrace addEvent(String event) {
+    return SIDebugTrace(
+      events: List<String>.unmodifiable(<String>[...events, event]),
+      warnings: warnings,
+      metadata: metadata,
+    );
   }
+
+  SIDebugTrace addWarning(String warning) {
+    return SIDebugTrace(
+      events: events,
+      warnings: List<String>.unmodifiable(<String>[...warnings, warning]),
+      metadata: metadata,
+    );
+  }
+
+  SIDebugTrace withMetadata(Map<String, dynamic> values) {
+    return SIDebugTrace(
+      events: events,
+      warnings: warnings,
+      metadata: Map<String, dynamic>.unmodifiable(<String, dynamic>{
+        ...metadata,
+        ...values,
+      }),
+    );
+  }
+}
+
+class SIOutputBundle {
+  const SIOutputBundle({
+    required this.context,
+    required this.intent,
+    required this.instinct,
+    required this.cognition,
+    required this.decision,
+    required this.response,
+    required this.memory,
+    required this.debugTrace,
+  });
+
+  final SIContext context;
+  final SIIntent intent;
+  final InstinctGuidance instinct;
+  final SICognitionState cognition;
+  final SIDecision decision;
+  final SIResponse response;
+  final SIMemoryUpdate memory;
+  final SIDebugTrace debugTrace;
+
+  bool get safe => decision.safe;
+  String get message => response.message;
+  SIMemoryStore get memoryStore => memory.store;
 }

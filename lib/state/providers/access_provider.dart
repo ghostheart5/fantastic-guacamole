@@ -35,9 +35,10 @@ class AppAccessState {
   }
 }
 
-final runtimePremiumAccessProvider = NotifierProvider<RuntimePremiumAccessNotifier, bool>(
-  RuntimePremiumAccessNotifier.new,
-);
+final runtimePremiumAccessProvider =
+    NotifierProvider<RuntimePremiumAccessNotifier, bool>(
+      RuntimePremiumAccessNotifier.new,
+    );
 
 class RuntimePremiumAccessNotifier extends Notifier<bool> {
   @override

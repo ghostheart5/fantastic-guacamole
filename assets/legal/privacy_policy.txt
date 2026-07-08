@@ -1,18 +1,66 @@
 ChronoSpark Privacy Policy
 
-ChronoSpark stores user data locally on the device.
+Effective date: July 4, 2026
 
-We do not collect or transmit personal data to external servers.
+This policy explains what information ChronoSpark processes during normal use and during closed community testing.
 
-Data stored includes:
-- Tasks
-- App usage behavior
-- Preferences
+1. Information processed
 
-This data is used only to improve app functionality and user experience.
+ChronoSpark may process:
 
-No data is shared with third parties.
+- Account information, such as an email address and display name, when account authentication is enabled.
+- Content you create, including tasks, goals, notes, reflections, memories, settings, and conversation prompts.
+- Productivity information, including focus sessions, completion history, energy, emotion, momentum, streak, and progression data.
+- Purchase or entitlement status when billing features are enabled.
+- Technical information, including app events, crash diagnostics, operating-system information, an app-generated device identifier, and performance data.
 
-Users can clear all stored data at any time from Settings.
+2. Local storage
 
-Contact: ghostheart131517@gmail.com
+Most productivity content is stored locally on the device using application storage, preferences, Hive databases, or secure storage where appropriate. Local information remains on the device until it is removed by an available reset feature, app storage is cleared, or the app is uninstalled.
+
+3. External services
+
+Depending on how a build is configured, ChronoSpark may use:
+
+- Firebase Analytics to record feature-usage events.
+- Firebase Crashlytics to receive crash reports and technical diagnostics.
+- Supabase for authentication and aggregated daily productivity metrics. Aggregated metrics may include focus counts, completed tasks, focus duration, momentum, date, and an app-generated device identifier.
+- A configured AI proxy and its upstream AI provider to generate conversational responses. When enabled, the newest prompt, limited recent conversation history, and relevant context such as energy, emotion, profile level, task information, or focus state may be transmitted for processing.
+- Google Play or Apple services for purchases and entitlement restoration when billing is enabled.
+
+ChronoSpark does not place AI-provider credentials in the mobile application. Requests are sent through the configured server-side proxy.
+
+4. How information is used
+
+Information is used to:
+
+- Provide task, focus, progression, notification, insight, and coaching features.
+- Preserve continuity between app sessions.
+- Generate and improve recommendations and conversational responses.
+- Authenticate accounts and restore enabled purchases.
+- Diagnose crashes, measure reliability, and understand aggregate feature usage.
+
+5. Sharing and sale
+
+ChronoSpark does not sell personal information. Information is disclosed to configured service providers only as needed to provide authentication, analytics, crash reporting, AI processing, billing, or other enabled app functionality.
+
+6. Closed-test builds
+
+Closed-test builds may provide Tester Access, bypass premium restrictions, use local AI fallback responses, or disable unfinished cloud-sync functionality. Tester Access creates a local test session and should not be treated as a production account.
+
+7. Retention and deletion
+
+Local data is retained until it is cleared from the device or the app is uninstalled. External providers may retain information according to their own operational and legal requirements. For account or external-data deletion requests, contact the address below.
+
+8. Security
+
+ChronoSpark uses platform storage and secure-storage facilities where appropriate. No system can guarantee absolute security, so closed-test users should avoid entering highly sensitive personal, medical, financial, or confidential information into tasks, reflections, or AI conversations.
+
+9. Changes
+
+This policy may be updated as testing and external-service configuration change. The effective date above identifies the current version.
+
+10. Contact
+
+Privacy and support requests:
+ghostheart131517@gmail.com

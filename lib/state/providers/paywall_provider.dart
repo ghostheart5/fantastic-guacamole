@@ -1,12 +1,18 @@
-import 'package:fantastic_guacamole/data/di/services_providers.dart' show sharedPrefsStoreProvider;
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/data/di/repositories_providers.dart'
+    show appPaywallRepositoryProvider;
+import 'package:fantastic_guacamole/data/di/storage_providers.dart'
+    show sharedPrefsStoreProvider;
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
-import 'package:fantastic_guacamole/features/paywall/models/ai_credit_wallet.dart';
-import 'package:fantastic_guacamole/features/paywall/repositories/paywall_repository.dart';
-import 'package:fantastic_guacamole/features/paywall/services/credit_service.dart';
-import 'package:fantastic_guacamole/features/paywall/services/paywall_service.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_available_plans.dart';
+import 'package:fantastic_guacamole/domain/usecases/restore_purchases.dart';
+import 'package:fantastic_guacamole/domain/usecases/start_subscription.dart';
+import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/services/credit_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final creditServiceProvider = Provider<CreditService>((ref) {
@@ -19,24 +25,74 @@ final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
 });
 
 final paywallRepositoryProvider = Provider<IPaywallRepository>((ref) {
-  return PaywallRepository();
+  return ref.read(appPaywallRepositoryProvider);
 });
 
-final paywallServiceProvider = Provider<PaywallService>((ref) {
-  return PaywallService(ref.read(paywallRepositoryProvider));
+final getAvailablePlansUseCaseProvider = Provider<GetAvailablePlans>((ref) {
+  return GetAvailablePlans(ref.read(paywallRepositoryProvider));
+});
+
+final startSubscriptionUseCaseProvider = Provider<StartSubscription>((ref) {
+  return StartSubscription(ref.read(paywallRepositoryProvider));
+});
+
+final restorePurchasesUseCaseProvider = Provider<RestorePurchases>((ref) {
+  return RestorePurchases(ref.read(paywallRepositoryProvider));
+});
+
+final paywallActionsProvider = Provider<PaywallActions>((ref) {
+  return PaywallActions(ref);
+});
+
+final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((
+  ref,
+) async {
+  return ref.read(paywallRepositoryProvider).getUserSubscriptionState();
 });
 
 final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
-  return ref.read(paywallServiceProvider).getPaywallConfig();
+  final bool aiProxyConfigured = Env.isAiProxyConfigured;
+  final List<PaywallPlan> plans = await ref
+      .read(getAvailablePlansUseCaseProvider)
+      .call();
+  final SubscriptionState subscription = await ref
+      .read(paywallRepositoryProvider)
+      .getUserSubscriptionState();
+  return PaywallEntity(
+    featureId: 'premium',
+    title: subscription.isTesting
+        ? 'Unlocked for testing'
+        : (aiProxyConfigured
+              ? 'AI Credits + Premium'
+              : 'Smart Credits + Premium'),
+    body: subscription.isTesting
+        ? 'Premium gates are bypassed in this build.'
+        : (aiProxyConfigured
+              ? 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.'
+              : 'Unlock smart credits, premium coaching, deeper memory, and advanced tools.'),
+    plans: plans,
+    isUnlocked: subscription.isActive,
+  );
 });
 
-final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((ref) async {
-  return ref.read(paywallServiceProvider).getUserSubscriptionState();
-});
+class PaywallActions {
+  const PaywallActions(this._ref);
 
-final paywallPromptProvider = NotifierProvider<PaywallPromptNotifier, PaywallPrompt?>(
-  PaywallPromptNotifier.new,
-);
+  final Ref _ref;
+
+  Future<SubscriptionState> startSubscription(String planId) {
+    return _ref.read(startSubscriptionUseCaseProvider).call(planId);
+  }
+
+  Future<SubscriptionState> restorePurchases() {
+    return _ref.read(restorePurchasesUseCaseProvider).call();
+  }
+}
+
+final paywallPromptProvider =
+    NotifierProvider<PaywallPromptNotifier, PaywallPrompt?>(
+      PaywallPromptNotifier.new,
+    );
 
 class PaywallPromptNotifier extends Notifier<PaywallPrompt?> {
   @override

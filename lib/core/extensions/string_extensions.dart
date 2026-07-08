@@ -10,12 +10,15 @@ extension StringExt on String {
   // Casing
   // ------------------------------------------------------------------
 
-  String get capitalize => isEmpty ? this : this[0].toUpperCase() + substring(1);
+  String get capitalize =>
+      isEmpty ? this : this[0].toUpperCase() + substring(1);
 
-  String get titleCase =>
-      split(' ').map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1)).join(' ');
+  String get titleCase => split(
+    ' ',
+  ).map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1)).join(' ');
 
-  String get sentenceCase => isEmpty ? this : this[0].toUpperCase() + substring(1).toLowerCase();
+  String get sentenceCase =>
+      isEmpty ? this : this[0].toUpperCase() + substring(1).toLowerCase();
 
   // ------------------------------------------------------------------
   // Truncation
@@ -35,7 +38,8 @@ extension StringExt on String {
   // Validation helpers
   // ------------------------------------------------------------------
 
-  bool get isValidEmail => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trim());
+  bool get isValidEmail =>
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trim());
 
   bool get isStrongPassword {
     final s = trim();

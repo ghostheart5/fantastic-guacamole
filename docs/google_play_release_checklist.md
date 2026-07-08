@@ -2,7 +2,7 @@
 
 ## Firebase
 - [x] FlutterFire project configured for `chronospark-app`
-- [ ] Replace placeholder values in `lib/config/firebase_options.dart` or verify Android release path does not depend on them
+- [ ] Verify `lib/firebase_options.dart` values match the intended Firebase project for the tester track
 - [x] Android `google-services.json` generated
 - [ ] iOS `GoogleService-Info.plist` added to `ios/Runner/` (run FlutterFire on macOS or download manually)
 - [ ] Firebase Console: enable Email/Password auth provider
@@ -10,10 +10,10 @@
 ## In-App Purchases
 - [x] Product IDs in code:
   - `chronospark_premium_monthly`
-  - `chronospark_premium_yearly`
+  - `chronospark_premium_annual`
 - [x] Client-side receipt verification hook added
 - [x] Server stub endpoint script added (`scripts/receipt_verifier_stub.js`)
-- [ ] Implement real Play Billing purchase and restore flow in app code
+- [x] Play Billing purchase and restore flow implemented in app code (requires a valid `CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT` in release)
 - [ ] Create matching products in Google Play Console with exact IDs
 - [ ] Add pricing, localized descriptions, and publish products
 - [ ] Test purchases with license test account
@@ -34,6 +34,8 @@
 - [x] Host privacy policy at public URL (`https://chronospark.app/privacy/` or equivalent deployed path)
 - [x] Host terms URL (`https://chronospark.app/terms/` or equivalent deployed path)
 - [x] Host support URL (`https://chronospark.app/support/` or equivalent deployed path)
+- [ ] Set Play Console privacy policy field to `https://chronospark.app/privacy`
+- [ ] Add Play Console microphone disclosure: optional voice-to-text for coaching and SI console, only after user taps voice controls
 - [ ] Confirm Play Console developer support email/contact is configured
 
 ## Versioning and Release
@@ -44,7 +46,7 @@
 
 ## Testing
 - [x] `flutter analyze` clean
-- [ ] Add or restore `test/` coverage; `flutter test` currently has no test directory
+- [ ] Expand `test/` and `integration_test/` coverage for critical flows and keep tests green in CI
 - [x] Audit script (`python uats.py`) clean
 
 ## Closed Testing Notes

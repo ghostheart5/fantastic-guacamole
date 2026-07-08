@@ -32,4 +32,30 @@ class InsightEntity {
       action: action ?? this.action,
     );
   }
+
+  // Domain behavior
+  InsightEntity addTag(String tag) =>
+      tags.contains(tag) ? this : copyWith(tags: [...tags, tag]);
+
+  InsightEntity removeTag(String tag) =>
+      copyWith(tags: tags.where((t) => t != tag).toList());
+
+  bool get hasAction => action != null && action!.isNotEmpty;
+
+  bool get isRecent => DateTime.now().difference(createdAt).inDays < 7;
+
+  Duration get age => DateTime.now().difference(createdAt);
+
+  bool matches(String query) {
+    final q = query.toLowerCase();
+    return title.toLowerCase().contains(q) ||
+        summary.toLowerCase().contains(q) ||
+        tags.any((t) => t.toLowerCase().contains(q));
+  }
+
+  void validate() {
+    if (title.trim().isEmpty) {
+      throw StateError('InsightEntity must have a title');
+    }
+  }
 }

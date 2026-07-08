@@ -1,90 +1,110 @@
-class IntentCandidate {
-  const IntentCandidate({
-    required this.label,
-    required this.score,
-    required this.why,
-  });
+// lib/engine/si/si_intent_engine.dart
 
-  final String label;
-  final double score;
-  final String why;
-}
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/si_intent.dart';
 
-class MultiIntentResult {
-  const MultiIntentResult({
-    required this.primary,
-    required this.secondary,
-    required this.hidden,
-    required this.predictedNext,
-    required this.chain,
-  });
+class SIIntentEngine {
+  const SIIntentEngine();
 
-  final IntentCandidate primary;
-  final IntentCandidate? secondary;
-  final IntentCandidate? hidden;
-  final String predictedNext;
-  final List<String> chain;
-}
-
-class IntentEngine {
-  const IntentEngine();
-
-  MultiIntentResult detect(String text) {
-    final String lowered = text.toLowerCase();
+  SIIntent extract(SIContext context) {
+    final String text =
+        '${context.input.text} ${context.input.nonText.voiceToText ?? ''}'
+            .toLowerCase()
+            .replaceAll(RegExp(r'[^\w\s]'), ' ')
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim();
 
     IntentCandidate primary = const IntentCandidate(
-      label: 'general_query',
-      score: 0.55,
-      why: 'Fallback classification',
+      label: SIIntentLabels.generalQuery,
+      score: .5,
+      why: 'Fallback classification.',
     );
     IntentCandidate? secondary;
     IntentCandidate? hidden;
 
-    if (lowered.contains('focus')) {
+    if (_any(text, const <String>[
+      'start focus',
+      'focus now',
+      'deep work',
+      'focus session',
+    ])) {
       primary = const IntentCandidate(
-        label: 'start_focus',
-        score: 0.88,
-        why: 'Contains focus keyword',
+        label: SIIntentLabels.startFocus,
+        score: .86,
+        why: 'Focus wording detected.',
       );
       secondary = const IntentCandidate(
-        label: 'productivity_optimization',
-        score: 0.66,
-        why: 'Focus implies performance goal',
+        label: SIIntentLabels.productivityOptimization,
+        score: .64,
+        why: 'Focus implies optimization.',
       );
-    } else if (lowered.contains('task') ||
-        lowered.contains('what should i do')) {
+    } else if (_any(text, const <String>[
+      'what should i do',
+      'next task',
+      'what now',
+      'give me a task',
+      'task',
+    ])) {
       primary = const IntentCandidate(
-        label: 'get_task',
-        score: 0.84,
-        why: 'Direct ask for next task',
+        label: SIIntentLabels.getTask,
+        score: .82,
+        why: 'Next-action request detected.',
       );
       hidden = const IntentCandidate(
-        label: 'decision_support',
-        score: 0.62,
-        why: 'Likely seeking confidence boost',
+        label: SIIntentLabels.decisionSupport,
+        score: .6,
+        why: 'User likely wants direction.',
       );
-    } else if (lowered.contains('reflect') || lowered.contains('review')) {
+    } else if (_any(text, const <String>[
+      'reflect',
+      'review',
+      'recap',
+      'look back',
+    ])) {
       primary = const IntentCandidate(
-        label: 'reflect',
-        score: 0.81,
-        why: 'Reflection/review keywords present',
+        label: SIIntentLabels.reflect,
+        score: .8,
+        why: 'Reflection wording detected.',
+      );
+    } else if (_any(text, const <String>[
+      'insight',
+      'pattern',
+      'analyze',
+      'why',
+    ])) {
+      primary = const IntentCandidate(
+        label: SIIntentLabels.insightRequest,
+        score: .78,
+        why: 'Insight wording detected.',
       );
     }
 
-    final List<String> chain = <String>[
-      primary.label,
-      if (secondary != null) secondary.label,
-    ];
-    final String predictedNext = primary.label == 'start_focus'
-        ? 'insight_request'
-        : 'start_focus';
-
-    return MultiIntentResult(
+    return SIIntent(
       primary: primary,
       secondary: secondary,
       hidden: hidden,
-      predictedNext: predictedNext,
-      chain: chain,
+      predictedNext: _next(primary.label),
+      chain: <String>[
+        primary.label,
+        if (secondary != null) secondary.label,
+        if (hidden != null) hidden.label,
+      ],
     );
+  }
+
+  bool _any(String text, List<String> patterns) => patterns.any(text.contains);
+
+  String _next(String label) {
+    switch (label) {
+      case SIIntentLabels.getTask:
+        return SIIntentLabels.startFocus;
+      case SIIntentLabels.startFocus:
+      case SIIntentLabels.reflect:
+        return SIIntentLabels.insightRequest;
+      case SIIntentLabels.insightRequest:
+        return SIIntentLabels.startFocus;
+      default:
+        return SIIntentLabels.getTask;
+    }
   }
 }

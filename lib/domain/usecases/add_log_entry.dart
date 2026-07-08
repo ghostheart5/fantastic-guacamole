@@ -7,6 +7,7 @@ class AddLogEntry {
   final ILogRepository repository;
 
   Future<void> call(LogEntryEntity entry) {
+    entry.validate(); // optional
     return repository.addLog(entry);
   }
 }

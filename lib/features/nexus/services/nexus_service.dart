@@ -1,3 +1,0 @@
-class NexusService {
-  const NexusService();
-}

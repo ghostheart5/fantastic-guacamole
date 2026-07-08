@@ -1,58 +1,144 @@
-class SelfConsistencyReport {
-  const SelfConsistencyReport({
+// lib/engine/si/si_self_consistency_engine.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIResponseCandidate {
+  const SIResponseCandidate({
+    required this.message,
+    required this.action,
+    required this.confidence,
+    this.safe = true,
+  });
+
+  final String message;
+  final String action;
+  final double confidence;
+  final bool safe;
+}
+
+class ConsistencyResult {
+  const ConsistencyResult({
     required this.consistent,
-    required this.toneMismatch,
-    required this.personaMismatch,
-    required this.identityMismatch,
-    required this.notes,
+    required this.score,
+    required this.issues,
+    required this.preferredMessage,
+    required this.preferredAction,
   });
 
   final bool consistent;
-  final bool toneMismatch;
-  final bool personaMismatch;
-  final bool identityMismatch;
-  final List<String> notes;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'consistent': consistent,
-      'tone_mismatch': toneMismatch,
-      'persona_mismatch': personaMismatch,
-      'identity_mismatch': identityMismatch,
-      'notes': notes,
-    };
-  }
+  final double score;
+  final List<String> issues;
+  final String preferredMessage;
+  final String preferredAction;
 }
 
-class SelfConsistencyEngine {
-  const SelfConsistencyEngine();
+class SISelfConsistencyEngine {
+  const SISelfConsistencyEngine();
 
-  SelfConsistencyReport evaluate({
-    required String mood,
-    required String persona,
-    required String identityTone,
-    required String outputMode,
-    required Map<String, dynamic> previousSnapshot,
+  ConsistencyResult check({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    required SICognitionState cognition,
+    SIDecision? decision,
+    SIResponse? response,
   }) {
-    final String? prevMood = previousSnapshot['mood']?.toString();
-    final String? prevPersona = previousSnapshot['persona']?.toString();
+    final List<String> issues = <String>[];
+    final String action =
+        decision?.action ?? _expectedAction(intent.primary.label);
+    final String message = siClean(response?.message ?? decision?.reasoning);
 
-    final bool toneMismatch =
-        prevMood != null && prevMood != mood && mood == 'motivational';
-    final bool personaMismatch = prevPersona != null && prevPersona != persona;
-    final bool identityMismatch =
-        outputMode == 'technical' && identityTone == 'mystic';
+    if (decision != null &&
+        action != _expectedAction(intent.primary.label) &&
+        intent.confidence >= 0.7) {
+      issues.add('action_does_not_match_high_confidence_intent');
+    }
 
-    return SelfConsistencyReport(
-      consistent: !(toneMismatch || personaMismatch || identityMismatch),
-      toneMismatch: toneMismatch,
-      personaMismatch: personaMismatch,
-      identityMismatch: identityMismatch,
-      notes: <String>[
-        if (toneMismatch) 'Tone drift detected. Prefer smoother transition.',
-        if (personaMismatch) 'Persona changed; provide continuity cue.',
-        if (identityMismatch) 'Identity tone conflicts with output mode.',
-      ],
+    if (instinct.safetyFirst &&
+        action != 'respond_conversationally' &&
+        cognition.meta.misunderstandingRisk >= 0.65) {
+      issues.add('safety_first_with_risky_action');
+    }
+
+    if (message.isEmpty) issues.add('empty_message');
+
+    if (message.toLowerCase().contains('high-energy') &&
+        context.userState.fatigue >= 0.7) {
+      issues.add('energy_language_conflicts_with_fatigue');
+    }
+
+    if ((context.userState.emotion == 'stressed' || instinct.avoidOverwhelm) &&
+        message.length > 320) {
+      issues.add('message_too_long_for_state');
+    }
+
+    final double score = siClamp01(1 - issues.length * 0.18);
+
+    return ConsistencyResult(
+      consistent: issues.isEmpty || score >= 0.72,
+      score: score,
+      issues: List<String>.unmodifiable(issues),
+      preferredMessage: _preferredMessage(
+        original: message,
+        instinct: instinct,
+        consistent: issues.isEmpty,
+      ),
+      preferredAction: score < 0.55 ? 'respond_conversationally' : action,
+    );
+  }
+
+  SIResponseCandidate chooseBest(List<SIResponseCandidate> candidates) {
+    final List<SIResponseCandidate> safe = candidates
+        .where((SIResponseCandidate c) {
+          return c.safe && siClean(c.message).isNotEmpty;
+        })
+        .toList(growable: false);
+
+    if (safe.isEmpty) {
+      return const SIResponseCandidate(
+        message:
+            'Tell me what you want to work on, and I’ll help with one next step.',
+        action: 'respond_conversationally',
+        confidence: 0.5,
+      );
+    }
+
+    safe.sort((SIResponseCandidate a, SIResponseCandidate b) {
+      return siClamp01(b.confidence).compareTo(siClamp01(a.confidence));
+    });
+
+    return safe.first;
+  }
+
+  String _expectedAction(String intent) {
+    switch (intent) {
+      case 'start_focus':
+        return 'launch_focus_session';
+      case 'get_task':
+        return 'present_task_recommendation';
+      case 'reflect':
+        return 'open_reflection_flow';
+      case 'insight_request':
+        return 'show_insight_summary';
+      default:
+        return 'respond_conversationally';
+    }
+  }
+
+  String _preferredMessage({
+    required String original,
+    required InstinctGuidance instinct,
+    required bool consistent,
+  }) {
+    if (consistent && original.isNotEmpty) return original;
+
+    if (instinct.safetyFirst) {
+      return 'Let’s keep it simple: choose one small next step.';
+    }
+
+    return siClean(
+      original,
+      fallback: 'I need a little more context before acting.',
     );
   }
 }

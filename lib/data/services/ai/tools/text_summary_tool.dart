@@ -29,7 +29,10 @@ class TextSummaryTool extends AiTool {
     return <String, dynamic>{
       'summary': summary.trim(),
       'sentences': sentences.length,
-      'words': content.split(RegExp(r'\s+')).where((String w) => w.isNotEmpty).length,
+      'words': content
+          .split(RegExp(r'\s+'))
+          .where((String w) => w.isNotEmpty)
+          .length,
     };
   }
 }

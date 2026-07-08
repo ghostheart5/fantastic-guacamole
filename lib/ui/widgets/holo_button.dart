@@ -65,12 +65,15 @@ class _HoloButtonState extends State<HoloButton>
             animation: _press,
             builder: (context, _) => Transform.scale(
               scale: _scale.value,
-              child: SizedBox(
-                width: double.infinity,
-                child: neon.NeonButton(
-                  label: widget.label.toUpperCase(),
-                  accentColor: _color,
-                  onPressed: widget.onTap,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: neon.NeonButton(
+                    label: widget.label.toUpperCase(),
+                    accentColor: _color,
+                    onPressed: widget.onTap,
+                  ),
                 ),
               ),
             ),

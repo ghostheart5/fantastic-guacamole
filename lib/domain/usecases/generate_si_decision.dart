@@ -9,9 +9,11 @@ class GenerateSiDecision {
   final ITaskRepository taskRepo;
   final ISiRepository siRepo;
 
-  Future<SiDecisionEntity?> call() async {
+  Future<SiDecisionEntity> call([String input = '']) async {
     final state = await siRepo.getCurrentState();
-    if (state == null) return null;
+    if (state == null) {
+      return const SiDecisionEntity(rationale: 'No state available.');
+    }
 
     final tasks = await taskRepo.getAllTasks();
 
@@ -27,11 +29,14 @@ class GenerateSiDecision {
     }
 
     final sorted = [...tasks]..sort((a, b) => b.priority.compareTo(a.priority));
+    final top = sorted.first;
 
     return SiDecisionEntity(
-      selectedTaskId: sorted.first.id,
+      selectedTaskId: top.id,
       rationale: 'Highest priority task selected.',
+      action: 'Focus on: ${top.title}',
       orderedTaskIds: sorted.map((t) => t.id).toList(),
+      recommendedFocusMinutes: 25,
     );
   }
 }

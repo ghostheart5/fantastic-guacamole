@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/engine/si/si_snapshot.dart';
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 
 class SIMemory {
   const SIMemory({this.entries = const <SISnapshot>[]});

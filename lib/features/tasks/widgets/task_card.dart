@@ -1,15 +1,16 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class TaskCard extends ConsumerWidget {
-  const TaskCard({required this.task, super.key});
+  const TaskCard({required this.task, this.onComplete, super.key});
   final TaskView task;
+  final Future<void> Function(TaskView task)? onComplete;
 
   Color _priorityColor(int p) {
     if (p >= 5) return AppColors.recallRed;
@@ -25,9 +26,7 @@ class TaskCard extends ConsumerWidget {
 
     return SmartPressable(
       onTap: () {
-        ref.read(focusTaskProvider.notifier).set(task);
-        ref.read(focusControllerProvider.notifier).start();
-        ref.read(appFlowProvider.notifier).toFocus();
+        ref.read(appFlowProvider.notifier).toSmartCoach();
       },
       pressedScale: 0.97,
       child: Container(
@@ -37,7 +36,11 @@ class TaskCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: accent.withValues(alpha: 0.2)),
           boxShadow: [
-            BoxShadow(color: accent.withValues(alpha: 0.08), blurRadius: 16, spreadRadius: -2),
+            BoxShadow(
+              color: accent.withValues(alpha: 0.08),
+              blurRadius: 16,
+              spreadRadius: -2,
+            ),
           ],
         ),
         child: Row(
@@ -48,7 +51,12 @@ class TaskCard extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: accent,
                 borderRadius: BorderRadius.circular(2),
-                boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.7), blurRadius: 8)],
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.7),
+                    blurRadius: 8,
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 14),
@@ -77,25 +85,53 @@ class TaskCard extends ConsumerWidget {
                         label: 'E${task.energyRequired}',
                         color: AppColors.neonCyan.withValues(alpha: 0.6),
                       ),
-                      _Tag(label: 'P${task.priority}', color: accent.withValues(alpha: 0.8)),
+                      _Tag(
+                        label: 'P${task.priority}',
+                        color: accent.withValues(alpha: 0.8),
+                      ),
+                      const _Tag(label: '+10 XP', color: AppColors.memoryAmber),
                     ],
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 12),
-            SizedBox(
-              width: 48,
-              height: 48,
-              child: CustomPaint(
-                painter: _PriorityRingPainter(priority: task.priority, color: accent),
-                child: Center(
-                  child: Text(
-                    '${task.priority}',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: accent),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: CustomPaint(
+                    painter: _PriorityRingPainter(
+                      priority: task.priority,
+                      color: accent,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${task.priority}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: accent,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                if (onComplete != null)
+                  IconButton(
+                    tooltip: 'Complete task',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(
+                      Icons.check_circle_outline,
+                      color: AppColors.neonCyan,
+                    ),
+                    onPressed: () {
+                      onComplete!(task);
+                    },
+                  ),
+              ],
             ),
           ],
         ),
@@ -118,7 +154,10 @@ class _Tag extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.35), width: 0.5),
       ),
-      child: Text(label, style: TextStyle(fontSize: 9, color: color, letterSpacing: 1)),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 9, color: color, letterSpacing: 1),
+      ),
     );
   }
 }
@@ -172,5 +211,6 @@ class _PriorityRingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_PriorityRingPainter old) => old.priority != priority || old.color != color;
+  bool shouldRepaint(_PriorityRingPainter old) =>
+      old.priority != priority || old.color != color;
 }

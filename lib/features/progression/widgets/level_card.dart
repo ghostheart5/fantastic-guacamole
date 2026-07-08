@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/features/progression/models/user_progress.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/state/models/user_progress.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:flutter/material.dart';
 
@@ -49,7 +49,11 @@ class LevelCard extends StatelessWidget {
                     ),
                     const Text(
                       'LVL',
-                      style: TextStyle(fontSize: 9, letterSpacing: 1.5, color: Colors.white38),
+                      style: TextStyle(
+                        fontSize: 9,
+                        letterSpacing: 1.5,
+                        color: Colors.white38,
+                      ),
                     ),
                   ],
                 ),
@@ -83,7 +87,10 @@ class LevelCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-                ProgressBar(value: progress.levelProgress, color: AppColors.memoryAmber),
+                ProgressBar(
+                  value: progress.levelProgress,
+                  color: AppColors.memoryAmber,
+                ),
               ],
             ),
           ),

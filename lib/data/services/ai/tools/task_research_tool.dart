@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/data/models/task.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/data/services/ai/tools/ai_tool.dart';
 
 class TaskResearchTool extends AiTool {
@@ -29,6 +29,10 @@ class TaskResearchTool extends AiTool {
       };
     }).toList();
 
-    return <String, dynamic>{'query': query, 'findingCount': findings.length, 'findings': findings};
+    return <String, dynamic>{
+      'query': query,
+      'findingCount': findings.length,
+      'findings': findings,
+    };
   }
 }

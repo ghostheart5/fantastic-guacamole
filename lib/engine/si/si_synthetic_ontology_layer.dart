@@ -1,63 +1,53 @@
-class SyntheticOntology {
-  const SyntheticOntology({
-    required this.concepts,
-    required this.emotions,
-    required this.memories,
-    required this.personas,
-    required this.multiverseRealms,
-    required this.userIdentity,
-    required this.tasks,
-    required this.goals,
+// lib/engine/si/si_synthetic_ontology_layer.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIOntologyMap {
+  const SIOntologyMap({
+    required this.entities,
+    required this.primaryEntity,
+    required this.memory,
   });
-
-  final List<String> concepts;
-  final List<String> emotions;
-  final List<String> memories;
-  final List<String> personas;
-  final List<String> multiverseRealms;
-  final String userIdentity;
-  final List<String> tasks;
-  final List<String> goals;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'concepts': concepts,
-      'emotions': emotions,
-      'memories': memories,
-      'personas': personas,
-      'multiverse_realms': multiverseRealms,
-      'user_identity': userIdentity,
-      'tasks': tasks,
-      'goals': goals,
-    };
-  }
+  final Map<String, String> entities;
+  final String primaryEntity;
+  final SIMemoryStore memory;
 }
 
-class SyntheticOntologyLayer {
-  const SyntheticOntologyLayer();
+class SISyntheticOntologyLayer {
+  const SISyntheticOntologyLayer();
 
-  SyntheticOntology build({
-    required String mood,
-    required String persona,
-    required String realm,
-    required List<String> goals,
-    required String intent,
+  SIOntologyMap map({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    return SyntheticOntology(
-      concepts: <String>[
-        'intent',
-        'continuity',
-        'alignment',
-        'emergence',
-        'coherence',
-      ],
-      emotions: <String>[mood, 'anticipation', 'stability'],
-      memories: <String>['recent_context', 'goal_anchors', 'identity_trace'],
-      personas: <String>[persona, 'advisor', 'strategist', 'guardian'],
-      multiverseRealms: <String>[realm, 'chronosphere', 'astral_nexus'],
-      userIdentity: 'user:goal_oriented_operator',
-      tasks: <String>[intent, 'alignment_maintenance'],
-      goals: goals,
+    final t = now ?? DateTime.now();
+    final e = <String, String>{
+      'intent': intent.primary.label,
+      'emotion': context.userState.emotion,
+      'stability': context.userState.stability,
+      'instinct': instinct.primaryInstinct,
+    };
+    final primary = instinct.safetyFirst ? 'instinct' : 'intent';
+    final next = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content:
+                'ontology|primary=$primary|${e.entries.map((x) => '${x.key}=${x.value}').join("|")}',
+            timestamp: t,
+            relevance: intent.confidence,
+            confidence: .7,
+            emotionalWeight: context.userState.stress,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SIOntologyMap(
+      entities: Map.unmodifiable(e),
+      primaryEntity: primary,
+      memory: next,
     );
   }
 }

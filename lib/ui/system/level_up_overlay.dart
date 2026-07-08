@@ -10,7 +10,7 @@ Future<void> showLevelUpAnimation(
     context: context,
     barrierLabel: 'Level up animation',
     barrierDismissible: false,
-    barrierColor: const Color(0xD9110C1E),
+    barrierColor: const Color(0xD907101D),
     transitionDuration: const Duration(milliseconds: 180),
     pageBuilder: (_, _, _) => _LevelUpOverlay(level: level, title: title),
     transitionBuilder:
@@ -71,15 +71,15 @@ class _LevelUpOverlayState extends State<_LevelUpOverlay> {
             shape: BoxShape.circle,
             gradient: RadialGradient(
               colors: <Color>[
-                const Color(0xFFFFC85A).withValues(alpha: 0.28),
-                const Color(0xFFFFA629).withValues(alpha: 0.12),
+                const Color(0xFF00E5FF).withValues(alpha: 0.24),
+                const Color(0xFF9B8AFB).withValues(alpha: 0.10),
                 Colors.transparent,
               ],
               stops: const <double>[0.18, 0.62, 1],
             ),
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: const Color(0xFFFFB347).withValues(alpha: 0.35),
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.26),
                 blurRadius: 48,
                 spreadRadius: 12,
               ),
@@ -103,7 +103,7 @@ class _LevelUpOverlayState extends State<_LevelUpOverlay> {
                   const Text(
                     'LEVEL UP',
                     style: TextStyle(
-                      color: Color(0xFFFFE3A3),
+                      color: Color(0xFF00E5FF),
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 2.4,
@@ -113,7 +113,7 @@ class _LevelUpOverlayState extends State<_LevelUpOverlay> {
                   Text(
                     'Level ${widget.level}',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: Color(0xFF9B8AFB),
                       fontSize: 34,
                       fontWeight: FontWeight.w800,
                     ),
@@ -123,7 +123,7 @@ class _LevelUpOverlayState extends State<_LevelUpOverlay> {
                     'Level Up - ${widget.title}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: Color(0xFFFFF1CF),
+                      color: Colors.white70,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),

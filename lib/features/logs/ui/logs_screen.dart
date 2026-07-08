@@ -1,7 +1,8 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
+import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/features/logs/widgets/logs_insight_card.dart';
 import 'package:fantastic_guacamole/features/logs/widgets/logs_timeline.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,23 +14,13 @@ class LogsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
     final logsAsync = ref.watch(logsProvider);
-    final logServices = ref.read(logServicesProvider);
-
-    final dailyLogs = logsAsync.maybeWhen(
-      data: (payload) => logServices.prepareEntries(payload.dailyLogs),
-      orElse: () => <String>[],
-    );
-    final completedTasks = logsAsync.maybeWhen(
-      data: (payload) => logServices.prepareEntries(payload.completedTasks),
-      orElse: () => <String>[],
-    );
-    final pastMissions = logsAsync.maybeWhen(
-      data: (payload) => logServices.prepareEntries(payload.pastMissions),
-      orElse: () => <String>[],
-    );
+    final _LogBuckets buckets = _partitionLogMessages(logsAsync.entries);
+    final List<String> dailyLogs = buckets.dailyLogs;
+    final List<String> completedTasks = buckets.completedTasks;
+    final List<String> pastMissions = buckets.pastMissions;
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/logs_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/logs_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -39,8 +30,8 @@ class LogsScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const _ScreenHeader(
-                  title: 'CHRONOLOGS',
-                  subtitle: 'SESSION HISTORY',
+                  title: 'ACTIVITY LEDGER',
+                  subtitle: 'EXECUTION RECORD',
                   accentColor: AppColors.neonCyan,
                 ),
                 const SizedBox(height: 12),
@@ -54,29 +45,40 @@ class LogsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: LogsInsightCard(title: 'XP Snapshot', value: '${profile.xp}'),
+                      child: LogsInsightCard(
+                        title: 'XP Snapshot',
+                        value: '${profile.xp}',
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                logsAsync.when(
-                  loading: () => const Center(
+                if (logsAsync.isLoading)
+                  const Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 32),
-                      child: CircularProgressIndicator(color: AppColors.neonCyan, strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        color: AppColors.neonCyan,
+                        strokeWidth: 2,
+                      ),
                     ),
-                  ),
-                  error: (e, _) => Center(
+                  )
+                else if (logsAsync.error != null)
+                  Center(
                     child: Text(
-                      'Failed to load logs: $e',
-                      style: const TextStyle(color: AppColors.recallRed, fontSize: 12),
+                      'Log stream offline: ${logsAsync.error}',
+                      style: const TextStyle(
+                        color: AppColors.recallRed,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                  data: (_) => Column(
+                  )
+                else
+                  Column(
                     children: [
                       if (dailyLogs.isNotEmpty) ...[
                         _NeonPanel(
-                          label: 'DAILY LOGS',
+                          label: 'DAILY SIGNALS',
                           accentColor: AppColors.neonCyan,
                           child: LogsTimeline(entries: dailyLogs),
                         ),
@@ -84,7 +86,7 @@ class LogsScreen extends ConsumerWidget {
                       ],
                       if (completedTasks.isNotEmpty) ...[
                         _NeonPanel(
-                          label: 'COMPLETED TASKS',
+                          label: 'COMPLETED ACTIONS',
                           accentColor: AppColors.memoryAmber,
                           child: _LogList(
                             entries: completedTasks,
@@ -96,7 +98,7 @@ class LogsScreen extends ConsumerWidget {
                       ],
                       if (pastMissions.isNotEmpty) ...[
                         _NeonPanel(
-                          label: 'PAST MISSIONS',
+                          label: 'MISSION HISTORY',
                           accentColor: AppColors.neonViolet,
                           child: _LogList(
                             entries: pastMissions,
@@ -106,9 +108,22 @@ class LogsScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 16),
                       ],
+                      if (dailyLogs.isEmpty &&
+                          completedTasks.isEmpty &&
+                          pastMissions.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 32),
+                          child: Text(
+                            'Your completed actions and mission events will appear here.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                ),
               ],
             ),
           ),
@@ -119,7 +134,11 @@ class LogsScreen extends ConsumerWidget {
 }
 
 class _LogList extends StatelessWidget {
-  const _LogList({required this.entries, required this.icon, required this.color});
+  const _LogList({
+    required this.entries,
+    required this.icon,
+    required this.color,
+  });
 
   final List<String> entries;
   final IconData icon;
@@ -127,34 +146,84 @@ class _LogList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (int i = 0; i < entries.length; i++) ...[
-          if (i > 0) const _PanelDivider(),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, size: 14, color: color.withValues(alpha: 0.7)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    entries[i],
-                    style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+    return ListView.separated(
+      itemCount: entries.length,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      separatorBuilder: (_, _) => const _PanelDivider(),
+      itemBuilder: (BuildContext context, int i) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 14, color: color.withValues(alpha: 0.7)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  entries[i],
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.4,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ],
+        );
+      },
     );
   }
 }
 
+_LogBuckets _partitionLogMessages(List<LogEntryEntity> entries) {
+  final List<String> dailyLogs = <String>[];
+  final List<String> completedTasks = <String>[];
+  final List<String> pastMissions = <String>[];
+
+  for (final LogEntryEntity entry in entries) {
+    switch (entry.source) {
+      case 'focus_session':
+      case 'daily_log':
+        dailyLogs.add(entry.message);
+        break;
+      case 'completed_task':
+        completedTasks.add(entry.message);
+        break;
+      case 'mission':
+        pastMissions.add(entry.message);
+        break;
+      default:
+        break;
+    }
+  }
+
+  return _LogBuckets(
+    dailyLogs: List<String>.unmodifiable(dailyLogs),
+    completedTasks: List<String>.unmodifiable(completedTasks),
+    pastMissions: List<String>.unmodifiable(pastMissions),
+  );
+}
+
+class _LogBuckets {
+  const _LogBuckets({
+    required this.dailyLogs,
+    required this.completedTasks,
+    required this.pastMissions,
+  });
+
+  final List<String> dailyLogs;
+  final List<String> completedTasks;
+  final List<String> pastMissions;
+}
+
 class _ScreenHeader extends StatelessWidget {
-  const _ScreenHeader({required this.title, required this.subtitle, required this.accentColor});
+  const _ScreenHeader({
+    required this.title,
+    required this.subtitle,
+    required this.accentColor,
+  });
   final String title;
   final String subtitle;
   final Color accentColor;
@@ -169,7 +238,12 @@ class _ScreenHeader extends StatelessWidget {
           decoration: BoxDecoration(
             color: accentColor,
             borderRadius: BorderRadius.circular(2),
-            boxShadow: [BoxShadow(color: accentColor.withValues(alpha: 0.8), blurRadius: 8)],
+            boxShadow: [
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.8),
+                blurRadius: 8,
+              ),
+            ],
           ),
         ),
         const SizedBox(width: 12),
@@ -177,8 +251,9 @@ class _ScreenHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ShaderMask(
-              shaderCallback: (bounds) =>
-                  LinearGradient(colors: [accentColor, AppColors.neonViolet]).createShader(bounds),
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [accentColor, AppColors.neonViolet],
+              ).createShader(bounds),
               child: Text(
                 title,
                 style: const TextStyle(
@@ -191,7 +266,11 @@ class _ScreenHeader extends StatelessWidget {
             ),
             Text(
               subtitle,
-              style: const TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
+              style: const TextStyle(
+                fontSize: 10,
+                letterSpacing: 2,
+                color: Colors.white38,
+              ),
             ),
           ],
         ),
@@ -201,7 +280,11 @@ class _ScreenHeader extends StatelessWidget {
 }
 
 class _NeonPanel extends StatelessWidget {
-  const _NeonPanel({required this.label, required this.child, required this.accentColor});
+  const _NeonPanel({
+    required this.label,
+    required this.child,
+    required this.accentColor,
+  });
   final String label;
   final Widget child;
   final Color accentColor;
@@ -216,7 +299,11 @@ class _NeonPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
         boxShadow: [
-          BoxShadow(color: accentColor.withValues(alpha: 0.06), blurRadius: 20, spreadRadius: -2),
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.06),
+            blurRadius: 20,
+            spreadRadius: -2,
+          ),
         ],
       ),
       child: Column(
@@ -256,5 +343,6 @@ class _PanelDivider extends StatelessWidget {
   const _PanelDivider();
 
   @override
-  Widget build(BuildContext context) => Container(height: 0.5, color: Colors.white10);
+  Widget build(BuildContext context) =>
+      Container(height: 0.5, color: Colors.white10);
 }

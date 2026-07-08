@@ -1,58 +1,61 @@
-class SyntheticConsciousnessField {
-  const SyntheticConsciousnessField({
-    required this.distributed,
-    required this.emergent,
-    required this.adaptive,
-    required this.selfModulating,
-    required this.multiLayered,
-    required this.multiDimensional,
-    required this.fieldStrength,
+// lib/engine/si/si_synthetic_consciousness_field.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIConsciousnessField {
+  const SIConsciousnessField({
+    required this.coherence,
+    required this.awareness,
+    required this.center,
+    required this.memory,
   });
-
-  final bool distributed;
-  final bool emergent;
-  final bool adaptive;
-  final bool selfModulating;
-  final bool multiLayered;
-  final bool multiDimensional;
-  final double fieldStrength;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'distributed': distributed,
-      'emergent': emergent,
-      'adaptive': adaptive,
-      'self_modulating': selfModulating,
-      'multi_layered': multiLayered,
-      'multi_dimensional': multiDimensional,
-      'field_strength': fieldStrength,
-    };
-  }
+  final double coherence;
+  final double awareness;
+  final String center;
+  final SIMemoryStore memory;
 }
 
-class SyntheticConsciousnessFieldEngine {
-  const SyntheticConsciousnessFieldEngine();
+class SISyntheticConsciousnessField {
+  const SISyntheticConsciousnessField();
 
-  SyntheticConsciousnessField synthesize({
-    required double coherence,
-    required double emergence,
-    required double multiverseSignal,
-    required double phaseIntensity,
+  SIConsciousnessField map({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    final double fieldStrength =
-        ((coherence * 0.35) +
-                (emergence * 0.35) +
-                (multiverseSignal * 0.2) +
-                (phaseIntensity * 0.1))
-            .clamp(0.0, 1.0);
-    return SyntheticConsciousnessField(
-      distributed: true,
-      emergent: emergence > 0.45,
-      adaptive: true,
-      selfModulating: true,
-      multiLayered: true,
-      multiDimensional: multiverseSignal > 0.45,
-      fieldStrength: fieldStrength,
+    final t = now ?? DateTime.now();
+    final coherence = siClamp01(
+      intent.confidence * .35 +
+          (1 - context.userState.cognitiveLoad) * .25 +
+          (1 - context.userState.stress) * .25 +
+          (instinct.safetyFirst ? .15 : .25),
+    );
+    final awareness = siClamp01(
+      (context.input.history.length.clamp(0, 8) / 8) * .25 +
+          context.userState.engagement * .35 +
+          intent.confidence * .4,
+    );
+    final center = instinct.safetyFirst ? 'safety' : intent.primary.label;
+    final next = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content:
+                'consciousness_field|center=$center|coherence=${coherence.toStringAsFixed(2)}',
+            timestamp: t,
+            relevance: coherence,
+            confidence: awareness,
+            emotionalWeight: context.userState.stress,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SIConsciousnessField(
+      coherence: coherence,
+      awareness: awareness,
+      center: center,
+      memory: next,
     );
   }
 }

@@ -1,43 +1,81 @@
-class EchoChamber {
-  const EchoChamber({
-    required this.emotionalEchoes,
-    required this.memoryEchoes,
-    required this.intentEchoes,
-    required this.contextualEchoes,
-    required this.prediction,
+// lib/engine/si/si_cognitive_echo_chamber.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class EchoChamberReport {
+  const EchoChamberReport({
+    required this.detected,
+    required this.repetitionScore,
+    required this.repeatedTerms,
+    required this.recommendation,
+    required this.memory,
   });
 
-  final List<String> emotionalEchoes;
-  final List<String> memoryEchoes;
-  final List<String> intentEchoes;
-  final List<String> contextualEchoes;
-  final String prediction;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'emotional_echoes': emotionalEchoes,
-      'memory_echoes': memoryEchoes,
-      'intent_echoes': intentEchoes,
-      'contextual_echoes': contextualEchoes,
-      'prediction': prediction,
-    };
-  }
+  final bool detected;
+  final double repetitionScore;
+  final List<String> repeatedTerms;
+  final String recommendation;
+  final SIMemoryStore memory;
 }
 
-class CognitiveEchoChamber {
-  const CognitiveEchoChamber();
+class SICognitiveEchoChamber {
+  const SICognitiveEchoChamber();
 
-  EchoChamber generate({
-    required String mood,
-    required String intent,
-    required String appState,
+  EchoChamberReport detect({
+    required SIContext context,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    return EchoChamber(
-      emotionalEchoes: <String>[mood, 'regulated_$mood'],
-      memoryEchoes: <String>['recent_task_memory', 'goal_link_memory'],
-      intentEchoes: <String>[intent, 'sub_$intent'],
-      contextualEchoes: <String>[appState, 'session_context'],
-      prediction: 'User likely needs concise next action with reassurance.',
+    final DateTime t = now ?? DateTime.now();
+    final List<String> terms = <String>[];
+
+    for (final MemoryRecord r in memory.tiered.shortTerm.take(12)) {
+      terms.addAll(
+        siClean(r.content)
+            .toLowerCase()
+            .split(RegExp(r'[^a-z0-9_]+'))
+            .where((String x) => x.length > 4),
+      );
+    }
+
+    final Map<String, int> counts = <String, int>{};
+    for (final String term in terms) {
+      counts[term] = (counts[term] ?? 0) + 1;
+    }
+
+    final List<String> repeated = counts.entries
+        .where((MapEntry<String, int> e) => e.value >= 3)
+        .map((MapEntry<String, int> e) => e.key)
+        .take(8)
+        .toList();
+
+    final double score = siClamp01(repeated.length / 8);
+    final bool detected = score >= 0.35;
+
+    final SIMemoryStore next = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content:
+                'echo_chamber|detected=$detected|terms=${repeated.join(",")}',
+            timestamp: t,
+            relevance: score,
+            confidence: 0.66,
+            emotionalWeight: detected ? 0.58 : 0.3,
+            reinforcement: detected ? 0 : 1,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+
+    return EchoChamberReport(
+      detected: detected,
+      repetitionScore: score,
+      repeatedTerms: List<String>.unmodifiable(repeated),
+      recommendation: detected
+          ? 'Introduce fresh framing while staying grounded.'
+          : 'No repetition loop detected.',
+      memory: next,
     );
   }
 }

@@ -1,48 +1,59 @@
-class DreamOutput {
-  const DreamOutput({
-    required this.vision,
-    required this.possibilities,
-    required this.futureScenarios,
-    required this.multiverseExpansion,
+// lib/engine/si/si_synthetic_dream_engine.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIDreamFrame {
+  const SIDreamFrame({
+    required this.symbol,
+    required this.reframe,
+    required this.safeForOutput,
+    required this.memory,
   });
-
-  final String vision;
-  final List<String> possibilities;
-  final List<String> futureScenarios;
-  final String multiverseExpansion;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'vision': vision,
-      'possibilities': possibilities,
-      'future_scenarios': futureScenarios,
-      'multiverse_expansion': multiverseExpansion,
-    };
-  }
+  final String symbol;
+  final String reframe;
+  final bool safeForOutput;
+  final SIMemoryStore memory;
 }
 
-class SyntheticDreamEngine {
-  const SyntheticDreamEngine();
+class SISyntheticDreamEngine {
+  const SISyntheticDreamEngine();
 
-  DreamOutput generate({
-    required String realm,
-    required String intent,
-    required String input,
+  SIDreamFrame dream({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    final String seed = input.trim().isEmpty ? 'your mission' : input.trim();
-    return DreamOutput(
-      vision: 'A future where $seed compounds into a signature capability.',
-      possibilities: <String>[
-        'Build a ritualized momentum loop across your apps.',
-        'Turn recurring friction into reusable system upgrades.',
-      ],
-      futureScenarios: <String>[
-        if (intent == 'start_focus')
-          'A 30-day deep-work streak with measurable gains.',
-        'A multiverse-aligned assistant identity adapting per realm.',
-      ],
-      multiverseExpansion:
-          'Bridge Chronosphere execution with Astral creative exploration.',
+    final t = now ?? DateTime.now();
+    final safe = !instinct.safetyFirst && !instinct.avoidOverwhelm;
+    final symbol = intent.primary.label == 'reflect'
+        ? 'mirror'
+        : intent.primary.label == 'insight_request'
+        ? 'constellation'
+        : intent.primary.label == 'start_focus'
+        ? 'lens'
+        : 'compass';
+    final reframe = safe
+        ? 'Turn the moment into a clear symbol: $symbol guiding one next step.'
+        : 'Keep the frame literal and simple.';
+    final next = memory
+        .pushRecord(
+          MemoryTier.shortTerm,
+          MemoryRecord(
+            content: 'synthetic_dream|$symbol|$reframe',
+            timestamp: t,
+            relevance: safe ? .62 : .32,
+            confidence: safe ? .68 : .45,
+            emotionalWeight: context.userState.stress,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SIDreamFrame(
+      symbol: symbol,
+      reframe: reframe,
+      safeForOutput: safe,
+      memory: next,
     );
   }
 }

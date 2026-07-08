@@ -5,6 +5,7 @@ class PaywallPlan {
     required this.priceLabel,
     required this.description,
     this.aiCreditsIncluded = 0,
+    this.freeTrialDays = 0,
     this.benefits = const <String>[],
     this.isAvailable = true,
     this.isFeatured = false,
@@ -15,6 +16,7 @@ class PaywallPlan {
   final String priceLabel;
   final String description;
   final int aiCreditsIncluded;
+  final int freeTrialDays;
   final List<String> benefits;
   final bool isAvailable;
   final bool isFeatured;

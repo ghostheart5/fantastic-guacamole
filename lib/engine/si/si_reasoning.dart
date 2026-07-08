@@ -1,57 +1,29 @@
-class AgentNote {
-  const AgentNote({required this.agent, required this.note});
+// lib/engine/si/si_reasoning.dart
 
-  final String agent;
-  final String note;
-}
+import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
+import 'package:fantastic_guacamole/engine/si/core/si_reasoning_module.dart';
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/prediction_engine.dart';
 
-class ReasoningTrace {
-  const ReasoningTrace({
-    required this.plan,
-    required this.evaluate,
-    required this.refine,
-    required this.notes,
-  });
+class SIReasoningEngine {
+  SIReasoningEngine({PredictionEngine? predictionEngine})
+    : _module = SIReasoningModule(predictionEngine: predictionEngine);
 
-  final String plan;
-  final String evaluate;
-  final String refine;
-  final List<AgentNote> notes;
-}
+  final SIReasoningModule _module;
 
-class ReasoningLayer {
-  const ReasoningLayer();
-
-  ReasoningTrace run({
-    required String intent,
-    required String mood,
-    required String input,
+  SICognitionState reason({
+    required SIContext context,
+    required SIIntent intent,
+    required InstinctGuidance instinct,
+    List<NeuralEntry> history = const <NeuralEntry>[],
+    String task = '',
   }) {
-    final String plan = 'Prioritize intent=$intent with mood=$mood';
-    final String evaluate = input.isEmpty
-        ? 'Low context, ask follow-up'
-        : 'Sufficient context for action';
-    final String refine = mood == 'confused'
-        ? 'Increase clarity and step-by-step guidance'
-        : 'Keep concise';
-
-    return ReasoningTrace(
-      plan: plan,
-      evaluate: evaluate,
-      refine: refine,
-      notes: <AgentNote>[
-        AgentNote(agent: 'planner', note: plan),
-        AgentNote(agent: 'critic', note: evaluate),
-        AgentNote(agent: 'helper', note: refine),
-        const AgentNote(
-          agent: 'memory_agent',
-          note: 'Check recent memory relevance and recency',
-        ),
-        const AgentNote(
-          agent: 'ui_agent',
-          note: 'Select UI component priority for current intent',
-        ),
-      ],
+    return _module.process(
+      context: context,
+      intent: intent,
+      instinct: instinct,
+      history: history,
+      task: task,
     );
   }
 }

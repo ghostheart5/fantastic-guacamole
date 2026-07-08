@@ -13,13 +13,29 @@ class IntentClassificationTool extends AiTool {
     if (text.isEmpty) {
       return <String, dynamic>{'label': 'empty', 'confidence': 0.2};
     }
-    if (_containsAny(text, const <String>['remind', 'notify', 'later', 'tomorrow', 'alarm'])) {
+    if (_containsAny(text, const <String>[
+      'remind',
+      'notify',
+      'later',
+      'tomorrow',
+      'alarm',
+    ])) {
       return <String, dynamic>{'label': 'reminder', 'confidence': 0.84};
     }
-    if (_containsAny(text, const <String>['plan', 'roadmap', 'schedule', 'next step'])) {
+    if (_containsAny(text, const <String>[
+      'plan',
+      'roadmap',
+      'schedule',
+      'next step',
+    ])) {
       return <String, dynamic>{'label': 'planning', 'confidence': 0.8};
     }
-    if (_containsAny(text, const <String>['research', 'find out', 'lookup', 'investigate'])) {
+    if (_containsAny(text, const <String>[
+      'research',
+      'find out',
+      'lookup',
+      'investigate',
+    ])) {
       return <String, dynamic>{'label': 'research', 'confidence': 0.82};
     }
     if (_containsAny(text, const <String>['recommend', 'suggest', 'best'])) {

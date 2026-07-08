@@ -1,67 +1,107 @@
-import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
-import 'package:fantastic_guacamole/data/local/hive_storage.dart';
-import 'package:fantastic_guacamole/features/tasks/models/tasks_models.dart';
-import 'package:fantastic_guacamole/features/user/models/user_model.dart';
+import 'package:fantastic_guacamole/data/services/backup_service.dart';
 
-/// ChronoSpark SyncService
+abstract class CloudBackupGateway {
+  Future<bool> uploadBackup(Map<String, dynamic> backup);
+  Future<Map<String, dynamic>> downloadBackup();
+  Future<bool> uploadTasks(Map<String, dynamic> backup);
+  Future<Map<String, dynamic>> downloadTasks();
+}
+
+class LocalTestCloudBackupGateway implements CloudBackupGateway {
+  LocalTestCloudBackupGateway(this._preferences);
+
+  static const String _backupKey = 'local_test_cloud_backup';
+  static const String _tasksKey = 'local_test_cloud_tasks';
+
+  final SharedPrefsStorage _preferences;
+
+  @override
+  Future<Map<String, dynamic>> downloadBackup() async {
+    return _preferences.getJson(_backupKey);
+  }
+
+  @override
+  Future<Map<String, dynamic>> downloadTasks() async {
+    return _preferences.getJson(_tasksKey);
+  }
+
+  @override
+  Future<bool> uploadBackup(Map<String, dynamic> backup) async {
+    await _preferences.setJson(_backupKey, backup);
+    return true;
+  }
+
+  @override
+  Future<bool> uploadTasks(Map<String, dynamic> backup) async {
+    await _preferences.setJson(_tasksKey, backup);
+    return true;
+  }
+}
+
+class UnavailableCloudBackupGateway implements CloudBackupGateway {
+  const UnavailableCloudBackupGateway();
+
+  @override
+  Future<Map<String, dynamic>> downloadBackup() async =>
+      const <String, dynamic>{};
+
+  @override
+  Future<Map<String, dynamic>> downloadTasks() async =>
+      const <String, dynamic>{};
+
+  @override
+  Future<bool> uploadBackup(Map<String, dynamic> backup) async => false;
+
+  @override
+  Future<bool> uploadTasks(Map<String, dynamic> backup) async => false;
+}
+
 class SyncService {
+  SyncService({required this.backup, required this.gateway});
+
   final BackupService backup;
-  final SharedPrefsStorage prefs;
-  final HiveStorage<TaskModel> taskStorage;
-  final HiveStorage<UserModel> userStorage;
-
-  SyncService({
-    required this.backup,
-    required this.prefs,
-    required this.taskStorage,
-    required this.userStorage,
-  });
-
-  Future<Map<String, dynamic>> _uploadToCloud(
-    Map<String, dynamic> payload,
-  ) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    return {'status': 'ok', 'echo': payload};
-  }
-
-  Future<Map<String, dynamic>> _downloadFromCloud() async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    return prefs.getJson('cloud_backup_mock');
-  }
+  final CloudBackupGateway gateway;
 
   Future<bool> syncToCloud() async {
-    final fullBackup = await backup.createFullBackup();
-    final response = await _uploadToCloud(fullBackup);
-
-    if (response['status'] == 'ok') {
-      await prefs.setJson('cloud_backup_mock', fullBackup);
-      return true;
-    }
-
-    return false;
+    final Map<String, dynamic> fullBackup = await backup.createFullBackup();
+    return gateway.uploadBackup(fullBackup);
   }
 
   Future<bool> restoreFromCloud() async {
-    final cloudData = await _downloadFromCloud();
-    if (cloudData.isEmpty) return false;
-
+    final Map<String, dynamic> cloudData = await gateway.downloadBackup();
+    if (cloudData.isEmpty) {
+      return false;
+    }
     await backup.restoreFullBackup(cloudData);
     return true;
   }
 
   Future<bool> syncDelta() async {
-    final localBackup = await backup.createFullBackup();
-    final cloudBackup = await _downloadFromCloud();
-
+    final Map<String, dynamic> localBackup = await backup.createFullBackup();
+    final Map<String, dynamic> cloudBackup = await gateway.downloadBackup();
     if (cloudBackup.isEmpty) {
-      return syncToCloud();
+      return gateway.uploadBackup(localBackup);
     }
 
-    final merged = _mergeBackups(localBackup, cloudBackup);
-    await prefs.setJson('cloud_backup_mock', merged);
+    final Map<String, dynamic> merged = _mergeBackups(localBackup, cloudBackup);
+    if (!await gateway.uploadBackup(merged)) {
+      return false;
+    }
     await backup.restoreFullBackup(merged);
+    return true;
+  }
 
+  Future<bool> syncTasksOnly() async {
+    return gateway.uploadTasks(await backup.backupTasks());
+  }
+
+  Future<bool> restoreTasksOnly() async {
+    final Map<String, dynamic> cloudTasks = await gateway.downloadTasks();
+    if (cloudTasks.isEmpty) {
+      return false;
+    }
+    await backup.restoreTasks(cloudTasks);
     return true;
   }
 
@@ -69,59 +109,56 @@ class SyncService {
     Map<String, dynamic> local,
     Map<String, dynamic> cloud,
   ) {
-    final merged = <String, dynamic>{};
+    final Map<String, dynamic> merged = <String, dynamic>{
+      'version': local['version'] ?? cloud['version'],
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+    };
 
-    merged['version'] = local['version'] ?? cloud['version'];
-    merged['timestamp'] = DateTime.now().toIso8601String();
+    final List<dynamic> localTasks =
+        local['tasks'] as List<dynamic>? ?? const <dynamic>[];
+    final List<dynamic> cloudTasks =
+        cloud['tasks'] as List<dynamic>? ?? const <dynamic>[];
+    final Map<String, Map<String, dynamic>> taskMap =
+        <String, Map<String, dynamic>>{};
 
-    final localTasks = (local['tasks'] ?? <dynamic>[]) as List<dynamic>;
-    final cloudTasks = (cloud['tasks'] ?? <dynamic>[]) as List<dynamic>;
-
-    final taskMap = <String, Map<String, dynamic>>{};
-
-    for (final t in cloudTasks.whereType<Map<String, dynamic>>()) {
-      taskMap[t['id'] as String] = t;
-    }
-
-    for (final t in localTasks.whereType<Map<String, dynamic>>()) {
-      final id = t['id'] as String;
-      if (!taskMap.containsKey(id)) {
-        taskMap[id] = t;
-      } else {
-        final localUpdated =
-            DateTime.tryParse(t['updatedAt'] as String? ?? '') ??
-            DateTime.now();
-        final cloudUpdated =
-            DateTime.tryParse(taskMap[id]!['updatedAt'] as String? ?? '') ??
-            DateTime.now();
-        taskMap[id] = localUpdated.isAfter(cloudUpdated) ? t : taskMap[id]!;
+    for (final Map<String, dynamic> task
+        in cloudTasks.whereType<Map<String, dynamic>>()) {
+      final String id = task['id']?.toString() ?? '';
+      if (id.isNotEmpty) {
+        taskMap[id] = task;
       }
     }
 
-    merged['tasks'] = taskMap.values.toList();
-    merged['user'] = local['user'] ?? cloud['user'];
-    merged['user_state'] = local['user_state'] ?? cloud['user_state'];
-    merged['settings'] = local['settings'] ?? cloud['settings'];
+    for (final Map<String, dynamic> task
+        in localTasks.whereType<Map<String, dynamic>>()) {
+      final String id = task['id']?.toString() ?? '';
+      if (id.isEmpty) {
+        continue;
+      }
+      final Map<String, dynamic>? cloudTask = taskMap[id];
+      if (cloudTask == null ||
+          !_taskTimestamp(task).isBefore(_taskTimestamp(cloudTask))) {
+        taskMap[id] = task;
+      }
+    }
 
+    merged['tasks'] = taskMap.values.toList(growable: false);
+    merged['profile'] = local['profile'] ?? cloud['profile'] ?? cloud['user'];
+    merged['settings'] = local['settings'] ?? cloud['settings'];
     return merged;
   }
 
-  Future<bool> syncTasksOnly() async {
-    final backupTasks = await backup.backupTasks();
-    final response = await _uploadToCloud(backupTasks);
-
-    if (response['status'] == 'ok') {
-      await prefs.setJson('cloud_tasks_mock', backupTasks);
-      return true;
+  DateTime _taskTimestamp(Map<String, dynamic> task) {
+    for (final String key in <String>[
+      'updatedAt',
+      'completedAt',
+      'createdAt',
+    ]) {
+      final DateTime? parsed = DateTime.tryParse(task[key]?.toString() ?? '');
+      if (parsed != null) {
+        return parsed;
+      }
     }
-
-    return false;
-  }
-
-  Future<bool> restoreTasksOnly() async {
-    final cloudTasks = prefs.getJson('cloud_tasks_mock');
-    if (cloudTasks.isEmpty) return false;
-    await backup.restoreTasks(cloudTasks);
-    return true;
+    return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
   }
 }

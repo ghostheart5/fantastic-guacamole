@@ -6,10 +6,8 @@ class CalculateXp {
     required int taskPriority,
     required double energy,
   }) {
-    return ProgressionPolicy.calculateXp(
-      seconds: seconds,
-      taskPriority: taskPriority,
-      energy: energy,
-    );
+    final base = ProgressionPolicy.taskXp * taskPriority;
+    final energyBonus = (energy * 0.5 + 0.5);
+    return (base * energyBonus).round();
   }
 }

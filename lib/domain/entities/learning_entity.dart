@@ -24,4 +24,32 @@ class LearningEntity {
       skipped: skipped ?? this.skipped,
     );
   }
+
+  // Domain behavior
+  double get score {
+    final base = completed * effortWeight;
+    final penalty = skipped * (effortWeight * 0.5);
+    return base - penalty;
+  }
+
+  double get weightedScore {
+    return (completed * effortWeight * priorityWeight) -
+        (skipped * effortWeight * 0.5);
+  }
+
+  double get progressRatio {
+    final total = completed + skipped;
+    if (total == 0) return 0.0;
+    return completed / total;
+  }
+
+  LearningEntity markCompleted() => copyWith(completed: completed + 1);
+
+  LearningEntity markSkipped() => copyWith(skipped: skipped + 1);
+
+  void validate() {
+    if (effortWeight <= 0 || priorityWeight <= 0) {
+      throw StateError('Weights must be positive');
+    }
+  }
 }

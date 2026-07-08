@@ -1,5 +1,5 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 
 class TypeSelector extends StatelessWidget {
@@ -12,7 +12,7 @@ class TypeSelector extends StatelessWidget {
   final String selected;
   final ValueChanged<String> onSelect;
 
-  static const _types = ['Task', 'Focus', 'Mission', 'Note', 'Routine'];
+  static const _types = ['Task', 'Routine', 'Note', 'Goal'];
 
   @override
   Widget build(BuildContext context) {

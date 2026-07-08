@@ -1,25 +1,49 @@
-import 'package:fantastic_guacamole/app/router/route_paths.dart';
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/constants/app_urls.dart';
-import 'package:fantastic_guacamole/features/notifications/notification_scheduler.dart';
+import 'dart:async';
+
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/dev/test_data_generator.dart';
+import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
+import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_reset_service.dart';
+import 'package:fantastic_guacamole/tutorial/widgets/micro_tutorial_card.dart';
+import 'package:fantastic_guacamole/tutorial/widgets/show_me_again_button.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+part 'settings_screen.sections.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final routes = ref.watch(routeSurfaceProvider);
     final soundEnabled = ref.watch(soundEnabledProvider);
     final access = ref.watch(appAccessProvider);
     final hasMockSession = ref.watch(mockAuthSessionProvider);
     final intelligence = ref.watch(intelligenceStateProvider);
+    final bool accountDeletionConfigured = _hasSecureHttpsEndpoint(
+      Env.accountDeleteEndpoint,
+    );
+    final bool reflectionTutorialEnabled = ref.watch(
+      featureFlagEnabledProvider('daily_reflection_tutorial_enabled'),
+    );
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/settings_bg.png',
+      backgroundAssetPath: 'assets/backgrounds/settings_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -43,7 +67,9 @@ class SettingsScreen extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: AppColors.neonCyan.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: AppColors.neonCyan.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: const Icon(
                         Icons.arrow_back_ios_new,
@@ -74,10 +100,14 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ),
                         const Text(
-                          'SYSTEM CONFIG',
+                          'COMMAND MATRIX',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
+                          style: TextStyle(
+                            fontSize: 10,
+                            letterSpacing: 2,
+                            color: Colors.white38,
+                          ),
                         ),
                       ],
                     ),
@@ -87,17 +117,20 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 28),
 
               _Section(
-                label: 'PREFERENCES',
+                label: 'SYSTEM TUNING',
                 accentColor: AppColors.neonCyan,
                 child: Column(
                   children: [
                     _NeonToggleTile(
-                      title: 'Sound Effects',
+                      title: 'Audio FX',
                       value: soundEnabled,
-                      onChanged: (v) => ref.read(soundEnabledProvider.notifier).set(v),
+                      onChanged: (v) =>
+                          ref.read(soundEnabledProvider.notifier).set(v),
                     ),
                     ValueListenableBuilder<bool?>(
-                      valueListenable: NotificationScheduler.permissionGrantedListenable,
+                      valueListenable: ref.watch(
+                        notificationPermissionListenableProvider,
+                      ),
                       builder: (context, granted, _) {
                         final String subtitle = switch (granted) {
                           true => 'Granted',
@@ -105,8 +138,40 @@ class SettingsScreen extends ConsumerWidget {
                           null => 'Unknown until app initializes notifications',
                         };
                         return _NeonStatusTile(
-                          title: 'Notification Permission',
+                          title: 'Alert Permission',
                           subtitle: subtitle,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    ValueListenableBuilder<bool?>(
+                      valueListenable: ref.watch(
+                        notificationPermissionListenableProvider,
+                      ),
+                      builder: (context, granted, _) {
+                        return NotificationPermissionPrompt(
+                          permissionGranted: granted,
+                          onRequestPermission: () async {
+                            final bool granted = await ref
+                                .read(settingsUiActionsProvider)
+                                .requestNotificationPermission();
+                            return granted;
+                          },
+                          onOpenSystemSettings: () async {
+                            final bool opened = await ref
+                                .read(settingsUiActionsProvider)
+                                .openSystemAppSettings();
+                            if (!context.mounted || opened) {
+                              return;
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Open your device app settings and enable notifications for ChronoSpark.',
+                                ),
+                              ),
+                            );
+                          },
                         );
                       },
                     ),
@@ -115,15 +180,24 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
+              const _ReflectionReminderSection(),
+              if (reflectionTutorialEnabled) ...[
+                const SizedBox(height: 12),
+                const _DailyReflectionTutorialPanel(),
+              ],
+              const SizedBox(height: 16),
+
               _Section(
-                label: 'ACCOUNT',
+                label: 'IDENTITY & ACCESS',
                 accentColor: AppColors.neonViolet,
                 child: Column(
                   children: [
                     _NeonNavTile(
-                      title: access.hasTesterFullAccess ? 'Tester Access' : 'Subscription',
+                      title: access.hasTesterFullAccess
+                          ? 'Tester Access'
+                          : 'Subscription',
                       subtitle: access.subscriptionStatusDetail,
-                      onTap: () => context.go(RoutePaths.paywall),
+                      onTap: () => context.go(routes.paywall),
                     ),
                     if (hasMockSession)
                       _NeonNavTile(
@@ -132,20 +206,55 @@ class SettingsScreen extends ConsumerWidget {
                             'Return to login and disable the current tester mock auth session.',
                         onTap: () {
                           ref.read(mockAuthSessionProvider.notifier).set(false);
-                          context.go(RoutePaths.login);
+                          context.go(routes.login);
                         },
                       ),
+                    if (access.hasTesterFullAccess)
+                      _NeonNavTile(
+                        title: 'Reset Tester Data',
+                        subtitle:
+                            'Erase local test content and restart onboarding.',
+                        onTap: () =>
+                            unawaited(_confirmTesterReset(context, ref)),
+                      ),
+                    if (!hasMockSession)
+                      accountDeletionConfigured
+                          ? _NeonNavTile(
+                              title: 'Delete Account',
+                              subtitle:
+                                  'Permanently delete your account and all synced data.',
+                              onTap: () => unawaited(
+                                _confirmDeleteAccount(context, ref),
+                              ),
+                            )
+                          : _NeonNavTile(
+                              title: 'Delete Account',
+                              subtitle:
+                                  'Temporarily unavailable in this build while account deletion is being finalized.',
+                              onTap: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Account deletion is not configured for this build yet.',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
 
               _Section(
-                label: 'RUNTIME MODE',
+                label: 'RUNTIME FLAGS',
                 accentColor: AppColors.neonCyan,
                 child: Column(
                   children: [
-                    _NeonStatusTile(title: 'Flavor', subtitle: intelligence.environment.appFlavor),
+                    _NeonStatusTile(
+                      title: 'Flavor',
+                      subtitle: intelligence.environment.appFlavor,
+                    ),
                     _NeonStatusTile(
                       title: 'Mock Mode',
                       subtitle: intelligence.flags.mockMode
@@ -160,7 +269,9 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     _NeonStatusTile(
                       title: 'Mock Login',
-                      subtitle: intelligence.flags.mockLoginEnabled ? 'Enabled' : 'Disabled',
+                      subtitle: intelligence.flags.mockLoginEnabled
+                          ? 'Enabled'
+                          : 'Disabled',
                     ),
                   ],
                 ),
@@ -168,28 +279,24 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               _Section(
-                label: 'LEGAL',
+                label: 'LEGAL PROTOCOLS',
                 accentColor: AppColors.memoryAmber,
                 child: Column(
                   children: [
                     _NeonNavTile(
                       title: 'Privacy Policy',
                       subtitle: AppUrls.privacy,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              const _InfoScreen(title: 'Privacy Policy', body: _kPrivacyPolicy),
-                        ),
-                      ),
+                      onTap: () => context.push(routes.privacy),
                     ),
                     _NeonNavTile(
                       title: 'Terms of Service',
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) =>
-                              const _InfoScreen(title: 'Terms of Service', body: _kTermsOfService),
+                          builder: (_) => const _InfoScreen(
+                            title: 'Terms of Service',
+                            body: _kTermsOfService,
+                          ),
                         ),
                       ),
                     ),
@@ -199,287 +306,252 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) => const _InfoScreen(title: 'Support', body: _kSupportInfo),
+                          builder: (_) => const _InfoScreen(
+                            title: 'Support',
+                            body: _kSupportInfo,
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
+              if (kDebugMode) ...[
+                const SizedBox(height: 16),
+                _Section(
+                  label: 'DEV TOOLS',
+                  accentColor: AppColors.neonViolet,
+                  child: _NeonNavTile(
+                    title: 'Generate Test Data',
+                    subtitle: '20 tasks · XP 2400 · streak 14 · energy 75%',
+                    onTap: () =>
+                        unawaited(TestDataGenerator.generate(ref, context)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _Section(
+                  label: 'PRODUCT ADVISOR',
+                  accentColor: AppColors.memoryAmber,
+                  child: _NeonNavTile(
+                    title: 'Open Advisor',
+                    subtitle: 'Insights, recommendations, and optimizer state',
+                    onTap: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ProductAdvisorScreen(),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const _GlobalMetricsDebugSection(),
+                const SizedBox(height: 16),
+                const _TutorialLifecycleDebugSection(),
+              ],
             ],
           ),
         ),
       ),
     );
   }
-}
 
-class _Section extends StatelessWidget {
-  const _Section({required this.label, required this.child, required this.accentColor});
-  final String label;
-  final Widget child;
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accentColor.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(color: accentColor.withValues(alpha: 0.06), blurRadius: 16, spreadRadius: -2),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-            child: Row(
-              children: [
-                Container(
-                  width: 2,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: accentColor,
-                    borderRadius: BorderRadius.circular(1),
-                  ),
+  Future<void> _confirmTesterReset(BuildContext context, WidgetRef ref) async {
+    final routes = ref.read(routeSurfaceProvider);
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: const Text('Purge tester runtime data?'),
+              content: const Text(
+                'This permanently removes local tasks, goals, memories, '
+                'timeline history, profile progress, focus recovery, logs, '
+                'SI state, and tester settings on this device.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Abort'),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 2.5,
-                    color: accentColor,
-                    fontWeight: FontWeight.w700,
-                  ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Purge Data'),
                 ),
               ],
+            );
+          },
+        ) ??
+        false;
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Purging local tester runtime data...')),
+    );
+
+    try {
+      await ref.read(testerDataResetControllerProvider).reset();
+      if (context.mounted) {
+        context.go(routes.onboarding);
+      }
+    } on Exception {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Tester data purge did not complete. Restart and retry.',
             ),
           ),
-          const SizedBox(height: 4),
-          child,
-          const SizedBox(height: 4),
-        ],
-      ),
-    );
+        );
+      }
+    }
   }
-}
 
-class _NeonToggleTile extends StatelessWidget {
-  const _NeonToggleTile({required this.title, required this.value, required this.onChanged});
-  final String title;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: AppColors.neonCyan,
-            activeTrackColor: AppColors.neonCyan.withValues(alpha: 0.3),
-            inactiveTrackColor: Colors.white12,
-            inactiveThumbColor: Colors.white38,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NeonNavTile extends StatelessWidget {
-  const _NeonNavTile({required this.title, required this.onTap, this.subtitle});
-  final String title;
-  final VoidCallback onTap;
-  final String? subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                  if (subtitle != null)
-                    Text(
-                      subtitle ?? '',
-                      maxLines: 3,
-                      softWrap: true,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.35),
-                    ),
-                ],
+  Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final routes = ref.read(routeSurfaceProvider);
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: const Text('Initiate permanent account purge?'),
+              content: const Text(
+                'This action cannot be undone. Your account and synced data will be permanently removed.',
               ),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.white38, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NeonStatusTile extends StatelessWidget {
-  const _NeonStatusTile({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                Text(
-                  subtitle,
-                  maxLines: 2,
-                  softWrap: true,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.35),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Abort'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Continue'),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+            );
+          },
+        ) ??
+        false;
 
-// ---------------------------------------------------------------------------
-// Generic info screen (Privacy Policy / Terms of Service)
-// ---------------------------------------------------------------------------
+    if (!confirmed || !context.mounted) {
+      return;
+    }
 
-class _InfoScreen extends StatelessWidget {
-  const _InfoScreen({required this.title, required this.body});
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSystemBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppColors.neonCyan.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_ios_new,
-                          color: AppColors.neonCyan,
-                          size: 16,
-                        ),
-                      ),
+    final TextEditingController passwordController = TextEditingController();
+    bool obscurePassword = true;
+    final String? password = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (BuildContext _, StateSetter setState) {
+            return AlertDialog(
+              title: const Text('Authorize account purge'),
+              content: TextField(
+                controller: passwordController,
+                obscureText: obscurePassword,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Account password',
+                  suffixIcon: IconButton(
+                    tooltip: obscurePassword
+                        ? 'Show password'
+                        : 'Hide password',
+                    onPressed: () => setState(() {
+                      obscurePassword = !obscurePassword;
+                    }),
+                    icon: Icon(
+                      obscurePassword ? Icons.visibility_off : Icons.visibility,
                     ),
-                    const SizedBox(width: 14),
-                    ShaderMask(
-                      shaderCallback: (bounds) => const LinearGradient(
-                        colors: [AppColors.neonCyan, AppColors.neonViolet],
-                      ).createShader(bounds),
-                      child: Text(
-                        title.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 2.5,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                  child: Text(
-                    body,
-                    style: const TextStyle(fontSize: 13, color: Colors.white60, height: 1.75),
                   ),
                 ),
+                onSubmitted: (String value) {
+                  Navigator.of(dialogContext).pop(value.trim());
+                },
               ),
-            ],
-          ),
-        ),
-      ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Abort'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(
+                    dialogContext,
+                  ).pop(passwordController.text.trim()),
+                  child: const Text('Purge Account'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+    passwordController.dispose();
+
+    final String secret = password?.trim() ?? '';
+    if (secret.isEmpty || !context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Executing account purge...')));
+
+    try {
+      await ref
+          .read(authServiceProvider)
+          .deleteCurrentAccount(password: secret);
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Account purge complete.')));
+      context.go(routes.login);
+    } on FirebaseAuthException catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_friendlyDeleteError(error))));
+    } on Exception {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account purge failed. Retry.')),
+      );
+    }
+  }
+
+  String _friendlyDeleteError(FirebaseAuthException error) {
+    final String message = error.message?.trim() ?? '';
+    switch (error.code) {
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Password is incorrect.';
+      case 'missing-password':
+      case 'missing-email':
+      case 'operation-not-supported':
+      case 'operation-failed':
+      case 'network-request-failed':
+        return message.isNotEmpty ? message : 'Account purge failed.';
+      case 'no-current-user':
+        return 'Session expired. Sign in again.';
+      default:
+        if (message.isNotEmpty) {
+          return message;
+        }
+        return 'Account purge failed. Retry.';
+    }
   }
 }
 
-// ---------------------------------------------------------------------------
-// Legal text
-// ---------------------------------------------------------------------------
-
-const _kPrivacyPolicy = '''
-ChronoSpark collects and processes task data, energy metrics, and session history solely to provide its productivity features. All data is stored locally on your device unless you opt in to cloud sync.
-
-We do not sell, share, or transmit your personal data to third parties. Analytics, if enabled, are aggregated and anonymised.
-
-You may delete your local data at any time by uninstalling the app. For questions, contact support through the app store listing.
-
-Last updated: 2025.
-''';
-
-const _kTermsOfService = '''
-By using ChronoSpark, you agree to use the app for personal productivity purposes only.
-
-The app is provided "as-is" without warranty of any kind. Task recommendations are generated algorithmically and are not a substitute for professional advice.
-
-Subscription features, where available, are subject to the pricing and terms displayed at point of purchase. Refunds are handled according to the platform's (Apple App Store / Google Play) refund policy.
-
-We reserve the right to modify these terms at any time. Continued use of the app constitutes acceptance of any revised terms.
-
-Last updated: 2025.
-''';
-
-const _kSupportInfo = '''
-ChronoSpark support:
-
-Website: https://chronospark.app/support
-
-Closed testing notes:
-- Tester builds may include bypassed authentication and premium access.
-- Live billing is not enabled in QA builds.
-- If you encounter an issue, include device model, OS version, and the screen where the issue occurred.
-
-For account or privacy questions, use the support channel listed on the store listing.
-''';
+bool _hasSecureHttpsEndpoint(String value) {
+  final Uri? uri = Uri.tryParse(value.trim());
+  return uri != null && uri.hasAuthority && uri.scheme == 'https';
+}

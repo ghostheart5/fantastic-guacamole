@@ -21,5 +21,6 @@ extension ContextExt on BuildContext {
 
   // Scaffold
   ScaffoldMessengerState get messenger => ScaffoldMessenger.of(this);
-  void showSnackBar(SnackBar snackBar) => ScaffoldMessenger.of(this).showSnackBar(snackBar);
+  void showSnackBar(SnackBar snackBar) =>
+      ScaffoldMessenger.of(this).showSnackBar(snackBar);
 }

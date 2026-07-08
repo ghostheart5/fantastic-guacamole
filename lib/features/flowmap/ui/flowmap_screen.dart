@@ -1,16 +1,44 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
-import 'package:fantastic_guacamole/core/widgets/smart_pressable.dart';
-import 'package:fantastic_guacamole/features/flowmap/models/flowmap_node.dart';
+import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class FlowmapScreen extends ConsumerWidget {
   const FlowmapScreen({super.key});
 
+  static const String _featureReadPathFlag = 'flowmap_feature_read_path';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(flowmapProvider);
+    final bool useFeatureReadPath = ref.watch(
+      featureFlagEnabledProvider(_featureReadPathFlag),
+    );
+    final AsyncValue<List<FlowmapNode>> legacyState = ref.watch(
+      flowmapProvider,
+    );
+    final AsyncValue<List<FlowmapNode>> featureState = ref
+        .watch(featureFlowmapGraphProvider)
+        .whenData(
+          (graph) =>
+              graph.nodes
+                  .map(
+                    (node) => FlowmapNode(
+                      id: node.id,
+                      title: node.title,
+                      description: node.description,
+                      tags: node.tags,
+                      createdAt: node.createdAt ?? DateTime.now(),
+                    ),
+                  )
+                  .toList()
+                ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
+        );
+
+    final AsyncValue<List<FlowmapNode>> state = useFeatureReadPath
+        ? featureState
+        : legacyState;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B111C),
@@ -19,7 +47,11 @@ class FlowmapScreen extends ConsumerWidget {
         elevation: 0,
         leading: SmartPressable(
           onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
-          child: const Icon(Icons.arrow_back_ios_new, color: AppColors.neonCyan, size: 18),
+          child: const Icon(
+            Icons.arrow_back_ios_new,
+            color: AppColors.neonCyan,
+            size: 18,
+          ),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,8 +71,12 @@ class FlowmapScreen extends ConsumerWidget {
               ),
             ),
             const Text(
-              'MIND ARCHITECTURE',
-              style: TextStyle(fontSize: 9, letterSpacing: 2, color: Colors.white38),
+              'ADAPTIVE MAP CORE',
+              style: TextStyle(
+                fontSize: 9,
+                letterSpacing: 2,
+                color: Colors.white38,
+              ),
             ),
           ],
         ),
@@ -57,7 +93,10 @@ class FlowmapScreen extends ConsumerWidget {
       ),
       body: state.when(
         loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.neonCyan, strokeWidth: 2),
+          child: CircularProgressIndicator(
+            color: AppColors.neonCyan,
+            strokeWidth: 2,
+          ),
         ),
         error: (e, _) => Center(
           child: Text(
@@ -88,7 +127,15 @@ class FlowmapScreen extends ConsumerWidget {
         onAdd: (title, description, tags) {
           ref
               .read(flowmapProvider.notifier)
-              .addNode(title: title, description: description, tags: tags);
+              .addNode(
+                title: title,
+                description: description,
+                tags: tags,
+                refreshCoach: true,
+                syncSoulMap: true,
+                updateInsights: true,
+                awardProgression: true,
+              );
         },
       ),
     );
@@ -139,12 +186,19 @@ class _NodeCard extends ConsumerWidget {
                   const SizedBox(height: 4),
                   Text(
                     description,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 12,
+                      height: 1.5,
+                    ),
                   ),
                 ],
                 if (node.tags.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Wrap(spacing: 6, children: node.tags.map((tag) => _Tag(tag)).toList()),
+                  Wrap(
+                    spacing: 6,
+                    children: node.tags.map((tag) => _Tag(tag)).toList(),
+                  ),
                 ],
               ],
             ),
@@ -178,7 +232,11 @@ class _Tag extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 10, color: AppColors.neonViolet, letterSpacing: 0.5),
+        style: const TextStyle(
+          fontSize: 10,
+          color: AppColors.neonViolet,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
@@ -200,7 +258,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const Text(
-            'NO NODES',
+            'NO FLOW NODES',
             style: TextStyle(
               color: Colors.white38,
               fontSize: 11,
@@ -210,7 +268,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Tap + to add your first node',
+            'Tap + to create your first node',
             style: TextStyle(color: Colors.white24, fontSize: 12),
           ),
         ],
@@ -222,7 +280,8 @@ class _EmptyState extends StatelessWidget {
 class _AddNodeSheet extends StatefulWidget {
   const _AddNodeSheet({required this.onAdd});
 
-  final void Function(String title, String? description, List<String> tags) onAdd;
+  final void Function(String title, String? description, List<String> tags)
+  onAdd;
 
   @override
   State<_AddNodeSheet> createState() => _AddNodeSheetState();
@@ -245,16 +304,29 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
     final title = _titleCtrl.text.trim();
     if (title.isEmpty) return;
 
-    final tags = _tagsCtrl.text.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
+    final tags = _tagsCtrl.text
+        .split(',')
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
 
-    widget.onAdd(title, _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(), tags);
+    widget.onAdd(
+      title,
+      _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+      tags,
+    );
     Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,7 +343,7 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
               ),
               const SizedBox(width: 10),
               const Text(
-                'NEW NODE',
+                'CREATE NODE',
                 style: TextStyle(
                   fontSize: 12,
                   letterSpacing: 2.5,
@@ -282,11 +354,18 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
             ],
           ),
           const SizedBox(height: 16),
-          _SheetField(controller: _titleCtrl, hint: 'Title *'),
+          _SheetField(controller: _titleCtrl, hint: 'Node title *'),
           const SizedBox(height: 10),
-          _SheetField(controller: _descCtrl, hint: 'Description (optional)', maxLines: 3),
+          _SheetField(
+            controller: _descCtrl,
+            hint: 'Node briefing (optional)',
+            maxLines: 3,
+          ),
           const SizedBox(height: 10),
-          _SheetField(controller: _tagsCtrl, hint: 'Tags — comma separated (optional)'),
+          _SheetField(
+            controller: _tagsCtrl,
+            hint: 'Tags - comma separated (optional)',
+          ),
           const SizedBox(height: 16),
           SmartPressable(
             onTap: _submit,
@@ -296,10 +375,12 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
               decoration: BoxDecoration(
                 color: AppColors.neonCyan.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.5)),
+                border: Border.all(
+                  color: AppColors.neonCyan.withValues(alpha: 0.5),
+                ),
               ),
               child: const Text(
-                'ADD NODE',
+                'CREATE NODE',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
@@ -317,7 +398,11 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
 }
 
 class _SheetField extends StatelessWidget {
-  const _SheetField({required this.controller, required this.hint, this.maxLines = 1});
+  const _SheetField({
+    required this.controller,
+    required this.hint,
+    this.maxLines = 1,
+  });
 
   final TextEditingController controller;
   final String hint;
@@ -334,18 +419,27 @@ class _SheetField extends StatelessWidget {
         hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.04),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.15)),
+          borderSide: BorderSide(
+            color: AppColors.neonCyan.withValues(alpha: 0.15),
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.15)),
+          borderSide: BorderSide(
+            color: AppColors.neonCyan.withValues(alpha: 0.15),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.5)),
+          borderSide: BorderSide(
+            color: AppColors.neonCyan.withValues(alpha: 0.5),
+          ),
         ),
       ),
     );

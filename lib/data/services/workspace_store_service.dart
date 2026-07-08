@@ -29,7 +29,9 @@ class CreatorWorkspaceState {
   factory CreatorWorkspaceState.fromJson(Map<String, dynamic> json) {
     List<String> toStrings(String key) {
       final dynamic raw = json[key];
-      final List<dynamic> values = raw is List<dynamic> ? raw : const <dynamic>[];
+      final List<dynamic> values = raw is List<dynamic>
+          ? raw
+          : const <dynamic>[];
       return values.map((dynamic e) => e.toString()).toList();
     }
 
@@ -43,7 +45,10 @@ class CreatorWorkspaceState {
 }
 
 class TemporalPlannerState {
-  const TemporalPlannerState({required this.selectedDay, required this.timelineItems});
+  const TemporalPlannerState({
+    required this.selectedDay,
+    required this.timelineItems,
+  });
 
   final String selectedDay;
   final List<PlannerTimelineItem> timelineItems;
@@ -51,13 +56,17 @@ class TemporalPlannerState {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'selectedDay': selectedDay,
-      'timelineItems': timelineItems.map((PlannerTimelineItem item) => item.toJson()).toList(),
+      'timelineItems': timelineItems
+          .map((PlannerTimelineItem item) => item.toJson())
+          .toList(),
     };
   }
 
   factory TemporalPlannerState.fromJson(Map<String, dynamic> json) {
     final dynamic rawTimeline = json['timelineItems'];
-    final List<dynamic> raw = rawTimeline is List<dynamic> ? rawTimeline : const <dynamic>[];
+    final List<dynamic> raw = rawTimeline is List<dynamic>
+        ? rawTimeline
+        : const <dynamic>[];
     final List<PlannerTimelineItem> parsedItems = raw
         .whereType<Map<dynamic, dynamic>>()
         .map((Map<dynamic, dynamic> e) => e.cast<String, dynamic>())
@@ -86,7 +95,12 @@ class PlannerTimelineItem {
   final String colorHex;
 
   Map<String, dynamic> toJson() {
-    return <String, dynamic>{'time': time, 'title': title, 'kind': kind, 'colorHex': colorHex};
+    return <String, dynamic>{
+      'time': time,
+      'title': title,
+      'kind': kind,
+      'colorHex': colorHex,
+    };
   }
 
   factory PlannerTimelineItem.fromJson(Map<String, dynamic> json) {
@@ -202,12 +216,17 @@ class WorkspaceStoreService {
   Future<CreatorWorkspaceState> loadCreatorState() async {
     final String? raw = await _store.readString(_creatorKey);
     if (raw != null && raw.trim().isNotEmpty) {
-      final Map<String, dynamic>? decoded = _decodeStateMap(raw, storageKey: _creatorKey);
+      final Map<String, dynamic>? decoded = _decodeStateMap(
+        raw,
+        storageKey: _creatorKey,
+      );
       if (decoded != null) {
         try {
           return CreatorWorkspaceState.fromJson(decoded);
         } on TypeError catch (error) {
-          Logger.error('Creator workspace state invalid shape. Re-seeding defaults. $error');
+          Logger.error(
+            'Creator workspace state invalid shape. Re-seeding defaults. $error',
+          );
         }
       }
     }
@@ -224,12 +243,17 @@ class WorkspaceStoreService {
   Future<TemporalPlannerState> loadTemporalState() async {
     final String? raw = await _store.readString(_temporalKey);
     if (raw != null && raw.trim().isNotEmpty) {
-      final Map<String, dynamic>? decoded = _decodeStateMap(raw, storageKey: _temporalKey);
+      final Map<String, dynamic>? decoded = _decodeStateMap(
+        raw,
+        storageKey: _temporalKey,
+      );
       if (decoded != null) {
         try {
           return TemporalPlannerState.fromJson(decoded);
         } on TypeError catch (error) {
-          Logger.error('Temporal workspace state invalid shape. Re-seeding defaults. $error');
+          Logger.error(
+            'Temporal workspace state invalid shape. Re-seeding defaults. $error',
+          );
         }
       }
     }
@@ -246,12 +270,17 @@ class WorkspaceStoreService {
   Future<SIWorkspaceState> loadSiState() async {
     final String? raw = await _store.readString(_siKey);
     if (raw != null && raw.trim().isNotEmpty) {
-      final Map<String, dynamic>? decoded = _decodeStateMap(raw, storageKey: _siKey);
+      final Map<String, dynamic>? decoded = _decodeStateMap(
+        raw,
+        storageKey: _siKey,
+      );
       if (decoded != null) {
         try {
           return SIWorkspaceState.fromJson(decoded);
         } on TypeError catch (error) {
-          Logger.error('SI workspace state invalid shape. Re-seeding defaults. $error');
+          Logger.error(
+            'SI workspace state invalid shape. Re-seeding defaults. $error',
+          );
         }
       }
     }
@@ -280,14 +309,20 @@ class WorkspaceStoreService {
 
     final SIWorkspaceState updated = SIWorkspaceState(
       reflections: <String>[...current.reflections, note],
-      reflectionEntries: <SIReflectionEntry>[...current.reflectionEntries, entry],
+      reflectionEntries: <SIReflectionEntry>[
+        ...current.reflectionEntries,
+        entry,
+      ],
       stressLevel: current.stressLevel,
     );
     await saveSiState(updated);
     return updated;
   }
 
-  Map<String, dynamic>? _decodeStateMap(String raw, {required String storageKey}) {
+  Map<String, dynamic>? _decodeStateMap(
+    String raw, {
+    required String storageKey,
+  }) {
     try {
       final dynamic decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) {
@@ -296,18 +331,26 @@ class WorkspaceStoreService {
       if (decoded is Map<dynamic, dynamic>) {
         return decoded.cast<String, dynamic>();
       }
-      Logger.error('Workspace payload at $storageKey is not a JSON object. Re-seeding defaults.');
+      Logger.error(
+        'Workspace payload at $storageKey is not a JSON object. Re-seeding defaults.',
+      );
       return null;
     } on FormatException catch (error) {
-      Logger.error('Workspace payload at $storageKey is corrupt JSON. Re-seeding defaults. $error');
+      Logger.error(
+        'Workspace payload at $storageKey is corrupt JSON. Re-seeding defaults. $error',
+      );
       return null;
     }
   }
 
   Future<CreatorWorkspaceState> _loadCreatorSeed() async {
     try {
-      final String content = await rootBundle.loadString('assets/data/creator_seed.json');
-      return CreatorWorkspaceState.fromJson(jsonDecode(content) as Map<String, dynamic>);
+      final String content = await rootBundle.loadString(
+        'assets/data/creator_seed.json',
+      );
+      return CreatorWorkspaceState.fromJson(
+        jsonDecode(content) as Map<String, dynamic>,
+      );
     } on Exception {
       return const CreatorWorkspaceState(
         tasksEvents: <String>[],
@@ -320,17 +363,28 @@ class WorkspaceStoreService {
 
   Future<TemporalPlannerState> _loadTemporalSeed() async {
     try {
-      final String content = await rootBundle.loadString('assets/data/temporal_seed.json');
-      return TemporalPlannerState.fromJson(jsonDecode(content) as Map<String, dynamic>);
+      final String content = await rootBundle.loadString(
+        'assets/data/temporal_seed.json',
+      );
+      return TemporalPlannerState.fromJson(
+        jsonDecode(content) as Map<String, dynamic>,
+      );
     } on Exception {
-      return const TemporalPlannerState(selectedDay: 'Mon', timelineItems: <PlannerTimelineItem>[]);
+      return const TemporalPlannerState(
+        selectedDay: 'Mon',
+        timelineItems: <PlannerTimelineItem>[],
+      );
     }
   }
 
   Future<SIWorkspaceState> _loadSiSeed() async {
     try {
-      final String content = await rootBundle.loadString('assets/data/si_seed.json');
-      return SIWorkspaceState.fromJson(jsonDecode(content) as Map<String, dynamic>);
+      final String content = await rootBundle.loadString(
+        'assets/data/si_seed.json',
+      );
+      return SIWorkspaceState.fromJson(
+        jsonDecode(content) as Map<String, dynamic>,
+      );
     } on Exception {
       return const SIWorkspaceState(
         reflections: <String>[],

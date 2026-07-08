@@ -1,8 +1,8 @@
-import 'package:fantastic_guacamole/core/entities/app_theme.dart';
+import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 
 abstract class IThemeRepository {
-  Future<AppTheme?> getCurrentTheme();
-  Future<void> saveTheme(AppTheme theme);
-  Future<AppTheme?> getThemeById(String id);
-  Future<List<AppTheme>?> getAllThemes();
+  Future<AppThemeEntity?> getCurrentTheme();
+  Future<void> saveTheme(AppThemeEntity theme);
+  Future<AppThemeEntity?> getThemeById(String id);
+  Future<List<AppThemeEntity>?> getAllThemes();
 }

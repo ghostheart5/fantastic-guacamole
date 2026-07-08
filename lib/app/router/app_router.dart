@@ -1,189 +1,230 @@
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
-import 'package:fantastic_guacamole/features/coach/ui/coach_screen.dart';
-import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
-import 'package:fantastic_guacamole/features/focus/ui/focus_screen.dart';
-import 'package:fantastic_guacamole/features/insights/ui/insight_screen.dart';
-import 'package:fantastic_guacamole/features/logs/ui/logs_screen.dart';
-import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
-import 'package:fantastic_guacamole/features/plan/ui/plan_screen.dart';
-import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
-import 'package:fantastic_guacamole/features/progression/ui/progression_screen.dart';
-import 'package:fantastic_guacamole/features/reflect/ui/reflect_screen.dart';
-import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
-import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
-import 'package:fantastic_guacamole/features/tasks/ui/task_screen.dart';
 import 'package:fantastic_guacamole/onboarding/onboarding_screen.dart';
+import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
+import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
+    hide authenticatedGuardProvider;
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+final _appRouterRefreshListenableProvider =
+    Provider<_AppRouterRefreshListenable>((ref) {
+      final _AppRouterRefreshListenable listenable =
+          _AppRouterRefreshListenable(ref);
+      ref.onDispose(listenable.dispose);
+      return listenable;
+    });
+
+class _AppRouterRefreshListenable extends ChangeNotifier {
+  _AppRouterRefreshListenable(this._ref) {
+    _ref.listen<bool>(authenticatedGuardProvider, (_, _) => notifyListeners());
+    _ref.listen<bool>(
+      onboardingCompleteGuardProvider,
+      (_, _) => notifyListeners(),
+    );
+    _ref.listen(intelligenceStateProvider, (_, _) => notifyListeners());
+    _ref.listen(mockLoginConfigProvider, (_, _) => notifyListeners());
+  }
+
+  final Ref _ref;
+
+  bool get isAuthenticated => _ref.read(authenticatedGuardProvider);
+  bool get onboardingComplete => _ref.read(onboardingCompleteGuardProvider);
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final bool onboardingComplete = ref.watch(onboardingCompleteGuardProvider);
-  final bool isAuthenticated = ref.watch(authenticatedGuardProvider);
-  final bool hasPremiumAccess = ref.watch(premiumAccessGuardProvider);
+  final _AppRouterRefreshListenable refresh = ref.read(
+    _appRouterRefreshListenableProvider,
+  );
 
   return GoRouter(
     initialLocation: RoutePaths.home,
     debugLogDiagnostics: false,
+    refreshListenable: refresh,
     redirect: (BuildContext context, GoRouterState state) {
+      final bool isAuthenticated = refresh.isAuthenticated;
+      final bool onboardingComplete = refresh.onboardingComplete;
       final String location = state.matchedLocation;
-
-      if (location == RoutePaths.shell && onboardingComplete && isAuthenticated) {
-        return RoutePaths.home;
-      }
-
-      if (location == RoutePaths.onboarding && onboardingComplete) {
-        return isAuthenticated ? RoutePaths.home : RoutePaths.login;
-      }
 
       if (!onboardingComplete && location != RoutePaths.onboarding) {
         return RoutePaths.onboarding;
       }
 
-      if (!isAuthenticated && location != RoutePaths.login && location != RoutePaths.onboarding) {
+      if (location == RoutePaths.shell && isAuthenticated) {
+        return RoutePaths.home;
+      }
+
+      if (location == RoutePaths.onboarding) {
+        if (isAuthenticated) {
+          return RoutePaths.home;
+        }
+        if (!onboardingComplete) {
+          return null;
+        }
         return RoutePaths.login;
+      }
+
+      if (!isAuthenticated &&
+          onboardingComplete &&
+          location != RoutePaths.login) {
+        return RoutePaths.login;
+      }
+
+      if (location == RoutePaths.login && !onboardingComplete) {
+        return RoutePaths.onboarding;
       }
 
       if (location == RoutePaths.login && isAuthenticated) {
         return RoutePaths.home;
       }
 
-      if (!hasPremiumAccess && location == RoutePaths.feature3) {
-        return RoutePaths.paywall;
-      }
-
       return null;
     },
     routes: <RouteBase>[
-      ShellRoute(
-        builder: (BuildContext context, GoRouterState state, Widget child) {
-          return Scaffold(body: child);
-        },
-        routes: <RouteBase>[
-          GoRoute(
-            path: RoutePaths.home,
-            builder: (BuildContext context, GoRouterState state) => const NavigationShell(),
-          ),
-        ],
+      // Primary surfaces: Now, Plan, Add, Reflect, Settings.
+      GoRoute(
+        path: RoutePaths.onboarding,
+        builder: (BuildContext context, GoRouterState state) =>
+            const OnboardingScreen(),
       ),
       GoRoute(
-        path: RoutePaths.coach,
-        builder: (BuildContext context, GoRouterState state) => const CoachScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.focus,
-        builder: (BuildContext context, GoRouterState state) => const FocusScreen(),
+        path: RoutePaths.home,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(),
       ),
       GoRoute(
         path: RoutePaths.plan,
-        builder: (BuildContext context, GoRouterState state) => const PlanScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.create,
-        builder: (BuildContext context, GoRouterState state) => const CreatorScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.plan),
       ),
       GoRoute(
         path: RoutePaths.creator,
-        builder: (BuildContext context, GoRouterState state) => const CreatorScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.reflect,
-        builder: (BuildContext context, GoRouterState state) => const ReflectScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.creator),
       ),
       GoRoute(
         path: RoutePaths.insights,
-        builder: (BuildContext context, GoRouterState state) => const InsightScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.insight),
+      ),
+      GoRoute(
+        path: RoutePaths.settings,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.settings),
+      ),
+
+      // Secondary and advanced routes.
+      GoRoute(
+        path: RoutePaths.notifications,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NotificationsPage(),
       ),
       GoRoute(
         path: RoutePaths.logs,
-        builder: (BuildContext context, GoRouterState state) => const LogsScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.logs),
       ),
       GoRoute(
-        path: RoutePaths.nexus,
-        builder: (BuildContext context, GoRouterState state) => const NexusScreen(),
+        path: RoutePaths.tasks,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.tasks),
       ),
       GoRoute(
-        path: RoutePaths.notifications,
-        builder: (BuildContext context, GoRouterState state) => const NotificationsPage(),
+        path: RoutePaths.profile,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.profile),
       ),
       GoRoute(
         path: RoutePaths.progression,
-        builder: (BuildContext context, GoRouterState state) => const ProgressionScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.temporal,
-        builder: (BuildContext context, GoRouterState state) => const ProgressionScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.progression),
       ),
       GoRoute(
         path: RoutePaths.si,
         builder: (BuildContext context, GoRouterState state) =>
-            hasPremiumAccess ? const SIConsoleScreen() : const PaywallPage(),
+            const NavigationShell(initialView: AppView.console),
+      ),
+
+      // Legacy top-level routes redirect into the secondary hierarchy.
+      // Sunset target is tracked in docs/LEGACY_ROUTE_SUNSET.md and reviewed by 2026-10-01.
+      GoRoute(
+        path: RoutePaths.legacyCoach,
+        redirect: (_, _) => RoutePaths.home,
+      ),
+      GoRoute(path: RoutePaths.legacyLogs, redirect: (_, _) => RoutePaths.logs),
+      GoRoute(
+        path: RoutePaths.legacyNotifications,
+        redirect: (_, _) => RoutePaths.notifications,
       ),
       GoRoute(
-        path: RoutePaths.tasks,
-        builder: (BuildContext context, GoRouterState state) => const TaskScreen(),
+        path: RoutePaths.legacyProgression,
+        redirect: (_, _) => RoutePaths.progression,
+      ),
+      GoRoute(path: RoutePaths.legacySi, redirect: (_, _) => RoutePaths.si),
+      GoRoute(
+        path: RoutePaths.legacyTasks,
+        redirect: (_, _) => RoutePaths.tasks,
       ),
       GoRoute(
-        path: RoutePaths.profile,
-        builder: (BuildContext context, GoRouterState state) => const ProfileScreen(),
+        path: RoutePaths.legacyProfile,
+        redirect: (_, _) => RoutePaths.profile,
       ),
-      GoRoute(
-        path: RoutePaths.onboarding,
-        builder: (BuildContext context, GoRouterState state) => const OnboardingScreen(),
-      ),
+
       GoRoute(
         path: RoutePaths.login,
-        builder: (BuildContext context, GoRouterState state) =>
-            const AuthGate(child: NavigationShell()),
-      ),
-      GoRoute(
-        path: RoutePaths.settings,
-        builder: (BuildContext context, GoRouterState state) => const SettingsScreen(),
+        builder: (BuildContext context, GoRouterState state) {
+          final intelligence = ref.read(intelligenceStateProvider);
+          final mockLoginConfig = ref.read(mockLoginConfigProvider);
+          return AuthGate(
+            enableMockLogin: intelligence.flags.mockLoginEnabled,
+            mockLoginEmail: mockLoginConfig.email,
+            mockLoginPassword: mockLoginConfig.password,
+            child: const NavigationShell(),
+          );
+        },
       ),
       GoRoute(
         path: RoutePaths.paywall,
-        builder: (BuildContext context, GoRouterState state) => const PaywallPage(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const PaywallPage(),
       ),
       GoRoute(
         path: RoutePaths.privacy,
-        builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'Privacy', body: 'Privacy route scaffold'),
+        builder: (BuildContext context, GoRouterState state) => const WebPageView(
+          title: 'Privacy Policy',
+          body:
+              'ChronoSpark publishes its authoritative privacy policy at the public HTTPS URL below. Use the hosted policy for the current data handling, retention, and support terms reviewed for release.',
+          externalUrl: AppUrls.privacy,
+          callToActionLabel: 'Open Hosted Privacy Policy',
+        ),
       ),
       GoRoute(
         path: RoutePaths.terms,
-        builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'Terms', body: 'Terms route scaffold'),
+        builder: (BuildContext context, GoRouterState state) => const WebPageView(
+          title: 'Terms of Service',
+          body:
+              'ChronoSpark maintains its current Terms of Service on the public HTTPS page below so release builds and store listings reference the same source of truth.',
+          externalUrl: AppUrls.terms,
+          callToActionLabel: 'Open Hosted Terms',
+        ),
       ),
       GoRoute(
         path: RoutePaths.support,
         builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'Support', body: 'Support route scaffold'),
+            const SupportPage(),
       ),
       GoRoute(
         path: RoutePaths.about,
         builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'About', body: 'About route scaffold'),
-      ),
-      GoRoute(
-        path: RoutePaths.feature1,
-        builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'Feature 1', body: 'Feature 1 scaffold'),
-      ),
-      GoRoute(
-        path: RoutePaths.feature2,
-        builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'Feature 2', body: 'Feature 2 scaffold'),
-      ),
-      GoRoute(
-        path: RoutePaths.feature3,
-        builder: (BuildContext context, GoRouterState state) =>
-            const WebPageView(title: 'Feature 3', body: 'Premium route scaffold'),
+            const AboutPage(),
       ),
     ],
   );

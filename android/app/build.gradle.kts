@@ -4,6 +4,7 @@ plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
     // END: FlutterFire Configuration
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
@@ -11,6 +12,7 @@ plugins {
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
+
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
@@ -18,9 +20,11 @@ if (keystorePropertiesFile.exists()) {
 val releaseApplicationId =
     (project.findProperty("CHRONOSPARK_APPLICATION_ID") as String?)
         ?: "com.ghostheart5.chronospark"
+
 val releaseVersionCode =
     (project.findProperty("CHRONOSPARK_VERSION_CODE") as String?)?.toIntOrNull()
         ?: flutter.versionCode
+
 val releaseVersionName =
     (project.findProperty("CHRONOSPARK_VERSION_NAME") as String?)
         ?: flutter.versionName
@@ -49,8 +53,6 @@ android {
 
     defaultConfig {
         applicationId = releaseApplicationId
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = maxOf(flutter.targetSdkVersion, 34)
         versionCode = releaseVersionCode
@@ -70,7 +72,23 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+
+            val releaseSigningConfig = signingConfigs.findByName("release")
+
+            if (releaseSigningConfig != null) {
+                signingConfig = releaseSigningConfig
+            } else {
+                // Temporary fallback for local testing only.
+                // Do NOT upload this debug-signed build to Google Play.
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 }

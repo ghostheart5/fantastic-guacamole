@@ -1,14 +1,69 @@
 import 'package:fantastic_guacamole/core/utils/validators.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
-import 'package:fantastic_guacamole/state/auth/auth_gateway_support.dart';
-import 'package:fantastic_guacamole/state/auth/auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const Color _authBackgroundColor = Color(0xFF0C0812);
 
-class AuthGate extends StatefulWidget {
+String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
+  final String backendMessage = rawMessage?.trim() ?? '';
+  switch (code) {
+    case 'invalid-email':
+      return 'Invalid email format.';
+    case 'user-not-found':
+    case 'wrong-password':
+      return 'Credentials are incorrect.';
+    case 'email-already-in-use':
+      return 'An account with this email already exists.';
+    case 'weak-password':
+      return 'Password is too weak.';
+    case 'too-many-requests':
+      return 'Rate limit engaged. Wait, then retry.';
+    case 'network-request-failed':
+      return 'Network link offline. Reconnect and retry.';
+    case 'user-disabled':
+      return 'Account access disabled. Contact support.';
+    case 'user-token-expired':
+    case 'invalid-user-token':
+      return 'Session expired. Re-authenticate.';
+    case 'requires-recent-login':
+      return 'Re-authenticate to continue securely.';
+    case 'google-sign-in-cancelled':
+    case 'popup-closed-by-user':
+      return 'Google sign-in canceled.';
+    case 'no-current-user':
+      return 'Session ended. Sign in again.';
+    case 'auth-unavailable':
+      return 'Auth backend unavailable in this runtime.';
+    case 'operation-failed':
+      return backendMessage.isNotEmpty
+          ? backendMessage
+          : 'Operation failed. Retry.';
+    case 'operation-not-supported':
+      return backendMessage.isNotEmpty
+          ? backendMessage
+          : 'This operation is unavailable in the current build.';
+    case 'missing-password':
+      return backendMessage.isNotEmpty
+          ? backendMessage
+          : 'Password is required.';
+    case 'missing-email':
+      return backendMessage.isNotEmpty
+          ? backendMessage
+          : 'Account email is unavailable.';
+    default:
+      if (backendMessage.isNotEmpty) {
+        return backendMessage;
+      }
+      return 'Authentication failed. Retry.';
+  }
+}
+
+class AuthGate extends ConsumerStatefulWidget {
   const AuthGate({
     required this.child,
     super.key,
@@ -27,10 +82,10 @@ class AuthGate extends StatefulWidget {
   final String mockLoginPassword;
 
   @override
-  State<AuthGate> createState() => _AuthGateState();
+  ConsumerState<AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends State<AuthGate> {
+class _AuthGateState extends ConsumerState<AuthGate> {
   late final Future<void> _authReadyFuture;
   AuthServiceContract? _authService;
   String? _authInitError;
@@ -52,9 +107,14 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasStartupIssue = (widget.startupError?.trim().isNotEmpty ?? false);
+    final bool hasStartupIssue =
+        (widget.startupError?.trim().isNotEmpty ?? false);
     final bool allowMockAccess =
-        widget.enableMockLogin || (!kReleaseMode && (_authInitError != null || hasStartupIssue));
+        widget.enableMockLogin ||
+        (!kReleaseMode && (_authInitError != null || hasStartupIssue));
+    final String? startupMessage = _effectiveStartupError;
+    final AuthServiceContract fallbackAuthService =
+        _authService ?? const _UnavailableAuthService();
 
     if (_mockSessionActive) {
       return widget.child;
@@ -64,6 +124,16 @@ class _AuthGateState extends State<AuthGate> {
       future: _authReadyFuture,
       builder: (BuildContext context, AsyncSnapshot<void> authSnapshot) {
         if (authSnapshot.connectionState != ConnectionState.done) {
+          if (allowMockAccess) {
+            return _AuthScreen(
+              authService: fallbackAuthService,
+              startupError: startupMessage,
+              enableMockLogin: true,
+              mockLoginEmail: widget.mockLoginEmail,
+              mockLoginPassword: widget.mockLoginPassword,
+              onMockSignIn: _activateMockSession,
+            );
+          }
           return const Scaffold(
             backgroundColor: _authBackgroundColor,
             body: Center(child: CircularProgressIndicator()),
@@ -73,12 +143,23 @@ class _AuthGateState extends State<AuthGate> {
         if (authSnapshot.hasError) {
           return const _AuthStatusMessage(
             title: 'Authentication unavailable',
-            message: 'Auth initialization failed. Please restart and try again.',
+            message:
+                'Auth initialization failed. Please restart and try again.',
           );
         }
 
         final AuthServiceContract? authService = _authService;
         if (authService == null) {
+          if (allowMockAccess) {
+            return _AuthScreen(
+              authService: fallbackAuthService,
+              startupError: startupMessage,
+              enableMockLogin: true,
+              mockLoginEmail: widget.mockLoginEmail,
+              mockLoginPassword: widget.mockLoginPassword,
+              onMockSignIn: _activateMockSession,
+            );
+          }
           return _AuthStatusMessage(
             title: 'Authentication unavailable',
             message: _authReadyTimedOut
@@ -86,7 +167,6 @@ class _AuthGateState extends State<AuthGate> {
                 : 'Auth service is not ready in this runtime.',
           );
         }
-        final String? startupMessage = _effectiveStartupError;
 
         if (_authInitError != null) {
           return _AuthScreen(
@@ -111,7 +191,8 @@ class _AuthGateState extends State<AuthGate> {
             if (snapshot.hasError) {
               return const _AuthStatusMessage(
                 title: 'Authentication unavailable',
-                message: 'Auth service reported an error. Please restart and try again.',
+                message:
+                    'Auth service reported an error. Please restart and try again.',
               );
             }
 
@@ -137,7 +218,10 @@ class _AuthGateState extends State<AuthGate> {
               );
             }
             if (!user.emailVerified) {
-              return _VerifyEmailScreen(authService: authService, email: user.email ?? '');
+              return _VerifyEmailScreen(
+                authService: authService,
+                email: user.email ?? '',
+              );
             }
             return widget.child;
           },
@@ -158,7 +242,10 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     try {
-      _authService = ProviderScope.containerOf(context, listen: false).read(authServiceProvider);
+      _authService = ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(authServiceProvider);
     } catch (e) {
       _authInitError = 'Authentication backend unavailable for this runtime.';
       _authService = const _UnavailableAuthService();
@@ -172,13 +259,17 @@ class _AuthGateState extends State<AuthGate> {
     final bool productionReadinessBanner = startupError.startsWith(
       'Production readiness configuration is incomplete',
     );
-    final bool crashlyticsOnly = startupError.contains('Crashlytics is unavailable');
-    final bool hideStartupIssue = !kReleaseMode && (crashlyticsOnly || productionReadinessBanner);
+    final bool crashlyticsOnly = startupError.contains(
+      'Crashlytics is unavailable',
+    );
+    final bool hideStartupIssue =
+        !kReleaseMode && (crashlyticsOnly || productionReadinessBanner);
     if (startupError.isNotEmpty && !hideStartupIssue) {
       issues.add(startupError);
     }
     final bool hideAuthBackendIssueForMockMode =
-        widget.enableMockLogin && authInitError.contains('Authentication backend unavailable');
+        widget.enableMockLogin &&
+        authInitError.contains('Authentication backend unavailable');
     if (authInitError.isNotEmpty && !hideAuthBackendIssueForMockMode) {
       issues.add(authInitError);
     }
@@ -192,6 +283,7 @@ class _AuthGateState extends State<AuthGate> {
     if (_mockSessionActive || !mounted) {
       return;
     }
+    ref.read(mockAuthSessionProvider.notifier).set(true);
     setState(() => _mockSessionActive = true);
   }
 }
@@ -243,7 +335,7 @@ class _AuthScreenState extends State<_AuthScreen> {
       startupError: widget.startupError,
       showMockHint: widget.enableMockLogin,
       mockHint: widget.enableMockLogin
-          ? 'Tester build detected. Use the Tester Access button to enter the app.'
+          ? 'Tester runtime detected. Use Tester Access to enter command mode.'
           : null,
       onTogglePassword: () {
         setState(() => _obscuredPassword = !_obscuredPassword);
@@ -254,7 +346,9 @@ class _AuthScreenState extends State<_AuthScreen> {
       onPrimaryAction: () => _runAuthAction(_handlePrimaryAction),
       onForgotPassword: () => _runAuthAction(_handleForgotPassword),
       onGoogleSignIn: () => _runAuthAction(_handleGoogleSignIn),
-      onMockLogin: widget.enableMockLogin ? () => _runAuthAction(_handleMockSignIn) : null,
+      onMockLogin: widget.enableMockLogin
+          ? () => _runAuthAction(_handleMockSignIn)
+          : null,
     );
   }
 
@@ -272,23 +366,23 @@ class _AuthScreenState extends State<_AuthScreen> {
     final String password = _passwordController.text;
 
     if (!Validators.isValidEmail(email)) {
-      _showMessage('Enter a valid email address.');
+      _showMessage('Enter a valid email.');
       return;
     }
 
     if (password.trim().isEmpty) {
-      _showMessage('Enter your password.');
+      _showMessage('Password required.');
       return;
     }
 
     if (_signUpMode) {
       if (!Validators.isStrongPassword(password)) {
-        _showMessage('Use at least 8 characters with upper, lower, and a number.');
+        _showMessage('Use 8+ chars with upper, lower, and a number.');
         return;
       }
       await widget.authService.signUp(email: email, password: password);
       await widget.authService.sendEmailVerification();
-      _showMessage('Verification email sent. Confirm your inbox to continue.');
+      _showMessage('Verification link sent. Confirm inbox to proceed.');
       return;
     }
 
@@ -298,11 +392,11 @@ class _AuthScreenState extends State<_AuthScreen> {
   Future<void> _handleForgotPassword() async {
     final String email = _emailController.text.trim();
     if (!Validators.isValidEmail(email)) {
-      _showMessage('Enter your email first, then tap Forgot password.');
+      _showMessage('Enter account email, then trigger password reset.');
       return;
     }
     await widget.authService.sendPasswordReset(email);
-    _showMessage('Password reset email sent.');
+    _showMessage('Password reset link sent.');
   }
 
   Future<void> _handleGoogleSignIn() async {
@@ -325,9 +419,9 @@ class _AuthScreenState extends State<_AuthScreen> {
       if (_isSessionExpiredCode(e.code)) {
         await widget.authService.signOut();
       }
-      _showMessage(_friendlyAuthError(e.code));
+      _showMessage(friendlyAuthErrorMessage(e.code, rawMessage: e.message));
     } on Exception {
-      _showMessage('Authentication action failed. Please try again.');
+      _showMessage('Auth action failed. Retry.');
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
@@ -346,41 +440,9 @@ class _AuthScreenState extends State<_AuthScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  String _friendlyAuthError(String code) {
-    switch (code) {
-      case 'invalid-email':
-        return 'Email format is invalid.';
-      case 'user-not-found':
-      case 'wrong-password':
-        return 'Credentials are incorrect.';
-      case 'email-already-in-use':
-        return 'An account with this email already exists.';
-      case 'weak-password':
-        return 'Password is too weak.';
-      case 'too-many-requests':
-        return 'Too many attempts. Please wait and try again.';
-      case 'network-request-failed':
-        return 'Network unavailable. Check connection and retry.';
-      case 'user-disabled':
-        return 'This account has been disabled. Contact support.';
-      case 'user-token-expired':
-      case 'invalid-user-token':
-        return 'Session expired. Please sign in again.';
-      case 'requires-recent-login':
-        return 'Please sign in again to continue securely.';
-      case 'google-sign-in-cancelled':
-      case 'popup-closed-by-user':
-        return 'Google sign in was cancelled.';
-      case 'no-current-user':
-        return 'Session ended. Please sign in again.';
-      case 'auth-unavailable':
-        return 'Authentication backend is unavailable in this runtime.';
-      default:
-        return 'Authentication failed. Please try again.';
-    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -431,7 +493,10 @@ class _UnavailableAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<UserCredential> signIn({required String email, required String password}) async {
+  Future<UserCredential> signIn({
+    required String email,
+    required String password,
+  }) async {
     throw _error();
   }
 
@@ -439,7 +504,10 @@ class _UnavailableAuthService implements AuthServiceContract {
   Future<void> signOut() async {}
 
   @override
-  Future<UserCredential> signUp({required String email, required String password}) async {
+  Future<UserCredential> signUp({
+    required String email,
+    required String password,
+  }) async {
     throw _error();
   }
 }
@@ -471,20 +539,22 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
               children: <Widget>[
                 const Icon(Icons.mark_email_unread_outlined, size: 64),
                 const SizedBox(height: 12),
-                const Text('Verify your email to continue'),
+                const Text('Verify email to unlock access'),
                 const SizedBox(height: 8),
                 Text(
-                  widget.email.isEmpty ? 'Open your inbox and confirm your account.' : widget.email,
+                  widget.email.isEmpty
+                      ? 'Open inbox and confirm account access.'
+                      : widget.email,
                 ),
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: _busy ? null : _refreshVerification,
-                  child: const Text('I Verified, Continue'),
+                  child: const Text('Verified · Continue'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton(
                   onPressed: _busy ? null : _resendVerification,
-                  child: const Text('Resend Verification Email'),
+                  child: const Text('Resend Verification Link'),
                 ),
                 const SizedBox(height: 8),
                 TextButton(
@@ -515,9 +585,11 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
           (e.code == 'user-token-expired' ||
               e.code == 'invalid-user-token' ||
               e.code == 'requires-recent-login')
-          ? 'Session expired. Please sign in again.'
-          : 'Could not refresh account state right now.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+          ? 'Session expired. Sign in again.'
+          : 'Could not refresh account state.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -530,14 +602,14 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
     try {
       await widget.authService.sendEmailVerification();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Verification email sent.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verification link sent.')),
+        );
       }
     } on FirebaseAuthException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not send verification email right now.')),
+          const SnackBar(content: Text('Could not send verification link.')),
         );
       }
     } finally {

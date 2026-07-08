@@ -1,65 +1,120 @@
-class CognitiveEcosystemEvolution {
-  const CognitiveEcosystemEvolution({
-    required this.microAgentEvolution,
-    required this.personaEvolution,
-    required this.memoryClusterEvolution,
-    required this.emotionalStyleEvolution,
-    required this.reasoningShortcutEvolution,
-    required this.emergenceIndex,
+// lib/engine/si/si_cognitive_ecosystem_evolution_engine.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/si_cognitive_ecosystem_layer.dart';
+
+class EcosystemEvolutionConfig {
+  const EcosystemEvolutionConfig({
+    this.nodeDecayPerDay = 0.035,
+    this.edgeDecayPerDay = 0.045,
+    this.minimumNodeWeight = 0.08,
+    this.minimumEdgeWeight = 0.06,
   });
 
-  final List<String> microAgentEvolution;
-  final List<String> personaEvolution;
-  final List<String> memoryClusterEvolution;
-  final List<String> emotionalStyleEvolution;
-  final List<String> reasoningShortcutEvolution;
-  final double emergenceIndex;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'micro_agent_evolution': microAgentEvolution,
-      'persona_evolution': personaEvolution,
-      'memory_cluster_evolution': memoryClusterEvolution,
-      'emotional_style_evolution': emotionalStyleEvolution,
-      'reasoning_shortcut_evolution': reasoningShortcutEvolution,
-      'emergence_index': emergenceIndex,
-    };
-  }
+  final double nodeDecayPerDay;
+  final double edgeDecayPerDay;
+  final double minimumNodeWeight;
+  final double minimumEdgeWeight;
 }
 
-class CognitiveEcosystemEvolutionEngine {
-  const CognitiveEcosystemEvolutionEngine();
+class EcosystemEvolutionResult {
+  const EcosystemEvolutionResult({
+    required this.state,
+    required this.memory,
+    required this.removedNodes,
+    required this.removedEdges,
+    required this.summary,
+  });
 
-  CognitiveEcosystemEvolution evolve({
-    required int historyDepth,
-    required String mood,
-    required String intent,
-    required double resonance,
+  final SIEcosystemState state;
+  final SIMemoryStore memory;
+  final int removedNodes;
+  final int removedEdges;
+  final String summary;
+}
+
+class SICognitiveEcosystemEvolutionEngine {
+  const SICognitiveEcosystemEvolutionEngine({
+    this.config = const EcosystemEvolutionConfig(),
+  });
+
+  final EcosystemEvolutionConfig config;
+
+  EcosystemEvolutionResult evolve({
+    required SIEcosystemState state,
+    required SIMemoryStore memory,
+    DateTime? now,
   }) {
-    final double emergenceIndex = ((resonance * 0.65) + (historyDepth / 220))
-        .clamp(0.0, 1.0);
-    return CognitiveEcosystemEvolution(
-      microAgentEvolution: <String>[
-        'specialize:intent_parser',
-        'specialize:emotion_stabilizer',
-      ],
-      personaEvolution: <String>[
-        'adaptive_blend',
-        if (mood == 'stressed') 'guardian_bias' else 'creator_bias',
-      ],
-      memoryClusterEvolution: <String>[
-        'merge_related_clusters',
-        'retire_low_signal_clusters',
-      ],
-      emotionalStyleEvolution: <String>[
-        'faster_recovery',
-        'higher_empathy_precision',
-      ],
-      reasoningShortcutEvolution: <String>[
-        'pattern_first_hypothesis',
-        if (intent.contains('plan')) 'timeline_compression',
-      ],
-      emergenceIndex: emergenceIndex,
+    final DateTime timestamp = now ?? DateTime.now();
+
+    final Map<String, EcosystemNode> nodes = <String, EcosystemNode>{};
+    int removedNodes = 0;
+
+    for (final EcosystemNode node in state.nodes.values) {
+      final int ageDays = timestamp.difference(node.lastSeen).inDays;
+      final double decay = siClamp01(
+        ageDays * config.nodeDecayPerDay,
+        fallback: 0,
+      );
+      final EcosystemNode next = node.decay(timestamp, decay);
+
+      if (next.weight >= config.minimumNodeWeight) {
+        nodes[next.id] = next;
+      } else {
+        removedNodes++;
+      }
+    }
+
+    final Map<String, EcosystemEdge> edges = <String, EcosystemEdge>{};
+    int removedEdges = 0;
+
+    for (final EcosystemEdge edge in state.edges.values) {
+      final int ageDays = timestamp.difference(edge.lastSeen).inDays;
+      final double decay = siClamp01(
+        ageDays * config.edgeDecayPerDay,
+        fallback: 0,
+      );
+      final EcosystemEdge next = edge.decay(timestamp, decay);
+
+      if (next.weight >= config.minimumEdgeWeight &&
+          nodes.containsKey(next.from) &&
+          nodes.containsKey(next.to)) {
+        edges[next.id] = next;
+      } else {
+        removedEdges++;
+      }
+    }
+
+    final SIEcosystemState evolved = SIEcosystemState(
+      nodes: Map<String, EcosystemNode>.unmodifiable(nodes),
+      edges: Map<String, EcosystemEdge>.unmodifiable(edges),
+      updatedAt: timestamp,
+    );
+
+    final SIMemoryStore nextMemory = memory
+        .pushRecord(
+          MemoryTier.longTerm,
+          MemoryRecord(
+            content:
+                'ecosystem_evolution|nodes=${nodes.length}|edges=${edges.length}|removed_nodes=$removedNodes|removed_edges=$removedEdges',
+            timestamp: timestamp,
+            relevance: nodes.isEmpty ? 0.25 : 0.65,
+            confidence: 0.75,
+            recency: 1.0,
+            emotionalWeight: 0.35,
+            reinforcement: removedNodes == 0 && removedEdges == 0 ? 1 : 0,
+          ),
+        )
+        .dedupe()
+        .decay(timestamp);
+
+    return EcosystemEvolutionResult(
+      state: evolved,
+      memory: nextMemory,
+      removedNodes: removedNodes,
+      removedEdges: removedEdges,
+      summary:
+          'Ecosystem evolved: ${nodes.length} nodes, ${edges.length} edges.',
     );
   }
 }

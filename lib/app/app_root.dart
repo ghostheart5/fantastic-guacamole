@@ -1,34 +1,127 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_overlay.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
+import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-class AppRoot extends ConsumerWidget {
+class AppRoot extends ConsumerStatefulWidget {
   const AppRoot({super.key, this.startupError});
 
   final String? startupError;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final String startupMessage = startupError?.trim() ?? '';
-    final bool showQaDiagnostics = ref.watch(intelligenceStateProvider).flags.testerFullAccess;
+  ConsumerState<AppRoot> createState() => _AppRootState();
+}
+
+class _AppRootState extends ConsumerState<AppRoot> {
+  static const List<String> _tutorialAssets = <String>[
+    'assets/tutorials/home.json',
+    'assets/tutorials/tasks.json',
+  ];
+
+  GoRouter? _router;
+  VoidCallback? _routerListener;
+  bool _tutorialAssetsLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(_loadTutorialAssetsIfNeeded());
+    });
+  }
+
+  Future<void> _loadTutorialAssetsIfNeeded() async {
+    if (_tutorialAssetsLoaded) {
+      return;
+    }
+    final controller = ref.read(tutorialControllerProvider);
+    await controller.loadAssets(_tutorialAssets);
+    if (!mounted) {
+      return;
+    }
+    _tutorialAssetsLoaded = true;
+  }
+
+  void _attachRouterListener(GoRouter router) {
+    if (identical(_router, router)) {
+      return;
+    }
+    if (_router != null && _routerListener != null) {
+      _router!.routerDelegate.removeListener(_routerListener!);
+    }
+    _router = router;
+    _routerListener = () {
+      if (!mounted || _router == null) {
+        return;
+      }
+      final controller = ref.read(tutorialControllerProvider);
+      final String route = _router!.routeInformationProvider.value.uri
+          .toString();
+      controller.updateRoute(route);
+    };
+    _router!.routerDelegate.addListener(_routerListener!);
+    _routerListener!.call();
+  }
+
+  @override
+  void dispose() {
+    if (_router != null && _routerListener != null) {
+      _router!.routerDelegate.removeListener(_routerListener!);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeEntity = ref.watch(currentThemeProvider).asData?.value;
+    final String startupMessage = widget.startupError?.trim() ?? '';
+    final bool showQaDiagnostics = ref
+        .watch(intelligenceStateProvider)
+        .flags
+        .testerFullAccess;
+    final String startupBannerMessage = _startupBannerMessage(
+      startupMessage,
+      showQaDiagnostics: showQaDiagnostics,
+    );
+    final GoRouter router = ref.watch(appRouterProvider);
+    final tutorialController = ref.watch(tutorialControllerProvider);
+
+    _attachRouterListener(router);
 
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      title: 'ChronoSpark',
-      theme: appTheme,
-      routerConfig: ref.watch(appRouterProvider),
+      title: AppConfig.fromEnv().appName,
+      theme: (themeEntity?.isDark ?? true) ? appTheme : appLightTheme,
+      routerConfig: router,
       builder: (context, child) {
-        if (startupMessage.isEmpty && !showQaDiagnostics) {
-          return child ?? const SizedBox.shrink();
+        final Widget appChild = ErrorBoundary(
+          child: TutorialHost(
+            controller: tutorialController,
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+
+        if (startupBannerMessage.isEmpty && !showQaDiagnostics) {
+          return appChild;
         }
 
         return Stack(
           children: [
-            child ?? const SizedBox.shrink(),
-            if (startupMessage.isNotEmpty)
+            appChild,
+            if (startupBannerMessage.isNotEmpty)
               Align(
                 alignment: Alignment.bottomCenter,
                 child: SafeArea(
@@ -41,11 +134,16 @@ class AppRoot extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: Colors.redAccent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
+                        border: Border.all(
+                          color: Colors.redAccent.withValues(alpha: 0.35),
+                        ),
                       ),
                       child: Text(
-                        startupMessage,
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        startupBannerMessage,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ),
@@ -59,8 +157,12 @@ class AppRoot extends ConsumerWidget {
                   child: FloatingActionButton.small(
                     heroTag: 'qa_diagnostics_fab',
                     backgroundColor: Colors.black.withValues(alpha: 0.72),
-                    onPressed: () => _showDiagnosticsSheet(context),
-                    child: const Icon(Icons.bug_report_outlined, color: Colors.white, size: 18),
+                    onPressed: _showDiagnosticsSheet,
+                    child: const Icon(
+                      Icons.bug_report_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
@@ -70,9 +172,28 @@ class AppRoot extends ConsumerWidget {
     );
   }
 
-  void _showDiagnosticsSheet(BuildContext context) {
+  String _startupBannerMessage(
+    String startupMessage, {
+    required bool showQaDiagnostics,
+  }) {
+    if (startupMessage.trim().isEmpty) {
+      return '';
+    }
+    if (showQaDiagnostics) {
+      return startupMessage;
+    }
+    return 'App started in limited mode. Some services may be unavailable.';
+  }
+
+  void _showDiagnosticsSheet() {
+    final NavigatorState? navigatorState =
+        _router?.routerDelegate.navigatorKey.currentState;
+    if (navigatorState == null) {
+      return;
+    }
+
     showModalBottomSheet<void>(
-      context: context,
+      context: navigatorState.context,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF050D1A),
       shape: const RoundedRectangleBorder(
@@ -106,7 +227,10 @@ class AppRoot extends ConsumerWidget {
                         return const Center(
                           child: Text(
                             'No diagnostics captured yet.',
-                            style: TextStyle(color: Colors.white54, fontSize: 13),
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 13,
+                            ),
                           ),
                         );
                       }

@@ -1,8 +1,13 @@
-import 'package:fantastic_guacamole/core/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class LoadingOverlay extends StatelessWidget {
-  const LoadingOverlay({super.key, required this.isLoading, required this.child, this.message});
+  const LoadingOverlay({
+    super.key,
+    required this.isLoading,
+    required this.child,
+    this.message,
+  });
 
   final bool isLoading;
   final Widget child;

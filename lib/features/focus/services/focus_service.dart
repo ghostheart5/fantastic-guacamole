@@ -1,3 +1,0 @@
-class FocusService {
-  const FocusService();
-}

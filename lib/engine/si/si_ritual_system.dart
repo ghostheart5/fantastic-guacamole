@@ -1,64 +1,100 @@
-class RitualPlan {
-  const RitualPlan({
-    required this.ritual,
-    required this.frequency,
-    required this.prompt,
-    required this.active,
+// lib/engine/si/si_ritual_system.dart// lib/engine/si/si_ritual_system.dart
+
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+
+class SIRitualStep {
+  const SIRitualStep({
+    required this.title,
+    required this.action,
+    required this.minutes,
   });
 
-  final String ritual;
-  final String frequency;
-  final String prompt;
-  final bool active;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'ritual': ritual,
-      'frequency': frequency,
-      'prompt': prompt,
-      'active': active,
-    };
-  }
+  final String title;
+  final String action;
+  final int minutes;
 }
 
-class SyntheticRitualSystem {
-  const SyntheticRitualSystem();
+class SIRitualPlan {
+  const SIRitualPlan({
+    required this.name,
+    required this.trigger,
+    required this.steps,
+    required this.confidence,
+    required this.memory,
+  });
 
-  RitualPlan plan({
-    required DateTime now,
-    required String intent,
-    required String mood,
+  final String name;
+  final String trigger;
+  final List<SIRitualStep> steps;
+  final double confidence;
+  final SIMemoryStore memory;
+}
+
+class SIRitualSystem {
+  const SIRitualSystem();
+
+  SIRitualPlan plan({
+    required SIContext context,
+    required SIMemoryStore memory,
+    String? goal,
+    DateTime? now,
   }) {
-    if (now.hour < 11) {
-      return const RitualPlan(
-        ritual: 'morning_check_in',
-        frequency: 'daily',
-        prompt: 'What are your 3 sparks for today?',
-        active: true,
-      );
-    }
-    if (now.hour >= 21 || intent == 'reflect') {
-      return const RitualPlan(
-        ritual: 'night_reflection',
-        frequency: 'daily',
-        prompt: 'What moved forward today, and what needs closure?',
-        active: true,
-      );
-    }
-    if (mood == 'stressed') {
-      return const RitualPlan(
-        ritual: 'emotional_reset',
-        frequency: 'as_needed',
-        prompt: 'Take a 60-second reset: breathe, name, choose one next step.',
-        active: true,
-      );
-    }
+    final DateTime t = now ?? DateTime.now();
+    final bool recovery =
+        context.userState.fatigue >= .68 || context.userState.stress >= .7;
+    final String name = recovery ? 'recovery_reset' : 'focus_start';
+    final List<SIRitualStep> steps = recovery
+        ? const <SIRitualStep>[
+            SIRitualStep(
+              title: 'Lower pressure',
+              action: 'Pick the smallest possible version.',
+              minutes: 2,
+            ),
+            SIRitualStep(
+              title: 'Reset scope',
+              action: 'Choose one task or pause point.',
+              minutes: 3,
+            ),
+          ]
+        : const <SIRitualStep>[
+            SIRitualStep(
+              title: 'Choose target',
+              action: 'Name the one task.',
+              minutes: 1,
+            ),
+            SIRitualStep(
+              title: 'Start block',
+              action: 'Work for one short focus block.',
+              minutes: 10,
+            ),
+          ];
 
-    return const RitualPlan(
-      ritual: 'weekly_planning',
-      frequency: 'weekly',
-      prompt: 'What are this week\'s top missions and constraints?',
-      active: false,
+    final double confidence = recovery
+        ? siClamp01(context.userState.fatigue)
+        : siClamp01(context.userState.engagement);
+
+    final SIMemoryStore next = memory
+        .pushRecord(
+          MemoryTier.longTerm,
+          MemoryRecord(
+            content:
+                'ritual_plan|$name|trigger=${recovery ? 'fatigue_or_stress' : 'focus_ready'}|goal=${siClean(goal)}',
+            timestamp: t,
+            relevance: confidence,
+            confidence: .72,
+            emotionalWeight: context.userState.stress,
+            reinforcement: confidence >= .7 ? 2 : 1,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+
+    return SIRitualPlan(
+      name: name,
+      trigger: recovery ? 'fatigue_or_stress' : 'focus_ready',
+      steps: List<SIRitualStep>.unmodifiable(steps),
+      confidence: confidence,
+      memory: next,
     );
   }
 }

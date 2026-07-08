@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/config/paywall_config.dart';
+import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/ui/system/premium_feature_gate.dart';
 import 'package:flutter/material.dart';

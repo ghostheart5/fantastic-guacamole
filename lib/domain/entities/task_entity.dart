@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
+
 class TaskEntity {
   const TaskEntity({
     required this.id,
@@ -14,6 +16,8 @@ class TaskEntity {
     this.dueDate,
     this.goalId,
     this.isCanceled = false,
+    this.subtasks = const [],
+    this.recurrenceRule = RecurrenceRule.none,
   });
 
   final String id;
@@ -30,6 +34,8 @@ class TaskEntity {
   final DateTime? dueDate;
   final String? goalId;
   final bool isCanceled;
+  final List<String> subtasks;
+  final RecurrenceRule recurrenceRule;
 
   TaskEntity copyWith({
     String? id,
@@ -46,6 +52,8 @@ class TaskEntity {
     DateTime? dueDate,
     String? goalId,
     bool? isCanceled,
+    List<String>? subtasks,
+    RecurrenceRule? recurrenceRule,
   }) {
     return TaskEntity(
       id: id ?? this.id,
@@ -62,6 +70,50 @@ class TaskEntity {
       dueDate: dueDate ?? this.dueDate,
       goalId: goalId ?? this.goalId,
       isCanceled: isCanceled ?? this.isCanceled,
+      subtasks: subtasks ?? this.subtasks,
+      recurrenceRule: recurrenceRule ?? this.recurrenceRule,
     );
+  }
+
+  // Domain behavior
+  TaskEntity complete() =>
+      copyWith(isCompleted: true, completedAt: DateTime.now());
+
+  TaskEntity cancel() => copyWith(isCanceled: true);
+
+  bool get isScheduled => scheduledFor != null;
+
+  bool get isOverdue {
+    if (dueDate == null) return false;
+    return !isCompleted && DateTime.now().isAfter(dueDate!);
+  }
+
+  bool get hasSubtasks => subtasks.isNotEmpty;
+
+  TaskEntity addSubtask(String id) => copyWith(subtasks: [...subtasks, id]);
+
+  TaskEntity removeSubtask(String id) =>
+      copyWith(subtasks: subtasks.where((t) => t != id).toList());
+
+  bool get isHighPriority => priority >= 4;
+  bool get isLowPriority => priority <= 2;
+
+  bool get isHighDifficulty => difficulty >= 4;
+  bool get isLowDifficulty => difficulty <= 2;
+
+  bool get isHighEnergy => energyRequired >= 4;
+  bool get isLowEnergy => energyRequired <= 2;
+
+  bool get hasEstimate => estimatedDuration != null;
+
+  Duration get estimateOrDefault =>
+      estimatedDuration ?? const Duration(minutes: 25);
+
+  bool get isRecurring => recurrenceRule != RecurrenceRule.none;
+
+  void validate() {
+    if (isCompleted && completedAt == null) {
+      throw StateError('Completed tasks must have a completedAt timestamp');
+    }
   }
 }

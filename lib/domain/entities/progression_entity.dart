@@ -17,4 +17,26 @@ class ProgressionEntity {
       streak: streak ?? this.streak,
     );
   }
+
+  // Domain logic
+  ProgressionEntity addXp(int amount) {
+    int newXp = xp + amount;
+    int newLevel = level;
+
+    while (newXp >= newLevel * 50) {
+      newXp -= newLevel * 50;
+      newLevel++;
+    }
+
+    return copyWith(xp: newXp, level: newLevel);
+  }
+
+  ProgressionEntity incrementStreak() => copyWith(streak: streak + 1);
+
+  ProgressionEntity resetStreak() => copyWith(streak: 0);
+
+  void validate() {
+    if (xp < 0) throw StateError('XP cannot be negative');
+    if (level < 1) throw StateError('Level must be at least 1');
+  }
 }

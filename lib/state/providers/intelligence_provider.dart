@@ -1,8 +1,8 @@
-import 'package:fantastic_guacamole/data/di/services_providers.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
-import 'package:fantastic_guacamole/state/auth/auth_gateway_support.dart';
-import 'package:fantastic_guacamole/state/intelligence/intelligence_service.dart';
-import 'package:fantastic_guacamole/state/intelligence/intelligence_state.dart';
+import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
+import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
+import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
@@ -18,9 +18,14 @@ class MockAuthSessionNotifier extends Notifier<bool> {
 }
 
 final authUserProvider = StreamProvider<User?>((ref) {
-  final sb.SupabaseClient client = ref.watch(supabaseClientProvider);
+  final sb.SupabaseClient? client = ref.watch(supabaseClientProvider);
+  if (client == null) {
+    return Stream<User?>.value(null);
+  }
 
-  final Stream<User?> authStateStream = client.auth.onAuthStateChange.map((event) {
+  final Stream<User?> authStateStream = client.auth.onAuthStateChange.map((
+    event,
+  ) {
     final sb.User? sbUser = event.session?.user ?? client.auth.currentUser;
     return _mapSupabaseUser(sbUser);
   });
@@ -40,6 +45,7 @@ final mockLoginConfigProvider = Provider<MockLoginConfigState>((ref) {
 });
 
 final intelligenceStateProvider = Provider<IntelligenceState>((ref) {
+  // Exposes assistant/chat runtime intelligence to UI and controllers.
   final bool hasMockSession = ref.watch(mockAuthSessionProvider);
   final bool hasAuthenticatedUser = ref
       .watch(authUserProvider)
@@ -47,7 +53,10 @@ final intelligenceStateProvider = Provider<IntelligenceState>((ref) {
 
   return ref
       .read(intelligenceServiceProvider)
-      .fromRuntime(hasMockSession: hasMockSession, hasAuthenticatedUser: hasAuthenticatedUser);
+      .fromRuntime(
+        hasMockSession: hasMockSession,
+        hasAuthenticatedUser: hasAuthenticatedUser,
+      );
 });
 
 final authenticatedGuardProvider = Provider<bool>((ref) {
@@ -58,7 +67,8 @@ User? _mapSupabaseUser(sb.User? supabaseUser) {
   if (supabaseUser == null) {
     return null;
   }
-  final Map<String, dynamic> metadata = supabaseUser.userMetadata ?? const <String, dynamic>{};
+  final Map<String, dynamic> metadata =
+      supabaseUser.userMetadata ?? const <String, dynamic>{};
   final String? fullName = metadata['full_name']?.toString().trim();
   final String? name = metadata['name']?.toString().trim();
 

@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:flutter/foundation.dart';
 
 class RuntimeDiagnosticEvent {
@@ -18,12 +19,13 @@ class RuntimeDiagnostics {
   RuntimeDiagnostics._();
 
   static const int _maxEntries = 200;
-  static final ValueNotifier<List<String>> entries = ValueNotifier<List<String>>(<String>[]);
+  static final ValueNotifier<List<String>> entries =
+      ValueNotifier<List<String>>(<String>[]);
   static final ValueNotifier<List<RuntimeDiagnosticEvent>> events =
       ValueNotifier<List<RuntimeDiagnosticEvent>>(<RuntimeDiagnosticEvent>[]);
 
   static void record(String message) {
-    final String text = message.trim();
+    final String text = Logger.redactSensitive(message.trim());
     if (text.isEmpty) return;
 
     final String stamped = '[${DateTime.now().toIso8601String()}] $text';
@@ -43,19 +45,25 @@ class RuntimeDiagnostics {
     final RuntimeDiagnosticEvent event = RuntimeDiagnosticEvent(
       timestamp: now,
       category: category.trim(),
-      message: message.trim(),
-      data: Map<String, Object?>.unmodifiable(data),
+      message: Logger.redactSensitive(message.trim()),
+      data: Map<String, Object?>.unmodifiable(
+        data.map(
+          (String key, Object? value) =>
+              MapEntry(key, Logger.redactSensitive(value?.toString() ?? '')),
+        ),
+      ),
     );
 
-    final List<RuntimeDiagnosticEvent> nextEvents = List<RuntimeDiagnosticEvent>.from(events.value)
-      ..add(event);
+    final List<RuntimeDiagnosticEvent> nextEvents =
+        List<RuntimeDiagnosticEvent>.from(events.value)..add(event);
     if (nextEvents.length > _maxEntries) {
       nextEvents.removeRange(0, nextEvents.length - _maxEntries);
     }
     events.value = nextEvents;
 
     final String summary = _summary(event);
-    final List<String> nextEntries = List<String>.from(entries.value)..add(summary);
+    final List<String> nextEntries = List<String>.from(entries.value)
+      ..add(summary);
     if (nextEntries.length > _maxEntries) {
       nextEntries.removeRange(0, nextEntries.length - _maxEntries);
     }

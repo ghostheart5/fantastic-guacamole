@@ -1,15 +1,8 @@
-export 'package:fantastic_guacamole/data/di/repositories_providers.dart'
-    hide taskRepositoryProvider;
-export 'package:fantastic_guacamole/data/di/services_providers.dart'
-    hide
-        aiResponseProvider,
-        appFlowProvider,
-        audioFeedbackControllerProvider,
-        focusControllerProvider,
-        focusSessionControllerProvider,
-        notificationSchedulerProvider,
-        notificationsRepositoryProvider,
-        notificationsServiceProvider,
-        paywallRepositoryProvider,
-        paywallServiceProvider,
-        featureTaskRepositoryProvider;
+export 'package:fantastic_guacamole/state/services/cache_cleanup_service.dart';
+export 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
+export 'package:fantastic_guacamole/state/services/expired_session_cleanup.dart';
+export 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
+export 'package:fantastic_guacamole/state/services/orphan_data_cleanup.dart';
+export 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
+export 'package:fantastic_guacamole/state/services/retention_policy.dart';
+export 'package:fantastic_guacamole/state/services/stale_notification_cleanup.dart';

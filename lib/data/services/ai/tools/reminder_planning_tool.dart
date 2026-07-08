@@ -20,6 +20,10 @@ class ReminderPlanningTool extends AiTool {
       window = 'tonight';
     }
 
-    return <String, dynamic>{'window': window, 'scheduled': prompt.isNotEmpty, 'message': prompt};
+    return <String, dynamic>{
+      'window': window,
+      'scheduled': prompt.isNotEmpty,
+      'message': prompt,
+    };
   }
 }

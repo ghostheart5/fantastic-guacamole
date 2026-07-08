@@ -1,61 +1,55 @@
-class IdentityMesh {
-  const IdentityMesh({
+// lib/engine/si/si_synthetic_multiverse_identity_mesh.dart
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/si/si_synthetic_identity_gradient.dart';
+
+class SIIdentityMesh {
+  const SIIdentityMesh({
     required this.nodes,
-    required this.edges,
-    required this.activeCluster,
+    required this.center,
+    required this.coherence,
+    required this.memory,
   });
-
-  final List<Map<String, dynamic>> nodes;
-  final List<Map<String, dynamic>> edges;
-  final List<String> activeCluster;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'nodes': nodes,
-      'edges': edges,
-      'active_cluster': activeCluster,
-    };
-  }
+  final List<String> nodes;
+  final String center;
+  final double coherence;
+  final SIMemoryStore memory;
 }
 
-class SyntheticMultiverseIdentityMesh {
-  const SyntheticMultiverseIdentityMesh();
+class SISyntheticMultiverseIdentityMesh {
+  const SISyntheticMultiverseIdentityMesh();
 
-  IdentityMesh build({required String mood, required String intent}) {
-    final List<Map<String, dynamic>> nodes = <Map<String, dynamic>>[
-      <String, dynamic>{
-        'id': 'mentor',
-        'traits': <String>['guidance', 'clarity'],
-      },
-      <String, dynamic>{
-        'id': 'guardian',
-        'traits': <String>['safety', 'stability'],
-      },
-      <String, dynamic>{
-        'id': 'strategist',
-        'traits': <String>['planning', 'priority'],
-      },
-      <String, dynamic>{
-        'id': 'creator',
-        'traits': <String>['novelty', 'imagination'],
-      },
-    ];
-    final List<Map<String, dynamic>> edges = <Map<String, dynamic>>[
-      <String, dynamic>{'from': 'mentor', 'to': 'strategist', 'weight': 0.72},
-      <String, dynamic>{'from': 'guardian', 'to': 'mentor', 'weight': 0.68},
-      <String, dynamic>{'from': 'creator', 'to': 'strategist', 'weight': 0.55},
-    ];
-
-    final List<String> active = <String>[
-      if (mood == 'stressed') 'guardian',
-      if (intent == 'start_focus') 'strategist',
-      if (intent == 'insight_request') 'mentor',
-      if (intent.contains('idea')) 'creator',
-    ];
-    return IdentityMesh(
-      nodes: nodes,
-      edges: edges,
-      activeCluster: active.isEmpty ? <String>['mentor'] : active,
+  SIIdentityMesh build({
+    required SIIdentityGradient gradient,
+    required SIMemoryStore memory,
+    DateTime? now,
+  }) {
+    final t = now ?? DateTime.now();
+    final nodes = gradient.weights.entries
+        .where((e) => e.value >= .35)
+        .map((e) => e.key)
+        .toList();
+    final coherence = siClamp01(
+      gradient.weights.values.reduce((a, b) => a + b) / gradient.weights.length,
+    );
+    final next = memory
+        .pushRecord(
+          MemoryTier.midTerm,
+          MemoryRecord(
+            content:
+                'identity_mesh|center=${gradient.dominant}|nodes=${nodes.join(",")}',
+            timestamp: t,
+            relevance: coherence,
+            confidence: .7,
+            emotionalWeight: .35,
+          ),
+        )
+        .dedupe()
+        .decay(t);
+    return SIIdentityMesh(
+      nodes: List.unmodifiable(nodes),
+      center: gradient.dominant,
+      coherence: coherence,
+      memory: next,
     );
   }
 }
