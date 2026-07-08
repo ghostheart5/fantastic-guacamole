@@ -4,7 +4,9 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final creatorActionsProvider = Provider<CreatorActions>((ref) => CreatorActions(ref: ref));
+final creatorActionsProvider = Provider<CreatorActions>(
+  (ref) => CreatorActions(ref: ref),
+);
 
 class CreatorActions {
   const CreatorActions({required this.ref});

@@ -84,8 +84,11 @@ class SIEngineService {
       'input': input,
       'taskId': taskId,
       'message': resolvedMessage,
-      'reasoning': context['reasoning']?.toString() ?? output.decision.reasoning,
-      'emotion': output.response.emotion.isEmpty ? emotion : output.response.emotion,
+      'reasoning':
+          context['reasoning']?.toString() ?? output.decision.reasoning,
+      'emotion': output.response.emotion.isEmpty
+          ? emotion
+          : output.response.emotion,
       'confidence': output.response.confidence.clamp(0.0, 1.0),
       'generationMode': aiProxyConfigured ? 'proxy_llm' : 'deterministic_local',
       'isDeterministicLocal': !aiProxyConfigured,
@@ -121,7 +124,9 @@ class SIEngineService {
     return <String, dynamic>{
       ...?currentState,
       'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
-      'memoryEvents': events.length > 120 ? events.sublist(events.length - 120) : events,
+      'memoryEvents': events.length > 120
+          ? events.sublist(events.length - 120)
+          : events,
       'memoryEvent': memoryEvent,
     };
   }

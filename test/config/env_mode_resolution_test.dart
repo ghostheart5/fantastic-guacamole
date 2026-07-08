@@ -3,10 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Env mode resolution', () {
-    test('every release build receives production security rules', () {
+    test('production security rules require release mode and prod flavor', () {
       expect(Env.resolveIsProduction('prod', isReleaseMode: true), isTrue);
       expect(Env.resolveIsProduction('prod', isReleaseMode: false), isFalse);
-      expect(Env.resolveIsProduction('dev', isReleaseMode: true), isTrue);
+      expect(Env.resolveIsProduction('dev', isReleaseMode: true), isFalse);
+      expect(Env.resolveIsProduction('qa', isReleaseMode: true), isFalse);
     });
 
     test('mock mode is enabled only in non-production when explicitly enabled', () {

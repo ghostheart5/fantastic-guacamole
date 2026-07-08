@@ -11,7 +11,10 @@
             "name": "Flutter Run (Dev)",
             "type": "dart",
             "request": "launch",
-            "flutterMode": "debug"
+            "flutterMode": "debug",
+            "toolArgs": [
+                "--dart-define-from-file=tool/qa_defines.json"
+            ]
         },
         {
             "name": "Flutter Run (Profile)",

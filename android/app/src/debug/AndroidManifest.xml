@@ -6,14 +6,5 @@
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
-    <application>
-        <activity android:name=".MainActivity">
-            <meta-data
-                android:name="io.flutter.embedding.android.EnableImpeller"
-                android:value="false" />
-            <meta-data
-                android:name="io.flutter.embedding.android.EnableSoftwareRendering"
-                android:value="true" />
-        </activity>
-    </application>
+    <application />
 </manifest>

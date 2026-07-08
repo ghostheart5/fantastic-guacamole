@@ -43,7 +43,8 @@ class NavigationShell extends ConsumerStatefulWidget {
   ConsumerState<NavigationShell> createState() => _NavigationShellState();
 }
 
-class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsBindingObserver {
+class _NavigationShellState extends ConsumerState<NavigationShell>
+    with WidgetsBindingObserver {
   late final SystemScheduler _systemScheduler;
   late final DataHygieneScheduler _dataHygieneScheduler;
   late final ProviderSubscription<double> _energySubscription;
@@ -83,13 +84,21 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
       ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
     });
-    _learningSubscription = ref.listenManual<LearningState>(learningProvider, (_, _) {
+    _learningSubscription = ref.listenManual<LearningState>(learningProvider, (
+      _,
+      _,
+    ) {
       ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
     });
-    _viewSubscription = ref.listenManual<AppView>(appFlowProvider, (_, AppView next) {
+    _viewSubscription = ref.listenManual<AppView>(appFlowProvider, (
+      _,
+      AppView next,
+    ) {
       _initializedTabIndexes.add(_tabIndexForView(next));
-      unawaited(ref.read(sessionRecoveryProvider).saveState(lastRoute: next.name));
+      unawaited(
+        ref.read(sessionRecoveryProvider).saveState(lastRoute: next.name),
+      );
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -182,7 +191,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
     }
   }
 
-  BottomNavigationBarItem _navItem(String assetPath, String label, bool active) {
+  BottomNavigationBarItem _navItem(
+    String assetPath,
+    String label,
+    bool active,
+  ) {
     return BottomNavigationBarItem(
       label: label,
       icon: SvgPicture.asset(
@@ -276,7 +289,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell> with WidgetsB
               const Divider(),
               navItem('Plan', 'Adaptive schedule', AppView.plan),
               navItem('Creator', 'Task and goal creation', AppView.creator),
-              navItem('Insights', 'Pattern and trend analysis', AppView.insight),
+              navItem(
+                'Insights',
+                'Pattern and trend analysis',
+                AppView.insight,
+              ),
               navItem('Settings', 'Preferences and controls', AppView.settings),
             ],
           ),

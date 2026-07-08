@@ -44,9 +44,14 @@ class LogRepository implements ILogRepository {
         }
       }
       if (malformedCount > 1) {
-        Logger.warn('Skipped $malformedCount malformed log entries while reading storage.');
+        Logger.warn(
+          'Skipped $malformedCount malformed log entries while reading storage.',
+        );
       }
-      entries.sort((LogEntryEntity a, LogEntryEntity b) => b.timestamp.compareTo(a.timestamp));
+      entries.sort(
+        (LogEntryEntity a, LogEntryEntity b) =>
+            b.timestamp.compareTo(a.timestamp),
+      );
       return entries;
     } on FormatException catch (error) {
       Logger.error('Stored logs are corrupt.', error);
@@ -54,21 +59,29 @@ class LogRepository implements ILogRepository {
     }
   }
 
-  Future<PagedResult<LogEntryEntity>> getLogsPage({String? cursor, int limit = 50}) async {
+  Future<PagedResult<LogEntryEntity>> getLogsPage({
+    String? cursor,
+    int limit = 50,
+  }) async {
     final List<LogEntryEntity> entries = await getLogs();
     final int safeLimit = limit < 1 ? 1 : limit;
     final int startIndex = cursor == null
         ? 0
         : entries.indexWhere((LogEntryEntity entry) => entry.id == cursor) + 1;
     if (startIndex >= entries.length) {
-      return const PagedResult<LogEntryEntity>(items: <LogEntryEntity>[], nextCursor: null);
+      return const PagedResult<LogEntryEntity>(
+        items: <LogEntryEntity>[],
+        nextCursor: null,
+      );
     }
     final List<LogEntryEntity> page = entries
         .skip(startIndex)
         .take(safeLimit)
         .toList(growable: false);
     final int nextIndex = startIndex + page.length;
-    final String? nextCursor = nextIndex < entries.length && page.isNotEmpty ? page.last.id : null;
+    final String? nextCursor = nextIndex < entries.length && page.isNotEmpty
+        ? page.last.id
+        : null;
     return PagedResult<LogEntryEntity>(items: page, nextCursor: nextCursor);
   }
 
@@ -83,7 +96,9 @@ class LogRepository implements ILogRepository {
       _entriesKey,
       jsonEncode(
         updated
-            .map((LogEntryEntity item) => LogEntryRecord.fromEntity(item).toJson())
+            .map(
+              (LogEntryEntity item) => LogEntryRecord.fromEntity(item).toJson(),
+            )
             .toList(growable: false),
       ),
     );

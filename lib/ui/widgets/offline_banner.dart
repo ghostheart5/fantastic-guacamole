@@ -43,7 +43,11 @@ class _OfflineBannerBar extends StatelessWidget {
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.cloud_off_rounded, size: 13, color: AppColors.memoryAmber),
+              Icon(
+                Icons.cloud_off_rounded,
+                size: 13,
+                color: AppColors.memoryAmber,
+              ),
               SizedBox(width: 6),
               Text(
                 'Offline Mode — actions will sync later',

@@ -106,17 +106,16 @@ class CreatorScreen extends ConsumerWidget {
                     ref.invalidate(goalProgressProvider);
                     ref.read(tutorialControllerProvider).updateState('has_created_task', true);
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Entry created.'),
-                          action: SnackBarAction(
-                            label: 'TRAJECTORY',
-                            onPressed: () {
-                              ref.read(appFlowProvider.notifier).toPlan();
-                            },
+                      final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+                      messenger
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          const SnackBar(
+                            content: Text('Entry created.'),
+                            duration: Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
                           ),
-                        ),
-                      );
+                        );
                       ref.read(appFlowProvider.notifier).toPlan();
                     }
                   },

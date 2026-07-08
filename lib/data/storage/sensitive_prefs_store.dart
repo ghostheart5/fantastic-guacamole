@@ -31,7 +31,10 @@ class SensitivePrefsStore implements SharedPrefsStore {
         final Object? decoded = jsonDecode(raw);
         if (decoded is Map) {
           _values.addAll(
-            decoded.map((dynamic key, dynamic value) => MapEntry(key.toString(), value.toString())),
+            decoded.map(
+              (dynamic key, dynamic value) =>
+                  MapEntry(key.toString(), value.toString()),
+            ),
           );
         }
       } on FormatException {

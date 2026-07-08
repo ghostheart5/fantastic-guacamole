@@ -48,7 +48,9 @@ class _DynamicFormState extends State<DynamicForm> {
       await widget.onSubmit(
         CreatorFormData(
           title: title,
-          description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
+          description: _descController.text.trim().isEmpty
+              ? null
+              : _descController.text.trim(),
           type: _selectedType,
           priority: _priority,
           scheduledFor: _scheduledFor,
@@ -67,7 +69,8 @@ class _DynamicFormState extends State<DynamicForm> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'The task could not be saved. Your entry is still here—retry.';
+        _errorMessage =
+            'The task could not be saved. Your entry is still here—retry.';
       });
     } finally {
       if (mounted) {
@@ -102,7 +105,9 @@ class _DynamicFormState extends State<DynamicForm> {
           const SizedBox(height: 10),
           _buildTextField(
             _descController,
-            _selectedType.toLowerCase() == 'note' ? 'Notes (optional)' : 'Description (optional)',
+            _selectedType.toLowerCase() == 'note'
+                ? 'Notes (optional)'
+                : 'Description (optional)',
             maxLines: _selectedType.toLowerCase() == 'note' ? 5 : 3,
           ),
           const SizedBox(height: 20),
@@ -117,7 +122,10 @@ class _DynamicFormState extends State<DynamicForm> {
             }),
           ),
           const SizedBox(height: 20),
-          _PriorityPicker(value: _priority, onChanged: (v) => setState(() => _priority = v)),
+          _PriorityPicker(
+            value: _priority,
+            onChanged: (v) => setState(() => _priority = v),
+          ),
           const SizedBox(height: 20),
           _RecurrencePicker(
             selected: _recurrenceRule,
@@ -130,7 +138,10 @@ class _DynamicFormState extends State<DynamicForm> {
           ),
           if (_errorMessage != null) ...[
             const SizedBox(height: 12),
-            Text(_errorMessage!, style: const TextStyle(color: AppColors.recallRed, fontSize: 12)),
+            Text(
+              _errorMessage!,
+              style: const TextStyle(color: AppColors.recallRed, fontSize: 12),
+            ),
           ],
           const SizedBox(height: 20),
           SmartPressable(
@@ -141,9 +152,14 @@ class _DynamicFormState extends State<DynamicForm> {
               decoration: BoxDecoration(
                 color: AppColors.memoryAmber.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.5)),
+                border: Border.all(
+                  color: AppColors.memoryAmber.withValues(alpha: 0.5),
+                ),
                 boxShadow: [
-                  BoxShadow(color: AppColors.memoryAmber.withValues(alpha: 0.2), blurRadius: 12),
+                  BoxShadow(
+                    color: AppColors.memoryAmber.withValues(alpha: 0.2),
+                    blurRadius: 12,
+                  ),
                 ],
               ),
               child: _submitting
@@ -174,7 +190,11 @@ class _DynamicFormState extends State<DynamicForm> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String hint, {int maxLines = 1}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String hint, {
+    int maxLines = 1,
+  }) {
     return TextField(
       controller: controller,
       maxLines: maxLines,
@@ -184,18 +204,27 @@ class _DynamicFormState extends State<DynamicForm> {
         hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.04),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.15)),
+          borderSide: BorderSide(
+            color: AppColors.neonCyan.withValues(alpha: 0.15),
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.15)),
+          borderSide: BorderSide(
+            color: AppColors.neonCyan.withValues(alpha: 0.15),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.5)),
+          borderSide: BorderSide(
+            color: AppColors.neonCyan.withValues(alpha: 0.5),
+          ),
         ),
       ),
     );
@@ -207,7 +236,10 @@ class _DynamicFormState extends State<DynamicForm> {
         Container(
           width: 2,
           height: 14,
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(1)),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(1),
+          ),
         ),
         const SizedBox(width: 8),
         Text(
@@ -316,7 +348,8 @@ class _ScheduleDatePicker extends StatelessWidget {
           initialDate: selected ?? DateTime.now(),
           firstDate: DateTime.now(),
           lastDate: DateTime.now().add(const Duration(days: 365)),
-          builder: (context, child) => Theme(data: ThemeData.dark(), child: child!),
+          builder: (context, child) =>
+              Theme(data: ThemeData.dark(), child: child!),
         ).then(onPick);
       },
       child: Container(
@@ -324,7 +357,9 @@ class _ScheduleDatePicker extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.2)),
+          border: Border.all(
+            color: AppColors.neonViolet.withValues(alpha: 0.2),
+          ),
         ),
         child: Row(
           children: [
@@ -417,7 +452,11 @@ class _RecurrencePicker extends StatelessWidget {
 }
 
 class _RepeatChip extends StatelessWidget {
-  const _RepeatChip({required this.label, required this.active, required this.onTap});
+  const _RepeatChip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
   final String label;
   final bool active;

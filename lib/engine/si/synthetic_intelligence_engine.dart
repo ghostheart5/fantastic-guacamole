@@ -12,7 +12,8 @@ import 'package:fantastic_guacamole/engine/si/si_engine_service.dart';
 typedef SyntheticIntelligenceOutput = SIFinalOutputBundle;
 
 class SyntheticIntelligenceEngine {
-  SyntheticIntelligenceEngine({SIEngineService? service}) : _service = service ?? SIEngineService();
+  SyntheticIntelligenceEngine({SIEngineService? service})
+    : _service = service ?? SIEngineService();
 
   final SIEngineService _service;
 
@@ -38,7 +39,8 @@ class SyntheticIntelligenceEngine {
     List<String> goals = const <String>[],
     SIEngineRuntimeState? runtime,
   }) async {
-    final SILatentInputs resolvedLatent = latent ?? _inferLatent(input: input, nonText: nonText);
+    final SILatentInputs resolvedLatent =
+        latent ?? _inferLatent(input: input, nonText: nonText);
 
     final Map<String, dynamic> mergedMetadata = _mergeMetadata(
       metadata: metadata,
@@ -71,7 +73,11 @@ class SyntheticIntelligenceEngine {
       packet,
       history: neuralHistory,
       task: task,
-      goals: _mergedGoals(explicitGoals: goals, metadata: mergedMetadata, context: mergedContext),
+      goals: _mergedGoals(
+        explicitGoals: goals,
+        metadata: mergedMetadata,
+        context: mergedContext,
+      ),
       previousMood: previousMood,
       runtime: runtime,
     );
@@ -149,7 +155,10 @@ class SyntheticIntelligenceEngine {
     _service.clear();
   }
 
-  SILatentInputs _inferLatent({required String input, required SINonTextInputs nonText}) {
+  SILatentInputs _inferLatent({
+    required String input,
+    required SINonTextInputs nonText,
+  }) {
     final String lowered = input.toLowerCase().trim();
     final List<String> behavior = nonText.behaviorPatterns
         .map((String value) => value.toLowerCase())
@@ -157,7 +166,9 @@ class SyntheticIntelligenceEngine {
 
     final bool pausePattern = behavior.any(
       (String pattern) =>
-          pattern.contains('pause') || pattern.contains('hesitat') || pattern.contains('delay'),
+          pattern.contains('pause') ||
+          pattern.contains('hesitat') ||
+          pattern.contains('delay'),
     );
 
     double frustration = 0.1;
@@ -301,13 +312,21 @@ class SyntheticIntelligenceEngine {
   }
 
   Object _safeObject(Object value) {
-    if (value is String || value is num || value is bool || value is List || value is Map) {
+    if (value is String ||
+        value is num ||
+        value is bool ||
+        value is List ||
+        value is Map) {
       return value;
     }
 
     try {
       final Object? json = jsonDecode(jsonEncode(value));
-      if (json is String || json is num || json is bool || json is List || json is Map) {
+      if (json is String ||
+          json is num ||
+          json is bool ||
+          json is List ||
+          json is Map) {
         return json as Object;
       }
     } catch (_) {

@@ -67,16 +67,24 @@ final ThemeData appTheme = ThemeData(
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
     fillColor: surfaceDark.withValues(alpha: 0.82),
-    hintStyle: neonTextTheme.bodyLarge?.copyWith(color: hologramWhite.withValues(alpha: 0.72)),
+    hintStyle: neonTextTheme.bodyLarge?.copyWith(
+      color: hologramWhite.withValues(alpha: 0.72),
+    ),
     labelStyle: neonTextTheme.labelLarge,
     contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
     enabledBorder: OutlineInputBorder(
       borderRadius: inputRadius,
-      borderSide: BorderSide(color: hologramWhite.withValues(alpha: 0.18), width: 1.2),
+      borderSide: BorderSide(
+        color: hologramWhite.withValues(alpha: 0.18),
+        width: 1.2,
+      ),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: inputRadius,
-      borderSide: BorderSide(color: neonCyan.withValues(alpha: 0.9), width: 1.6),
+      borderSide: BorderSide(
+        color: neonCyan.withValues(alpha: 0.9),
+        width: 1.6,
+      ),
     ),
     errorBorder: const OutlineInputBorder(
       borderRadius: inputRadius,
@@ -88,7 +96,10 @@ final ThemeData appTheme = ThemeData(
     ),
     border: OutlineInputBorder(
       borderRadius: inputRadius,
-      borderSide: BorderSide(color: hologramWhite.withValues(alpha: 0.18), width: 1.2),
+      borderSide: BorderSide(
+        color: hologramWhite.withValues(alpha: 0.18),
+        width: 1.2,
+      ),
     ),
   ),
   cardTheme: CardThemeData(
@@ -97,7 +108,10 @@ final ThemeData appTheme = ThemeData(
     margin: EdgeInsets.zero,
     shape: RoundedRectangleBorder(
       borderRadius: cardRadius,
-      side: BorderSide(color: hologramWhite.withValues(alpha: 0.18), width: 1.1),
+      side: BorderSide(
+        color: hologramWhite.withValues(alpha: 0.18),
+        width: 1.1,
+      ),
     ),
     shadowColor: neonViolet.withValues(alpha: 0.16),
   ),
@@ -180,22 +194,34 @@ final ThemeData appLightTheme = ThemeData(
       shape: const RoundedRectangleBorder(borderRadius: buttonRadius),
       side: BorderSide(color: primaryNeon.withValues(alpha: 0.35), width: 1.2),
       padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
-      textStyle: neonTextTheme.labelLarge?.copyWith(color: const Color(0xFF07162D)),
+      textStyle: neonTextTheme.labelLarge?.copyWith(
+        color: const Color(0xFF07162D),
+      ),
     ),
   ),
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
     fillColor: Colors.white,
-    hintStyle: neonTextTheme.bodyLarge?.copyWith(color: const Color(0xFF6A7899)),
-    labelStyle: neonTextTheme.labelLarge?.copyWith(color: const Color(0xFF223A66)),
+    hintStyle: neonTextTheme.bodyLarge?.copyWith(
+      color: const Color(0xFF6A7899),
+    ),
+    labelStyle: neonTextTheme.labelLarge?.copyWith(
+      color: const Color(0xFF223A66),
+    ),
     contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
     enabledBorder: OutlineInputBorder(
       borderRadius: inputRadius,
-      borderSide: BorderSide(color: const Color(0xFFCCD6EA).withValues(alpha: 0.95), width: 1.2),
+      borderSide: BorderSide(
+        color: const Color(0xFFCCD6EA).withValues(alpha: 0.95),
+        width: 1.2,
+      ),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: inputRadius,
-      borderSide: BorderSide(color: primaryNeon.withValues(alpha: 0.8), width: 1.6),
+      borderSide: BorderSide(
+        color: primaryNeon.withValues(alpha: 0.8),
+        width: 1.6,
+      ),
     ),
     errorBorder: const OutlineInputBorder(
       borderRadius: inputRadius,
@@ -207,7 +233,10 @@ final ThemeData appLightTheme = ThemeData(
     ),
     border: OutlineInputBorder(
       borderRadius: inputRadius,
-      borderSide: BorderSide(color: const Color(0xFFCCD6EA).withValues(alpha: 0.95), width: 1.2),
+      borderSide: BorderSide(
+        color: const Color(0xFFCCD6EA).withValues(alpha: 0.95),
+        width: 1.2,
+      ),
     ),
   ),
   cardTheme: CardThemeData(
@@ -224,7 +253,9 @@ final ThemeData appLightTheme = ThemeData(
   iconTheme: const IconThemeData(color: Color(0xFF1A3A6D)),
   snackBarTheme: SnackBarThemeData(
     backgroundColor: Colors.white,
-    contentTextStyle: neonTextTheme.bodyLarge?.copyWith(color: const Color(0xFF13274A)),
+    contentTextStyle: neonTextTheme.bodyLarge?.copyWith(
+      color: const Color(0xFF13274A),
+    ),
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: cardRadius,

@@ -3,7 +3,11 @@ import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 
 class TypeSelector extends StatelessWidget {
-  const TypeSelector({super.key, required this.selected, required this.onSelect});
+  const TypeSelector({
+    super.key,
+    required this.selected,
+    required this.onSelect,
+  });
 
   final String selected;
   final ValueChanged<String> onSelect;
@@ -47,7 +51,10 @@ class TypeSelector extends StatelessWidget {
               onTap: () => onSelect(type),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? AppColors.memoryAmber.withValues(alpha: 0.15)

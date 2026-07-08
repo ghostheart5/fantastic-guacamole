@@ -16,11 +16,15 @@ final featureGetFlowmapUseCaseProvider = Provider<GetFlowmap>((Ref ref) {
   return GetFlowmap(ref.read(featureFlowmapRepositoryProvider));
 });
 
-final featureAddFlowmapNodeUseCaseProvider = Provider<AddFlowmapNode>((Ref ref) {
+final featureAddFlowmapNodeUseCaseProvider = Provider<AddFlowmapNode>((
+  Ref ref,
+) {
   return AddFlowmapNode(ref.read(featureFlowmapRepositoryProvider));
 });
 
-final featureAddFlowmapEdgeUseCaseProvider = Provider<AddFlowmapEdge>((Ref ref) {
+final featureAddFlowmapEdgeUseCaseProvider = Provider<AddFlowmapEdge>((
+  Ref ref,
+) {
   return AddFlowmapEdge(ref.read(featureFlowmapRepositoryProvider));
 });
 
@@ -29,11 +33,13 @@ final featureClearFlowmapUseCaseProvider = Provider<ClearFlowmap>((Ref ref) {
 });
 
 final featureFlowmapGraphProvider =
-    NotifierProvider<FeatureFlowmapGraphController, AsyncValue<FlowmapGraphEntity>>(
-      FeatureFlowmapGraphController.new,
-    );
+    NotifierProvider<
+      FeatureFlowmapGraphController,
+      AsyncValue<FlowmapGraphEntity>
+    >(FeatureFlowmapGraphController.new);
 
-class FeatureFlowmapGraphController extends Notifier<AsyncValue<FlowmapGraphEntity>> {
+class FeatureFlowmapGraphController
+    extends Notifier<AsyncValue<FlowmapGraphEntity>> {
   @override
   AsyncValue<FlowmapGraphEntity> build() {
     _load();
@@ -47,7 +53,9 @@ class FeatureFlowmapGraphController extends Notifier<AsyncValue<FlowmapGraphEnti
   Future<void> _load() async {
     state = const AsyncValue.loading();
     try {
-      final FlowmapGraphEntity graph = await ref.read(featureGetFlowmapUseCaseProvider).call();
+      final FlowmapGraphEntity graph = await ref
+          .read(featureGetFlowmapUseCaseProvider)
+          .call();
       state = AsyncValue.data(graph);
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);

@@ -16,14 +16,19 @@ class GetMemories {
         ? 0
         : memories.indexWhere((MemoryEntity memory) => memory.id == cursor) + 1;
     if (startIndex >= memories.length) {
-      return const PagedResult<MemoryEntity>(items: <MemoryEntity>[], nextCursor: null);
+      return const PagedResult<MemoryEntity>(
+        items: <MemoryEntity>[],
+        nextCursor: null,
+      );
     }
     final List<MemoryEntity> page = memories
         .skip(startIndex)
         .take(safeLimit)
         .toList(growable: false);
     final int nextIndex = startIndex + page.length;
-    final String? nextCursor = nextIndex < memories.length && page.isNotEmpty ? page.last.id : null;
+    final String? nextCursor = nextIndex < memories.length && page.isNotEmpty
+        ? page.last.id
+        : null;
     return PagedResult<MemoryEntity>(items: page, nextCursor: nextCursor);
   }
 }

@@ -18,11 +18,19 @@ class GetTasks {
         ? 0
         : tasks.indexWhere((TaskEntity task) => task.id == cursor) + 1;
     if (startIndex >= tasks.length) {
-      return const PagedResult<TaskEntity>(items: <TaskEntity>[], nextCursor: null);
+      return const PagedResult<TaskEntity>(
+        items: <TaskEntity>[],
+        nextCursor: null,
+      );
     }
-    final List<TaskEntity> page = tasks.skip(startIndex).take(safeLimit).toList(growable: false);
+    final List<TaskEntity> page = tasks
+        .skip(startIndex)
+        .take(safeLimit)
+        .toList(growable: false);
     final int nextIndex = startIndex + page.length;
-    final String? nextCursor = nextIndex < tasks.length && page.isNotEmpty ? page.last.id : null;
+    final String? nextCursor = nextIndex < tasks.length && page.isNotEmpty
+        ? page.last.id
+        : null;
     return PagedResult<TaskEntity>(items: page, nextCursor: nextCursor);
   }
 }

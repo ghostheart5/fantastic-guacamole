@@ -17,9 +17,11 @@ class TaskRepository implements ITaskRepository {
     : _storage = storage,
       _secureStore = null;
 
-  TaskRepository.secure(SecureStore secureStore, {HiveStorage<String>? legacyStorage})
-    : _storage = legacyStorage,
-      _secureStore = secureStore;
+  TaskRepository.secure(
+    SecureStore secureStore, {
+    HiveStorage<String>? legacyStorage,
+  }) : _storage = legacyStorage,
+       _secureStore = secureStore;
 
   static const String _secureKey = 'task_entries_v2';
   final HiveStorage<String>? _storage;
@@ -38,7 +40,10 @@ class TaskRepository implements ITaskRepository {
     }
   }
 
-  Future<PagedResult<TaskEntity>> getTasksPage({String? cursor, int limit = 50}) async {
+  Future<PagedResult<TaskEntity>> getTasksPage({
+    String? cursor,
+    int limit = 50,
+  }) async {
     try {
       final List<TaskEntity> tasks = await _loadSortedTasks();
       return _pageItems<TaskEntity>(
@@ -107,7 +112,8 @@ class TaskRepository implements ITaskRepository {
       final Object? decoded = jsonDecode(raw);
       if (decoded is Map) {
         return decoded.map(
-          (dynamic key, dynamic value) => MapEntry(key.toString(), value.toString()),
+          (dynamic key, dynamic value) =>
+              MapEntry(key.toString(), value.toString()),
         );
       }
     }
@@ -137,9 +143,15 @@ class TaskRepository implements ITaskRepository {
     }
 
     final List<TaskEntity> tasks = map.values
-        .map((raw) => TaskEntityMapper.fromJson(jsonDecode(raw) as Map<String, dynamic>))
+        .map(
+          (raw) => TaskEntityMapper.fromJson(
+            jsonDecode(raw) as Map<String, dynamic>,
+          ),
+        )
         .toList(growable: false);
-    tasks.sort((TaskEntity a, TaskEntity b) => b.createdAt.compareTo(a.createdAt));
+    tasks.sort(
+      (TaskEntity a, TaskEntity b) => b.createdAt.compareTo(a.createdAt),
+    );
     return tasks;
   }
 
@@ -157,12 +169,16 @@ class TaskRepository implements ITaskRepository {
       final List<T> page = startIndex >= items.length
           ? <T>[]
           : items.take(safeLimit).toList(growable: false);
-      final String? nextCursor = page.length == safeLimit && page.length < items.length
+      final String? nextCursor =
+          page.length == safeLimit && page.length < items.length
           ? idFor(page.last)
           : null;
       return PagedResult<T>(items: page, nextCursor: nextCursor);
     }
-    final List<T> page = items.skip(startIndex).take(safeLimit).toList(growable: false);
+    final List<T> page = items
+        .skip(startIndex)
+        .take(safeLimit)
+        .toList(growable: false);
     final int nextIndex = startIndex + page.length;
     final String? nextCursor = nextIndex < items.length && page.isNotEmpty
         ? idFor(page.last)
