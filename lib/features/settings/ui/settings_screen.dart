@@ -295,28 +295,13 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     _NeonNavTile(
                       title: 'Terms of Service',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const _InfoScreen(
-                            title: 'Terms of Service',
-                            body: _kTermsOfService,
-                          ),
-                        ),
-                      ),
+                      subtitle: AppUrls.terms,
+                      onTap: () => context.push(routes.terms),
                     ),
                     _NeonNavTile(
                       title: 'Support',
                       subtitle: AppUrls.support,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const _InfoScreen(
-                            title: 'Support',
-                            body: _kSupportInfo,
-                          ),
-                        ),
-                      ),
+                      onTap: () => context.push(routes.support),
                     ),
                   ],
                 ),

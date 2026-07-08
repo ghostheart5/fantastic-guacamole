@@ -228,8 +228,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.support,
-        builder: (BuildContext context, GoRouterState state) =>
-            const SupportPage(),
+        builder: (BuildContext context, GoRouterState state) => const WebPageView(
+          title: 'Support',
+          body:
+              'ChronoSpark publishes release-facing support and account assistance at the public HTTPS URL below so store reviewers and users can reach the current support process from every build.',
+          externalUrl: AppUrls.support,
+          callToActionLabel: 'Open Hosted Support Page',
+        ),
       ),
       GoRoute(
         path: RoutePaths.about,
