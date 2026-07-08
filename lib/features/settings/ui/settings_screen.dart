@@ -289,6 +289,11 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => context.push(routes.privacy),
                     ),
                     _NeonNavTile(
+                      title: 'Delete Account',
+                      subtitle: AppUrls.deleteAccount,
+                      onTap: () => context.push(routes.deleteAccount),
+                    ),
+                    _NeonNavTile(
                       title: 'Terms of Service',
                       onTap: () => Navigator.push(
                         context,

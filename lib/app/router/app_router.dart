@@ -207,6 +207,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: RoutePaths.deleteAccount,
+        builder: (BuildContext context, GoRouterState state) => const WebPageView(
+          title: 'Delete Account',
+          body:
+              'ChronoSpark publishes account deletion steps at the public HTTPS URL below. Use the hosted page to submit a deletion request and review deletion/retention details.',
+          externalUrl: AppUrls.deleteAccount,
+          callToActionLabel: 'Open Hosted Delete Account Page',
+        ),
+      ),
+      GoRoute(
         path: RoutePaths.terms,
         builder: (BuildContext context, GoRouterState state) => const WebPageView(
           title: 'Terms of Service',

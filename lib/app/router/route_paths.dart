@@ -24,6 +24,7 @@ class RoutePaths {
   // Legal and account routes.
   static const paywall = '/paywall';
   static const privacy = '/privacy';
+  static const deleteAccount = '/delete-account';
   static const terms = '/terms';
   static const support = '/support';
   static const about = '/about';

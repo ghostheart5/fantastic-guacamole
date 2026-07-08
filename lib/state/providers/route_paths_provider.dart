@@ -8,6 +8,7 @@ class RouteSurface {
     required this.settings,
     required this.paywall,
     required this.privacy,
+    required this.deleteAccount,
   });
 
   final String onboarding;
@@ -15,6 +16,7 @@ class RouteSurface {
   final String settings;
   final String paywall;
   final String privacy;
+  final String deleteAccount;
 }
 
 final routeSurfaceProvider = Provider<RouteSurface>((_) {
@@ -24,5 +26,6 @@ final routeSurfaceProvider = Provider<RouteSurface>((_) {
     settings: RoutePaths.settings,
     paywall: RoutePaths.paywall,
     privacy: RoutePaths.privacy,
+    deleteAccount: RoutePaths.deleteAccount,
   );
 });
