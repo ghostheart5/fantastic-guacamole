@@ -90,5 +90,5 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         continue-on-error: true
         with:
-          sarif_file: sarif-results/swift.sarif
+          sarif_file: sarif-results/${{ matrix.language }}.sarif
           category: "/language:${{ matrix.language }}"
