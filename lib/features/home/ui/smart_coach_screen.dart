@@ -230,18 +230,12 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       history.add(<String, String>{'role': 'user', 'content': initialPrompt});
     }
     if (initialResponse.isNotEmpty) {
-      history.add(<String, String>{
-        'role': 'assistant',
-        'content': initialResponse,
-      });
+      history.add(<String, String>{'role': 'assistant', 'content': initialResponse});
     }
     for (final _Exchange exchange in _followUps) {
       history
         ..add(<String, String>{'role': 'user', 'content': exchange.question})
-        ..add(<String, String>{
-          'role': 'assistant',
-          'content': exchange.answer,
-        });
+        ..add(<String, String>{'role': 'assistant', 'content': exchange.answer});
     }
     return history.length > 8 ? history.sublist(history.length - 8) : history;
   }
@@ -250,8 +244,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   Widget build(BuildContext context) {
     final smartModel = ref.watch(smartCoachScreenModelProvider).asData?.value;
     final String modelCoachMessage = smartModel?.decision.coachMessage ?? '';
-    final String effectiveCoachMessage =
-        (_coachingMessage?.trim().isNotEmpty ?? false)
+    final String effectiveCoachMessage = (_coachingMessage?.trim().isNotEmpty ?? false)
         ? _coachingMessage!
         : modelCoachMessage;
     final bool hasCoachMessage = effectiveCoachMessage.trim().isNotEmpty;
@@ -267,12 +260,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
               Expanded(
                 child: ListView(
                   controller: _scroll,
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    20,
-                    20,
-                    hasCoachMessage ? 20 : 12,
-                  ),
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, hasCoachMessage ? 20 : 12),
                   children: [
                     _buildHeader(),
                     const SizedBox(height: 4),
@@ -296,10 +284,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                           children: [
                             TextField(
                               controller: _quickTaskController,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                              ),
+                              style: const TextStyle(color: Colors.white, fontSize: 14),
                               decoration: const InputDecoration(
                                 hintText: 'Task title',
                                 hintStyle: TextStyle(color: Colors.white38),
@@ -352,14 +337,9 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                       child: TextField(
                         controller: _notesController,
                         maxLines: 4,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          height: 1.6,
-                        ),
+                        style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.6),
                         decoration: const InputDecoration(
-                          hintText:
-                              'Share your current context, friction, or desired outcome...',
+                          hintText: 'Share your current context, friction, or desired outcome...',
                           hintStyle: TextStyle(color: Colors.white24),
                           border: InputBorder.none,
                           isDense: true,
@@ -372,6 +352,8 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                         },
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    const _InsightCheatSheet(),
                     const SizedBox(height: 20),
                     TutorialTarget(
                       id: 'home.start_focus_button',
@@ -461,11 +443,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       children: [
         SmartPressable(
           onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
-          child: const Icon(
-            Icons.arrow_back_ios,
-            color: Colors.white54,
-            size: 18,
-          ),
+          child: const Icon(Icons.arrow_back_ios, color: Colors.white54, size: 18),
         ),
         const SizedBox(width: 14),
         Column(
@@ -487,11 +465,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
             ),
             const Text(
               'ADAPTIVE LIFE LOGIC',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 2,
-                color: Colors.white38,
-              ),
+              style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
             ),
           ],
         ),
@@ -540,6 +514,31 @@ class _Exchange {
   final String answer;
 }
 
+class _InsightCheatSheet extends StatelessWidget {
+  const _InsightCheatSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: const Text(
+        'Get Insight cheat sheet:\n'
+        '• One topic: lose weight, tired, stressed, sleep, nutrition, exercise, productivity, goals\n'
+        '• One feeling: drained, anxious, stuck, unmotivated\n'
+        '• One detail: sleep, food, deadlines, workouts, or what keeps failing\n\n'
+        'Examples: “I’m tired”, “lose weight”, “stressed about work”, “what should I do next?”',
+        style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+      ),
+    );
+  }
+}
+
 class _FollowUpBar extends StatelessWidget {
   const _FollowUpBar({
     required this.controller,
@@ -568,11 +567,7 @@ class _FollowUpBar extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: AppColors.recallRed,
-                      size: 14,
-                    ),
+                    const Icon(Icons.error_outline, color: AppColors.recallRed, size: 14),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -584,10 +579,7 @@ class _FollowUpBar extends StatelessWidget {
                         ),
                       ),
                     ),
-                    TextButton(
-                      onPressed: sending ? null : onSend,
-                      child: const Text('Retry'),
-                    ),
+                    TextButton(onPressed: sending ? null : onSend, child: const Text('Retry')),
                   ],
                 ),
               ),
@@ -604,16 +596,10 @@ class _FollowUpBar extends StatelessWidget {
                     },
                     decoration: InputDecoration(
                       hintText: 'Send a follow-up question...',
-                      hintStyle: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 14,
-                      ),
+                      hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
                       filled: true,
                       fillColor: const Color(0xFF1A2440),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -643,11 +629,7 @@ class _FollowUpBar extends StatelessWidget {
 }
 
 class _CoachPanel extends StatelessWidget {
-  const _CoachPanel({
-    required this.label,
-    required this.child,
-    required this.accentColor,
-  });
+  const _CoachPanel({required this.label, required this.child, required this.accentColor});
 
   final String label;
   final Widget child;
@@ -663,11 +645,7 @@ class _CoachPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
         boxShadow: [
-          BoxShadow(
-            color: accentColor.withValues(alpha: 0.06),
-            blurRadius: 20,
-            spreadRadius: -2,
-          ),
+          BoxShadow(color: accentColor.withValues(alpha: 0.06), blurRadius: 20, spreadRadius: -2),
         ],
       ),
       child: Column(
@@ -704,11 +682,7 @@ class _CoachPanel extends StatelessWidget {
 }
 
 class _EnergySlider extends StatelessWidget {
-  const _EnergySlider({
-    required this.value,
-    required this.color,
-    required this.onChanged,
-  });
+  const _EnergySlider({required this.value, required this.color, required this.onChanged});
 
   final double value;
   final Color color;
@@ -724,19 +698,11 @@ class _EnergySlider extends StatelessWidget {
           children: [
             const Text(
               'CURRENT ENERGY',
-              style: TextStyle(
-                color: Colors.white54,
-                fontSize: 11,
-                letterSpacing: 1.5,
-              ),
+              style: TextStyle(color: Colors.white54, fontSize: 11, letterSpacing: 1.5),
             ),
             Text(
               '${(value * 100).round()}%',
-              style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
             ),
           ],
         ),
@@ -770,18 +736,12 @@ class _VoiceButton extends ConsumerWidget {
         decoration: BoxDecoration(
           color: AppColors.memoryAmber.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: AppColors.memoryAmber.withValues(alpha: 0.4),
-          ),
+          border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.4)),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.volume_up_rounded,
-              color: AppColors.memoryAmber,
-              size: 15,
-            ),
+            Icon(Icons.volume_up_rounded, color: AppColors.memoryAmber, size: 15),
             SizedBox(width: 6),
             Text(
               'SPEAK',
@@ -822,9 +782,7 @@ class _MicButton extends ConsumerWidget {
               : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: listening
-                ? AppColors.neonCyan.withValues(alpha: 0.6)
-                : Colors.white24,
+            color: listening ? AppColors.neonCyan.withValues(alpha: 0.6) : Colors.white24,
           ),
         ),
         child: Row(
@@ -867,9 +825,7 @@ class _ProgressionBanner extends ConsumerWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.memoryAmber.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: <Widget>[
@@ -878,9 +834,7 @@ class _ProgressionBanner extends ConsumerWidget {
             decoration: BoxDecoration(
               color: AppColors.memoryAmber.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: AppColors.memoryAmber.withValues(alpha: 0.4),
-              ),
+              border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.4)),
             ),
             child: Text(
               'LVL ${progress.level}',
@@ -910,19 +864,12 @@ class _ProgressionBanner extends ConsumerWidget {
                     ),
                     Text(
                       '${progress.xpToNext} XP',
-                      style: const TextStyle(
-                        color: Colors.white24,
-                        fontSize: 10,
-                      ),
+                      style: const TextStyle(color: Colors.white24, fontSize: 10),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                ProgressBar(
-                  value: progress.levelProgress,
-                  color: AppColors.memoryAmber,
-                  height: 4,
-                ),
+                ProgressBar(value: progress.levelProgress, color: AppColors.memoryAmber, height: 4),
               ],
             ),
           ),
@@ -930,11 +877,7 @@ class _ProgressionBanner extends ConsumerWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              const Icon(
-                Icons.local_fire_department,
-                color: Colors.deepOrangeAccent,
-                size: 14,
-              ),
+              const Icon(Icons.local_fire_department, color: Colors.deepOrangeAccent, size: 14),
               const SizedBox(width: 4),
               Text(
                 '${progress.streak}',
@@ -1041,12 +984,7 @@ class _DisclaimerText extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Text(
       'This app is not a substitute for professional mental health care.',
-      style: TextStyle(
-        color: Colors.white30,
-        fontSize: 10,
-        letterSpacing: 0.3,
-        height: 1.4,
-      ),
+      style: TextStyle(color: Colors.white30, fontSize: 10, letterSpacing: 0.3, height: 1.4),
     );
   }
 }

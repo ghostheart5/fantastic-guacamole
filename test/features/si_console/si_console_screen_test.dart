@@ -71,6 +71,35 @@ void main() {
 
     expect(find.textContaining('No grounded response was generated'), findsOneWidget);
   });
+
+  testWidgets('AI errors still render safe SI fallback response', (WidgetTester tester) async {
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        aiControllerProvider.overrideWith((Ref ref) => _ErrorAiController(ref)),
+        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+        intelligenceStateProvider.overrideWithValue(_intelligence),
+      ],
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SIConsoleScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    await tester.enterText(find.byType(TextField), 'summarize my trajectory');
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.textContaining('Full intelligence context lock failed'), findsOneWidget);
+  });
 }
 
 const IntelligenceState _intelligence = IntelligenceState(
@@ -123,5 +152,14 @@ class _NullAiController extends AIController {
   @override
   Future<AIRecommendation?> sendMessage(String text) async {
     return null;
+  }
+}
+
+class _ErrorAiController extends AIController {
+  _ErrorAiController(super.ref);
+
+  @override
+  Future<AIRecommendation?> sendMessage(String text) async {
+    throw StateError('simulated non-exception AI failure');
   }
 }

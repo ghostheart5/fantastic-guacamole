@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/data/services/ai/agents/ai_agent.dart';
+import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
@@ -6,7 +7,7 @@ import 'package:fantastic_guacamole/engine/si/ai_response.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/si/si_ai_service.dart';
 
-class RecommendationAgent extends AiAgent {
+class RecommendationAgent extends AiAgent implements RecommendationEngine {
   const RecommendationAgent({this.service});
 
   final SIAIService? service;
@@ -17,8 +18,7 @@ class RecommendationAgent extends AiAgent {
   @override
   Future<Map<String, dynamic>> execute(Map<String, dynamic> request) async {
     final Object? context = request['context'];
-    final List<Task> tasks =
-        (request['tasks'] as List<Task>?) ?? const <Task>[];
+    final List<Task> tasks = (request['tasks'] as List<Task>?) ?? const <Task>[];
     final SIState? si = request['si'] as SIState?;
     final LearningState? learning = request['learning'] as LearningState?;
     final AIPersonality personality = request['personality'] is AIPersonality

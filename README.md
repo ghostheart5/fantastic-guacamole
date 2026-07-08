@@ -24,6 +24,16 @@ For the dependency direction contract, see [docs/LAYER_FLOW.md](docs/LAYER_FLOW.
 - `flutter test`
 - `flutter run -d windows`
 
+## Android release and tester access
+
+- Play Store production builds should be built from the production flavor with release signing.
+- Mock login is intentionally disabled in production. It is only available in non-production builds when `CHRONOSPARK_ENABLE_MOCK_LOGIN=true` or `CHRONOSPARK_ENABLE_MOCK_MODE=true` is passed.
+- Tester builds should use the QA flavor so the app treats them as non-production.
+- Typical tester launch command:
+  - `flutter run -d emulator-5554 --dart-define=CHRONOSPARK_APP_FLAVOR=qa --dart-define=CHRONOSPARK_ENABLE_MOCK_LOGIN=true --dart-define=CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS=true --dart-define=CHRONOSPARK_ENABLE_CLOUD_SYNC=false`
+- Mock login defaults to `mock@chronospark.app` unless `CHRONOSPARK_MOCK_LOGIN_EMAIL` and `CHRONOSPARK_MOCK_LOGIN_PASSWORD` are supplied.
+- For Google Play upload, build a release AAB with your signed release keystore and verify the bundle version increments before each upload.
+
 ## App links and indexing
 
 - Android App Links are declared for:

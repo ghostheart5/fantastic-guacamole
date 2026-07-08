@@ -1,8 +1,6 @@
 part of 'ai_controller.dart';
 
-final siEngineStateProvider = FutureProvider<Map<String, dynamic>?>((
-  ref,
-) async {
+final siEngineStateProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   final siEngineService = ref.read(siEngineServiceProvider);
   return siEngineService.loadState();
 });
@@ -16,20 +14,17 @@ final aiDecisionProvider = FutureProvider<Decision?>((ref) async {
   final Decision? decision = core.decide(tasks);
 
   if (decision != null) {
-    ref
-        .read(notificationActionsProvider)
-        .pushMirroredDecision(decision.task.title);
+    ref.read(notificationActionsProvider).pushMirroredDecision(decision.task.title);
   }
 
   return decision;
 });
 
-final aiResponseProvider =
-    AsyncNotifierProvider<AIResponseController, AIRecommendation?>(
-      AIResponseController.new,
-    );
+final aiResponseProvider = AsyncNotifierProvider<AIResponseController, AIRecommendation?>(
+  AIResponseController.new,
+);
 
-class AIResponseController extends AsyncNotifier<AIRecommendation?> {
+class AIResponseController extends AsyncNotifier<AIRecommendation?> implements SIConsoleInterface {
   static int _requestCounter = 0;
   String? _activeRequestId;
 
@@ -52,6 +47,12 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
     );
   }
 
+  @override
+  Future<AIRecommendation?> sendMessage(String text) {
+    return executeConsoleQuery(input: text);
+  }
+
+  @override
   Future<AIRecommendation?> executeConsoleQuery({
     required String input,
     List<Map<String, String>> history = const <Map<String, String>>[],
@@ -83,12 +84,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
     ref
         .read(aiExecutionStatusProvider.notifier)
         .set(
-          AIExecutionStatus(
-            phase: 'running',
-            requestId: requestId,
-            durationMs: null,
-            error: null,
-          ),
+          AIExecutionStatus(phase: 'running', requestId: requestId, durationMs: null, error: null),
         );
     RuntimeDiagnostics.record('AI[$requestId] started');
 
@@ -96,18 +92,14 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
       final List<Task> tasks = await ref.read(tasksProvider.future);
       final siEngineService = ref.read(siEngineServiceProvider);
       final agentOrchestrator = ref.read(agentOrchestratorProvider);
-      final bool hasPremiumAccess = ref
-          .read(appAccessProvider)
-          .hasPremiumAccess;
+      final bool hasPremiumAccess = ref.read(appAccessProvider).hasPremiumAccess;
       final CreditService creditService = ref.read(creditServiceProvider);
 
       final si = ref.read(siStateProvider);
       final learning = ref.read(learningProvider);
       final intelligence = ref.read(intelligenceStateProvider);
       final AIPersonality personality =
-          personalityOverride ??
-          ref.read(aiPersonalityProvider) ??
-          AIPersonality.coach;
+          personalityOverride ?? ref.read(aiPersonalityProvider) ?? AIPersonality.coach;
       final input = inputOverride ?? ref.read(aiInputProvider);
 
       final AiCreditSpendResult spend = await creditService.spend(
@@ -155,22 +147,15 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
 
       ref.read(paywallPromptProvider.notifier).set(null);
 
-      final Map<String, dynamic>? previousState = await siEngineService
-          .loadState();
-      final List<Map<String, String>> conversationHistory =
-          List<Map<String, String>>.from(history);
-      final String previousMessage =
-          previousState?['message']?.toString().trim() ?? '';
+      final Map<String, dynamic>? previousState = await siEngineService.loadState();
+      final List<Map<String, String>> conversationHistory = List<Map<String, String>>.from(history);
+      final String previousMessage = previousState?['message']?.toString().trim() ?? '';
       final bool alreadyContainsPrevious = conversationHistory.any(
         (Map<String, String> item) =>
-            item['role'] == 'assistant' &&
-            item['content']?.trim() == previousMessage,
+            item['role'] == 'assistant' && item['content']?.trim() == previousMessage,
       );
       if (previousMessage.isNotEmpty && !alreadyContainsPrevious) {
-        conversationHistory.add(<String, String>{
-          'role': 'assistant',
-          'content': previousMessage,
-        });
+        conversationHistory.add(<String, String>{'role': 'assistant', 'content': previousMessage});
       }
       final List<SISnapshot> recentSnapshots = ref
           .read(siMemoryProvider)
@@ -178,13 +163,12 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
           .take(20)
           .toList(growable: false);
       final SIIntent intent = classifySIIntent(input ?? '');
-      final List<String> selectedMemorySummaries =
-          selectRelevantMemorySummaries(
-            query: input ?? '',
-            intent: intent,
-            recentSnapshots: recentSnapshots,
-            previousState: previousState,
-          );
+      final List<String> selectedMemorySummaries = selectRelevantMemorySummaries(
+        query: input ?? '',
+        intent: intent,
+        recentSnapshots: recentSnapshots,
+        previousState: previousState,
+      );
       final SIInputContext siInputContext = SIInputContext(
         query: input ?? '',
         availableTaskIds: tasks.map((Task t) => t.id).toSet(),
@@ -261,8 +245,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         emotion: response.emotion,
         confidence: response.confidence,
       );
-      final double baseConfidenceSeed = (baseRecommendation.confidence ?? 0.55)
-          .clamp(0.0, 1.0);
+      final double baseConfidenceSeed = (baseRecommendation.confidence ?? 0.55).clamp(0.0, 1.0);
       final double calibratedBaseConfidence = agentResult.usedDefaults
           ? (baseConfidenceSeed - 0.18).clamp(0.25, 1.0)
           : baseConfidenceSeed;
@@ -276,12 +259,8 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         recentSnapshots: recentSnapshots,
         previousState: previousState,
       );
-      final String? previousTaskId = recentSnapshots.isEmpty
-          ? null
-          : recentSnapshots.first.taskId;
-      final bool userRecentlySkipping = _recentSkipPressure(
-        ref.read(learningHistoryProvider),
-      );
+      final String? previousTaskId = recentSnapshots.isEmpty ? null : recentSnapshots.first.taskId;
+      final bool userRecentlySkipping = _recentSkipPressure(ref.read(learningHistoryProvider));
 
       final List<SIResponseCandidate> candidates = <SIResponseCandidate>[
         SIResponseCandidate(
@@ -305,9 +284,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         previousSnapshot: previousState ?? const <String, dynamic>{},
       );
 
-      final int selectedIndex = selection.index
-          .clamp(0, candidates.length - 1)
-          .toInt();
+      final int selectedIndex = selection.index.clamp(0, candidates.length - 1).toInt();
       final SIResponseCandidate selected = candidates[selectedIndex];
       final SIValidatedDecision validatedDecision = validateSIResponseDecision(
         inputContext: siInputContext,
@@ -315,8 +292,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         candidate: selected,
       );
       Task? selectedTask;
-      if (validatedDecision.taskId != null &&
-          validatedDecision.taskId!.isNotEmpty) {
+      if (validatedDecision.taskId != null && validatedDecision.taskId!.isNotEmpty) {
         for (final Task t in tasks) {
           if (t.id == validatedDecision.taskId) {
             selectedTask = t;
@@ -335,9 +311,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         confidence: selected.confidence,
       );
 
-      final SlidingWindowRateLimiter suggestionLimiter = ref.read(
-        aiSuggestionRateLimiterProvider,
-      );
+      final SlidingWindowRateLimiter suggestionLimiter = ref.read(aiSuggestionRateLimiterProvider);
       if (selection.repeatedTask && !suggestionLimiter.tryAcquire()) {
         recommendation = const AIRecommendation(
           task: null,
@@ -354,8 +328,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
           task: recommendation.task,
           message:
               'I cannot produce a grounded answer yet. Rephrase with a specific task, status, or energy question.',
-          reasoning:
-              '${recommendation.reasoning ?? 'policy'} | policy_fallback',
+          reasoning: '${recommendation.reasoning ?? 'policy'} | policy_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: (recommendation.confidence ?? 0.6).clamp(0.0, 1.0),
         );
@@ -376,8 +349,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
             recentResponseHashes: recentHashes,
             recentResponseSummaries: recentSummaries,
           ),
-          reasoning:
-              '${recommendation.reasoning ?? 'response'} | final_dedup_fallback',
+          reasoning: '${recommendation.reasoning ?? 'response'} | final_dedup_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: recommendation.confidence,
         );
@@ -389,13 +361,9 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         );
       }
 
-      final bool usedGroundingFallback =
-          validatedDecision.violations.isNotEmpty;
-      final bool emittedPolicyAccepted = isPolicyAcceptableResponse(
-        recommendation.message,
-      );
-      final bool emittedGrounded =
-          validatedDecision.grounded || usedGroundingFallback;
+      final bool usedGroundingFallback = validatedDecision.violations.isNotEmpty;
+      final bool emittedPolicyAccepted = isPolicyAcceptableResponse(recommendation.message);
+      final bool emittedGrounded = validatedDecision.grounded || usedGroundingFallback;
       final bool facadeValidated = siEngineService.validateOutput(
         message: recommendation.message,
         confidence: (recommendation.confidence ?? 0.0),
@@ -409,16 +377,14 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
           task: recommendation.task,
           message:
               'I could not validate that output against current state. Ask again with clearer task, plan, or status context.',
-          reasoning:
-              '${recommendation.reasoning ?? 'validation'} | facade_validation_fallback',
+          reasoning: '${recommendation.reasoning ?? 'validation'} | facade_validation_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: (recommendation.confidence ?? 0.5).clamp(0.0, 1.0),
         );
       }
 
       final bool facadeFallback =
-          recommendation.reasoning?.contains('facade_validation_fallback') ==
-          true;
+          recommendation.reasoning?.contains('facade_validation_fallback') == true;
       final bool repeatedAfterValidation = isSubstantiallyRepeatedResponse(
         message: recommendation.message,
         recentResponseHashes: recentHashes,
@@ -433,8 +399,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
             recentResponseHashes: recentHashes,
             recentResponseSummaries: recentSummaries,
           ),
-          reasoning:
-              '${recommendation.reasoning ?? 'response'} | final_dedup_fallback',
+          reasoning: '${recommendation.reasoning ?? 'response'} | final_dedup_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: recommendation.confidence,
         );
@@ -454,8 +419,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         noveltyScore: finalNovelty,
         memoryUsed: selectedMemorySummaries.isNotEmpty,
         usedDefaults: agentResult.usedDefaults,
-        usedFallback:
-            usedGroundingFallback || usedFinalDedupFallback || facadeFallback,
+        usedFallback: usedGroundingFallback || usedFinalDedupFallback || facadeFallback,
       );
       recommendation = AIRecommendation(
         task: recommendation.task,
@@ -467,36 +431,24 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
 
       stopwatch.stop();
 
-      final Map<String, dynamic> generatedResponse = await siEngineService
-          .generateResponse(
-            input: input ?? '',
-            message: recommendation.message,
-            emotion: recommendation.emotion ?? 'balanced',
-            confidence: recommendation.confidence ?? 0.5,
-            taskId: recommendation.task?.id,
-            context: <String, dynamic>{
-              'reasoning': recommendation.reasoning ?? '',
-            },
-          );
-      final String responseHash =
-          generatedResponse['responseHash']?.toString() ?? '';
-      final String responseSummary =
-          generatedResponse['responseSummary']?.toString() ?? '';
-      final String actionKey = recommendation.task?.id ?? responseHash;
-      final bool persistFullHistory =
-          conversationContext['persistFullHistory'] == true;
-      final String memoryType = _classifyMemoryType(
-        intent: intent,
-        recommendation: recommendation,
+      final Map<String, dynamic> generatedResponse = await siEngineService.generateResponse(
+        input: input ?? '',
+        message: recommendation.message,
+        emotion: recommendation.emotion ?? 'balanced',
+        confidence: recommendation.confidence ?? 0.5,
+        taskId: recommendation.task?.id,
+        context: <String, dynamic>{'reasoning': recommendation.reasoning ?? ''},
       );
+      final String responseHash = generatedResponse['responseHash']?.toString() ?? '';
+      final String responseSummary = generatedResponse['responseSummary']?.toString() ?? '';
+      final String actionKey = recommendation.task?.id ?? responseHash;
+      final bool persistFullHistory = conversationContext['persistFullHistory'] == true;
+      final String memoryType = _classifyMemoryType(intent: intent, recommendation: recommendation);
       final Map<String, dynamic> memoryEvent = <String, dynamic>{
         'timestampUtc': DateTime.now().toUtc().toIso8601String(),
         'type': memoryType,
         'intent': intent.label,
-        'summary': _summarizeInteraction(
-          input: input ?? '',
-          output: recommendation.message,
-        ),
+        'summary': _summarizeInteraction(input: input ?? '', output: recommendation.message),
         'taskId': recommendation.task?.id,
         'responseHash': responseHash,
       };
@@ -508,13 +460,12 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         currentState: previousState,
         memoryEvent: memoryEvent,
       );
-      final Map<String, dynamic> communicationContract =
-          buildSICommunicationContract(
-            inputContext: siInputContext,
-            intent: intent,
-            candidateActions: candidates,
-            decision: validatedDecision,
-          );
+      final Map<String, dynamic> communicationContract = buildSICommunicationContract(
+        inputContext: siInputContext,
+        intent: intent,
+        candidateActions: candidates,
+        decision: validatedDecision,
+      );
 
       await siEngineService.saveState(<String, dynamic>{
         'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
@@ -539,10 +490,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
         'actionKey': actionKey,
         'grounded': validatedDecision.grounded,
         'validationViolations': validatedDecision.violations,
-        'intent': <String, dynamic>{
-          'label': intent.label,
-          'confidence': intent.confidence,
-        },
+        'intent': <String, dynamic>{'label': intent.label, 'confidence': intent.confidence},
         'communicationContract': communicationContract,
       });
       ref.invalidate(siEngineStateProvider);
@@ -575,9 +523,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
               error: null,
             ),
           );
-      RuntimeDiagnostics.record(
-        'AI[$requestId] completed in ${stopwatch.elapsedMilliseconds}ms',
-      );
+      RuntimeDiagnostics.record('AI[$requestId] completed in ${stopwatch.elapsedMilliseconds}ms');
       return recommendation;
     } on Exception catch (error, stackTrace) {
       stopwatch.stop();

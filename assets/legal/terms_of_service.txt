@@ -15,4 +15,6 @@ ChronoSpark reserves the right to update these terms.
 
 Some account requests may require support rather than a self-service in-app action.
 
+Delete Account: https://chronospark.app/delete-account
+
 Contact: https://chronospark.app/support

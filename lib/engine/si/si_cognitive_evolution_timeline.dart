@@ -1,16 +1,11 @@
 // lib/engine/si/si_cognitive_evolution_timeline.dart
 
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_ecosystem_layer.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_micro_pattern_engine.dart';
 
-enum EvolutionEventType {
-  milestone,
-  regression,
-  stabilization,
-  pattern,
-  ecosystem,
-}
+enum EvolutionEventType { milestone, regression, stabilization, pattern, ecosystem }
 
 class EvolutionEvent {
   const EvolutionEvent({
@@ -35,9 +30,7 @@ class EvolutionTimeline {
 
   EvolutionTimeline push(EvolutionEvent event, {int max = 120}) {
     return EvolutionTimeline(
-      events: List<EvolutionEvent>.unmodifiable(
-        <EvolutionEvent>[event, ...events].take(max),
-      ),
+      events: List<EvolutionEvent>.unmodifiable(<EvolutionEvent>[event, ...events].take(max)),
     );
   }
 }
@@ -54,9 +47,10 @@ class EvolutionTimelineUpdate {
   final String summary;
 }
 
-class SICognitiveEvolutionTimelineEngine {
+class SICognitiveEvolutionTimelineEngine implements AssistantTimelineEngine {
   const SICognitiveEvolutionTimelineEngine();
 
+  @override
   EvolutionTimelineUpdate track({
     required EvolutionTimeline current,
     required SIMemoryStore memory,
@@ -123,10 +117,7 @@ class SICognitiveEvolutionTimelineEngine {
             confidence: 0.7,
             recency: 1.0,
             emotionalWeight: siClamp01(context.userState.stress),
-            reinforcement:
-                timeline.events.first.type == EvolutionEventType.milestone
-                ? 2
-                : 1,
+            reinforcement: timeline.events.first.type == EvolutionEventType.milestone ? 2 : 1,
           ),
         )
         .dedupe()
@@ -173,9 +164,6 @@ class SICognitiveEvolutionTimelineEngine {
 
   String _summary(EvolutionTimeline timeline) {
     if (timeline.events.isEmpty) return 'No timeline events yet.';
-    return timeline.events
-        .take(3)
-        .map((EvolutionEvent e) => e.label)
-        .join(' · ');
+    return timeline.events.take(3).map((EvolutionEvent e) => e.label).join(' · ');
   }
 }
