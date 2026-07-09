@@ -29,21 +29,55 @@ class DefaultAssistantIntentDetector implements AssistantIntentDetector {
       metadata: <String, dynamic>{'group': 'general'},
     );
 
-    if (_hasAny(text, <String>['weight gain', 'gain weight', 'put on weight', 'bulk'])) {
+    if (_hasAny(text, <String>[
+      'weight gain',
+      'gain weight',
+      'put on weight',
+      'bulk',
+    ])) {
       result = _intent('weight_gain', 0.89, 'health', text);
-    } else if (_hasAny(text, <String>['weight loss', 'lose weight', 'fat loss', 'cutting'])) {
+    } else if (_hasAny(text, <String>[
+      'weight loss',
+      'lose weight',
+      'fat loss',
+      'cutting',
+    ])) {
       result = _intent('weight_loss', 0.89, 'health', text);
-    } else if (_hasAny(text, <String>['nutrition', 'diet', 'meal', 'food', 'protein', 'calorie'])) {
+    } else if (_hasAny(text, <String>[
+      'nutrition',
+      'diet',
+      'meal',
+      'food',
+      'protein',
+      'calorie',
+    ])) {
       result = _intent('nutrition', 0.84, 'health', text);
-    } else if (_hasAny(text, <String>['hydrate', 'hydration', 'water', 'dehydrated'])) {
+    } else if (_hasAny(text, <String>[
+      'hydrate',
+      'hydration',
+      'water',
+      'dehydrated',
+    ])) {
       result = _intent('hydration', 0.84, 'health', text);
-    } else if (_hasAny(text, <String>['exercise', 'workout', 'training', 'gym', 'run', 'lift'])) {
+    } else if (_hasAny(text, <String>[
+      'exercise',
+      'workout',
+      'training',
+      'gym',
+      'run',
+      'lift',
+    ])) {
       result = _intent('exercise', 0.84, 'health', text);
     } else if (_hasAny(text, <String>['sleep', 'rest', 'bedtime', 'wake up'])) {
       result = _intent('sleep', 0.82, 'health', text);
     } else if (_hasAny(text, <String>['recover', 'recovery', 'soreness'])) {
       result = _intent('recovery', 0.82, 'health', text);
-    } else if (_hasAny(text, <String>['energy', 'tired', 'fatigue', 'drained'])) {
+    } else if (_hasAny(text, <String>[
+      'energy',
+      'tired',
+      'fatigue',
+      'drained',
+    ])) {
       result = _intent('energy', 0.81, 'health', text);
     } else if (_hasAny(text, <String>[
       'stress',
@@ -60,9 +94,19 @@ class DefaultAssistantIntentDetector implements AssistantIntentDetector {
       'time management',
     ])) {
       result = _intent('productivity', 0.86, 'productivity', text);
-    } else if (_hasAny(text, <String>['confidence', 'motivation', 'discipline'])) {
+    } else if (_hasAny(text, <String>[
+      'confidence',
+      'motivation',
+      'discipline',
+    ])) {
       result = _intent('mindset', 0.84, 'mental', text);
-    } else if (_hasAny(text, <String>['relationship', 'career', 'learn', 'growth', 'decision'])) {
+    } else if (_hasAny(text, <String>[
+      'relationship',
+      'career',
+      'learn',
+      'growth',
+      'decision',
+    ])) {
       result = _intent('life', 0.82, 'life', text);
     }
 
@@ -88,20 +132,33 @@ class DefaultAssistantIntentDetector implements AssistantIntentDetector {
     if (_hasAny(text, <String>['analyze', 'insight', 'trend', 'metrics'])) {
       return _intent('analytics_query', 0.8, 'si_console', text);
     }
-    if (_hasAny(text, <String>['life summary', 'summarize my life', 'my life'])) {
+    if (_hasAny(text, <String>[
+      'life summary',
+      'summarize my life',
+      'my life',
+    ])) {
       return _intent('life_query', 0.8, 'si_console', text);
     }
     return _intent('recommendation_query', 0.68, 'si_console', text);
   }
 
-  AssistantIntent _intent(String label, double confidence, String group, String text) {
+  AssistantIntent _intent(
+    String label,
+    double confidence,
+    String group,
+    String text,
+  ) {
     return AssistantIntent(
       label: label,
       confidence: confidence,
       surface: group,
-      metadata: <String, dynamic>{'group': group, 'sample': text.isEmpty ? null : text},
+      metadata: <String, dynamic>{
+        'group': group,
+        'sample': text.isEmpty ? null : text,
+      },
     );
   }
 
-  bool _hasAny(String text, List<String> patterns) => patterns.any(text.contains);
+  bool _hasAny(String text, List<String> patterns) =>
+      patterns.any(text.contains);
 }

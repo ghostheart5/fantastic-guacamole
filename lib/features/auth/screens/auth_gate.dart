@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/core/utils/validators.dart';
+import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
@@ -38,7 +39,9 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
     case 'no-current-user':
       return 'Session ended. Sign in again.';
     case 'auth-unavailable':
-      return 'Auth backend unavailable in this runtime.';
+      return backendMessage.isNotEmpty
+          ? backendMessage
+          : 'Auth backend unavailable in this runtime.';
     case 'operation-failed':
       return backendMessage.isNotEmpty
           ? backendMessage
@@ -242,10 +245,37 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     }
 
     try {
-      _authService = ProviderScope.containerOf(
+      final ProviderContainer container = ProviderScope.containerOf(
         context,
         listen: false,
-      ).read(authServiceProvider);
+      );
+      final bool supabaseConfigured = ref
+          .read(intelligenceStateProvider)
+          .environment
+          .isSupabaseConfigured;
+      const int maxInitAttempts = 3;
+
+      for (int attempt = 0; attempt < maxInitAttempts; attempt++) {
+        final AuthServiceContract authService = container.read(
+          authServiceProvider,
+        );
+        _authService = authService;
+
+        final bool backendUnavailable = authService is UnavailableAuthService;
+        final bool shouldRetry =
+            supabaseConfigured &&
+            backendUnavailable &&
+            attempt < maxInitAttempts - 1;
+        if (!shouldRetry) {
+          if (supabaseConfigured && backendUnavailable) {
+            _authInitError =
+                'Authentication backend is configured but unavailable in this runtime.';
+          }
+          return;
+        }
+
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+      }
     } catch (e) {
       _authInitError = 'Authentication backend unavailable for this runtime.';
       _authService = const _UnavailableAuthService();

@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
-import 'package:fantastic_guacamole/engine/si/models/si_state.dart' as si_models;
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
+    as si_models;
 import 'package:fantastic_guacamole/engine/si/si_cognitive_ecosystem_layer.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_evolution_timeline.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_micro_pattern_engine.dart';

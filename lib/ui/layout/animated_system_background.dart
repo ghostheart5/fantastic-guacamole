@@ -21,7 +21,8 @@ class AnimatedSystemBackground extends StatefulWidget {
   final Widget? child;
 
   @override
-  State<AnimatedSystemBackground> createState() => _AnimatedSystemBackgroundState();
+  State<AnimatedSystemBackground> createState() =>
+      _AnimatedSystemBackgroundState();
 }
 
 class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
@@ -30,7 +31,8 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
   bool _isAnimating = false;
 
   bool _shouldAnimate(BuildContext context) {
-    final bool reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final bool reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return widget.animate && !reduceMotion;
   }
 
@@ -51,7 +53,10 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 18));
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 18),
+    );
     _controller.value = 0;
   }
 
@@ -97,8 +102,12 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
                 fit: BoxFit.cover,
                 filterQuality: FilterQuality.low,
                 excludeFromSemantics: true,
-                errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) =>
-                    const ColoredBox(color: Color(0xFF0C0812)),
+                errorBuilder:
+                    (
+                      BuildContext context,
+                      Object error,
+                      StackTrace? stackTrace,
+                    ) => const ColoredBox(color: Color(0xFF0C0812)),
               )
             else
               const ColoredBox(color: Color(0xFF0C0812)),
@@ -109,8 +118,16 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
         final bool showGlow = widget.showGlowOverlay && _isAnimating;
         final double t = _isAnimating ? _controller.value : 0;
         final double overlayOpacity = widget.overlayOpacity.clamp(0.0, 1.0);
-        final Color color1 = Color.lerp(const Color(0x3A08040E), const Color(0x3A170C1F), t)!;
-        final Color color2 = Color.lerp(const Color(0x2C221029), const Color(0x2C0D0916), t)!;
+        final Color color1 = Color.lerp(
+          const Color(0x3A08040E),
+          const Color(0x3A170C1F),
+          t,
+        )!;
+        final Color color2 = Color.lerp(
+          const Color(0x2C221029),
+          const Color(0x2C0D0916),
+          t,
+        )!;
         final Alignment begin = Alignment(-1 + (t * 0.6), -1 + (t * 0.2));
         final Alignment end = Alignment(1 - (t * 0.4), 1 - (t * 0.1));
         return Stack(
@@ -136,7 +153,10 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
             if (showGlow)
               RepaintBoundary(
                 child: CustomPaint(
-                  painter: _GlowPainter(progress: t, opacity: t > 0.02 ? 0.35 * overlayOpacity : 0),
+                  painter: _GlowPainter(
+                    progress: t,
+                    opacity: t > 0.02 ? 0.35 * overlayOpacity : 0,
+                  ),
                 ),
               ),
             ?widget.child,

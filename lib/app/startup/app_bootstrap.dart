@@ -234,35 +234,31 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   const SystemBoot();
   tz.initializeTimeZones();
 
-  final Future<String?> storageIssueFuture = _measureIssueStage(
+  final String? storageIssue = await _measureIssueStage(
     'storage',
     _initStorageSafe,
   );
-  final Future<String?> firebaseIssueFuture = _measureIssueStage(
+  startupError = _appendStartupIssue(startupError, storageIssue ?? '');
+
+  final String? firebaseIssue = await _measureIssueStage(
     'firebase',
     () => _initFirebaseSafe(isMockMode: intelligence.flags.mockMode),
   );
-  final Future<String?> supabaseIssueFuture = _measureIssueStage(
+  startupError = _appendStartupIssue(startupError, firebaseIssue ?? '');
+
+  final String? supabaseIssue = await _measureIssueStage(
     'supabase',
     () => _initSupabaseSafe(isMockMode: intelligence.flags.mockMode),
   );
-  final Future<String?> identityIssueFuture = _measureIssueStage(
+  startupError = _appendStartupIssue(startupError, supabaseIssue ?? '');
+
+  final String? identityIssue = await _measureIssueStage(
     'identity',
     () => _initIdentitySafe(ref),
   );
-  final Future<PrefsLoadResult> prefsResultFuture = _measurePrefsStage(
-    _loadPrefsSafe,
-  );
+  startupError = _appendStartupIssue(startupError, identityIssue ?? '');
 
-  final List<String?> startupIssues = await Future.wait<String?>(
-    <Future<String?>>[
-      storageIssueFuture,
-      firebaseIssueFuture,
-      supabaseIssueFuture,
-      identityIssueFuture,
-    ],
-  );
-  final PrefsLoadResult prefsResult = await prefsResultFuture;
+  final PrefsLoadResult prefsResult = await _measurePrefsStage(_loadPrefsSafe);
 
   unawaited(
     _measureIssueStage(
@@ -273,10 +269,6 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
     ),
   );
   unawaited(_measureIssueStage('deep_links', _initDeepLinksSafe));
-
-  for (final String? issue in startupIssues) {
-    startupError = _appendStartupIssue(startupError, issue ?? '');
-  }
   startupError = _appendStartupIssue(startupError, prefsResult.issue ?? '');
 
   final bool hasOnboarded = prefsResult.hasOnboarded;

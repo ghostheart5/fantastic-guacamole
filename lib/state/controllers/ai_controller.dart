@@ -93,7 +93,8 @@ class AIController {
     final Throttle throttle = _ref.read(aiMessageThrottleProvider);
     if (!throttle.isReady) {
       return const AIRecommendation(
-        message: 'Rapid repeat detected. Pause for a moment so I can give you a better response.',
+        message:
+            'Rapid repeat detected. Pause for a moment so I can give you a better response.',
         reasoning: 'throttled',
         emotion: 'balanced',
         confidence: 0.6,
@@ -106,7 +107,8 @@ class AIController {
     });
     if (!accepted) {
       return const AIRecommendation(
-        message: 'Rapid repeat detected. Pause for a moment so I can give you a better response.',
+        message:
+            'Rapid repeat detected. Pause for a moment so I can give you a better response.',
         reasoning: 'throttled',
         emotion: 'balanced',
         confidence: 0.6,
@@ -133,7 +135,8 @@ class AIController {
     final soulState = _ref.read(soulStateProvider);
     final trajectory = _ref.read(trajectorySummaryProvider);
     final List<String> coreValues =
-        _ref.read(profileValuesStoreProvider).load().toList(growable: false)..sort();
+        _ref.read(profileValuesStoreProvider).load().toList(growable: false)
+          ..sort();
 
     final List<Map<String, String>> history = <Map<String, String>>[];
     final dynamic rawHistory = previousState?['historySummary'];
@@ -164,14 +167,22 @@ class AIController {
         .map((memory) => memory.text.trim())
         .where((text) => text.isNotEmpty)
         .toList(growable: false);
-    final List<String> matchedSurfaces = _detectQuerySurfaces(input, forcedSurface: forcedSurface);
-    final String primarySurface = matchedSurfaces.first;
-    final String siIntentCategory = _detectSIIntentCategory(input, matchedSurfaces);
-    final AssistantIntent assistantIntent = const DefaultAssistantIntentDetector().detect(
-      input: input,
-      surface: 'si_console',
+    final List<String> matchedSurfaces = _detectQuerySurfaces(
+      input,
+      forcedSurface: forcedSurface,
     );
-    final DefaultAssistantContextBuilder contextBuilder = const DefaultAssistantContextBuilder();
+    final String primarySurface = matchedSurfaces.first;
+    final String siIntentCategory = _detectSIIntentCategory(
+      input,
+      matchedSurfaces,
+    );
+    final AssistantIntent assistantIntent =
+        const DefaultAssistantIntentDetector().detect(
+          input: input,
+          surface: 'si_console',
+        );
+    final DefaultAssistantContextBuilder contextBuilder =
+        const DefaultAssistantContextBuilder();
     final List<String> timelineSummaries = timelineEvents
         .take(3)
         .map((event) => event.title.trim())
@@ -244,11 +255,17 @@ class AIController {
         'insights': <String, dynamic>{
           'count': insightsBundle.items.length,
           'summary': insightsBundle.summary,
-          'top': insightsBundle.items.take(5).map((item) => item.title).toList(growable: false),
+          'top': insightsBundle.items
+              .take(5)
+              .map((item) => item.title)
+              .toList(growable: false),
         },
         'logs': <String, dynamic>{
           'count': logsState.entries.length,
-          'recent': logsState.entries.take(5).map((entry) => entry.message).toList(growable: false),
+          'recent': logsState.entries
+              .take(5)
+              .map((entry) => entry.message)
+              .toList(growable: false),
         },
         'memories': <String, dynamic>{
           'count': memories.length,
@@ -257,15 +274,27 @@ class AIController {
         'notifications': <String, dynamic>{
           'count': notifications.length,
           'unread': notifications.where((item) => !item.isRead).length,
-          'recent': notifications.take(5).map((item) => item.title).toList(growable: false),
+          'recent': notifications
+              .take(5)
+              .map((item) => item.title)
+              .toList(growable: false),
         },
-        'plan': <String, dynamic>{'preview': planPreview, 'generatedFromEnergy': si.energy},
+        'plan': <String, dynamic>{
+          'preview': planPreview,
+          'generatedFromEnergy': si.energy,
+        },
         'flowmap': <String, dynamic>{'count': flowmapNodeCount},
-        'emotions': <String, dynamic>{'current': emotion.name, 'fatigue': si.fatigue},
+        'emotions': <String, dynamic>{
+          'current': emotion.name,
+          'fatigue': si.fatigue,
+        },
         'soulmap': soulState.toJson(),
         'timeline': <String, dynamic>{
           'count': timelineEvents.length,
-          'recent': timelineEvents.take(5).map((e) => e.title).toList(growable: false),
+          'recent': timelineEvents
+              .take(5)
+              .map((e) => e.title)
+              .toList(growable: false),
         },
         'trajectory': <String, dynamic>{
           'pressure': trajectory.pressureIndex,
@@ -298,7 +327,8 @@ class AIController {
           requestOverride: request,
         );
 
-    if (recommendation == null || !_isStructuredSIResponse(recommendation.message)) {
+    if (recommendation == null ||
+        !_isStructuredSIResponse(recommendation.message)) {
       return _buildStructuredSIFallback(
         query: input,
         category: siIntentCategory,
@@ -312,12 +342,17 @@ class AIController {
 
   Future<List<TaskEntity>> _loadConsoleTaskEntities() async {
     try {
-      final List<TaskEntity> entities = await _ref.read(domainTaskRepositoryProvider).getAllTasks();
+      final List<TaskEntity> entities = await _ref
+          .read(domainTaskRepositoryProvider)
+          .getAllTasks();
       final List<TaskEntity> active =
           entities
               .where((TaskEntity item) => !item.isCompleted && !item.isCanceled)
               .toList(growable: true)
-            ..sort((TaskEntity a, TaskEntity b) => b.createdAt.compareTo(a.createdAt));
+            ..sort(
+              (TaskEntity a, TaskEntity b) =>
+                  b.createdAt.compareTo(a.createdAt),
+            );
       return active;
     } catch (_) {
       final List<Task> fallback = await _ref.read(tasksProvider.future);
@@ -376,7 +411,15 @@ class AIController {
       'progression': <String>['xp', 'level', 'streak', 'progress', 'rank'],
       'goals': <String>['goal', 'target', 'objective', 'mission'],
       'insights': <String>['insight', 'signal', 'pattern', 'analysis'],
-      'logs': <String>['log', 'ledger', 'activity', 'record', 'created', 'added', 'made'],
+      'logs': <String>[
+        'log',
+        'ledger',
+        'activity',
+        'record',
+        'created',
+        'added',
+        'made',
+      ],
       'memories': <String>['memory', 'remember', 'recall', 'history'],
       'notifications': <String>['notification', 'alert', 'reminder', 'prompt'],
       'plan': <String>['plan', 'schedule', 'calendar', 'time block'],
@@ -384,7 +427,12 @@ class AIController {
       'emotions': <String>['emotion', 'mood', 'energy', 'fatigue', 'feel'],
       'soulmap': <String>['soul', 'identity', 'continuity', 'narrative'],
       'timeline': <String>['timeline', 'milestone', 'event', 'chronology'],
-      'trajectory': <String>['trajectory', 'momentum', 'pressure', 'prediction'],
+      'trajectory': <String>[
+        'trajectory',
+        'momentum',
+        'pressure',
+        'prediction',
+      ],
     };
 
     final List<String> matched = <String>[];
@@ -450,7 +498,8 @@ class AIController {
     if (matchedSurfaces.contains('plan')) {
       return 'planning';
     }
-    if (matchedSurfaces.contains('tasks') || matchedSurfaces.contains('trajectory')) {
+    if (matchedSurfaces.contains('tasks') ||
+        matchedSurfaces.contains('trajectory')) {
       return 'recommendation';
     }
     if (matchedSurfaces.contains('timeline') ||
@@ -468,7 +517,12 @@ class AIController {
     final String lowered = input.toLowerCase();
     bool hasAny(List<String> values) => values.any(lowered.contains);
 
-    if (hasAny(<String>['status', 'system status', 'system health', 'health check'])) {
+    if (hasAny(<String>[
+      'status',
+      'system status',
+      'system health',
+      'health check',
+    ])) {
       return 'System Status';
     }
     if (hasAny(<String>['goal', 'goals', 'target', 'objective', 'milestone'])) {
@@ -480,7 +534,13 @@ class AIController {
     if (hasAny(<String>['project', 'projects', 'initiative', 'roadmap'])) {
       return 'Project Query';
     }
-    if (hasAny(<String>['behind schedule', 'timeline', 'due', 'overdue', 'deadline'])) {
+    if (hasAny(<String>[
+      'behind schedule',
+      'timeline',
+      'due',
+      'overdue',
+      'deadline',
+    ])) {
       return 'Timeline Query';
     }
     if (hasAny(<String>['progress', 'how am i doing', 'on track'])) {
@@ -492,7 +552,13 @@ class AIController {
     if (hasAny(<String>['priority', 'what next', 'do next', 'next action'])) {
       return 'Priority Query';
     }
-    if (hasAny(<String>['analytics', 'analyze', 'trend', 'insight', 'metrics'])) {
+    if (hasAny(<String>[
+      'analytics',
+      'analyze',
+      'trend',
+      'insight',
+      'metrics',
+    ])) {
       return 'Analytics Query';
     }
     if (hasAny(<String>['forget', 'memory', 'remember', 'recall'])) {
@@ -511,7 +577,8 @@ class AIController {
     if (matchedSurfaces.contains('timeline')) {
       return 'Timeline Query';
     }
-    if (matchedSurfaces.contains('trajectory') || matchedSurfaces.contains('insights')) {
+    if (matchedSurfaces.contains('trajectory') ||
+        matchedSurfaces.contains('insights')) {
       return 'Analytics Query';
     }
     if (matchedSurfaces.contains('memories')) {
@@ -541,7 +608,10 @@ class AIController {
     final int openTasks = tasks.length;
     final DateTime now = DateTime.now();
     final int overdue = tasks
-        .where((TaskEntity task) => task.scheduledFor != null && task.scheduledFor!.isBefore(now))
+        .where(
+          (TaskEntity task) =>
+              task.scheduledFor != null && task.scheduledFor!.isBefore(now),
+        )
         .length;
 
     final TaskEntity? topTask = tasks.isEmpty ? null : tasks.first;
@@ -558,7 +628,10 @@ class AIController {
       nextActions.add(topTask.title);
     }
     nextActions.addAll(
-      tasks.skip(topTask == null ? 0 : 1).take(2).map((TaskEntity task) => task.title),
+      tasks
+          .skip(topTask == null ? 0 : 1)
+          .take(2)
+          .map((TaskEntity task) => task.title),
     );
     while (nextActions.length < 3) {
       nextActions.add(
@@ -583,10 +656,11 @@ class AIController {
     };
 
     final int confidence =
-        (70 + (goalsCount > 0 ? 8 : 0) + (openTasks > 0 ? 8 : 0) + (overdue == 0 ? 6 : 0)).clamp(
-          62,
-          96,
-        );
+        (70 +
+                (goalsCount > 0 ? 8 : 0) +
+                (openTasks > 0 ? 8 : 0) +
+                (overdue == 0 ? 6 : 0))
+            .clamp(62, 96);
     final String output = AssistantResponseTemplates.siAnalysis(
       query: query,
       category: category,
@@ -608,7 +682,10 @@ class AIController {
     );
   }
 
-  Map<String, dynamic> _responseContract(String primarySurface, List<String> matchedSurfaces) {
+  Map<String, dynamic> _responseContract(
+    String primarySurface,
+    List<String> matchedSurfaces,
+  ) {
     return <String, dynamic>{
       'style': 'si_analysis_block',
       'sections': <String>[
@@ -644,7 +721,8 @@ class AIController {
     final store = _ref.read(secureStoreProvider);
     final String? raw = await store.readString(_neuralDumpKey);
 
-    final List<Map<String, dynamic>> existing = (raw == null || raw.trim().isEmpty)
+    final List<Map<String, dynamic>> existing =
+        (raw == null || raw.trim().isEmpty)
         ? <Map<String, dynamic>>[]
         : ((jsonDecode(raw) as List<dynamic>)
               .whereType<Map<String, dynamic>>()
@@ -666,7 +744,8 @@ class AIController {
 
   Future<AIRecommendation?> retryMessage(String messageId) async {
     final siEngineService = _ref.read(siEngineServiceProvider);
-    final Map<String, dynamic>? previousState = await siEngineService.loadState();
+    final Map<String, dynamic>? previousState = await siEngineService
+        .loadState();
     final String id = messageId.trim();
     if (id.isEmpty || previousState == null) {
       return null;
@@ -699,7 +778,9 @@ class AIController {
     });
     _ref.read(aiInputProvider.notifier).set(null);
     _ref.read(aiAgentTraceProvider.notifier).set(null);
-    _ref.read(aiExecutionStatusProvider.notifier).set(const AIExecutionStatus.idle());
+    _ref
+        .read(aiExecutionStatusProvider.notifier)
+        .set(const AIExecutionStatus.idle());
     _ref.read(siMemoryProvider.notifier).clear();
     _ref.invalidate(aiResponseProvider);
     _ref.invalidate(siEngineStateProvider);
@@ -713,7 +794,10 @@ class AIController {
     await _recordSuggestionFeedback(actionId: actionId, accepted: false);
   }
 
-  Future<void> _recordSuggestionFeedback({required String actionId, required bool accepted}) async {
+  Future<void> _recordSuggestionFeedback({
+    required String actionId,
+    required bool accepted,
+  }) async {
     final String id = actionId.trim();
     if (id.isEmpty) {
       return;
@@ -732,7 +816,10 @@ class AIController {
       ...?state,
       'updatedAtUtc': DateTime.now().toUtc().toIso8601String(),
       'memoryEvents': events,
-      'lastSuggestionFeedback': <String, dynamic>{'actionId': id, 'accepted': accepted},
+      'lastSuggestionFeedback': <String, dynamic>{
+        'actionId': id,
+        'accepted': accepted,
+      },
     });
     _ref.invalidate(siEngineStateProvider);
   }

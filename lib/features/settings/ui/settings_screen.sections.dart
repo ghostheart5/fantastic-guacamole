@@ -4,7 +4,8 @@ class _ReflectionReminderSection extends ConsumerStatefulWidget {
   const _ReflectionReminderSection();
 
   @override
-  ConsumerState<_ReflectionReminderSection> createState() => _ReflectionReminderSectionState();
+  ConsumerState<_ReflectionReminderSection> createState() =>
+      _ReflectionReminderSectionState();
 }
 
 class _DailyReflectionTutorialPanel extends ConsumerWidget {
@@ -29,7 +30,10 @@ class _DailyReflectionTutorialPanel extends ConsumerWidget {
         if (progress.isStepDismissed(step.id)) {
           return Align(
             alignment: Alignment.centerLeft,
-            child: ShowMeAgainButton(stepId: step.id, label: 'Show Reflection Tutorial Again'),
+            child: ShowMeAgainButton(
+              stepId: step.id,
+              label: 'Show Reflection Tutorial Again',
+            ),
           );
         }
 
@@ -47,7 +51,8 @@ class _DailyReflectionTutorialPanel extends ConsumerWidget {
   }
 }
 
-class _ReflectionReminderSectionState extends ConsumerState<_ReflectionReminderSection> {
+class _ReflectionReminderSectionState
+    extends ConsumerState<_ReflectionReminderSection> {
   bool _enabled = false;
   TimeOfDay _time = const TimeOfDay(hour: 20, minute: 0);
 
@@ -95,7 +100,9 @@ class _ReflectionReminderSectionState extends ConsumerState<_ReflectionReminderS
     );
     if (picked == null || !mounted) return;
     setState(() => _time = picked);
-    await ref.read(settingsUiActionsProvider).setReflectionReminderTime(time: picked);
+    await ref
+        .read(settingsUiActionsProvider)
+        .setReflectionReminderTime(time: picked);
     if (_enabled) {
       await ref
           .read(settingsUiActionsProvider)
@@ -110,13 +117,20 @@ class _ReflectionReminderSectionState extends ConsumerState<_ReflectionReminderS
       accentColor: AppColors.neonViolet,
       child: Column(
         children: [
-          _NeonToggleTile(title: 'Reflection Reminder', value: _enabled, onChanged: _toggle),
+          _NeonToggleTile(
+            title: 'Reflection Reminder',
+            value: _enabled,
+            onChanged: _toggle,
+          ),
           if (_enabled)
             GestureDetector(
               onTap: _pickTime,
               behavior: HitTestBehavior.opaque,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -125,11 +139,16 @@ class _ReflectionReminderSectionState extends ConsumerState<_ReflectionReminderS
                       style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.neonViolet.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.4)),
+                        border: Border.all(
+                          color: AppColors.neonViolet.withValues(alpha: 0.4),
+                        ),
                       ),
                       child: Text(
                         _time.format(context),
@@ -184,7 +203,10 @@ class _GlobalMetricsDebugSection extends ConsumerWidget {
                 ),
               ),
             ),
-            error: (e, _) => _NeonStatusTile(title: 'Optimizer Error', subtitle: e.toString()),
+            error: (e, _) => _NeonStatusTile(
+              title: 'Optimizer Error',
+              subtitle: e.toString(),
+            ),
           ),
           _NeonNavTile(
             title: 'Refresh Global Metrics',
@@ -224,9 +246,12 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
                   'version=${progress.contentVersion} · completed=${progress.completedStepIds.length} · '
                   'skipped=${progress.dismissedStepIds.length} · forever=${progress.skippedForeverStepIds.length}',
             ),
-            loading: () =>
-                const _NeonStatusTile(title: 'Status', subtitle: 'Loading tutorial state...'),
-            error: (e, _) => _NeonStatusTile(title: 'Status Error', subtitle: e.toString()),
+            loading: () => const _NeonStatusTile(
+              title: 'Status',
+              subtitle: 'Loading tutorial state...',
+            ),
+            error: (e, _) =>
+                _NeonStatusTile(title: 'Status Error', subtitle: e.toString()),
           ),
           _NeonNavTile(
             title: 'Start Tutorial',
@@ -235,27 +260,38 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
           ),
           _NeonNavTile(
             title: 'Update Content Version',
-            subtitle: 'Applies version migration/reset semantics for tutorial state',
+            subtitle:
+                'Applies version migration/reset semantics for tutorial state',
             onTap: () => unawaited(
-              ref.read(tutorialProgressProvider.notifier).updateTutorialContentVersion(),
+              ref
+                  .read(tutorialProgressProvider.notifier)
+                  .updateTutorialContentVersion(),
             ),
           ),
           _NeonNavTile(
             title: 'Show First Step Again',
-            subtitle: 'Reveals ${TutorialContent.steps.first.id} if hidden or skipped forever',
+            subtitle:
+                'Reveals ${TutorialContent.steps.first.id} if hidden or skipped forever',
             onTap: () => unawaited(
-              ref.read(tutorialResetServiceProvider).showAgain(TutorialContent.steps.first.id),
+              ref
+                  .read(tutorialResetServiceProvider)
+                  .showAgain(TutorialContent.steps.first.id),
             ),
           ),
           _NeonNavTile(
             title: 'Reset Tutorial Progress',
-            subtitle: 'Clears completion, skip, and start state for tutorial lifecycle',
-            onTap: () => unawaited(ref.read(tutorialResetServiceProvider).resetAll()),
+            subtitle:
+                'Clears completion, skip, and start state for tutorial lifecycle',
+            onTap: () =>
+                unawaited(ref.read(tutorialResetServiceProvider).resetAll()),
           ),
           _NeonNavTile(
             title: 'Replay Onboarding',
-            subtitle: 'Marks onboarding incomplete so onboarding flow can be replayed',
-            onTap: () => unawaited(ref.read(tutorialResetServiceProvider).replayOnboarding()),
+            subtitle:
+                'Marks onboarding incomplete so onboarding flow can be replayed',
+            onTap: () => unawaited(
+              ref.read(tutorialResetServiceProvider).replayOnboarding(),
+            ),
           ),
         ],
       ),
@@ -291,7 +327,11 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({required this.label, required this.child, required this.accentColor});
+  const _Section({
+    required this.label,
+    required this.child,
+    required this.accentColor,
+  });
   final String label;
   final Widget child;
   final Color accentColor;
@@ -305,7 +345,11 @@ class _Section extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
         boxShadow: [
-          BoxShadow(color: accentColor.withValues(alpha: 0.06), blurRadius: 16, spreadRadius: -2),
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.06),
+            blurRadius: 16,
+            spreadRadius: -2,
+          ),
         ],
       ),
       child: Column(
@@ -346,7 +390,11 @@ class _Section extends StatelessWidget {
 }
 
 class _NeonToggleTile extends StatelessWidget {
-  const _NeonToggleTile({required this.title, required this.value, required this.onChanged});
+  const _NeonToggleTile({
+    required this.title,
+    required this.value,
+    required this.onChanged,
+  });
   final String title;
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -358,7 +406,10 @@ class _NeonToggleTile extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
           Switch(
             value: value,
             onChanged: onChanged,
@@ -393,14 +444,21 @@ class _NeonNavTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                  Text(
+                    title,
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
                   if (subtitle != null)
                     Text(
                       subtitle ?? '',
                       maxLines: 3,
                       softWrap: true,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.35),
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
                     ),
                 ],
               ),
@@ -430,13 +488,20 @@ class _NeonStatusTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
                 Text(
                   subtitle,
                   maxLines: 2,
                   softWrap: true,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.35),
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -477,7 +542,9 @@ class _InfoScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppColors.neonCyan.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: AppColors.neonCyan.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: const Icon(
                           Icons.arrow_back_ios_new,
@@ -509,7 +576,11 @@ class _InfoScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                   child: Text(
                     body,
-                    style: const TextStyle(fontSize: 13, color: Colors.white60, height: 1.75),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.white60,
+                      height: 1.75,
+                    ),
                   ),
                 ),
               ),

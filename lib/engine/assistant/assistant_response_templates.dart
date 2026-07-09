@@ -8,7 +8,9 @@ class AssistantResponseTemplates {
     required String followUp,
     required double energy,
   }) {
-    final String actionLines = actions.map((String item) => '• $item').join('\n');
+    final String actionLines = actions
+        .map((String item) => '• $item')
+        .join('\n');
     final int pct = (energy * 100).round();
     return '$insight\n\n'
         '$actionLines\n\n'
