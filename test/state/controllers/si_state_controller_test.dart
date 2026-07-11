@@ -8,19 +8,15 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMessageHandler(
-      'flutter/assets',
-      (ByteData? _) async {
-        return null;
-      },
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler('flutter/assets', (ByteData? _) async {
+          return null;
+        });
   });
 
   tearDownAll(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMessageHandler(
-      'flutter/assets',
-      null,
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler('flutter/assets', null);
   });
 
   test('build starts with default SI state', () {
@@ -47,7 +43,9 @@ void main() {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);
 
-    container.read(siStateProvider.notifier).replaceState(energy: 0.9, fatigue: 0.1);
+    container
+        .read(siStateProvider.notifier)
+        .replaceState(energy: 0.9, fatigue: 0.1);
     container.read(siStateProvider.notifier).adjustEnergy(0.5);
     container.read(siStateProvider.notifier).adjustFatigue(-0.5);
 

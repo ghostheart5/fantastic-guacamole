@@ -11,58 +11,154 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('renders ErrorBoundary and recovers on retry after coach request failure', (
-    WidgetTester tester,
-  ) async {
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        coachQueryControllerProvider.overrideWith(_FlakyCoachQueryController.new),
-        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
-      ],
-    );
-    addTearDown(container.dispose);
+  testWidgets(
+    'renders ErrorBoundary and recovers on retry after coach request failure',
+    (WidgetTester tester) async {
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          coachQueryControllerProvider.overrideWith(
+            _FlakyCoachQueryController.new,
+          ),
+          voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+        ],
+      );
+      addTearDown(container.dispose);
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: ErrorBoundary(child: SmartCoachScreen())),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: ErrorBoundary(child: SmartCoachScreen()),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
 
-    await Logger.withMutedErrors(() async {
+      await Logger.withMutedErrors(() async {
+        await _tapPrimaryCoachButton(tester);
+        await tester.pump(const Duration(milliseconds: 500));
+      });
+
+      expect(find.text('Something went wrong'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+
+      await tester.tap(find.text('Retry'));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
       await _tapPrimaryCoachButton(tester);
       await tester.pump(const Duration(milliseconds: 500));
-    });
 
-    expect(find.text('Something went wrong'), findsOneWidget);
-    expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('Something went wrong'), findsNothing);
 
-    await tester.tap(find.text('Retry'));
-    await tester.pump();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+      final Finder recoveredMessage = find.text('Recovered coaching response.');
+      await tester.scrollUntilVisible(
+        recoveredMessage,
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(recoveredMessage, findsOneWidget);
+    },
+  );
 
-    await _tapPrimaryCoachButton(tester);
-    await tester.pump(const Duration(milliseconds: 500));
+  testWidgets(
+    'sends follow-up and renders exchange after initial coaching response',
+    (WidgetTester tester) async {
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          coachQueryControllerProvider.overrideWith(
+            _ConversationalCoachQueryController.new,
+          ),
+          voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+        ],
+      );
+      addTearDown(container.dispose);
 
-    expect(find.text('Something went wrong'), findsNothing);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: ErrorBoundary(child: SmartCoachScreen()),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
 
-    final Finder recoveredMessage = find.text('Recovered coaching response.');
-    await tester.scrollUntilVisible(
-      recoveredMessage,
-      250,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(recoveredMessage, findsOneWidget);
-  });
+      await _tapPrimaryCoachButton(tester);
+      await tester.pump(const Duration(milliseconds: 500));
 
-  testWidgets('sends follow-up and renders exchange after initial coaching response', (
+      final Finder initialMessage = find.text('Initial coaching response.');
+      await tester.scrollUntilVisible(
+        initialMessage,
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(initialMessage, findsOneWidget);
+
+      const String followUpQuestion = 'What should I do first?';
+      await tester.enterText(find.byType(TextField).last, followUpQuestion);
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.pump(const Duration(milliseconds: 600));
+
+      final Finder followUpReply = find.text(
+        'Follow-up reply for: What should I do first?',
+      );
+      await tester.scrollUntilVisible(
+        followUpReply,
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text(followUpQuestion), findsOneWidget);
+      expect(followUpReply, findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'follow-up crisis keyword shows crisis dialog and does not append reply',
+    (WidgetTester tester) async {
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          coachQueryControllerProvider.overrideWith(
+            _CrisisFollowUpCoachQueryController.new,
+          ),
+          voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: ErrorBoundary(child: SmartCoachScreen()),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await _tapPrimaryCoachButton(tester);
+      await tester.pump(const Duration(milliseconds: 500));
+
+      const String crisisText = 'I feel like I want to kill myself right now';
+      await tester.enterText(find.byType(TextField).last, crisisText);
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text("You're not alone"), findsOneWidget);
+      expect(find.text('OK'), findsOneWidget);
+      expect(find.textContaining('Follow-up reply for:'), findsNothing);
+    },
+  );
+
+  testWidgets('creator entry action is visible and tappable', (
     WidgetTester tester,
   ) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [
-        coachQueryControllerProvider.overrideWith(_ConversationalCoachQueryController.new),
+        coachQueryControllerProvider.overrideWith(
+          _ConversationalCoachQueryController.new,
+        ),
         voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
       ],
     );
@@ -71,94 +167,20 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: ErrorBoundary(child: SmartCoachScreen())),
+        child: const MaterialApp(
+          home: ErrorBoundary(child: SmartCoachScreen()),
+        ),
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    await _tapPrimaryCoachButton(tester);
-    await tester.pump(const Duration(milliseconds: 500));
+    final Finder creatorEntry = find.text('OPEN CREATOR TO MAKE TASK');
+    expect(creatorEntry, findsOneWidget);
 
-    final Finder initialMessage = find.text('Initial coaching response.');
-    await tester.scrollUntilVisible(initialMessage, 250, scrollable: find.byType(Scrollable).first);
-    expect(initialMessage, findsOneWidget);
-
-    const String followUpQuestion = 'What should I do first?';
-    await tester.enterText(find.byType(TextField).last, followUpQuestion);
-    await tester.tap(find.byIcon(Icons.send_rounded));
-    await tester.pump(const Duration(milliseconds: 600));
-
-    final Finder followUpReply = find.text('Follow-up reply for: What should I do first?');
-    await tester.scrollUntilVisible(followUpReply, 250, scrollable: find.byType(Scrollable).first);
-    expect(find.text(followUpQuestion), findsOneWidget);
-    expect(followUpReply, findsOneWidget);
-  });
-
-  testWidgets('follow-up crisis keyword shows crisis dialog and does not append reply', (
-    WidgetTester tester,
-  ) async {
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        coachQueryControllerProvider.overrideWith(_CrisisFollowUpCoachQueryController.new),
-        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: ErrorBoundary(child: SmartCoachScreen())),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 300));
-
-    await _tapPrimaryCoachButton(tester);
-    await tester.pump(const Duration(milliseconds: 500));
-
-    const String crisisText = 'I feel like I want to kill myself right now';
-    await tester.enterText(find.byType(TextField).last, crisisText);
-    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.tap(creatorEntry);
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.text("You're not alone"), findsOneWidget);
-    expect(find.text('OK'), findsOneWidget);
-    expect(find.textContaining('Follow-up reply for:'), findsNothing);
-  });
-
-  testWidgets('quick task form rejects blank title input', (WidgetTester tester) async {
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        coachQueryControllerProvider.overrideWith(_ConversationalCoachQueryController.new),
-        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: ErrorBoundary(child: SmartCoachScreen())),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 300));
-
-    await tester.scrollUntilVisible(
-      find.text('CREATE TASK'),
-      250,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('CREATE TASK'));
-    await tester.pump(const Duration(milliseconds: 400));
-
-    expect(find.text('QUICK TASK CREATOR'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField).last, '   ');
-    await tester.tap(find.widgetWithText(ElevatedButton, 'ADD').last, warnIfMissed: false);
-    await tester.pump(const Duration(milliseconds: 200));
-
-    // Blank input should be ignored and keep the form open for correction.
-    expect(find.text('QUICK TASK CREATOR'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
 
@@ -278,7 +300,11 @@ class _CrisisFollowUpCoachQueryController extends CoachQueryController {
 
 Future<void> _tapPrimaryCoachButton(WidgetTester tester) async {
   final Finder cta = find.byType(TutorialTarget);
-  await tester.scrollUntilVisible(cta, 250, scrollable: find.byType(Scrollable).first);
+  await tester.scrollUntilVisible(
+    cta,
+    250,
+    scrollable: find.byType(Scrollable).first,
+  );
   await tester.tap(cta.first, warnIfMissed: false);
   await tester.pump();
 }

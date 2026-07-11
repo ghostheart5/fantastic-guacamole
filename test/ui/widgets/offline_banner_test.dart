@@ -36,7 +36,9 @@ void main() {
     expect(find.text('content'), findsOneWidget);
   });
 
-  testWidgets('announces offline banner with live region semantics', (WidgetTester tester) async {
+  testWidgets('announces offline banner with live region semantics', (
+    WidgetTester tester,
+  ) async {
     final SemanticsHandle handle = tester.ensureSemantics();
     try {
       await tester.pumpWidget(

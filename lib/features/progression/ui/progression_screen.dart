@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
-import 'package:fantastic_guacamole/engine/learning/learning_history.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/level_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/streak_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/weekly_summary_card.dart';
@@ -440,7 +439,7 @@ class _XpProgressChartCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
-    final history = ref.watch(learningHistoryProvider);
+    final history = ref.watch(learningHistorySnapshotsProvider);
     final List<_XpPoint> points = _buildXpPoints(profile.xp, history);
     final int start = points.isEmpty ? profile.xp : points.first.xp;
     final int end = points.isEmpty ? profile.xp : points.last.xp;
@@ -483,7 +482,7 @@ class _XpProgressChartCard extends ConsumerWidget {
 
   List<_XpPoint> _buildXpPoints(
     int currentXp,
-    List<LearningHistoryEntry> history,
+    List<LearningHistorySnapshot> history,
   ) {
     final DateTime now = DateTime.now();
     final DateTime windowStart = DateTime(
@@ -493,7 +492,7 @@ class _XpProgressChartCard extends ConsumerWidget {
     ).subtract(const Duration(days: 29));
     final Map<String, int> completedByDay = <String, int>{};
 
-    for (final LearningHistoryEntry entry in history) {
+    for (final LearningHistorySnapshot entry in history) {
       final DateTime timestamp = entry.timestamp;
       final DateTime day = DateTime(
         timestamp.year,

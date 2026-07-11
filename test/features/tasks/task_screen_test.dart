@@ -9,33 +9,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('renders trajectory shell and flowmap card navigates to flowmap view', (
-    WidgetTester tester,
-  ) async {
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        trajectorySummaryProvider.overrideWithValue(_summary),
-        tutorialProgressProvider.overrideWith(_StaticTutorialController.new),
-      ],
-    );
-    addTearDown(container.dispose);
+  testWidgets(
+    'renders trajectory shell and flowmap card navigates to flowmap view',
+    (WidgetTester tester) async {
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          trajectorySummaryProvider.overrideWithValue(_summary),
+          tutorialProgressProvider.overrideWith(_StaticTutorialController.new),
+        ],
+      );
+      addTearDown(container.dispose);
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: TaskScreen()),
-      ),
-    );
-    await tester.pump();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: TaskScreen()),
+        ),
+      );
+      await tester.pump();
 
-    expect(find.text('TRAJECTORY ENGINE'), findsAtLeastNWidgets(1));
-    expect(find.text('FLOWMAP ACCESS'), findsOneWidget);
+      expect(find.text('TRAJECTORY ENGINE'), findsAtLeastNWidgets(1));
+      expect(find.text('FLOWMAP ACCESS'), findsOneWidget);
 
-    await tester.tap(find.text('FLOWMAP ACCESS'));
-    await tester.pump();
+      await tester.tap(find.text('FLOWMAP ACCESS'));
+      await tester.pump();
 
-    expect(container.read(appFlowProvider), AppView.flowmap);
-  });
+      expect(container.read(appFlowProvider), AppView.flowmap);
+    },
+  );
 }
 
 const TrajectorySummaryView _summary = TrajectorySummaryView(

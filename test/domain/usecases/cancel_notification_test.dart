@@ -5,7 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('CancelNotification delegates cancel call with id', () async {
-    final _FakeNotificationRepository repository = _FakeNotificationRepository();
+    final _FakeNotificationRepository repository =
+        _FakeNotificationRepository();
 
     await CancelNotification(repository).call('notif-1');
 
@@ -25,7 +26,8 @@ class _FakeNotificationRepository implements INotificationRepository {
   Future<void> delete(String id) async {}
 
   @override
-  Future<List<NotificationEntity>> getNotifications() async => <NotificationEntity>[];
+  Future<List<NotificationEntity>> getNotifications() async =>
+      <NotificationEntity>[];
 
   @override
   Future<void> markRead(String id) async {}

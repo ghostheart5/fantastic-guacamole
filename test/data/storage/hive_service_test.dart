@@ -30,7 +30,10 @@ void main() {
   });
 
   test('reads empty storage safely', () async {
-    final storage = HiveStorage<String>(HiveBoxes.tasks, hive: _DirectHiveStore());
+    final storage = HiveStorage<String>(
+      HiveBoxes.tasks,
+      hive: _DirectHiveStore(),
+    );
     await storage.open();
 
     expect(storage.getAll(), isEmpty);
@@ -38,7 +41,10 @@ void main() {
   });
 
   test('writes task payload and reads it back', () async {
-    final storage = HiveStorage<String>(HiveBoxes.tasks, hive: _DirectHiveStore());
+    final storage = HiveStorage<String>(
+      HiveBoxes.tasks,
+      hive: _DirectHiveStore(),
+    );
     await storage.open();
 
     await storage.put('task-1', '{"id":"task-1","title":"Write"}');
@@ -51,10 +57,16 @@ void main() {
     final dynamicBox = await Hive.openBox<dynamic>(corruptedBoxKey);
     await dynamicBox.put('bad-shape', 42);
     await dynamicBox.close();
-    final storage = HiveStorage<String>(corruptedBoxKey, hive: _DirectHiveStore());
+    final storage = HiveStorage<String>(
+      corruptedBoxKey,
+      hive: _DirectHiveStore(),
+    );
     await storage.open();
 
-    expect(() => storage.getAll(), throwsA(anyOf(isA<TypeError>(), isA<Error>())));
+    expect(
+      () => storage.getAll(),
+      throwsA(anyOf(isA<TypeError>(), isA<Error>())),
+    );
   });
 
   test('closes and cleans boxes between tests', () async {
@@ -96,7 +108,9 @@ class _DirectHiveStore implements HiveStore {
 
   @override
   Future<void> clearBox(String key) async {
-    final box = Hive.isBoxOpen(key) ? Hive.box<String>(key) : await Hive.openBox<String>(key);
+    final box = Hive.isBoxOpen(key)
+        ? Hive.box<String>(key)
+        : await Hive.openBox<String>(key);
     await box.clear();
   }
 

@@ -27,7 +27,9 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    hiveDirectory = await Directory.systemTemp.createTemp('chronospark_sync_provider_');
+    hiveDirectory = await Directory.systemTemp.createTemp(
+      'chronospark_sync_provider_',
+    );
     Hive.init(hiveDirectory.path);
 
     prefs = SharedPrefsStorage(await SharedPreferences.getInstance());
@@ -46,7 +48,9 @@ void main() {
     container = ProviderContainer(
       overrides: [
         hiveStoreProvider.overrideWithValue(hiveStore),
-        syncServiceProvider.overrideWithValue(SyncService(backup: backupService, gateway: gateway)),
+        syncServiceProvider.overrideWithValue(
+          SyncService(backup: backupService, gateway: gateway),
+        ),
       ],
     );
   });
@@ -62,7 +66,11 @@ void main() {
 
   test('syncToCloudProvider returns false when upload fails', () async {
     await repository.saveTask(
-      TaskEntity(id: 'task-1', title: 'Queue me', createdAt: DateTime.utc(2026, 7, 5)),
+      TaskEntity(
+        id: 'task-1',
+        title: 'Queue me',
+        createdAt: DateTime.utc(2026, 7, 5),
+      ),
     );
 
     final bool first = await container.read(syncToCloudProvider.future);
@@ -85,7 +93,9 @@ void main() {
 
       expect(await queue.queuedCount(), 1);
 
-      final int processed = await container.read(replayOfflineQueueProvider.future);
+      final int processed = await container.read(
+        replayOfflineQueueProvider.future,
+      );
       expect(processed, 1);
 
       expect(await queue.queuedCount(), 0);
@@ -93,24 +103,29 @@ void main() {
     },
   );
 
-  test('replayOfflineQueueProvider keeps unknown action items queued', () async {
-    final OfflineSyncQueueService queue = OfflineSyncQueueService(
-      HiveStorage<String>(HiveBoxes.offlineQueue, hive: hiveStore),
-    );
-    await queue.enqueue(
-      actionType: 'unknown_action',
-      dedupeKey: 'unknown_action',
-      payload: const <String, dynamic>{'sample': true},
-    );
+  test(
+    'replayOfflineQueueProvider keeps unknown action items queued',
+    () async {
+      final OfflineSyncQueueService queue = OfflineSyncQueueService(
+        HiveStorage<String>(HiveBoxes.offlineQueue, hive: hiveStore),
+      );
+      await queue.enqueue(
+        actionType: 'unknown_action',
+        dedupeKey: 'unknown_action',
+        payload: const <String, dynamic>{'sample': true},
+      );
 
-    expect(await queue.queuedCount(), 1);
+      expect(await queue.queuedCount(), 1);
 
-    final int processed = await container.read(replayOfflineQueueProvider.future);
-    expect(processed, 1);
+      final int processed = await container.read(
+        replayOfflineQueueProvider.future,
+      );
+      expect(processed, 1);
 
-    final int queuedAfterReplay = await queue.queuedCount();
-    expect(queuedAfterReplay, 1);
-  });
+      final int queuedAfterReplay = await queue.queuedCount();
+      expect(queuedAfterReplay, 1);
+    },
+  );
 }
 
 class _SequencedCloudBackupGateway implements CloudBackupGateway {

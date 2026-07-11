@@ -37,7 +37,11 @@ void main() {
 
   test('writes task and reads it back', () async {
     final repository = TaskRepository(storage: storage);
-    final task = TaskEntity(id: 'task-1', title: 'Persist me', createdAt: DateTime.utc(2026, 7, 5));
+    final task = TaskEntity(
+      id: 'task-1',
+      title: 'Persist me',
+      createdAt: DateTime.utc(2026, 7, 5),
+    );
 
     await repository.saveTask(task);
 
@@ -64,21 +68,41 @@ void main() {
   test('returns paged tasks newest first with cursor continuation', () async {
     final repository = TaskRepository(storage: storage);
     await repository.saveTask(
-      TaskEntity(id: 'task-1', title: 'One', createdAt: DateTime.utc(2026, 7, 5, 8)),
+      TaskEntity(
+        id: 'task-1',
+        title: 'One',
+        createdAt: DateTime.utc(2026, 7, 5, 8),
+      ),
     );
     await repository.saveTask(
-      TaskEntity(id: 'task-2', title: 'Two', createdAt: DateTime.utc(2026, 7, 5, 9)),
+      TaskEntity(
+        id: 'task-2',
+        title: 'Two',
+        createdAt: DateTime.utc(2026, 7, 5, 9),
+      ),
     );
     await repository.saveTask(
-      TaskEntity(id: 'task-3', title: 'Three', createdAt: DateTime.utc(2026, 7, 5, 10)),
+      TaskEntity(
+        id: 'task-3',
+        title: 'Three',
+        createdAt: DateTime.utc(2026, 7, 5, 10),
+      ),
     );
 
     final firstPage = await repository.getTasksPage(limit: 2);
-    final secondPage = await repository.getTasksPage(cursor: firstPage.nextCursor, limit: 2);
+    final secondPage = await repository.getTasksPage(
+      cursor: firstPage.nextCursor,
+      limit: 2,
+    );
 
-    expect(firstPage.items.map((TaskEntity task) => task.id), <String>['task-3', 'task-2']);
+    expect(firstPage.items.map((TaskEntity task) => task.id), <String>[
+      'task-3',
+      'task-2',
+    ]);
     expect(firstPage.nextCursor, 'task-2');
-    expect(secondPage.items.map((TaskEntity task) => task.id), <String>['task-1']);
+    expect(secondPage.items.map((TaskEntity task) => task.id), <String>[
+      'task-1',
+    ]);
     expect(secondPage.nextCursor, isNull);
   });
 }
@@ -103,7 +127,9 @@ class _DirectHiveStore implements HiveStore {
 
   @override
   Future<void> clearBox(String key) async {
-    final box = Hive.isBoxOpen(key) ? Hive.box<String>(key) : await Hive.openBox<String>(key);
+    final box = Hive.isBoxOpen(key)
+        ? Hive.box<String>(key)
+        : await Hive.openBox<String>(key);
     await box.clear();
   }
 

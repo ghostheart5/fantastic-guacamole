@@ -15,7 +15,10 @@ import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_profile_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_project_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_subtask_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_theme_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
@@ -27,10 +30,16 @@ import 'package:fantastic_guacamole/domain/usecases/complete_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_plan.dart';
+import 'package:fantastic_guacamole/domain/usecases/create_project.dart';
+import 'package:fantastic_guacamole/domain/usecases/create_routine.dart';
+import 'package:fantastic_guacamole/domain/usecases/create_subtask.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_memory.dart';
+import 'package:fantastic_guacamole/domain/usecases/delete_project.dart';
+import 'package:fantastic_guacamole/domain/usecases/delete_routine.dart';
+import 'package:fantastic_guacamole/domain/usecases/delete_subtask.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_insight_from_event.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_si_decision.dart';
@@ -49,7 +58,10 @@ import 'package:fantastic_guacamole/domain/usecases/get_memories.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_plan.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_profile.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_progression.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_projects.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_routines.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_si_queries_extended.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_subtasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/remove_timeline_event.dart';
@@ -61,7 +73,10 @@ import 'package:fantastic_guacamole/domain/usecases/save_identity_profile.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_journal_entry.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_memories.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_memory.dart';
+import 'package:fantastic_guacamole/domain/usecases/save_projects.dart';
+import 'package:fantastic_guacamole/domain/usecases/save_routines.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_si_query_extended.dart';
+import 'package:fantastic_guacamole/domain/usecases/save_subtasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_theme.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/schedule_notification.dart';
@@ -70,7 +85,10 @@ import 'package:fantastic_guacamole/domain/usecases/update_flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_level.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_plan.dart';
+import 'package:fantastic_guacamole/domain/usecases/update_project.dart';
+import 'package:fantastic_guacamole/domain/usecases/update_routine.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_streak.dart';
+import 'package:fantastic_guacamole/domain/usecases/update_subtask.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_xp.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
@@ -108,6 +126,10 @@ final domainPlanRepositoryProvider = Provider<IPlanRepository>((ref) {
   return ref.read(planRepositoryProvider);
 });
 
+final domainProjectRepositoryProvider = Provider<IProjectRepository>((ref) {
+  return ref.read(projectRepositoryProvider);
+});
+
 final domainProfileRepositoryProvider = Provider<IProfileRepository>((ref) {
   return ref.read(profileRepositoryProvider);
 });
@@ -116,6 +138,14 @@ final domainProgressionRepositoryProvider = Provider<IProgressionRepository>((
   ref,
 ) {
   return ref.read(progressionRepositoryProvider);
+});
+
+final domainRoutineRepositoryProvider = Provider<IRoutineRepository>((ref) {
+  return ref.read(routineRepositoryProvider);
+});
+
+final domainSubtaskRepositoryProvider = Provider<ISubtaskRepository>((ref) {
+  return ref.read(subtaskRepositoryProvider);
 });
 
 final domainTimelineRepositoryProvider = Provider<ITimelineRepository>((ref) {
@@ -405,6 +435,66 @@ final completeGoalUseCaseProvider = Provider<CompleteGoal>((ref) {
 
 final saveGoalsUseCaseProvider = Provider<SaveGoals>((ref) {
   return SaveGoals(ref.read(domainGoalRepositoryProvider));
+});
+
+final getProjectsUseCaseProvider = Provider<GetProjects>((ref) {
+  return GetProjects(ref.read(domainProjectRepositoryProvider));
+});
+
+final createProjectUseCaseProvider = Provider<CreateProject>((ref) {
+  return CreateProject(ref.read(domainProjectRepositoryProvider));
+});
+
+final updateProjectUseCaseProvider = Provider<UpdateProject>((ref) {
+  return UpdateProject(ref.read(domainProjectRepositoryProvider));
+});
+
+final deleteProjectUseCaseProvider = Provider<DeleteProject>((ref) {
+  return DeleteProject(ref.read(domainProjectRepositoryProvider));
+});
+
+final saveProjectsUseCaseProvider = Provider<SaveProjects>((ref) {
+  return SaveProjects(ref.read(domainProjectRepositoryProvider));
+});
+
+final getRoutinesUseCaseProvider = Provider<GetRoutines>((ref) {
+  return GetRoutines(ref.read(domainRoutineRepositoryProvider));
+});
+
+final createRoutineUseCaseProvider = Provider<CreateRoutine>((ref) {
+  return CreateRoutine(ref.read(domainRoutineRepositoryProvider));
+});
+
+final updateRoutineUseCaseProvider = Provider<UpdateRoutine>((ref) {
+  return UpdateRoutine(ref.read(domainRoutineRepositoryProvider));
+});
+
+final deleteRoutineUseCaseProvider = Provider<DeleteRoutine>((ref) {
+  return DeleteRoutine(ref.read(domainRoutineRepositoryProvider));
+});
+
+final saveRoutinesUseCaseProvider = Provider<SaveRoutines>((ref) {
+  return SaveRoutines(ref.read(domainRoutineRepositoryProvider));
+});
+
+final getSubtasksUseCaseProvider = Provider<GetSubtasks>((ref) {
+  return GetSubtasks(ref.read(domainSubtaskRepositoryProvider));
+});
+
+final createSubtaskUseCaseProvider = Provider<CreateSubtask>((ref) {
+  return CreateSubtask(ref.read(domainSubtaskRepositoryProvider));
+});
+
+final updateSubtaskUseCaseProvider = Provider<UpdateSubtask>((ref) {
+  return UpdateSubtask(ref.read(domainSubtaskRepositoryProvider));
+});
+
+final deleteSubtaskUseCaseProvider = Provider<DeleteSubtask>((ref) {
+  return DeleteSubtask(ref.read(domainSubtaskRepositoryProvider));
+});
+
+final saveSubtasksUseCaseProvider = Provider<SaveSubtasks>((ref) {
+  return SaveSubtasks(ref.read(domainSubtaskRepositoryProvider));
 });
 
 final getMemoriesUseCaseProvider = Provider<GetMemories>((ref) {

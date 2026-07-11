@@ -9,6 +9,17 @@ ChronoSpark is a Flutter-based second brain for task planning, adaptive learning
 
 For the full architecture and subsystem reference, see [CHRONOSPARK.md](CHRONOSPARK.md).
 For the dependency direction contract, see [docs/LAYER_FLOW.md](docs/LAYER_FLOW.md).
+For SI Console capability validation, see [docs/SI_CONSOLE_AUDIT.md](docs/SI_CONSOLE_AUDIT.md).
+For timeline and milestone capability validation, see [docs/TIMELINE_MILESTONE_AUDIT.md](docs/TIMELINE_MILESTONE_AUDIT.md).
+For core values and SoulMap capability validation, see [docs/CORE_VALUES_SOULMAP_AUDIT.md](docs/CORE_VALUES_SOULMAP_AUDIT.md).
+For error handling capability validation, see [docs/ERROR_HANDLING_AUDIT.md](docs/ERROR_HANDLING_AUDIT.md).
+For UI and UX capability validation, see [docs/UI_UX_AUDIT.md](docs/UI_UX_AUDIT.md).
+For Google Play release-gate validation, see [docs/GOOGLE_PLAY_READINESS_AUDIT.md](docs/GOOGLE_PLAY_READINESS_AUDIT.md).
+For security and privacy validation, see [docs/SECURITY_PRIVACY_AUDIT.md](docs/SECURITY_PRIVACY_AUDIT.md).
+For subscription and paywall validation, see [docs/SUBSCRIPTION_PAYWALL_AUDIT.md](docs/SUBSCRIPTION_PAYWALL_AUDIT.md).
+For file and placeholder cleanup tracking, see [docs/FILE_PLACEHOLDER_AUDIT.md](docs/FILE_PLACEHOLDER_AUDIT.md).
+For build verification commands, see [docs/BUILD_AUDIT_COMMANDS.md](docs/BUILD_AUDIT_COMMANDS.md).
+For the master release checklist, see [docs/FINAL_AUDIT_SCORECARD.md](docs/FINAL_AUDIT_SCORECARD.md).
 
 ## Highlights
 

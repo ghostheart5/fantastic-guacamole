@@ -11,6 +11,7 @@ class _NexusHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final int unread = ref.watch(unreadNotificationsProvider);
+    final routes = ref.watch(routeSurfaceProvider);
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final bool compact = constraints.maxWidth < 390;
@@ -26,7 +27,7 @@ class _NexusHeader extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SmartPressable(
-                onTap: () => context.push(RoutePaths.notifications),
+                onTap: () => context.push(routes.notifications),
                 child: Badge(
                   isLabelVisible: unread > 0,
                   label: Text('$unread'),
@@ -674,7 +675,7 @@ class _CoreSignalsStrip extends StatelessWidget {
             children: [
               const Expanded(
                 child: Text(
-                  'CROSS-MODULE SYNTHESIS',
+                  'SYSTEM SYNTHESIS (CROSS-MODULE)',
                   style: TextStyle(
                     color: AppColors.neonViolet,
                     fontSize: 10,
@@ -772,10 +773,6 @@ class _DependencyMesh extends ConsumerWidget {
     final List<GoalEntity> goals = aggregation?.goals ?? const <GoalEntity>[];
     final List<MemoryEntity> memories =
         aggregation?.memories ?? const <MemoryEntity>[];
-    final List<LogEntryEntity> logs =
-        aggregation?.logs ?? const <LogEntryEntity>[];
-    final List<TimelineEventEntity> timeline =
-        aggregation?.timeline ?? const <TimelineEventEntity>[];
     final List<FlowmapNode> flowNodesData =
         aggregation?.flowmapNodes ?? const <FlowmapNode>[];
 
@@ -814,30 +811,6 @@ class _DependencyMesh extends ConsumerWidget {
         ? 'No recent memory capture'
         : memories.first.text;
 
-    final int recentLogs = logs
-        .where((LogEntryEntity entry) => entry.isRecent)
-        .length;
-    final int logSources = logs
-        .map((LogEntryEntity entry) => entry.source)
-        .toSet()
-        .length;
-    final String logHeadline = logs.isEmpty
-        ? 'No live telemetry'
-        : logs.first.message;
-
-    final int recentTimeline = timeline
-        .where((TimelineEventEntity event) => event.isRecent)
-        .length;
-    final int milestoneTimeline = timeline
-        .where(
-          (TimelineEventEntity event) =>
-              event.isGoalComplete || event.isLevelUp || event.isStreak,
-        )
-        .length;
-    final String timelineHeadline = timeline.isEmpty
-        ? 'No timeline activity'
-        : timeline.first.title;
-
     final int flowNodes = flowNodesData.length;
     final int connectedNodes = flowNodesData
         .where((FlowmapNode node) => node.connectedTo.isNotEmpty)
@@ -870,7 +843,7 @@ class _DependencyMesh extends ConsumerWidget {
         const Padding(
           padding: EdgeInsets.only(bottom: 10),
           child: Text(
-            'NEXUS DEPENDENCY MESH',
+            'NEXUS DEPENDENCY MESH (HOW MODULES CONNECT)',
             style: TextStyle(
               color: AppColors.neonCyan,
               fontSize: 10,
@@ -880,19 +853,30 @@ class _DependencyMesh extends ConsumerWidget {
           ),
         ),
         Wrap(
-          spacing: 10,
-          runSpacing: 10,
+          spacing: 12,
+          runSpacing: 12,
           children: [
             _DependencyCard(
               label: 'Coach',
               accent: AppColors.neonCyan,
+              emphasize: true,
               value: modelAsync.isLoading
                   ? 'Syncing'
-                  : (decision?.nextAction.trim().isNotEmpty ?? false)
+                  : (decision?.coachMessage.trim().isNotEmpty ?? false)
                   ? 'Live'
                   : 'Idle',
-              headline: decision?.nextAction ?? 'No active recommendation',
-              detail: 'SI engine output routed into Nexus.',
+              headline:
+                  decision?.coachMessage ?? 'No active coaching advice yet.',
+              detail: (decision?.nextAction.trim().isNotEmpty ?? false)
+                  ? 'Next action: ${decision!.nextAction}'
+                  : 'SI engine advice routed into Nexus.',
+            ),
+            _DependencyCard(
+              label: 'Progression',
+              accent: const Color(0xFFFFD166),
+              value: 'LVL ${progress.level}',
+              headline: progress.levelTitle,
+              detail: '${progress.xp} XP · ${progress.streak}d streak.',
             ),
             _DependencyCard(
               label: 'Tasks',
@@ -921,7 +905,8 @@ class _DependencyMesh extends ConsumerWidget {
               accent: const Color(0xFF4BE6B0),
               value: '$flowNodes nodes',
               headline: flowHeadline,
-              detail: '$connectedNodes nodes are connected.',
+              detail:
+                  '$connectedNodes/$flowNodes connected decision nodes (node = a mapped task, goal, or idea link).',
             ),
             _DependencyCard(
               label: 'Memories',
@@ -929,27 +914,6 @@ class _DependencyMesh extends ConsumerWidget {
               value: '${memories.length} stored',
               headline: _truncate(memoryHeadline),
               detail: '$recentMemories recent memory traces.',
-            ),
-            _DependencyCard(
-              label: 'Logs',
-              accent: const Color(0xFFFF6B9A),
-              value: '${logs.length} entries',
-              headline: _truncate(logHeadline),
-              detail: '$recentLogs recent across $logSources sources.',
-            ),
-            _DependencyCard(
-              label: 'Timeline',
-              accent: const Color(0xFF59C8FF),
-              value: '${timeline.length} events',
-              headline: timelineHeadline,
-              detail: '$recentTimeline recent, $milestoneTimeline milestones.',
-            ),
-            _DependencyCard(
-              label: 'Progression',
-              accent: const Color(0xFFFFD166),
-              value: 'LVL ${progress.level}',
-              headline: progress.levelTitle,
-              detail: '${progress.xp} XP · ${progress.streak}d streak.',
             ),
           ],
         ),
@@ -1048,6 +1012,7 @@ class _DependencyCard extends StatelessWidget {
     required this.headline,
     required this.detail,
     required this.accent,
+    this.emphasize = false,
   });
 
   final String label;
@@ -1055,23 +1020,36 @@ class _DependencyCard extends StatelessWidget {
   final String headline;
   final String detail;
   final Color accent;
+  final bool emphasize;
 
   @override
   Widget build(BuildContext context) {
     final double width = MediaQuery.sizeOf(context).width;
-    final double cardWidth = width < 640 ? width - 32 : (width - 58) / 2;
+    final double contentWidth = width - 32;
+    final int columns = width >= 1120
+        ? 3
+        : width >= 640
+        ? 2
+        : 1;
+    final double cardWidth = emphasize || columns == 1
+        ? contentWidth
+        : columns == 3
+        ? (contentWidth - 24) / 3
+        : (contentWidth - 12) / 2;
 
     return Container(
       width: cardWidth,
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(emphasize ? 13 : 12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        color: Colors.black.withValues(alpha: 0.24),
-        border: Border.all(color: accent.withValues(alpha: 0.26)),
+        color: Colors.black.withValues(alpha: emphasize ? 0.28 : 0.24),
+        border: Border.all(
+          color: accent.withValues(alpha: emphasize ? 0.34 : 0.26),
+        ),
         boxShadow: [
           BoxShadow(
-            color: accent.withValues(alpha: 0.10),
-            blurRadius: 16,
+            color: accent.withValues(alpha: emphasize ? 0.14 : 0.10),
+            blurRadius: emphasize ? 20 : 16,
             spreadRadius: -6,
           ),
         ],
@@ -1120,11 +1098,11 @@ class _DependencyCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             headline,
-            maxLines: 2,
+            maxLines: emphasize ? 3 : 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
-              fontSize: 14,
+              fontSize: emphasize ? 15 : 14,
               fontWeight: FontWeight.w700,
               height: 1.2,
             ),

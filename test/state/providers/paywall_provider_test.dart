@@ -9,26 +9,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('paywallConfigProvider builds testing title from subscription state', () async {
-    final _FakePaywallRepository repository = _FakePaywallRepository(
-      subscription: const SubscriptionState(
-        isActive: true,
-        status: 'unlocked_for_testing',
-        source: 'testing_mode',
-        isTesting: true,
-      ),
-    );
-    final ProviderContainer container = ProviderContainer(
-      overrides: [paywallRepositoryProvider.overrideWithValue(repository)],
-    );
-    addTearDown(container.dispose);
+  test(
+    'paywallConfigProvider builds testing title from subscription state',
+    () async {
+      final _FakePaywallRepository repository = _FakePaywallRepository(
+        subscription: const SubscriptionState(
+          isActive: true,
+          status: 'unlocked_for_testing',
+          source: 'testing_mode',
+          isTesting: true,
+        ),
+      );
+      final ProviderContainer container = ProviderContainer(
+        overrides: [paywallRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
 
-    final config = await container.read(paywallConfigProvider.future);
+      final config = await container.read(paywallConfigProvider.future);
 
-    expect(config.title, 'Unlocked for testing');
-    expect(config.isUnlocked, isTrue);
-    expect(config.plans, hasLength(2));
-  });
+      expect(config.title, 'Unlocked for testing');
+      expect(config.isUnlocked, isTrue);
+      expect(config.plans, hasLength(2));
+    },
+  );
 
   test('paywallActions forwards start and restore to repository', () async {
     final _FakePaywallRepository repository = _FakePaywallRepository();
@@ -101,7 +104,11 @@ class _FakePaywallRepository implements IPaywallRepository {
   _FakePaywallRepository({SubscriptionState? subscription})
     : _subscription =
           subscription ??
-          const SubscriptionState(isActive: false, status: 'locked', source: 'test');
+          const SubscriptionState(
+            isActive: false,
+            status: 'locked',
+            source: 'test',
+          );
 
   SubscriptionState _subscription;
   String? lastStartedPlanId;
@@ -129,8 +136,18 @@ class _FakePaywallRepository implements IPaywallRepository {
   @override
   Future<List<PaywallPlan>> getAvailablePlans() async {
     return const <PaywallPlan>[
-      PaywallPlan(id: 'monthly', title: 'Monthly', priceLabel: '499', description: 'Monthly plan'),
-      PaywallPlan(id: 'annual', title: 'Annual', priceLabel: '4999', description: 'Annual plan'),
+      PaywallPlan(
+        id: 'monthly',
+        title: 'Monthly',
+        priceLabel: '499',
+        description: 'Monthly plan',
+      ),
+      PaywallPlan(
+        id: 'annual',
+        title: 'Annual',
+        priceLabel: '4999',
+        description: 'Annual plan',
+      ),
     ];
   }
 

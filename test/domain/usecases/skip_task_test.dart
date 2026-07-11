@@ -20,25 +20,32 @@ void main() {
       siRepository.state = SiStateEntity(energy: 0.6, focus: 0.6, fatigue: 0.4);
     });
 
-    test('marks task skipped, feeds learning signal, and updates SI state', () async {
-      await taskRepository.saveTask(
-        TaskEntity(id: 'task-1', title: 'Skip me', createdAt: DateTime.utc(2026, 7, 5)),
-      );
+    test(
+      'marks task skipped, feeds learning signal, and updates SI state',
+      () async {
+        await taskRepository.saveTask(
+          TaskEntity(
+            id: 'task-1',
+            title: 'Skip me',
+            createdAt: DateTime.utc(2026, 7, 5),
+          ),
+        );
 
-      final LearningEntity result = await SkipTask(
-        taskRepository,
-        learningRepository,
-        siRepo: siRepository,
-      ).call(taskId: 'task-1', difficulty: 4);
+        final LearningEntity result = await SkipTask(
+          taskRepository,
+          learningRepository,
+          siRepo: siRepository,
+        ).call(taskId: 'task-1', difficulty: 4);
 
-      expect(result.skipped, 1);
-      expect(result.completed, 0);
-      expect(learningRepository.state?.skipped, 1);
-      expect(learningRepository.saveCalls, 1);
-      expect(siRepository.state?.anticipatesConfusion, isTrue);
-      expect(siRepository.state?.confidence, closeTo(0.43, 0.0001));
-      expect(siRepository.saveCalls, 1);
-    });
+        expect(result.skipped, 1);
+        expect(result.completed, 0);
+        expect(learningRepository.state?.skipped, 1);
+        expect(learningRepository.saveCalls, 1);
+        expect(siRepository.state?.anticipatesConfusion, isTrue);
+        expect(siRepository.state?.confidence, closeTo(0.43, 0.0001));
+        expect(siRepository.saveCalls, 1);
+      },
+    );
 
     test('does not erase task data when skipped', () async {
       await taskRepository.saveTask(
@@ -57,7 +64,9 @@ void main() {
         siRepo: siRepository,
       ).call(taskId: 'task-keep', difficulty: 2);
 
-      final TaskEntity? taskAfterSkip = await taskRepository.getTaskById('task-keep');
+      final TaskEntity? taskAfterSkip = await taskRepository.getTaskById(
+        'task-keep',
+      );
       expect(taskAfterSkip, isNotNull);
       expect(taskAfterSkip?.title, 'Keep data');
       expect(taskAfterSkip?.description, 'Should remain unchanged');
@@ -67,7 +76,10 @@ void main() {
 
     test('throws when task missing', () async {
       await expectLater(
-        () => SkipTask(taskRepository, learningRepository).call(taskId: 'missing', difficulty: 3),
+        () => SkipTask(
+          taskRepository,
+          learningRepository,
+        ).call(taskId: 'missing', difficulty: 3),
         throwsA(isA<StateError>()),
       );
     });

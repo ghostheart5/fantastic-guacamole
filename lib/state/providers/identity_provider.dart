@@ -9,21 +9,19 @@ final identityStateProvider = NotifierProvider<IdentityNotifier, IdentityState>(
 
 class IdentityNotifier extends Notifier<IdentityState> {
   static const _engine = IdentityEngine();
+  bool _hydrateScheduled = false;
 
   @override
   IdentityState build() {
-    _hydrate();
-    return const IdentityState(
-      disciplineIdentity: 0.1,
-      focusIdentity: 0.1,
-      growthIdentity: 0.1,
-    );
+    if (!_hydrateScheduled) {
+      _hydrateScheduled = true;
+      Future<void>.microtask(_hydrate);
+    }
+    return const IdentityState(disciplineIdentity: 0.1, focusIdentity: 0.1, growthIdentity: 0.1);
   }
 
   Future<void> _hydrate() async {
-    final IdentityProfileEntity? profile = await ref
-        .read(getIdentityProfileUseCaseProvider)
-        .call();
+    final IdentityProfileEntity? profile = await ref.read(getIdentityProfileUseCaseProvider).call();
     if (profile == null) {
       return;
     }

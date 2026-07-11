@@ -1,17 +1,22 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
+import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_detection_service.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_response_templates.dart';
-import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
-import 'package:fantastic_guacamole/domain/entities/task.dart';
-import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
+import 'package:fantastic_guacamole/state/models/core_values_models.dart';
+import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
+import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
@@ -22,6 +27,7 @@ import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
@@ -119,6 +125,16 @@ class CoachQueryController implements SmartCoachInterface {
         energy: energy,
         input: prompt,
       );
+      await _persistConversationTurn(
+        role: 'user',
+        channel: 'coach',
+        content: prompt,
+      );
+      await _persistConversationTurn(
+        role: 'assistant',
+        channel: 'coach',
+        content: message,
+      );
       _ref.read(profileProvider.notifier).addXP(10);
       return CoachCoachingResult(
         prompt: prompt,
@@ -176,6 +192,17 @@ class CoachQueryController implements SmartCoachInterface {
         ? generated
         : _buildCoachingMessage(energy, emotion, notes);
 
+    await _persistConversationTurn(
+      role: 'user',
+      channel: 'coach',
+      content: prompt,
+    );
+    await _persistConversationTurn(
+      role: 'assistant',
+      channel: 'coach',
+      content: message,
+    );
+
     _ref.read(profileProvider.notifier).addXP(10);
 
     return CoachCoachingResult(
@@ -222,11 +249,22 @@ class CoachQueryController implements SmartCoachInterface {
         .toList(growable: false);
 
     if (detectedTopic != _CoachTopic.generalChat) {
-      return _buildFollowUpResponse(
+      final String fallbackReply = _buildFollowUpResponse(
         topic: detectedTopic,
         energy: energy,
         input: input,
       );
+      await _persistConversationTurn(
+        role: 'user',
+        channel: 'follow_up',
+        content: input,
+      );
+      await _persistConversationTurn(
+        role: 'assistant',
+        channel: 'follow_up',
+        content: fallbackReply,
+      );
+      return fallbackReply;
     }
 
     final String policy = _smartCoachPolicy();
@@ -273,9 +311,21 @@ class CoachQueryController implements SmartCoachInterface {
       reasoning: recommendation?.reasoning,
     );
     final bool aiStructured = _isStructuredCoachResponse(generated);
-    return generated.isNotEmpty && !aiFallbackDetected && aiStructured
+    final String response =
+        generated.isNotEmpty && !aiFallbackDetected && aiStructured
         ? generated
         : _buildFollowUpReply(input, energy, emotion);
+    await _persistConversationTurn(
+      role: 'user',
+      channel: 'follow_up',
+      content: input,
+    );
+    await _persistConversationTurn(
+      role: 'assistant',
+      channel: 'follow_up',
+      content: response,
+    );
+    return response;
   }
 
   static bool _isNonActionableAIFallback({
@@ -299,8 +349,8 @@ class CoachQueryController implements SmartCoachInterface {
         'Never respond with generic encouragement alone. '
         'Detect topics automatically: health usecases like weight loss, weight gain, nutrition, hydration, exercise, running, strength training, energy, fatigue, sleep, and recovery; '
         'mental usecases like stress, anxiety, burnout, focus, confidence, motivation, discipline, and emotional support; '
-        'productivity usecases like procrastination, deep work, time management, task planning, goal achievement, and habit building; '
-        'life usecases like relationships, career, learning, personal growth, and decision making; '
+        'productivity usecases like procrastination, deep work, time management, task planning, goal recovery, and habit building; '
+        'life usecases like relationships, career, learning, personal growth, purpose, future self, and decision making; '
         'plus general chat. '
         'Respond with this structure: Goal Detected, Insight (cause analysis), Actions, Next Step, Momentum Score, Coach Question. '
         'Always provide practical actions first and follow-up questions second.';
@@ -321,6 +371,10 @@ class CoachQueryController implements SmartCoachInterface {
   String _knowledgeContext() {
     final goals = _ref.read(goalsProvider);
     final memories = _ref.read(memoriesProvider);
+    final CoreValuesAlignment coreValues = _ref.read(
+      coreValuesAlignmentProvider,
+    );
+    final SoulMapAlignment soulMap = _ref.read(soulMapAlignmentProvider);
 
     final List<String> topGoals = goals
         .take(3)
@@ -341,6 +395,12 @@ class CoachQueryController implements SmartCoachInterface {
     if (recentMemories.isNotEmpty) {
       chunks.add('Recent memories: ${recentMemories.join(' | ')}');
     }
+    chunks.add(
+      'Core values alignment: overall ${coreValues.overall}% | strongest ${coreValueTitle(coreValues.strongest)} | neglected ${coreValueTitle(coreValues.mostNeglected)}',
+    );
+    chunks.add(
+      'SoulMap alignment: overall ${soulMap.overall}% | strongest ${soulMapDimensionTitle(soulMap.strongest)} | weakest ${soulMapDimensionTitle(soulMap.weakest)}',
+    );
     return chunks.join('\n');
   }
 
@@ -362,6 +422,10 @@ class CoachQueryController implements SmartCoachInterface {
     );
     final progression = _ref.read(progressionProvider).progress;
     final soulState = _ref.read(soulStateProvider);
+    final CoreValuesAlignment coreValues = _ref.read(
+      coreValuesAlignmentProvider,
+    );
+    final SoulMapAlignment soulMap = _ref.read(soulMapAlignmentProvider);
     final flowmapNodes = flowmapAsync.maybeWhen(
       data: (List<FlowmapNode> nodes) => nodes,
       orElse: () => const <FlowmapNode>[],
@@ -456,6 +520,25 @@ class CoachQueryController implements SmartCoachInterface {
           'xp': profile.xp,
           'streak': profile.streak,
         },
+        'coreValues': <String, dynamic>{
+          'overall': coreValues.overall,
+          'strongest': coreValueTitle(coreValues.strongest),
+          'neglected': coreValueTitle(coreValues.mostNeglected),
+          'scores': coreValues.scores.map(
+            (CoreValueType key, CoreValueScore value) =>
+                MapEntry<String, int>(coreValueTitle(key), value.score),
+          ),
+        },
+        'soulMapAlignment': <String, dynamic>{
+          'overall': soulMap.overall,
+          'strongest': soulMapDimensionTitle(soulMap.strongest),
+          'weakest': soulMapDimensionTitle(soulMap.weakest),
+          'scores': soulMap.scores.map(
+            (SoulMapDimension key, SoulMapDimensionScore value) =>
+                MapEntry<String, int>(soulMapDimensionTitle(key), value.score),
+          ),
+          'recommendations': soulMap.recommendations,
+        },
         'soulmap': soulState.toJson(),
       },
     };
@@ -477,6 +560,27 @@ class CoachQueryController implements SmartCoachInterface {
         error,
       );
       return null;
+    }
+  }
+
+  Future<void> _persistConversationTurn({
+    required String role,
+    required String channel,
+    required String content,
+  }) async {
+    final String trimmed = content.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+    final String id =
+        'coach.$channel.$role.${DateTime.now().microsecondsSinceEpoch}';
+    final String label = '[$channel][$role] $trimmed';
+    try {
+      await _ref
+          .read(saveCoachMessageUseCaseProvider)
+          .call(CoachMessage(id: id, label: label));
+    } catch (_) {
+      // Keep coaching non-blocking when history persistence fails.
     }
   }
 
@@ -600,6 +704,22 @@ class CoachQueryController implements SmartCoachInterface {
             ? 'Choose one rule you can keep today and remove one easy excuse.'
             : '$answerSummary Choose one rule you can keep today and remove one easy excuse.';
         question = 'What is the one rule you want to follow today?';
+      case _CoachTopic.focus:
+        move = answerSummary.isEmpty
+            ? 'Protect one deep-work block, remove two distractions, and start with the hardest task first.'
+            : '$answerSummary Protect one deep-work block, remove two distractions, and start with the hardest task first.';
+        question =
+            'What is the one task you will focus on for the next 25 minutes?';
+      case _CoachTopic.procrastination:
+        move = answerSummary.isEmpty
+            ? 'Shrink the task to a 5-minute starter and begin before motivation catches up.'
+            : '$answerSummary Shrink the task to a 5-minute starter and begin before motivation catches up.';
+        question = 'What 5-minute starter action can you do right now?';
+      case _CoachTopic.habits:
+        move = answerSummary.isEmpty
+            ? 'Anchor one daily habit to an existing routine and track completion visibly.'
+            : '$answerSummary Anchor one daily habit to an existing routine and track completion visibly.';
+        question = 'Which single habit should become automatic this week?';
       case _CoachTopic.productivity:
       case _CoachTopic.timeManagement:
       case _CoachTopic.taskPlanning:
@@ -625,6 +745,9 @@ class CoachQueryController implements SmartCoachInterface {
       case _CoachTopic.personalGrowth:
       case _CoachTopic.decisionMaking:
       case _CoachTopic.goals:
+      case _CoachTopic.goalRecovery:
+      case _CoachTopic.futureSelf:
+      case _CoachTopic.purpose:
         move = answerSummary.isEmpty
             ? 'Pick one outcome, define the next step, and make it visible on your calendar.'
             : '$answerSummary Pick one outcome, define the next step, and make it visible on your calendar.';
@@ -868,6 +991,17 @@ class CoachQueryController implements SmartCoachInterface {
     if (hasAny(<String>['discipline', 'self control', 'self-control'])) {
       return _CoachTopic.discipline;
     }
+    if (hasAny(<String>['focus', 'distract', 'attention', 'concentration'])) {
+      return _CoachTopic.focus;
+    }
+    if (hasAny(<String>[
+      'procrastin',
+      'avoidance',
+      'delay starting',
+      'putting off',
+    ])) {
+      return _CoachTopic.procrastination;
+    }
     if (hasAny(<String>[
       'deep work',
       'time management',
@@ -876,6 +1010,42 @@ class CoachQueryController implements SmartCoachInterface {
       'calendar',
     ])) {
       return _CoachTopic.timeManagement;
+    }
+    if (hasAny(<String>[
+      'habit',
+      'habit building',
+      'build a habit',
+      'routine',
+    ])) {
+      return _CoachTopic.habits;
+    }
+    if (hasAny(<String>[
+      'goal recovery',
+      'recover my goal',
+      'off track',
+      'fell behind',
+      'missed my goal',
+      'get back on track',
+    ])) {
+      return _CoachTopic.goalRecovery;
+    }
+    if (hasAny(<String>[
+      'future self',
+      'future me',
+      'future version',
+      'future identity',
+      'long term self',
+    ])) {
+      return _CoachTopic.futureSelf;
+    }
+    if (hasAny(<String>[
+      'purpose',
+      'meaning',
+      'why am i doing this',
+      'my why',
+      'life purpose',
+    ])) {
+      return _CoachTopic.purpose;
     }
     if (hasAny(<String>[
       'habit',
@@ -997,6 +1167,12 @@ class CoachQueryController implements SmartCoachInterface {
         return 'Confidence';
       case _CoachTopic.discipline:
         return 'Discipline';
+      case _CoachTopic.focus:
+        return 'Focus';
+      case _CoachTopic.procrastination:
+        return 'Procrastination';
+      case _CoachTopic.habits:
+        return 'Habits';
       case _CoachTopic.productivity:
         return 'Productivity';
       case _CoachTopic.timeManagement:
@@ -1011,6 +1187,12 @@ class CoachQueryController implements SmartCoachInterface {
         return 'Motivation';
       case _CoachTopic.goals:
         return 'Goals';
+      case _CoachTopic.goalRecovery:
+        return 'Goal Recovery';
+      case _CoachTopic.futureSelf:
+        return 'Future Self';
+      case _CoachTopic.purpose:
+        return 'Purpose';
       case _CoachTopic.relationships:
         return 'Relationships';
       case _CoachTopic.career:
@@ -1173,6 +1355,40 @@ class CoachQueryController implements SmartCoachInterface {
         nextStep =
             'Write the rule down and follow it once before you negotiate again.';
         followUp = 'What is the one rule you want to follow today?';
+      case _CoachTopic.focus:
+        insight =
+            'Focus breaks when attention gets fragmented by notifications, context switching, and unclear task boundaries.';
+        actions = <String>[
+          'Choose one priority outcome for this block.',
+          'Silence nonessential notifications and close extra tabs.',
+          'Run one 25-minute deep-focus cycle with a single task.',
+        ];
+        nextStep =
+            'Start a 25-minute timer and commit to one task until it ends.';
+        followUp =
+            'What is the one task you will focus on for the next 25 minutes?';
+      case _CoachTopic.procrastination:
+        insight =
+            'Procrastination often signals hidden friction, fear of imperfect output, or unclear first steps.';
+        actions = <String>[
+          'Define a 5-minute starter action only.',
+          'Lower the quality bar for the first draft.',
+          'Start immediately before negotiating with yourself.',
+        ];
+        nextStep =
+            'Complete one 5-minute starter action now and log it as a win.';
+        followUp = 'What 5-minute starter action can you do right now?';
+      case _CoachTopic.habits:
+        insight =
+            'Habits stick when they are small, anchored to existing routines, and tracked consistently.';
+        actions = <String>[
+          'Pick one tiny habit with a clear trigger.',
+          'Attach it to a routine you already do daily.',
+          'Track completion visibly for the next 7 days.',
+        ];
+        nextStep =
+            'Define your habit trigger and complete the first rep today.';
+        followUp = 'Which single habit should become automatic this week?';
       case _CoachTopic.productivity:
       case _CoachTopic.timeManagement:
       case _CoachTopic.taskPlanning:
@@ -1208,6 +1424,40 @@ class CoachQueryController implements SmartCoachInterface {
         ];
         nextStep = 'Complete that 10-minute step before doing anything else.';
         followUp = 'What exact 10-minute step are you committing to right now?';
+      case _CoachTopic.goalRecovery:
+        insight =
+            'Goal recovery works best when you diagnose drift quickly and restart with a narrowed, realistic checkpoint.';
+        actions = <String>[
+          'Identify why momentum broke (time, scope, energy, or clarity).',
+          'Reset the goal into one recoverable weekly milestone.',
+          'Schedule a restart action within the next 24 hours.',
+        ];
+        nextStep =
+            'Pick one recovery milestone and block it on your calendar right now.';
+        followUp =
+            'What caused the drift, and what is the first recovery milestone?';
+      case _CoachTopic.futureSelf:
+        insight =
+            'Future-self alignment strengthens when today\'s actions are explicitly tied to the person you want to become.';
+        actions = <String>[
+          'Name one future-self trait you want to embody.',
+          'Choose one action today that proves that trait.',
+          'Review tonight whether your behavior matched your future identity.',
+        ];
+        nextStep = 'Complete one identity-proof action before the day ends.';
+        followUp = 'What future-self trait are you proving today?';
+      case _CoachTopic.purpose:
+        insight =
+            'Purpose feels clearer when daily work maps to core values and long-term direction instead of short-term urgency alone.';
+        actions = <String>[
+          'Write one sentence for why this goal matters to your life direction.',
+          'Choose one action that reflects your top value today.',
+          'Cut one low-value task that does not serve your purpose.',
+        ];
+        nextStep =
+            'Do the highest-purpose action first in your next work block.';
+        followUp =
+            'What value or mission are you serving with your next action?';
       case _CoachTopic.relationships:
       case _CoachTopic.career:
       case _CoachTopic.learning:
@@ -1261,6 +1511,9 @@ enum _CoachTopic {
   exercise,
   confidence,
   discipline,
+  focus,
+  procrastination,
+  habits,
   productivity,
   timeManagement,
   taskPlanning,
@@ -1268,6 +1521,9 @@ enum _CoachTopic {
   mentalHealth,
   motivation,
   goals,
+  goalRecovery,
+  futureSelf,
+  purpose,
   relationships,
   career,
   learning,

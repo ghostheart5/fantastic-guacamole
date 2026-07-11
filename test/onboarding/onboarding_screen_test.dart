@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/onboarding/onboarding_screen.dart';
+import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:flutter/material.dart';

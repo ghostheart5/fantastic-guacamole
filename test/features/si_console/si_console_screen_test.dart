@@ -15,7 +15,9 @@ void main() {
   ) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [
-        aiControllerProvider.overrideWith((Ref ref) => _RecordingAiController(ref)),
+        aiControllerProvider.overrideWith(
+          (Ref ref) => _RecordingAiController(ref),
+        ),
         voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
         intelligenceStateProvider.overrideWithValue(_intelligence),
       ],
@@ -40,10 +42,15 @@ void main() {
     final _RecordingAiController controller =
         container.read(aiControllerProvider) as _RecordingAiController;
     expect(controller.calls, 0);
-    expect(find.textContaining('No grounded response was generated'), findsNothing);
+    expect(
+      find.textContaining('No grounded response was generated'),
+      findsNothing,
+    );
   });
 
-  testWidgets('invalid input result displays safe fallback response', (WidgetTester tester) async {
+  testWidgets('invalid input result displays safe fallback response', (
+    WidgetTester tester,
+  ) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         aiControllerProvider.overrideWith((Ref ref) => _NullAiController(ref)),
@@ -64,15 +71,23 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 60));
 
-    await tester.enterText(find.byType(TextField), 'show unknown malformed module');
+    await tester.enterText(
+      find.byType(TextField),
+      'show unknown malformed module',
+    );
     await tester.tap(find.byIcon(Icons.send_rounded));
     await tester.pump();
     await tester.pump(const Duration(seconds: 4));
 
-    expect(find.textContaining('No grounded response was generated'), findsOneWidget);
+    expect(
+      find.textContaining('No grounded response was generated'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('AI errors still render safe SI fallback response', (WidgetTester tester) async {
+  testWidgets('AI errors still render safe SI fallback response', (
+    WidgetTester tester,
+  ) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         aiControllerProvider.overrideWith((Ref ref) => _ErrorAiController(ref)),
@@ -98,7 +113,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.textContaining('Full intelligence context lock failed'), findsOneWidget);
+    expect(
+      find.textContaining('Full intelligence context lock failed'),
+      findsOneWidget,
+    );
   });
 }
 

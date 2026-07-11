@@ -179,6 +179,12 @@ class _InsightScreenState extends ConsumerState<InsightScreen>
                     ),
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: _InsightCheatSheetPanel(),
+                    ),
+                  ),
                   if (completionInsight != null)
                     SliverToBoxAdapter(
                       child: Padding(
@@ -361,6 +367,52 @@ class _WeeklyXpRow extends ConsumerWidget {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightCheatSheetPanel extends StatelessWidget {
+  const _InsightCheatSheetPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF050D1A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.2)),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'INSIGHT CHEATSHEET',
+            style: TextStyle(
+              fontSize: 9,
+              letterSpacing: 2.3,
+              color: AppColors.neonCyan,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Health Score:\n'
+            '- 80-100: stable execution\n'
+            '- 60-79: watchlist\n'
+            '- below 60: recovery mode\n\n'
+            'Pattern Panel:\n'
+            '- identifies repeated behavior loops\n'
+            '- use it to choose one corrective action\n\n'
+            'Completion Insight:\n'
+            '- observation = what happened\n'
+            '- suggestion = what to do next\n\n'
+            'Best practice: pick one recommendation and execute within 24h.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.35),
           ),
         ],
       ),

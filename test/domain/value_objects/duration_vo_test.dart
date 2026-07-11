@@ -5,11 +5,17 @@ void main() {
   group('DurationVo', () {
     test('accepts zero and positive durations', () {
       expect(DurationVo(Duration.zero).value, Duration.zero);
-      expect(DurationVo(const Duration(minutes: 30)).value, const Duration(minutes: 30));
+      expect(
+        DurationVo(const Duration(minutes: 30)).value,
+        const Duration(minutes: 30),
+      );
     });
 
     test('rejects negative durations', () {
-      expect(() => DurationVo(const Duration(minutes: -1)), throwsArgumentError);
+      expect(
+        () => DurationVo(const Duration(minutes: -1)),
+        throwsArgumentError,
+      );
     });
   });
 }

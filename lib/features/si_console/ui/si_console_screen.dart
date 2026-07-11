@@ -3,14 +3,22 @@ import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
+import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
+import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
+import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
+import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
+import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
+import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -170,15 +178,23 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 'Quick commands:\n'
                 '- /tasks: inspect active tasks and next actions\n'
                 '- /goals: summarize goals and drift\n'
+                '- /milestones: summarize checkpoint health, risk, and next target\n'
+                '- /values: show core values alignment and neglected value\n'
+                '- /soulmap: analyze identity, purpose, and life direction\n'
+                '- /soulmap compare: compare current self to future self\n'
                 '- /plan: summarize schedule and next blocks\n'
                 '- /timeline: summarize recent milestones/events\n'
                 '- /trajectory: summarize momentum, pressure, and prediction\n\n'
+                'Rules:\n'
+                '- Task creation is Creator-only. Use Creator to create tasks/goals.\n'
+                '- SI Console is analysis + guidance, not data-entry.\n\n'
                 'High-signal prompts SI responds well to:\n'
                 '- "List my 3 newest tasks and what to do first."\n'
                 '- "Did I create a task just now? Show the latest task title."\n'
                 '- "Summarize trajectory pressure and one corrective action."\n'
                 '- "Show plan risks for today and 3 next actions."\n'
-                '- "Summarize goals at risk and what to do next."\n\n'
+                '- "Summarize goals at risk and what to do next."\n'
+                '- "Compare current self to future self."\n\n'
                 'Tip: use a command first, then add intent. Example: /tasks what should I execute now?',
             isUser: false,
             emotion: 'focused',
@@ -202,13 +218,16 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- memories: ${aggregation.memories.length}\n'
                 '- notifications: ${aggregation.notifications.length}\n'
                 '- timeline: ${aggregation.timeline.length}\n'
+                '- milestones: ${ref.read(milestonesProvider).asData?.value.length ?? 0}\n'
+                '- core values overall: ${ref.read(coreValuesAlignmentProvider).overall}%\n'
+                '- soulmap overall: ${ref.read(soulMapAlignmentProvider).overall}%\n'
                 '- flowmap: ${aggregation.flowmapNodes.length}\n'
                 '- plan preview blocks: ${aggregation.planPreview.length}\n\n'
                 'Trajectory:\n'
                 '- pressure: ${aggregation.trajectory.pressureIndex}\n'
                 '- momentum: ${(aggregation.trajectory.momentum * 100).round()}%\n'
                 '- divergence: ${aggregation.trajectory.behaviorDivergence}%\n\n'
-                'Use /tasks, /goals, /plan, /timeline, /trajectory for module-specific responses.';
+                'Use /tasks, /goals, /milestones, /values, /soulmap, /soulmap compare, /plan, /timeline, /trajectory for module-specific responses.';
 
       _safeSetState(() {
         _messages.add(_Msg(text: text, isUser: true));
@@ -220,13 +239,25 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
     if (command == '/tasks' ||
         command == '/goals' ||
+        command == '/milestones' ||
+        command == '/values' ||
+        command == '/soulmap' ||
         command == '/plan' ||
         command == '/timeline' ||
         command == '/trajectory') {
+      final bool compareSoulMap = normalized.startsWith('/soulmap compare');
       final String response = _localSurfaceSummary(command, aggregation);
       _safeSetState(() {
         _messages.add(_Msg(text: text, isUser: true));
-        _messages.add(_Msg(text: response, isUser: false, emotion: 'focused'));
+        _messages.add(
+          _Msg(
+            text: compareSoulMap
+                ? _localSoulMapCompareSummary(aggregation)
+                : response,
+            isUser: false,
+            emotion: 'focused',
+          ),
+        );
       });
       _scrollToBottom();
       return true;
@@ -264,7 +295,110 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             ? 'No adaptive blocks generated yet.'
             : aggregation.planPreview.take(3).map((b) => '- $b').join('\n');
         return 'PLAN SNAPSHOT\n\nPlan preview blocks: ${aggregation.planPreview.length}\n\nUpcoming blocks:\n$blocks\n\nPrompt: "what should I move or drop to reduce pressure today?"';
+      case '/milestones':
+        final MilestoneSummary summary = ref.read(milestoneSummaryProvider);
+        final List<MilestoneEntity> overdue = ref.read(
+          milestoneOverdueProvider,
+        );
+        final List<MilestoneEntity> upcoming = ref.read(
+          milestoneUpcomingProvider,
+        );
+        final List<MilestoneRisk> risks = ref.read(milestoneRisksProvider);
+        final List<String> topMilestones =
+            (ref.read(milestonesProvider).asData?.value ??
+                    const <MilestoneEntity>[])
+                .take(3)
+                .map(
+                  (MilestoneEntity item) =>
+                      '${item.title} (${item.completionPercent.round()}%)',
+                )
+                .toList(growable: false);
+        final String topText = topMilestones.isEmpty
+            ? 'No milestones created yet.'
+            : topMilestones.map((String item) => '- $item').join('\n');
+        return 'MILESTONES SNAPSHOT\n\n'
+            'Total: ${summary.total}\n'
+            'Active: ${summary.active}\n'
+            'Completed: ${summary.completed}\n'
+            'Overdue: ${summary.overdue}\n'
+            'Upcoming: ${summary.upcoming}\n'
+            'Health: ${summary.healthScore}%\n'
+            'Momentum: ${summary.momentumScore}%\n'
+            'Risk: ${summary.riskScore}%\n\n'
+            'Closest: ${summary.closestMilestone?.title ?? 'No milestone'}\n'
+            'Highest Priority: ${summary.highestPriority?.title ?? 'No milestone'}\n'
+            'Next: ${summary.nextMilestone?.title ?? 'No upcoming milestone'}\n\n'
+            'Overdue list: ${overdue.take(2).map((MilestoneEntity m) => m.title).join(' | ').trim().isEmpty ? 'None' : overdue.take(2).map((MilestoneEntity m) => m.title).join(' | ')}\n'
+            'Upcoming list: ${upcoming.take(2).map((MilestoneEntity m) => m.title).join(' | ').trim().isEmpty ? 'None' : upcoming.take(2).map((MilestoneEntity m) => m.title).join(' | ')}\n'
+            'Top risk: ${risks.isEmpty ? 'None' : '${risks.first.milestone.title} - ${risks.first.reason}'}\n\n'
+            'Top milestones:\n$topText\n\n'
+            'Prompt: "what milestone is next, what is overdue, and am I on track?"';
+      case '/values':
+        final CoreValuesAlignment values = ref.read(
+          coreValuesAlignmentProvider,
+        );
+        final List<String> rows = CoreValueType.values
+            .map(
+              (CoreValueType value) =>
+                  '${coreValueTitle(value)}: ${values.scores[value]?.score ?? 0}%',
+            )
+            .toList(growable: false);
+        return 'CORE VALUES ALIGNMENT\n\n'
+            '${rows.join('\n')}\n\n'
+            'Strongest: ${coreValueTitle(values.strongest)}\n'
+            'Most Neglected: ${coreValueTitle(values.mostNeglected)}\n'
+            'Overall: ${values.overall}%\n\n'
+            'Recommended Action:\n'
+            '${values.recommendations.firstWhere((String line) => line.toLowerCase().contains('schedule one action'), orElse: () => 'Schedule one action this week aligned to your neglected value.')}\n\n'
+            'Prompt: "analyze my life by core values alignment"';
+      case '/soulmap':
+        final SoulMapAlignment soulMap = ref.read(soulMapAlignmentProvider);
+        final int purpose =
+            soulMap.scores[SoulMapDimension.purpose]?.score ?? 0;
+        final int identity =
+            soulMap.scores[SoulMapDimension.identity]?.score ?? 0;
+        final int values =
+            soulMap.scores[SoulMapDimension.coreValues]?.score ?? 0;
+        final int futureSelf =
+            soulMap.scores[SoulMapDimension.futureSelf]?.score ?? 0;
+        final String strongest = soulMapDimensionTitle(soulMap.strongest);
+        final String weakest = soulMapDimensionTitle(soulMap.weakest);
+        final String action = soulMap.recommendations.firstWhere(
+          (String line) =>
+              line.toLowerCase().contains('schedule one concrete action'),
+          orElse: () =>
+              'Schedule one concrete action this week to strengthen $weakest.',
+        );
+        return 'SOULMAP ANALYSIS\n\n'
+            'Purpose Alignment: $purpose%\n'
+            'Identity Alignment: $identity%\n'
+            'Values Alignment: $values%\n'
+            'Future Self Progress: $futureSelf%\n\n'
+            'Strongest Area:\n$strongest\n\n'
+            'Weakest Area:\n$weakest\n\n'
+            'Recommendation:\n$action\n\n'
+            'Tip: run /soulmap compare to compare current self vs future self.\n\n'
+            'Prompt: "analyze my life"';
       case '/timeline':
+        final int healthScore = ref.read(timelineHealthScoreProvider);
+        final int riskScore = ref.read(timelineRiskScoreProvider);
+        final int overdueCount = ref.read(timelineOverdueProvider).length;
+        final int upcomingCount = ref.read(timelineUpcomingProvider).length;
+        final int riskEventsCount = ref.read(timelineRiskEventsProvider).length;
+        final int recommendationCount = ref
+            .read(timelineRecommendationsProvider)
+            .length;
+        final List<TimelineEventEntity> upcomingEvents = ref.read(
+          timelineUpcomingProvider,
+        );
+        final String nextDeadline = upcomingEvents.isEmpty
+            ? 'No upcoming deadline in timeline data.'
+            : upcomingEvents
+                  .map((event) => event.title.toString().trim())
+                  .firstWhere(
+                    (String title) => title.isNotEmpty,
+                    orElse: () => 'Upcoming deadline detected.',
+                  );
         final List<String> events = aggregation.timeline
             .take(3)
             .map((e) => '${e.shortLabel}: ${e.title}')
@@ -272,12 +406,39 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         final String eventsText = events.isEmpty
             ? 'No timeline events yet.'
             : events.map((e) => '- $e').join('\n');
-        return 'TIMELINE SNAPSHOT\n\nEvents: ${aggregation.timeline.length}\n\nRecent events:\n$eventsText\n\nPrompt: "summarize the last events and what pattern they show."';
+        return 'TIMELINE SNAPSHOT\n\n'
+            'Events: ${aggregation.timeline.length}\n'
+            'Health: $healthScore%\n'
+            'Risk: $riskScore%\n'
+            'Overdue: $overdueCount\n'
+            'Upcoming: $upcomingCount\n'
+            'Risk events: $riskEventsCount\n'
+            'Recommendations: $recommendationCount\n\n'
+            'Next deadline: $nextDeadline\n\n'
+            'Recent events:\n$eventsText\n\n'
+            'Prompt: "what is overdue, what is next, and am I on track?"';
       case '/trajectory':
         return 'TRAJECTORY SNAPSHOT\n\nPressure: ${aggregation.trajectory.pressureIndex}\nMomentum: ${(aggregation.trajectory.momentum * 100).round()}%\nDivergence: ${aggregation.trajectory.behaviorDivergence}%\nAlert: ${aggregation.trajectory.alert}\n\nPrompt: "give me one action to improve momentum today."';
       default:
         return 'Module command not recognized.';
     }
+  }
+
+  String _localSoulMapCompareSummary(SIStateAggregation? aggregation) {
+    if (aggregation == null) {
+      return 'SI is still loading module data. Retry the command in a second.';
+    }
+
+    final SoulMapFutureSelfComparison compare = ref.read(
+      soulMapFutureSelfComparisonProvider,
+    );
+    return 'SOULMAP CURRENT VS FUTURE SELF\n\n'
+        'Current Self Alignment: ${compare.currentSelfAlignment}%\n'
+        'Future Self Readiness: ${compare.futureSelfReadiness}%\n'
+        'Gap: ${compare.gap}%\n'
+        'Stance: ${compare.stance}\n\n'
+        'Recommendation:\n${compare.recommendation}\n\n'
+        'Prompt: "compare current self to future self"';
   }
 
   Future<void> _dispatchQuery(String text) async {

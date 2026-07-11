@@ -20,7 +20,9 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    hiveDirectory = await Directory.systemTemp.createTemp('chronospark_backup_test_');
+    hiveDirectory = await Directory.systemTemp.createTemp(
+      'chronospark_backup_test_',
+    );
     Hive.init(hiveDirectory.path);
     repository = _MemoryTaskRepository();
     profileStorage = HiveStorage<String>('profile_box', hive: _TestHiveStore());
@@ -113,19 +115,26 @@ void main() {
 
   test('createFullBackup includes tasks profile and settings', () async {
     await repository.saveTask(
-      TaskEntity(id: 'task-1', title: 'Ship audit', createdAt: DateTime.utc(2026, 7, 5)),
+      TaskEntity(
+        id: 'task-1',
+        title: 'Ship audit',
+        createdAt: DateTime.utc(2026, 7, 5),
+      ),
     );
     await profileStorage.put(
       'profile_state',
       jsonEncode(<String, dynamic>{'name': 'Keegan', 'xp': 42}),
     );
-    await service.prefs.setJson('settings', <String, dynamic>{'soundEnabled': false});
+    await service.prefs.setJson('settings', <String, dynamic>{
+      'soundEnabled': false,
+    });
 
     final Map<String, dynamic> backup = await service.createFullBackup();
     final Map<String, dynamic> task =
-        ((backup['tasks'] as List<dynamic>).single as Map<dynamic, dynamic>).map(
-          (dynamic key, dynamic value) => MapEntry(key.toString(), value),
-        );
+        ((backup['tasks'] as List<dynamic>).single as Map<dynamic, dynamic>)
+            .map(
+              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+            );
 
     expect(backup['version'], '3.0.0');
     expect(task['id'], 'task-1');
@@ -138,88 +147,120 @@ void main() {
       'profile_state',
       jsonEncode(<String, dynamic>{'name': 'Nova', 'xp': 7}),
     );
-    await service.prefs.setJson('settings', <String, dynamic>{'soundEnabled': true});
+    await service.prefs.setJson('settings', <String, dynamic>{
+      'soundEnabled': true,
+    });
 
     final Map<String, dynamic> profileBackup = await service.backupProfile();
     final Map<String, dynamic> settingsBackup = await service.backupSettings();
 
-    expect(profileBackup['profile'], <String, dynamic>{'name': 'Nova', 'xp': 7});
+    expect(profileBackup['profile'], <String, dynamic>{
+      'name': 'Nova',
+      'xp': 7,
+    });
     expect(settingsBackup['settings'], <String, dynamic>{'soundEnabled': true});
     expect(profileBackup['timestamp'], isA<String>());
     expect(settingsBackup['timestamp'], isA<String>());
   });
 
-  test('backupProfile returns null when profile state is missing or malformed', () async {
-    expect((await service.backupProfile())['profile'], isNull);
+  test(
+    'backupProfile returns null when profile state is missing or malformed',
+    () async {
+      expect((await service.backupProfile())['profile'], isNull);
 
-    await profileStorage.put('profile_state', '{not valid json');
+      await profileStorage.put('profile_state', '{not valid json');
 
-    expect((await service.backupProfile())['profile'], isNull);
-  });
+      expect((await service.backupProfile())['profile'], isNull);
+    },
+  );
 
   test('export helpers serialize canonical backup payloads', () async {
     await repository.saveTask(
-      TaskEntity(id: 'task-1', title: 'Export me', createdAt: DateTime.utc(2026, 7, 5)),
+      TaskEntity(
+        id: 'task-1',
+        title: 'Export me',
+        createdAt: DateTime.utc(2026, 7, 5),
+      ),
     );
-    await profileStorage.put('profile_state', jsonEncode(<String, dynamic>{'name': 'Exporter'}));
+    await profileStorage.put(
+      'profile_state',
+      jsonEncode(<String, dynamic>{'name': 'Exporter'}),
+    );
 
     final Map<String, dynamic> fullBackup =
-        jsonDecode(await service.exportFullBackupString()) as Map<String, dynamic>;
+        jsonDecode(await service.exportFullBackupString())
+            as Map<String, dynamic>;
     final Map<String, dynamic> tasksBackup =
         jsonDecode(await service.exportTasksString()) as Map<String, dynamic>;
 
     expect(fullBackup['version'], '3.0.0');
-    expect((fullBackup['tasks'] as List<dynamic>).single, isA<Map<String, dynamic>>());
-    expect((tasksBackup['tasks'] as List<dynamic>).single, isA<Map<String, dynamic>>());
-  });
-
-  test('restoreFullBackup restores profile and settings alongside tasks', () async {
-    await service.restoreFullBackup(<String, dynamic>{
-      'tasks': <Map<String, dynamic>>[
-        <String, dynamic>{
-          'id': 'restored',
-          'title': 'Restored task',
-          'createdAt': '2026-07-05T08:00:00.000Z',
-        },
-      ],
-      'profile': <String, dynamic>{'name': 'Recovered', 'xp': 12},
-      'settings': <String, dynamic>{'soundEnabled': true, 'theme': 'neon'},
-    });
-
-    expect((await repository.getAllTasks()).single.id, 'restored');
     expect(
-      profileStorage.get('profile_state'),
-      jsonEncode(<String, dynamic>{'name': 'Recovered', 'xp': 12}),
+      (fullBackup['tasks'] as List<dynamic>).single,
+      isA<Map<String, dynamic>>(),
     );
-    expect(service.prefs.getJson('settings'), <String, dynamic>{
-      'soundEnabled': true,
-      'theme': 'neon',
-    });
+    expect(
+      (tasksBackup['tasks'] as List<dynamic>).single,
+      isA<Map<String, dynamic>>(),
+    );
   });
 
-  test('restoreFullBackup accepts legacy user fallback and skips invalid settings', () async {
-    await service.prefs.setJson('settings', <String, dynamic>{'theme': 'existing'});
+  test(
+    'restoreFullBackup restores profile and settings alongside tasks',
+    () async {
+      await service.restoreFullBackup(<String, dynamic>{
+        'tasks': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'restored',
+            'title': 'Restored task',
+            'createdAt': '2026-07-05T08:00:00.000Z',
+          },
+        ],
+        'profile': <String, dynamic>{'name': 'Recovered', 'xp': 12},
+        'settings': <String, dynamic>{'soundEnabled': true, 'theme': 'neon'},
+      });
 
-    await service.restoreFullBackup(<String, dynamic>{
-      'tasks': <Map<String, dynamic>>[],
-      'user': <String, dynamic>{'name': 'Legacy Restore'},
-      'settings': 'not a map',
-    });
-
-    expect(
-      profileStorage.get('profile_state'),
-      jsonEncode(<String, dynamic>{
-        'xp': 0,
-        'level': 1,
-        'streak': 0,
-        'longestStreak': 0,
-        'name': 'Legacy Restore',
+      expect((await repository.getAllTasks()).single.id, 'restored');
+      expect(
+        profileStorage.get('profile_state'),
+        jsonEncode(<String, dynamic>{'name': 'Recovered', 'xp': 12}),
+      );
+      expect(service.prefs.getJson('settings'), <String, dynamic>{
         'soundEnabled': true,
-        'lastActiveDate': null,
-      }),
-    );
-    expect(service.prefs.getJson('settings'), <String, dynamic>{'theme': 'existing'});
-  });
+        'theme': 'neon',
+      });
+    },
+  );
+
+  test(
+    'restoreFullBackup accepts legacy user fallback and skips invalid settings',
+    () async {
+      await service.prefs.setJson('settings', <String, dynamic>{
+        'theme': 'existing',
+      });
+
+      await service.restoreFullBackup(<String, dynamic>{
+        'tasks': <Map<String, dynamic>>[],
+        'user': <String, dynamic>{'name': 'Legacy Restore'},
+        'settings': 'not a map',
+      });
+
+      expect(
+        profileStorage.get('profile_state'),
+        jsonEncode(<String, dynamic>{
+          'xp': 0,
+          'level': 1,
+          'streak': 0,
+          'longestStreak': 0,
+          'name': 'Legacy Restore',
+          'soundEnabled': true,
+          'lastActiveDate': null,
+        }),
+      );
+      expect(service.prefs.getJson('settings'), <String, dynamic>{
+        'theme': 'existing',
+      });
+    },
+  );
 
   test('restoreProfile supports legacy user payload fallback', () async {
     await service.restoreProfile(<String, dynamic>{
@@ -243,22 +284,36 @@ void main() {
   test(
     'restoreProfile ignores blank legacy users and restoreSettings ignores non-map payloads',
     () async {
-      await profileStorage.put('profile_state', jsonEncode(<String, dynamic>{'name': 'Keep Me'}));
-      await service.prefs.setJson('settings', <String, dynamic>{'theme': 'existing'});
+      await profileStorage.put(
+        'profile_state',
+        jsonEncode(<String, dynamic>{'name': 'Keep Me'}),
+      );
+      await service.prefs.setJson('settings', <String, dynamic>{
+        'theme': 'existing',
+      });
 
       await service.restoreProfile(<String, dynamic>{
         'user': <String, dynamic>{'name': '   '},
       });
       await service.restoreSettings(<String, dynamic>{'settings': 'invalid'});
 
-      expect(profileStorage.get('profile_state'), jsonEncode(<String, dynamic>{'name': 'Keep Me'}));
-      expect(service.prefs.getJson('settings'), <String, dynamic>{'theme': 'existing'});
+      expect(
+        profileStorage.get('profile_state'),
+        jsonEncode(<String, dynamic>{'name': 'Keep Me'}),
+      );
+      expect(service.prefs.getJson('settings'), <String, dynamic>{
+        'theme': 'existing',
+      });
     },
   );
 
   test('restoreTasks ignores missing tasks payload', () async {
     await repository.saveTask(
-      TaskEntity(id: 'keep', title: 'Keep me', createdAt: DateTime.utc(2026, 7, 5)),
+      TaskEntity(
+        id: 'keep',
+        title: 'Keep me',
+        createdAt: DateTime.utc(2026, 7, 5),
+      ),
     );
 
     await service.restoreTasks(<String, dynamic>{'tasks': 'invalid'});

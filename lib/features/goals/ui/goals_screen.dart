@@ -2,6 +2,8 @@ import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -24,8 +26,11 @@ class GoalsScreen extends ConsumerWidget {
         floatingActionButton: FloatingActionButton(
           backgroundColor: AppColors.memoryAmber,
           foregroundColor: Colors.black,
-          onPressed: () => _showAddSheet(context, ref),
-          child: const Icon(Icons.add, size: 22),
+          onPressed: () {
+            ref.read(tutorialControllerProvider).reportEvent('tap:goals.add_button');
+            _showAddSheet(context, ref);
+          },
+          child: const TutorialTarget(id: 'goals.add_button', child: Icon(Icons.add, size: 22)),
         ),
         body: SafeArea(
           child: Column(
@@ -36,17 +41,14 @@ class GoalsScreen extends ConsumerWidget {
                 child: Row(
                   children: [
                     GestureDetector(
-                      onTap: () =>
-                          ref.read(appFlowProvider.notifier).toSmartCoach(),
+                      onTap: () => ref.read(appFlowProvider.notifier).toSmartCoach(),
                       child: Container(
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
                           color: AppColors.memoryAmber.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.memoryAmber.withValues(alpha: 0.3),
-                          ),
+                          border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.3)),
                         ),
                         child: const Icon(
                           Icons.arrow_back_ios_new,
@@ -75,11 +77,7 @@ class GoalsScreen extends ConsumerWidget {
                         ),
                         const Text(
                           'YOUR MISSIONS',
-                          style: TextStyle(
-                            fontSize: 10,
-                            letterSpacing: 2,
-                            color: Colors.white38,
-                          ),
+                          style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
                         ),
                       ],
                     ),
@@ -93,11 +91,7 @@ class GoalsScreen extends ConsumerWidget {
                         child: Text(
                           'No goals yet.\nAdd your first mission.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white38,
-                            fontSize: 14,
-                            height: 1.6,
-                          ),
+                          style: TextStyle(color: Colors.white38, fontSize: 14, height: 1.6),
                         ),
                       )
                     : ListView.separated(
@@ -128,12 +122,7 @@ class GoalsScreen extends ConsumerWidget {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            24,
-            24,
-            24,
-            MediaQuery.of(ctx).viewInsets.bottom + 24,
-          ),
+          padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,11 +139,7 @@ class GoalsScreen extends ConsumerWidget {
               const SizedBox(height: 14),
               _SheetField(controller: titleCtrl, hint: 'Goal title'),
               const SizedBox(height: 10),
-              _SheetField(
-                controller: descCtrl,
-                hint: 'Description (optional)',
-                maxLines: 2,
-              ),
+              _SheetField(controller: descCtrl, hint: 'Description (optional)', maxLines: 2),
               const SizedBox(height: 10),
               GestureDetector(
                 onTap: () async {
@@ -181,25 +166,18 @@ class GoalsScreen extends ConsumerWidget {
                 },
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.04),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: AppColors.memoryAmber.withValues(alpha: 0.25),
-                    ),
+                    border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.25)),
                   ),
                   child: Text(
                     targetDate != null
                         ? 'Target: ${targetDate!.day}/${targetDate!.month}/${targetDate!.year}'
                         : 'Set target date (optional)',
                     style: TextStyle(
-                      color: targetDate != null
-                          ? AppColors.memoryAmber
-                          : Colors.white24,
+                      color: targetDate != null ? AppColors.memoryAmber : Colors.white24,
                       fontSize: 13,
                     ),
                   ),
@@ -212,9 +190,7 @@ class GoalsScreen extends ConsumerWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.memoryAmber,
                     foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   onPressed: () {
@@ -224,19 +200,14 @@ class GoalsScreen extends ConsumerWidget {
                         .read(goalsProvider.notifier)
                         .add(
                           title: title,
-                          description: descCtrl.text.trim().isEmpty
-                              ? null
-                              : descCtrl.text.trim(),
+                          description: descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
                           targetDate: targetDate,
                         );
                     Navigator.pop(ctx);
                   },
                   child: const Text(
                     'ADD GOAL',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.5,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1.5),
                   ),
                 ),
               ),
@@ -276,42 +247,27 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
 
     try {
       await SharePlus.instance.share(
-        ShareParams(
-          text: text,
-          title: 'ChronoSpark Goal',
-          subject: 'My ChronoSpark goal',
-        ),
+        ShareParams(text: text, title: 'ChronoSpark Goal', subject: 'My ChronoSpark goal'),
       );
-      AppAnalytics.track(
-        'share_goal',
-        params: <String, Object?>{'method': 'share_sheet'},
-      );
+      AppAnalytics.track('share_goal', params: <String, Object?>{'method': 'share_sheet'});
       return;
     } catch (_) {
       await Clipboard.setData(ClipboardData(text: text));
-      AppAnalytics.track(
-        'share_goal',
-        params: <String, Object?>{'method': 'clipboard_fallback'},
-      );
+      AppAnalytics.track('share_goal', params: <String, Object?>{'method': 'clipboard_fallback'});
     }
 
     if (!mounted) {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Share sheet unavailable. Goal summary copied to clipboard.',
-        ),
-      ),
+      const SnackBar(content: Text('Share sheet unavailable. Goal summary copied to clipboard.')),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final goalProgress =
-        ref.watch(goalProgressProvider(widget.goal.id)).value ??
-        const GoalProgressView.empty();
+        ref.watch(goalProgressProvider(widget.goal.id)).value ?? const GoalProgressView.empty();
     final linked = goalProgress.tasks;
     final int total = goalProgress.totalCount;
     final double progress = goalProgress.fraction;
@@ -335,10 +291,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
           color: AppColors.recallRed.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Icon(
-          Icons.check_circle_outline,
-          color: AppColors.recallRed,
-        ),
+        child: const Icon(Icons.check_circle_outline, color: AppColors.recallRed),
       ),
       child: Container(
         decoration: BoxDecoration(
@@ -368,16 +321,11 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                       ),
                       if (targetDate != null)
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: dateColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: dateColor.withValues(alpha: 0.4),
-                            ),
+                            border: Border.all(color: dateColor.withValues(alpha: 0.4)),
                           ),
                           child: Text(
                             '${targetDate.day}/${targetDate.month}/${targetDate.year}',
@@ -412,11 +360,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                     const SizedBox(height: 6),
                     Text(
                       widget.goal.description!,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
+                      style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4),
                     ),
                   ],
                   const SizedBox(height: 10),
@@ -428,9 +372,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                           child: LinearProgressIndicator(
                             value: progress,
                             backgroundColor: Colors.white10,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              goalColor,
-                            ),
+                            valueColor: AlwaysStoppedAnimation<Color>(goalColor),
                             minHeight: 4,
                           ),
                         ),
@@ -470,10 +412,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                               Expanded(
                                 child: Text(
                                   t.title,
-                                  style: const TextStyle(
-                                    color: Colors.white60,
-                                    fontSize: 12,
-                                  ),
+                                  style: const TextStyle(color: Colors.white60, fontSize: 12),
                                 ),
                               ),
                             ],
@@ -492,11 +431,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
 }
 
 class _SheetField extends StatelessWidget {
-  const _SheetField({
-    required this.controller,
-    required this.hint,
-    this.maxLines = 1,
-  });
+  const _SheetField({required this.controller, required this.hint, this.maxLines = 1});
   final TextEditingController controller;
   final String hint;
   final int maxLines;
@@ -507,9 +442,7 @@ class _SheetField extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.memoryAmber.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.25)),
       ),
       child: TextField(
         controller: controller,
@@ -518,10 +451,7 @@ class _SheetField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(color: Colors.white24),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 12,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           border: InputBorder.none,
         ),
       ),

@@ -38,7 +38,11 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
 
   Future<void> _completePlannedTask(String taskId) async {
     if (_completingTaskIds.contains(taskId)) return;
-    _completingTaskIds.add(taskId);
+    if (mounted) {
+      setState(() => _completingTaskIds.add(taskId));
+    } else {
+      _completingTaskIds.add(taskId);
+    }
     try {
       await ref.read(taskActionsProvider).completeTask(taskId, notify: false);
       if (!mounted) {
@@ -73,7 +77,11 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
         ref.invalidate(tasksProvider);
       });
     } finally {
-      _completingTaskIds.remove(taskId);
+      if (mounted) {
+        setState(() => _completingTaskIds.remove(taskId));
+      } else {
+        _completingTaskIds.remove(taskId);
+      }
     }
   }
 
@@ -206,6 +214,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                             child: Timeline(
                               blocks: blocks,
                               onCompleteTask: _completePlannedTask,
+                              completingTaskIds: _completingTaskIds,
                             ),
                           ),
                   ),

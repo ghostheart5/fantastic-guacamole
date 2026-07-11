@@ -16,8 +16,10 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('reset triggers reset service and clears key local state', () async {
-    final _FakeTesterDataResetService fakeService = _FakeTesterDataResetService();
-    final _FakeNotificationRepository notifications = _FakeNotificationRepository();
+    final _FakeTesterDataResetService fakeService =
+        _FakeTesterDataResetService();
+    final _FakeNotificationRepository notifications =
+        _FakeNotificationRepository();
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
@@ -99,7 +101,8 @@ class _NoopHiveStore implements HiveStore {
 }
 
 class _FakeNotificationRepository implements INotificationRepository {
-  final Map<String, NotificationEntity> _entries = <String, NotificationEntity>{};
+  final Map<String, NotificationEntity> _entries =
+      <String, NotificationEntity>{};
 
   @override
   Future<void> cancelNotification(String id) async {

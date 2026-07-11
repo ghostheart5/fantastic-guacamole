@@ -15,6 +15,29 @@ class TutorialStepContent {
   final String ctaLabel;
 }
 
+@immutable
+class AcademyLesson {
+  const AcademyLesson({required this.title});
+
+  final String title;
+}
+
+@immutable
+class AcademyTrack {
+  const AcademyTrack({required this.title, required this.lessons});
+
+  final String title;
+  final List<AcademyLesson> lessons;
+}
+
+@immutable
+class FirstWeekJourneyDay {
+  const FirstWeekJourneyDay({required this.day, required this.goal});
+
+  final String day;
+  final String goal;
+}
+
 class TutorialContent {
   const TutorialContent._();
 
@@ -31,8 +54,7 @@ class TutorialContent {
     TutorialStepContent(
       id: 'coach_quick_prompt',
       title: 'SMART COACH',
-      description:
-          'Send one focused prompt to get immediate guidance when momentum drops.',
+      description: 'Send one focused prompt to get immediate guidance when momentum drops.',
       ctaLabel: 'Try Prompt',
     ),
     TutorialStepContent(
@@ -45,36 +67,31 @@ class TutorialContent {
     TutorialStepContent(
       id: 'planner_priority',
       title: 'PLAN PRIORITIES',
-      description:
-          'Pick one top priority first, then stack supporting actions behind it.',
+      description: 'Pick one top priority first, then stack supporting actions behind it.',
       ctaLabel: 'Set Priority',
     ),
     TutorialStepContent(
       id: 'trajectory_overview',
       title: 'TRAJECTORY',
-      description:
-          'Read the prediction, choose one action, then branch in Flowmap when needed.',
+      description: 'Read the prediction, choose one action, then branch in Flowmap when needed.',
       ctaLabel: 'Open Trajectory',
     ),
     TutorialStepContent(
       id: 'creator_workbench',
       title: 'CREATOR',
-      description:
-          'Create manual tasks directly when guided surfaces are too broad for your goal.',
+      description: 'Create manual tasks directly when guided surfaces are too broad for your goal.',
       ctaLabel: 'Create Task',
     ),
     TutorialStepContent(
       id: 'logs_overview',
       title: 'ACTIVITY LOGS',
-      description:
-          'Review completed actions and timeline events to spot useful patterns quickly.',
+      description: 'Review completed actions and timeline events to spot useful patterns quickly.',
       ctaLabel: 'Open Logs',
     ),
     TutorialStepContent(
       id: 'insight_overview',
       title: 'INSIGHTS',
-      description:
-          'Turn trend signals into one practical next action you can execute now.',
+      description: 'Turn trend signals into one practical next action you can execute now.',
       ctaLabel: 'View Insight',
     ),
     TutorialStepContent(
@@ -94,22 +111,19 @@ class TutorialContent {
     TutorialStepContent(
       id: 'flowmap_overview',
       title: 'FLOWMAP',
-      description:
-          'Map branching paths before committing so your next move stays resilient.',
+      description: 'Map branching paths before committing so your next move stays resilient.',
       ctaLabel: 'Open Flowmap',
     ),
     TutorialStepContent(
       id: 'goals_overview',
       title: 'GOALS WORKSPACE',
-      description:
-          'Keep goals precise, measurable, and aligned with your current energy state.',
+      description: 'Keep goals precise, measurable, and aligned with your current energy state.',
       ctaLabel: 'ALIGN GOALS',
     ),
     TutorialStepContent(
       id: 'memories_overview',
       title: 'MEMORIES',
-      description:
-          'Capture high-signal memory notes so Smart Coach can reason with real context.',
+      description: 'Capture high-signal memory notes so Smart Coach can reason with real context.',
       ctaLabel: 'Save Memory',
     ),
     TutorialStepContent(
@@ -128,35 +142,74 @@ class TutorialContent {
     ),
   ];
 
-  static const Map<String, String> contextualHints = {
-    'nexus':
-        'Scan ENERGY and CLARITY first, then choose one concrete next action.',
-    'nexus_overview':
-        'Scan ENERGY and CLARITY first, then choose one concrete next action.',
+  static const List<AcademyTrack> academyTracks = <AcademyTrack>[
+    AcademyTrack(
+      title: 'Getting Started',
+      lessons: <AcademyLesson>[
+        AcademyLesson(title: 'Creating Goals'),
+        AcademyLesson(title: 'Planning Days'),
+        AcademyLesson(title: 'Habits'),
+        AcademyLesson(title: 'Streaks'),
+      ],
+    ),
+    AcademyTrack(
+      title: 'Growth',
+      lessons: <AcademyLesson>[
+        AcademyLesson(title: 'Milestones'),
+        AcademyLesson(title: 'Timelines'),
+        AcademyLesson(title: 'Core Values'),
+        AcademyLesson(title: 'Vision Building'),
+      ],
+    ),
+    AcademyTrack(
+      title: 'Intelligence',
+      lessons: <AcademyLesson>[
+        AcademyLesson(title: 'Smart Coach'),
+        AcademyLesson(title: 'Recommendations'),
+        AcademyLesson(title: 'Analytics'),
+      ],
+    ),
+    AcademyTrack(
+      title: 'Mastery',
+      lessons: <AcademyLesson>[
+        AcademyLesson(title: 'Long-term planning'),
+        AcademyLesson(title: 'Life systems'),
+        AcademyLesson(title: 'Identity building'),
+      ],
+    ),
+  ];
 
-    'smart_coach':
-        'Send one focused prompt, then one follow-up question for better precision.',
+  static const List<FirstWeekJourneyDay> firstWeekJourney = <FirstWeekJourneyDay>[
+    FirstWeekJourneyDay(day: 'Day 1', goal: 'Create your first goal.'),
+    FirstWeekJourneyDay(day: 'Day 2', goal: 'Build a habit.'),
+    FirstWeekJourneyDay(day: 'Day 3', goal: 'Define milestones.'),
+    FirstWeekJourneyDay(day: 'Day 4', goal: 'Review progress.'),
+    FirstWeekJourneyDay(day: 'Day 5', goal: 'Use your SI Coach.'),
+    FirstWeekJourneyDay(day: 'Day 6', goal: 'Reflect on wins.'),
+    FirstWeekJourneyDay(day: 'Day 7', goal: 'Complete your first weekly review.'),
+  ];
+
+  static const Map<String, String> contextualHints = {
+    'nexus': 'Scan ENERGY and CLARITY first, then choose one concrete next action.',
+    'nexus_overview': 'Scan ENERGY and CLARITY first, then choose one concrete next action.',
+
+    'smart_coach': 'Send one focused prompt, then one follow-up question for better precision.',
     'coach_quick_prompt':
         'Send one focused prompt, then one follow-up question for better precision.',
 
-    'settings_reflection':
-        'Set a reflection reminder at a time you can realistically keep daily.',
-    'daily_reflection':
-        'Set a reflection reminder at a time you can realistically keep daily.',
+    'settings_reflection': 'Set a reflection reminder at a time you can realistically keep daily.',
+    'daily_reflection': 'Set a reflection reminder at a time you can realistically keep daily.',
 
     'plan': 'Set one top priority first, then stack the rest around it.',
-    'planner_priority':
-        'Set one top priority first, then stack the rest around it.',
+    'planner_priority': 'Set one top priority first, then stack the rest around it.',
 
     'trajectory':
         'Read prediction first, then choose one action and open Flowmap if you need branching.',
     'trajectory_overview':
         'Read prediction first, then choose one action and open Flowmap if you need branching.',
 
-    'creator':
-        'Use Creator when you need direct manual control over task creation.',
-    'creator_workbench':
-        'Use Creator when you need direct manual control over task creation.',
+    'creator': 'Use Creator when you need direct manual control over task creation.',
+    'creator_workbench': 'Use Creator when you need direct manual control over task creation.',
 
     'logs':
         'Review completed actions first, then inspect recurring patterns before changing strategy.',
@@ -166,8 +219,7 @@ class TutorialContent {
     'profile':
         'Use Profile for identity and streak context; use Settings for permissions, toggles, and runtime controls.',
 
-    'insight':
-        'Decode trend signals and convert them into one high-impact action for today.',
+    'insight': 'Decode trend signals and convert them into one high-impact action for today.',
     'insight_overview':
         'Decode trend signals and convert them into one high-impact action for today.',
 
@@ -181,13 +233,11 @@ class TutorialContent {
     'progression_overview':
         'Track whether momentum compounds week over week and adjust immediately when it stalls.',
 
-    'flowmap':
-        'Map branches before committing so your next move stays clear and resilient.',
+    'flowmap': 'Map branches before committing so your next move stays clear and resilient.',
     'flowmap_overview':
         'Explore branches before committing so your next move is both clear and resilient.',
 
-    'goals':
-        'Keep goals concise, measurable, and aligned with current trajectory constraints.',
+    'goals': 'Keep goals concise, measurable, and aligned with current trajectory constraints.',
     'goals_overview':
         'Keep goals concise, measurable, and aligned with current trajectory constraints.',
 
@@ -225,6 +275,5 @@ class TutorialContent {
 
   static int get totalSteps => steps.length;
 
-  static List<String> get stepIds =>
-      steps.map((step) => step.id).toList(growable: false);
+  static List<String> get stepIds => steps.map((step) => step.id).toList(growable: false);
 }

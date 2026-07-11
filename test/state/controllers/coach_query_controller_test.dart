@@ -14,55 +14,73 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('requestCoaching falls back to local coaching message when AI result is null', () async {
-    final ProviderContainer container = _buildContainer(aiOverride: _NullAIResponseController.new);
-    addTearDown(container.dispose);
+  test(
+    'requestCoaching falls back to local coaching message when AI result is null',
+    () async {
+      final ProviderContainer container = _buildContainer(
+        aiOverride: _NullAIResponseController.new,
+      );
+      addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+      final CoachQueryController controller = container.read(
+        coachQueryControllerProvider,
+      );
 
-    final CoachCoachingResult result = await controller.requestCoaching(
-      energy: 0.35,
-      emotion: EmotionalState.anxious,
-      notes: '',
-      history: const <Map<String, String>>[],
-      previousSavedNotes: null,
-    );
+      final CoachCoachingResult result = await controller.requestCoaching(
+        energy: 0.35,
+        emotion: EmotionalState.anxious,
+        notes: '',
+        history: const <Map<String, String>>[],
+        previousSavedNotes: null,
+      );
 
-    expect(result.prompt, contains('practical coaching check-in'));
-    expect(result.message, isNotEmpty);
-    expect(
-      result.message.toLowerCase(),
-      contains('progress slows because effort gets spread too thin'),
-    );
-    expect(result.message, contains('•'));
-    expect(result.message.toLowerCase(), contains('next step:'));
-    expect(result.message, isNot(contains('🎯 Goal Detected')));
-  });
+      expect(result.prompt, contains('practical coaching check-in'));
+      expect(result.message, isNotEmpty);
+      expect(
+        result.message.toLowerCase(),
+        contains('progress slows because effort gets spread too thin'),
+      );
+      expect(result.message, contains('•'));
+      expect(result.message.toLowerCase(), contains('next step:'));
+      expect(result.message, isNot(contains('🎯 Goal Detected')));
+    },
+  );
 
-  test('requestFollowUp falls back to deterministic reply when AI result is null', () async {
-    final ProviderContainer container = _buildContainer(aiOverride: _NullAIResponseController.new);
-    addTearDown(container.dispose);
+  test(
+    'requestFollowUp falls back to deterministic reply when AI result is null',
+    () async {
+      final ProviderContainer container = _buildContainer(
+        aiOverride: _NullAIResponseController.new,
+      );
+      addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+      final CoachQueryController controller = container.read(
+        coachQueryControllerProvider,
+      );
 
-    final String reply = await controller.requestFollowUp(
-      input: 'How do I stay motivated?',
-      energy: 0.5,
-      emotion: EmotionalState.neutral,
-      reflection: '',
-      history: const <Map<String, String>>[],
-    );
+      final String reply = await controller.requestFollowUp(
+        input: 'How do I stay motivated?',
+        energy: 0.5,
+        emotion: EmotionalState.neutral,
+        reflection: '',
+        history: const <Map<String, String>>[],
+      );
 
-    expect(reply, isNotEmpty);
-    expect(reply.toLowerCase(), contains('try this next:'));
-    expect(reply.toLowerCase(), contains('coach question:'));
-  });
+      expect(reply, isNotEmpty);
+      expect(reply.toLowerCase(), contains('try this next:'));
+      expect(reply.toLowerCase(), contains('coach question:'));
+    },
+  );
 
   test('requestFollowUp reflects answered fatigue details', () async {
-    final ProviderContainer container = _buildContainer(aiOverride: _NullAIResponseController.new);
+    final ProviderContainer container = _buildContainer(
+      aiOverride: _NullAIResponseController.new,
+    );
     addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+    final CoachQueryController controller = container.read(
+      coachQueryControllerProvider,
+    );
 
     final String reply = await controller.requestFollowUp(
       input: '5 hours and I haven\'t eaten yet',
@@ -78,10 +96,14 @@ void main() {
   });
 
   test('requestFollowUp reflects answered weight loss details', () async {
-    final ProviderContainer container = _buildContainer(aiOverride: _NullAIResponseController.new);
+    final ProviderContainer container = _buildContainer(
+      aiOverride: _NullAIResponseController.new,
+    );
     addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+    final CoachQueryController controller = container.read(
+      coachQueryControllerProvider,
+    );
 
     final String reply = await controller.requestFollowUp(
       input: 'I weigh 190 lbs and want to get to 170 lbs',
@@ -91,15 +113,22 @@ void main() {
       history: const <Map<String, String>>[],
     );
 
-    expect(reply.toLowerCase(), contains('you said 190 and want to get to 170'));
+    expect(
+      reply.toLowerCase(),
+      contains('you said 190 and want to get to 170'),
+    );
     expect(reply.toLowerCase(), contains('try this next:'));
   });
 
   test('requestFollowUp reflects answered stress details', () async {
-    final ProviderContainer container = _buildContainer(aiOverride: _NullAIResponseController.new);
+    final ProviderContainer container = _buildContainer(
+      aiOverride: _NullAIResponseController.new,
+    );
     addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+    final CoachQueryController controller = container.read(
+      coachQueryControllerProvider,
+    );
 
     final String reply = await controller.requestFollowUp(
       input: 'My work deadline is tomorrow and I feel overloaded',
@@ -109,15 +138,22 @@ void main() {
       history: const <Map<String, String>>[],
     );
 
-    expect(reply.toLowerCase(), contains('stress is tied to work pressure or deadlines'));
+    expect(
+      reply.toLowerCase(),
+      contains('stress is tied to work pressure or deadlines'),
+    );
     expect(reply.toLowerCase(), contains('try this next:'));
   });
 
   test('requestFollowUp handles weight gain usecase', () async {
-    final ProviderContainer container = _buildContainer(aiOverride: _NullAIResponseController.new);
+    final ProviderContainer container = _buildContainer(
+      aiOverride: _NullAIResponseController.new,
+    );
     addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+    final CoachQueryController controller = container.read(
+      coachQueryControllerProvider,
+    );
 
     final String reply = await controller.requestFollowUp(
       input: 'I want to gain weight and build muscle',
@@ -131,10 +167,14 @@ void main() {
   });
 
   test('requestFollowUp handles hydration usecase', () async {
-    final ProviderContainer container = _buildContainer(aiOverride: _NullAIResponseController.new);
+    final ProviderContainer container = _buildContainer(
+      aiOverride: _NullAIResponseController.new,
+    );
     addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+    final CoachQueryController controller = container.read(
+      coachQueryControllerProvider,
+    );
 
     final String reply = await controller.requestFollowUp(
       input: 'I have been dehydrated and need more water today',
@@ -149,10 +189,14 @@ void main() {
   });
 
   test('requestFollowUp handles burnout usecase', () async {
-    final ProviderContainer container = _buildContainer(aiOverride: _NullAIResponseController.new);
+    final ProviderContainer container = _buildContainer(
+      aiOverride: _NullAIResponseController.new,
+    );
     addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+    final CoachQueryController controller = container.read(
+      coachQueryControllerProvider,
+    );
 
     final String reply = await controller.requestFollowUp(
       input: 'I feel burned out and overloaded',
@@ -167,10 +211,14 @@ void main() {
   });
 
   test('requestFollowUp handles career usecase', () async {
-    final ProviderContainer container = _buildContainer(aiOverride: _NullAIResponseController.new);
+    final ProviderContainer container = _buildContainer(
+      aiOverride: _NullAIResponseController.new,
+    );
     addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+    final CoachQueryController controller = container.read(
+      coachQueryControllerProvider,
+    );
 
     final String reply = await controller.requestFollowUp(
       input: 'I need to think about my next career move',
@@ -180,15 +228,22 @@ void main() {
       history: const <Map<String, String>>[],
     );
 
-    expect(reply.toLowerCase(), contains('what outcome matters most right now'));
+    expect(
+      reply.toLowerCase(),
+      contains('what outcome matters most right now'),
+    );
     expect(reply.toLowerCase(), contains('try this next:'));
   });
 
   test('requestFollowUp reflects answered nutrition details', () async {
-    final ProviderContainer container = _buildContainer(aiOverride: _NullAIResponseController.new);
+    final ProviderContainer container = _buildContainer(
+      aiOverride: _NullAIResponseController.new,
+    );
     addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+    final CoachQueryController controller = container.read(
+      coachQueryControllerProvider,
+    );
 
     final String reply = await controller.requestFollowUp(
       input: 'I have not eaten yet today',
@@ -203,13 +258,20 @@ void main() {
   });
 
   test('detectsCrisis flags high-risk phrasing', () {
-    final ProviderContainer container = _buildContainer(aiOverride: _NullAIResponseController.new);
+    final ProviderContainer container = _buildContainer(
+      aiOverride: _NullAIResponseController.new,
+    );
     addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+    final CoachQueryController controller = container.read(
+      coachQueryControllerProvider,
+    );
 
     expect(controller.detectsCrisis('I want to kill myself tonight'), isTrue);
-    expect(controller.detectsCrisis('I had a rough day but will rest'), isFalse);
+    expect(
+      controller.detectsCrisis('I had a rough day but will rest'),
+      isFalse,
+    );
   });
 
   test('requestCoaching falls back when AI execution throws', () async {
@@ -218,7 +280,9 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+    final CoachQueryController controller = container.read(
+      coachQueryControllerProvider,
+    );
 
     final CoachCoachingResult result = await Logger.withMutedErrors(
       () => controller.requestCoaching(
@@ -231,30 +295,41 @@ void main() {
     );
 
     expect(result.message, isNotEmpty);
-    expect(result.message.toLowerCase(), contains('when priorities are unclear'));
+    expect(
+      result.message.toLowerCase(),
+      contains('when priorities are unclear'),
+    );
     expect(result.message, contains('•'));
   });
 
-  test('requestCoaching ignores non-actionable AI dedup fallback text', () async {
-    final ProviderContainer container = _buildContainer(
-      aiOverride: _EvidenceFallbackAIResponseController.new,
-    );
-    addTearDown(container.dispose);
+  test(
+    'requestCoaching ignores non-actionable AI dedup fallback text',
+    () async {
+      final ProviderContainer container = _buildContainer(
+        aiOverride: _EvidenceFallbackAIResponseController.new,
+      );
+      addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+      final CoachQueryController controller = container.read(
+        coachQueryControllerProvider,
+      );
 
-    final CoachCoachingResult result = await controller.requestCoaching(
-      energy: 0.33,
-      emotion: EmotionalState.fatigued,
-      notes: '',
-      history: const <Map<String, String>>[],
-      previousSavedNotes: null,
-    );
+      final CoachCoachingResult result = await controller.requestCoaching(
+        energy: 0.33,
+        emotion: EmotionalState.fatigued,
+        notes: '',
+        history: const <Map<String, String>>[],
+        previousSavedNotes: null,
+      );
 
-    expect(result.message.toLowerCase(), isNot(contains('available app evidence has not changed')));
-    expect(result.message.toLowerCase(), contains('tiredness'));
-    expect(result.message.toLowerCase(), contains('sleep debt'));
-  });
+      expect(
+        result.message.toLowerCase(),
+        isNot(contains('available app evidence has not changed')),
+      );
+      expect(result.message.toLowerCase(), contains('tiredness'));
+      expect(result.message.toLowerCase(), contains('sleep debt'));
+    },
+  );
 
   test('requestFollowUp falls back when AI execution times out', () async {
     final ProviderContainer container = _buildContainer(
@@ -262,7 +337,9 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    final CoachQueryController controller = container.read(coachQueryControllerProvider);
+    final CoachQueryController controller = container.read(
+      coachQueryControllerProvider,
+    );
 
     final String reply = await Logger.withMutedErrors(
       () => controller.requestFollowUp(
@@ -280,13 +357,19 @@ void main() {
   });
 }
 
-ProviderContainer _buildContainer({required AIResponseController Function() aiOverride}) {
+ProviderContainer _buildContainer({
+  required AIResponseController Function() aiOverride,
+}) {
   return ProviderContainer(
     overrides: [
-      secureStoreProvider.overrideWithValue(SecureStore(backend: InMemorySecureStoreBackend())),
+      secureStoreProvider.overrideWithValue(
+        SecureStore(backend: InMemorySecureStoreBackend()),
+      ),
       profileProvider.overrideWith(_TestProfileController.new),
       workspaceStoreServiceProvider.overrideWithValue(
-        WorkspaceStoreService(store: SecureStore(backend: InMemorySecureStoreBackend())),
+        WorkspaceStoreService(
+          store: SecureStore(backend: InMemorySecureStoreBackend()),
+        ),
       ),
       aiResponseProvider.overrideWith(aiOverride),
     ],

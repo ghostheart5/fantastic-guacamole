@@ -1,8 +1,11 @@
 import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
+import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
+import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
@@ -23,6 +26,8 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final siState = ref.watch(siStateProvider);
   final EmotionalState emotion = ref.watch(emotionProvider);
   final trajectory = ref.watch(trajectorySummaryProvider);
+  final CoreValuesAlignment coreValues = ref.watch(coreValuesAlignmentProvider);
+  final SoulMapAlignment soulMap = ref.watch(soulMapAlignmentProvider);
   final double energy = ref.watch(energyProvider);
   final AsyncValue<List<FlowmapNode>> flowmapAsync = ref.watch(flowmapProvider);
   final List<FlowmapNode> flowmapNodes = flowmapAsync.maybeWhen(
@@ -88,6 +93,8 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     profile: profile,
     siState: siState,
     trajectory: trajectory,
+    coreValues: coreValues,
+    soulMap: soulMap,
     signals: SISignalExtraction(
       friction: friction,
       overwhelm: overwhelm,
@@ -131,6 +138,20 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
     siStateAggregationProvider.future,
   );
   final Task? nextTask = await ref.watch(domainSiDecisionProvider.future);
+  final int timelineHealthScore = ref.watch(timelineHealthScoreProvider);
+  final int timelineRiskScore = ref.watch(timelineRiskScoreProvider);
+  final int timelineOverdueCount = ref.watch(timelineOverdueProvider).length;
+  final int timelineUpcomingCount = ref.watch(timelineUpcomingProvider).length;
+  final int timelineRiskEventsCount = ref
+      .watch(timelineRiskEventsProvider)
+      .length;
+  final int timelineRecommendationCount = ref
+      .watch(timelineRecommendationsProvider)
+      .length;
+  final CoreValuesAlignment coreValues = ref.watch(coreValuesAlignmentProvider);
+  final CoreValueType neglectedValue = coreValues.mostNeglected;
+  final CoreValueType strongestValue = coreValues.strongest;
+  final int neglectedScore = coreValues.scores[neglectedValue]?.score ?? 0;
 
   final List<String> warnings = <String>[
     if (aggregation.signals.overwhelm) 'Overwhelm risk is elevated.',
@@ -139,6 +160,14 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
     if (aggregation.signals.taskAvoidance) 'Task avoidance pattern detected.',
     if (aggregation.signals.emotionalStrain)
       'Emotional strain detected (${aggregation.signals.emotion}).',
+    if (timelineOverdueCount > 0)
+      'Timeline has $timelineOverdueCount overdue item${timelineOverdueCount == 1 ? '' : 's'}.',
+    if (timelineRiskEventsCount > 0)
+      'Timeline risk signals active ($timelineRiskEventsCount).',
+    if (timelineHealthScore < 70)
+      'Timeline health is $timelineHealthScore% with elevated risk $timelineRiskScore%.',
+    if (neglectedScore < 60)
+      'Core value drift detected in ${coreValueTitle(neglectedValue)} ($neglectedScore%).',
   ];
 
   final String nextAction =
@@ -154,6 +183,11 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
       'Split remaining tasks into tomorrow queue.',
     if (aggregation.planPreview.isEmpty)
       'Generate a 3-block adaptive plan for today.',
+    if (timelineOverdueCount > 0)
+      'Resolve one overdue timeline item before adding new commitments.',
+    if (timelineUpcomingCount >= 5)
+      'Pre-plan upcoming deadlines now to prevent rollover pressure.',
+    'Schedule one action that strengthens ${coreValueTitle(neglectedValue)}.',
   ];
 
   final List<String> insightPrompts = <String>[
@@ -166,6 +200,13 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
       'How can you convert this stable state into one decisive action?',
     if (aggregation.memories.isNotEmpty)
       'What memory should inform this decision?',
+    if (timelineOverdueCount > 0)
+      'Which overdue timeline item should be recovered first?',
+    if (timelineUpcomingCount > 0)
+      'What is the next timeline deadline this week?',
+    if (timelineRecommendationCount > 0)
+      'What timeline recommendation should be applied now?',
+    'How do we strengthen ${coreValueTitle(neglectedValue)} this week?',
   ];
 
   final String progressionFeedback = aggregation.profile.streak >= 7
@@ -174,9 +215,11 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
       ? 'Consistency is building. Keep the chain alive today.'
       : 'Rebuild momentum with one immediate win.';
 
+  final String memoryHint = _buildMemoryHint(aggregation.memories);
+
   final String coachMessage = warnings.isEmpty
-      ? 'Trajectory is stable. Execute the next action and keep momentum.'
-      : 'Signals show pressure. Simplify scope and execute one focused action.';
+      ? 'Trajectory is stable (timeline health $timelineHealthScore%). Strongest value is ${coreValueTitle(strongestValue)}. Execute the next action and keep momentum. $memoryHint'
+      : 'Signals show pressure (timeline risk $timelineRiskScore%). Reinforce ${coreValueTitle(neglectedValue)} with one focused action now.';
 
   return SIDecisionOutput(
     nextAction: nextAction,
@@ -221,6 +264,8 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
   final SIDecisionOutput decision = await ref.watch(
     siDecisionOutputProvider.future,
   );
+  final CoreValuesAlignment coreValues = aggregation.coreValues;
+  final SoulMapAlignment soulMap = aggregation.soulMap;
   final intelligence = ref.watch(intelligenceStateProvider);
   final latestSnapshot = ref.watch(latestSiSnapshotProvider);
   final Object? state = await ref.watch(siEngineStateProvider.future);
@@ -251,10 +296,29 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
   }
 
   final String engineSnapshot = chunks.join(' · ').toUpperCase();
+  final String valuesSnapshot =
+      'VALUES ${coreValues.overall}% · LOW ${coreValueTitle(coreValues.mostNeglected).toUpperCase()} ${coreValues.scores[coreValues.mostNeglected]?.score ?? 0}%';
+  final String soulMapSnapshot =
+      'SOULMAP ${soulMap.overall}% · LOW ${soulMapDimensionTitle(soulMap.weakest).toUpperCase()} ${soulMap.scores[soulMap.weakest]?.score ?? 0}%';
 
   return SIConsoleScreenModel(
     aggregation: aggregation,
     decision: decision,
-    engineSnapshot: engineSnapshot,
+    engineSnapshot: '$engineSnapshot · $valuesSnapshot · $soulMapSnapshot',
   );
 });
+
+String _buildMemoryHint(List<MemoryEntity> memories) {
+  if (memories.isEmpty) {
+    return 'Memory context is still light, capture one preference or reflection today.';
+  }
+  final MemoryEntity first = memories.first;
+  final String text = first.text.trim();
+  if (text.isEmpty) {
+    return 'Recent memory context is available for personalization.';
+  }
+  final String trimmed = text.length <= 80
+      ? text
+      : '${text.substring(0, 79)}...';
+  return 'Recall: "$trimmed"';
+}

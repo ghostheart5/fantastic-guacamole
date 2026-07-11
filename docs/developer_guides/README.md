@@ -13,6 +13,17 @@ Implementation-focused documentation for engineers working in the app codebase.
 - `remote_toggle_integration.md`
 - `tutorial_surface_integration.md`
 - `permission_prompt_pattern.md`
+- `../SI_CONSOLE_AUDIT.md`
+- `../TIMELINE_MILESTONE_AUDIT.md`
+- `../CORE_VALUES_SOULMAP_AUDIT.md`
+- `../ERROR_HANDLING_AUDIT.md`
+- `../UI_UX_AUDIT.md`
+- `../SECURITY_PRIVACY_AUDIT.md`
+- `../SUBSCRIPTION_PAYWALL_AUDIT.md`
+- `../FILE_PLACEHOLDER_AUDIT.md`
+- `../BUILD_AUDIT_COMMANDS.md`
+- `../FINAL_AUDIT_SCORECARD.md`
+- `../GOOGLE_PLAY_READINESS_AUDIT.md`
 
 ## Current Guides
 - `ai_chatbot_controller_layer.md`

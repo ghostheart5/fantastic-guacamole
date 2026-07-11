@@ -46,8 +46,9 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _pulse;
+  late final AnimationController _entry;
 
   @override
   void initState() {
@@ -56,11 +57,16 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
+    _entry = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 720),
+    )..forward();
   }
 
   @override
   void dispose() {
     _pulse.dispose();
+    _entry.dispose();
     super.dispose();
   }
 
@@ -74,6 +80,14 @@ class _LoginScreenState extends State<LoginScreen>
     final Size size = MediaQuery.sizeOf(context);
     final bool landscape = size.width > size.height;
     final bool wideLayout = size.width >= 900;
+    final Animation<double> brandAnimation = CurvedAnimation(
+      parent: _entry,
+      curve: const Interval(0.0, 0.62, curve: Curves.easeOutCubic),
+    );
+    final Animation<double> formAnimation = CurvedAnimation(
+      parent: _entry,
+      curve: const Interval(0.18, 1.0, curve: Curves.easeOutCubic),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -126,6 +140,8 @@ class _LoginScreenState extends State<LoginScreen>
               onTogglePassword: widget.onTogglePassword,
               showMockHint: widget.showMockHint,
               mockHint: widget.mockHint,
+              brandAnimation: brandAnimation,
+              formAnimation: formAnimation,
             )
           else
             _PortraitLoginContent(
@@ -145,6 +161,8 @@ class _LoginScreenState extends State<LoginScreen>
               onTogglePassword: widget.onTogglePassword,
               showMockHint: widget.showMockHint,
               mockHint: widget.mockHint,
+              brandAnimation: brandAnimation,
+              formAnimation: formAnimation,
             ),
 
           // Loading indicator
@@ -188,6 +206,8 @@ class _PortraitLoginContent extends StatelessWidget {
     required this.onTogglePassword,
     required this.showMockHint,
     required this.mockHint,
+    required this.brandAnimation,
+    required this.formAnimation,
   });
 
   final AnimationController pulse;
@@ -206,9 +226,13 @@ class _PortraitLoginContent extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final bool showMockHint;
   final String? mockHint;
+  final Animation<double> brandAnimation;
+  final Animation<double> formAnimation;
 
   @override
   Widget build(BuildContext context) {
+    final double width = MediaQuery.sizeOf(context).width;
+    final bool compact = width < 390;
     return Positioned.fill(
       child: SafeArea(
         child: AnimatedPadding(
@@ -221,30 +245,43 @@ class _PortraitLoginContent extends StatelessWidget {
             ignoring: isSubmitting,
             child: SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+              padding: EdgeInsets.fromLTRB(
+                compact ? 14 : 20,
+                compact ? 12 : 20,
+                compact ? 14 : 20,
+                compact ? 14 : 20,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _LoginBrandHeader(pulse: pulse),
-                  const SizedBox(height: 18),
-                  _LoginFormCard(
-                    startupMessage: startupMessage,
-                    isSubmitting: isSubmitting,
-                    isSignUpMode: isSignUpMode,
-                    allowSignUp: allowSignUp,
-                    emailController: emailController,
-                    passwordController: passwordController,
-                    obscurePassword: obscurePassword,
-                    onPrimaryAction: onPrimaryAction,
-                    onForgotPassword: onForgotPassword,
-                    onGoogleSignIn: onGoogleSignIn,
-                    onMockLogin: onMockLogin,
-                    onToggleMode: onToggleMode,
-                    onTogglePassword: onTogglePassword,
-                    showMockHint: showMockHint,
-                    mockHint: mockHint,
-                    compactSecondaryButtons: false,
+                  _StaggeredEntrance(
+                    animation: brandAnimation,
+                    offsetY: 18,
+                    child: _LoginBrandHeader(pulse: pulse),
+                  ),
+                  SizedBox(height: compact ? 12 : 18),
+                  _StaggeredEntrance(
+                    animation: formAnimation,
+                    offsetY: 24,
+                    child: _LoginFormCard(
+                      startupMessage: startupMessage,
+                      isSubmitting: isSubmitting,
+                      isSignUpMode: isSignUpMode,
+                      allowSignUp: allowSignUp,
+                      emailController: emailController,
+                      passwordController: passwordController,
+                      obscurePassword: obscurePassword,
+                      onPrimaryAction: onPrimaryAction,
+                      onForgotPassword: onForgotPassword,
+                      onGoogleSignIn: onGoogleSignIn,
+                      onMockLogin: onMockLogin,
+                      onToggleMode: onToggleMode,
+                      onTogglePassword: onTogglePassword,
+                      showMockHint: showMockHint,
+                      mockHint: mockHint,
+                      compactSecondaryButtons: false,
+                    ),
                   ),
                 ],
               ),
@@ -274,6 +311,8 @@ class _LandscapeLoginContent extends StatelessWidget {
     required this.onTogglePassword,
     required this.showMockHint,
     required this.mockHint,
+    required this.brandAnimation,
+    required this.formAnimation,
   });
 
   final AnimationController pulse;
@@ -292,6 +331,8 @@ class _LandscapeLoginContent extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final bool showMockHint;
   final String? mockHint;
+  final Animation<double> brandAnimation;
+  final Animation<double> formAnimation;
 
   @override
   Widget build(BuildContext context) {
@@ -322,7 +363,11 @@ class _LandscapeLoginContent extends StatelessWidget {
                       children: [
                         SizedBox(
                           width: leftWidth,
-                          child: _LoginBrandPanel(pulse: pulse),
+                          child: _StaggeredEntrance(
+                            animation: brandAnimation,
+                            offsetY: 10,
+                            child: _LoginBrandPanel(pulse: pulse),
+                          ),
                         ),
                         const SizedBox(width: 24),
                         SizedBox(
@@ -331,23 +376,27 @@ class _LandscapeLoginContent extends StatelessWidget {
                             alignment: Alignment.centerRight,
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 460),
-                              child: _LoginFormCard(
-                                startupMessage: startupMessage,
-                                isSubmitting: isSubmitting,
-                                isSignUpMode: isSignUpMode,
-                                allowSignUp: allowSignUp,
-                                emailController: emailController,
-                                passwordController: passwordController,
-                                obscurePassword: obscurePassword,
-                                onPrimaryAction: onPrimaryAction,
-                                onForgotPassword: onForgotPassword,
-                                onGoogleSignIn: onGoogleSignIn,
-                                onMockLogin: onMockLogin,
-                                onToggleMode: onToggleMode,
-                                onTogglePassword: onTogglePassword,
-                                showMockHint: showMockHint,
-                                mockHint: mockHint,
-                                compactSecondaryButtons: true,
+                              child: _StaggeredEntrance(
+                                animation: formAnimation,
+                                offsetY: 18,
+                                child: _LoginFormCard(
+                                  startupMessage: startupMessage,
+                                  isSubmitting: isSubmitting,
+                                  isSignUpMode: isSignUpMode,
+                                  allowSignUp: allowSignUp,
+                                  emailController: emailController,
+                                  passwordController: passwordController,
+                                  obscurePassword: obscurePassword,
+                                  onPrimaryAction: onPrimaryAction,
+                                  onForgotPassword: onForgotPassword,
+                                  onGoogleSignIn: onGoogleSignIn,
+                                  onMockLogin: onMockLogin,
+                                  onToggleMode: onToggleMode,
+                                  onTogglePassword: onTogglePassword,
+                                  showMockHint: showMockHint,
+                                  mockHint: mockHint,
+                                  compactSecondaryButtons: true,
+                                ),
                               ),
                             ),
                           ),
@@ -365,6 +414,30 @@ class _LandscapeLoginContent extends StatelessWidget {
   }
 }
 
+class _StaggeredEntrance extends StatelessWidget {
+  const _StaggeredEntrance({
+    required this.animation,
+    required this.offsetY,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final double offsetY;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final Animation<Offset> slide = Tween<Offset>(
+      begin: Offset(0, offsetY / 100),
+      end: Offset.zero,
+    ).animate(animation);
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(position: slide, child: child),
+    );
+  }
+}
+
 class _LoginBrandHeader extends StatelessWidget {
   const _LoginBrandHeader({required this.pulse});
 
@@ -372,6 +445,12 @@ class _LoginBrandHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double width = MediaQuery.sizeOf(context).width;
+    final bool compact = width < 390;
+    final double titleSize = compact ? 40 : 48;
+    final double titleSpacing = compact ? 2.2 : 3;
+    final double subtitleSize = compact ? 9 : 10;
+    final double subtitleSpacing = compact ? 2.8 : 3.5;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -387,9 +466,9 @@ class _LoginBrandHeader extends StatelessWidget {
                 'CHRONO\nSPARK',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 48,
+                  fontSize: titleSize,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: 3,
+                  letterSpacing: titleSpacing,
                   height: 0.95,
                   shadows: [
                     Shadow(
@@ -404,19 +483,19 @@ class _LoginBrandHeader extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 10),
-        const Text(
+        SizedBox(height: compact ? 8 : 10),
+        Text(
           'TEMPORAL INTELLIGENCE SYSTEM',
           style: TextStyle(
             color: Colors.white38,
-            fontSize: 10,
-            letterSpacing: 3.5,
+            fontSize: subtitleSize,
+            letterSpacing: subtitleSpacing,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: compact ? 10 : 12),
         Container(
-          width: 40,
+          width: compact ? 34 : 40,
           height: 2,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
@@ -491,27 +570,59 @@ class _LoginFormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double width = MediaQuery.sizeOf(context).width;
+    final bool compact = width < 390;
+    final double edgePadding = compact ? 14 : 18;
+    final double sectionGap = compact ? 10 : 14;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF0A1024).withValues(alpha: 0.88),
+            const Color(0xFF151127).withValues(alpha: 0.92),
+          ],
+        ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonCyan.withValues(alpha: 0.08),
+            blurRadius: 30,
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(edgePadding),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             isSignUpMode ? 'CREATE ACCOUNT' : 'ACCESS SYSTEM',
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white38,
-              fontSize: 10,
-              letterSpacing: 3,
+              fontSize: compact ? 9 : 10,
+              letterSpacing: compact ? 2.4 : 3,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: compact ? 4 : 6),
+          Text(
+            'Secure command access for your mission control.',
+            style: TextStyle(
+              color: Colors.white60,
+              fontSize: compact ? 11 : 12,
+              height: 1.35,
+            ),
+          ),
+          SizedBox(height: sectionGap),
           if (startupMessage != null) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -532,7 +643,7 @@ class _LoginFormCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: compact ? 10 : 12),
           ],
           _NeonInput(
             key: const ValueKey('login-email-field'),
@@ -543,7 +654,7 @@ class _LoginFormCard extends StatelessWidget {
             obscure: false,
             accentColor: AppColors.neonCyan,
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 8 : 10),
           _NeonInput(
             key: const ValueKey('login-password-field'),
             controller: passwordController,
@@ -563,38 +674,47 @@ class _LoginFormCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: compact ? 6 : 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: SmartPressable(
+              onTap: onForgotPassword,
+              child: Text(
+                'Forgot Password?',
+                style: TextStyle(
+                  color: AppColors.neonCyan.withValues(alpha: 0.9),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: compact ? 14 : 18),
           _PrimaryButton(
             label: isSignUpMode ? 'INITIALIZE PROFILE' : 'ENTER SYSTEM',
             isLoading: isSubmitting,
             onTap: onPrimaryAction,
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 8 : 10),
+          _SecondaryButton(
+            label: 'Continue with Google',
+            icon: Icons.g_mobiledata_rounded,
+            color: Colors.white,
+            leading: const _GoogleGlyph(size: 18),
+            onTap: onGoogleSignIn,
+          ),
+          SizedBox(height: compact ? 6 : 8),
           if (compactSecondaryButtons)
             Row(
               children: [
-                Expanded(
-                  child: _SecondaryButton(
-                    label: 'Google',
-                    icon: Icons.login_rounded,
-                    color: AppColors.neonViolet,
-                    onTap: onGoogleSignIn,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _SecondaryButton(
-                    label: 'Reset Key',
-                    icon: Icons.lock_reset_rounded,
-                    color: AppColors.neonCyan,
-                    onTap: onForgotPassword,
-                  ),
-                ),
                 if (allowSignUp) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 0),
                   Expanded(
                     child: _SecondaryButton(
-                      label: isSignUpMode ? 'Log In' : 'Create',
+                      label: isSignUpMode
+                          ? 'Switch to Login'
+                          : 'Create Account',
                       icon: isSignUpMode
                           ? Icons.arrow_back_rounded
                           : Icons.person_add_rounded,
@@ -608,31 +728,10 @@ class _LoginFormCard extends StatelessWidget {
           else
             Column(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _SecondaryButton(
-                        label: 'Google',
-                        icon: Icons.login_rounded,
-                        color: AppColors.neonViolet,
-                        onTap: onGoogleSignIn,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _SecondaryButton(
-                        label: 'Reset Key',
-                        icon: Icons.lock_reset_rounded,
-                        color: AppColors.neonCyan,
-                        onTap: onForgotPassword,
-                      ),
-                    ),
-                  ],
-                ),
                 if (allowSignUp) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 2),
                   _SecondaryButton(
-                    label: isSignUpMode ? 'Log In' : 'Create',
+                    label: isSignUpMode ? 'Switch to Login' : 'Create Account',
                     icon: isSignUpMode
                         ? Icons.arrow_back_rounded
                         : Icons.person_add_rounded,
@@ -830,43 +929,99 @@ class _SecondaryButton extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.color,
+    this.leading,
     required this.onTap,
   });
 
   final String label;
   final IconData icon;
   final Color color;
+  final Widget? leading;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final bool isGoogleAction =
+        color == Colors.white || label.toLowerCase().contains('google');
     return SmartPressable(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          color: color.withValues(alpha: 0.08),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          color: isGoogleAction
+              ? Colors.white.withValues(alpha: 0.06)
+              : color.withValues(alpha: 0.08),
+          border: Border.all(
+            color: isGoogleAction
+                ? Colors.white.withValues(alpha: 0.4)
+                : color.withValues(alpha: 0.3),
+          ),
           boxShadow: [
-            BoxShadow(color: color.withValues(alpha: 0.12), blurRadius: 10),
+            BoxShadow(
+              color: isGoogleAction
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : color.withValues(alpha: 0.12),
+              blurRadius: 10,
+            ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color.withValues(alpha: 0.85), size: 18),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.75),
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
+            leading ??
+                Icon(
+                  icon,
+                  color: isGoogleAction
+                      ? Colors.white.withValues(alpha: 0.92)
+                      : color.withValues(alpha: 0.9),
+                  size: 18,
+                ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.88),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.3,
+                ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GoogleGlyph extends StatelessWidget {
+  const _GoogleGlyph({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMask(
+      shaderCallback: (Rect bounds) => const SweepGradient(
+        colors: <Color>[
+          Color(0xFF4285F4),
+          Color(0xFF34A853),
+          Color(0xFFFBBC05),
+          Color(0xFFEA4335),
+          Color(0xFF4285F4),
+        ],
+      ).createShader(bounds),
+      child: Text(
+        'G',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: size,
+          height: 1,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );

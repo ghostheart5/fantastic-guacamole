@@ -9,7 +9,8 @@ void main() {
   test('clears app data while preserving the Hive encryption key', () async {
     final _FakePreferences preferences = _FakePreferences();
     final _FakeHiveStore hive = _FakeHiveStore();
-    final InMemorySecureStoreBackend secureBackend = InMemorySecureStoreBackend();
+    final InMemorySecureStoreBackend secureBackend =
+        InMemorySecureStoreBackend();
     final SecureStore secureStore = SecureStore(backend: secureBackend);
 
     await secureStore.writeString('hive_aes_key', 'keep-this-key');

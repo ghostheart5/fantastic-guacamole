@@ -26,6 +26,7 @@ import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/session_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
@@ -122,18 +123,13 @@ class TaskActions {
   }
 
   Future<void> completeTask(String id, {bool notify = true}) async {
-    final List<Task> tasks = await _ref.read(tasksProvider.future);
-    Task? selectedTask;
-    for (final Task task in tasks) {
-      if (task.id == id) {
-        selectedTask = task;
-        break;
-      }
-    }
-
-    selectedTask ??= await _taskFromRepository(id);
+    Task? selectedTask = _taskFromCachedTasks(id);
+    final Future<Task?> selectedTaskFuture = selectedTask != null
+        ? Future<Task?>.value(selectedTask)
+        : _taskFromRepository(id);
 
     await _ref.read(completeTaskUseCaseProvider).call(id);
+    selectedTask ??= await selectedTaskFuture;
 
     if (selectedTask != null) {
       final DateTime now = DateTime.now();
@@ -204,6 +200,23 @@ class TaskActions {
       return null;
     }
     return _taskFromEntity(entity);
+  }
+
+  Task? _taskFromCachedTasks(String id) {
+    final AsyncValue<List<Task>> asyncTasks = _ref.read(tasksProvider);
+    final List<Task>? tasks = asyncTasks.maybeWhen(
+      data: (List<Task> value) => value,
+      orElse: () => null,
+    );
+    if (tasks == null) {
+      return null;
+    }
+    for (final Task task in tasks) {
+      if (task.id == id) {
+        return task;
+      }
+    }
+    return null;
   }
 
   Future<void> skipTask(String id, {bool notify = true}) async {
@@ -298,27 +311,20 @@ class TaskActions {
     const String storageKey = 'neural_dump';
     final store = _ref.read(secureStoreProvider);
     final String? raw = await store.readString(storageKey);
-    final List<Map<String, dynamic>> entries = <Map<String, dynamic>>[];
-    if (raw != null && raw.trim().isNotEmpty) {
-      final Object? decoded = jsonDecode(raw);
-      if (decoded is List<dynamic>) {
-        entries.addAll(decoded.whereType<Map<String, dynamic>>());
-      }
-    }
-    entries.add(
-      NeuralEntry(
-        task: task.title,
-        reasoning: 'Recorded from a completed task.',
-        confidence: quality,
-        duration: durationSeconds,
-        quality: quality,
-        timestamp: timestamp,
-      ).toJson(),
+    final Map<String, dynamic> entry = NeuralEntry(
+      task: task.title,
+      reasoning: 'Recorded from a completed task.',
+      confidence: quality,
+      duration: durationSeconds,
+      quality: quality,
+      timestamp: timestamp,
+    ).toJson();
+
+    final String encoded = await compute<Map<String, dynamic>, String>(
+      _appendNeuralDumpEntry,
+      <String, dynamic>{'raw': raw, 'entry': entry},
     );
-    final List<Map<String, dynamic>> bounded = entries.length > 200
-        ? entries.sublist(entries.length - 200)
-        : entries;
-    await store.writeString(storageKey, jsonEncode(bounded));
+    await store.writeString(storageKey, encoded);
   }
 
   Future<void> _recordCreationSideEffects({
@@ -432,4 +438,30 @@ Task _taskFromEntity(TaskEntity task) {
     subtasks: task.subtasks,
     recurrenceRule: task.recurrenceRule,
   );
+}
+
+String _appendNeuralDumpEntry(Map<String, dynamic> payload) {
+  final Object? raw = payload['raw'];
+  final Object? entry = payload['entry'];
+  final List<Map<String, dynamic>> entries = <Map<String, dynamic>>[];
+
+  if (raw is String && raw.trim().isNotEmpty) {
+    try {
+      final Object? decoded = jsonDecode(raw);
+      if (decoded is List<dynamic>) {
+        entries.addAll(decoded.whereType<Map<String, dynamic>>());
+      }
+    } catch (_) {
+      // If historical neural dump data is malformed, recover by replacing it.
+    }
+  }
+
+  if (entry is Map<String, dynamic>) {
+    entries.add(entry);
+  }
+
+  final List<Map<String, dynamic>> bounded = entries.length > 200
+      ? entries.sublist(entries.length - 200)
+      : entries;
+  return jsonEncode(bounded);
 }

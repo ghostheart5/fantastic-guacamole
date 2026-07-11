@@ -1,7 +1,9 @@
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
-import 'package:fantastic_guacamole/state/core/app_providers.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart'
+    show soundEnabledProvider;
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
@@ -15,6 +17,62 @@ final timelineProvider =
     NotifierProvider<TimelineNotifier, List<TimelineEventEntity>>(
       TimelineNotifier.new,
     );
+
+final timelineOverdueProvider = Provider<List<TimelineEventEntity>>((Ref ref) {
+  return ref
+      .watch(timelineProvider)
+      .where((TimelineEventEntity event) => event.isOverdue)
+      .toList(growable: false);
+});
+
+final timelineUpcomingProvider = Provider<List<TimelineEventEntity>>((Ref ref) {
+  return ref
+      .watch(timelineProvider)
+      .where((TimelineEventEntity event) => event.isUpcoming)
+      .toList(growable: false);
+});
+
+final timelineRiskEventsProvider = Provider<List<TimelineEventEntity>>((
+  Ref ref,
+) {
+  return ref
+      .watch(timelineProvider)
+      .where((TimelineEventEntity event) => event.isRisk)
+      .toList(growable: false);
+});
+
+final timelineRecommendationsProvider = Provider<List<TimelineEventEntity>>((
+  Ref ref,
+) {
+  return ref
+      .watch(timelineProvider)
+      .where((TimelineEventEntity event) => event.isRecommendation)
+      .toList(growable: false);
+});
+
+final timelineHealthScoreProvider = Provider<int>((Ref ref) {
+  final List<TimelineEventEntity> events = ref.watch(timelineProvider);
+  final int overdue = events
+      .where((TimelineEventEntity event) => event.isOverdue)
+      .length;
+  final int risks = events
+      .where((TimelineEventEntity event) => event.isRisk)
+      .length;
+  final int milestones = events
+      .where((TimelineEventEntity event) => event.isMilestone)
+      .length;
+  final int upcoming = events
+      .where((TimelineEventEntity event) => event.isUpcoming)
+      .length;
+  final int penalty = (overdue * 12) + (risks * 10) + (upcoming > 8 ? 8 : 0);
+  final int bonus = (milestones * 3).clamp(0, 18);
+  return (100 - penalty + bonus).clamp(0, 100);
+});
+
+final timelineRiskScoreProvider = Provider<int>((Ref ref) {
+  final int health = ref.watch(timelineHealthScoreProvider);
+  return 100 - health;
+});
 
 class TimelineActions {
   const TimelineActions(this._ref);

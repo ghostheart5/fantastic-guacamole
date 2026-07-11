@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/features/home/ui/smart_coach_screen.dart';
 import 'package:fantastic_guacamole/features/insights/ui/insight_screen.dart';
 import 'package:fantastic_guacamole/features/logs/ui/logs_screen.dart';
 import 'package:fantastic_guacamole/features/memories/ui/memories_screen.dart';
+import 'package:fantastic_guacamole/features/milestones/ui/milestones_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/plan/ui/plan_screen.dart';
 import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
@@ -33,6 +34,7 @@ import 'package:fantastic_guacamole/system/system_scheduler.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -338,6 +340,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
               navItem('Plan', 'Adaptive schedule', AppView.plan),
               navItem('Creator', 'Task and goal creation', AppView.creator),
               navItem(
+                'Milestones',
+                'Checkpoint planning and tracking',
+                AppView.milestones,
+              ),
+              navItem(
                 'Insights',
                 'Pattern and trend analysis',
                 AppView.insight,
@@ -393,11 +400,39 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView.creator => const CreatorScreen(),
       AppView.flowmap => const FlowmapScreen(),
       AppView.goals => const GoalsScreen(),
+      AppView.milestones => const MilestonesScreen(),
       AppView.memories => const MemoriesScreen(),
       AppView.soulMap => const SoulMapScreen(),
       AppView.timeline => const TimelineScreen(),
     };
 
-    return OfflineBanner(child: body);
+    return PopScope(
+      canPop: view == AppView.nexus,
+      onPopInvokedWithResult: (bool didPop, dynamic _) {
+        if (didPop) {
+          return;
+        }
+        final AppFlowController controller = ref.read(appFlowProvider.notifier);
+        final AppView current = ref.read(appFlowProvider);
+
+        if (current != AppView.nexus &&
+            current != AppView.tasks &&
+            current != AppView.logs &&
+            current != AppView.profile) {
+          controller.toNexus();
+          return;
+        }
+
+        if (current == AppView.tasks ||
+            current == AppView.logs ||
+            current == AppView.profile) {
+          controller.toNexus();
+          return;
+        }
+
+        SystemNavigator.pop();
+      },
+      child: OfflineBanner(child: body),
+    );
   }
 }

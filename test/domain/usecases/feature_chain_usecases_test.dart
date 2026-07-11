@@ -49,35 +49,41 @@ void main() {
       repository = _FakeGoalRepository();
     });
 
-    test('create/get/update/delete/complete goal use the repository contract', () async {
-      final GoalEntity goal = GoalEntity(
-        id: 'goal-1',
-        title: 'Ship v1',
-        createdAt: DateTime.utc(2026, 7, 4),
-      );
+    test(
+      'create/get/update/delete/complete goal use the repository contract',
+      () async {
+        final GoalEntity goal = GoalEntity(
+          id: 'goal-1',
+          title: 'Ship v1',
+          createdAt: DateTime.utc(2026, 7, 4),
+        );
 
-      await CreateGoal(repository).call(goal);
-      expect(GetGoals(repository).call(), hasLength(1));
-      expect(repository.savedGoalIds, <String>['goal-1']);
+        await CreateGoal(repository).call(goal);
+        expect(GetGoals(repository).call(), hasLength(1));
+        expect(repository.savedGoalIds, <String>['goal-1']);
 
-      final GoalEntity updated = goal.copyWith(title: 'Ship v1.1');
-      await UpdateGoal(repository).call(updated);
-      expect(GetGoals(repository).call().single.title, 'Ship v1.1');
+        final GoalEntity updated = goal.copyWith(title: 'Ship v1.1');
+        await UpdateGoal(repository).call(updated);
+        expect(GetGoals(repository).call().single.title, 'Ship v1.1');
 
-      await DeleteGoal(repository).call(goal.id);
-      expect(GetGoals(repository).call(), isEmpty);
+        await DeleteGoal(repository).call(goal.id);
+        expect(GetGoals(repository).call(), isEmpty);
 
-      await CreateGoal(repository).call(goal);
-      await CompleteGoal(repository).call(goal.id);
-      expect(GetGoals(repository).call(), isEmpty);
-      expect(repository.deletedGoalIds, containsAll(<String>['goal-1', 'goal-1']));
+        await CreateGoal(repository).call(goal);
+        await CompleteGoal(repository).call(goal.id);
+        expect(GetGoals(repository).call(), isEmpty);
+        expect(
+          repository.deletedGoalIds,
+          containsAll(<String>['goal-1', 'goal-1']),
+        );
 
-      await SaveGoals(repository).call(<GoalEntity>[goal, updated]);
-      expect(GetGoals(repository).call().map((GoalEntity item) => item.id), <String>[
-        'goal-1',
-        'goal-1',
-      ]);
-    });
+        await SaveGoals(repository).call(<GoalEntity>[goal, updated]);
+        expect(
+          GetGoals(repository).call().map((GoalEntity item) => item.id),
+          <String>['goal-1', 'goal-1'],
+        );
+      },
+    );
   });
 
   group('memory usecases', () {
@@ -97,18 +103,26 @@ void main() {
       expect(GetMemories(repository).call(), isEmpty);
 
       await SaveMemory(repository).call(memory);
-      expect(GetMemories(repository).call().single.text, 'Finished deep work block');
+      expect(
+        GetMemories(repository).call().single.text,
+        'Finished deep work block',
+      );
 
       await SaveMemories(repository).call(<MemoryEntity>[
         memory,
-        MemoryEntity(id: 'memory-2', text: 'Second note', date: DateTime.utc(2026, 7, 5)),
+        MemoryEntity(
+          id: 'memory-2',
+          text: 'Second note',
+          date: DateTime.utc(2026, 7, 5),
+        ),
       ]);
       expect(GetMemories(repository).call(), hasLength(2));
 
       await DeleteMemory(repository).call(memory.id);
-      expect(GetMemories(repository).call().map((MemoryEntity item) => item.id), <String>[
-        'memory-2',
-      ]);
+      expect(
+        GetMemories(repository).call().map((MemoryEntity item) => item.id),
+        <String>['memory-2'],
+      );
     });
   });
 
@@ -147,7 +161,9 @@ void main() {
 
       await RemoveTimelineEvent(repository).call(event.id);
       expect(
-        GetTimelineEvents(repository).call().map((TimelineEventEntity item) => item.id),
+        GetTimelineEvents(
+          repository,
+        ).call().map((TimelineEventEntity item) => item.id),
         <String>['timeline-2'],
       );
     });
@@ -160,22 +176,28 @@ void main() {
       repository = _FakeFlowmapRepository();
     });
 
-    test('get/update/delete flowmap node use the repository contract', () async {
-      final FlowmapNode node = FlowmapNode(
-        id: 'node-1',
-        title: 'Decision graph',
-        tags: const <String>['planning'],
-        createdAt: DateTime.utc(2026, 7, 4),
-      );
+    test(
+      'get/update/delete flowmap node use the repository contract',
+      () async {
+        final FlowmapNode node = FlowmapNode(
+          id: 'node-1',
+          title: 'Decision graph',
+          tags: const <String>['planning'],
+          createdAt: DateTime.utc(2026, 7, 4),
+        );
 
-      expect(await GetFlowmap(repository).call(), isEmpty);
+        expect(await GetFlowmap(repository).call(), isEmpty);
 
-      await UpdateFlowmapNode(repository).call(node);
-      expect((await GetFlowmap(repository).call()).single.title, 'Decision graph');
+        await UpdateFlowmapNode(repository).call(node);
+        expect(
+          (await GetFlowmap(repository).call()).single.title,
+          'Decision graph',
+        );
 
-      await DeleteFlowmapNode(repository).call(node.id);
-      expect(await GetFlowmap(repository).call(), isEmpty);
-    });
+        await DeleteFlowmapNode(repository).call(node.id);
+        expect(await GetFlowmap(repository).call(), isEmpty);
+      },
+    );
   });
 
   group('task and si usecases', () {
@@ -193,12 +215,26 @@ void main() {
       'generate SI decision selects highest priority task and create task can simplify priority',
       () async {
         await taskRepository.saveTask(
-          TaskEntity(id: 'low', title: 'Low', createdAt: DateTime.utc(2026, 7, 4), priority: 2),
+          TaskEntity(
+            id: 'low',
+            title: 'Low',
+            createdAt: DateTime.utc(2026, 7, 4),
+            priority: 2,
+          ),
         );
         await taskRepository.saveTask(
-          TaskEntity(id: 'high', title: 'High', createdAt: DateTime.utc(2026, 7, 4), priority: 5),
+          TaskEntity(
+            id: 'high',
+            title: 'High',
+            createdAt: DateTime.utc(2026, 7, 4),
+            priority: 5,
+          ),
         );
-        siRepository.state = SiStateEntity(energy: 0.8, focus: 0.8, fatigue: 0.2);
+        siRepository.state = SiStateEntity(
+          energy: 0.8,
+          focus: 0.8,
+          fatigue: 0.2,
+        );
 
         final SiDecisionEntity decision = await GenerateSiDecision(
           taskRepository,
@@ -212,7 +248,10 @@ void main() {
         await CreateTask(
           taskRepository,
           generateSiDecision: _StubGenerateSiDecision(
-            const SiDecisionEntity(rationale: 'Simplify this task.', shouldSimplify: true),
+            const SiDecisionEntity(
+              rationale: 'Simplify this task.',
+              shouldSimplify: true,
+            ),
           ),
         ).call(
           TaskEntity(
@@ -226,7 +265,9 @@ void main() {
         final TaskEntity? created = await taskRepository.getTaskById('new');
         expect(created?.priority, 1);
         expect(
-          (await GetTasks(taskRepository).call()).map((TaskEntity item) => item.id),
+          (await GetTasks(
+            taskRepository,
+          ).call()).map((TaskEntity item) => item.id),
           contains('new'),
         );
       },
@@ -252,8 +293,17 @@ void main() {
     test(
       'complete task marks recurring tasks complete, spawns next task, and updates progression and SI',
       () async {
-        siRepository.state = SiStateEntity(energy: 0.5, focus: 0.5, fatigue: 0.5, confidence: 0.4);
-        progressionRepository.progression = const ProgressionEntity(xp: 5, level: 1, streak: 0);
+        siRepository.state = SiStateEntity(
+          energy: 0.5,
+          focus: 0.5,
+          fatigue: 0.5,
+          confidence: 0.4,
+        );
+        progressionRepository.progression = const ProgressionEntity(
+          xp: 5,
+          level: 1,
+          streak: 0,
+        );
         await taskRepository.saveTask(
           TaskEntity(
             id: 'repeat',
@@ -269,23 +319,38 @@ void main() {
           progressionRepo: progressionRepository,
         ).call('repeat');
 
-        final TaskEntity? completed = await taskRepository.getTaskById('repeat');
+        final TaskEntity? completed = await taskRepository.getTaskById(
+          'repeat',
+        );
         final List<TaskEntity> tasks = await taskRepository.getAllTasks();
 
         expect(completed?.isCompleted, isTrue);
         expect(completed?.completedAt, isNotNull);
         expect(tasks, hasLength(2));
-        expect(tasks.where((TaskEntity item) => item.id != 'repeat').single.isCompleted, isFalse);
+        expect(
+          tasks
+              .where((TaskEntity item) => item.id != 'repeat')
+              .single
+              .isCompleted,
+          isFalse,
+        );
         expect(progressionRepository.progression?.xp, 15);
-        expect(siRepository.savedStates.single.confidence, closeTo(0.45, 0.0001));
+        expect(
+          siRepository.savedStates.single.confidence,
+          closeTo(0.45, 0.0001),
+        );
       },
     );
 
     test('create and complete task validate failure paths', () async {
       await expectLater(
-        () => CreateTask(
-          taskRepository,
-        ).call(TaskEntity(id: 'bad', title: '   ', createdAt: DateTime.utc(2026, 7, 5))),
+        () => CreateTask(taskRepository).call(
+          TaskEntity(
+            id: 'bad',
+            title: '   ',
+            createdAt: DateTime.utc(2026, 7, 5),
+          ),
+        ),
         throwsException,
       );
 
@@ -316,53 +381,62 @@ void main() {
       repository = _FakeNotificationRepository();
     });
 
-    test('schedule notification adapts SI message and delegates to repository', () async {
-      final NotificationEntity notification = NotificationEntity(
-        id: 'notif-1',
-        title: 'Nudge',
-        message: 'Original',
-        scheduledAt: DateTime.now().add(const Duration(minutes: 5)),
-      );
+    test(
+      'schedule notification adapts SI message and delegates to repository',
+      () async {
+        final NotificationEntity notification = NotificationEntity(
+          id: 'notif-1',
+          title: 'Nudge',
+          message: 'Original',
+          scheduledAt: DateTime.now().add(const Duration(minutes: 5)),
+        );
 
-      await ScheduleNotification(
-        repository,
-        generateSiDecision: _StubGenerateSiDecision(
-          const SiDecisionEntity(
-            rationale: 'Use adaptive message.',
-            action: 'Take the next focused step.',
+        await ScheduleNotification(
+          repository,
+          generateSiDecision: _StubGenerateSiDecision(
+            const SiDecisionEntity(
+              rationale: 'Use adaptive message.',
+              action: 'Take the next focused step.',
+            ),
           ),
-        ),
-      ).call(notification);
+        ).call(notification);
 
-      expect(repository.scheduled.single.message, 'Take the next focused step.');
-    });
+        expect(
+          repository.scheduled.single.message,
+          'Take the next focused step.',
+        );
+      },
+    );
 
-    test('schedule notification rejects disabled or past notifications', () async {
-      await expectLater(
-        () => ScheduleNotification(repository).call(
-          NotificationEntity(
-            id: 'notif-2',
-            title: 'Disabled',
-            message: 'Nope',
-            scheduledAt: DateTime.now().add(const Duration(minutes: 5)),
-            isEnabled: false,
+    test(
+      'schedule notification rejects disabled or past notifications',
+      () async {
+        await expectLater(
+          () => ScheduleNotification(repository).call(
+            NotificationEntity(
+              id: 'notif-2',
+              title: 'Disabled',
+              message: 'Nope',
+              scheduledAt: DateTime.now().add(const Duration(minutes: 5)),
+              isEnabled: false,
+            ),
           ),
-        ),
-        throwsException,
-      );
+          throwsException,
+        );
 
-      await expectLater(
-        () => ScheduleNotification(repository).call(
-          NotificationEntity(
-            id: 'notif-3',
-            title: 'Past',
-            message: 'Too late',
-            scheduledAt: DateTime.now().subtract(const Duration(minutes: 1)),
+        await expectLater(
+          () => ScheduleNotification(repository).call(
+            NotificationEntity(
+              id: 'notif-3',
+              title: 'Past',
+              message: 'Too late',
+              scheduledAt: DateTime.now().subtract(const Duration(minutes: 1)),
+            ),
           ),
-        ),
-        throwsException,
-      );
-    });
+          throwsException,
+        );
+      },
+    );
 
     test('cancel notification delegates to repository contract', () async {
       await CancelNotification(repository).call('notif-4');
@@ -383,7 +457,9 @@ class _FakeGoalRepository implements IGoalRepository {
   @override
   Future<void> saveGoal(GoalEntity goal) async {
     savedGoalIds.add(goal.id);
-    final int index = _goals.indexWhere((GoalEntity item) => item.id == goal.id);
+    final int index = _goals.indexWhere(
+      (GoalEntity item) => item.id == goal.id,
+    );
     if (index >= 0) {
       _goals[index] = goal;
     } else {
@@ -413,7 +489,9 @@ class _FakeMemoryRepository implements IMemoryRepository {
 
   @override
   Future<void> saveMemory(MemoryEntity memory) async {
-    final int index = _memories.indexWhere((MemoryEntity item) => item.id == memory.id);
+    final int index = _memories.indexWhere(
+      (MemoryEntity item) => item.id == memory.id,
+    );
     if (index >= 0) {
       _memories[index] = memory;
     } else {
@@ -438,7 +516,8 @@ class _FakeTimelineRepository implements ITimelineRepository {
   final List<TimelineEventEntity> _events = <TimelineEventEntity>[];
 
   @override
-  List<TimelineEventEntity> getEvents() => List<TimelineEventEntity>.from(_events);
+  List<TimelineEventEntity> getEvents() =>
+      List<TimelineEventEntity>.from(_events);
 
   @override
   Future<void> addEvent(TimelineEventEntity event) async {
@@ -473,7 +552,9 @@ class _FakeFlowmapRepository implements IFlowmapRepository {
 
   @override
   Future<void> saveNode(FlowmapNode node) async {
-    final int index = _nodes.indexWhere((FlowmapNode item) => item.id == node.id);
+    final int index = _nodes.indexWhere(
+      (FlowmapNode item) => item.id == node.id,
+    );
     if (index >= 0) {
       _nodes[index] = node;
     } else {
@@ -563,7 +644,8 @@ class _FakeNotificationRepository implements INotificationRepository {
 }
 
 class _StubGenerateSiDecision extends GenerateSiDecision {
-  _StubGenerateSiDecision(this._result) : super(_FakeTaskRepository(), _FakeSiRepository());
+  _StubGenerateSiDecision(this._result)
+    : super(_FakeTaskRepository(), _FakeSiRepository());
 
   final SiDecisionEntity _result;
 

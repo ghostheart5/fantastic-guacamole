@@ -1,58 +1,58 @@
 {
     "id": "home_onboarding",
-    "title": "Home Tutorial",
-    "version": 1,
+    "title": "Interactive First Steps",
+    "version": 2,
     "steps": [
         {
             "id": "welcome",
-            "title": "Welcome to ChronoSpark",
-            "body": "This walkthrough shows you how to start your first focus session.",
+            "title": "Interactive Tutorial",
+            "body": "You will get one focused tip at a time. Follow the pulse and move at your own pace.",
             "trigger": "manual",
-            "blockMode": "blockAll",
-            "nextStepId": "start_focus"
-        },
-        {
-            "id": "start_focus",
-            "title": "Start a Focus Session",
-            "body": "Tap this button to begin a focused work block.",
-            "targetId": "home.start_focus_button",
-            "trigger": "tap",
             "blockMode": "allowTarget",
-            "nextStepId": "tasks_route"
+            "nextStepId": "pulse_goal_button"
         },
         {
-            "id": "tasks_route",
-            "title": "Go to Tasks",
-            "body": "Navigate to the task screen.",
-            "route": "/tasks",
-            "trigger": "route",
-            "delayMs": 250,
-            "nextStepId": "create_task"
+            "id": "pulse_goal_button",
+            "title": "Pulse Goal Button",
+            "body": "Tap here to create powerful goals.",
+            "targetId": "goals.add_button",
+            "trigger": "manual",
+            "blockMode": "allowTarget",
+            "nextStepId": "pulse_timeline"
         },
         {
-            "id": "create_task",
-            "title": "Create a Task",
-            "body": "Type your first task title.",
-            "targetId": "tasks.title_input",
-            "trigger": "input",
-            "inputKey": "task_title",
-            "expectedValue": "Plan tomorrow",
-            "branches": [
-                {
-                    "whenKey": "has_created_task",
-                    "equals": true,
-                    "goto": "finish"
-                }
-            ],
+            "id": "pulse_timeline",
+            "title": "Pulse Timeline",
+            "body": "Your life journey appears here.",
+            "targetId": "timeline.intelligence_strip",
+            "trigger": "manual",
+            "blockMode": "allowTarget",
+            "nextStepId": "pulse_habit_area"
+        },
+        {
+            "id": "pulse_habit_area",
+            "title": "Pulse Habit Area",
+            "body": "Habits build momentum every day.",
+            "targetId": "settings.habit_toggle",
+            "trigger": "manual",
+            "blockMode": "allowTarget",
+            "nextStepId": "pulse_coach"
+        },
+        {
+            "id": "pulse_coach",
+            "title": "Pulse Coach",
+            "body": "Your SI Coach is always available.",
+            "targetId": "home.start_focus_button",
+            "trigger": "manual",
+            "blockMode": "allowTarget",
             "nextStepId": "finish"
         },
         {
             "id": "finish",
             "title": "You are ready",
-            "body": "You completed the core workflow.",
+            "body": "Great start. Open ChronoSpark Academy in Settings anytime to replay lessons.",
             "trigger": "manual",
-            "autoAdvance": true,
-            "delayMs": 800
+            "blockMode": "allowTarget"
         }
     ]
 }

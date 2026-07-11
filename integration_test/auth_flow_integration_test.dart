@@ -14,7 +14,7 @@ import 'package:fantastic_guacamole/engine/optimizer/optimization_config.dart';
 import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
-import 'package:fantastic_guacamole/onboarding/onboarding_screen.dart';
+import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';

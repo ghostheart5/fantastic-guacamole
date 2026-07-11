@@ -30,7 +30,10 @@ void main() {
         createdAt: DateTime.utc(2026, 7, 5),
       );
 
-      await expectLater(() => UpdateTask(repository).call(invalid), throwsException);
+      await expectLater(
+        () => UpdateTask(repository).call(invalid),
+        throwsException,
+      );
     });
 
     test('preserves task ID while updating mutable fields', () async {

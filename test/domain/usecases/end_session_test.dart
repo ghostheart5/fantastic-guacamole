@@ -8,7 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('EndSession delegates and awards progression XP', () async {
     final _FakeSessionRepository sessionRepository = _FakeSessionRepository();
-    final _FakeProgressionRepository progressionRepository = _FakeProgressionRepository();
+    final _FakeProgressionRepository progressionRepository =
+        _FakeProgressionRepository();
     progressionRepository.progression = const ProgressionEntity(xp: 5);
 
     final DateTime endedAt = DateTime.utc(2026, 7, 5, 11, 0);
@@ -34,7 +35,8 @@ class _FakeSessionRepository implements ISessionRepository {
   }
 
   @override
-  Future<List<SessionEntity>> getSessionsForTask(String taskId) async => <SessionEntity>[];
+  Future<List<SessionEntity>> getSessionsForTask(String taskId) async =>
+      <SessionEntity>[];
 
   @override
   Future<void> pauseSession(String sessionId, DateTime pausedAt) async {}

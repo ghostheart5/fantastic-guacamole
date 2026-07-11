@@ -23,7 +23,8 @@ class _FakeSessionRepository implements ISessionRepository {
   Future<void> endSession(String sessionId, DateTime endedAt) async {}
 
   @override
-  Future<List<SessionEntity>> getSessionsForTask(String taskId) async => <SessionEntity>[];
+  Future<List<SessionEntity>> getSessionsForTask(String taskId) async =>
+      <SessionEntity>[];
 
   @override
   Future<void> pauseSession(String sessionId, DateTime pausedAt) async {}

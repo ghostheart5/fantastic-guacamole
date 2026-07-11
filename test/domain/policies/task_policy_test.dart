@@ -45,7 +45,11 @@ void main() {
     });
 
     test('canComplete returns true only when task is not completed', () {
-      final open = TaskEntity(id: 't5', title: 'Open', createdAt: DateTime.utc(2026, 7, 5));
+      final open = TaskEntity(
+        id: 't5',
+        title: 'Open',
+        createdAt: DateTime.utc(2026, 7, 5),
+      );
       final done = TaskEntity(
         id: 't6',
         title: 'Done',

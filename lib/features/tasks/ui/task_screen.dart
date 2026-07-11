@@ -1,6 +1,5 @@
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
-import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
@@ -48,7 +47,9 @@ class TaskScreen extends ConsumerWidget {
                 onTap: () => ref.read(appFlowProvider.notifier).toFlowmap(),
               ),
               const SizedBox(height: 12),
-              const _TaskQuickCapturePanel(),
+              _CreatorTaskRedirectPanel(
+                onTap: () => ref.read(appFlowProvider.notifier).toCreator(),
+              ),
               const SizedBox(height: 12),
               const _TrajectoryTutorialPanel(),
               const SizedBox(height: 14),
@@ -63,56 +64,10 @@ class TaskScreen extends ConsumerWidget {
   }
 }
 
-class _TaskQuickCapturePanel extends ConsumerStatefulWidget {
-  const _TaskQuickCapturePanel();
+class _CreatorTaskRedirectPanel extends StatelessWidget {
+  const _CreatorTaskRedirectPanel({required this.onTap});
 
-  @override
-  ConsumerState<_TaskQuickCapturePanel> createState() =>
-      _TaskQuickCapturePanelState();
-}
-
-class _TaskQuickCapturePanelState
-    extends ConsumerState<_TaskQuickCapturePanel> {
-  final TextEditingController _titleController = TextEditingController();
-  bool _isSubmitting = false;
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (_isSubmitting) {
-      return;
-    }
-    final String title = _titleController.text.trim();
-    if (title.isEmpty) {
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-    try {
-      await ref.read(taskActionsProvider).createQuickTask(title);
-      await ref.read(localMetricsAccumulatorProvider).recordTaskCreated();
-      ref.invalidate(tasksProvider);
-      ref.invalidate(goalProgressProvider);
-      ref
-          .read(tutorialControllerProvider)
-          .updateState('has_created_task', true);
-      _titleController.clear();
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Task created.')));
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
-  }
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +83,7 @@ class _TaskQuickCapturePanelState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           const Text(
-            'TASK QUICK CAPTURE',
+            'TASK CREATION',
             style: TextStyle(
               color: AppColors.neonCyan,
               fontSize: 10,
@@ -137,43 +92,20 @@ class _TaskQuickCapturePanelState
             ),
           ),
           const SizedBox(height: 8),
-          TutorialTarget(
-            id: 'tasks.title_input',
-            child: TextField(
-              controller: _titleController,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'Type a task title, e.g. Plan tomorrow',
-                hintStyle: const TextStyle(color: Colors.white38),
-                filled: true,
-                fillColor: const Color(0xFF0C1526),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              onChanged: (String value) {
-                ref
-                    .read(tutorialControllerProvider)
-                    .updateInput('task_title', value);
-              },
-              onSubmitted: (_) => _submit(),
-            ),
+          const Text(
+            'To keep creation consistent and avoid cross-module drift, new tasks are created in Creator only.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.35),
           ),
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: _isSubmitting ? null : _submit,
+              onPressed: onTap,
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.neonCyan,
                 foregroundColor: Colors.black,
               ),
-              child: Text(_isSubmitting ? 'ADDING...' : 'ADD TASK'),
+              child: const Text('OPEN CREATOR'),
             ),
           ),
         ],

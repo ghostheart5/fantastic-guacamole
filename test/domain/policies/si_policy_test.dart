@@ -23,20 +23,23 @@ void main() {
       expect(SiPolicy.shouldPushFocus(tired), isFalse);
     });
 
-    test('enforce simplifies action, caps focus minutes, and sets calm tone', () {
-      const decision = SiDecisionEntity(
-        rationale: 'Need simplification',
-        action: 'First step. Second step. Third step.',
-        shouldSimplify: true,
-        recommendedFocusMinutes: 30,
-      );
+    test(
+      'enforce simplifies action, caps focus minutes, and sets calm tone',
+      () {
+        const decision = SiDecisionEntity(
+          rationale: 'Need simplification',
+          action: 'First step. Second step. Third step.',
+          shouldSimplify: true,
+          recommendedFocusMinutes: 30,
+        );
 
-      final enforced = SiPolicy.enforce(decision);
+        final enforced = SiPolicy.enforce(decision);
 
-      expect(enforced.action, 'First step. Second step.');
-      expect(enforced.tone, 'calm');
-      expect(enforced.recommendedFocusMinutes, 15);
-    });
+        expect(enforced.action, 'First step. Second step.');
+        expect(enforced.tone, 'calm');
+        expect(enforced.recommendedFocusMinutes, 15);
+      },
+    );
 
     test('enforce leaves decision unchanged when shouldSimplify is false', () {
       const decision = SiDecisionEntity(
@@ -79,18 +82,21 @@ void main() {
       expect(enforced.action, 'One step. Two step.');
     });
 
-    test('enforce keeps focus minutes unchanged when already at or below cap', () {
-      const decision = SiDecisionEntity(
-        rationale: 'Focus minute cap false branch',
-        action: 'Simple action',
-        shouldSimplify: true,
-        recommendedFocusMinutes: 10,
-      );
+    test(
+      'enforce keeps focus minutes unchanged when already at or below cap',
+      () {
+        const decision = SiDecisionEntity(
+          rationale: 'Focus minute cap false branch',
+          action: 'Simple action',
+          shouldSimplify: true,
+          recommendedFocusMinutes: 10,
+        );
 
-      final enforced = SiPolicy.enforce(decision);
+        final enforced = SiPolicy.enforce(decision);
 
-      expect(enforced.recommendedFocusMinutes, 10);
-    });
+        expect(enforced.recommendedFocusMinutes, 10);
+      },
+    );
 
     test('blocks unsupported or unsafe claims', () {
       const unsafe = SiDecisionEntity(

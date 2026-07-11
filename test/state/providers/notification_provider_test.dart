@@ -9,22 +9,39 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('tracks unread notifications through read and delete actions', () async {
-    final _FakeNotificationRepository repository = _FakeNotificationRepository();
+    final _FakeNotificationRepository repository =
+        _FakeNotificationRepository();
     final ProviderContainer container = ProviderContainer(
-      overrides: [domainNotificationRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        domainNotificationRepositoryProvider.overrideWithValue(repository),
+      ],
     );
     addTearDown(container.dispose);
 
-    await container.read(notificationProvider.notifier).pushDecision('Prepare launch');
+    await container
+        .read(notificationProvider.notifier)
+        .pushDecision('Prepare launch');
 
-    final List<NotificationEntity> created = container.read(notificationProvider);
-    expect(created.where((NotificationEntity item) => item.title == 'Decision Alert'), isNotEmpty);
-    expect(container.read(unreadNotificationsProvider), greaterThanOrEqualTo(1));
+    final List<NotificationEntity> created = container.read(
+      notificationProvider,
+    );
+    expect(
+      created.where(
+        (NotificationEntity item) => item.title == 'Decision Alert',
+      ),
+      isNotEmpty,
+    );
+    expect(
+      container.read(unreadNotificationsProvider),
+      greaterThanOrEqualTo(1),
+    );
 
     final String id = created.first.id;
     await container.read(notificationProvider.notifier).markRead(id);
 
-    final List<NotificationEntity> afterRead = container.read(notificationProvider);
+    final List<NotificationEntity> afterRead = container.read(
+      notificationProvider,
+    );
     final NotificationEntity marked = afterRead.firstWhere(
       (NotificationEntity item) => item.id == id,
     );
@@ -32,51 +49,82 @@ void main() {
 
     await container.read(notificationProvider.notifier).delete(id);
     expect(
-      container.read(notificationProvider).where((NotificationEntity item) => item.id == id),
+      container
+          .read(notificationProvider)
+          .where((NotificationEntity item) => item.id == id),
       isEmpty,
     );
   });
 
-  test('keeps newly pushed notification when initial async load finishes late', () async {
-    final _SnapshotDelayedNotificationRepository repository =
-        _SnapshotDelayedNotificationRepository();
-    final ProviderContainer container = ProviderContainer(
-      overrides: [domainNotificationRepositoryProvider.overrideWithValue(repository)],
-    );
-    addTearDown(container.dispose);
+  test(
+    'keeps newly pushed notification when initial async load finishes late',
+    () async {
+      final _SnapshotDelayedNotificationRepository repository =
+          _SnapshotDelayedNotificationRepository();
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          domainNotificationRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
 
-    await container.read(notificationProvider.notifier).pushDecision('Lock sprint scope');
-    await Future<void>.delayed(const Duration(milliseconds: 70));
+      await container
+          .read(notificationProvider.notifier)
+          .pushDecision('Lock sprint scope');
+      await Future<void>.delayed(const Duration(milliseconds: 70));
 
-    final List<NotificationEntity> notifications = container.read(notificationProvider);
-    expect(notifications, hasLength(1));
-    expect(notifications.single.message, contains('Lock sprint scope'));
-  });
+      final List<NotificationEntity> notifications = container.read(
+        notificationProvider,
+      );
+      expect(notifications, hasLength(1));
+      expect(notifications.single.message, contains('Lock sprint scope'));
+    },
+  );
 
   test('push helper variants add expected notification titles', () async {
-    final _FakeNotificationRepository repository = _FakeNotificationRepository();
+    final _FakeNotificationRepository repository =
+        _FakeNotificationRepository();
     final ProviderContainer container = ProviderContainer(
-      overrides: [domainNotificationRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        domainNotificationRepositoryProvider.overrideWithValue(repository),
+      ],
     );
     addTearDown(container.dispose);
 
-    await container.read(notificationProvider.notifier).pushCompletionFeedback('Task X');
-    await container.read(notificationProvider.notifier).pushTaskSkipped('Task Y');
+    await container
+        .read(notificationProvider.notifier)
+        .pushCompletionFeedback('Task X');
+    await container
+        .read(notificationProvider.notifier)
+        .pushTaskSkipped('Task Y');
 
-    final List<NotificationEntity> notifications = container.read(notificationProvider);
+    final List<NotificationEntity> notifications = container.read(
+      notificationProvider,
+    );
     expect(notifications, hasLength(2));
-    expect(notifications.map((NotificationEntity item) => item.title), contains('Completion'));
-    expect(notifications.map((NotificationEntity item) => item.title), contains('Task Skipped'));
+    expect(
+      notifications.map((NotificationEntity item) => item.title),
+      contains('Completion'),
+    );
+    expect(
+      notifications.map((NotificationEntity item) => item.title),
+      contains('Task Skipped'),
+    );
   });
 
   test('clear removes all in-memory notifications', () async {
-    final _FakeNotificationRepository repository = _FakeNotificationRepository();
+    final _FakeNotificationRepository repository =
+        _FakeNotificationRepository();
     final ProviderContainer container = ProviderContainer(
-      overrides: [domainNotificationRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        domainNotificationRepositoryProvider.overrideWithValue(repository),
+      ],
     );
     addTearDown(container.dispose);
 
-    await container.read(notificationProvider.notifier).pushDecision('Reset target');
+    await container
+        .read(notificationProvider.notifier)
+        .pushDecision('Reset target');
     expect(container.read(notificationProvider), isNotEmpty);
 
     container.read(notificationProvider.notifier).clear();
@@ -85,7 +133,8 @@ void main() {
 }
 
 class _FakeNotificationRepository implements INotificationRepository {
-  final Map<String, NotificationEntity> _entries = <String, NotificationEntity>{};
+  final Map<String, NotificationEntity> _entries =
+      <String, NotificationEntity>{};
 
   @override
   Future<void> cancelNotification(String id) async {
@@ -110,7 +159,9 @@ class _FakeNotificationRepository implements INotificationRepository {
 
   @override
   Future<List<NotificationEntity>> getNotifications() async {
-    final List<NotificationEntity> notifications = _entries.values.toList(growable: false);
+    final List<NotificationEntity> notifications = _entries.values.toList(
+      growable: false,
+    );
     notifications.sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
     return notifications;
   }
@@ -137,8 +188,10 @@ class _FakeNotificationRepository implements INotificationRepository {
   }
 }
 
-class _SnapshotDelayedNotificationRepository implements INotificationRepository {
-  final Map<String, NotificationEntity> _entries = <String, NotificationEntity>{};
+class _SnapshotDelayedNotificationRepository
+    implements INotificationRepository {
+  final Map<String, NotificationEntity> _entries =
+      <String, NotificationEntity>{};
 
   @override
   Future<void> cancelNotification(String id) async {
@@ -163,7 +216,9 @@ class _SnapshotDelayedNotificationRepository implements INotificationRepository 
 
   @override
   Future<List<NotificationEntity>> getNotifications() async {
-    final List<NotificationEntity> snapshot = _entries.values.toList(growable: false);
+    final List<NotificationEntity> snapshot = _entries.values.toList(
+      growable: false,
+    );
     await Future<void>.delayed(const Duration(milliseconds: 40));
     snapshot.sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
     return snapshot;

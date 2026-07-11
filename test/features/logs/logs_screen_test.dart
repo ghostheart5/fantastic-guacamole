@@ -8,7 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('handles empty logs with helpful empty-state copy', (WidgetTester tester) async {
+  testWidgets('handles empty logs with helpful empty-state copy', (
+    WidgetTester tester,
+  ) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         profileProvider.overrideWith(_StaticProfileController.new),
@@ -40,5 +42,6 @@ class _StaticProfileController extends ProfileController {
 
 class _EmptyLogsController extends LogsController {
   @override
-  LogsState build() => const LogsState(entries: <LogEntryEntity>[], isLoading: false);
+  LogsState build() =>
+      const LogsState(entries: <LogEntryEntity>[], isLoading: false);
 }

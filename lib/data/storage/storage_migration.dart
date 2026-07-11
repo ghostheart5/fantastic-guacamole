@@ -56,7 +56,9 @@ class StorageMigration {
 
   static Future<void> _migrateV2() async {
     Logger.log('StorageMigration', 'V2: Cleaning old notification data');
-    final notifBox = await Hive.openBox<dynamic>(StorageKeys.notifications);
+    final Box<String> notifBox = Hive.isBoxOpen(StorageKeys.notifications)
+        ? Hive.box<String>(StorageKeys.notifications)
+        : await Hive.openBox<String>(StorageKeys.notifications);
     await notifBox.clear();
   }
 }

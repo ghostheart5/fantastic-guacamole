@@ -89,24 +89,45 @@ class DefaultAssistantIntentDetector implements AssistantIntentDetector {
       result = _intent('stress_support', 0.86, 'mental', text);
     } else if (_hasAny(text, <String>[
       'focus',
+      'attention',
+      'concentration',
+      'distracted',
+    ])) {
+      result = _intent('focus', 0.86, 'productivity', text);
+    } else if (_hasAny(text, <String>[
       'procrastination',
-      'deep work',
-      'time management',
+      'procrastinate',
+      'putting off',
+      'avoidance',
     ])) {
+      result = _intent('procrastination', 0.86, 'productivity', text);
+    } else if (_hasAny(text, <String>[
+      'habit',
+      'routine',
+      'habit building',
+      'build a habit',
+    ])) {
+      result = _intent('habit_building', 0.84, 'productivity', text);
+    } else if (_hasAny(text, <String>[
+      'goal recovery',
+      'off track',
+      'fell behind',
+      'get back on track',
+    ])) {
+      result = _intent('goal_recovery', 0.85, 'productivity', text);
+    } else if (_hasAny(text, <String>[
+      'future self',
+      'future me',
+      'future version',
+    ])) {
+      result = _intent('future_self', 0.83, 'life', text);
+    } else if (_hasAny(text, <String>['purpose', 'meaning', 'my why', 'life purpose'])) {
+      result = _intent('purpose', 0.83, 'life', text);
+    } else if (_hasAny(text, <String>['deep work', 'time management', 'task planning', 'productivity'])) {
       result = _intent('productivity', 0.86, 'productivity', text);
-    } else if (_hasAny(text, <String>[
-      'confidence',
-      'motivation',
-      'discipline',
-    ])) {
+    } else if (_hasAny(text, <String>['confidence', 'motivation', 'discipline'])) {
       result = _intent('mindset', 0.84, 'mental', text);
-    } else if (_hasAny(text, <String>[
-      'relationship',
-      'career',
-      'learn',
-      'growth',
-      'decision',
-    ])) {
+    } else if (_hasAny(text, <String>['relationship', 'career', 'learn', 'growth', 'decision'])) {
       result = _intent('life', 0.82, 'life', text);
     }
 

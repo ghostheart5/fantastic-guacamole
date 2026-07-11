@@ -1,4 +1,5 @@
 // Package imports.
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
@@ -15,9 +16,12 @@ import 'package:fantastic_guacamole/data/repositories/paywall_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/plan_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/profile_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/progression_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/project_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/routine_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/session_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/settings_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/si_engine_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/subtask_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/task_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/theme_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/timeline_repository.dart';
@@ -30,10 +34,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 TaskRepository taskRepository(Ref ref) {
   return TaskRepository(
-    storage: HiveStorage<String>(
-      HiveBoxes.tasks,
-      hive: ref.read(hiveStoreProvider),
-    ),
+    storage: HiveStorage<String>(HiveBoxes.tasks, hive: ref.read(hiveStoreProvider)),
   );
 }
 
@@ -42,23 +43,16 @@ final taskRepositoryProvider = Provider<TaskRepository>(taskRepository);
 final flowmapRepositoryProvider = Provider<FlowmapRepository>((Ref ref) {
   return FlowmapRepository.secure(
     ref.read(secureStoreProvider),
-    legacyStorage: HiveStorage<String>(
-      HiveBoxes.flowmap,
-      hive: ref.read(hiveStoreProvider),
-    ),
+    legacyStorage: HiveStorage<String>(HiveBoxes.flowmap, hive: ref.read(hiveStoreProvider)),
   );
 });
 
 final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
-  return GoalRepository(
-    HiveStorage<String>(HiveBoxes.goals, hive: ref.read(hiveStoreProvider)),
-  );
+  return GoalRepository(HiveStorage<String>(HiveBoxes.goals, hive: ref.read(hiveStoreProvider)));
 });
 
 final habitRepositoryProvider = Provider<HabitRepository>((Ref ref) {
-  return HabitRepository(
-    HiveStorage<String>(HiveBoxes.habits, hive: ref.read(hiveStoreProvider)),
-  );
+  return HabitRepository(HiveStorage<String>(HiveBoxes.habits, hive: ref.read(hiveStoreProvider)));
 });
 
 final insightRepositoryProvider = Provider<InsightRepository>((Ref ref) {
@@ -75,21 +69,31 @@ final memoryRepositoryProvider = Provider<MemoryRepository>((Ref ref) {
 
 final planRepositoryProvider = Provider<PlanRepository>((Ref ref) {
   return PlanRepository(
-    HiveStorage<String>(
-      HiveBoxes.dailyPlans,
-      hive: ref.read(hiveStoreProvider),
-    ),
+    HiveStorage<String>(HiveBoxes.dailyPlans, hive: ref.read(hiveStoreProvider)),
   );
 });
 
-final progressionRepositoryProvider = Provider<ProgressionRepository>((
-  Ref ref,
-) {
+final projectRepositoryProvider = Provider<ProjectRepository>((Ref ref) {
+  return ProjectRepository(
+    HiveStorage<String>(HiveBoxes.projects, hive: ref.read(hiveStoreProvider)),
+  );
+});
+
+final routineRepositoryProvider = Provider<RoutineRepository>((Ref ref) {
+  return RoutineRepository(
+    HiveStorage<String>(HiveBoxes.routines, hive: ref.read(hiveStoreProvider)),
+  );
+});
+
+final subtaskRepositoryProvider = Provider<SubtaskRepository>((Ref ref) {
+  return SubtaskRepository(
+    HiveStorage<String>(HiveBoxes.subtasks, hive: ref.read(hiveStoreProvider)),
+  );
+});
+
+final progressionRepositoryProvider = Provider<ProgressionRepository>((Ref ref) {
   return ProgressionRepository(
-    HiveStorage<String>(
-      HiveBoxes.progression,
-      hive: ref.read(hiveStoreProvider),
-    ),
+    HiveStorage<String>(HiveBoxes.progression, hive: ref.read(hiveStoreProvider)),
   );
 });
 
@@ -97,9 +101,7 @@ final notificationSchedulerProvider = Provider<NotificationScheduler>(
   (Ref ref) => NotificationScheduler(),
 );
 
-final notificationsRepositoryProvider = Provider<NotificationsRepository>((
-  Ref ref,
-) {
+final notificationsRepositoryProvider = Provider<NotificationsRepository>((Ref ref) {
   return NotificationsRepository(
     ref.read(notificationSchedulerProvider),
     ref.read(secureStoreProvider),
@@ -107,14 +109,17 @@ final notificationsRepositoryProvider = Provider<NotificationsRepository>((
 });
 
 final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+  final bool forceLocalTestingPaywall =
+      Env.isMockLoginEnabled || Env.isMockMode || Env.isPaywallDisabled || Env.hasTesterFullAccess;
+
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android && !forceLocalTestingPaywall) {
     final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
       secureStore: ref.read(secureStoreProvider),
     );
     ref.onDispose(repository.dispose);
     return repository;
   }
-  return PaywallRepository();
+  return PaywallRepository(testingModeOverride: forceLocalTestingPaywall);
 });
 
 final siEngineRepositoryProvider = Provider<SiEngineRepository>((Ref ref) {

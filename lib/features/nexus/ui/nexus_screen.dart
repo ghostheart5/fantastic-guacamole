@@ -1,14 +1,11 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
-import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
+import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -49,24 +46,14 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
 
   @override
   Widget build(BuildContext context) {
-    final NexusScreenModel? model = ref
-        .watch(nexusScreenModelProvider)
-        .asData
-        ?.value;
-    final ProfileState profile =
-        model?.aggregation.profile ?? ref.watch(profileProvider);
-    final double energy =
-        model?.aggregation.siState.energy ?? ref.watch(energyProvider);
-    final siState = model?.aggregation.siState;
-    final double fatigue =
-        siState?.fatigue ?? ref.watch(siStateProvider).fatigue;
-    final int completedToday =
-        siState?.completedToday ?? ref.watch(siStateProvider).completedToday;
-    final fallbackTrajectory = ref.watch(trajectorySummaryProvider);
-    final trajectory = model?.aggregation.trajectory;
-    final double momentum = trajectory?.momentum ?? fallbackTrajectory.momentum;
-    final int completedTasks =
-        trajectory?.completedTasks ?? fallbackTrajectory.completedTasks;
+    final ProfileState profile = ref.watch(profileProvider);
+    final siState = ref.watch(siStateProvider);
+    final double energy = siState.energy;
+    final double fatigue = siState.fatigue;
+    final int completedToday = siState.completedToday;
+    final trajectory = ref.watch(trajectorySummaryProvider);
+    final double momentum = trajectory.momentum;
+    final int completedTasks = trajectory.completedTasks;
 
     final String consistencySignal = momentum >= 0.65
         ? 'High'

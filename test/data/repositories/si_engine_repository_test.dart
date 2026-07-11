@@ -15,15 +15,22 @@ void main() {
   });
 
   test('returns null when persisted SI engine state is corrupt', () async {
-    await SecureStore(backend: backend).writeString('si_engine_state_v1', '{not-json');
+    await SecureStore(
+      backend: backend,
+    ).writeString('si_engine_state_v1', '{not-json');
 
-    final Map<String, dynamic>? state = await Logger.withMutedErrors(() => repository.loadState());
+    final Map<String, dynamic>? state = await Logger.withMutedErrors(
+      () => repository.loadState(),
+    );
 
     expect(state, isNull);
   });
 
   test('loads dynamic map state using string keys', () async {
-    await repository.saveState(<String, dynamic>{'mode': 'adaptive', 'score': 7});
+    await repository.saveState(<String, dynamic>{
+      'mode': 'adaptive',
+      'score': 7,
+    });
 
     final Map<String, dynamic>? state = await repository.loadState();
 

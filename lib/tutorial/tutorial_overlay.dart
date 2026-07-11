@@ -8,11 +8,7 @@ import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:flutter/material.dart';
 
 class TutorialHost extends StatefulWidget {
-  const TutorialHost({
-    super.key,
-    required this.controller,
-    required this.child,
-  });
+  const TutorialHost({super.key, required this.controller, required this.child});
 
   final TutorialController controller;
   final Widget child;
@@ -81,7 +77,7 @@ class _TutorialOverlay extends StatelessWidget {
                   controller.reportEvent('longPress:${step.targetId}');
                 }
               },
-              child: CustomPaint(painter: _TutorialPainter(target: target)),
+              child: _PulsePaint(target: target),
             ),
           ),
           _TooltipCard(step: step, target: target, controller: controller),
@@ -91,10 +87,48 @@ class _TutorialOverlay extends StatelessWidget {
   }
 }
 
-class _TutorialPainter extends CustomPainter {
-  const _TutorialPainter({required this.target});
+class _PulsePaint extends StatefulWidget {
+  const _PulsePaint({required this.target});
 
   final Rect? target;
+
+  @override
+  State<_PulsePaint> createState() => _PulsePaintState();
+}
+
+class _PulsePaintState extends State<_PulsePaint> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat(reverse: false);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return CustomPaint(
+          painter: _TutorialPainter(
+            target: widget.target,
+            pulse: Curves.easeOut.transform(_controller.value),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TutorialPainter extends CustomPainter {
+  const _TutorialPainter({required this.target, required this.pulse});
+
+  final Rect? target;
+  final double pulse;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -107,8 +141,7 @@ class _TutorialPainter extends CustomPainter {
     }
 
     final Rect hole = target!.inflate(8);
-    final Path cutout = Path()
-      ..addRRect(RRect.fromRectAndRadius(hole, const Radius.circular(16)));
+    final Path cutout = Path()..addRRect(RRect.fromRectAndRadius(hole, const Radius.circular(16)));
 
     canvas.drawPath(Path.combine(PathOperation.difference, full, cutout), dim);
 
@@ -117,24 +150,28 @@ class _TutorialPainter extends CustomPainter {
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
+    final double pulseRadius = 16 + (pulse * 18);
+    final Paint pulsePaint = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.18 * (1 - pulse))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
     canvas.drawRRect(
-      RRect.fromRectAndRadius(hole, const Radius.circular(16)),
-      border,
+      RRect.fromRectAndRadius(hole.inflate(pulseRadius), const Radius.circular(24)),
+      pulsePaint,
     );
+
+    canvas.drawRRect(RRect.fromRectAndRadius(hole, const Radius.circular(16)), border);
   }
 
   @override
   bool shouldRepaint(covariant _TutorialPainter oldDelegate) {
-    return oldDelegate.target != target;
+    return oldDelegate.target != target || oldDelegate.pulse != pulse;
   }
 }
 
 class _TooltipCard extends StatelessWidget {
-  const _TooltipCard({
-    required this.step,
-    required this.target,
-    required this.controller,
-  });
+  const _TooltipCard({required this.step, required this.target, required this.controller});
 
   final TutorialStep step;
   final Rect? target;
@@ -143,19 +180,16 @@ class _TooltipCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Size screen = MediaQuery.sizeOf(context);
-    final double width = math.min(screen.width - 32, 360);
+    final double width = math.min(screen.width - 32, 320);
 
     double top = 96;
     double left = 16;
 
     if (target != null) {
-      top = target!.bottom + 18;
-      if (top + 220 > screen.height) top = target!.top - 220;
-      top = top.clamp(24, screen.height - 240);
-      left = (target!.center.dx - width / 2).clamp(
-        16,
-        screen.width - width - 16,
-      );
+      top = target!.bottom + 14;
+      if (top + 190 > screen.height) top = target!.top - 190;
+      top = top.clamp(24, screen.height - 206);
+      left = (target!.center.dx - width / 2).clamp(16, screen.width - width - 16);
     }
 
     return Positioned(
@@ -166,9 +200,7 @@ class _TooltipCard extends StatelessWidget {
         color: Colors.transparent,
         child: Card(
           elevation: 12,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: DefaultTextStyle(
@@ -177,28 +209,16 @@ class _TooltipCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(
-                    step.title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  Text(step.title, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Text(step.body),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Row(
                     children: <Widget>[
-                      TextButton(
-                        onPressed: controller.pause,
-                        child: const Text('Pause'),
-                      ),
-                      TextButton(
-                        onPressed: controller.skip,
-                        child: const Text('Skip'),
-                      ),
+                      TextButton(onPressed: controller.pause, child: const Text('Pause')),
+                      TextButton(onPressed: controller.skip, child: const Text('Skip')),
                       const Spacer(),
-                      FilledButton(
-                        onPressed: controller.next,
-                        child: const Text('Next'),
-                      ),
+                      FilledButton(onPressed: controller.next, child: const Text('Next Tip')),
                     ],
                   ),
                 ],

@@ -13,9 +13,14 @@ void main() {
   late OfflineSyncQueueService service;
 
   setUp(() async {
-    hiveDirectory = await Directory.systemTemp.createTemp('chronospark_offline_queue_');
+    hiveDirectory = await Directory.systemTemp.createTemp(
+      'chronospark_offline_queue_',
+    );
     Hive.init(hiveDirectory.path);
-    queueStorage = HiveStorage<String>('offline_sync_queue_box', hive: _TestHiveStore());
+    queueStorage = HiveStorage<String>(
+      'offline_sync_queue_box',
+      hive: _TestHiveStore(),
+    );
     service = OfflineSyncQueueService(queueStorage);
   });
 
@@ -28,8 +33,14 @@ void main() {
   });
 
   test('enqueue dedupes by dedupeKey', () async {
-    await service.enqueue(actionType: 'sync_to_cloud', dedupeKey: 'sync_to_cloud');
-    await service.enqueue(actionType: 'sync_to_cloud', dedupeKey: 'sync_to_cloud');
+    await service.enqueue(
+      actionType: 'sync_to_cloud',
+      dedupeKey: 'sync_to_cloud',
+    );
+    await service.enqueue(
+      actionType: 'sync_to_cloud',
+      dedupeKey: 'sync_to_cloud',
+    );
 
     final List<OfflineSyncQueueItem> queue = await service.loadQueue();
     expect(queue, hasLength(1));
@@ -37,7 +48,10 @@ void main() {
   });
 
   test('replay updates attempts and removes successful entries', () async {
-    await service.enqueue(actionType: 'sync_to_cloud', dedupeKey: 'sync_to_cloud');
+    await service.enqueue(
+      actionType: 'sync_to_cloud',
+      dedupeKey: 'sync_to_cloud',
+    );
 
     final int processed = await service.replay(
       executor: (OfflineSyncQueueItem item) async {
@@ -52,7 +66,10 @@ void main() {
   });
 
   test('replay keeps failed entries and increments attempts', () async {
-    await service.enqueue(actionType: 'sync_to_cloud', dedupeKey: 'sync_to_cloud');
+    await service.enqueue(
+      actionType: 'sync_to_cloud',
+      dedupeKey: 'sync_to_cloud',
+    );
 
     final int processed = await service.replay(executor: (_) async => false);
 
@@ -64,7 +81,10 @@ void main() {
   });
 
   test('replay respects maxItems', () async {
-    await service.enqueue(actionType: 'sync_to_cloud', dedupeKey: 'sync_to_cloud_1');
+    await service.enqueue(
+      actionType: 'sync_to_cloud',
+      dedupeKey: 'sync_to_cloud_1',
+    );
     await service.enqueue(actionType: 'sync_delta', dedupeKey: 'sync_delta_1');
 
     int executions = 0;

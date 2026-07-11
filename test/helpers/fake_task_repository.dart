@@ -4,7 +4,8 @@ import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 class FakeTaskRepository implements ITaskRepository {
   FakeTaskRepository([List<TaskEntity>? seed])
     : _tasks = <String, TaskEntity>{
-        for (final TaskEntity task in (seed ?? const <TaskEntity>[])) task.id: task,
+        for (final TaskEntity task in (seed ?? const <TaskEntity>[]))
+          task.id: task,
       };
 
   final Map<String, TaskEntity> _tasks;

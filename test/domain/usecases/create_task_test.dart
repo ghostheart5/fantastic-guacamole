@@ -15,19 +15,22 @@ void main() {
       taskRepository = _FakeTaskRepository();
     });
 
-    test('creates a valid task with required title and sends it to repository', () async {
-      final TaskEntity task = TaskEntity(
-        id: 'task-1',
-        title: 'Ship feature',
-        createdAt: DateTime.utc(2026, 7, 5),
-      );
+    test(
+      'creates a valid task with required title and sends it to repository',
+      () async {
+        final TaskEntity task = TaskEntity(
+          id: 'task-1',
+          title: 'Ship feature',
+          createdAt: DateTime.utc(2026, 7, 5),
+        );
 
-      await CreateTask(taskRepository).call(task);
+        await CreateTask(taskRepository).call(task);
 
-      expect((await taskRepository.getAllTasks()).single.id, 'task-1');
-      expect(taskRepository.saveCalls, 1);
-      expect(taskRepository.lastSavedTask?.id, 'task-1');
-    });
+        expect((await taskRepository.getAllTasks()).single.id, 'task-1');
+        expect(taskRepository.saveCalls, 1);
+        expect(taskRepository.lastSavedTask?.id, 'task-1');
+      },
+    );
 
     test('throws for invalid task', () async {
       final TaskEntity invalid = TaskEntity(
@@ -36,7 +39,10 @@ void main() {
         createdAt: DateTime.utc(2026, 7, 5),
       );
 
-      await expectLater(() => CreateTask(taskRepository).call(invalid), throwsException);
+      await expectLater(
+        () => CreateTask(taskRepository).call(invalid),
+        throwsException,
+      );
     });
 
     test('applies default priority and completion status', () async {
@@ -48,7 +54,9 @@ void main() {
 
       await CreateTask(taskRepository).call(task);
 
-      final TaskEntity? saved = await taskRepository.getTaskById('task-defaults');
+      final TaskEntity? saved = await taskRepository.getTaskById(
+        'task-defaults',
+      );
       expect(saved?.priority, 3);
       expect(saved?.isCompleted, isFalse);
     });
@@ -79,13 +87,17 @@ void main() {
         createdAt: DateTime.utc(2026, 7, 5),
       );
 
-      await expectLater(() => CreateTask(failingRepository).call(task), throwsA(isA<StateError>()));
+      await expectLater(
+        () => CreateTask(failingRepository).call(task),
+        throwsA(isA<StateError>()),
+      );
     });
   });
 }
 
 class _StubGenerateSiDecision extends GenerateSiDecision {
-  _StubGenerateSiDecision(this._decision) : super(_FakeTaskRepository(), _FakeSiRepository());
+  _StubGenerateSiDecision(this._decision)
+    : super(_FakeTaskRepository(), _FakeSiRepository());
 
   final SiDecisionEntity _decision;
 

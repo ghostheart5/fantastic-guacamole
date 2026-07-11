@@ -3,7 +3,7 @@ import 'package:fantastic_guacamole/app/navigation_shell.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
-import 'package:fantastic_guacamole/onboarding/onboarding_screen.dart';
+import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';

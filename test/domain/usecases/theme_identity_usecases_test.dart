@@ -21,7 +21,11 @@ void main() {
     test('get/save/switch theme use the repository contract', () async {
       expect(await GetCurrentTheme(repository).call(), isNull);
 
-      const AppThemeEntity dark = AppThemeEntity(id: 'dark', name: 'Dark', isDark: true);
+      const AppThemeEntity dark = AppThemeEntity(
+        id: 'dark',
+        name: 'Dark',
+        isDark: true,
+      );
       await SaveTheme(repository).call(dark);
       expect((await GetCurrentTheme(repository).call())?.id, 'dark');
 
@@ -32,7 +36,9 @@ void main() {
         containsAll(<String>['dark', 'light']),
       );
 
-      final AppThemeEntity switched = await SwitchTheme(repository).call('light');
+      final AppThemeEntity switched = await SwitchTheme(
+        repository,
+      ).call('light');
       expect(switched.id, 'light');
       expect((await GetCurrentTheme(repository).call())?.id, 'light');
     });
@@ -55,7 +61,9 @@ void main() {
       );
       await SaveIdentityProfile(repository).call(profile);
 
-      final IdentityProfileEntity? restored = await GetIdentityProfile(repository).call();
+      final IdentityProfileEntity? restored = await GetIdentityProfile(
+        repository,
+      ).call();
       expect(restored, isNotNull);
       expect(restored!.disciplineIdentity, 0.4);
       expect(restored.focusIdentity, 0.6);

@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -112,9 +112,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         .read(intelligenceStateProvider)
         .auth
         .isAuthenticated;
+    final routes = ref.read(routeSurfaceProvider);
     final GoRouter? router = GoRouter.maybeOf(context);
     if (router != null) {
-      context.go(isAuthenticated ? RoutePaths.home : RoutePaths.login);
+      context.go(isAuthenticated ? '/' : routes.login);
     }
   }
 

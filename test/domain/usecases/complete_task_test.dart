@@ -20,25 +20,41 @@ void main() {
       siRepository = _FakeSiRepository();
     });
 
-    test('completes incomplete task and triggers progression + SI path', () async {
-      await taskRepository.saveTask(
-        TaskEntity(id: 'task-1', title: 'Complete report', createdAt: DateTime.utc(2026, 7, 5)),
-      );
-      progressionRepository.progression = const ProgressionEntity(xp: 0);
-      siRepository.state = SiStateEntity(energy: 0.7, focus: 0.7, fatigue: 0.3);
+    test(
+      'completes incomplete task and triggers progression + SI path',
+      () async {
+        await taskRepository.saveTask(
+          TaskEntity(
+            id: 'task-1',
+            title: 'Complete report',
+            createdAt: DateTime.utc(2026, 7, 5),
+          ),
+        );
+        progressionRepository.progression = const ProgressionEntity(xp: 0);
+        siRepository.state = SiStateEntity(
+          energy: 0.7,
+          focus: 0.7,
+          fatigue: 0.3,
+        );
 
-      await CompleteTask(
-        taskRepository,
-        progressionRepo: progressionRepository,
-        siRepo: siRepository,
-      ).call('task-1');
+        await CompleteTask(
+          taskRepository,
+          progressionRepo: progressionRepository,
+          siRepo: siRepository,
+        ).call('task-1');
 
-      final TaskEntity? completed = await taskRepository.getTaskById('task-1');
-      expect(completed?.isCompleted, isTrue);
-      expect(completed?.completedAt, isNotNull);
-      expect(progressionRepository.progression?.xp, 10);
-      expect(siRepository.savedStates.single.confidence, closeTo(0.55, 0.0001));
-    });
+        final TaskEntity? completed = await taskRepository.getTaskById(
+          'task-1',
+        );
+        expect(completed?.isCompleted, isTrue);
+        expect(completed?.completedAt, isNotNull);
+        expect(progressionRepository.progression?.xp, 10);
+        expect(
+          siRepository.savedStates.single.confidence,
+          closeTo(0.55, 0.0001),
+        );
+      },
+    );
 
     test('creates next recurring occurrence', () async {
       await taskRepository.saveTask(
@@ -54,7 +70,10 @@ void main() {
 
       final List<TaskEntity> tasks = await taskRepository.getAllTasks();
       expect(tasks, hasLength(2));
-      expect(tasks.where((TaskEntity t) => t.id != 'task-recur').single.isCompleted, isFalse);
+      expect(
+        tasks.where((TaskEntity t) => t.id != 'task-recur').single.isCompleted,
+        isFalse,
+      );
     });
 
     test('handles missing task ID', () async {

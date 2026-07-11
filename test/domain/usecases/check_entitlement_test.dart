@@ -7,17 +7,20 @@ import 'package:fantastic_guacamole/domain/usecases/check_entitlement.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('CheckEntitlement forwards featureId and returns repository entitlement', () async {
-    final _FakePaywallRepository repository = _FakePaywallRepository();
+  test(
+    'CheckEntitlement forwards featureId and returns repository entitlement',
+    () async {
+      final _FakePaywallRepository repository = _FakePaywallRepository();
 
-    final Entitlement entitlement = await CheckEntitlement(
-      repository,
-    ).call(featureId: 'si_console');
+      final Entitlement entitlement = await CheckEntitlement(
+        repository,
+      ).call(featureId: 'si_console');
 
-    expect(repository.lastFeatureId, 'si_console');
-    expect(entitlement.featureId, 'si_console');
-    expect(entitlement.isEntitled, isTrue);
-  });
+      expect(repository.lastFeatureId, 'si_console');
+      expect(entitlement.featureId, 'si_console');
+      expect(entitlement.isEntitled, isTrue);
+    },
+  );
 }
 
 class _FakePaywallRepository implements IPaywallRepository {
@@ -26,7 +29,11 @@ class _FakePaywallRepository implements IPaywallRepository {
   @override
   Future<Entitlement> checkEntitlement({String? featureId}) async {
     lastFeatureId = featureId;
-    return Entitlement(featureId: featureId ?? 'premium', isEntitled: true, source: 'test');
+    return Entitlement(
+      featureId: featureId ?? 'premium',
+      isEntitled: true,
+      source: 'test',
+    );
   }
 
   @override

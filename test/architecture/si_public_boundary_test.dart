@@ -27,7 +27,9 @@ void main() {
       'package:fantastic_guacamole/engine/si/synthetic_intelligence_engine.dart',
     };
 
-    final RegExp importPattern = RegExp("package:fantastic_guacamole/engine/si/[^'\\\"]+");
+    final RegExp importPattern = RegExp(
+      "package:fantastic_guacamole/engine/si/[^'\\\"]+",
+    );
     final List<String> violations = <String>[];
 
     for (final FileSystemEntity entity in libDir.listSync(recursive: true)) {

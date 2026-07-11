@@ -61,8 +61,20 @@ void main() {
 
       final List<TimeBlock> plan = service.generateDayPlan(
         tasks: const <Task>[
-          Task(id: 'low', title: 'Low', priority: 1, difficulty: 1, energyRequired: 1),
-          Task(id: 'high', title: 'High', priority: 5, difficulty: 3, energyRequired: 3),
+          Task(
+            id: 'low',
+            title: 'Low',
+            priority: 1,
+            difficulty: 1,
+            energyRequired: 1,
+          ),
+          Task(
+            id: 'high',
+            title: 'High',
+            priority: 5,
+            difficulty: 3,
+            energyRequired: 3,
+          ),
         ],
         startTime: start,
       );
@@ -72,37 +84,44 @@ void main() {
       expect(plan.first.end.isBefore(plan[1].start), isTrue);
     });
 
-    test('low energy reduces workload intensity and favors lower-energy tasks', () {
-      final CalendarService service = CalendarService();
-      final DateTime start = DateTime.utc(2026, 7, 5, 9);
+    test(
+      'low energy reduces workload intensity and favors lower-energy tasks',
+      () {
+        final CalendarService service = CalendarService();
+        final DateTime start = DateTime.utc(2026, 7, 5, 9);
 
-      final List<TimeBlock> lowEnergyPlan = service.generateAdaptivePlan(
-        tasks: const <Task>[
-          Task(
-            id: 'overwhelm',
-            title: 'Hard deep-work task',
-            priority: 4,
-            difficulty: 5,
-            energyRequired: 5,
-          ),
-          Task(
-            id: 'gentle',
-            title: 'Low-friction setup task',
-            priority: 3,
-            difficulty: 1,
-            energyRequired: 1,
-          ),
-        ],
-        energy: 0.2,
-        startTime: start,
-      );
+        final List<TimeBlock> lowEnergyPlan = service.generateAdaptivePlan(
+          tasks: const <Task>[
+            Task(
+              id: 'overwhelm',
+              title: 'Hard deep-work task',
+              priority: 4,
+              difficulty: 5,
+              energyRequired: 5,
+            ),
+            Task(
+              id: 'gentle',
+              title: 'Low-friction setup task',
+              priority: 3,
+              difficulty: 1,
+              energyRequired: 1,
+            ),
+          ],
+          energy: 0.2,
+          startTime: start,
+        );
 
-      expect(lowEnergyPlan.first.taskId, 'gentle');
-      final Duration firstDuration = lowEnergyPlan.first.end.difference(lowEnergyPlan.first.start);
-      expect(firstDuration.inMinutes, greaterThanOrEqualTo(18));
-      final Duration between = lowEnergyPlan[1].start.difference(lowEnergyPlan.first.end);
-      expect(between.inMinutes, 15);
-    });
+        expect(lowEnergyPlan.first.taskId, 'gentle');
+        final Duration firstDuration = lowEnergyPlan.first.end.difference(
+          lowEnergyPlan.first.start,
+        );
+        expect(firstDuration.inMinutes, greaterThanOrEqualTo(18));
+        final Duration between = lowEnergyPlan[1].start.difference(
+          lowEnergyPlan.first.end,
+        );
+        expect(between.inMinutes, 15);
+      },
+    );
 
     test('calendar service rejects overlapping time blocks', () {
       final CalendarService service = CalendarService();
@@ -134,50 +153,69 @@ void main() {
       );
     });
 
-    test('session scoring returns bounded quality, expected XP and feedback tiers', () {
-      final SessionScoringEngine engine = SessionScoringEngine();
+    test(
+      'session scoring returns bounded quality, expected XP and feedback tiers',
+      () {
+        final SessionScoringEngine engine = SessionScoringEngine();
 
-      final fast = engine.calculate(seconds: 30, energy: 0.6, taskPriority: 3);
-      final strong = engine.calculate(seconds: 300, energy: 0.7, taskPriority: 5);
+        final fast = engine.calculate(
+          seconds: 30,
+          energy: 0.6,
+          taskPriority: 3,
+        );
+        final strong = engine.calculate(
+          seconds: 300,
+          energy: 0.7,
+          taskPriority: 5,
+        );
 
-      expect(fast.xp, ProgressionPolicy.sessionXp);
-      expect(strong.xp, ProgressionPolicy.sessionXp);
-      expect(fast.quality, inInclusiveRange(0.0, 1.0));
-      expect(strong.quality, inInclusiveRange(0.0, 1.0));
-      expect(strong.feedback.toLowerCase(), contains('excellent'));
-      expect(fast.feedback, isNotEmpty);
-    });
+        expect(fast.xp, ProgressionPolicy.sessionXp);
+        expect(strong.xp, ProgressionPolicy.sessionXp);
+        expect(fast.quality, inInclusiveRange(0.0, 1.0));
+        expect(strong.quality, inInclusiveRange(0.0, 1.0));
+        expect(strong.feedback.toLowerCase(), contains('excellent'));
+        expect(fast.feedback, isNotEmpty);
+      },
+    );
 
-    test('task ranker switches to ease-first mode when overwhelm avoidance is enabled', () {
-      final List<TaskEntity> tasks = <TaskEntity>[
-        TaskEntity(
-          id: 'hard',
-          title: 'Hard task',
-          createdAt: DateTime.utc(2026, 7, 5),
-          priority: 5,
-          difficulty: 5,
-          energyRequired: 5,
-        ),
-        TaskEntity(
-          id: 'easy',
-          title: 'Easy task',
-          createdAt: DateTime.utc(2026, 7, 5),
-          priority: 1,
-          difficulty: 1,
-          energyRequired: 1,
-        ),
-      ];
+    test(
+      'task ranker switches to ease-first mode when overwhelm avoidance is enabled',
+      () {
+        final List<TaskEntity> tasks = <TaskEntity>[
+          TaskEntity(
+            id: 'hard',
+            title: 'Hard task',
+            createdAt: DateTime.utc(2026, 7, 5),
+            priority: 5,
+            difficulty: 5,
+            energyRequired: 5,
+          ),
+          TaskEntity(
+            id: 'easy',
+            title: 'Easy task',
+            createdAt: DateTime.utc(2026, 7, 5),
+            priority: 1,
+            difficulty: 1,
+            energyRequired: 1,
+          ),
+        ];
 
-      final List<RankedTask> ranked = const TaskRanker().rank(
-        tasks,
-        learning: const LearningState(),
-        energy: 0.3,
-        fatigue: 0.8,
-        siState: SiStateEntity(energy: 0.3, focus: 0.2, fatigue: 0.8, avoidOverwhelm: true),
-      );
+        final List<RankedTask> ranked = const TaskRanker().rank(
+          tasks,
+          learning: const LearningState(),
+          energy: 0.3,
+          fatigue: 0.8,
+          siState: SiStateEntity(
+            energy: 0.3,
+            focus: 0.2,
+            fatigue: 0.8,
+            avoidOverwhelm: true,
+          ),
+        );
 
-      expect(ranked.first.task.id, 'easy');
-      expect(ranked.last.task.id, 'hard');
-    });
+        expect(ranked.first.task.id, 'easy');
+        expect(ranked.last.task.id, 'hard');
+      },
+    );
   });
 }

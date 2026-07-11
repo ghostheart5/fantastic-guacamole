@@ -17,7 +17,9 @@ void main() {
   });
 
   test('applySnapshot overrides values for local runtime usage', () async {
-    final service = RemoteConfigService(initialValues: const <String, Object?>{'flag_a': false});
+    final service = RemoteConfigService(
+      initialValues: const <String, Object?>{'flag_a': false},
+    );
 
     service.applySnapshot(<String, Object?>{'flag_a': true, 'bucket_demo': 7});
 

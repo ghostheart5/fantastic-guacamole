@@ -49,3 +49,6 @@ SI engine facade:
 - engine/si/si_engine_service.dart
 - engine/si/si_engine.dart
 - engine/si/synthetic_intelligence_engine.dart
+
+SI Console audit checklist:
+- ../SI_CONSOLE_AUDIT.md
