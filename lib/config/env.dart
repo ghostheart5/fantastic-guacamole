@@ -21,7 +21,7 @@ abstract final class Env {
   );
   static const bool enableAnalytics = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_ANALYTICS',
-    defaultValue: false,
+    defaultValue: true,
   );
   static const bool enableMockLogin = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_MOCK_LOGIN',

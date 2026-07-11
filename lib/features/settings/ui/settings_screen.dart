@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
-import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart'
+    as extended_domain;
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
@@ -30,6 +32,13 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(extended_domain.extendedDomainBootstrapProvider);
+    final int extendedSettingsCount = ref
+        .watch(extended_domain.appSettingsProvider)
+        .length;
+    final int legalPoliciesCount = ref
+        .watch(extended_domain.privacyPoliciesProvider)
+        .length;
     final routes = ref.watch(routeSurfaceProvider);
     final soundEnabled = ref.watch(soundEnabledProvider);
     final access = ref.watch(appAccessProvider);
@@ -181,6 +190,8 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               const _ReflectionReminderSection(),
+              const SizedBox(height: 16),
+              const _ReminderAutomationSection(),
               if (reflectionTutorialEnabled) ...[
                 const SizedBox(height: 12),
                 const _DailyReflectionTutorialPanel(),
@@ -273,9 +284,15 @@ class SettingsScreen extends ConsumerWidget {
                           ? 'Enabled'
                           : 'Disabled',
                     ),
+                    _NeonStatusTile(
+                      title: 'Extended Settings',
+                      subtitle: '$extendedSettingsCount loaded',
+                    ),
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              const _SupabaseBackendHealthSection(),
               const SizedBox(height: 16),
 
               _Section(
@@ -285,33 +302,19 @@ class SettingsScreen extends ConsumerWidget {
                   children: [
                     _NeonNavTile(
                       title: 'Privacy Policy',
-                      subtitle: AppUrls.privacy,
+                      subtitle: legalPoliciesCount > 0
+                          ? '${AppUrls.privacy} · cache:$legalPoliciesCount'
+                          : AppUrls.privacy,
                       onTap: () => context.push(routes.privacy),
                     ),
                     _NeonNavTile(
                       title: 'Terms of Service',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const _InfoScreen(
-                            title: 'Terms of Service',
-                            body: _kTermsOfService,
-                          ),
-                        ),
-                      ),
+                      onTap: () => context.push(RoutePaths.terms),
                     ),
                     _NeonNavTile(
                       title: 'Support',
                       subtitle: AppUrls.support,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const _InfoScreen(
-                            title: 'Support',
-                            body: _kSupportInfo,
-                          ),
-                        ),
-                      ),
+                      onTap: () => context.push(RoutePaths.support),
                     ),
                   ],
                 ),
@@ -335,12 +338,7 @@ class SettingsScreen extends ConsumerWidget {
                   child: _NeonNavTile(
                     title: 'Open Advisor',
                     subtitle: 'Insights, recommendations, and optimizer state',
-                    onTap: () => Navigator.push<void>(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const ProductAdvisorScreen(),
-                      ),
-                    ),
+                    onTap: () => context.push(RoutePaths.advisor),
                   ),
                 ),
                 const SizedBox(height: 16),

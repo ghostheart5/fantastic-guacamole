@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
@@ -74,6 +76,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   @override
   void initState() {
     super.initState();
+    AppAnalytics.track('si_opened');
     _voiceService = ref.read(voiceServiceProvider);
     _goalEventSubscription = ref
         .read(eventBusProvider)
@@ -337,6 +340,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(extendedDomainBootstrapProvider);
+    final int seededQueryCount = ref.watch(siQueriesProvider).length;
     final consoleModelAsync = ref.watch(siConsoleScreenModelProvider);
     final SIConsoleScreenModel? consoleModel = consoleModelAsync.asData?.value;
     final Object? consoleError = consoleModelAsync.asError?.error;
@@ -368,6 +373,40 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                     ref.read(appFlowProvider.notifier).toCoach();
                   },
                   engineSnapshot: engineSnapshot,
+                  seededQueryCount: seededQueryCount,
+                  onSpeakSummary: () {
+                    final List<_Msg> recentAssistant = _messages
+                        .where((msg) => !msg.isUser)
+                        .toList(growable: false);
+                    final List<String> points = recentAssistant.reversed
+                        .take(3)
+                        .map((msg) => msg.text)
+                        .toList(growable: false);
+                    unawaited(
+                      ref
+                          .read(voiceServiceProvider)
+                          .speakSummary(
+                            title: 'SI console voice summary',
+                            points: points,
+                          ),
+                    );
+                  },
+                  onSpeakAccessibility: () {
+                    unawaited(
+                      ref
+                          .read(voiceServiceProvider)
+                          .speakAccessibilityHint(
+                            surface: 'SI Console',
+                            controls: const <String>[
+                              'Type a prompt in the input field then send',
+                              'Use summary to hear recent assistant responses',
+                              'Use speak on any assistant bubble for read aloud',
+                              'Use accessibility guide for control orientation',
+                              'Use back button to return to Smart Coach',
+                            ],
+                          ),
+                    );
+                  },
                 ),
                 Expanded(
                   child: Stack(
@@ -435,8 +474,17 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 // ---------------------------------------------------------------------------
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onBack, this.engineSnapshot});
+  const _Header({
+    required this.onBack,
+    required this.seededQueryCount,
+    required this.onSpeakSummary,
+    required this.onSpeakAccessibility,
+    this.engineSnapshot,
+  });
   final VoidCallback onBack;
+  final int seededQueryCount;
+  final VoidCallback onSpeakSummary;
+  final VoidCallback onSpeakAccessibility;
   final String? engineSnapshot;
 
   @override
@@ -467,13 +515,15 @@ class _Header extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          const Flexible(
+          Flexible(
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(
-                'SI CONSOLE',
-                style: TextStyle(
+                seededQueryCount > 0
+                    ? 'SI CONSOLE QRY:$seededQueryCount'
+                    : 'SI CONSOLE',
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 3,
@@ -514,6 +564,83 @@ class _Header extends StatelessWidget {
                     ),
                   ),
                 ],
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: onSpeakSummary,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.neonCyan.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: AppColors.neonCyan.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.summarize_rounded,
+                              size: 11,
+                              color: AppColors.neonCyan,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'SUMMARY',
+                              style: TextStyle(
+                                fontSize: 8,
+                                letterSpacing: 1,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.neonCyan,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: onSpeakAccessibility,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.accessibility_new_rounded,
+                              size: 11,
+                              color: Colors.white70,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'A11Y',
+                              style: TextStyle(
+                                fontSize: 8,
+                                letterSpacing: 1,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

@@ -1,5 +1,7 @@
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 
 class LoadingOverlay extends StatelessWidget {
   const LoadingOverlay({
@@ -25,7 +27,23 @@ class LoadingOverlay extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const CircularProgressIndicator(color: AppColors.neonCyan),
+                  Lottie.asset(
+                    AppAssets.animFocusPulse,
+                    width: 120,
+                    height: 120,
+                    repeat: true,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'SYNCING',
+                    style: TextStyle(
+                      color: AppColors.neonCyan,
+                      fontSize: 11,
+                      letterSpacing: 2,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   if (message != null) ...[
                     const SizedBox(height: 16),
                     Text(

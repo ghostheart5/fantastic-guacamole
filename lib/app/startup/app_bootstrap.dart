@@ -4,6 +4,8 @@ import 'package:fantastic_guacamole/app/app_root.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
+import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/observers/riverpod_observer.dart';
@@ -23,6 +25,7 @@ import 'package:fantastic_guacamole/state/providers/service_providers.dart'
     show identityServiceProvider;
 import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_bootstrap.dart';
+import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/system/system_boot.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
@@ -32,8 +35,10 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 class AppBootstrapper {
   const AppBootstrapper();
@@ -44,6 +49,7 @@ class AppBootstrapper {
 
   void _runApp() {
     WidgetsFlutterBinding.ensureInitialized();
+    FirebaseMessagingBootstrap.configureBackgroundHandler();
 
     final config = AppConfig.fromEnv();
     final intelligence = const IntelligenceService().environmentOnly();
@@ -171,6 +177,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       _startupError = startupError;
       _ready = true;
     });
+    AppAnalytics.track('app_open');
   }
 
   @override
@@ -232,7 +239,8 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   final Stopwatch totalBootstrap = Stopwatch()..start();
 
   const SystemBoot();
-  tz.initializeTimeZones();
+  tzdata.initializeTimeZones();
+  await _configureLocalTimezone();
 
   final String? storageIssue = await _measureIssueStage(
     'storage',
@@ -245,6 +253,12 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
     () => _initFirebaseSafe(isMockMode: intelligence.flags.mockMode),
   );
   startupError = _appendStartupIssue(startupError, firebaseIssue ?? '');
+
+  final String? messagingIssue = await _measureIssueStage(
+    'push_notifications',
+    () => _initMessagingSafe(isMockMode: intelligence.flags.mockMode),
+  );
+  startupError = _appendStartupIssue(startupError, messagingIssue ?? '');
 
   final String? supabaseIssue = await _measureIssueStage(
     'supabase',
@@ -320,6 +334,19 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   );
 }
 
+Future<void> _configureLocalTimezone() async {
+  try {
+    final String timezoneName = await FlutterTimezone.getLocalTimezone();
+    final tz.Location location = tz.getLocation(timezoneName);
+    tz.setLocalLocation(location);
+    Logger.log('Startup', 'Timezone configured: $timezoneName');
+    RuntimeDiagnostics.record('Timezone configured: $timezoneName');
+  } catch (error) {
+    Logger.warn('Failed to configure local timezone: $error');
+    RuntimeDiagnostics.record('Failed to configure local timezone: $error');
+  }
+}
+
 Future<String?> _initStorageSafe() async {
   try {
     Logger.log('Startup', 'Initializing local storage...');
@@ -382,11 +409,88 @@ Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
   if (issue == null) {
     Logger.log('Startup', 'Firebase initialized.');
     RuntimeDiagnostics.record('Firebase initialized.');
+    unawaited(_captureDiagnosticsContext());
   } else {
     Logger.error('Firebase initialization failed.', issue);
     RuntimeDiagnostics.record('Firebase initialization failed: $issue');
   }
   return issue;
+}
+
+Future<String?> _initMessagingSafe({required bool isMockMode}) async {
+  if (isMockMode) {
+    Logger.log(
+      'Startup',
+      'Mock mode active: Push notifications startup skipped.',
+    );
+    RuntimeDiagnostics.record(
+      'Mock mode active: Push notifications startup skipped.',
+    );
+    return null;
+  }
+
+  Logger.log('Startup', 'Initializing Firebase Messaging...');
+  RuntimeDiagnostics.record('Initializing Firebase Messaging...');
+  final String? issue = await const FirebaseMessagingBootstrap().initialize(
+    isMockMode: isMockMode,
+  );
+  if (issue == null) {
+    Logger.log('Startup', 'Firebase Messaging initialized.');
+    RuntimeDiagnostics.record('Firebase Messaging initialized.');
+  } else {
+    Logger.warn(issue);
+    RuntimeDiagnostics.record(issue);
+  }
+  return issue;
+}
+
+Future<void> _captureDiagnosticsContext() async {
+  try {
+    final DiagnosticsContext context =
+        await DiagnosticsContextService.collect();
+    RuntimeDiagnostics.recordState(
+      'diagnostics.context',
+      message: 'Captured app/device diagnostics context',
+      data: context.toMap(),
+    );
+
+    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+      await FirebaseCrashlytics.instance.setCustomKey(
+        'app_version',
+        context.version,
+      );
+      await FirebaseCrashlytics.instance.setCustomKey(
+        'build_number',
+        context.buildNumber,
+      );
+      await FirebaseCrashlytics.instance.setCustomKey(
+        'platform',
+        context.platform,
+      );
+      await FirebaseCrashlytics.instance.setCustomKey(
+        'os_version',
+        context.osVersion,
+      );
+      await FirebaseCrashlytics.instance.setCustomKey(
+        'device_model',
+        context.model,
+      );
+      await FirebaseCrashlytics.instance.setCustomKey(
+        'is_physical_device',
+        context.isPhysicalDevice,
+      );
+    }
+  } on Object catch (error, stackTrace) {
+    Logger.warn('Diagnostics context capture failed (non-fatal): $error');
+    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+      FirebaseCrashlytics.instance.recordError(
+        error,
+        stackTrace,
+        reason: 'Failed to capture diagnostics context',
+        fatal: false,
+      );
+    }
+  }
 }
 
 Future<String?> _initSupabaseSafe({required bool isMockMode}) async {

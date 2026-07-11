@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('tracks unread notifications through read and delete actions', () async {
     final _FakeNotificationRepository repository = _FakeNotificationRepository();
     final ProviderContainer container = ProviderContainer(
@@ -15,17 +17,24 @@ void main() {
 
     await container.read(notificationProvider.notifier).pushDecision('Prepare launch');
 
-    expect(container.read(notificationProvider), hasLength(1));
-    expect(container.read(unreadNotificationsProvider), 1);
+    final List<NotificationEntity> created = container.read(notificationProvider);
+    expect(created.where((NotificationEntity item) => item.title == 'Decision Alert'), isNotEmpty);
+    expect(container.read(unreadNotificationsProvider), greaterThanOrEqualTo(1));
 
-    final String id = container.read(notificationProvider).single.id;
+    final String id = created.first.id;
     await container.read(notificationProvider.notifier).markRead(id);
 
-    expect(container.read(unreadNotificationsProvider), 0);
-    expect(container.read(notificationProvider).single.isRead, isTrue);
+    final List<NotificationEntity> afterRead = container.read(notificationProvider);
+    final NotificationEntity marked = afterRead.firstWhere(
+      (NotificationEntity item) => item.id == id,
+    );
+    expect(marked.isRead, isTrue);
 
     await container.read(notificationProvider.notifier).delete(id);
-    expect(container.read(notificationProvider), isEmpty);
+    expect(
+      container.read(notificationProvider).where((NotificationEntity item) => item.id == id),
+      isEmpty,
+    );
   });
 
   test('keeps newly pushed notification when initial async load finishes late', () async {

@@ -45,6 +45,11 @@ class UnavailableAuthService implements AuthServiceContract {
   }
 
   @override
+  Future<void> updatePassword({required String newPassword}) async {
+    throw _error();
+  }
+
+  @override
   Future<void> sendEmailVerification() async {
     throw _error();
   }

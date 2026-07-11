@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 class SupabaseClientService {
@@ -18,8 +19,17 @@ class SupabaseClientService {
       ).timeout(const Duration(seconds: 12));
       return null;
     } on TimeoutException {
+      Logger.errorCategory(
+        'Supabase Errors',
+        'Supabase initialization timed out',
+      );
       return 'Supabase initialization timed out. Auth will be unavailable.';
     } on Exception catch (error) {
+      Logger.errorCategory(
+        'Supabase Errors',
+        'Supabase initialization failed',
+        error,
+      );
       return 'Supabase initialization failed: $error';
     }
   }

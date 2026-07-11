@@ -13,6 +13,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('reset triggers reset service and clears key local state', () async {
     final _FakeTesterDataResetService fakeService = _FakeTesterDataResetService();
     final _FakeNotificationRepository notifications = _FakeNotificationRepository();

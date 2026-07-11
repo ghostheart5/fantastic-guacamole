@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
@@ -72,6 +75,7 @@ class AuthGate extends ConsumerStatefulWidget {
     super.key,
     this.authService,
     this.startupError,
+    this.deepLinkMode,
     this.enableMockLogin = !kReleaseMode,
     this.mockLoginEmail = '',
     this.mockLoginPassword = '',
@@ -80,6 +84,7 @@ class AuthGate extends ConsumerStatefulWidget {
   final Widget child;
   final AuthServiceContract? authService;
   final String? startupError;
+  final String? deepLinkMode;
   final bool enableMockLogin;
   final String mockLoginEmail;
   final String mockLoginPassword;
@@ -131,6 +136,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             return _AuthScreen(
               authService: fallbackAuthService,
               startupError: startupMessage,
+              deepLinkMode: widget.deepLinkMode,
               enableMockLogin: true,
               mockLoginEmail: widget.mockLoginEmail,
               mockLoginPassword: widget.mockLoginPassword,
@@ -157,6 +163,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             return _AuthScreen(
               authService: fallbackAuthService,
               startupError: startupMessage,
+              deepLinkMode: widget.deepLinkMode,
               enableMockLogin: true,
               mockLoginEmail: widget.mockLoginEmail,
               mockLoginPassword: widget.mockLoginPassword,
@@ -175,6 +182,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
           return _AuthScreen(
             authService: authService,
             startupError: startupMessage,
+            deepLinkMode: widget.deepLinkMode,
             enableMockLogin: allowMockAccess,
             mockLoginEmail: widget.mockLoginEmail,
             mockLoginPassword: widget.mockLoginPassword,
@@ -204,6 +212,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               return _AuthScreen(
                 authService: authService,
                 startupError: startupMessage,
+                deepLinkMode: widget.deepLinkMode,
                 enableMockLogin: allowMockAccess,
                 mockLoginEmail: widget.mockLoginEmail,
                 mockLoginPassword: widget.mockLoginPassword,
@@ -214,6 +223,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               return _AuthScreen(
                 authService: authService,
                 startupError: startupMessage,
+                deepLinkMode: widget.deepLinkMode,
                 enableMockLogin: allowMockAccess,
                 mockLoginEmail: widget.mockLoginEmail,
                 mockLoginPassword: widget.mockLoginPassword,
@@ -322,6 +332,7 @@ class _AuthScreen extends StatefulWidget {
   const _AuthScreen({
     required this.authService,
     required this.startupError,
+    required this.deepLinkMode,
     required this.enableMockLogin,
     required this.mockLoginEmail,
     required this.mockLoginPassword,
@@ -330,6 +341,7 @@ class _AuthScreen extends StatefulWidget {
 
   final AuthServiceContract authService;
   final String? startupError;
+  final String? deepLinkMode;
   final bool enableMockLogin;
   final String mockLoginEmail;
   final String mockLoginPassword;
@@ -342,19 +354,46 @@ class _AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<_AuthScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _recoveryPasswordController =
+      TextEditingController();
+  final TextEditingController _recoveryConfirmController =
+      TextEditingController();
   bool _obscuredPassword = true;
+  bool _obscuredRecoveryPassword = true;
+  bool _obscuredRecoveryConfirm = true;
   bool _signUpMode = false;
   bool _submitting = false;
+  bool _dismissRecoveryMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(_applyDeepLinkModeHint());
+    });
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _recoveryPasswordController.dispose();
+    _recoveryConfirmController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool inRecoveryMode =
+        (widget.deepLinkMode ?? '').trim() == 'recovery' &&
+        !_dismissRecoveryMode;
+    if (inRecoveryMode) {
+      return _buildRecoveryScreen(context);
+    }
+
     return LoginScreen(
       emailController: _emailController,
       passwordController: _passwordController,
@@ -382,12 +421,48 @@ class _AuthScreenState extends State<_AuthScreen> {
     );
   }
 
+  Future<void> _applyDeepLinkModeHint() async {
+    final String mode = (widget.deepLinkMode ?? '').trim();
+    if (mode.isEmpty) {
+      return;
+    }
+
+    if (mode == 'recovery') {
+      _showMessage(
+        'Password reset link received. Set your new password below.',
+      );
+      return;
+    }
+
+    if (mode == 'verify-email') {
+      try {
+        await widget.authService.reloadCurrentUser();
+      } catch (_) {
+        // Ignore callback refresh failures and keep login available.
+      }
+      _showMessage(
+        'Email verification callback received. Continue sign-in if needed.',
+      );
+      return;
+    }
+
+    if (mode == 'auth-callback') {
+      _showMessage(
+        'Authentication callback received. Continuing sign-in flow.',
+      );
+    }
+  }
+
   Future<void> _handleMockSignIn() async {
     // Yield a frame before switching roots to keep tap handling responsive.
     await Future<void>.delayed(Duration.zero);
     if (!mounted) {
       return;
     }
+    AppAnalytics.track(
+      'login_event',
+      params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
+    );
     widget.onMockSignIn();
   }
 
@@ -412,11 +487,19 @@ class _AuthScreenState extends State<_AuthScreen> {
       }
       await widget.authService.signUp(email: email, password: password);
       await widget.authService.sendEmailVerification();
+      AppAnalytics.track(
+        'login_event',
+        params: <String, Object?>{'provider': 'email', 'mode': 'signup'},
+      );
       _showMessage('Verification link sent. Confirm inbox to proceed.');
       return;
     }
 
     await widget.authService.signIn(email: email, password: password);
+    AppAnalytics.track(
+      'login_event',
+      params: <String, Object?>{'provider': 'email', 'mode': 'signin'},
+    );
   }
 
   Future<void> _handleForgotPassword() async {
@@ -431,10 +514,130 @@ class _AuthScreenState extends State<_AuthScreen> {
 
   Future<void> _handleGoogleSignIn() async {
     if (widget.enableMockLogin) {
+      AppAnalytics.track(
+        'login_event',
+        params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
+      );
       widget.onMockSignIn();
       return;
     }
     await widget.authService.signInWithGoogle();
+    AppAnalytics.track(
+      'login_event',
+      params: <String, Object?>{'provider': 'google', 'mode': 'signin'},
+    );
+  }
+
+  Future<void> _handleRecoveryUpdatePassword() async {
+    final String password = _recoveryPasswordController.text;
+    final String confirm = _recoveryConfirmController.text;
+
+    if (!Validators.isStrongPassword(password)) {
+      _showMessage('Use 8+ chars with upper, lower, and a number.');
+      return;
+    }
+    if (password != confirm) {
+      _showMessage('Passwords do not match.');
+      return;
+    }
+
+    await widget.authService.updatePassword(newPassword: password);
+    final User? refreshedUser = await widget.authService.reloadCurrentUser();
+    if (!mounted) {
+      return;
+    }
+    if (refreshedUser != null) {
+      _showMessage('Password updated. Redirecting to your workspace...');
+      return;
+    }
+    setState(() => _dismissRecoveryMode = true);
+    _showMessage('Password updated. Sign in with your new password.');
+  }
+
+  Widget _buildRecoveryScreen(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _authBackgroundColor,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Icon(Icons.lock_reset, size: 64),
+                const SizedBox(height: 12),
+                const Text('Reset password to continue'),
+                const SizedBox(height: 8),
+                const Text(
+                  'Set a new strong password for your account.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _recoveryPasswordController,
+                  obscureText: _obscuredRecoveryPassword,
+                  enableSuggestions: false,
+                  autocorrect: false,
+                  decoration: InputDecoration(
+                    labelText: 'New Password',
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(
+                        () => _obscuredRecoveryPassword =
+                            !_obscuredRecoveryPassword,
+                      ),
+                      icon: Icon(
+                        _obscuredRecoveryPassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _recoveryConfirmController,
+                  obscureText: _obscuredRecoveryConfirm,
+                  enableSuggestions: false,
+                  autocorrect: false,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(
+                        () => _obscuredRecoveryConfirm =
+                            !_obscuredRecoveryConfirm,
+                      ),
+                      icon: Icon(
+                        _obscuredRecoveryConfirm
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _submitting
+                        ? null
+                        : () => _runAuthAction(_handleRecoveryUpdatePassword),
+                    child: const Text('Update Password'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _submitting
+                      ? null
+                      : () => setState(() => _dismissRecoveryMode = true),
+                  child: const Text('Back to Sign In'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _runAuthAction(Future<void> Function() action) async {
@@ -514,6 +717,11 @@ class _UnavailableAuthService implements AuthServiceContract {
 
   @override
   Future<void> sendPasswordReset(String email) async {
+    throw _error();
+  }
+
+  @override
+  Future<void> updatePassword({required String newPassword}) async {
     throw _error();
   }
 

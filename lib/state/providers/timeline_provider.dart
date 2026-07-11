@@ -1,9 +1,10 @@
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
-import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
+import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final timelineActionsProvider = Provider<TimelineActions>((Ref ref) {
@@ -56,6 +57,12 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
     bool awardProgression = false,
   }) async {
     await ref.read(addTimelineEventUseCaseProvider).call(event);
+    final bool isMilestoneEvent =
+        event.isLevelUp || event.isGoalComplete || event.isStreak;
+    if (isMilestoneEvent) {
+      final bool soundEnabled = ref.read(soundEnabledProvider);
+      await AudioService.playMilestone(soundEnabled);
+    }
     final updated = [event, ...state];
     state = updated.length > _maxEvents
         ? updated.sublist(0, _maxEvents)

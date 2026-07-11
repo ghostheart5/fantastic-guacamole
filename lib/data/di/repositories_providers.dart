@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/flowmap_nodes_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/goal_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/google_play_paywall_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/identity_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/insight_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/log_repository.dart';
@@ -28,9 +29,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 TaskRepository taskRepository(Ref ref) {
-  return TaskRepository.secure(
-    ref.read(secureStoreProvider),
-    legacyStorage: HiveStorage<String>(
+  return TaskRepository(
+    storage: HiveStorage<String>(
       HiveBoxes.tasks,
       hive: ref.read(hiveStoreProvider),
     ),
@@ -50,7 +50,15 @@ final flowmapRepositoryProvider = Provider<FlowmapRepository>((Ref ref) {
 });
 
 final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
-  return GoalRepository(ref.read(sensitivePrefsStoreProvider));
+  return GoalRepository(
+    HiveStorage<String>(HiveBoxes.goals, hive: ref.read(hiveStoreProvider)),
+  );
+});
+
+final habitRepositoryProvider = Provider<HabitRepository>((Ref ref) {
+  return HabitRepository(
+    HiveStorage<String>(HiveBoxes.habits, hive: ref.read(hiveStoreProvider)),
+  );
 });
 
 final insightRepositoryProvider = Provider<InsightRepository>((Ref ref) {
@@ -66,13 +74,23 @@ final memoryRepositoryProvider = Provider<MemoryRepository>((Ref ref) {
 });
 
 final planRepositoryProvider = Provider<PlanRepository>((Ref ref) {
-  return PlanRepository(ref.read(sharedPrefsStoreProvider));
+  return PlanRepository(
+    HiveStorage<String>(
+      HiveBoxes.dailyPlans,
+      hive: ref.read(hiveStoreProvider),
+    ),
+  );
 });
 
 final progressionRepositoryProvider = Provider<ProgressionRepository>((
   Ref ref,
 ) {
-  return ProgressionRepository(ref.read(secureStoreProvider));
+  return ProgressionRepository(
+    HiveStorage<String>(
+      HiveBoxes.progression,
+      hive: ref.read(hiveStoreProvider),
+    ),
+  );
 });
 
 final notificationSchedulerProvider = Provider<NotificationScheduler>(
@@ -120,7 +138,7 @@ final profileRepositoryProvider = Provider<ProfileRepository>((Ref ref) {
 });
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((Ref ref) {
-  return SettingsRepository(ref.read(secureStoreProvider));
+  return SettingsRepository(ref.read(sharedPrefsStoreProvider));
 });
 
 final themeRepositoryProvider = Provider<ThemeRepository>((Ref ref) {

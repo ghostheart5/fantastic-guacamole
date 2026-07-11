@@ -9,6 +9,7 @@ export 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart'
 export 'package:fantastic_guacamole/state/providers/feature_flowmap_provider.dart';
 export 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 export 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+export 'package:fantastic_guacamole/state/providers/habits_provider.dart';
 export 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 export 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 export 'package:fantastic_guacamole/state/providers/learning_history_provider.dart';
@@ -21,6 +22,7 @@ export 'package:fantastic_guacamole/state/providers/session_recovery_provider.da
 export 'package:fantastic_guacamole/state/providers/session_score_provider.dart';
 export 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';
 export 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
+export 'package:fantastic_guacamole/state/providers/supabase_backend_provider.dart';
 export 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 export 'package:fantastic_guacamole/state/providers/task_provider.dart';
 export 'package:fantastic_guacamole/state/providers/tester_data_reset_provider.dart';

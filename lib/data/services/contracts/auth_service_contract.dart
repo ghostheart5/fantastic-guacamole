@@ -14,6 +14,7 @@ abstract class AuthServiceContract {
   });
   Future<UserCredential> signInWithGoogle();
   Future<void> sendPasswordReset(String email);
+  Future<void> updatePassword({required String newPassword});
   Future<void> sendEmailVerification();
   Future<User?> reloadCurrentUser();
   Future<String?> getIdToken({bool forceRefresh = false});

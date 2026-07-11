@@ -58,6 +58,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   @override
   void initState() {
     super.initState();
+    AppAnalytics.track('coach_opened');
     final voiceService = ref.read(voiceServiceProvider);
     _speakVoice = voiceService.speak;
     _stopVoice = voiceService.stop;
@@ -248,12 +249,19 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(extendedDomainBootstrapProvider);
+    final extendedCoachMessages = ref.watch(coachMessagesProvider);
     final smartModel = ref.watch(smartCoachScreenModelProvider).asData?.value;
     final String modelCoachMessage = smartModel?.decision.coachMessage ?? '';
+    final String seededCoachMessage = extendedCoachMessages.isNotEmpty
+        ? (extendedCoachMessages.first.label ?? '')
+        : '';
     final String effectiveCoachMessage =
         (_coachingMessage?.trim().isNotEmpty ?? false)
         ? _coachingMessage!
-        : modelCoachMessage;
+        : (modelCoachMessage.trim().isNotEmpty
+              ? modelCoachMessage
+              : seededCoachMessage);
     final bool hasCoachMessage = effectiveCoachMessage.trim().isNotEmpty;
     final double keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return AnimatedSystemBackground(
@@ -412,6 +420,14 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                             Row(
                               children: [
                                 _VoiceButton(message: effectiveCoachMessage),
+                                const SizedBox(width: 10),
+                                _VoiceSummaryButton(
+                                  headline: effectiveCoachMessage,
+                                  energy: _energy,
+                                  emotion: _emotion,
+                                ),
+                                const SizedBox(width: 10),
+                                const _VoiceAccessibilityButton(),
                                 const SizedBox(width: 10),
                                 const _MicButton(),
                               ],
@@ -814,6 +830,113 @@ class _VoiceButton extends ConsumerWidget {
               'SPEAK',
               style: TextStyle(
                 color: AppColors.memoryAmber,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VoiceSummaryButton extends ConsumerWidget {
+  const _VoiceSummaryButton({
+    required this.headline,
+    required this.energy,
+    required this.emotion,
+  });
+
+  final String headline;
+  final double energy;
+  final EmotionalState emotion;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () => unawaited(
+        ref
+            .read(voiceServiceProvider)
+            .speakSummary(
+              title: 'Smart Coach voice summary',
+              points: <String>[
+                'Energy is ${(energy * 100).round()} percent',
+                'Emotion state is ${emotion.name}',
+                headline,
+              ],
+            ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.neonCyan.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.45)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.summarize_rounded, color: AppColors.neonCyan, size: 15),
+            SizedBox(width: 6),
+            Text(
+              'SUMMARY',
+              style: TextStyle(
+                color: AppColors.neonCyan,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VoiceAccessibilityButton extends ConsumerWidget {
+  const _VoiceAccessibilityButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () => unawaited(
+        ref
+            .read(voiceServiceProvider)
+            .speakAccessibilityHint(
+              surface: 'Smart Coach',
+              controls: const <String>[
+                'Adjust energy slider to set intensity',
+                'Select emotional state to tune guidance',
+                'Use get insight to generate coaching',
+                'Use speak button to read the latest insight aloud',
+                'Use summary button for condensed voice recap',
+                'Use microphone button for voice interactions',
+              ],
+            ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.accessibility_new_rounded,
+              color: Colors.white70,
+              size: 15,
+            ),
+            SizedBox(width: 5),
+            Text(
+              'A11Y',
+              style: TextStyle(
+                color: Colors.white70,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,

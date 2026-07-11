@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
+import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,6 +31,35 @@ class SettingsUiActions {
 
   Future<bool> requestNotificationPermission() {
     return _reminderService.requestNotificationPermission();
+  }
+
+  ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {
+    return _ref.read(reminderOrchestratorServiceProvider).loadPrefs();
+  }
+
+  Future<void> setGoalRemindersEnabled(bool enabled) async {
+    await _ref
+        .read(reminderOrchestratorServiceProvider)
+        .setGoalRemindersEnabled(enabled);
+  }
+
+  Future<void> setHabitRemindersEnabled(bool enabled) async {
+    await _ref
+        .read(reminderOrchestratorServiceProvider)
+        .setHabitRemindersEnabled(enabled);
+  }
+
+  Future<void> setDailyPlanningReminder({
+    required bool enabled,
+    required TimeOfDay time,
+  }) async {
+    await _ref
+        .read(reminderOrchestratorServiceProvider)
+        .setDailyPlanningReminder(
+          enabled: enabled,
+          hour: time.hour,
+          minute: time.minute,
+        );
   }
 
   Future<bool> requestVoicePermission() async {

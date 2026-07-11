@@ -1,4 +1,8 @@
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
+import 'package:fantastic_guacamole/system/audio/audio_service.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
 
 Future<void> showLevelUpAnimation(
@@ -49,6 +53,11 @@ class _LevelUpOverlayState extends State<_LevelUpOverlay> {
   @override
   void initState() {
     super.initState();
+    final bool soundEnabled = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(soundEnabledProvider);
+    AudioService.playAchievement(soundEnabled);
     Future<void>.delayed(const Duration(milliseconds: 1050), _dismiss);
   }
 
@@ -92,7 +101,7 @@ class _LevelUpOverlayState extends State<_LevelUpOverlay> {
                 width: 220,
                 height: 220,
                 child: Lottie.asset(
-                  'assets/animations/level_up.json',
+                  AppAssets.animLevelUp,
                   repeat: false,
                   fit: BoxFit.contain,
                 ),
@@ -101,12 +110,12 @@ class _LevelUpOverlayState extends State<_LevelUpOverlay> {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   const Text(
-                    'LEVEL UP',
+                    'ACHIEVEMENT UNLOCKED',
                     style: TextStyle(
                       color: Color(0xFF00E5FF),
-                      fontSize: 14,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 2.4,
+                      letterSpacing: 2.0,
                     ),
                   ),
                   const SizedBox(height: 10),

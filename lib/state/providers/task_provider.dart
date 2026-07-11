@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
@@ -77,6 +78,10 @@ class TaskActions {
     );
 
     await _ref.read(createTaskUseCaseProvider).call(normalized);
+    AppAnalytics.track(
+      'task_created',
+      params: <String, Object?>{'task_id': normalized.id},
+    );
     unawaited(
       _recordCreationSideEffects(
         task: normalized,
@@ -169,6 +174,10 @@ class TaskActions {
     }
 
     if (selectedTask != null) {
+      AppAnalytics.track(
+        'task_completed',
+        params: <String, Object?>{'task_id': selectedTask.id},
+      );
       _ref
           .read(eventBusProvider)
           .emit(

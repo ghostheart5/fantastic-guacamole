@@ -10,6 +10,7 @@ import 'package:fantastic_guacamole/state/services/identity_service.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:fantastic_guacamole/state/services/orphan_data_cleanup.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
+import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
 import 'package:fantastic_guacamole/state/services/retention_policy.dart';
 import 'package:fantastic_guacamole/state/services/si_engine_dependencies.dart';
 import 'package:fantastic_guacamole/state/services/stale_notification_cleanup.dart';
@@ -31,6 +32,15 @@ final identityServiceProvider = Provider<IdentityServiceContract>((Ref ref) {
 final notificationsServiceProvider = Provider<NotificationsService>((Ref ref) {
   return NotificationsService(ref.read(notificationsRepositoryProvider));
 });
+
+final reminderOrchestratorServiceProvider =
+    Provider<ReminderOrchestratorService>((Ref ref) {
+      return ReminderOrchestratorService(
+        preferences: ref.read(sharedPrefsStoreProvider),
+        notifications: ref.read(notificationsServiceProvider),
+        scheduler: ref.read(notificationSchedulerProvider),
+      );
+    });
 
 final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
   return SiEngineDependencies(

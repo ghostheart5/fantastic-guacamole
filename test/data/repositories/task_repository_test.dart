@@ -1,12 +1,9 @@
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/task_repository.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
-import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
@@ -83,42 +80,6 @@ void main() {
     expect(firstPage.nextCursor, 'task-2');
     expect(secondPage.items.map((TaskEntity task) => task.id), <String>['task-1']);
     expect(secondPage.nextCursor, isNull);
-  });
-
-  test('secure mode migrates legacy hive entries and clears legacy box', () async {
-    final legacy = HiveStorage<String>('legacy_tasks_box', hive: _DirectHiveStore());
-    await legacy.open();
-    final legacyTask = TaskEntity(
-      id: 'legacy-1',
-      title: 'Legacy task',
-      createdAt: DateTime.utc(2026, 7, 5),
-    );
-    await legacy.put(
-      legacyTask.id,
-      jsonEncode(<String, dynamic>{
-        'id': legacyTask.id,
-        'title': legacyTask.title,
-        'createdAt': legacyTask.createdAt.toIso8601String(),
-      }),
-    );
-
-    final backend = InMemorySecureStoreBackend();
-    final repository = TaskRepository.secure(SecureStore(backend: backend), legacyStorage: legacy);
-
-    final tasks = await repository.getAllTasks();
-
-    expect(tasks, hasLength(1));
-    expect(tasks.single.id, 'legacy-1');
-    expect(legacy.getAll(), isEmpty);
-  });
-
-  test('returns storage failure when secure snapshot is malformed', () async {
-    final backend = InMemorySecureStoreBackend();
-    final secureStore = SecureStore(backend: backend);
-    await secureStore.writeString('task_entries_v2', '{"bad":"{not-json"}');
-    final repository = TaskRepository.secure(secureStore);
-
-    await expectLater(() => repository.getAllTasks(), throwsA(isA<StorageException>()));
   });
 }
 

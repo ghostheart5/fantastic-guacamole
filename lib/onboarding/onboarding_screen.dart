@@ -2,13 +2,14 @@ import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
-import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -82,14 +83,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   }
 
   Future<void> _complete() async {
+    final PreferenceService preferenceService = PreferenceService();
+    final prefs = await SharedPreferences.getInstance();
     final name = _nameCtrl.text.trim();
     if (name.isNotEmpty) {
       ref.read(profileProvider.notifier).updateName(name);
     }
     if (_selectedGoalType != null) {
-      await SharedPrefsService.save('primary_goal_type', _selectedGoalType!);
+      await prefs.setString('primary_goal_type', _selectedGoalType!);
+      await preferenceService.setUserPreference(
+        'primary_goal_type',
+        _selectedGoalType!,
+      );
     }
-    final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(onboardingCompleteStorageKey, true);
     await prefs.setInt(
       onboardingContentVersionStorageKey,
@@ -389,10 +395,22 @@ class _SlideView extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: Icon(
-                            slide.icon,
-                            color: slide.iconColor,
-                            size: 36,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Lottie.asset(
+                                AppAssets.animFocusPulse,
+                                width: 86,
+                                height: 86,
+                                repeat: true,
+                                fit: BoxFit.contain,
+                              ),
+                              Icon(
+                                slide.icon,
+                                color: slide.iconColor,
+                                size: 36,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -503,7 +521,19 @@ class _SlideView extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(slide.icon, color: slide.iconColor, size: 32),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Lottie.asset(
+                      AppAssets.animFocusPulse,
+                      width: 66,
+                      height: 66,
+                      repeat: true,
+                      fit: BoxFit.contain,
+                    ),
+                    Icon(slide.icon, color: slide.iconColor, size: 32),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
               Container(

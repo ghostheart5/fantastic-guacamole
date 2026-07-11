@@ -140,6 +140,27 @@ class AuthService implements AuthServiceContract {
   }
 
   @override
+  Future<void> updatePassword({required String newPassword}) async {
+    final String trimmed = newPassword.trim();
+    if (trimmed.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'missing-password',
+        message: 'New password is required.',
+      );
+    }
+    try {
+      await _auth.auth.updateUser(sb.UserAttributes(password: trimmed));
+    } on sb.AuthException catch (error) {
+      throw _mapAuthException(error);
+    } on Object {
+      throw FirebaseAuthException(
+        code: 'auth-unavailable',
+        message: 'Password update is currently unavailable.',
+      );
+    }
+  }
+
+  @override
   Future<void> sendEmailVerification() async {
     final User? user = currentUser;
     final String email = user?.email?.trim() ?? '';

@@ -346,6 +346,9 @@ class _IntegrationFakeAuthService implements AuthServiceContract {
   Future<void> sendPasswordReset(String email) async {}
 
   @override
+  Future<void> updatePassword({required String newPassword}) async {}
+
+  @override
   Future<void> signOut() async {}
 
   @override

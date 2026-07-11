@@ -1,5 +1,7 @@
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 
 class SuccessBanner extends StatelessWidget {
   const SuccessBanner({
@@ -23,7 +25,15 @@ class SuccessBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.neonCyan, size: 20),
+          SizedBox(
+            width: 30,
+            height: 30,
+            child: Lottie.asset(
+              AppAssets.animSessionComplete,
+              repeat: false,
+              fit: BoxFit.contain,
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -39,7 +49,21 @@ class SuccessBanner extends StatelessWidget {
   static void show(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Row(
+          children: [
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: Lottie.asset(
+                AppAssets.animSessionComplete,
+                repeat: false,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message)),
+          ],
+        ),
         backgroundColor: AppColors.neonCyan.withValues(alpha: 0.9),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),

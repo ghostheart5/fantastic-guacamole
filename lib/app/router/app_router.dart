@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/app/navigation_shell.dart';
 import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
@@ -161,6 +162,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (BuildContext context, GoRouterState state) =>
             const NavigationShell(initialView: AppView.console),
       ),
+      GoRoute(
+        path: RoutePaths.advisor,
+        builder: (BuildContext context, GoRouterState state) =>
+            const ProductAdvisorScreen(),
+      ),
 
       // Legacy top-level routes redirect into the secondary hierarchy.
       // Sunset target is tracked in docs/LEGACY_ROUTE_SUNSET.md and reviewed by 2026-10-01.
@@ -196,6 +202,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             enableMockLogin: intelligence.flags.mockLoginEnabled,
             mockLoginEmail: mockLoginConfig.email,
             mockLoginPassword: mockLoginConfig.password,
+            deepLinkMode: state.uri.queryParameters['mode'],
             child: const NavigationShell(),
           );
         },

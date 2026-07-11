@@ -169,12 +169,174 @@ class _ReflectionReminderSectionState
   }
 }
 
+class _ReminderAutomationSection extends ConsumerStatefulWidget {
+  const _ReminderAutomationSection();
+
+  @override
+  ConsumerState<_ReminderAutomationSection> createState() =>
+      _ReminderAutomationSectionState();
+}
+
+class _ReminderAutomationSectionState
+    extends ConsumerState<_ReminderAutomationSection> {
+  bool _goalEnabled = true;
+  bool _habitEnabled = true;
+  bool _dailyPlanningEnabled = true;
+  TimeOfDay _dailyPlanningTime = const TimeOfDay(hour: 7, minute: 30);
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _load() {
+    final prefs = ref
+        .read(settingsUiActionsProvider)
+        .loadAdvancedReminderPrefs();
+    setState(() {
+      _goalEnabled = prefs.goalRemindersEnabled;
+      _habitEnabled = prefs.habitRemindersEnabled;
+      _dailyPlanningEnabled = prefs.dailyPlanningEnabled;
+      _dailyPlanningTime = TimeOfDay(
+        hour: prefs.dailyPlanningHour,
+        minute: prefs.dailyPlanningMinute,
+      );
+    });
+  }
+
+  Future<void> _toggleGoal(bool value) async {
+    await ref.read(settingsUiActionsProvider).setGoalRemindersEnabled(value);
+    if (!mounted) return;
+    setState(() => _goalEnabled = value);
+  }
+
+  Future<void> _toggleHabit(bool value) async {
+    await ref.read(settingsUiActionsProvider).setHabitRemindersEnabled(value);
+    if (!mounted) return;
+    setState(() => _habitEnabled = value);
+  }
+
+  Future<void> _toggleDailyPlanning(bool value) async {
+    await ref
+        .read(settingsUiActionsProvider)
+        .setDailyPlanningReminder(enabled: value, time: _dailyPlanningTime);
+    if (!mounted) return;
+    setState(() => _dailyPlanningEnabled = value);
+  }
+
+  Future<void> _pickDailyPlanningTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _dailyPlanningTime,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppColors.neonCyan,
+            onPrimary: Colors.white,
+            surface: Color(0xFF0B111C),
+            onSurface: Colors.white70,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+
+    if (picked == null || !mounted) return;
+    setState(() => _dailyPlanningTime = picked);
+    await ref
+        .read(settingsUiActionsProvider)
+        .setDailyPlanningReminder(enabled: _dailyPlanningEnabled, time: picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Section(
+      label: 'REMINDER AUTOMATION',
+      accentColor: AppColors.neonCyan,
+      child: Column(
+        children: [
+          _NeonToggleTile(
+            title: 'Goal Reminders',
+            value: _goalEnabled,
+            onChanged: _toggleGoal,
+          ),
+          const _NeonStatusTile(
+            title: 'Goal Reminder Rule',
+            subtitle: 'Schedules around target date (prefers 1 day before).',
+          ),
+          _NeonToggleTile(
+            title: 'Habit Reminders',
+            value: _habitEnabled,
+            onChanged: _toggleHabit,
+          ),
+          const _NeonStatusTile(
+            title: 'Habit Reminder Rule',
+            subtitle: 'Schedules daily cadence for the first active habit.',
+          ),
+          _NeonToggleTile(
+            title: 'Daily Planning Reminder',
+            value: _dailyPlanningEnabled,
+            onChanged: _toggleDailyPlanning,
+          ),
+          const _NeonStatusTile(
+            title: 'Daily Planning Rule',
+            subtitle: 'Triggers once each day at the selected planning time.',
+          ),
+          if (_dailyPlanningEnabled)
+            GestureDetector(
+              onTap: _pickDailyPlanningTime,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Daily Planning Time',
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.neonCyan.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.neonCyan.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Text(
+                        _dailyPlanningTime.format(context),
+                        style: const TextStyle(
+                          color: AppColors.neonCyan,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GlobalMetricsDebugSection extends ConsumerWidget {
   const _GlobalMetricsDebugSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final configAsync = ref.watch(optimizationConfigProvider);
+    final metricsRealtimeAsync = ref.watch(supabaseMetricsRealtimeProvider);
     return _Section(
       label: 'GLOBAL OPTIMIZER',
       accentColor: AppColors.neonCyan,
@@ -208,6 +370,33 @@ class _GlobalMetricsDebugSection extends ConsumerWidget {
               subtitle: e.toString(),
             ),
           ),
+          metricsRealtimeAsync.when(
+            data: (rows) {
+              final String latestDate = rows.isEmpty
+                  ? 'n/a'
+                  : rows.last['date']?.toString() ?? 'unknown';
+              return Column(
+                children: [
+                  _NeonStatusTile(
+                    title: 'Realtime Rows',
+                    subtitle: '${rows.length} streamed',
+                  ),
+                  _NeonStatusTile(
+                    title: 'Latest Row Date',
+                    subtitle: latestDate,
+                  ),
+                ],
+              );
+            },
+            loading: () => const _NeonStatusTile(
+              title: 'Realtime Rows',
+              subtitle: 'Connecting to Supabase stream...',
+            ),
+            error: (error, _) => _NeonStatusTile(
+              title: 'Realtime Error',
+              subtitle: error.toString(),
+            ),
+          ),
           _NeonNavTile(
             title: 'Refresh Global Metrics',
             subtitle: 'Fetches latest aggregate data from Supabase',
@@ -216,6 +405,64 @@ class _GlobalMetricsDebugSection extends ConsumerWidget {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SupabaseBackendHealthSection extends ConsumerWidget {
+  const _SupabaseBackendHealthSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final healthAsync = ref.watch(supabaseBackendHealthProvider);
+    return _Section(
+      label: 'SUPABASE BACKEND',
+      accentColor: AppColors.memoryAmber,
+      child: healthAsync.when(
+        data: (health) => Column(
+          children: [
+            _NeonStatusTile(
+              title: 'Status',
+              subtitle: health.isHealthy ? 'Healthy' : 'Degraded',
+            ),
+            _NeonStatusTile(
+              title: 'Configured / Initialized',
+              subtitle: '${health.configured} / ${health.initialized}',
+            ),
+            _NeonStatusTile(
+              title: 'Authenticated / Realtime',
+              subtitle:
+                  '${health.authenticated} / ${health.realtimeConfigured}',
+            ),
+            _NeonStatusTile(
+              title: 'Database / Storage',
+              subtitle:
+                  '${health.databaseReachable} / ${health.storageReachable}',
+            ),
+            _NeonStatusTile(title: 'Detail', subtitle: health.message),
+            _NeonNavTile(
+              title: 'Recheck Backend Health',
+              subtitle:
+                  'Runs diagnostics for Supabase configuration and reachability',
+              onTap: () => ref.invalidate(supabaseBackendHealthProvider),
+            ),
+          ],
+        ),
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+        error: (error, _) => _NeonStatusTile(
+          title: 'Backend Health Error',
+          subtitle: error.toString(),
+        ),
       ),
     );
   }
@@ -511,112 +758,3 @@ class _NeonStatusTile extends StatelessWidget {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Generic info screen (Privacy Policy / Terms of Service)
-// ---------------------------------------------------------------------------
-
-class _InfoScreen extends StatelessWidget {
-  const _InfoScreen({required this.title, required this.body});
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSystemBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppColors.neonCyan.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.neonCyan.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_ios_new,
-                          color: AppColors.neonCyan,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    ShaderMask(
-                      shaderCallback: (bounds) => const LinearGradient(
-                        colors: [AppColors.neonCyan, AppColors.neonViolet],
-                      ).createShader(bounds),
-                      child: Text(
-                        title.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 2.5,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                  child: Text(
-                    body,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.white60,
-                      height: 1.75,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Legal text
-// ---------------------------------------------------------------------------
-
-const _kTermsOfService = '''
-By using ChronoSpark, you agree to use the app for personal productivity purposes only.
-
-The app is provided "as-is" without warranty of any kind. Task recommendations are generated algorithmically and are not a substitute for professional advice.
-
-Subscription features, where available, are subject to the pricing and terms displayed at point of purchase. Refunds are handled according to the platform's (Apple App Store / Google Play) refund policy.
-
-We reserve the right to modify these terms at any time. Continued use of the app constitutes acceptance of any revised terms.
-
-Last updated: 2025.
-''';
-
-const _kSupportInfo = '''
-ChronoSpark support:
-
-Website: https://chronospark.app/support
-
-Closed testing notes:
-- Tester builds may include bypassed authentication and premium access.
-- Live billing is not enabled in QA builds.
-- If you encounter an issue, include device model, OS version, and the screen where the issue occurred.
-
-For account or privacy questions, use the support channel listed on the store listing.
-''';

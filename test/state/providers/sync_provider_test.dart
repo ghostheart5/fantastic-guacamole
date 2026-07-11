@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
+import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
@@ -18,6 +20,7 @@ void main() {
   late Directory hiveDirectory;
   late SharedPrefsStorage prefs;
   late HiveStorage<String> profileStorage;
+  late _TestHiveStore hiveStore;
   late _MemoryTaskRepository repository;
   late _SequencedCloudBackupGateway gateway;
   late ProviderContainer container;
@@ -28,7 +31,8 @@ void main() {
     Hive.init(hiveDirectory.path);
 
     prefs = SharedPrefsStorage(await SharedPreferences.getInstance());
-    profileStorage = HiveStorage<String>('profile_box', hive: _TestHiveStore());
+    hiveStore = _TestHiveStore();
+    profileStorage = HiveStorage<String>('profile_box', hive: hiveStore);
     repository = _MemoryTaskRepository();
 
     final BackupService backupService = BackupService(
@@ -41,6 +45,7 @@ void main() {
 
     container = ProviderContainer(
       overrides: [
+        hiveStoreProvider.overrideWithValue(hiveStore),
         syncServiceProvider.overrideWithValue(SyncService(backup: backupService, gateway: gateway)),
       ],
     );
@@ -56,8 +61,6 @@ void main() {
   });
 
   test('syncToCloudProvider returns false when upload fails', () async {
-    await container.read(offlineQueueCountProvider.future);
-
     await repository.saveTask(
       TaskEntity(id: 'task-1', title: 'Queue me', createdAt: DateTime.utc(2026, 7, 5)),
     );
@@ -70,45 +73,42 @@ void main() {
   test(
     'replayOfflineQueueProvider replays queued sync action and clears queue on success',
     () async {
-      await container.read(offlineQueueCountProvider.future);
-
       gateway.uploadShouldAlwaysSucceed = true;
-      final OfflineSyncQueueService queue = OfflineSyncQueueService(prefs);
+      final OfflineSyncQueueService queue = OfflineSyncQueueService(
+        HiveStorage<String>(HiveBoxes.offlineQueue, hive: hiveStore),
+      );
       await queue.enqueue(
         actionType: 'sync_to_cloud',
         dedupeKey: 'sync_to_cloud',
         payload: const <String, dynamic>{},
       );
 
-      container.invalidate(offlineQueueCountProvider);
-      expect(await container.read(offlineQueueCountProvider.future), 1);
+      expect(await queue.queuedCount(), 1);
 
       final int processed = await container.read(replayOfflineQueueProvider.future);
       expect(processed, 1);
 
-      container.invalidate(offlineQueueCountProvider);
-      expect(await container.read(offlineQueueCountProvider.future), 0);
+      expect(await queue.queuedCount(), 0);
       expect(gateway.uploadAttempts, greaterThanOrEqualTo(1));
     },
   );
 
   test('replayOfflineQueueProvider keeps unknown action items queued', () async {
-    await container.read(offlineQueueCountProvider.future);
-
-    final OfflineSyncQueueService queue = OfflineSyncQueueService(prefs);
+    final OfflineSyncQueueService queue = OfflineSyncQueueService(
+      HiveStorage<String>(HiveBoxes.offlineQueue, hive: hiveStore),
+    );
     await queue.enqueue(
       actionType: 'unknown_action',
       dedupeKey: 'unknown_action',
       payload: const <String, dynamic>{'sample': true},
     );
 
-    container.invalidate(offlineQueueCountProvider);
-    expect(await container.read(offlineQueueCountProvider.future), 1);
+    expect(await queue.queuedCount(), 1);
 
     final int processed = await container.read(replayOfflineQueueProvider.future);
     expect(processed, 1);
 
-    final int queuedAfterReplay = await container.read(offlineQueueCountProvider.future);
+    final int queuedAfterReplay = await queue.queuedCount();
     expect(queuedAfterReplay, 1);
   });
 }

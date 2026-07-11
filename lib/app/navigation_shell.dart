@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/flowmap/ui/flowmap_screen.dart';
@@ -27,6 +28,7 @@ import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/session_recovery_provider.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
+import 'package:fantastic_guacamole/state/services/preference_service.dart';
 import 'package:fantastic_guacamole/system/system_scheduler.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
@@ -45,11 +47,13 @@ class NavigationShell extends ConsumerStatefulWidget {
 
 class _NavigationShellState extends ConsumerState<NavigationShell>
     with WidgetsBindingObserver {
+  final PreferenceService _preferenceService = PreferenceService();
   late final SystemScheduler _systemScheduler;
   late final DataHygieneScheduler _dataHygieneScheduler;
   late final ProviderSubscription<double> _energySubscription;
   late final ProviderSubscription<LearningState> _learningSubscription;
   late final ProviderSubscription<AppView> _viewSubscription;
+  late final ProviderSubscription<bool> _networkOnlineSubscription;
   final Set<int> _initializedTabIndexes = <int>{0};
   bool get _isFlutterTestBinding {
     final String bindingType = WidgetsBinding.instance.runtimeType.toString();
@@ -100,11 +104,35 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         ref.read(sessionRecoveryProvider).saveState(lastRoute: next.name),
       );
     });
+    _networkOnlineSubscription = ref.listenManual<bool>(isOnlineProvider, (
+      bool? previous,
+      bool next,
+    ) {
+      final bool cameBackOnline =
+          next && (previous == null || previous == false);
+      if (!cameBackOnline) {
+        return;
+      }
+      _triggerCloudSyncReplay();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(appFlowProvider.notifier).show(widget.initialView);
+      unawaited(_restoreLastOpenedTab(widget.initialView));
       _checkRecovery();
     });
+  }
+
+  Future<void> _restoreLastOpenedTab(AppView fallbackView) async {
+    final int? restoredTab = _preferenceService.getLastOpenedTab();
+    if (!mounted) {
+      return;
+    }
+    if (restoredTab == null || restoredTab < 0 || restoredTab > 3) {
+      ref.read(appFlowProvider.notifier).show(fallbackView);
+      return;
+    }
+    _initializedTabIndexes.add(restoredTab);
+    ref.read(appFlowProvider.notifier).show(_viewForTabIndex(restoredTab));
   }
 
   @override
@@ -115,6 +143,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     _energySubscription.close();
     _learningSubscription.close();
     _viewSubscription.close();
+    _networkOnlineSubscription.close();
     super.dispose();
   }
 
@@ -191,6 +220,15 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     }
   }
 
+  void _triggerCloudSyncReplay() {
+    if (!mounted || !Env.enableCloudSync) {
+      return;
+    }
+    ref.invalidate(replayOfflineQueueProvider);
+    ref.invalidate(syncToCloudProvider);
+    ref.invalidate(offlineQueueCountProvider);
+  }
+
   BottomNavigationBarItem _navItem(
     String assetPath,
     String label,
@@ -220,8 +258,18 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     };
   }
 
+  AppView _viewForTabIndex(int index) {
+    return switch (index) {
+      1 => AppView.tasks,
+      2 => AppView.logs,
+      3 => AppView.profile,
+      _ => AppView.nexus,
+    };
+  }
+
   void _onTabSelected(int index) {
     _initializedTabIndexes.add(index);
+    unawaited(_preferenceService.setLastOpenedTab(index));
     final AppFlowController controller = ref.read(appFlowProvider.notifier);
     switch (index) {
       case 0:

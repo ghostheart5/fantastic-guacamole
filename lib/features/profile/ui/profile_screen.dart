@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/profile/ui/widgets/profile_header.dart';
 import 'package:fantastic_guacamole/features/profile/ui/widgets/stats_card.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -8,9 +9,12 @@ import 'package:fantastic_guacamole/state/providers/profile_provider.dart';
 import 'package:fantastic_guacamole/state/providers/profile_values_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -32,6 +36,44 @@ class ProfileScreen extends ConsumerWidget {
 class _ProfileBody extends ConsumerWidget {
   const _ProfileBody({required this.state});
   final ProfileViewState state;
+
+  Future<void> _inviteFriends(
+    BuildContext context,
+    ProfileViewState state,
+  ) async {
+    final String text =
+        'I am using ChronoSpark to run my goals, progression, and focus system.\n'
+        'Join me: ${AppUrls.website}\n'
+        'Current streak: ${state.profile.streak}d | Level ${state.profile.level}';
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: text,
+          title: 'Join me on ChronoSpark',
+          subject: 'Invite to ChronoSpark',
+        ),
+      );
+      AppAnalytics.track(
+        'invite_friends_shared',
+        params: <String, Object?>{'method': 'share_sheet'},
+      );
+      return;
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: text));
+      AppAnalytics.track(
+        'invite_friends_shared',
+        params: <String, Object?>{'method': 'clipboard_fallback'},
+      );
+    }
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Share sheet unavailable. Invite copied to clipboard.'),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -90,6 +132,7 @@ class _ProfileBody extends ConsumerWidget {
         _NavButtons(
           onTimeline: () => ref.read(appFlowProvider.notifier).toTimeline(),
           onProgression: actions.openProgression,
+          onInviteFriends: () => _inviteFriends(context, state),
         ),
       ],
     );
@@ -357,30 +400,46 @@ class _ValuesCardState extends ConsumerState<_ValuesCard> {
 }
 
 class _NavButtons extends StatelessWidget {
-  const _NavButtons({required this.onTimeline, required this.onProgression});
+  const _NavButtons({
+    required this.onTimeline,
+    required this.onProgression,
+    required this.onInviteFriends,
+  });
   final VoidCallback onTimeline;
   final VoidCallback onProgression;
+  final VoidCallback onInviteFriends;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _NavBtn(
-            label: 'TIMELINE OPS',
-            icon: Icons.timeline_rounded,
-            color: AppColors.neonViolet,
-            onTap: onTimeline,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _NavBtn(
+                label: 'TIMELINE OPS',
+                icon: Icons.timeline_rounded,
+                color: AppColors.neonViolet,
+                onTap: onTimeline,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _NavBtn(
+                label: 'PROGRESSION INTEL',
+                icon: Icons.bolt,
+                color: AppColors.memoryAmber,
+                onTap: onProgression,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _NavBtn(
-            label: 'PROGRESSION INTEL',
-            icon: Icons.bolt,
-            color: AppColors.memoryAmber,
-            onTap: onProgression,
-          ),
+        const SizedBox(height: 10),
+        _NavBtn(
+          label: 'INVITE FRIENDS',
+          icon: Icons.group_add_rounded,
+          color: AppColors.neonCyan,
+          onTap: onInviteFriends,
         ),
       ],
     );

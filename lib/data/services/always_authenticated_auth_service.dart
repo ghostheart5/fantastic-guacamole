@@ -37,6 +37,9 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
   Future<void> sendPasswordReset(String email) async {}
 
   @override
+  Future<void> updatePassword({required String newPassword}) async {}
+
+  @override
   Future<void> sendEmailVerification() async {}
 
   @override

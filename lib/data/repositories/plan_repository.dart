@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/plan_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
@@ -8,42 +8,25 @@ import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
 class PlanRepository implements IPlanRepository {
   PlanRepository(this._store);
 
-  static const String _key = 'plans_v1';
-
-  final SharedPrefsStore _store;
+  final HiveStorage<String> _store;
 
   @override
   Future<PlanEntity?> getPlan(DateTime date) async {
-    final Map<String, dynamic> plans = _loadPlans();
-    final String key = _dateKey(date);
-    final Object? raw = plans[key];
-    if (raw is! Map<String, dynamic>) {
+    await _store.open();
+    final String? raw = _store.get(_dateKey(date));
+    if (raw == null || raw.trim().isEmpty) {
       return null;
     }
-    return _fromJson(raw);
+    final Object? decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) {
+      return null;
+    }
+    return _fromJson(decoded);
   }
 
   @override
   Future<void> savePlan(PlanEntity plan) async {
-    final Map<String, dynamic> plans = _loadPlans();
-    plans[_dateKey(plan.date)] = _toJson(plan);
-    await _store.save(_key, jsonEncode(plans));
-  }
-
-  Map<String, dynamic> _loadPlans() {
-    final String? raw = _store.load(_key);
-    if (raw == null || raw.trim().isEmpty) {
-      return <String, dynamic>{};
-    }
-    try {
-      final Object? decoded = jsonDecode(raw);
-      if (decoded is Map<String, dynamic>) {
-        return decoded;
-      }
-    } catch (_) {
-      // Ignore malformed persisted plans and return an empty map.
-    }
-    return <String, dynamic>{};
+    await _store.put(_dateKey(plan.date), jsonEncode(_toJson(plan)));
   }
 
   static String _dateKey(DateTime date) {

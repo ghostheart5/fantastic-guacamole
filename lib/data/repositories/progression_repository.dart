@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
 
@@ -9,11 +9,12 @@ class ProgressionRepository implements IProgressionRepository {
 
   static const String _key = 'progression_entity_v1';
 
-  final SecureStore _store;
+  final HiveStorage<String> _store;
 
   @override
   Future<ProgressionEntity?> getProgression() async {
-    final String? raw = await _store.readString(_key);
+    await _store.open();
+    final String? raw = _store.get(_key);
     if (raw == null || raw.trim().isEmpty) {
       return null;
     }
@@ -34,7 +35,7 @@ class ProgressionRepository implements IProgressionRepository {
 
   @override
   Future<void> saveProgression(ProgressionEntity progression) {
-    return _store.writeString(
+    return _store.put(
       _key,
       jsonEncode(<String, dynamic>{
         'xp': progression.xp,

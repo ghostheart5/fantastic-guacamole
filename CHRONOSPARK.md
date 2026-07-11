@@ -16,6 +16,84 @@ ChronoSpark combines a beautiful Material 3 UI with a sophisticated behavioral e
 
 ---
 
+## Setup Alignment
+
+This canonical alignment maps product scope to staged delivery tiers and core feature use-case folders.
+
+### MVP Core
+
+- Authentication
+- User Profile
+- Dashboard
+- Goals
+- Tasks
+- Habits
+- Habit Streaks
+- Daily Plan
+- Smart Coach Basic
+- SI Console Basic
+- Offline Handling
+- Error Handling
+- Settings
+- Privacy/Delete Account
+
+### MVP Plus
+
+- Projects
+- Timeline
+- Analytics
+- Notifications
+- Memory System
+- Weekly Planning
+- Goal Forecasting
+- Habit Recommendations
+- Smart Coach Advanced
+- SI Console Advanced
+
+### Elite Version
+
+- Future Self System
+- Identity Alignment
+- Life Balance Analysis
+- Advanced Forecasting
+- Momentum Engine
+- Gamification
+- Premium Paywall
+- AI Context Memory
+- Cross-System Recommendations
+- Personal Operating System Analysis
+
+### Core Feature Use-Case Folders
+
+- auth
+- profile
+- onboarding
+- dashboard
+- goals
+- tasks
+- projects
+- habits
+- streaks
+- planner
+- timeline
+- smart_coach
+- si_console
+- memory
+- journal
+- analytics
+- notifications
+- gamification
+- settings
+- sync
+- offline
+- errors
+- ai_engine
+- subscription
+- legal
+- qa
+
+---
+
 ## Architecture
 
 ### Technology Stack
@@ -257,6 +335,237 @@ Internal but essential:
 
 ---
 
+## ChronoSpark Master Entity List
+
+### 1. Auth / Account Entities
+
+- **UserAccount**
+- **AuthSession**
+- **AuthProvider**
+- **LoginCredential**
+- **PasswordResetRequest**
+- **EmailVerification**
+- **AccountDeletionRequest**
+- **UserConsent**
+- **PrivacySetting**
+- **UserDataExport**
+
+### 2. User Profile Entities
+
+- **UserProfile**
+- **UserPreference**
+- **UserSettings**
+- **UserAvatar**
+- **UserTimezone**
+- **UserThemePreference**
+- **UserNotificationPreference**
+- **UserCoachingPreference**
+- **UserLifeAreaPreference**
+- **UserOnboardingState**
+
+### 3. Onboarding Entities
+
+- **OnboardingFlow**
+- **OnboardingStep**
+- **OnboardingAnswer**
+- **OnboardingGoalSelection**
+- **OnboardingHabitSelection**
+- **OnboardingFocusArea**
+- **StarterPlan**
+- **IntroCard**
+- **SetupProgress**
+
+### 4. Goal Entities
+
+- **Goal**
+- **GoalCategory**
+- **GoalStatus**
+- **GoalPriority**
+- **GoalMilestone**
+- **GoalProgress**
+- **GoalMetric**
+- **GoalTarget**
+- **GoalDeadline**
+- **GoalMotivation**
+- **GoalReflection**
+- **GoalRisk**
+- **GoalRecommendation**
+- **GoalHealthScore**
+- **GoalForecast**
+
+### Example Goal Fields
+
+- id
+- userId
+- title
+- description
+- category
+- status
+- priority
+- startDate
+- targetDate
+- progressPercent
+- createdAt
+- updatedAt
+
+### 5. Milestone Entities
+
+- **Milestone**
+- **MilestoneStatus**
+- **MilestoneProgress**
+- **MilestoneDeadline**
+- **MilestoneReward**
+- **MilestoneReminder**
+- **MilestoneReflection**
+
+### 6. Task Entities
+
+- **Task**
+- **TaskStatus**
+- **TaskPriority**
+- **TaskCategory**
+- **TaskSchedule**
+- **TaskReminder**
+- **TaskRecurrence**
+- **TaskDependency**
+- **TaskNote**
+- **TaskCompletion**
+- **TaskEnergyLevel**
+- **TaskDifficulty**
+- **TaskDurationEstimate**
+- **TaskTag**
+- **TaskAttachment**
+- **TaskRecommendation**
+
+### Example Task Fields
+
+- id
+- userId
+- goalId
+- projectId
+- title
+- description
+- status
+- priority
+- dueDate
+- completedAt
+- createdAt
+- updatedAt
+
+### 7. Project Entities
+
+- **Project**
+- **ProjectStatus**
+- **ProjectCategory**
+- **ProjectPriority**
+- **ProjectGoalLink**
+- **ProjectTaskLink**
+- **ProjectMilestone**
+- **ProjectTimeline**
+- **ProjectProgress**
+- **ProjectRisk**
+- **ProjectHealthScore**
+- **ProjectRecommendation**
+- **ProjectForecast**
+
+### 8. Habit Entities
+
+- **Habit**
+- **HabitCategory**
+- **HabitStatus**
+- **HabitFrequency**
+- **HabitSchedule**
+- **HabitReminder**
+- **HabitCompletion**
+- **HabitLog**
+- **HabitNote**
+- **HabitMood**
+- **HabitEffort**
+- **HabitQuantity**
+- **HabitProgress**
+- **HabitHealthScore**
+- **HabitRecommendation**
+- **HabitForecast**
+
+### Example Habit Fields
+
+- id
+- userId
+- title
+- description
+- category
+- frequency
+- targetCount
+- status
+- createdAt
+- updatedAt
+
+### 9. Habit Streak Entities
+
+- **HabitStreak**
+- **StreakStatus**
+- **StreakMilestone**
+- **StreakReward**
+- **StreakBreak**
+- **StreakRecoveryPlan**
+- **StreakHistory**
+- **StreakForecast**
+- **StreakRisk**
+- **StreakBadge**
+
+### Example Streak Fields
+
+- id
+- habitId
+- userId
+- currentCount
+- longestCount
+- startedAt
+- lastCompletedAt
+- brokenAt
+- status
+
+### 10. Daily Planning Entities
+
+- **DailyPlan**
+- **DailyPlanItem**
+- **DailyPriority**
+- **DailyFocus**
+- **DailyReflection**
+- **DailySummary**
+- **DailyScore**
+- **DailyReview**
+- **FocusBlock**
+- **RoutineBlock**
+- **BreakBlock**
+
+### 11. Weekly Planning Entities
+
+- **WeeklyPlan**
+- **WeeklyGoal**
+- **WeeklyPriority**
+- **WeeklyTaskSummary**
+- **WeeklyHabitSummary**
+- **WeeklyReflection**
+- **WeeklyReview**
+- **WeeklyScore**
+- **WeeklyCarryOver**
+
+### 12. Timeline Entities
+
+- **TimelineEvent**
+- **TimelineItem**
+- **TimelineMilestone**
+- **TimelineDeadline**
+- **TimelineRange**
+- **TimelineConflict**
+- **TimelineRisk**
+- **TimelineForecast**
+- **TimelineSnapshot**
+- **TimelineReview**
+
+---
+
 ## All Create Use Cases
 
 ### 🧠 A. Basic Creation Flows
@@ -328,6 +637,909 @@ Meta-level operations:
 - **Create category** – Grouping
 - **Create workspace** – Multi-device/multi-user (future)
 - **Create theme config** – Visual customization
+
+### 🧠 H. Authentication & Account Use Cases
+
+User identity and account lifecycle operations:
+
+- **Sign up** – Create a new user account
+- **Log in** – Authenticate with account credentials
+- **Log out** – End the current authenticated session
+- **Reset password** – Request and complete password reset flow
+- **Verify email** – Confirm account email ownership
+- **Update email** – Change account email address
+- **Update password** – Change account password
+- **Delete account** – Permanently remove the user account
+- **Export user data** – Download account and usage data
+- **Manage privacy settings** – Configure consent and data-sharing preferences
+- **Manage notification permissions** – Configure push/email/in-app notification access
+- **Manage account settings** – Update profile and account-level preferences
+- **Handle auth failure** – Show mapped errors and recovery actions
+- **Handle offline login state** – Graceful behavior when connectivity is unavailable
+- **Restore user session** – Rehydrate valid session on app restart
+
+### 🧠 I. User Profile Use Cases
+
+Profile creation, personalization, and identity context operations:
+
+- **Create user profile** – Initialize a profile for a new user
+- **Edit user profile** – Update profile fields and personal details
+- **View user profile** – Display current profile information
+- **Set display name** – Configure the user-facing name
+- **Set avatar** – Configure profile image
+- **Set timezone** – Configure scheduling and display timezone
+- **Set preferences** – Configure core personalization settings
+- **Set primary life goals** – Store high-level long-term user goals
+- **Set coaching style** – Configure assistant tone and guidance style
+- **Set theme preference** – Configure visual theme behavior
+- **Set notification preference** – Configure notification behavior
+- **Set onboarding progress** – Persist onboarding completion state
+- **Update personal context** – Refresh user context used for recommendations
+- **View user summary** – Display consolidated identity and preference summary
+
+### 🧠 J. Onboarding Use Cases
+
+First-run setup and guided activation flows:
+
+- **Start onboarding** – Begin first-time user setup flow
+- **Complete onboarding** – Finish onboarding and unlock full app flow
+- **Skip onboarding** – Bypass setup and enter app with defaults
+- **Choose main goals** – Select primary long-term objectives
+- **Choose focus areas** – Select key domains to prioritize
+- **Choose habit goals** – Select habit-building targets
+- **Choose productivity style** – Select planning and execution style
+- **Choose coaching tone** – Select assistant personality and tone
+- **Choose reminder preferences** – Configure notification cadence and channels
+- **Create first goal** – Create the user's first goal during onboarding
+- **Create first task** – Create the user's first actionable task
+- **Create first habit** – Create the user's first recurring habit
+- **Generate starter plan** – Build an initial plan from onboarding inputs
+- **Show app tour** – Present guided walkthrough of core surfaces
+- **Show coach introduction** – Introduce coaching behavior and expectations
+- **Show SI console introduction** – Introduce SI Console capabilities and usage
+
+### 🧠 K. Dashboard Use Cases
+
+Home surface visibility, insight consumption, and layout controls:
+
+- **View dashboard** – Open and view the main dashboard surface
+- **View daily summary** – See today's completion and activity highlights
+- **View weekly summary** – See weekly performance and trend highlights
+- **View goal snapshot** – See condensed goal progress status
+- **View task snapshot** – See condensed task status and priorities
+- **View habit snapshot** – See condensed habit streak and completion state
+- **View timeline snapshot** – See short-form upcoming and recent timeline items
+- **View momentum score** – See current execution and consistency momentum score
+- **View priority card** – See top-priority recommended work item
+- **View coach suggestions** – See coaching recommendations for next actions
+- **View SI insights** – See SI-generated patterns and strategic guidance
+- **Refresh dashboard** – Reload dashboard data and recompute insight cards
+- **Customize dashboard widgets** – Configure visible widget set and behavior
+- **Hide dashboard widget** – Remove a widget from active layout
+- **Reorder dashboard widgets** – Change widget ordering in the layout
+
+### 🧠 K2. Dashboard Analytics Use Cases
+
+Dashboard analytics visibility, reporting, and trend-inspection operations:
+
+- **View progress analytics** – View aggregate progress performance metrics
+- **View goal analytics** – View goal-specific analytics and trends
+- **View task analytics** – View task execution analytics and distribution
+- **View habit analytics** – View habit adherence analytics and trends
+- **View streak analytics** – View streak performance and streak trend analytics
+- **View project analytics** – View project-level delivery analytics
+- **View productivity analytics** – View productivity output and efficiency analytics
+- **View momentum analytics** – View momentum trend and acceleration analytics
+- **View completion analytics** – View completion-rate and throughput analytics
+- **View consistency analytics** – View execution consistency analytics over time
+- **View timeline analytics** – View time-allocation and schedule analytics
+- **View weekly report** – View synthesized weekly analytics report
+- **View monthly report** – View synthesized monthly analytics report
+
+### 🧠 K3. Advanced Analytics Use Cases
+
+Cross-domain scoring, rate computation, and pattern-detection operations:
+
+- **Calculate momentum score** – Compute momentum score from progress velocity and consistency
+- **Calculate productivity score** – Compute productivity score from output and efficiency signals
+- **Calculate goal health score** – Compute goal health score from status, pace, and risk factors
+- **Calculate habit health score** – Compute habit health score from adherence and trend stability
+- **Calculate life balance score** – Compute life balance score across key life domains
+- **Calculate consistency score** – Compute consistency score from behavioral regularity over time
+- **Calculate completion rate** – Compute completion ratio across selected entities/time windows
+- **Calculate overdue rate** – Compute overdue ratio across active commitments
+- **Calculate focus score** – Compute focus quality score from deep-work and interruption signals
+- **Calculate risk score** – Compute aggregate risk score from detected risk indicators
+- **Detect progress patterns** – Detect recurring progress and acceleration patterns
+- **Detect failure patterns** – Detect recurring failure and drop-off patterns
+- **Detect success patterns** – Detect recurring success and high-performance patterns
+
+### 🧠 K4. Momentum System Use Cases
+
+Momentum scoring, trend tracking, and momentum-recovery guidance operations:
+
+- **Calculate daily momentum** – Compute momentum score for the current day
+- **Calculate weekly momentum** – Compute momentum score for the current week
+- **Calculate goal momentum** – Compute momentum signal for active goals
+- **Calculate habit momentum** – Compute momentum signal from habit adherence
+- **Calculate task momentum** – Compute momentum signal from task throughput
+- **Increase momentum score** – Raise momentum score from positive execution events
+- **Decrease momentum score** – Lower momentum score from negative drift events
+- **Recover momentum** – Apply recovery logic to restore momentum trajectory
+- **Show momentum trend** – Display momentum trend over selected time windows
+- **Show momentum insight** – Display interpretation of current momentum state
+- **Recommend momentum action** – Recommend best next action to improve momentum
+
+### 🧠 K5. Theme Use Cases
+
+Visual theme selection and interface personalization operations:
+
+- **Change theme** – Switch active application theme
+- **Use light theme** – Apply light visual theme
+- **Use dark theme** – Apply dark visual theme
+- **Use prism theme** – Apply prism visual theme
+- **Use futuristic theme** – Apply futuristic visual theme
+- **Use shadowfire theme** – Apply shadowfire visual theme
+- **Customize accent color** – Set theme accent color
+- **Customize dashboard layout** – Adjust dashboard visual arrangement
+- **Customize widget visibility** – Show/hide dashboard widgets
+- **Customize text size** – Adjust global text size for readability
+- **Customize app icon** – Select alternate app icon style
+
+### 🧠 K6. App Settings Use Cases
+
+Application configuration and user preference management operations:
+
+- **Update app settings** – Update global application settings
+- **Update notification settings** – Configure notification preferences and delivery behavior
+- **Update privacy settings** – Configure privacy and data-sharing preferences
+- **Update coach settings** – Configure coaching behavior and personalization options
+- **Update SI console settings** – Configure SI Console behavior and preferences
+- **Update data settings** – Configure data sync, backup, and retention options
+- **Update accessibility settings** – Configure accessibility and assistive features
+- **Update language settings** – Configure application language/localization
+- **Update time format** – Configure 12-hour or 24-hour time display
+- **Update date format** – Configure regional date display format
+- **Reset settings** – Reset configurable settings to defaults
+
+### 🧠 K7. Local Data Use Cases
+
+Local persistence, caching, and offline data-access operations:
+
+- **Save local data** – Persist data to local storage
+- **Read local data** – Read data from local storage
+- **Update local data** – Update existing local data records
+- **Delete local data** – Remove local data records
+- **Cache dashboard data** – Cache dashboard payloads for fast loading
+- **Cache user profile** – Cache user profile for offline access
+- **Cache goals** – Cache goal records locally
+- **Cache tasks** – Cache task records locally
+- **Cache habits** – Cache habit records locally
+- **Cache projects** – Cache project records locally
+- **Cache timeline** – Cache timeline records/events locally
+
+### 🧠 K8. Sync Use Cases
+
+Cloud synchronization, offline queueing, and conflict-resolution operations:
+
+- **Sync user data** – Synchronize user profile and account data
+- **Sync goals** – Synchronize goal records
+- **Sync tasks** – Synchronize task records
+- **Sync habits** – Synchronize habit records
+- **Sync projects** – Synchronize project records
+- **Sync timeline** – Synchronize timeline records/events
+- **Sync memories** – Synchronize memory records
+- **Sync analytics** – Synchronize analytics snapshots and metrics
+- **Resolve sync conflict** – Resolve local/cloud data conflicts
+- **Retry failed sync** – Retry failed synchronization operations
+- **Queue offline change** – Queue local changes while offline
+- **Process offline queue** – Process queued changes when connectivity returns
+- **Restore from cloud** – Restore local state from cloud snapshot
+
+### 🧠 K9. Offline Mode Use Cases
+
+Offline operation handling, user feedback, and reconnection recovery operations:
+
+- **Enter offline mode** – Transition app into offline-capable state
+- **Exit offline mode** – Transition app back to online-capable state
+- **Detect offline state** – Detect network loss and offline conditions
+- **Show offline banner** – Display persistent offline status indicator
+- **Allow offline task updates** – Allow task modifications while offline
+- **Allow offline habit updates** – Allow habit modifications while offline
+- **Allow offline goal updates** – Allow goal modifications while offline
+- **Save offline changes** – Persist offline mutations for later sync
+- **Sync when online** – Trigger synchronization when connectivity returns
+- **Handle sync failure** – Handle synchronization failures gracefully
+- **Handle limited mode** – Restrict unsupported features in offline/limited mode
+
+### 🧠 K10. Error Handling Use Cases
+
+Runtime fault handling, user-safe degradation, and reliability operations:
+
+- **Handle auth backend unavailable** – Handle unavailable authentication backend
+- **Handle database unavailable** – Handle unavailable database dependencies
+- **Handle network error** – Handle connectivity and transport failures
+- **Handle timeout error** – Handle operation timeout conditions
+- **Handle permission error** – Handle denied authorization/permission states
+- **Handle validation error** – Handle invalid data and rule-validation failures
+- **Handle empty state** – Handle no-data states with safe fallback UI
+- **Handle missing data** – Handle incomplete or absent required data
+- **Handle sync error** – Handle synchronization processing failures
+- **Handle AI response error** – Handle failed or invalid AI response payloads
+- **Handle invalid user input** – Handle malformed or unsupported user input
+- **Retry failed action** – Retry failed operations with recovery logic
+- **Show friendly error message** – Show user-readable and actionable error feedback
+- **Log error** – Record error details for diagnostics
+- **Report crash** – Send crash reports for incident analysis
+
+### 🧠 K11. State Recovery Use Cases
+
+Session continuity, draft restoration, and interrupted-flow recovery operations:
+
+- **Recover last session** – Restore previous app session state
+- **Restore unsaved draft** – Restore unsaved input/content drafts
+- **Restore last screen** – Return user to last active screen
+- **Restore failed task update** – Recover failed task mutation attempt
+- **Restore failed habit update** – Recover failed habit mutation attempt
+- **Restore failed goal update** – Recover failed goal mutation attempt
+- **Resume onboarding** – Resume interrupted onboarding flow
+- **Resume daily plan** – Resume interrupted daily planning flow
+- **Resume coach conversation** – Resume interrupted coaching conversation state
+- **Resume SI query** – Resume interrupted SI Console query flow
+
+### 🧠 K12. Free Plan Use Cases
+
+Free-tier access, limits visibility, and usage tracking operations:
+
+- **Use free features** – Access features available in free tier
+- **View free limits** – View free-tier usage caps and restrictions
+- **Hit free limit** – Handle limit-reached state for free-tier usage
+- **Show upgrade prompt** – Show premium upgrade prompt at limit boundaries
+- **Track free usage** – Track free-tier feature usage consumption
+- **Reset monthly free usage** – Reset monthly free-tier quotas
+
+### 🧠 K13. Premium Plan Use Cases
+
+Subscription lifecycle, entitlement validation, and premium unlock operations:
+
+- **View premium features** – View premium feature catalog and benefits
+- **Start subscription** – Start premium subscription purchase flow
+- **Restore purchase** – Restore prior premium purchase/subscription
+- **Cancel subscription** – Cancel active premium subscription
+- **Check entitlement** – Validate premium entitlement status
+- **Unlock premium coach** – Unlock premium coaching capabilities
+- **Unlock SI console** – Unlock SI Console premium capabilities
+- **Unlock advanced analytics** – Unlock advanced analytics capabilities
+- **Unlock forecasting** – Unlock forecasting capabilities
+- **Unlock custom themes** – Unlock premium custom theme library
+- **Unlock unlimited goals** – Unlock unlimited goal capacity
+- **Unlock unlimited habits** – Unlock unlimited habit capacity
+
+### 🧠 K14. Internal Testing Use Cases
+
+Internal diagnostics, subsystem verification, and environment validation operations:
+
+- **Run app health check** – Run overall application health diagnostics
+- **Run auth test** – Run authentication flow and auth-service tests
+- **Run database test** – Run database connectivity and CRUD integrity tests
+- **Run offline test** – Run offline-mode behavior and persistence tests
+- **Run sync test** – Run sync pipeline and conflict-resolution tests
+- **Run notification test** – Run notification delivery and scheduling tests
+- **Run coach test** – Run Smart Coach interaction and response tests
+- **Run SI console test** – Run SI Console command and response tests
+- **Run analytics test** – Run analytics computation and reporting tests
+- **Run crash reporting test** – Run crash capture and reporting pipeline test
+- **Validate environment variables** – Validate required runtime environment variables
+- **Validate Supabase config** – Validate Supabase configuration and connectivity
+- **Validate Firebase config** – Validate Firebase configuration and connectivity
+- **Validate routing** – Validate navigation and route-guard behavior
+- **Validate permissions** – Validate runtime and feature permission behavior
+
+### 🧠 L. Goal Management Use Cases
+
+Goal lifecycle, visibility, and organization operations:
+
+- **Create goal** – Add a new goal
+- **Edit goal** – Modify goal details
+- **Delete goal** – Permanently remove a goal
+- **Archive goal** – Move a goal out of active view
+- **Restore goal** – Bring an archived goal back to active state
+- **Complete goal** – Mark goal as completed
+- **Pause goal** – Temporarily suspend progress tracking
+- **Resume goal** – Reactivate a paused goal
+- **View goal** – Open goal details
+- **View all goals** – List every goal state
+- **View active goals** – List goals currently in progress
+- **View completed goals** – List goals marked done
+- **View archived goals** – List goals moved to archive
+- **Search goals** – Find goals by query
+- **Filter goals** – Narrow goal list by criteria
+- **Sort goals** – Reorder goals by selected sort mode
+- **Pin goal** – Prioritize a goal at top of list
+- **Unpin goal** – Remove pinned priority from a goal
+
+### 🧠 M. Goal Planning Use Cases
+
+Goal definition, decomposition, and plan design operations:
+
+- **Break goal into milestones** – Decompose a goal into phased checkpoints
+- **Break goal into tasks** – Decompose a goal into executable tasks
+- **Set goal deadline** – Define final due date for the goal
+- **Set goal priority** – Define urgency/importance level
+- **Set goal category** – Classify goal under a domain/category
+- **Set goal motivation** – Capture why the goal matters
+- **Set goal success criteria** – Define completion conditions
+- **Set goal measurement type** – Define how progress is measured
+- **Set goal target value** – Define the numeric or qualitative target
+- **Set goal start date** – Define when execution begins
+- **Set goal end date** – Define planned completion date
+- **Create goal roadmap** – Build milestone and timeline sequence
+- **Generate goal plan** – Auto-create a structured plan from inputs
+- **Adjust goal plan** – Modify roadmap/tasks as context changes
+
+### 🧠 N. Goal Progress Use Cases
+
+Goal tracking, analysis, and predictive guidance operations:
+
+- **Update goal progress** – Record current progress state
+- **Track goal completion percentage** – Measure percent complete
+- **Track goal milestones** – Monitor milestone completion status
+- **Track goal tasks** – Monitor linked task execution status
+- **Track goal habits** – Monitor contributing habit consistency
+- **Calculate goal health** – Compute overall goal quality/viability score
+- **Calculate goal momentum** – Compute pace and consistency trend
+- **Analyze goal progress** – Evaluate patterns and blockers
+- **Forecast goal completion** – Predict likely completion timeline
+- **Detect goal risk** – Identify risk of non-completion
+- **Detect goal delay** – Identify schedule slippage
+- **Detect goal conflict** – Identify conflicts with other goals/plans
+- **Recommend goal next action** – Suggest highest-impact next step
+
+### 🧠 O. Goal Intelligence & Strategy Use Cases
+
+Advanced multi-goal analysis, prioritization, and recovery operations:
+
+- **Analyze active goals** – Evaluate current in-progress goals as a portfolio
+- **Find highest priority goal** – Identify the top-priority goal now
+- **Find neglected goals** – Identify goals with insufficient recent progress
+- **Find overloaded goals** – Identify goals with unrealistic scope or load
+- **Find conflicting goals** – Identify goals competing for time/resources
+- **Find most impactful goal** – Identify goal with highest expected outcome value
+- **Find goal bottlenecks** – Identify blocked dependencies and constraints
+- **Generate goal recommendations** – Produce strategic optimization suggestions
+- **Generate goal recovery plan** – Build recovery path for at-risk goals
+- **Generate goal forecast** – Produce projection across multiple scenarios
+- **Analyze goal alignment** – Evaluate alignment with values and priorities
+- **Analyze future self alignment** – Evaluate alignment with desired future identity
+- **Analyze life area balance** – Evaluate distribution across life domains
+
+### 🧠 P. Tasks System Use Cases
+
+Task lifecycle, retrieval, and list-organization operations:
+
+- **Create task** – Add a new task
+- **Edit task** – Modify task details
+- **Delete task** – Permanently remove a task
+- **Archive task** – Move task out of active views
+- **Restore task** – Bring archived task back to active state
+- **Complete task** – Mark task as done
+- **Uncomplete task** – Reopen a completed task
+- **View task** – Open task details
+- **View all tasks** – List tasks across all states
+- **View open tasks** – List actionable/incomplete tasks
+- **View completed tasks** – List completed tasks
+- **View archived tasks** – List archived tasks
+- **Search tasks** – Find tasks by query
+- **Filter tasks** – Narrow task list by criteria
+- **Sort tasks** – Reorder tasks by selected sort mode
+- **Pin task** – Prioritize task at top of list
+- **Unpin task** – Remove pinned priority from task
+
+### 🧠 Q. Task Scheduling & Configuration Use Cases
+
+Task timing, effort, and execution-planning operations:
+
+- **Set task due date** – Assign a final due date
+- **Set task start date** – Assign earliest start date
+- **Set task reminder** – Configure reminder notifications
+- **Set task priority** – Assign urgency/importance level
+- **Set task category** – Classify task by domain/category
+- **Set task duration** – Define expected effort duration
+- **Set task energy level** – Define required energy intensity
+- **Set task difficulty** – Define estimated complexity level
+- **Set task recurrence** – Configure repeating schedule
+- **Schedule task** – Place task into a specific time slot/plan
+- **Reschedule task** – Move task to a different time/date
+- **Snooze task** – Delay task reminder/execution temporarily
+- **Move task to tomorrow** – Shift task to next-day plan
+- **Move task to this week** – Shift task into weekly plan horizon
+
+### 🧠 R. Task Intelligence Use Cases
+
+Task discovery, prioritization intelligence, and predictive operations:
+
+- **Find tasks due today** – Surface tasks with due date today
+- **Find tasks due tomorrow** – Surface tasks with due date tomorrow
+- **Find tasks due this week** – Surface tasks due within the current week
+- **Find overdue tasks** – Surface tasks past due date
+- **Find high priority tasks** – Surface urgent/important tasks first
+- **Find low energy tasks** – Surface tasks suitable for low energy states
+- **Find quick win tasks** – Surface short, high-completion-probability tasks
+- **Find deep work tasks** – Surface focus-intensive tasks requiring long blocks
+- **Find blocked tasks** – Surface tasks blocked by dependencies or constraints
+- **Find neglected tasks** – Surface stale tasks with no recent progress
+- **Recommend next task** – Suggest best next task given context
+- **Analyze task load** – Evaluate workload volume and distribution
+- **Analyze task completion rate** – Measure completion throughput over time
+- **Analyze task patterns** – Detect behavioral and execution trends
+- **Forecast task completion** – Predict likely completion timelines
+
+### 🧠 S. Project Management Use Cases
+
+Project lifecycle, retrieval, and organization operations:
+
+- **Create project** – Add a new project
+- **Edit project** – Modify project details
+- **Delete project** – Permanently remove a project
+- **Archive project** – Move project out of active views
+- **Restore project** – Bring archived project back to active state
+- **Complete project** – Mark project as completed
+- **Pause project** – Temporarily suspend project execution
+- **Resume project** – Reactivate a paused project
+- **View project** – Open project details
+- **View all projects** – List projects across all states
+- **View active projects** – List projects currently in progress
+- **View completed projects** – List projects marked done
+- **Search projects** – Find projects by query
+- **Filter projects** – Narrow project list by criteria
+- **Sort projects** – Reorder projects by selected sort mode
+
+### 🧠 T. Project Planning Use Cases
+
+Project roadmap design, progress monitoring, and strategic planning operations:
+
+- **Create project roadmap** – Build phased timeline and delivery plan
+- **Set project deadline** – Define final due date for the project
+- **Set project priority** – Define urgency/importance level
+- **Set project category** – Classify project by domain/category
+- **Add project goals** – Link supporting goals to the project
+- **Add project tasks** – Add executable tasks under the project
+- **Add project milestones** – Add key checkpoints and phase gates
+- **Add project notes** – Capture planning context and decisions
+- **Track project progress** – Monitor completion and execution status
+- **Calculate project health** – Compute project viability/health score
+- **Detect project risks** – Identify delivery and scope risks
+- **Generate project recommendations** – Produce optimization suggestions
+- **Forecast project completion** – Predict likely completion timeline
+
+### 🧠 U. Habit Management Use Cases
+
+Habit lifecycle, retrieval, and organization operations:
+
+- **Create habit** – Add a new habit
+- **Edit habit** – Modify habit details
+- **Delete habit** – Permanently remove a habit
+- **Archive habit** – Move habit out of active views
+- **Restore habit** – Bring archived habit back to active state
+- **Pause habit** – Temporarily suspend habit tracking
+- **Resume habit** – Reactivate a paused habit
+- **View habit** – Open habit details
+- **View all habits** – List habits across all states
+- **View active habits** – List habits currently in progress
+- **View completed habits** – List habits marked complete
+- **Search habits** – Find habits by query
+- **Filter habits** – Narrow habit list by criteria
+- **Sort habits** – Reorder habits by selected sort mode
+
+### 🧠 V. Habit Tracking Use Cases
+
+Habit check-in, logging, and consistency measurement operations:
+
+- **Track daily habit** – Record daily cadence completion state
+- **Track weekly habit** – Record weekly cadence completion state
+- **Track monthly habit** – Record monthly cadence completion state
+- **Track custom habit** – Record completion against custom cadence rules
+- **Complete habit** – Mark scheduled habit instance complete
+- **Skip habit** – Mark scheduled habit instance skipped intentionally
+- **Miss habit** – Mark scheduled habit instance missed
+- **Log habit note** – Record freeform context for a habit check-in
+- **Log habit mood** – Record emotional state during check-in
+- **Log habit effort** – Record perceived effort for completion
+- **Log habit time** – Record time spent on habit execution
+- **Log habit quantity** – Record measurable output amount
+- **Track habit frequency** – Monitor cadence adherence frequency
+- **Track habit consistency** – Monitor streak stability over time
+- **Track habit completion rate** – Measure completion ratio over period
+
+### 🧠 W. Habit Streak Use Cases
+
+Streak lifecycle, risk management, and streak intelligence operations:
+
+- **View current streak** – Display active streak length
+- **View longest streak** – Display best historical streak length
+- **View all streaks** – Display streak history across habits
+- **Start streak** – Initialize a new streak run
+- **Continue streak** – Extend streak with on-time completion
+- **Break streak** – Record streak interruption event
+- **Reset streak** – Reset streak counter to baseline
+- **Restore streak** – Restore streak after approved recovery action
+- **Track daily streak** – Track streak continuity on daily cadence
+- **Track weekly streak** – Track streak continuity on weekly cadence
+- **Track monthly streak** – Track streak continuity on monthly cadence
+- **Track custom streak** – Track streak continuity on custom cadence
+- **Celebrate streak milestone** – Trigger milestone celebration/reward flow
+- **Detect at-risk streak** – Identify streak likely to break soon
+- **Generate streak recovery plan** – Build plan to recover after disruption
+- **Analyze streak performance** – Evaluate streak quality and trend
+- **Forecast streak survival** – Predict probability of streak continuation
+
+### 🧠 X. Habit Intelligence Use Cases
+
+Advanced habit analysis, optimization, and recommendation operations:
+
+- **Analyze habits** – Evaluate overall habit portfolio performance
+- **Find best habit** – Identify top-performing habit
+- **Find weakest habit** – Identify lowest-performing habit
+- **Find most consistent habit** – Identify habit with strongest consistency trend
+- **Find most impactful habit** – Identify habit with greatest positive outcome effect
+- **Find keystone habit** – Identify habit with highest cross-domain leverage
+- **Find habit conflicts** – Identify habits competing for time/energy/context
+- **Find habit patterns** – Detect behavioral and timing patterns
+- **Detect habit drop-off** – Identify decline in habit adherence
+- **Detect habit burnout** – Identify strain/overload from habit regimen
+- **Recommend new habit** – Suggest habit additions based on goals and gaps
+- **Recommend habit adjustment** – Suggest cadence/scope changes for sustainability
+- **Analyze habit goal alignment** – Evaluate habit support for active goals
+- **Analyze future self habit alignment** – Evaluate habit alignment with desired identity
+
+### 🧠 Y. Daily Planning Use Cases
+
+Day-level planning, execution setup, and review operations:
+
+- **Create daily plan** – Create a plan for the current day
+- **Edit daily plan** – Modify daily plan contents
+- **View daily plan** – Display today's planned structure
+- **Complete daily plan** – Mark daily plan as completed
+- **Reset daily plan** – Clear and restart today's plan
+- **Generate daily plan** – Auto-generate today's plan from context
+- **Review daily plan** – Reflect on planned vs completed outcomes
+- **Prioritize daily plan** – Rank today's items by priority
+- **Add task to today** – Add a task to today's plan
+- **Add goal to today** – Add a goal focus to today's plan
+- **Add habit to today** – Add a habit check-in to today's plan
+- **Schedule focus block** – Allocate a dedicated deep-work block
+- **Schedule break** – Allocate break/recovery intervals
+- **Schedule routine** – Allocate routine sequence into the day plan
+
+### 🧠 Z. Weekly Planning Use Cases
+
+Week-level planning, review, and carry-forward operations:
+
+- **Create weekly plan** – Create a plan for the current week
+- **Edit weekly plan** – Modify weekly plan contents
+- **View weekly plan** – Display current weekly structure
+- **Complete weekly review** – Finalize weekly reflection workflow
+- **Generate weekly priorities** – Produce ranked priorities for the week
+- **Review weekly goals** – Evaluate goal progress in weekly context
+- **Review weekly tasks** – Evaluate task execution for the week
+- **Review weekly habits** – Evaluate habit adherence for the week
+- **Analyze weekly progress** – Analyze overall weekly outcomes
+- **Plan next week** – Draft upcoming week's plan
+- **Carry over unfinished tasks** – Move incomplete tasks into next week
+- **Detect weekly overload** – Identify unsustainable weekly workload
+
+### 🧠 AA. Timeline Use Cases
+
+Timeline visibility, event lifecycle, and temporal analysis operations:
+
+- **View timeline** – Open the master timeline view
+- **View daily timeline** – Display timeline scoped to today
+- **View weekly timeline** – Display timeline scoped to current week
+- **View monthly timeline** – Display timeline scoped to current month
+- **View yearly timeline** – Display timeline scoped to current year
+- **View goal timeline** – Display timeline filtered to goal events
+- **View project timeline** – Display timeline filtered to project events
+- **View habit timeline** – Display timeline filtered to habit events
+- **Add timeline event** – Create a new timeline event
+- **Edit timeline event** – Modify timeline event details
+- **Delete timeline event** – Remove a timeline event
+- **Track milestones** – Monitor milestone events on timeline
+- **Track deadlines** – Monitor due-date/deadline events on timeline
+- **Track completed events** – Monitor completed items over time
+- **Analyze timeline** – Evaluate temporal patterns and distribution
+- **Detect timeline conflict** – Identify overlapping or conflicting events
+- **Detect timeline risk** – Identify schedule-risk windows and overload points
+- **Forecast timeline outcomes** – Predict likely timeline completion outcomes
+
+### 🧠 AA2. Reminder Use Cases
+
+Reminder lifecycle and cross-domain reminder scheduling operations:
+
+- **Create reminder** – Create a new reminder
+- **Edit reminder** – Modify reminder details
+- **Delete reminder** – Remove a reminder
+- **Snooze reminder** – Delay reminder trigger time
+- **Complete reminder** – Mark reminder as handled
+- **View reminders** – View reminder list and states
+- **Schedule task reminder** – Schedule reminder for task execution
+- **Schedule habit reminder** – Schedule reminder for habit check-in
+- **Schedule goal reminder** – Schedule reminder for goal action/review
+- **Schedule streak reminder** – Schedule reminder to protect active streaks
+- **Schedule review reminder** – Schedule generic review reminder
+- **Schedule daily plan reminder** – Schedule reminder for daily planning flow
+- **Schedule weekly review reminder** – Schedule reminder for weekly review flow
+
+### 🧠 AA3. Notification Intelligence Use Cases
+
+Intelligent notification delivery, alerting, and engagement operations:
+
+- **Send smart reminder** – Send context-aware reminder at optimal timing
+- **Send habit reminder** – Send habit-specific reminder notification
+- **Send task reminder** – Send task execution reminder notification
+- **Send goal reminder** – Send goal progress/action reminder notification
+- **Send streak warning** – Send warning when active streak is at risk
+- **Send milestone celebration** – Send celebration notification for milestones
+- **Send overdue alert** – Send alert for overdue commitments
+- **Send daily summary** – Send end-of-day summary notification
+- **Send weekly summary** – Send end-of-week summary notification
+- **Send motivation notification** – Send motivational reinforcement notification
+- **Send coach recommendation** – Send coach-generated recommendation notification
+- **Send SI insight** – Send SI-generated insight notification
+
+### 🧠 AA4. Progress Reward Use Cases
+
+Gamified progression, achievement, and unlock operations:
+
+- **Earn XP** – Award experience points for completed actions
+- **Earn badge** – Award a badge for milestone achievement
+- **Earn streak badge** – Award a badge for streak milestones
+- **Earn goal badge** – Award a badge for goal completion milestones
+- **Earn habit badge** – Award a badge for habit adherence milestones
+- **Earn task badge** – Award a badge for task execution milestones
+- **Level up** – Advance user level based on accumulated XP
+- **View achievements** – View earned achievements and badge history
+- **View progress rewards** – View available and earned reward inventory
+- **Unlock milestone** – Unlock milestone-based reward state
+- **Unlock theme** – Unlock visual theme reward
+- **Unlock coach message** – Unlock special coach message reward
+
+### 🧠 AB. Health & Wellness Coach Use Cases
+
+Personal wellness coaching, behavior support, and health-guidance operations:
+
+- **Weight loss coaching** – Provide guidance for sustainable weight reduction
+- **Weight gain coaching** – Provide guidance for healthy weight gain
+- **Nutrition coaching** – Provide dietary guidance aligned with goals
+- **Meal planning coaching** – Build practical meal plans for target outcomes
+- **Hydration coaching** – Guide daily hydration habits and targets
+- **Exercise coaching** – Guide balanced physical activity routines
+- **Walking coaching** – Guide walking goals, cadence, and progression
+- **Running coaching** – Guide running plans, pacing, and progression
+- **Strength training coaching** – Guide resistance training structure and progression
+- **Sleep coaching** – Guide sleep quality, schedule, and recovery habits
+- **Energy coaching** – Guide strategies to stabilize and improve energy levels
+- **Fatigue coaching** – Guide interventions to reduce fatigue and overload
+- **Recovery coaching** – Guide rest and recovery protocols after exertion
+- **Stress coaching** – Guide stress regulation techniques and routines
+- **Burnout coaching** – Guide burnout prevention and recovery pathways
+- **Healthy routine coaching** – Guide sustainable daily health routines
+
+### 🧠 AC. Productivity Coach Use Cases
+
+Performance coaching, execution support, and productivity behavior operations:
+
+- **Focus coaching** – Guide attention management and concentration habits
+- **Deep work coaching** – Guide sustained high-cognition work blocks
+- **Time management coaching** – Guide allocation of time across priorities
+- **Task prioritization coaching** – Guide ordering of tasks by impact and urgency
+- **Procrastination coaching** – Guide interventions to reduce avoidance behavior
+- **Distraction coaching** – Guide strategies to reduce interruption and context-switching
+- **Planning coaching** – Guide practical planning routines and structures
+- **Routine coaching** – Guide stable daily and weekly execution routines
+- **Decision making coaching** – Guide structured decision processes under uncertainty
+- **Work-life balance coaching** – Guide sustainable balance across life domains
+- **Overwhelm coaching** – Guide load reduction and cognitive decompression strategies
+- **Motivation coaching** – Guide intrinsic/extrinsic motivation reinforcement
+- **Momentum coaching** – Guide consistency and forward-progress acceleration
+- **Discipline coaching** – Guide commitment and follow-through systems
+- **Consistency coaching** – Guide long-term behavior stability and repeatability
+
+### 🧠 AD. Personal Growth Coach Use Cases
+
+Identity development, emotional growth, and self-evolution coaching operations:
+
+- **Confidence coaching** – Guide confidence-building behaviors and beliefs
+- **Self-esteem coaching** – Guide healthier self-worth and self-talk patterns
+- **Purpose coaching** – Guide discovery and articulation of personal purpose
+- **Identity coaching** – Guide intentional identity design and alignment
+- **Future self coaching** – Guide actions aligned with desired future identity
+- **Life direction coaching** – Guide long-range life path clarification
+- **Mindset coaching** – Guide adaptive mindset shifts and reframing
+- **Resilience coaching** – Guide recovery and adaptation after setbacks
+- **Emotional regulation coaching** – Guide emotional awareness and regulation skills
+- **Self-care coaching** – Guide sustainable personal care rituals
+- **Reflection coaching** – Guide structured reflection and learning loops
+- **Values alignment coaching** – Guide decisions aligned with core values
+- **Goal achievement coaching** – Guide strategic follow-through toward outcomes
+- **Personal transformation coaching** – Guide long-term personal evolution pathways
+
+### 🧠 AE. Smart Coach Intelligence Use Cases
+
+Coach cognition, adaptive response generation, and recommendation tracking operations:
+
+- **Detect user intent** – Infer user objective from context and inputs
+- **Detect emotional state** – Infer user emotional state from language and signals
+- **Detect coaching category** – Route request to best-fit coaching domain
+- **Generate coaching response** – Produce context-aware coaching guidance
+- **Generate action plan** – Produce structured next-step execution plan
+- **Generate recovery plan** – Produce recovery strategy after setbacks
+- **Generate motivation boost** – Produce motivation reinforcement prompts
+- **Generate habit advice** – Produce habit-specific recommendations
+- **Generate goal advice** – Produce goal-specific recommendations
+- **Generate task advice** – Produce task-level execution recommendations
+- **Ask follow-up question** – Ask clarifying question to improve guidance quality
+- **Suggest next best action** – Recommend highest-impact immediate action
+- **Save coach insight** – Persist meaningful coaching insight for later use
+- **Track coach recommendation** – Track recommendation issuance and outcomes
+
+### 🧠 AE2. Intent Detection Use Cases
+
+Intent classification, routing, and fallback handling operations:
+
+- **Detect smart coach intent** – Detect intent for Smart Coach interactions
+- **Detect SI console intent** – Detect intent for SI Console interactions
+- **Detect goal intent** – Detect goal-related intent from user input
+- **Detect task intent** – Detect task-related intent from user input
+- **Detect habit intent** – Detect habit-related intent from user input
+- **Detect project intent** – Detect project-related intent from user input
+- **Detect timeline intent** – Detect timeline-related intent from user input
+- **Detect analytics intent** – Detect analytics/reporting intent from user input
+- **Detect emotional intent** – Detect emotionally driven support intent
+- **Detect planning intent** – Detect planning/scheduling intent
+- **Detect unknown intent** – Detect unsupported or ambiguous intent
+- **Route intent to handler** – Route classified intent to the correct handler
+- **Fallback to general help** – Provide general-help fallback when routing confidence is low
+
+### 🧠 AE3. Prompt & Response Use Cases
+
+Prompt construction, context injection, response shaping, and validation operations:
+
+- **Build smart coach prompt** – Build prompt template for Smart Coach flows
+- **Build SI console prompt** – Build prompt template for SI Console flows
+- **Build context-aware prompt** – Build prompt using active runtime context
+- **Inject user context** – Inject user profile/state context into prompt
+- **Inject goal context** – Inject goal context into prompt
+- **Inject task context** – Inject task context into prompt
+- **Inject habit context** – Inject habit context into prompt
+- **Inject timeline context** – Inject timeline context into prompt
+- **Format coach response** – Format Smart Coach response output
+- **Format SI response** – Format SI Console response output
+- **Generate follow-up question** – Generate clarification or continuation question
+- **Generate structured action plan** – Generate structured step-by-step action plan
+- **Validate AI response** – Validate AI response quality and schema compliance
+
+### 🧠 AF. System Query Use Cases
+
+Cross-domain retrieval, lookup, and status-inspection operations:
+
+- **Query goals** – Retrieve goal records and goal states
+- **Query tasks** – Retrieve task records and task states
+- **Query projects** – Retrieve project records and project states
+- **Query habits** – Retrieve habit records and habit states
+- **Query timeline** – Retrieve timeline events and scheduling states
+- **Query daily plan** – Retrieve current daily plan composition and status
+- **Query weekly plan** – Retrieve current weekly plan composition and status
+- **Query progress** – Retrieve progress metrics across active work
+- **Query priorities** – Retrieve ranked priorities for execution
+- **Query memories** – Retrieve stored memory/context artifacts
+- **Query analytics** – Retrieve analytics summaries and trend outputs
+- **Query recommendations** – Retrieve generated recommendation outputs
+
+### 🧠 AG. SI Analysis Use Cases
+
+System intelligence diagnostics, cross-domain analysis, and forecasting operations:
+
+- **Analyze entire system** – Evaluate holistic system state and interactions
+- **Analyze goals** – Evaluate goal portfolio quality and progress dynamics
+- **Analyze tasks** – Evaluate task execution patterns and outcomes
+- **Analyze projects** – Evaluate project delivery health and trajectory
+- **Analyze habits** – Evaluate habit adherence quality and trends
+- **Analyze timeline** – Evaluate temporal allocation and schedule structure
+- **Analyze productivity** – Evaluate output, throughput, and efficiency signals
+- **Analyze momentum** – Evaluate pace, continuity, and forward motion
+- **Analyze consistency** – Evaluate reliability of execution over time
+- **Analyze life balance** – Evaluate distribution across life domains
+- **Analyze risk areas** – Identify high-risk domains and failure points
+- **Analyze bottlenecks** – Identify constraints limiting system performance
+- **Analyze progress trends** – Identify directional progress over time windows
+- **Analyze future outcomes** – Forecast likely outcomes under current trajectory
+
+### 🧠 AH. SI Recommendation Use Cases
+
+System-intelligence recommendations, interventions, and optimization guidance operations:
+
+- **Recommend next best action** – Recommend highest-impact immediate step
+- **Recommend highest priority task** – Recommend top task by urgency and impact
+- **Recommend most important goal** – Recommend goal with highest strategic value
+- **Recommend habit to focus on** – Recommend habit with best leverage potential
+- **Recommend project to advance** – Recommend project with strongest current ROI
+- **Recommend recovery action** – Recommend corrective action after disruption
+- **Recommend schedule adjustment** – Recommend timeline and calendar refinements
+- **Recommend goal adjustment** – Recommend goal scope/timeline recalibration
+- **Recommend productivity fix** – Recommend intervention to remove productivity drag
+- **Recommend momentum boost** – Recommend action to restore forward velocity
+- **Recommend risk reduction** – Recommend mitigations for identified risks
+
+### 🧠 AI. SI Forecasting Use Cases
+
+Predictive modeling, risk projection, and forward-outcome intelligence operations:
+
+- **Forecast goal completion** – Predict likelihood and timing of goal completion
+- **Forecast project completion** – Predict likelihood and timing of project completion
+- **Forecast habit success** – Predict probability of sustained habit adherence
+- **Forecast streak survival** – Predict continuation probability of active streaks
+- **Forecast timeline risk** – Predict schedule instability and timeline risk exposure
+- **Forecast productivity trend** – Predict near- and mid-term productivity trajectory
+- **Forecast burnout risk** – Predict likelihood of burnout under current patterns
+- **Forecast overload risk** – Predict likelihood of workload overload conditions
+- **Forecast missed deadline** – Predict probability of missing upcoming deadlines
+- **Forecast progress outcome** – Predict likely progress state at future checkpoints
+- **Forecast future self alignment** – Predict alignment trajectory with desired identity
+
+### 🧠 AJ. SI Console Natural Language Use Cases
+
+Natural-language question answering flows for SI Console decision support:
+
+- **Answer what should I do next** – Return immediate next best action
+- **Answer what am I forgetting** – Surface missing, neglected, or hidden commitments
+- **Answer what is overdue** – Surface currently overdue items
+- **Answer what matters most** – Surface highest-impact priorities
+- **Answer what is falling behind** – Surface slipping goals, projects, or habits
+- **Answer what am I doing well** – Surface strengths and positive performance trends
+- **Answer what needs attention** – Surface urgent focus areas
+- **Answer what is my biggest risk** – Surface top current risk factor
+- **Answer what is my biggest opportunity** – Surface top leverage opportunity
+- **Answer am I on track** – Return trajectory assessment against goals and plans
+- **Answer analyze my life** – Return holistic cross-domain life analysis
+- **Answer summarize my system** – Return concise system-wide status summary
+
+### 🧠 AK. Memory System Use Cases
+
+Memory lifecycle, contextual linking, retrieval, and memory-intelligence operations:
+
+- **Create memory** – Add a new memory record
+- **Edit memory** – Modify memory content and metadata
+- **Delete memory** – Permanently remove a memory record
+- **Archive memory** – Move memory out of active recall scope
+- **View memories** – Browse memory records
+- **Search memories** – Retrieve memories by query
+- **Tag memory** – Apply labels for memory categorization
+- **Link memory to goal** – Associate memory with a goal
+- **Link memory to task** – Associate memory with a task
+- **Link memory to habit** – Associate memory with a habit
+- **Link memory to project** – Associate memory with a project
+- **Generate memory summary** – Produce concise summary of stored memories
+- **Recall relevant memory** – Surface context-relevant memory during decision flow
+- **Analyze memory patterns** – Detect recurring themes and behavioral patterns
+
+### 🧠 AL. Journal Use Cases
+
+Journal entry lifecycle, reflective capture, and insight-generation operations:
+
+- **Create journal entry** – Create a new journal record
+- **Edit journal entry** – Modify journal entry content
+- **Delete journal entry** – Permanently remove a journal entry
+- **View journal entry** – Open a specific journal entry
+- **Search journal entries** – Find entries by query and filters
+- **Tag journal entry** – Apply labels to organize entries
+- **Add mood to entry** – Record emotional state with an entry
+- **Add goal reflection** – Record reflection related to goals
+- **Add habit reflection** – Record reflection related to habits
+- **Add daily reflection** – Record end-of-day reflection
+- **Add weekly reflection** – Record end-of-week reflection
+- **Analyze journal sentiment** – Detect sentiment and emotional trends
+- **Generate journal insight** – Produce insights from journal patterns
+- **Generate reflection prompt** – Generate prompts for deeper reflection
 
 ---
 

@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
@@ -5,7 +6,6 @@ import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 class TimelineScreen extends ConsumerWidget {
   const TimelineScreen({super.key});
@@ -17,7 +17,7 @@ class TimelineScreen extends ConsumerWidget {
     // Group events by date
     final Map<String, List<TimelineEventEntity>> grouped = {};
     for (final event in events) {
-      final key = DateFormat('EEEE, MMM d').format(event.timestamp);
+      final key = DateTimeFormats.timelineDay(event.timestamp);
       grouped.putIfAbsent(key, () => []).add(event);
     }
     final days = grouped.keys.toList();
@@ -219,7 +219,7 @@ class _TimelineEventTile extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        DateFormat('h:mm a').format(event.timestamp),
+                        DateTimeFormats.timelineTime(event.timestamp),
                         style: const TextStyle(
                           color: Colors.white38,
                           fontSize: 10,

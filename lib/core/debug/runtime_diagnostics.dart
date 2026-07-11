@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:flutter/foundation.dart';
 
 class RuntimeDiagnosticEvent {
@@ -28,7 +29,8 @@ class RuntimeDiagnostics {
     final String text = Logger.redactSensitive(message.trim());
     if (text.isEmpty) return;
 
-    final String stamped = '[${DateTime.now().toIso8601String()}] $text';
+    final String stamped =
+        '[${DateTimeFormats.reportTimestamp(DateTime.now())}] $text';
     final List<String> next = List<String>.from(entries.value)..add(stamped);
     if (next.length > _maxEntries) {
       next.removeRange(0, next.length - _maxEntries);
@@ -71,7 +73,7 @@ class RuntimeDiagnostics {
   }
 
   static String _summary(RuntimeDiagnosticEvent event) {
-    final String timestamp = event.timestamp.toIso8601String();
+    final String timestamp = DateTimeFormats.reportTimestamp(event.timestamp);
     final String scoped = event.category.isEmpty ? 'runtime' : event.category;
     final String body = event.message.isEmpty ? 'state updated' : event.message;
     final String payload = event.data.isEmpty

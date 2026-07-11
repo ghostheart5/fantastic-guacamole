@@ -26,11 +26,7 @@ class _NexusHeader extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SmartPressable(
-                onTap: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const NotificationsPage(),
-                  ),
-                ),
+                onTap: () => context.push(RoutePaths.notifications),
                 child: Badge(
                   isLabelVisible: unread > 0,
                   label: Text('$unread'),
@@ -47,6 +43,16 @@ class _NexusHeader extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    SvgPicture.asset(
+                      AppAssets.iconNexus,
+                      width: ultraCompact ? 18 : (compact ? 20 : 22),
+                      height: ultraCompact ? 18 : (compact ? 20 : 22),
+                      colorFilter: const ColorFilter.mode(
+                        AppColors.neonCyan,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    SizedBox(height: ultraCompact ? 3 : 4),
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
@@ -664,23 +670,64 @@ class _CoreSignalsStrip extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'CROSS-MODULE SYNTHESIS',
-            style: TextStyle(
-              color: AppColors.neonViolet,
-              fontSize: 10,
-              letterSpacing: 1.6,
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'CROSS-MODULE SYNTHESIS',
+                  style: TextStyle(
+                    color: AppColors.neonViolet,
+                    fontSize: 10,
+                    letterSpacing: 1.6,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              SvgPicture.asset(
+                AppAssets.iconInsights,
+                width: 16,
+                height: 16,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.neonViolet,
+                  BlendMode.srcIn,
+                ),
+              ),
+              const SizedBox(width: 6),
+              SvgPicture.asset(
+                AppAssets.iconReflect,
+                width: 16,
+                height: 16,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.neonCyan,
+                  BlendMode.srcIn,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
-          Text(
-            growthTitle,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  growthTitle,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SvgPicture.asset(
+                AppAssets.iconFocus,
+                width: 22,
+                height: 22,
+                colorFilter: ColorFilter.mode(
+                  Colors.white.withValues(alpha: 0.82),
+                  BlendMode.srcIn,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(

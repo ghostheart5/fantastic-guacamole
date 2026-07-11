@@ -1,18 +1,30 @@
 import 'dart:convert';
+import 'dart:io';
 
-import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
+import 'package:fantastic_guacamole/data/local/hive_storage.dart';
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
 
 void main() {
-  late SharedPrefsStorage prefs;
+  late Directory hiveDirectory;
+  late HiveStorage<String> queueStorage;
   late OfflineSyncQueueService service;
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    prefs = SharedPrefsStorage(await SharedPreferences.getInstance());
-    service = OfflineSyncQueueService(prefs);
+    hiveDirectory = await Directory.systemTemp.createTemp('chronospark_offline_queue_');
+    Hive.init(hiveDirectory.path);
+    queueStorage = HiveStorage<String>('offline_sync_queue_box', hive: _TestHiveStore());
+    service = OfflineSyncQueueService(queueStorage);
+  });
+
+  tearDown(() async {
+    await queueStorage.close();
+    await Hive.close();
+    if (await hiveDirectory.exists()) {
+      await hiveDirectory.delete(recursive: true);
+    }
   });
 
   test('enqueue dedupes by dedupeKey', () async {
@@ -70,8 +82,7 @@ void main() {
   });
 
   test('loadQueue ignores malformed entries', () async {
-    final SharedPreferences raw = await SharedPreferences.getInstance();
-    await raw.setString(
+    await queueStorage.put(
       OfflineSyncQueueService.storageKey,
       jsonEncode(<Map<String, dynamic>>[
         <String, dynamic>{
@@ -97,4 +108,40 @@ void main() {
     expect(queue, hasLength(1));
     expect(queue.single.id, 'good-id');
   });
+}
+
+class _TestHiveStore implements HiveStore {
+  @override
+  Future<void> clearBox(String key) async {
+    final Box<String> box = await openBox<String>(key);
+    await box.clear();
+  }
+
+  @override
+  Future<void> closeBox(String key) async {
+    if (Hive.isBoxOpen(key)) {
+      await Hive.box<String>(key).close();
+    }
+  }
+
+  @override
+  Box<T> box<T>(String key) {
+    return Hive.box<T>(key);
+  }
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  bool isBoxOpen(String key) {
+    return Hive.isBoxOpen(key);
+  }
+
+  @override
+  Future<Box<T>> openBox<T>(String key) {
+    if (Hive.isBoxOpen(key)) {
+      return Future<Box<T>>.value(Hive.box<T>(key));
+    }
+    return Hive.openBox<T>(key);
+  }
 }

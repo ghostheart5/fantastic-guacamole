@@ -35,7 +35,7 @@ void main() {
         continue;
       }
       final String normalized = entity.path.replaceAll('\\', '/');
-      if (normalized.startsWith('lib/engine/si/')) {
+      if (normalized.startsWith('lib/engine/')) {
         continue;
       }
 

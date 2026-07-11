@@ -1,10 +1,14 @@
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 class GoalsScreen extends ConsumerWidget {
   const GoalsScreen({super.key});
@@ -255,6 +259,54 @@ class _GoalCard extends ConsumerStatefulWidget {
 class _GoalCardState extends ConsumerState<_GoalCard> {
   bool _expanded = false;
 
+  Future<void> _shareGoal(GoalProgressView goalProgress) async {
+    final GoalEntity goal = widget.goal;
+    final int total = goalProgress.totalCount;
+    final int completed = goalProgress.completedCount;
+    final DateTime? targetDate = goal.targetDate;
+    final String targetLabel = targetDate == null
+        ? 'No target date set'
+        : 'Target date: ${targetDate.day}/${targetDate.month}/${targetDate.year}';
+    final String text =
+        'ChronoSpark Goal\n'
+        '${goal.title}\n'
+        'Progress: $completed/$total tasks complete\n'
+        '$targetLabel\n'
+        'Build your mission system: ${AppUrls.website}';
+
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: text,
+          title: 'ChronoSpark Goal',
+          subject: 'My ChronoSpark goal',
+        ),
+      );
+      AppAnalytics.track(
+        'share_goal',
+        params: <String, Object?>{'method': 'share_sheet'},
+      );
+      return;
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: text));
+      AppAnalytics.track(
+        'share_goal',
+        params: <String, Object?>{'method': 'clipboard_fallback'},
+      );
+    }
+
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Share sheet unavailable. Goal summary copied to clipboard.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final goalProgress =
@@ -336,6 +388,15 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                             ),
                           ),
                         ),
+                      IconButton(
+                        tooltip: 'Share goal',
+                        onPressed: () => _shareGoal(goalProgress),
+                        icon: Icon(
+                          Icons.ios_share_rounded,
+                          color: goalColor.withValues(alpha: 0.9),
+                          size: 18,
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () => setState(() => _expanded = !_expanded),

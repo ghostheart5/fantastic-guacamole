@@ -1,8 +1,8 @@
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
-import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/task_provider.dart';
+import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final notificationActionsProvider = Provider<NotificationActions>((Ref ref) {
@@ -99,6 +99,8 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     bool refreshPlan = true,
   }) async {
     await ref.read(scheduleNotificationUseCaseProvider).call(notification);
+    final bool soundEnabled = ref.read(soundEnabledProvider);
+    await AudioService.playNotification(soundEnabled);
     state = <NotificationEntity>[notification, ...state];
 
     if (refreshPlan) {
@@ -138,6 +140,8 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     bool refreshCoach = true,
     bool refreshPlan = true,
   }) {
+    final bool soundEnabled = ref.read(soundEnabledProvider);
+    AudioService.playAchievement(soundEnabled);
     return push(
       _notification(
         title: 'Completion',

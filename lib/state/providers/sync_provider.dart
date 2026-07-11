@@ -1,10 +1,12 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
+import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
@@ -37,11 +39,9 @@ final _backupServiceProvider = Provider<BackupService?>((ref) {
 });
 
 final _offlineSyncQueueProvider = Provider<OfflineSyncQueueService?>((ref) {
-  final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
-    _sharedPrefsProvider,
-  );
-  return prefsAsync.whenOrNull(
-    data: (SharedPrefsStorage prefs) => OfflineSyncQueueService(prefs),
+  final HiveStore hive = ref.read(hiveStoreProvider);
+  return OfflineSyncQueueService(
+    HiveStorage<String>(HiveBoxes.offlineQueue, hive: hive),
   );
 });
 
@@ -50,6 +50,7 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
     _sharedPrefsProvider,
   );
   final BackupService? backup = ref.watch(_backupServiceProvider);
+  final supabaseClient = ref.watch(supabaseClientProvider);
   return prefsAsync.whenOrNull(
     data: (SharedPrefsStorage prefs) => backup == null
         ? null
@@ -57,6 +58,8 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
             backup: backup,
             gateway: Env.isMockMode
                 ? LocalTestCloudBackupGateway(prefs)
+                : (Env.enableCloudSync && supabaseClient != null)
+                ? SupabaseStorageCloudBackupGateway(client: supabaseClient)
                 : const UnavailableCloudBackupGateway(),
           ),
   );
@@ -64,22 +67,32 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
 
 final syncToCloudProvider = FutureProvider<bool>((ref) async {
   final OfflineSyncQueueService? queue = ref.read(_offlineSyncQueueProvider);
-  await queue?.replay(
-    executor: (OfflineSyncQueueItem item) async {
-      return _executeQueuedSyncAction(ref, item);
-    },
-  );
-
-  final bool success =
-      await ref.read(syncServiceProvider)?.syncToCloud() ?? false;
-  if (!success) {
-    await queue?.enqueue(
-      actionType: 'sync_to_cloud',
-      dedupeKey: 'sync_to_cloud',
-      payload: const <String, dynamic>{},
+  try {
+    await queue?.replay(
+      executor: (OfflineSyncQueueItem item) async {
+        return _executeQueuedSyncAction(ref, item);
+      },
     );
+
+    final bool success =
+        await ref.read(syncServiceProvider)?.syncToCloud() ?? false;
+    if (!success) {
+      await queue?.enqueue(
+        actionType: 'sync_to_cloud',
+        dedupeKey: 'sync_to_cloud',
+        payload: const <String, dynamic>{},
+      );
+    }
+    return success;
+  } catch (error, stackTrace) {
+    Logger.errorCategory(
+      'Sync Errors',
+      'syncToCloudProvider execution failed',
+      error,
+      stackTrace,
+    );
+    return false;
   }
-  return success;
 });
 
 final replayOfflineQueueProvider = FutureProvider<int>((ref) async {
@@ -103,15 +116,25 @@ final offlineQueueCountProvider = FutureProvider<int>((ref) async {
 });
 
 final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
-  final bool restored =
-      await ref.read(syncServiceProvider)?.restoreFromCloud() ?? false;
-  if (restored) {
-    ref.invalidate(tasksProvider);
-    ref.invalidate(profileProvider);
-    ref.invalidate(goalProgressProvider);
-    ref.invalidate(optimizationConfigProvider);
+  try {
+    final bool restored =
+        await ref.read(syncServiceProvider)?.restoreFromCloud() ?? false;
+    if (restored) {
+      ref.invalidate(tasksProvider);
+      ref.invalidate(profileProvider);
+      ref.invalidate(goalProgressProvider);
+      ref.invalidate(optimizationConfigProvider);
+    }
+    return restored;
+  } catch (error, stackTrace) {
+    Logger.errorCategory(
+      'Sync Errors',
+      'restoreFromCloudProvider execution failed',
+      error,
+      stackTrace,
+    );
+    return false;
   }
-  return restored;
 });
 
 Future<bool> _executeQueuedSyncAction(

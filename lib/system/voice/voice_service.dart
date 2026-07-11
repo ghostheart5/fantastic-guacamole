@@ -27,6 +27,52 @@ class VoiceService {
     }
   }
 
+  Future<void> speakSummary({
+    required String title,
+    required List<String> points,
+  }) {
+    final String cleanedTitle = title.trim();
+    final List<String> cleanedPoints = points
+        .map((String item) => item.trim())
+        .where((String item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (cleanedPoints.isEmpty) {
+      return speak(
+        cleanedTitle.isEmpty
+            ? 'No summary available.'
+            : '$cleanedTitle. No summary available.',
+      );
+    }
+    final StringBuffer buffer = StringBuffer();
+    if (cleanedTitle.isNotEmpty) {
+      buffer.write('$cleanedTitle. ');
+    }
+    for (int i = 0; i < cleanedPoints.length; i++) {
+      buffer.write('Point ${i + 1}. ${cleanedPoints[i]}. ');
+    }
+    return speak(buffer.toString());
+  }
+
+  Future<void> speakAccessibilityHint({
+    required String surface,
+    required List<String> controls,
+  }) {
+    final String surfaceName = surface.trim().isEmpty
+        ? 'this screen'
+        : surface.trim();
+    final List<String> items = controls
+        .map((String item) => item.trim())
+        .where((String item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (items.isEmpty) {
+      return speak('Accessibility guide for $surfaceName is unavailable.');
+    }
+    return speakSummary(
+      title: 'Accessibility guide for $surfaceName',
+      points: items,
+    );
+  }
+
   Future<void> stop() async {
     if (!await _ensureInitialized()) {
       return;

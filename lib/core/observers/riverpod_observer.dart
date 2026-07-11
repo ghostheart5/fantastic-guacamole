@@ -36,9 +36,11 @@ base class AppObserver extends ProviderObserver {
     Object error,
     StackTrace stackTrace,
   ) {
-    Logger.log(
-      'Riverpod',
-      'ERROR -> ${context.provider.name ?? context.provider.runtimeType}: $error',
+    Logger.errorCategory(
+      'Riverpod Errors',
+      'Provider failure -> ${context.provider.name ?? context.provider.runtimeType}',
+      error,
+      stackTrace,
     );
   }
 }

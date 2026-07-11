@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
+import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
+import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
@@ -31,6 +34,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
   GoRouter? _router;
   VoidCallback? _routerListener;
   bool _tutorialAssetsLoaded = false;
+  final Set<String> _handledDeepLinks = <String>{};
 
   @override
   void initState() {
@@ -92,12 +96,27 @@ class _AppRootState extends ConsumerState<AppRoot> {
         .watch(intelligenceStateProvider)
         .flags
         .testerFullAccess;
+    final RemoteAnnouncement? remoteAnnouncement = ref
+        .watch(remoteAnnouncementProvider)
+        .asData
+        ?.value;
     final String startupBannerMessage = _startupBannerMessage(
       startupMessage,
       showQaDiagnostics: showQaDiagnostics,
     );
     final GoRouter router = ref.watch(appRouterProvider);
     final tutorialController = ref.watch(tutorialControllerProvider);
+
+    ref.listen<AsyncValue<DeepLinkState>>(deepLinkStateProvider, (
+      AsyncValue<DeepLinkState>? _,
+      AsyncValue<DeepLinkState> next,
+    ) {
+      final Uri? uri = next.asData?.value.latestUri;
+      if (uri == null) {
+        return;
+      }
+      _handleDeepLink(uri, router);
+    });
 
     _attachRouterListener(router);
 
@@ -114,7 +133,9 @@ class _AppRootState extends ConsumerState<AppRoot> {
           ),
         );
 
-        if (startupBannerMessage.isEmpty && !showQaDiagnostics) {
+        if (startupBannerMessage.isEmpty &&
+            !showQaDiagnostics &&
+            !_showRemoteAnnouncement(remoteAnnouncement)) {
           return appChild;
         }
 
@@ -149,6 +170,52 @@ class _AppRootState extends ConsumerState<AppRoot> {
                   ),
                 ),
               ),
+            if (_showRemoteAnnouncement(remoteAnnouncement))
+              Align(
+                alignment: Alignment.topCenter,
+                child: SafeArea(
+                  minimum: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _announcementBackground(
+                          remoteAnnouncement!.level,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (remoteAnnouncement.title.trim().isNotEmpty)
+                            Text(
+                              remoteAnnouncement.title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          if (remoteAnnouncement.title.trim().isNotEmpty)
+                            const SizedBox(height: 4),
+                          Text(
+                            remoteAnnouncement.message,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             if (showQaDiagnostics)
               Align(
                 alignment: Alignment.topRight,
@@ -170,6 +237,97 @@ class _AppRootState extends ConsumerState<AppRoot> {
         );
       },
     );
+  }
+
+  bool _showRemoteAnnouncement(RemoteAnnouncement? announcement) {
+    if (announcement == null) {
+      return false;
+    }
+    return announcement.enabled && announcement.hasContent;
+  }
+
+  Color _announcementBackground(String level) {
+    switch (level.trim().toLowerCase()) {
+      case 'warning':
+      case 'warn':
+        return Colors.orange.withValues(alpha: 0.24);
+      case 'error':
+      case 'critical':
+        return Colors.redAccent.withValues(alpha: 0.26);
+      default:
+        return Colors.blueAccent.withValues(alpha: 0.24);
+    }
+  }
+
+  void _handleDeepLink(Uri uri, GoRouter router) {
+    final String deepLinkKey = uri.toString();
+    if (_handledDeepLinks.contains(deepLinkKey)) {
+      return;
+    }
+    _handledDeepLinks.add(deepLinkKey);
+
+    final String location = _resolveDeepLinkLocation(uri);
+    if (location.isEmpty) {
+      return;
+    }
+    router.go(location);
+  }
+
+  String _resolveDeepLinkLocation(Uri uri) {
+    final String appPath = _normalizeAppPath(uri.path);
+    if (appPath.isEmpty) {
+      return '';
+    }
+
+    final Map<String, String> params = _allLinkParams(uri);
+
+    if (appPath == '/app/auth/callback') {
+      final String type = (params['type'] ?? '').toLowerCase();
+      final String mode = switch (type) {
+        'recovery' => 'recovery',
+        'signup' || 'email_change' || 'invite' => 'verify-email',
+        _ => 'auth-callback',
+      };
+      return '${RoutePaths.login}?mode=$mode';
+    }
+
+    if (appPath == '/app' || appPath == '/app/') {
+      return RoutePaths.home;
+    }
+
+    final String leaf = appPath.substring('/app/'.length);
+    return switch (leaf) {
+      'home' => RoutePaths.home,
+      'plan' => RoutePaths.plan,
+      'creator' => RoutePaths.creator,
+      'insights' => RoutePaths.insights,
+      'settings' => RoutePaths.settings,
+      'notifications' => RoutePaths.notifications,
+      'support' => RoutePaths.support,
+      'privacy' => RoutePaths.privacy,
+      'terms' => RoutePaths.terms,
+      _ => RoutePaths.home,
+    };
+  }
+
+  String _normalizeAppPath(String path) {
+    if (path == '/app' || path == '/app/' || path.startsWith('/app/')) {
+      return path;
+    }
+    final int appStart = path.indexOf('/app');
+    if (appStart >= 0) {
+      return path.substring(appStart);
+    }
+    return '';
+  }
+
+  Map<String, String> _allLinkParams(Uri uri) {
+    final Map<String, String> merged = <String, String>{...uri.queryParameters};
+    final String fragment = uri.fragment.trim();
+    if (fragment.isNotEmpty) {
+      merged.addAll(Uri.splitQueryString(fragment));
+    }
+    return merged;
   }
 
   String _startupBannerMessage(
