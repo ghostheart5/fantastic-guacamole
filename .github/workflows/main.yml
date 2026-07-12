@@ -34,7 +34,10 @@ jobs:
         run: ./scripts/security_secret_guard.ps1
 
       - name: Build web
-        run: flutter build web --release --base-href /fantastic-guacamole/
+        run: |
+          flutter build web --release --base-href /fantastic-guacamole/ \
+            --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }} \
+            --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
 
       - name: Copy legal pages to build
         run: |
