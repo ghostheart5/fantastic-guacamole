@@ -137,6 +137,78 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _scrollToBottom();
   }
 
+  Future<void> _showAccessibilityGuide() async {
+    if (!mounted) {
+      return;
+    }
+    const List<String> controls = <String>[
+      'Type a prompt in the input field, then tap send.',
+      'Use Summary to hear recent assistant responses.',
+      'Use Speak on assistant bubbles to read aloud.',
+      'Use Back to return to Smart Coach.',
+    ];
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF0D1420),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return const SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Accessibility Guide',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'A11Y means accessibility. These controls help with readable and spoken guidance.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  '1. Type prompt then send',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                Text(
+                  '2. Summary for quick recap',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                Text(
+                  '3. Speak reads responses aloud',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                Text(
+                  '4. Back returns to Smart Coach',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    unawaited(
+      ref
+          .read(voiceServiceProvider)
+          .speakAccessibilityHint(surface: 'SI Console', controls: controls),
+    );
+  }
+
   void _send() {
     final String text = _input.text.trim();
     if (text.isEmpty) return;
@@ -448,7 +520,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           .sendMessage(text);
       if (!mounted) return;
       final String message = recommendation?.message.trim() ?? '';
-      if (message.isEmpty) {
+      if (message.isEmpty || _isInvalidAssistantText(message)) {
         _safeSetState(() {
           _typing = false;
           _messages.add(
@@ -489,6 +561,14 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       });
       _scrollToBottom();
     }
+  }
+
+  bool _isInvalidAssistantText(String value) {
+    final String normalized = value.trim().toLowerCase();
+    return normalized == 'undefined' ||
+        normalized == 'null' ||
+        normalized == 'undefined response' ||
+        normalized == 'no response';
   }
 
   void _scrollToBottom() {
@@ -553,20 +633,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                     );
                   },
                   onSpeakAccessibility: () {
-                    unawaited(
-                      ref
-                          .read(voiceServiceProvider)
-                          .speakAccessibilityHint(
-                            surface: 'SI Console',
-                            controls: const <String>[
-                              'Type a prompt in the input field then send',
-                              'Use summary to hear recent assistant responses',
-                              'Use speak on any assistant bubble for read aloud',
-                              'Use accessibility guide for control orientation',
-                              'Use back button to return to Smart Coach',
-                            ],
-                          ),
-                    );
+                    unawaited(_showAccessibilityGuide());
                   },
                 ),
                 Expanded(
@@ -650,160 +717,153 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool compact = MediaQuery.sizeOf(context).width < 760;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Colors.white10)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: onBack,
-            child: const Icon(
-              Icons.arrow_back_ios,
-              color: Colors.white54,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: Colors.greenAccent,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                seededQueryCount > 0
-                    ? 'SI CONSOLE QRY:$seededQueryCount'
-                    : 'SI CONSOLE',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 3,
-                  color: Colors.white,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: onBack,
+                child: const Icon(
+                  Icons.arrow_back_ios,
+                  color: Colors.white54,
+                  size: 18,
                 ),
               ),
-            ),
-          ),
-          const Spacer(),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const FittedBox(
+              const SizedBox(width: 12),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Colors.greenAccent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FittedBox(
                   fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
                   child: Text(
-                    'ONLINE',
-                    style: TextStyle(
-                      fontSize: 9,
-                      letterSpacing: 2,
-                      color: Colors.greenAccent,
+                    seededQueryCount > 0
+                        ? 'SI CONSOLE QRY:$seededQueryCount'
+                        : 'SI CONSOLE',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 3,
+                      color: Colors.white,
                     ),
                   ),
                 ),
-                if (engineSnapshot != null) ...[
-                  const SizedBox(height: 4),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      engineSnapshot ?? '',
-                      style: const TextStyle(
-                        fontSize: 8,
-                        letterSpacing: 1,
-                        color: Colors.white54,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    GestureDetector(
-                      onTap: onSpeakSummary,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.neonCyan.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: AppColors.neonCyan.withValues(alpha: 0.35),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.summarize_rounded,
-                              size: 11,
-                              color: AppColors.neonCyan,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'SUMMARY',
-                              style: TextStyle(
-                                fontSize: 8,
-                                letterSpacing: 1,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.neonCyan,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    GestureDetector(
-                      onTap: onSpeakAccessibility,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.accessibility_new_rounded,
-                              size: 11,
-                              color: Colors.white70,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'A11Y',
-                              style: TextStyle(
-                                fontSize: 8,
-                                letterSpacing: 1,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white70,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'ONLINE',
+                style: TextStyle(
+                  fontSize: 9,
+                  letterSpacing: 2,
+                  color: Colors.greenAccent,
                 ),
-              ],
+              ),
+            ],
+          ),
+          if (engineSnapshot != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              engineSnapshot ?? '',
+              style: const TextStyle(
+                fontSize: 8,
+                letterSpacing: 1,
+                color: Colors.white54,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
+          ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              GestureDetector(
+                onTap: onSpeakSummary,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 7 : 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.neonCyan.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: AppColors.neonCyan.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.summarize_rounded,
+                        size: 11,
+                        color: AppColors.neonCyan,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'SUMMARY',
+                        style: TextStyle(
+                          fontSize: 8,
+                          letterSpacing: 1,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.neonCyan,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: onSpeakAccessibility,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 6 : 7,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.accessibility_new_rounded,
+                        size: 11,
+                        color: Colors.white70,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'ACCESS',
+                        style: TextStyle(
+                          fontSize: 8,
+                          letterSpacing: 1,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -9,7 +9,5 @@ final onboardingCompleteGuardProvider = Provider<bool>(
 
 final authenticatedGuardProvider = Provider<bool>((ref) {
   final intelligence = ref.watch(intelligenceStateProvider);
-  return intelligence.auth.isAuthenticated ||
-      intelligence.flags.mockLoginEnabled ||
-      intelligence.flags.testerFullAccess;
+  return intelligence.auth.isAuthenticated;
 });

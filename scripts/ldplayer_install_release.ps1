@@ -37,7 +37,7 @@ $bundletoolDir = Join-Path $HOME "tools\bundletool"
 $bundletoolJar = Join-Path $bundletoolDir "bundletool-all-1.18.2.jar"
 if (-not (Test-Path $bundletoolJar)) {
     New-Item -ItemType Directory -Force -Path $bundletoolDir | Out-Null
-    Invoke-WebRequest -Uri "https://github.com/google/bundletool/releases/download/1.18.2/bundletool-all-1.18.2.jar" -OutFile $bundletoolJar
+    Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/google/bundletool/releases/download/1.18.2/bundletool-all-1.18.2.jar" -OutFile $bundletoolJar
 }
 
 if (-not (Get-Command java -ErrorAction SilentlyContinue)) {

@@ -4,15 +4,10 @@ import 'package:fantastic_guacamole/data/models/auth_models.dart';
 abstract class AuthServiceContract {
   Stream<User?> authStateChanges();
   User? get currentUser;
-  Future<UserCredential> signIn({
-    required String email,
-    required String password,
-  });
-  Future<UserCredential> signUp({
-    required String email,
-    required String password,
-  });
+  Future<UserCredential> signIn({required String email, required String password});
+  Future<UserCredential> signUp({required String email, required String password});
   Future<UserCredential> signInWithGoogle();
+  Future<UserCredential> signInWithGitHub();
   Future<void> sendPasswordReset(String email);
   Future<void> updatePassword({required String newPassword});
   Future<void> sendEmailVerification();
@@ -53,6 +48,14 @@ extension AuthServiceContractResultX on AuthServiceContract {
     );
   }
 
+  Future<AppResult<UserCredential>> signInWithGitHubResult() {
+    return AppResult.guard<UserCredential>(
+      signInWithGitHub,
+      messageFor: (Object error) => 'GitHub sign-in failed: $error',
+      errorCodeFor: _authErrorCodeFor,
+    );
+  }
+
   Future<AppResult<void>> sendPasswordResetResult(String email) {
     return AppResult.guard<void>(
       () => sendPasswordReset(email),
@@ -61,9 +64,7 @@ extension AuthServiceContractResultX on AuthServiceContract {
     );
   }
 
-  Future<AppResult<void>> deleteCurrentAccountResult({
-    required String password,
-  }) {
+  Future<AppResult<void>> deleteCurrentAccountResult({required String password}) {
     return AppResult.guard<void>(
       () => deleteCurrentAccount(password: password),
       messageFor: (Object error) => 'Account deletion failed: $error',

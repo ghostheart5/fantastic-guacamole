@@ -74,6 +74,16 @@
                     android:host="www.chronospark.app"
                     android:pathPrefix="/app" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="chronospark"
+                    android:host="auth-callback" />
+            </intent-filter>
         </activity>
         <receiver
             android:exported="false"

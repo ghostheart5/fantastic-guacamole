@@ -16,6 +16,7 @@ class ErrorBoundary extends StatefulWidget {
 
   static void reportGlobalError(Object error, [StackTrace? stackTrace]) {
     final String errorText = error.toString();
+    final String stackText = (stackTrace ?? StackTrace.current).toString();
 
     // Prevent recursive ErrorBoundary / Crashlytics / FlutterError loops.
     if (_isReportingError) {
@@ -32,12 +33,16 @@ class ErrorBoundary extends StatefulWidget {
 
     try {
       debugPrint('Global error captured: $errorText');
+      debugPrint('Global error stack start >>>');
+      debugPrint(stackText);
+      debugPrint('Global error stack end <<<');
 
       // Do NOT update notifiers or UI during build.
       // Logger is delayed so it cannot trigger another Flutter build error.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         try {
           Logger.error('Global error captured', error);
+          Logger.error('Global error stack', stackText);
         } catch (_) {
           // Never allow logging to create another crash loop.
         }

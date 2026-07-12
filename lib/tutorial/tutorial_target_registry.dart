@@ -13,15 +13,31 @@ class TutorialTargetRegistry {
   }
 
   Rect? rectFor(String id) {
-    final GlobalKey? key = _keys[id];
-    final BuildContext? context = key?.currentContext;
-    if (context == null) return null;
+    try {
+      final GlobalKey? key = _keys[id];
+      final BuildContext? context = key?.currentContext;
+      if (context == null) {
+        return null;
+      }
 
-    final RenderObject? render = context.findRenderObject();
-    if (render is! RenderBox || !render.hasSize) return null;
+      final RenderObject? render = context.findRenderObject();
+      if (render is! RenderBox || !render.hasSize || !render.attached) {
+        return null;
+      }
 
-    final Offset offset = render.localToGlobal(Offset.zero);
-    return offset & render.size;
+      final Offset offset = render.localToGlobal(Offset.zero);
+      final Size size = render.size;
+      if (!offset.dx.isFinite || !offset.dy.isFinite) {
+        return null;
+      }
+      if (!size.width.isFinite || !size.height.isFinite) {
+        return null;
+      }
+      return offset & size;
+    } catch (_) {
+      // Target may be transitioning between routes/layout phases.
+      return null;
+    }
   }
 
   void unregister(String id) {

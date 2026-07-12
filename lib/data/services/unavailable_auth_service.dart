@@ -2,9 +2,7 @@ import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 
 class UnavailableAuthService implements AuthServiceContract {
-  const UnavailableAuthService({
-    this.message = 'Authentication backend is unavailable.',
-  });
+  const UnavailableAuthService({this.message = 'Authentication backend is unavailable.'});
 
   final String message;
 
@@ -19,23 +17,22 @@ class UnavailableAuthService implements AuthServiceContract {
   User? get currentUser => null;
 
   @override
-  Future<UserCredential> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<UserCredential> signIn({required String email, required String password}) async {
     throw _error();
   }
 
   @override
-  Future<UserCredential> signUp({
-    required String email,
-    required String password,
-  }) async {
+  Future<UserCredential> signUp({required String email, required String password}) async {
     throw _error();
   }
 
   @override
   Future<UserCredential> signInWithGoogle() async {
+    throw _error();
+  }
+
+  @override
+  Future<UserCredential> signInWithGitHub() async {
     throw _error();
   }
 

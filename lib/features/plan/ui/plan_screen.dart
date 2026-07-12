@@ -25,8 +25,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
   void _runAfterBuild(VoidCallback action) {
     if (!mounted) return;
     final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
-    if (phase == SchedulerPhase.idle ||
-        phase == SchedulerPhase.postFrameCallbacks) {
+    if (phase == SchedulerPhase.idle || phase == SchedulerPhase.postFrameCallbacks) {
       action();
       return;
     }
@@ -48,18 +47,11 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
       if (!mounted) {
         return;
       }
-      final bool hasScore = ref.read(sessionScoreProvider) != null;
       _runAfterBuild(() {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Task completed.'),
-            behavior: SnackBarBehavior.floating,
-          ),
+          const SnackBar(content: Text('Task completed.'), behavior: SnackBarBehavior.floating),
         );
-        if (hasScore) {
-          ref.read(appFlowProvider.notifier).toInsight();
-        }
       });
     } catch (error) {
       Logger.error('Plan task completion failed.', error);
@@ -105,19 +97,12 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: AppColors.recallRed,
-                      size: 28,
-                    ),
+                    const Icon(Icons.error_outline, color: AppColors.recallRed, size: 28),
                     const SizedBox(height: 10),
                     Text(
                       'Plan stream offline: $error',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                     const SizedBox(height: 12),
                     TextButton(
@@ -129,8 +114,10 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               ),
             ),
             data: (tasks) {
-              final List<TimeBlock> allBlocks = calendarService
-                  .generateAdaptivePlan(tasks: tasks, energy: energy);
+              final List<TimeBlock> allBlocks = calendarService.generateAdaptivePlan(
+                tasks: tasks,
+                energy: energy,
+              );
               final List<TimeBlock> blocks = allBlocks
                   .where((block) => (block.start.weekday - 1) == _selectedDay)
                   .toList(growable: false);
@@ -140,10 +127,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
-                    child: PlanHeader(
-                      onBack: () =>
-                          ref.read(appFlowProvider.notifier).toCoach(),
-                    ),
+                    child: PlanHeader(onBack: () => ref.read(appFlowProvider.notifier).toCoach()),
                   ),
                   const SizedBox(height: 16),
                   Padding(
@@ -156,10 +140,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                   const SizedBox(height: 14),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                    child: DayOverviewCard(
-                      blocksCount: blocks.length,
-                      energy: energy,
-                    ),
+                    child: DayOverviewCard(blocksCount: blocks.length, energy: energy),
                   ),
                   const SizedBox(height: 20),
                   Expanded(
@@ -172,14 +153,10 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                                   width: 64,
                                   height: 64,
                                   decoration: BoxDecoration(
-                                    color: AppColors.neonViolet.withValues(
-                                      alpha: 0.1,
-                                    ),
+                                    color: AppColors.neonViolet.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
-                                      color: AppColors.neonViolet.withValues(
-                                        alpha: 0.3,
-                                      ),
+                                      color: AppColors.neonViolet.withValues(alpha: 0.3),
                                     ),
                                   ),
                                   child: const Icon(
@@ -201,10 +178,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                                 const SizedBox(height: 8),
                                 const Text(
                                   'Add tasks to generate your daily schedule',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white24,
-                                  ),
+                                  style: TextStyle(fontSize: 12, color: Colors.white24),
                                 ),
                               ],
                             ),

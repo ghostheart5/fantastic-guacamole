@@ -16,6 +16,7 @@ class LoginScreen extends StatefulWidget {
     required this.onPrimaryAction,
     required this.onForgotPassword,
     required this.onGoogleSignIn,
+    required this.onGitHubSignIn,
     this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -34,6 +35,7 @@ class LoginScreen extends StatefulWidget {
   final VoidCallback onPrimaryAction;
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
+  final VoidCallback onGitHubSignIn;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -45,22 +47,17 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
   late final AnimationController _pulse;
   late final AnimationController _entry;
 
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
-    _entry = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 720),
-    )..forward();
+    _pulse = AnimationController(vsync: this, duration: const Duration(seconds: 3))
+      ..repeat(reverse: true);
+    _entry = AnimationController(vsync: this, duration: const Duration(milliseconds: 720))
+      ..forward();
   }
 
   @override
@@ -73,9 +70,9 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final VoidCallback? onMockLogin = widget.onMockLogin;
-    final String? startupMessage =
-        widget.startupError?.trim().isNotEmpty ?? false
-        ? widget.startupError!.trim()
+    final String? startupError = widget.startupError;
+    final String? startupMessage = startupError != null && startupError.trim().isNotEmpty
+        ? startupError.trim()
         : null;
     final Size size = MediaQuery.sizeOf(context);
     final bool landscape = size.width > size.height;
@@ -135,6 +132,7 @@ class _LoginScreenState extends State<LoginScreen>
               onPrimaryAction: widget.onPrimaryAction,
               onForgotPassword: widget.onForgotPassword,
               onGoogleSignIn: widget.onGoogleSignIn,
+              onGitHubSignIn: widget.onGitHubSignIn,
               onMockLogin: onMockLogin,
               onToggleMode: widget.onToggleMode,
               onTogglePassword: widget.onTogglePassword,
@@ -156,6 +154,7 @@ class _LoginScreenState extends State<LoginScreen>
               onPrimaryAction: widget.onPrimaryAction,
               onForgotPassword: widget.onForgotPassword,
               onGoogleSignIn: widget.onGoogleSignIn,
+              onGitHubSignIn: widget.onGitHubSignIn,
               onMockLogin: onMockLogin,
               onToggleMode: widget.onToggleMode,
               onTogglePassword: widget.onTogglePassword,
@@ -174,10 +173,7 @@ class _LoginScreenState extends State<LoginScreen>
                   child: SizedBox(
                     width: 28,
                     height: 28,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.neonCyan,
-                    ),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.neonCyan),
                   ),
                 ),
               ),
@@ -201,6 +197,7 @@ class _PortraitLoginContent extends StatelessWidget {
     required this.onPrimaryAction,
     required this.onForgotPassword,
     required this.onGoogleSignIn,
+    required this.onGitHubSignIn,
     required this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -221,6 +218,7 @@ class _PortraitLoginContent extends StatelessWidget {
   final VoidCallback onPrimaryAction;
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
+  final VoidCallback onGitHubSignIn;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -238,9 +236,7 @@ class _PortraitLoginContent extends StatelessWidget {
         child: AnimatedPadding(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(context).bottom,
-          ),
+          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
           child: IgnorePointer(
             ignoring: isSubmitting,
             child: SingleChildScrollView(
@@ -275,6 +271,7 @@ class _PortraitLoginContent extends StatelessWidget {
                       onPrimaryAction: onPrimaryAction,
                       onForgotPassword: onForgotPassword,
                       onGoogleSignIn: onGoogleSignIn,
+                      onGitHubSignIn: onGitHubSignIn,
                       onMockLogin: onMockLogin,
                       onToggleMode: onToggleMode,
                       onTogglePassword: onTogglePassword,
@@ -306,6 +303,7 @@ class _LandscapeLoginContent extends StatelessWidget {
     required this.onPrimaryAction,
     required this.onForgotPassword,
     required this.onGoogleSignIn,
+    required this.onGitHubSignIn,
     required this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -326,6 +324,7 @@ class _LandscapeLoginContent extends StatelessWidget {
   final VoidCallback onPrimaryAction;
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
+  final VoidCallback onGitHubSignIn;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -351,13 +350,10 @@ class _LandscapeLoginContent extends StatelessWidget {
               child: IgnorePointer(
                 ignoring: isSubmitting,
                 child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.fromLTRB(28, 20, 28, 20),
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
-                    ),
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -390,6 +386,7 @@ class _LandscapeLoginContent extends StatelessWidget {
                                   onPrimaryAction: onPrimaryAction,
                                   onForgotPassword: onForgotPassword,
                                   onGoogleSignIn: onGoogleSignIn,
+                                  onGitHubSignIn: onGitHubSignIn,
                                   onMockLogin: onMockLogin,
                                   onToggleMode: onToggleMode,
                                   onTogglePassword: onTogglePassword,
@@ -415,11 +412,7 @@ class _LandscapeLoginContent extends StatelessWidget {
 }
 
 class _StaggeredEntrance extends StatelessWidget {
-  const _StaggeredEntrance({
-    required this.animation,
-    required this.offsetY,
-    required this.child,
-  });
+  const _StaggeredEntrance({required this.animation, required this.offsetY, required this.child});
 
   final Animation<double> animation;
   final double offsetY;
@@ -472,9 +465,7 @@ class _LoginBrandHeader extends StatelessWidget {
                   height: 0.95,
                   shadows: [
                     Shadow(
-                      color: const Color(
-                        0xFF00E5FF,
-                      ).withValues(alpha: glowAlpha),
+                      color: const Color(0xFF00E5FF).withValues(alpha: glowAlpha),
                       blurRadius: 28,
                     ),
                   ],
@@ -498,9 +489,7 @@ class _LoginBrandHeader extends StatelessWidget {
           width: compact ? 34 : 40,
           height: 2,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
-            ),
+            gradient: const LinearGradient(colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)]),
             borderRadius: BorderRadius.circular(1),
           ),
         ),
@@ -543,6 +532,7 @@ class _LoginFormCard extends StatelessWidget {
     required this.onPrimaryAction,
     required this.onForgotPassword,
     required this.onGoogleSignIn,
+    required this.onGitHubSignIn,
     required this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -561,6 +551,7 @@ class _LoginFormCard extends StatelessWidget {
   final VoidCallback onPrimaryAction;
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
+  final VoidCallback onGitHubSignIn;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -574,6 +565,8 @@ class _LoginFormCard extends StatelessWidget {
     final bool compact = width < 390;
     final double edgePadding = compact ? 14 : 18;
     final double sectionGap = compact ? 10 : 14;
+    final String startupText = startupMessage ?? '';
+    final VoidCallback mockLoginTap = onMockLogin ?? () {};
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -616,11 +609,7 @@ class _LoginFormCard extends StatelessWidget {
           SizedBox(height: compact ? 4 : 6),
           Text(
             'Secure command access for your mission control.',
-            style: TextStyle(
-              color: Colors.white60,
-              fontSize: compact ? 11 : 12,
-              height: 1.35,
-            ),
+            style: TextStyle(color: Colors.white60, fontSize: compact ? 11 : 12, height: 1.35),
           ),
           SizedBox(height: sectionGap),
           if (startupMessage != null) ...[
@@ -629,18 +618,12 @@ class _LoginFormCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.redAccent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.redAccent.withValues(alpha: 0.3),
-                ),
+                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
               ),
               child: Text(
-                startupMessage!,
+                startupText,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFFFFD7D0),
-                  fontSize: 12,
-                  height: 1.4,
-                ),
+                style: const TextStyle(color: Color(0xFFFFD7D0), fontSize: 12, height: 1.4),
               ),
             ),
             SizedBox(height: compact ? 10 : 12),
@@ -666,9 +649,7 @@ class _LoginFormCard extends StatelessWidget {
             trailing: SmartPressable(
               onTap: onTogglePassword,
               child: Icon(
-                obscurePassword
-                    ? Icons.visibility_off_rounded
-                    : Icons.visibility_rounded,
+                obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
                 color: AppColors.neonViolet.withValues(alpha: 0.7),
                 size: 18,
               ),
@@ -696,14 +677,24 @@ class _LoginFormCard extends StatelessWidget {
             isLoading: isSubmitting,
             onTap: onPrimaryAction,
           ),
-          SizedBox(height: compact ? 8 : 10),
-          _SecondaryButton(
-            label: 'Continue with Google',
-            icon: Icons.g_mobiledata_rounded,
-            color: Colors.white,
-            leading: const _GoogleGlyph(size: 18),
-            onTap: onGoogleSignIn,
-          ),
+          if (!showMockHint) ...[
+            SizedBox(height: compact ? 8 : 10),
+            _SecondaryButton(
+              label: 'Continue with Google',
+              icon: Icons.g_mobiledata_rounded,
+              color: Colors.white,
+              leading: const _GoogleGlyph(size: 18),
+              onTap: onGoogleSignIn,
+            ),
+            const SizedBox(height: 8),
+            _SecondaryButton(
+              label: 'Continue with GitHub',
+              icon: Icons.code_rounded,
+              color: Colors.white,
+              leading: const _GitHubGlyph(size: 16),
+              onTap: onGitHubSignIn,
+            ),
+          ],
           SizedBox(height: compact ? 6 : 8),
           if (compactSecondaryButtons)
             Row(
@@ -712,12 +703,8 @@ class _LoginFormCard extends StatelessWidget {
                   const SizedBox(width: 0),
                   Expanded(
                     child: _SecondaryButton(
-                      label: isSignUpMode
-                          ? 'Switch to Login'
-                          : 'Create Account',
-                      icon: isSignUpMode
-                          ? Icons.arrow_back_rounded
-                          : Icons.person_add_rounded,
+                      label: isSignUpMode ? 'Switch to Login' : 'Create Account',
+                      icon: isSignUpMode ? Icons.arrow_back_rounded : Icons.person_add_rounded,
                       color: AppColors.primary,
                       onTap: onToggleMode,
                     ),
@@ -732,9 +719,7 @@ class _LoginFormCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   _SecondaryButton(
                     label: isSignUpMode ? 'Switch to Login' : 'Create Account',
-                    icon: isSignUpMode
-                        ? Icons.arrow_back_rounded
-                        : Icons.person_add_rounded,
+                    icon: isSignUpMode ? Icons.arrow_back_rounded : Icons.person_add_rounded,
                     color: AppColors.primary,
                     onTap: onToggleMode,
                   ),
@@ -744,12 +729,9 @@ class _LoginFormCard extends StatelessWidget {
           if (showMockHint && onMockLogin != null) ...[
             const SizedBox(height: 10),
             SmartPressable(
-              onTap: onMockLogin!,
+              onTap: mockLoginTap,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: const Color(0x1AFFC857),
                   borderRadius: BorderRadius.circular(12),
@@ -758,11 +740,7 @@ class _LoginFormCard extends StatelessWidget {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.bolt_rounded,
-                      size: 16,
-                      color: Color(0xFFFFC857),
-                    ),
+                    Icon(Icons.bolt_rounded, size: 16, color: Color(0xFFFFC857)),
                     SizedBox(width: 8),
                     Flexible(
                       child: Text(
@@ -786,13 +764,9 @@ class _LoginFormCard extends StatelessWidget {
           if (showMockHint && (mockHint?.trim().isNotEmpty ?? false)) ...[
             const SizedBox(height: 6),
             Text(
-              mockHint!,
+              mockHint ?? '',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFFE5C7A0),
-                fontSize: 11,
-                height: 1.3,
-              ),
+              style: const TextStyle(color: Color(0xFFE5C7A0), fontSize: 11, height: 1.3),
             ),
           ],
         ],
@@ -829,11 +803,7 @@ class _NeonInput extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: accentColor.withValues(alpha: 0.25)),
         boxShadow: [
-          BoxShadow(
-            color: accentColor.withValues(alpha: 0.08),
-            blurRadius: 12,
-            spreadRadius: 1,
-          ),
+          BoxShadow(color: accentColor.withValues(alpha: 0.08), blurRadius: 12, spreadRadius: 1),
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
@@ -846,20 +816,13 @@ class _NeonInput extends StatelessWidget {
               controller: controller,
               obscureText: obscure,
               keyboardType: keyboardType,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                letterSpacing: 0.3,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 14, letterSpacing: 0.3),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 hintText: hintText,
-                hintStyle: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.25),
-                  fontSize: 14,
-                ),
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 14),
               ),
             ),
           ),
@@ -871,11 +834,7 @@ class _NeonInput extends StatelessWidget {
 }
 
 class _PrimaryButton extends StatelessWidget {
-  const _PrimaryButton({
-    required this.label,
-    required this.isLoading,
-    required this.onTap,
-  });
+  const _PrimaryButton({required this.label, required this.isLoading, required this.onTap});
 
   final String label;
   final bool isLoading;
@@ -889,9 +848,7 @@ class _PrimaryButton extends StatelessWidget {
         height: 54,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
-          ),
+          gradient: const LinearGradient(colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)]),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFF00E5FF).withValues(alpha: 0.25),
@@ -905,10 +862,7 @@ class _PrimaryButton extends StatelessWidget {
             ? const SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.black,
-                ),
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
               )
             : Text(
                 label,
@@ -941,8 +895,7 @@ class _SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isGoogleAction =
-        color == Colors.white || label.toLowerCase().contains('google');
+    final bool isGoogleAction = color == Colors.white || label.toLowerCase().contains('google');
     return SmartPressable(
       onTap: onTap,
       child: Container(
@@ -1023,6 +976,26 @@ class _GoogleGlyph extends StatelessWidget {
           height: 1,
           fontWeight: FontWeight.w900,
         ),
+      ),
+    );
+  }
+}
+
+class _GitHubGlyph extends StatelessWidget {
+  const _GitHubGlyph({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'GH',
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: size * 0.7,
+        height: 1,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.2,
       ),
     );
   }

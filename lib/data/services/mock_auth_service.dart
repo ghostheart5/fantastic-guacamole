@@ -13,30 +13,14 @@ class MockAuthService implements AuthServiceContract {
   User? get currentUser => _currentUser;
 
   @override
-  Future<UserCredential> signIn({
-    required String email,
-    required String password,
-  }) async {
-    _currentUser = User(
-      id: 'mock-user',
-      email: email,
-      displayName: 'Tester',
-      emailVerified: true,
-    );
+  Future<UserCredential> signIn({required String email, required String password}) async {
+    _currentUser = User(id: 'mock-user', email: email, displayName: 'Tester', emailVerified: true);
     return UserCredential(user: _currentUser);
   }
 
   @override
-  Future<UserCredential> signUp({
-    required String email,
-    required String password,
-  }) async {
-    _currentUser = User(
-      id: 'mock-user',
-      email: email,
-      displayName: 'Tester',
-      emailVerified: true,
-    );
+  Future<UserCredential> signUp({required String email, required String password}) async {
+    _currentUser = User(id: 'mock-user', email: email, displayName: 'Tester', emailVerified: true);
     return UserCredential(user: _currentUser);
   }
 
@@ -44,6 +28,17 @@ class MockAuthService implements AuthServiceContract {
   Future<UserCredential> signInWithGoogle() async {
     _currentUser = const User(
       id: 'mock-google-user',
+      email: 'mock@chronospark.app',
+      displayName: 'Tester',
+      emailVerified: true,
+    );
+    return UserCredential(user: _currentUser);
+  }
+
+  @override
+  Future<UserCredential> signInWithGitHub() async {
+    _currentUser = const User(
+      id: 'mock-github-user',
       email: 'mock@chronospark.app',
       displayName: 'Tester',
       emailVerified: true,

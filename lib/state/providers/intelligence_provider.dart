@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
@@ -18,6 +20,30 @@ class MockAuthSessionNotifier extends Notifier<bool> {
 }
 
 final authUserProvider = StreamProvider<User?>((ref) {
+  final bool hasMockSession = ref.watch(mockAuthSessionProvider);
+  if (hasMockSession) {
+    final MockLoginConfigState config = ref.read(mockLoginConfigProvider);
+    final StreamController<User?> controller = StreamController<User?>();
+    scheduleMicrotask(
+      () {
+        if (controller.isClosed) {
+          return;
+        }
+        controller.add(
+          User(
+            id: 'mock-user',
+            email: config.email,
+            displayName: 'Tester',
+            emailVerified: true,
+          ),
+        );
+        unawaited(controller.close());
+      },
+    );
+    ref.onDispose(() => unawaited(controller.close()));
+    return controller.stream;
+  }
+
   final sb.SupabaseClient? client = ref.watch(supabaseClientProvider);
   if (client == null) {
     return Stream<User?>.value(null);

@@ -27,8 +27,43 @@ function Get-EnvValue {
     return $null
 }
 
+function Load-DotEnvFile {
+    param([string]$Path)
+
+    if (-not (Test-Path $Path)) {
+        return @{}
+    }
+
+    $values = @{}
+    foreach ($line in Get-Content -Path $Path) {
+        $trimmed = $line.Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('#')) {
+            continue
+        }
+
+        $equalsIndex = $trimmed.IndexOf('=')
+        if ($equalsIndex -lt 1) {
+            continue
+        }
+
+        $key = $trimmed.Substring(0, $equalsIndex).Trim()
+        $value = $trimmed.Substring($equalsIndex + 1).Trim()
+        if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($key)) {
+            $values[$key] = $value
+        }
+    }
+
+    return $values
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $repoRoot
+
+$dotEnvValues = Load-DotEnvFile -Path (Join-Path $repoRoot '.env')
 
 $requiredEnv = @(
     'CHRONOSPARK_SUPABASE_URL',
@@ -45,6 +80,9 @@ $missing = New-Object System.Collections.Generic.List[string]
 
 foreach ($key in $requiredEnv) {
     $value = Get-EnvValue -Name $key
+    if ([string]::IsNullOrWhiteSpace($value) -and $dotEnvValues.ContainsKey($key)) {
+        $value = $dotEnvValues[$key]
+    }
     if ([string]::IsNullOrWhiteSpace($value)) {
         $missing.Add($key)
     }
@@ -77,12 +115,21 @@ if (-not $versionMatch.Success) {
 $currentBuildName = $versionMatch.Groups[1].Value
 $currentBuildNumber = [int]$versionMatch.Groups[2].Value
 
+$androidGradlePropsPath = Join-Path $repoRoot 'android/gradle.properties'
+if (-not (Test-Path $androidGradlePropsPath)) {
+    throw "android/gradle.properties not found at $androidGradlePropsPath"
+}
+
+$androidGradlePropsContent = Get-Content -Path $androidGradlePropsPath -Raw
+$gradleVersionCodeMatch = [regex]::Match($androidGradlePropsContent, '(?m)^CHRONOSPARK_VERSION_CODE=(\d+)\s*$')
+$currentGradleBuildNumber = if ($gradleVersionCodeMatch.Success) { [int]$gradleVersionCodeMatch.Groups[1].Value } else { 0 }
+
 if ([string]::IsNullOrWhiteSpace($BuildName)) {
     $BuildName = $currentBuildName
 }
 
 if ($BuildNumber -le 0) {
-    $BuildNumber = $currentBuildNumber + 1
+    $BuildNumber = [Math]::Max($currentBuildNumber, $currentGradleBuildNumber) + 1
 }
 
 $newVersion = "$BuildName+$BuildNumber"
@@ -95,12 +142,6 @@ $updatedPubspec = [regex]::Replace(
 Set-Content -Path $pubspecPath -Value $updatedPubspec -NoNewline
 Write-Host "Updated pubspec version to $newVersion"
 
-$androidGradlePropsPath = Join-Path $repoRoot 'android/gradle.properties'
-if (-not (Test-Path $androidGradlePropsPath)) {
-    throw "android/gradle.properties not found at $androidGradlePropsPath"
-}
-
-$androidGradlePropsContent = Get-Content -Path $androidGradlePropsPath -Raw
 if ($androidGradlePropsContent -match '(?m)^CHRONOSPARK_VERSION_CODE=') {
     $androidGradlePropsContent = [regex]::Replace(
         $androidGradlePropsContent,

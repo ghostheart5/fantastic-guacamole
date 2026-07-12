@@ -13,23 +13,22 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
   User? get currentUser => _user;
 
   @override
-  Future<UserCredential> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<UserCredential> signIn({required String email, required String password}) async {
     return UserCredential(user: _user);
   }
 
   @override
-  Future<UserCredential> signUp({
-    required String email,
-    required String password,
-  }) async {
+  Future<UserCredential> signUp({required String email, required String password}) async {
     return UserCredential(user: _user);
   }
 
   @override
   Future<UserCredential> signInWithGoogle() async {
+    return UserCredential(user: _user);
+  }
+
+  @override
+  Future<UserCredential> signInWithGitHub() async {
     return UserCredential(user: _user);
   }
 

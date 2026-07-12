@@ -31,9 +31,13 @@ class DeepLinkService {
 
   Future<void> initializeEarly() async {
     _appLinks ??= AppLinks();
+    final AppLinks? appLinks = _appLinks;
+    if (appLinks == null) {
+      return;
+    }
 
     // Capture cold-start deep link as early as possible.
-    final Uri? initialLink = await _appLinks!.getInitialLink();
+    final Uri? initialLink = await appLinks.getInitialLink();
     if (initialLink != null && _isTrusted(initialLink)) {
       _latestUri ??= initialLink;
     }
@@ -42,7 +46,7 @@ class DeepLinkService {
       _controller.add(initial);
     }
 
-    _subscription ??= _appLinks!.uriLinkStream.listen((Uri uri) {
+    _subscription ??= appLinks.uriLinkStream.listen((Uri uri) {
       if (!_isTrusted(uri)) return;
       _latestUri = uri;
       _controller.add(uri);

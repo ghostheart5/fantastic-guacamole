@@ -3,8 +3,7 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
-import 'package:fantastic_guacamole/data/network/secure_endpoint.dart'
-    as secure_endpoint;
+import 'package:fantastic_guacamole/data/network/secure_endpoint.dart' as secure_endpoint;
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:http/http.dart' as http;
@@ -16,12 +15,13 @@ class AuthService implements AuthServiceContract {
     required this._store,
     http.Client? httpClient,
     String? accountDeleteEndpoint,
-    String? oauthRedirectUrl,
+    String? oauthGoogleRedirectUrl,
+    String? oauthGitHubRedirectUrl,
   }) : _auth = supabaseClient,
        _httpClient = httpClient ?? _sharedHttpClient,
-       _accountDeleteEndpoint =
-           accountDeleteEndpoint ?? Env.accountDeleteEndpoint,
-       _oauthRedirectUrl = oauthRedirectUrl ?? Env.oauthRedirectUrl;
+       _accountDeleteEndpoint = accountDeleteEndpoint ?? Env.accountDeleteEndpoint,
+       _oauthGoogleRedirectUrl = oauthGoogleRedirectUrl ?? Env.oauthRedirectUrl,
+       _oauthGitHubRedirectUrl = oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl;
 
   static final http.Client _sharedHttpClient = http.Client();
 
@@ -29,25 +29,21 @@ class AuthService implements AuthServiceContract {
   final SecureStore _store;
   final http.Client _httpClient;
   final String _accountDeleteEndpoint;
-  final String _oauthRedirectUrl;
+  final String _oauthGoogleRedirectUrl;
+  final String _oauthGitHubRedirectUrl;
   int _failedSignInAttempts = 0;
   DateTime? _signInBlockedUntil;
 
   @override
   Stream<User?> authStateChanges() {
-    return _auth.auth.onAuthStateChange.map(
-      (sb.AuthState state) => _mapUser(state.session?.user),
-    );
+    return _auth.auth.onAuthStateChange.map((sb.AuthState state) => _mapUser(state.session?.user));
   }
 
   @override
   User? get currentUser => _mapUser(_auth.auth.currentUser);
 
   @override
-  Future<UserCredential> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<UserCredential> signIn({required String email, required String password}) async {
     final DateTime now = DateTime.now();
     final DateTime? blockedUntil = _signInBlockedUntil;
     if (blockedUntil != null && now.isBefore(blockedUntil)) {
@@ -61,9 +57,7 @@ class AuthService implements AuthServiceContract {
         email: email,
         password: password,
       );
-      final UserCredential credential = UserCredential(
-        user: _mapUser(response.user),
-      );
+      final UserCredential credential = UserCredential(user: _mapUser(response.user));
       _failedSignInAttempts = 0;
       _signInBlockedUntil = null;
       return credential;
@@ -71,9 +65,10 @@ class AuthService implements AuthServiceContract {
       final FirebaseAuthException mapped = _mapAuthException(error);
       if (_isCredentialFailure(mapped.code)) {
         _failedSignInAttempts += 1;
-        final int seconds =
-            (2 << (_failedSignInAttempts > 5 ? 5 : _failedSignInAttempts))
-                .clamp(2, 60);
+        final int seconds = (2 << (_failedSignInAttempts > 5 ? 5 : _failedSignInAttempts)).clamp(
+          2,
+          60,
+        );
         _signInBlockedUntil = now.add(Duration(seconds: seconds));
       }
       throw mapped;
@@ -86,15 +81,9 @@ class AuthService implements AuthServiceContract {
   }
 
   @override
-  Future<UserCredential> signUp({
-    required String email,
-    required String password,
-  }) async {
+  Future<UserCredential> signUp({required String email, required String password}) async {
     try {
-      final sb.AuthResponse response = await _auth.auth.signUp(
-        email: email,
-        password: password,
-      );
+      final sb.AuthResponse response = await _auth.auth.signUp(email: email, password: password);
       return UserCredential(user: _mapUser(response.user));
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
@@ -109,7 +98,7 @@ class AuthService implements AuthServiceContract {
   @override
   Future<UserCredential> signInWithGoogle() async {
     try {
-      final String redirectTo = _oauthRedirectUrl.trim();
+      final String redirectTo = _oauthGoogleRedirectUrl.trim();
       await _auth.auth.signInWithOAuth(
         sb.OAuthProvider.google,
         redirectTo: redirectTo.isEmpty ? null : redirectTo,
@@ -121,6 +110,25 @@ class AuthService implements AuthServiceContract {
       throw FirebaseAuthException(
         code: 'auth-unavailable',
         message: 'Google sign-in is currently unavailable.',
+      );
+    }
+  }
+
+  @override
+  Future<UserCredential> signInWithGitHub() async {
+    try {
+      final String redirectTo = _oauthGitHubRedirectUrl.trim();
+      await _auth.auth.signInWithOAuth(
+        sb.OAuthProvider.github,
+        redirectTo: redirectTo.isEmpty ? null : redirectTo,
+      );
+      return UserCredential(user: currentUser);
+    } on sb.AuthException catch (error) {
+      throw _mapAuthException(error);
+    } on Object {
+      throw FirebaseAuthException(
+        code: 'auth-unavailable',
+        message: 'GitHub sign-in is currently unavailable.',
       );
     }
   }
@@ -143,10 +151,7 @@ class AuthService implements AuthServiceContract {
   Future<void> updatePassword({required String newPassword}) async {
     final String trimmed = newPassword.trim();
     if (trimmed.isEmpty) {
-      throw FirebaseAuthException(
-        code: 'missing-password',
-        message: 'New password is required.',
-      );
+      throw FirebaseAuthException(code: 'missing-password', message: 'New password is required.');
     }
     try {
       await _auth.auth.updateUser(sb.UserAttributes(password: trimmed));
@@ -165,10 +170,7 @@ class AuthService implements AuthServiceContract {
     final User? user = currentUser;
     final String email = user?.email?.trim() ?? '';
     if (email.isEmpty) {
-      throw FirebaseAuthException(
-        code: 'no-current-user',
-        message: 'No signed-in user found.',
-      );
+      throw FirebaseAuthException(code: 'no-current-user', message: 'No signed-in user found.');
     }
     try {
       await _auth.auth.resend(type: sb.OtpType.signup, email: email);
@@ -223,10 +225,7 @@ class AuthService implements AuthServiceContract {
   Future<void> deleteCurrentAccount({required String password}) async {
     final User? user = currentUser;
     if (user == null) {
-      throw FirebaseAuthException(
-        code: 'no-current-user',
-        message: 'No signed-in user found.',
-      );
+      throw FirebaseAuthException(code: 'no-current-user', message: 'No signed-in user found.');
     }
     final String email = user.email?.trim() ?? '';
     if (email.isEmpty) {
@@ -279,10 +278,7 @@ class AuthService implements AuthServiceContract {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $accessToken',
             },
-            body: jsonEncode(<String, String>{
-              'userId': user.id,
-              'email': email,
-            }),
+            body: jsonEncode(<String, String>{'userId': user.id, 'email': email}),
           )
           .timeout(const Duration(seconds: 20));
 
@@ -316,10 +312,7 @@ class AuthService implements AuthServiceContract {
     return secure_endpoint.parseSecureHttpsEndpoint(endpoint);
   }
 
-  static String deletionFailureMessage({
-    required int statusCode,
-    required String responseBody,
-  }) {
+  static String deletionFailureMessage({required int statusCode, required String responseBody}) {
     return 'Account deletion failed ($statusCode). Please try again later.';
   }
 
@@ -335,8 +328,7 @@ class AuthService implements AuthServiceContract {
       return null;
     }
     final String? email = supabaseUser.email;
-    final Map<String, dynamic> metadata =
-        supabaseUser.userMetadata ?? const <String, dynamic>{};
+    final Map<String, dynamic> metadata = supabaseUser.userMetadata ?? const <String, dynamic>{};
     final String? fullName = metadata['full_name']?.toString().trim();
     final String? name = metadata['name']?.toString().trim();
     final bool verified = supabaseUser.emailConfirmedAt != null;
@@ -354,45 +346,23 @@ class AuthService implements AuthServiceContract {
     final String rawCode = (error.statusCode ?? '').toString().toLowerCase();
     final String message = error.message.toLowerCase();
     if (message.contains('invalid login credentials')) {
-      return FirebaseAuthException(
-        code: 'wrong-password',
-        message: error.message,
-      );
+      return FirebaseAuthException(code: 'wrong-password', message: error.message);
     }
     if (message.contains('email not confirmed')) {
-      return FirebaseAuthException(
-        code: 'user-not-verified',
-        message: error.message,
-      );
+      return FirebaseAuthException(code: 'user-not-verified', message: error.message);
     }
-    if (message.contains('already registered') ||
-        message.contains('already been registered')) {
-      return FirebaseAuthException(
-        code: 'email-already-in-use',
-        message: error.message,
-      );
+    if (message.contains('already registered') || message.contains('already been registered')) {
+      return FirebaseAuthException(code: 'email-already-in-use', message: error.message);
     }
     if (rawCode == '429') {
-      return FirebaseAuthException(
-        code: 'too-many-requests',
-        message: error.message,
-      );
+      return FirebaseAuthException(code: 'too-many-requests', message: error.message);
     }
     if (rawCode == '400' && message.contains('email')) {
-      return FirebaseAuthException(
-        code: 'invalid-email',
-        message: error.message,
-      );
+      return FirebaseAuthException(code: 'invalid-email', message: error.message);
     }
     if (rawCode == '422' && message.contains('password')) {
-      return FirebaseAuthException(
-        code: 'weak-password',
-        message: error.message,
-      );
+      return FirebaseAuthException(code: 'weak-password', message: error.message);
     }
-    return FirebaseAuthException(
-      code: 'auth-unavailable',
-      message: error.message,
-    );
+    return FirebaseAuthException(code: 'auth-unavailable', message: error.message);
   }
 }

@@ -39,6 +39,8 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
     case 'google-sign-in-cancelled':
     case 'popup-closed-by-user':
       return 'Google sign-in canceled.';
+    case 'github-sign-in-cancelled':
+      return 'GitHub sign-in canceled.';
     case 'no-current-user':
       return 'Session ended. Sign in again.';
     case 'auth-unavailable':
@@ -97,14 +99,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   @override
   void initState() {
     super.initState();
-    if (widget.enableMockLogin) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _mockSessionActive) {
-          return;
-        }
-        _activateMockSession();
-      });
-    }
     _authReadyFuture = _initializeAuth().timeout(
       const Duration(seconds: 8),
       onTimeout: () {
@@ -395,7 +389,7 @@ class _AuthScreenState extends State<_AuthScreen> {
       startupError: widget.startupError,
       showMockHint: widget.enableMockLogin,
       mockHint: widget.enableMockLogin
-          ? 'Tester runtime detected. Use Tester Access to enter command mode.'
+          ? 'Mock login: ${widget.mockLoginEmail}  /  ${widget.mockLoginPassword}'
           : null,
       onTogglePassword: () {
         setState(() => _obscuredPassword = !_obscuredPassword);
@@ -406,7 +400,8 @@ class _AuthScreenState extends State<_AuthScreen> {
       onPrimaryAction: () => _runAuthAction(_handlePrimaryAction),
       onForgotPassword: () => _runAuthAction(_handleForgotPassword),
       onGoogleSignIn: () => _runAuthAction(_handleGoogleSignIn),
-      onMockLogin: widget.enableMockLogin ? () => _runAuthAction(_handleMockSignIn) : null,
+      onGitHubSignIn: () => _runAuthAction(_handleGitHubSignIn),
+      onMockLogin: null,
     );
   }
 
@@ -436,19 +431,6 @@ class _AuthScreenState extends State<_AuthScreen> {
     }
   }
 
-  Future<void> _handleMockSignIn() async {
-    // Yield a frame before switching roots to keep tap handling responsive.
-    await Future<void>.delayed(Duration.zero);
-    if (!mounted) {
-      return;
-    }
-    AppAnalytics.track(
-      'login_event',
-      params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
-    );
-    widget.onMockSignIn();
-  }
-
   Future<void> _handlePrimaryAction() async {
     final String email = _emailController.text.trim();
     final String password = _passwordController.text;
@@ -460,6 +442,17 @@ class _AuthScreenState extends State<_AuthScreen> {
 
     if (password.trim().isEmpty) {
       _showMessage('Password required.');
+      return;
+    }
+
+    if (widget.enableMockLogin &&
+        email.toLowerCase() == widget.mockLoginEmail.trim().toLowerCase() &&
+        password == widget.mockLoginPassword) {
+      AppAnalytics.track(
+        'login_event',
+        params: <String, Object?>{'provider': 'mock', 'mode': 'email_signin'},
+      );
+      widget.onMockSignIn();
       return;
     }
 
@@ -508,6 +501,22 @@ class _AuthScreenState extends State<_AuthScreen> {
     AppAnalytics.track(
       'login_event',
       params: <String, Object?>{'provider': 'google', 'mode': 'signin'},
+    );
+  }
+
+  Future<void> _handleGitHubSignIn() async {
+    if (widget.enableMockLogin) {
+      AppAnalytics.track(
+        'login_event',
+        params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
+      );
+      widget.onMockSignIn();
+      return;
+    }
+    await widget.authService.signInWithGitHub();
+    AppAnalytics.track(
+      'login_event',
+      params: <String, Object?>{'provider': 'github', 'mode': 'signin'},
     );
   }
 
@@ -702,6 +711,11 @@ class _UnavailableAuthService implements AuthServiceContract {
 
   @override
   Future<UserCredential> signInWithGoogle() async {
+    throw _error();
+  }
+
+  @override
+  Future<UserCredential> signInWithGitHub() async {
     throw _error();
   }
 

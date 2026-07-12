@@ -7,9 +7,10 @@ import 'package:fantastic_guacamole/state/providers/feature_derived_providers.da
 import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final flowmapProvider = NotifierProvider<FlowmapController, AsyncValue<List<FlowmapNode>>>(
-  FlowmapController.new,
-);
+final flowmapProvider =
+    NotifierProvider<FlowmapController, AsyncValue<List<FlowmapNode>>>(
+      FlowmapController.new,
+    );
 
 class FlowmapController extends Notifier<AsyncValue<List<FlowmapNode>>> {
   bool _loadScheduled = false;
@@ -53,7 +54,9 @@ class FlowmapController extends Notifier<AsyncValue<List<FlowmapNode>>> {
     final node = FlowmapNode(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: trimmedTitle,
-      description: (trimmedDescription?.isEmpty ?? true) ? null : trimmedDescription,
+      description: (trimmedDescription?.isEmpty ?? true)
+          ? null
+          : trimmedDescription,
       tags: tags,
       createdAt: DateTime.now(),
     );
@@ -74,7 +77,13 @@ class FlowmapController extends Notifier<AsyncValue<List<FlowmapNode>>> {
     }
     ref
         .read(eventBusProvider)
-        .emit(FlowmapLifecycleEvent(nodeId: node.id, title: node.title, action: 'added'));
+        .emit(
+          FlowmapLifecycleEvent(
+            nodeId: node.id,
+            title: node.title,
+            action: 'added',
+          ),
+        );
   }
 
   Future<void> deleteNode(String id) async {
@@ -86,11 +95,19 @@ class FlowmapController extends Notifier<AsyncValue<List<FlowmapNode>>> {
         break;
       }
     }
-    final updated = (state.asData?.value ?? <FlowmapNode>[]).where((n) => n.id != id).toList();
+    final updated = (state.asData?.value ?? <FlowmapNode>[])
+        .where((n) => n.id != id)
+        .toList();
     state = AsyncValue.data(updated);
     ref
         .read(eventBusProvider)
-        .emit(FlowmapLifecycleEvent(nodeId: id, title: deletedTitle, action: 'deleted'));
+        .emit(
+          FlowmapLifecycleEvent(
+            nodeId: id,
+            title: deletedTitle,
+            action: 'deleted',
+          ),
+        );
   }
 
   Future<void> updateNode(FlowmapNode updated) async {
@@ -101,7 +118,13 @@ class FlowmapController extends Notifier<AsyncValue<List<FlowmapNode>>> {
     ]);
     ref
         .read(eventBusProvider)
-        .emit(FlowmapLifecycleEvent(nodeId: updated.id, title: updated.title, action: 'updated'));
+        .emit(
+          FlowmapLifecycleEvent(
+            nodeId: updated.id,
+            title: updated.title,
+            action: 'updated',
+          ),
+        );
   }
 
   Future<void> _refreshCoachDecision() async {

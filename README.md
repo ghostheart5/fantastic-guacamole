@@ -35,6 +35,57 @@ For the master release checklist, see [docs/FINAL_AUDIT_SCORECARD.md](docs/FINAL
 - `flutter test`
 - `flutter run -d windows`
 
+## Integration setup (Supabase, Firebase, Google, GitHub)
+
+- Supabase is required for auth/session in production-style runs:
+  - `--dart-define=CHRONOSPARK_SUPABASE_URL=https://<project-ref>.supabase.co`
+  - `--dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=<anon-key>`
+- Local `.env` support is enabled too:
+  - Put the same values in [/.env](.env) or copy [/.env.example](.env.example)
+  - The app loads `.env` at startup and the Android build scripts read it as a fallback
+- OAuth callback config:
+  - `--dart-define=CHRONOSPARK_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback`
+  - `--dart-define=CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback`
+- Android custom-scheme callback:
+  - `chronospark://auth-callback`
+  - Add the matching intent filter in `android/app/src/main/AndroidManifest.xml`
+- Supabase redirect allowlist:
+  - `chronospark://auth-callback`
+  - `http://localhost:3000`
+  - `http://localhost:8080`
+  - `https://chronospark.ai`
+  - `https://www.chronospark.ai`
+- Firebase is bootstrapped from generated options in `lib/firebase_options.dart`.
+  - Re-run FlutterFire CLI if you switch Firebase projects.
+- Google and GitHub sign-in are routed through Supabase OAuth in app auth flow.
+  - Configure Google and GitHub providers in Supabase Auth, and use matching callback URLs in both provider dashboards.
+
+Supabase Auth console checklist:
+
+1. Open Supabase Dashboard -> Authentication -> Providers.
+2. Enable Google provider.
+3. Paste the Google OAuth Client ID and Client Secret from Google Cloud.
+4. Enable GitHub provider.
+5. Paste the GitHub OAuth App Client ID and Client Secret from GitHub Developer Settings.
+6. Add these redirect URLs in Authentication -> URL Configuration:
+   - `chronospark://auth-callback`
+   - `http://localhost:3000`
+   - `http://localhost:8080`
+   - `https://chronospark.ai`
+   - `https://www.chronospark.ai`
+7. Use `chronospark://auth-callback` for Android custom-scheme callback testing.
+8. Keep `CHRONOSPARK_OAUTH_REDIRECT_URL` and `CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL` aligned with the same callback route.
+
+Local PowerShell setup:
+
+1. Copy [scripts/chronospark_env.example.ps1](scripts/chronospark_env.example.ps1) to a local-only file outside git tracking.
+2. Fill in your real Supabase, OAuth, and release values.
+3. Dot-source that file before running the guarded build scripts, or set the same variables in your shell session.
+
+Example run:
+
+- `flutter run --dart-define=CHRONOSPARK_SUPABASE_URL=https://<project-ref>.supabase.co --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=<anon-key> --dart-define=CHRONOSPARK_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback --dart-define=CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback`
+
 ## Android release and tester access
 
 - Play Store production builds should be built from the production flavor with release signing.

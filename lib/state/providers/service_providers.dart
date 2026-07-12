@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/models/auth_models.dart';
+import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/services/workspace_store_service.dart';
+import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/services/cache_cleanup_service.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/expired_session_cleanup.dart';
@@ -16,7 +21,9 @@ import 'package:fantastic_guacamole/state/services/si_engine_dependencies.dart';
 import 'package:fantastic_guacamole/state/services/stale_notification_cleanup.dart';
 import 'package:fantastic_guacamole/state/services/state_si_engine_service.dart';
 import 'package:fantastic_guacamole/system/external_url_service.dart';
+import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 final flowmapServiceProvider = Provider<FlowmapService>((Ref ref) {
   return FlowmapService(ref.read(flowmapRepositoryProvider));
@@ -33,14 +40,13 @@ final notificationsServiceProvider = Provider<NotificationsService>((Ref ref) {
   return NotificationsService(ref.read(notificationsRepositoryProvider));
 });
 
-final reminderOrchestratorServiceProvider =
-    Provider<ReminderOrchestratorService>((Ref ref) {
-      return ReminderOrchestratorService(
-        preferences: ref.read(sharedPrefsStoreProvider),
-        notifications: ref.read(notificationsServiceProvider),
-        scheduler: ref.read(notificationSchedulerProvider),
-      );
-    });
+final reminderOrchestratorServiceProvider = Provider<ReminderOrchestratorService>((Ref ref) {
+  return ReminderOrchestratorService(
+    preferences: ref.read(sharedPrefsStoreProvider),
+    notifications: ref.read(notificationsServiceProvider),
+    scheduler: ref.read(notificationSchedulerProvider),
+  );
+});
 
 final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
   return SiEngineDependencies(
@@ -65,9 +71,7 @@ final siEngineServiceProvider = Provider<StateSiEngineService>((Ref ref) {
   );
 });
 
-final workspaceStoreServiceProvider = Provider<WorkspaceStoreService>((
-  Ref ref,
-) {
+final workspaceStoreServiceProvider = Provider<WorkspaceStoreService>((Ref ref) {
   return WorkspaceStoreService(store: ref.read(secureStoreProvider));
 });
 
@@ -75,9 +79,7 @@ final externalUrlServiceProvider = Provider<ExternalUrlService>((_) {
   return const ExternalUrlService();
 });
 
-final reflectionReminderServiceProvider = Provider<ReflectionReminderService>((
-  Ref ref,
-) {
+final reflectionReminderServiceProvider = Provider<ReflectionReminderService>((Ref ref) {
   return ReflectionReminderService(
     preferences: ref.read(sharedPrefsStoreProvider),
     scheduler: ref.read(notificationSchedulerProvider),
@@ -107,18 +109,14 @@ final orphanDataCleanupProvider = Provider<OrphanDataCleanup>((Ref ref) {
   );
 });
 
-final expiredSessionCleanupProvider = Provider<ExpiredSessionCleanup>((
-  Ref ref,
-) {
+final expiredSessionCleanupProvider = Provider<ExpiredSessionCleanup>((Ref ref) {
   return ExpiredSessionCleanup(
     secureStore: ref.read(secureStoreProvider),
     retentionPolicy: ref.read(retentionPolicyProvider),
   );
 });
 
-final staleNotificationCleanupProvider = Provider<StaleNotificationCleanup>((
-  Ref ref,
-) {
+final staleNotificationCleanupProvider = Provider<StaleNotificationCleanup>((Ref ref) {
   return StaleNotificationCleanup(
     repository: ref.read(notificationsRepositoryProvider),
     retentionPolicy: ref.read(retentionPolicyProvider),
@@ -133,4 +131,35 @@ final dataHygieneSchedulerProvider = Provider<DataHygieneScheduler>((Ref ref) {
     staleNotificationCleanup: ref.read(staleNotificationCleanupProvider),
     retentionPolicy: ref.read(retentionPolicyProvider),
   );
+});
+
+final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
+  final sb.SupabaseClient? client = ref.watch(supabaseClientProvider);
+  final FirebaseSupabaseBridgeRepository bridgeRepository = ref.read(
+    firebaseSupabaseBridgeRepositoryProvider,
+  );
+
+  Future<void> syncIfPossible({required String source}) async {
+    final sb.SupabaseClient? activeClient = ref.read(supabaseClientProvider);
+    if (activeClient == null) {
+      return;
+    }
+    final String? token = FirebaseMessagingBootstrap.latestToken;
+    if (token == null || token.trim().isEmpty) {
+      return;
+    }
+    await bridgeRepository.syncFirebaseMessagingToken(activeClient, token, source: source);
+  }
+
+  if (client != null) {
+    unawaited(syncIfPossible(source: 'bridge-bootstrap'));
+  }
+
+  ref.listen<AsyncValue<User?>>(authUserProvider, (_, next) {
+    final User? user = next.asData?.value;
+    if (user == null) {
+      return;
+    }
+    unawaited(syncIfPossible(source: 'auth-state-change'));
+  });
 });

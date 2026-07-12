@@ -48,15 +48,15 @@ void main() {
     expect(find.text('Forgot PW'), findsOneWidget);
   });
 
-  testWidgets('tester access enters the app without backend credentials', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('mock credentials enter the app without backend access', (WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
           home: AuthGate(
             authService: _IntegrationFakeAuthService(),
             enableMockLogin: true,
+            mockLoginEmail: 'mock@chronospark.app',
+            mockLoginPassword: 'ChronoSpark123!',
             child: const Scaffold(body: Text('APP_READY')),
           ),
         ),
@@ -65,10 +65,19 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    final Finder testerAccess = find.textContaining('TESTER ACCESS');
-    expect(testerAccess, findsOneWidget);
-
-    await tester.tap(testerAccess);
+    expect(find.textContaining('Mock login:'), findsOneWidget);
+    expect(find.textContaining('TESTER ACCESS'), findsNothing);
+    final Finder emailField = find.descendant(
+      of: find.byKey(const ValueKey('login-email-field')),
+      matching: find.byType(TextField),
+    );
+    final Finder passwordField = find.descendant(
+      of: find.byKey(const ValueKey('login-password-field')),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(emailField, 'mock@chronospark.app');
+    await tester.enterText(passwordField, 'ChronoSpark123!');
+    await tester.tap(find.text('ENTER SYSTEM'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
@@ -353,6 +362,11 @@ class _IntegrationFakeAuthService implements AuthServiceContract {
 
   @override
   Future<UserCredential> signInWithGoogle() {
+    throw UnimplementedError('Not used by this integration test');
+  }
+
+  @override
+  Future<UserCredential> signInWithGitHub() {
     throw UnimplementedError('Not used by this integration test');
   }
 

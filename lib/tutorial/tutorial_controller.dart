@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:fantastic_guacamole/tutorial/tutorial_asset_loader.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_models.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 class TutorialController extends ChangeNotifier {
   TutorialController({this.loader = const TutorialAssetLoader()});
@@ -23,6 +24,8 @@ class TutorialController extends ChangeNotifier {
   bool _paused = false;
   String _route = '/';
   Timer? _delayTimer;
+  bool _notifyScheduled = false;
+  bool _disposed = false;
 
   bool get running => _running;
   bool get paused => _paused;
@@ -36,7 +39,7 @@ class TutorialController extends ChangeNotifier {
     for (final def in defs) {
       _tutorials[def.id] = def;
     }
-    notifyListeners();
+    _notifySafely();
   }
 
   Future<void> start(String tutorialId, {bool restart = false}) async {
@@ -58,21 +61,21 @@ class TutorialController extends ChangeNotifier {
     _paused = false;
 
     _scheduleIfNeeded();
-    notifyListeners();
+    _notifySafely();
   }
 
   Future<void> pause() async {
     if (_activeStep == null) return;
     _paused = true;
     _delayTimer?.cancel();
-    notifyListeners();
+    _notifySafely();
   }
 
   Future<void> resume() async {
     if (_activeStep == null) return;
     _paused = false;
     _scheduleIfNeeded();
-    notifyListeners();
+    _notifySafely();
   }
 
   Future<void> restart() async {
@@ -110,9 +113,10 @@ class TutorialController extends ChangeNotifier {
   }
 
   Future<void> next() async {
-    if (_activeTutorial == null || _activeStep == null) return;
+    final TutorialDefinition? tutorial = _activeTutorial;
+    final TutorialStep? current = _activeStep;
+    if (tutorial == null || current == null) return;
 
-    final TutorialStep current = _activeStep!;
     final String? branch = _branchFor(current);
     final String? nextId = branch ?? current.nextStepId;
 
@@ -120,28 +124,27 @@ class TutorialController extends ChangeNotifier {
     if (nextId != null && nextId.isNotEmpty) {
       nextStep = _stepById(nextId);
     } else {
-      final int index = _activeTutorial!.steps.indexWhere(
-        (s) => s.id == current.id,
-      );
-      if (index >= 0 && index + 1 < _activeTutorial!.steps.length) {
-        nextStep = _activeTutorial!.steps[index + 1];
+      final int index = tutorial.steps.indexWhere((s) => s.id == current.id);
+      if (index >= 0 && index + 1 < tutorial.steps.length) {
+        nextStep = tutorial.steps[index + 1];
       }
     }
 
     if (nextStep == null) {
-      _completedTutorialIds.add(_activeTutorial!.id);
+      _completedTutorialIds.add(tutorial.id);
       _finish();
       return;
     }
 
     _activeStep = nextStep;
     _scheduleIfNeeded();
-    notifyListeners();
+    _notifySafely();
   }
 
   void _validate() {
-    if (!_running || _paused || _activeStep == null) return;
-    final TutorialStep step = _activeStep!;
+    if (!_running || _paused) return;
+    final TutorialStep? step = _activeStep;
+    if (step == null) return;
 
     final bool complete = switch (step.trigger) {
       TutorialTriggerType.tap => _state['event'] == 'tap:${step.targetId}',
@@ -197,11 +200,42 @@ class TutorialController extends ChangeNotifier {
     _activeTutorial = null;
     _activeStep = null;
     _delayTimer?.cancel();
-    notifyListeners();
+    _notifySafely();
+  }
+
+  void _notifySafely() {
+    if (_disposed) {
+      return;
+    }
+
+    final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
+    final bool midBuildPhase =
+        phase == SchedulerPhase.transientCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks ||
+        phase == SchedulerPhase.persistentCallbacks;
+
+    if (!midBuildPhase) {
+      notifyListeners();
+      return;
+    }
+
+    if (_notifyScheduled) {
+      return;
+    }
+
+    _notifyScheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _notifyScheduled = false;
+      if (_disposed) {
+        return;
+      }
+      notifyListeners();
+    });
   }
 
   @override
   void dispose() {
+    _disposed = true;
     _delayTimer?.cancel();
     super.dispose();
   }

@@ -61,13 +61,16 @@ void main() {
 
   test(
     'authenticatedGuardProvider is true when mock auth session is enabled',
-    () {
+    () async {
       final ProviderContainer container = ProviderContainer();
       addTearDown(container.dispose);
 
       container.read(mockAuthSessionProvider.notifier).set(true);
 
       expect(container.read(authenticatedGuardProvider), isTrue);
+      final User? mockUser = await container.read(authUserProvider.future);
+      expect(mockUser, isNotNull);
+      expect(mockUser?.id, 'mock-user');
     },
   );
 

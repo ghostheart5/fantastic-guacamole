@@ -16,16 +16,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-final _appRouterRefreshListenableProvider = Provider<_AppRouterRefreshListenable>((ref) {
-  final _AppRouterRefreshListenable listenable = _AppRouterRefreshListenable(ref);
-  ref.onDispose(listenable.dispose);
-  return listenable;
-});
+final _appRouterRefreshListenableProvider =
+    Provider<_AppRouterRefreshListenable>((ref) {
+      final _AppRouterRefreshListenable listenable =
+          _AppRouterRefreshListenable(ref);
+      ref.onDispose(listenable.dispose);
+      return listenable;
+    });
 
 class _AppRouterRefreshListenable extends ChangeNotifier {
   _AppRouterRefreshListenable(this._ref) {
     _ref.listen<bool>(authenticatedGuardProvider, (_, _) => notifyListeners());
-    _ref.listen<bool>(onboardingCompleteGuardProvider, (_, _) => notifyListeners());
+    _ref.listen<bool>(
+      onboardingCompleteGuardProvider,
+      (_, _) => notifyListeners(),
+    );
     _ref.listen(intelligenceStateProvider, (_, _) => notifyListeners());
     _ref.listen(mockLoginConfigProvider, (_, _) => notifyListeners());
   }
@@ -37,7 +42,9 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final _AppRouterRefreshListenable refresh = ref.read(_appRouterRefreshListenableProvider);
+  final _AppRouterRefreshListenable refresh = ref.read(
+    _appRouterRefreshListenableProvider,
+  );
 
   return GoRouter(
     initialLocation: RoutePaths.home,
@@ -46,7 +53,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       final bool isAuthenticated = refresh.isAuthenticated;
       final bool onboardingComplete = refresh.onboardingComplete;
-      final bool mockLoginEnabled = ref.read(intelligenceStateProvider).flags.mockLoginEnabled;
+      final bool mockLoginEnabled = ref
+          .read(intelligenceStateProvider)
+          .flags
+          .mockLoginEnabled;
       final String location = state.matchedLocation;
 
       if (!onboardingComplete && location != RoutePaths.onboarding) {
@@ -61,20 +71,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (location == RoutePaths.onboarding) {
-        if (isAuthenticated) {
-          return RoutePaths.home;
-        }
         if (!onboardingComplete) {
           return null;
         }
+        if (isAuthenticated) {
+          return RoutePaths.home;
+        }
         return RoutePaths.login;
       }
 
-      if (!isAuthenticated && onboardingComplete && location != RoutePaths.login) {
+      if (!isAuthenticated &&
+          onboardingComplete &&
+          location != RoutePaths.login) {
         return RoutePaths.login;
       }
 
-      if (location == RoutePaths.login && !onboardingComplete && !mockLoginEnabled) {
+      if (location == RoutePaths.login &&
+          !onboardingComplete &&
+          !mockLoginEnabled) {
         return RoutePaths.onboarding;
       }
 
@@ -88,11 +102,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Primary surfaces: Now, Plan, Add, Reflect, Settings.
       GoRoute(
         path: RoutePaths.onboarding,
-        builder: (BuildContext context, GoRouterState state) => const OnboardingScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const OnboardingScreen(),
       ),
       GoRoute(
         path: RoutePaths.home,
-        builder: (BuildContext context, GoRouterState state) => const NavigationShell(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(),
       ),
       GoRoute(
         path: RoutePaths.plan,
@@ -118,7 +134,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Secondary and advanced routes.
       GoRoute(
         path: RoutePaths.notifications,
-        builder: (BuildContext context, GoRouterState state) => const NotificationsPage(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const NotificationsPage(),
       ),
       GoRoute(
         path: RoutePaths.logs,
@@ -147,18 +164,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.advisor,
-        builder: (BuildContext context, GoRouterState state) => const ProductAdvisorScreen(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const ProductAdvisorScreen(),
       ),
 
       // Legacy top-level routes redirect into the secondary hierarchy.
       // Sunset target is tracked in docs/LEGACY_ROUTE_SUNSET.md and reviewed by 2026-10-01.
-      GoRoute(path: RoutePaths.legacyCoach, redirect: (_, _) => RoutePaths.home),
+      GoRoute(
+        path: RoutePaths.legacyCoach,
+        redirect: (_, _) => RoutePaths.home,
+      ),
       GoRoute(path: RoutePaths.legacyLogs, redirect: (_, _) => RoutePaths.logs),
-      GoRoute(path: RoutePaths.legacyNotifications, redirect: (_, _) => RoutePaths.notifications),
-      GoRoute(path: RoutePaths.legacyProgression, redirect: (_, _) => RoutePaths.progression),
+      GoRoute(
+        path: RoutePaths.legacyNotifications,
+        redirect: (_, _) => RoutePaths.notifications,
+      ),
+      GoRoute(
+        path: RoutePaths.legacyProgression,
+        redirect: (_, _) => RoutePaths.progression,
+      ),
       GoRoute(path: RoutePaths.legacySi, redirect: (_, _) => RoutePaths.si),
-      GoRoute(path: RoutePaths.legacyTasks, redirect: (_, _) => RoutePaths.tasks),
-      GoRoute(path: RoutePaths.legacyProfile, redirect: (_, _) => RoutePaths.profile),
+      GoRoute(
+        path: RoutePaths.legacyTasks,
+        redirect: (_, _) => RoutePaths.tasks,
+      ),
+      GoRoute(
+        path: RoutePaths.legacyProfile,
+        redirect: (_, _) => RoutePaths.profile,
+      ),
 
       GoRoute(
         path: RoutePaths.login,
@@ -167,7 +200,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final mockLoginConfig = ref.read(mockLoginConfigProvider);
           return AuthGate(
             enableMockLogin:
-                intelligence.flags.mockLoginEnabled || intelligence.flags.testerFullAccess,
+                intelligence.flags.mockLoginEnabled ||
+                intelligence.flags.testerFullAccess,
             mockLoginEmail: mockLoginConfig.email,
             mockLoginPassword: mockLoginConfig.password,
             deepLinkMode: state.uri.queryParameters['mode'],
@@ -177,7 +211,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.paywall,
-        builder: (BuildContext context, GoRouterState state) => const PaywallPage(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const PaywallPage(),
       ),
       GoRoute(
         path: RoutePaths.privacy,
@@ -201,11 +236,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.support,
-        builder: (BuildContext context, GoRouterState state) => const SupportPage(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const SupportPage(),
       ),
       GoRoute(
         path: RoutePaths.about,
-        builder: (BuildContext context, GoRouterState state) => const AboutPage(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const AboutPage(),
       ),
     ],
   );

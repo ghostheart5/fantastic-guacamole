@@ -12,8 +12,12 @@ class FlowmapScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bool useFeatureReadPath = ref.watch(featureFlagEnabledProvider(_featureReadPathFlag));
-    final AsyncValue<List<FlowmapNode>> legacyState = ref.watch(flowmapProvider);
+    final bool useFeatureReadPath = ref.watch(
+      featureFlagEnabledProvider(_featureReadPathFlag),
+    );
+    final AsyncValue<List<FlowmapNode>> legacyState = ref.watch(
+      flowmapProvider,
+    );
     final AsyncValue<List<FlowmapNode>> featureState = ref
         .watch(featureFlowmapGraphProvider)
         .whenData(
@@ -32,7 +36,10 @@ class FlowmapScreen extends ConsumerWidget {
                 ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
         );
 
-    final AsyncValue<List<FlowmapNode>> state = useFeatureReadPath ? featureState : legacyState;
+    final AsyncValue<List<FlowmapNode>> state =
+        useFeatureReadPath && featureState.hasValue
+        ? featureState
+        : legacyState;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B111C),
@@ -41,7 +48,11 @@ class FlowmapScreen extends ConsumerWidget {
         elevation: 0,
         leading: SmartPressable(
           onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
-          child: const Icon(Icons.arrow_back_ios_new, color: AppColors.neonCyan, size: 18),
+          child: const Icon(
+            Icons.arrow_back_ios_new,
+            color: AppColors.neonCyan,
+            size: 18,
+          ),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,7 +73,11 @@ class FlowmapScreen extends ConsumerWidget {
             ),
             const Text(
               'ADAPTIVE MAP CORE',
-              style: TextStyle(fontSize: 9, letterSpacing: 2, color: Colors.white38),
+              style: TextStyle(
+                fontSize: 9,
+                letterSpacing: 2,
+                color: Colors.white38,
+              ),
             ),
           ],
         ),
@@ -79,7 +94,10 @@ class FlowmapScreen extends ConsumerWidget {
       ),
       body: state.when(
         loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.neonCyan, strokeWidth: 2),
+          child: CircularProgressIndicator(
+            color: AppColors.neonCyan,
+            strokeWidth: 2,
+          ),
         ),
         error: (e, _) => Center(
           child: Text(
@@ -181,14 +199,20 @@ class _NodeCard extends ConsumerWidget {
                   if (fields.isEmpty)
                     Text(
                       description,
-                      style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
                     )
                   else
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: fields
                           .take(6)
-                          .map((_FlowField field) => _FlowFieldRow(field: field))
+                          .map(
+                            (_FlowField field) => _FlowFieldRow(field: field),
+                          )
                           .toList(growable: false),
                     ),
                 ],
@@ -197,7 +221,9 @@ class _NodeCard extends ConsumerWidget {
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    children: contextTags.map((String tag) => _Tag(tag)).toList(),
+                    children: contextTags
+                        .map((String tag) => _Tag(tag))
+                        .toList(),
                   ),
                 ],
                 if (analyticsTags.isNotEmpty) ...[
@@ -206,7 +232,12 @@ class _NodeCard extends ConsumerWidget {
                     spacing: 6,
                     runSpacing: 6,
                     children: analyticsTags
-                        .map((String event) => _Tag('event:$event', accent: AppColors.memoryAmber))
+                        .map(
+                          (String event) => _Tag(
+                            'event:$event',
+                            accent: AppColors.memoryAmber,
+                          ),
+                        )
                         .toList(growable: false),
                   ),
                 ],
@@ -243,7 +274,11 @@ class _Tag extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 10, color: AppColors.neonViolet, letterSpacing: 0.5),
+        style: const TextStyle(
+          fontSize: 10,
+          color: AppColors.neonViolet,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
@@ -287,7 +322,8 @@ class _EmptyState extends StatelessWidget {
 class _AddNodeSheet extends StatefulWidget {
   const _AddNodeSheet({required this.onAdd});
 
-  final void Function(String title, String? description, List<String> tags) onAdd;
+  final void Function(String title, String? description, List<String> tags)
+  onAdd;
 
   @override
   State<_AddNodeSheet> createState() => _AddNodeSheetState();
@@ -346,12 +382,14 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
         .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_|_$'), '');
-    if (normalizedTitleTag.isNotEmpty && !tags.contains('feature:$normalizedTitleTag')) {
+    if (normalizedTitleTag.isNotEmpty &&
+        !tags.contains('feature:$normalizedTitleTag')) {
       tags.add('feature:$normalizedTitleTag');
     }
 
     final String analyticsEvent = _analyticsCtrl.text.trim();
-    if (analyticsEvent.isNotEmpty && !tags.contains('analytics:$analyticsEvent')) {
+    if (analyticsEvent.isNotEmpty &&
+        !tags.contains('analytics:$analyticsEvent')) {
       tags.add('analytics:$analyticsEvent');
     }
 
@@ -371,7 +409,11 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
       analyticsEvent: analyticsEvent,
     );
 
-    widget.onAdd(title, structuredDescription.isEmpty ? null : structuredDescription, tags);
+    widget.onAdd(
+      title,
+      structuredDescription.isEmpty ? null : structuredDescription,
+      tags,
+    );
     Navigator.of(context).pop();
   }
 
@@ -399,7 +441,12 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, mediaQuery.viewInsets.bottom + 20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          mediaQuery.viewInsets.bottom + 20,
+        ),
         child: ConstrainedBox(
           constraints: BoxConstraints(maxHeight: mediaQuery.size.height * 0.85),
           child: SingleChildScrollView(
@@ -440,26 +487,33 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
                     fillColor: Colors.white.withValues(alpha: 0.04),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.15)),
+                      borderSide: BorderSide(
+                        color: AppColors.neonCyan.withValues(alpha: 0.15),
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.15)),
+                      borderSide: BorderSide(
+                        color: AppColors.neonCyan.withValues(alpha: 0.15),
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.5)),
+                      borderSide: BorderSide(
+                        color: AppColors.neonCyan.withValues(alpha: 0.5),
+                      ),
                     ),
                   ),
                   items: _flowTemplates
                       .map(
-                        (_FlowTemplate template) => DropdownMenuItem<_FlowTemplate>(
-                          value: template,
-                          child: Text(
-                            template.feature,
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
+                        (_FlowTemplate template) =>
+                            DropdownMenuItem<_FlowTemplate>(
+                              value: template,
+                              child: Text(
+                                template.feature,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
                       )
                       .toList(growable: false),
                   onChanged: (_FlowTemplate? value) {
@@ -479,11 +533,17 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
                   maxLines: 3,
                 ),
                 const SizedBox(height: 10),
-                _SheetField(controller: _triggerCtrl, hint: 'Trigger (what starts flow)'),
+                _SheetField(
+                  controller: _triggerCtrl,
+                  hint: 'Trigger (what starts flow)',
+                ),
                 const SizedBox(height: 10),
                 _SheetField(controller: _screenCtrl, hint: 'Screen'),
                 const SizedBox(height: 10),
-                _SheetField(controller: _providerCtrl, hint: 'Provider / Controller'),
+                _SheetField(
+                  controller: _providerCtrl,
+                  hint: 'Provider / Controller',
+                ),
                 const SizedBox(height: 10),
                 _SheetField(controller: _useCaseCtrl, hint: 'Use Case'),
                 const SizedBox(height: 10),
@@ -499,17 +559,32 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
                   hint: 'System Services (analytics/errors/notifs)',
                 ),
                 const SizedBox(height: 10),
-                _SheetField(controller: _outputCtrl, hint: 'Output (what user sees)'),
+                _SheetField(
+                  controller: _outputCtrl,
+                  hint: 'Output (what user sees)',
+                ),
                 const SizedBox(height: 10),
                 _SheetField(controller: _savedDataCtrl, hint: 'Saved Data'),
                 const SizedBox(height: 10),
-                _SheetField(controller: _errorsCtrl, hint: 'Errors / failure points'),
+                _SheetField(
+                  controller: _errorsCtrl,
+                  hint: 'Errors / failure points',
+                ),
                 const SizedBox(height: 10),
-                _SheetField(controller: _fallbackCtrl, hint: 'Fallback behavior'),
+                _SheetField(
+                  controller: _fallbackCtrl,
+                  hint: 'Fallback behavior',
+                ),
                 const SizedBox(height: 10),
-                _SheetField(controller: _analyticsCtrl, hint: 'Analytics event'),
+                _SheetField(
+                  controller: _analyticsCtrl,
+                  hint: 'Analytics event',
+                ),
                 const SizedBox(height: 10),
-                _SheetField(controller: _tagsCtrl, hint: 'Tags - comma separated (optional)'),
+                _SheetField(
+                  controller: _tagsCtrl,
+                  hint: 'Tags - comma separated (optional)',
+                ),
                 const SizedBox(height: 16),
                 SmartPressable(
                   onTap: _submit,
@@ -519,7 +594,9 @@ class _AddNodeSheetState extends State<_AddNodeSheet> {
                     decoration: BoxDecoration(
                       color: AppColors.neonCyan.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.5)),
+                      border: Border.all(
+                        color: AppColors.neonCyan.withValues(alpha: 0.5),
+                      ),
                     ),
                     child: const Text(
                       'CREATE FLOW BLUEPRINT',
@@ -591,9 +668,14 @@ class _FlowSummaryStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int connected = nodes.where((FlowmapNode node) => node.connectedTo.isNotEmpty).length;
+    final int connected = nodes
+        .where((FlowmapNode node) => node.connectedTo.isNotEmpty)
+        .length;
     final int withAnalytics = nodes
-        .where((FlowmapNode node) => node.tags.any((String tag) => tag.startsWith('analytics:')))
+        .where(
+          (FlowmapNode node) =>
+              node.tags.any((String tag) => tag.startsWith('analytics:')),
+        )
         .length;
 
     return Container(
@@ -673,7 +755,11 @@ class _FlowFieldRow extends StatelessWidget {
             ),
             TextSpan(
               text: field.value,
-              style: const TextStyle(color: Colors.white60, fontSize: 11, height: 1.4),
+              style: const TextStyle(
+                color: Colors.white60,
+                fontSize: 11,
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -721,7 +807,8 @@ class _FlowTemplate {
 const List<_FlowTemplate> _flowTemplates = <_FlowTemplate>[
   _FlowTemplate(
     feature: 'Smart Coach',
-    overview: 'Turn user prompts into grounded coaching output with context and memory.',
+    overview:
+        'Turn user prompts into grounded coaching output with context and memory.',
     trigger: 'User submits coaching message',
     screen: 'SmartCoachScreen',
     provider: 'smartCoachScreenModelProvider / coachQueryController',
@@ -738,7 +825,8 @@ const List<_FlowTemplate> _flowTemplates = <_FlowTemplate>[
   ),
   _FlowTemplate(
     feature: 'SI Console',
-    overview: 'Convert natural language system queries into ranked, actionable analysis.',
+    overview:
+        'Convert natural language system queries into ranked, actionable analysis.',
     trigger: 'User submits SI query',
     screen: 'SIConsoleScreen',
     provider: 'siConsoleScreenModelProvider',
@@ -772,7 +860,8 @@ const List<_FlowTemplate> _flowTemplates = <_FlowTemplate>[
   ),
   _FlowTemplate(
     feature: 'Memory Engine',
-    overview: 'Capture structured memory for contextual coach/SI personalization.',
+    overview:
+        'Capture structured memory for contextual coach/SI personalization.',
     trigger: 'User writes memory or feature emits memory-worthy event',
     screen: 'MemoriesScreen',
     provider: 'memoriesProvider / memorySummaryProvider',
@@ -789,7 +878,8 @@ const List<_FlowTemplate> _flowTemplates = <_FlowTemplate>[
   ),
   _FlowTemplate(
     feature: 'Offline Sync',
-    overview: 'Replay queued offline operations when connectivity is available.',
+    overview:
+        'Replay queued offline operations when connectivity is available.',
     trigger: 'Connectivity returns or manual sync requested',
     screen: 'Sync status surfaces',
     provider: 'sync provider/queue service',
@@ -830,7 +920,11 @@ List<_FlowField> _parseFlowFields(String? description) {
 }
 
 class _SheetField extends StatelessWidget {
-  const _SheetField({required this.controller, required this.hint, this.maxLines = 1});
+  const _SheetField({
+    required this.controller,
+    required this.hint,
+    this.maxLines = 1,
+  });
 
   final TextEditingController controller;
   final String hint;
@@ -847,18 +941,27 @@ class _SheetField extends StatelessWidget {
         hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.04),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.15)),
+          borderSide: BorderSide(
+            color: AppColors.neonCyan.withValues(alpha: 0.15),
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.15)),
+          borderSide: BorderSide(
+            color: AppColors.neonCyan.withValues(alpha: 0.15),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.5)),
+          borderSide: BorderSide(
+            color: AppColors.neonCyan.withValues(alpha: 0.5),
+          ),
         ),
       ),
     );

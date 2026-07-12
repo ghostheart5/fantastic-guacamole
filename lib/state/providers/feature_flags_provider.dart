@@ -41,7 +41,9 @@ class RemoteAnnouncement {
   final String message;
   final String level;
 
-  bool get hasContent => message.trim().isNotEmpty;
+  bool get hasContent => _isMeaningfulRemoteText(message);
+
+  bool get hasTitle => _isMeaningfulRemoteText(title);
 }
 
 final featureFlagsProvider = FutureProvider<Map<String, bool>>((Ref ref) async {
@@ -71,11 +73,31 @@ final remoteAnnouncementProvider = FutureProvider<RemoteAnnouncement>((
   await remoteConfig.refresh();
   return RemoteAnnouncement(
     enabled: remoteConfig.getBool('announcement_enabled', defaultValue: false),
-    title: remoteConfig.getString('announcement_title'),
-    message: remoteConfig.getString('announcement_message'),
-    level: remoteConfig.getString('announcement_level', defaultValue: 'info'),
+    title: _sanitizeRemoteText(remoteConfig.getString('announcement_title')),
+    message: _sanitizeRemoteText(
+      remoteConfig.getString('announcement_message'),
+    ),
+    level: _sanitizeRemoteText(
+      remoteConfig.getString('announcement_level', defaultValue: 'info'),
+    ),
   );
 });
+
+String _sanitizeRemoteText(String raw) {
+  final String normalized = raw.trim();
+  if (!_isMeaningfulRemoteText(normalized)) {
+    return '';
+  }
+  return normalized;
+}
+
+bool _isMeaningfulRemoteText(String raw) {
+  final String normalized = raw.trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return false;
+  }
+  return normalized != 'null' && normalized != 'undefined';
+}
 
 final featureFlagEnabledProvider = Provider.family<bool, String>((
   Ref ref,

@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.da
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
@@ -99,13 +100,27 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
 
     setState(() => _gettingCoaching = true);
 
-    final CoachCoachingResult result = await coach.requestCoaching(
-      energy: _energy,
-      emotion: _emotion,
-      notes: notes,
-      history: _conversationHistory(),
-      previousSavedNotes: _lastSavedNotes,
-    );
+    final CoachCoachingResult result;
+    try {
+      result = await coach
+          .requestCoaching(
+            energy: _energy,
+            emotion: _emotion,
+            notes: notes,
+            history: _conversationHistory(),
+            previousSavedNotes: _lastSavedNotes,
+          )
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _gettingCoaching = false;
+        _coachingPrompt = notes.isEmpty ? 'quick check-in' : notes;
+        _coachingMessage =
+            'Insight request timed out. Tap GET INSIGHT again or shorten your input for a faster response.';
+      });
+      return;
+    }
     if (!mounted) return;
 
     setState(() {
@@ -158,13 +173,15 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       _followUpError = null;
     });
     try {
-      final String reply = await coach.requestFollowUp(
-        input: text,
-        energy: _energy,
-        emotion: _emotion,
-        reflection: _notesController.text.trim(),
-        history: _conversationHistory(),
-      );
+      final String reply = await coach
+          .requestFollowUp(
+            input: text,
+            energy: _energy,
+            emotion: _emotion,
+            reflection: _notesController.text.trim(),
+            history: _conversationHistory(),
+          )
+          .timeout(const Duration(seconds: 25));
       if (!mounted) return;
       setState(() {
         _followUps.add(_Exchange(question: text, answer: reply));
@@ -185,6 +202,12 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
           );
         }
       });
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _sendingFollowUp = false;
+        _followUpError = 'Follow-up timed out. Retry with a shorter prompt.';
+      });
     } catch (error, stackTrace) {
       if (!mounted) return;
       setState(() {
@@ -203,12 +226,18 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       history.add(<String, String>{'role': 'user', 'content': initialPrompt});
     }
     if (initialResponse.isNotEmpty) {
-      history.add(<String, String>{'role': 'assistant', 'content': initialResponse});
+      history.add(<String, String>{
+        'role': 'assistant',
+        'content': initialResponse,
+      });
     }
     for (final _Exchange exchange in _followUps) {
       history
         ..add(<String, String>{'role': 'user', 'content': exchange.question})
-        ..add(<String, String>{'role': 'assistant', 'content': exchange.answer});
+        ..add(<String, String>{
+          'role': 'assistant',
+          'content': exchange.answer,
+        });
     }
     return history.length > 8 ? history.sublist(history.length - 8) : history;
   }
@@ -218,7 +247,8 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
     ref.watch(extendedDomainBootstrapProvider);
     final smartModel = ref.watch(smartCoachScreenModelProvider).asData?.value;
     final String modelCoachMessage = smartModel?.decision.coachMessage ?? '';
-    final String effectiveCoachMessage = (_coachingMessage?.trim().isNotEmpty ?? false)
+    final String effectiveCoachMessage =
+        (_coachingMessage?.trim().isNotEmpty ?? false)
         ? _coachingMessage!
         : (modelCoachMessage.trim().isNotEmpty
               ? modelCoachMessage
@@ -236,7 +266,12 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
               Expanded(
                 child: ListView(
                   controller: _scroll,
-                  padding: EdgeInsets.fromLTRB(20, 20, 20, hasCoachMessage ? 20 : 12),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    20,
+                    20,
+                    hasCoachMessage ? 20 : 12,
+                  ),
                   children: [
                     _buildHeader(),
                     const SizedBox(height: 4),
@@ -247,7 +282,8 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     const _QuickNavRow(),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: () => ref.read(appFlowProvider.notifier).toCreator(),
+                      onPressed: () =>
+                          ref.read(appFlowProvider.notifier).toCreator(),
                       child: const Text('OPEN CREATOR TO MAKE TASK'),
                     ),
                     const SizedBox(height: 14),
@@ -282,9 +318,14 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                       child: TextField(
                         controller: _notesController,
                         maxLines: 4,
-                        style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.6),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          height: 1.6,
+                        ),
                         decoration: const InputDecoration(
-                          hintText: 'Share your current context, friction, or desired outcome...',
+                          hintText:
+                              'Share your current context, friction, or desired outcome...',
                           hintStyle: TextStyle(color: Colors.white24),
                           border: InputBorder.none,
                           isDense: true,
@@ -395,7 +436,11 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       children: [
         SmartPressable(
           onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
-          child: const Icon(Icons.arrow_back_ios, color: Colors.white54, size: 18),
+          child: const Icon(
+            Icons.arrow_back_ios,
+            color: Colors.white54,
+            size: 18,
+          ),
         ),
         const SizedBox(width: 14),
         Column(
@@ -417,7 +462,11 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
             ),
             const Text(
               'ADAPTIVE LIFE LOGIC',
-              style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
+              style: TextStyle(
+                fontSize: 10,
+                letterSpacing: 2,
+                color: Colors.white38,
+              ),
             ),
           ],
         ),
@@ -519,7 +568,11 @@ class _FollowUpBar extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, color: AppColors.recallRed, size: 14),
+                    const Icon(
+                      Icons.error_outline,
+                      color: AppColors.recallRed,
+                      size: 14,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -531,7 +584,10 @@ class _FollowUpBar extends StatelessWidget {
                         ),
                       ),
                     ),
-                    TextButton(onPressed: sending ? null : onSend, child: const Text('Retry')),
+                    TextButton(
+                      onPressed: sending ? null : onSend,
+                      child: const Text('Retry'),
+                    ),
                   ],
                 ),
               ),
@@ -548,10 +604,16 @@ class _FollowUpBar extends StatelessWidget {
                     },
                     decoration: InputDecoration(
                       hintText: 'Send a follow-up question...',
-                      hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                      hintStyle: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 14,
+                      ),
                       filled: true,
                       fillColor: const Color(0xFF1A2440),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -581,7 +643,11 @@ class _FollowUpBar extends StatelessWidget {
 }
 
 class _CoachPanel extends StatelessWidget {
-  const _CoachPanel({required this.label, required this.child, required this.accentColor});
+  const _CoachPanel({
+    required this.label,
+    required this.child,
+    required this.accentColor,
+  });
 
   final String label;
   final Widget child;
@@ -597,7 +663,11 @@ class _CoachPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
         boxShadow: [
-          BoxShadow(color: accentColor.withValues(alpha: 0.06), blurRadius: 20, spreadRadius: -2),
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.06),
+            blurRadius: 20,
+            spreadRadius: -2,
+          ),
         ],
       ),
       child: Column(
@@ -634,7 +704,11 @@ class _CoachPanel extends StatelessWidget {
 }
 
 class _EnergySlider extends StatelessWidget {
-  const _EnergySlider({required this.value, required this.color, required this.onChanged});
+  const _EnergySlider({
+    required this.value,
+    required this.color,
+    required this.onChanged,
+  });
 
   final double value;
   final Color color;
@@ -650,11 +724,19 @@ class _EnergySlider extends StatelessWidget {
           children: [
             const Text(
               'CURRENT ENERGY',
-              style: TextStyle(color: Colors.white54, fontSize: 11, letterSpacing: 1.5),
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 11,
+                letterSpacing: 1.5,
+              ),
             ),
             Text(
               '${(value * 100).round()}%',
-              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),
@@ -688,12 +770,18 @@ class _VoiceButton extends ConsumerWidget {
         decoration: BoxDecoration(
           color: AppColors.memoryAmber.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.4)),
+          border: Border.all(
+            color: AppColors.memoryAmber.withValues(alpha: 0.4),
+          ),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.volume_up_rounded, color: AppColors.memoryAmber, size: 15),
+            Icon(
+              Icons.volume_up_rounded,
+              color: AppColors.memoryAmber,
+              size: 15,
+            ),
             SizedBox(width: 6),
             Text(
               'SPEAK',
@@ -712,7 +800,11 @@ class _VoiceButton extends ConsumerWidget {
 }
 
 class _VoiceSummaryButton extends ConsumerWidget {
-  const _VoiceSummaryButton({required this.headline, required this.energy, required this.emotion});
+  const _VoiceSummaryButton({
+    required this.headline,
+    required this.energy,
+    required this.emotion,
+  });
 
   final String headline;
   final double energy;
@@ -767,21 +859,61 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
-      onTap: () => unawaited(
-        ref
-            .read(voiceServiceProvider)
-            .speakAccessibilityHint(
-              surface: 'Smart Coach',
-              controls: const <String>[
-                'Adjust energy slider to set intensity',
-                'Select emotional state to tune guidance',
-                'Use get insight to generate coaching',
-                'Use speak button to read the latest insight aloud',
-                'Use summary button for condensed voice recap',
-                'Use microphone button for voice interactions',
-              ],
-            ),
-      ),
+      onTap: () {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: const Color(0xFF0D1420),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (BuildContext context) {
+            return const SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Accessibility Guide',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'A11Y means accessibility. Use these controls for easier reading and audio guidance.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+        unawaited(
+          ref
+              .read(voiceServiceProvider)
+              .speakAccessibilityHint(
+                surface: 'Smart Coach',
+                controls: const <String>[
+                  'Adjust energy slider to set intensity',
+                  'Select emotional state to tune guidance',
+                  'Use get insight to generate coaching',
+                  'Use speak button to read the latest insight aloud',
+                  'Use summary button for condensed voice recap',
+                  'Use microphone button for voice interactions',
+                ],
+              ),
+        );
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
@@ -792,10 +924,14 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.accessibility_new_rounded, color: Colors.white70, size: 15),
+            Icon(
+              Icons.accessibility_new_rounded,
+              color: Colors.white70,
+              size: 15,
+            ),
             SizedBox(width: 5),
             Text(
-              'A11Y',
+              'ACCESS',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 11,
@@ -818,11 +954,21 @@ class _MicButton extends ConsumerWidget {
     final VoiceState voice = ref.watch(voiceControllerProvider);
     final bool listening = voice.isListening;
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
         if (listening) {
-          ref.read(voiceControllerProvider.notifier).stopListening();
+          await ref.read(voiceControllerProvider.notifier).stopListening();
         } else {
-          ref.read(voiceControllerProvider.notifier).startListening();
+          await ref.read(settingsUiActionsProvider).requestVoicePermission();
+          await ref.read(voiceControllerProvider.notifier).startListening();
+          if (!context.mounted) {
+            return;
+          }
+          final String message =
+              ref.read(voiceControllerProvider).error ??
+              'Voice input is not available in this build. First step: type your request in Focus Context and tap GET INSIGHT.';
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
         }
       },
       child: Container(
@@ -833,7 +979,9 @@ class _MicButton extends ConsumerWidget {
               : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: listening ? AppColors.neonCyan.withValues(alpha: 0.6) : Colors.white24,
+            color: listening
+                ? AppColors.neonCyan.withValues(alpha: 0.6)
+                : Colors.white24,
           ),
         ),
         child: Row(
@@ -876,7 +1024,9 @@ class _ProgressionBanner extends ConsumerWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.35)),
+        border: Border.all(
+          color: AppColors.memoryAmber.withValues(alpha: 0.35),
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -885,7 +1035,9 @@ class _ProgressionBanner extends ConsumerWidget {
             decoration: BoxDecoration(
               color: AppColors.memoryAmber.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.4)),
+              border: Border.all(
+                color: AppColors.memoryAmber.withValues(alpha: 0.4),
+              ),
             ),
             child: Text(
               'LVL ${progress.level}',
@@ -915,12 +1067,19 @@ class _ProgressionBanner extends ConsumerWidget {
                     ),
                     Text(
                       '${progress.xpToNext} XP',
-                      style: const TextStyle(color: Colors.white24, fontSize: 10),
+                      style: const TextStyle(
+                        color: Colors.white24,
+                        fontSize: 10,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                ProgressBar(value: progress.levelProgress, color: AppColors.memoryAmber, height: 4),
+                ProgressBar(
+                  value: progress.levelProgress,
+                  color: AppColors.memoryAmber,
+                  height: 4,
+                ),
               ],
             ),
           ),
@@ -928,7 +1087,11 @@ class _ProgressionBanner extends ConsumerWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              const Icon(Icons.local_fire_department, color: Colors.deepOrangeAccent, size: 14),
+              const Icon(
+                Icons.local_fire_department,
+                color: Colors.deepOrangeAccent,
+                size: 14,
+              ),
               const SizedBox(width: 4),
               Text(
                 '${progress.streak}',
@@ -1035,7 +1198,12 @@ class _DisclaimerText extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Text(
       'This app is not a substitute for professional mental health care.',
-      style: TextStyle(color: Colors.white30, fontSize: 10, letterSpacing: 0.3, height: 1.4),
+      style: TextStyle(
+        color: Colors.white30,
+        fontSize: 10,
+        letterSpacing: 0.3,
+        height: 1.4,
+      ),
     );
   }
 }

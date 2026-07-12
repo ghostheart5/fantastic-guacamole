@@ -158,7 +158,16 @@ class VoiceService {
       _tts.setErrorHandler((_) {
         _isSpeaking = false;
       });
-      await _tts.awaitSpeakCompletion(true);
+      try {
+        await _tts.awaitSpeakCompletion(true);
+      } catch (_) {
+        // Some devices/plugins throw on completion wiring; continue with best effort.
+      }
+      try {
+        await _tts.setLanguage('en-US');
+      } catch (_) {
+        // Keep default engine language if explicit locale is unavailable.
+      }
       _initialized = true;
       return true;
     } on MissingPluginException {
