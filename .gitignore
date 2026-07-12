@@ -73,6 +73,9 @@ linux/flutter/ephemeral/
 # VS Code
 .vscode/
 
+# Firebase local cache/state
+.firebase/
+
 # IDEA
 .idea/
 
