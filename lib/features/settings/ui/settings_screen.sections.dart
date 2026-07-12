@@ -4,8 +4,7 @@ class _ReflectionReminderSection extends ConsumerStatefulWidget {
   const _ReflectionReminderSection();
 
   @override
-  ConsumerState<_ReflectionReminderSection> createState() =>
-      _ReflectionReminderSectionState();
+  ConsumerState<_ReflectionReminderSection> createState() => _ReflectionReminderSectionState();
 }
 
 class _DailyReflectionTutorialPanel extends ConsumerWidget {
@@ -30,10 +29,7 @@ class _DailyReflectionTutorialPanel extends ConsumerWidget {
         if (progress.isStepDismissed(step.id)) {
           return Align(
             alignment: Alignment.centerLeft,
-            child: ShowMeAgainButton(
-              stepId: step.id,
-              label: 'Show Reflection Tutorial Again',
-            ),
+            child: ShowMeAgainButton(stepId: step.id, label: 'Show Reflection Tutorial Again'),
           );
         }
 
@@ -51,8 +47,7 @@ class _DailyReflectionTutorialPanel extends ConsumerWidget {
   }
 }
 
-class _ReflectionReminderSectionState
-    extends ConsumerState<_ReflectionReminderSection> {
+class _ReflectionReminderSectionState extends ConsumerState<_ReflectionReminderSection> {
   bool _enabled = false;
   TimeOfDay _time = const TimeOfDay(hour: 20, minute: 0);
 
@@ -100,9 +95,7 @@ class _ReflectionReminderSectionState
     );
     if (picked == null || !mounted) return;
     setState(() => _time = picked);
-    await ref
-        .read(settingsUiActionsProvider)
-        .setReflectionReminderTime(time: picked);
+    await ref.read(settingsUiActionsProvider).setReflectionReminderTime(time: picked);
     if (_enabled) {
       await ref
           .read(settingsUiActionsProvider)
@@ -117,20 +110,13 @@ class _ReflectionReminderSectionState
       accentColor: AppColors.neonViolet,
       child: Column(
         children: [
-          _NeonToggleTile(
-            title: 'Reflection Reminder',
-            value: _enabled,
-            onChanged: _toggle,
-          ),
+          _NeonToggleTile(title: 'Reflection Reminder', value: _enabled, onChanged: _toggle),
           if (_enabled)
             GestureDetector(
               onTap: _pickTime,
               behavior: HitTestBehavior.opaque,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -139,16 +125,11 @@ class _ReflectionReminderSectionState
                       style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppColors.neonViolet.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.neonViolet.withValues(alpha: 0.4),
-                        ),
+                        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.4)),
                       ),
                       child: Text(
                         _time.format(context),
@@ -173,12 +154,10 @@ class _ReminderAutomationSection extends ConsumerStatefulWidget {
   const _ReminderAutomationSection();
 
   @override
-  ConsumerState<_ReminderAutomationSection> createState() =>
-      _ReminderAutomationSectionState();
+  ConsumerState<_ReminderAutomationSection> createState() => _ReminderAutomationSectionState();
 }
 
-class _ReminderAutomationSectionState
-    extends ConsumerState<_ReminderAutomationSection> {
+class _ReminderAutomationSectionState extends ConsumerState<_ReminderAutomationSection> {
   bool _goalEnabled = true;
   bool _habitEnabled = true;
   bool _dailyPlanningEnabled = true;
@@ -191,9 +170,7 @@ class _ReminderAutomationSectionState
   }
 
   void _load() {
-    final prefs = ref
-        .read(settingsUiActionsProvider)
-        .loadAdvancedReminderPrefs();
+    final prefs = ref.read(settingsUiActionsProvider).loadAdvancedReminderPrefs();
     setState(() {
       _goalEnabled = prefs.goalRemindersEnabled;
       _habitEnabled = prefs.habitRemindersEnabled;
@@ -256,11 +233,7 @@ class _ReminderAutomationSectionState
       accentColor: AppColors.neonCyan,
       child: Column(
         children: [
-          _NeonToggleTile(
-            title: 'Goal Reminders',
-            value: _goalEnabled,
-            onChanged: _toggleGoal,
-          ),
+          _NeonToggleTile(title: 'Goal Reminders', value: _goalEnabled, onChanged: _toggleGoal),
           const _NeonStatusTile(
             title: 'Goal Reminder Rule',
             subtitle: 'Schedules around target date (prefers 1 day before).',
@@ -291,10 +264,7 @@ class _ReminderAutomationSectionState
               onTap: _pickDailyPlanningTime,
               behavior: HitTestBehavior.opaque,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -303,16 +273,11 @@ class _ReminderAutomationSectionState
                       style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppColors.neonCyan.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.neonCyan.withValues(alpha: 0.4),
-                        ),
+                        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.4)),
                       ),
                       child: Text(
                         _dailyPlanningTime.format(context),
@@ -356,9 +321,7 @@ class _ChronoSparkAcademySection extends StatelessWidget {
           ...TutorialContent.academyTracks.map(
             (AcademyTrack track) => _NeonStatusTile(
               title: track.title,
-              subtitle: track.lessons
-                  .map((AcademyLesson lesson) => lesson.title)
-                  .join(' · '),
+              subtitle: track.lessons.map((AcademyLesson lesson) => lesson.title).join(' · '),
             ),
           ),
           const SizedBox(height: 4),
@@ -378,8 +341,7 @@ class _ChronoSparkAcademySection extends StatelessWidget {
             ),
           ),
           ...TutorialContent.firstWeekJourney.map(
-            (FirstWeekJourneyDay day) =>
-                _NeonStatusTile(title: day.day, subtitle: day.goal),
+            (FirstWeekJourneyDay day) => _NeonStatusTile(title: day.day, subtitle: day.goal),
           ),
         ],
       ),
@@ -391,15 +353,12 @@ class _GlobalMetricsDebugSection extends ConsumerStatefulWidget {
   const _GlobalMetricsDebugSection();
 
   @override
-  ConsumerState<_GlobalMetricsDebugSection> createState() =>
-      _GlobalMetricsDebugSectionState();
+  ConsumerState<_GlobalMetricsDebugSection> createState() => _GlobalMetricsDebugSectionState();
 }
 
-class _GlobalMetricsDebugSectionState
-    extends ConsumerState<_GlobalMetricsDebugSection> {
-  AsyncValue<OptimizationConfig> _configAsync = const AsyncValue.loading();
-  AsyncValue<List<Map<String, dynamic>>> _metricsRealtimeAsync =
-      const AsyncValue.loading();
+class _GlobalMetricsDebugSectionState extends ConsumerState<_GlobalMetricsDebugSection> {
+  AsyncValue<OptimizationDebugViewModel> _configAsync = const AsyncValue.loading();
+  AsyncValue<List<Map<String, dynamic>>> _metricsRealtimeAsync = const AsyncValue.loading();
 
   @override
   void initState() {
@@ -426,7 +385,7 @@ class _GlobalMetricsDebugSectionState
 
   Future<void> _reloadMetrics({bool invalidate = false}) async {
     if (invalidate) {
-      ref.invalidate(optimizationConfigProvider);
+      ref.invalidate(optimizationDebugViewModelProvider);
       ref.invalidate(supabaseMetricsRealtimeProvider);
     }
 
@@ -436,15 +395,15 @@ class _GlobalMetricsDebugSectionState
     });
 
     try {
-      final OptimizationConfig config = await ref.read(
-        optimizationConfigProvider.future,
+      final OptimizationDebugViewModel config = await ref.read(
+        optimizationDebugViewModelProvider.future,
       );
       _applyAfterBuild(() {
-        _configAsync = AsyncValue<OptimizationConfig>.data(config);
+        _configAsync = AsyncValue<OptimizationDebugViewModel>.data(config);
       });
     } on Object catch (error, stackTrace) {
       _applyAfterBuild(() {
-        _configAsync = AsyncValue<OptimizationConfig>.error(error, stackTrace);
+        _configAsync = AsyncValue<OptimizationDebugViewModel>.error(error, stackTrace);
       });
     }
 
@@ -453,16 +412,11 @@ class _GlobalMetricsDebugSectionState
           .read(supabaseMetricsRealtimeProvider.future)
           .timeout(const Duration(seconds: 3));
       _applyAfterBuild(() {
-        _metricsRealtimeAsync = AsyncValue<List<Map<String, dynamic>>>.data(
-          rows,
-        );
+        _metricsRealtimeAsync = AsyncValue<List<Map<String, dynamic>>>.data(rows);
       });
     } on Object catch (error, stackTrace) {
       _applyAfterBuild(() {
-        _metricsRealtimeAsync = AsyncValue<List<Map<String, dynamic>>>.error(
-          error,
-          stackTrace,
-        );
+        _metricsRealtimeAsync = AsyncValue<List<Map<String, dynamic>>>.error(error, stackTrace);
       });
     }
   }
@@ -497,10 +451,7 @@ class _GlobalMetricsDebugSectionState
                 ),
               ),
             ),
-            error: (e, _) => _NeonStatusTile(
-              title: 'Optimizer Error',
-              subtitle: e.toString(),
-            ),
+            error: (e, _) => _NeonStatusTile(title: 'Optimizer Error', subtitle: e.toString()),
           ),
           _metricsRealtimeAsync.when(
             data: (rows) {
@@ -509,14 +460,8 @@ class _GlobalMetricsDebugSectionState
                   : rows.last['date']?.toString() ?? 'unknown';
               return Column(
                 children: [
-                  _NeonStatusTile(
-                    title: 'Realtime Rows',
-                    subtitle: '${rows.length} streamed',
-                  ),
-                  _NeonStatusTile(
-                    title: 'Latest Row Date',
-                    subtitle: latestDate,
-                  ),
+                  _NeonStatusTile(title: 'Realtime Rows', subtitle: '${rows.length} streamed'),
+                  _NeonStatusTile(title: 'Latest Row Date', subtitle: latestDate),
                 ],
               );
             },
@@ -524,10 +469,8 @@ class _GlobalMetricsDebugSectionState
               title: 'Realtime Rows',
               subtitle: 'Connecting to Supabase stream...',
             ),
-            error: (error, _) => _NeonStatusTile(
-              title: 'Realtime Error',
-              subtitle: error.toString(),
-            ),
+            error: (error, _) =>
+                _NeonStatusTile(title: 'Realtime Error', subtitle: error.toString()),
           ),
           _NeonNavTile(
             title: 'Refresh Global Metrics',
@@ -554,29 +497,23 @@ class _SupabaseBackendHealthSection extends ConsumerWidget {
       child: healthAsync.when(
         data: (health) => Column(
           children: [
-            _NeonStatusTile(
-              title: 'Status',
-              subtitle: health.isHealthy ? 'Healthy' : 'Degraded',
-            ),
+            _NeonStatusTile(title: 'Status', subtitle: health.isHealthy ? 'Healthy' : 'Degraded'),
             _NeonStatusTile(
               title: 'Configured / Initialized',
               subtitle: '${health.configured} / ${health.initialized}',
             ),
             _NeonStatusTile(
               title: 'Authenticated / Realtime',
-              subtitle:
-                  '${health.authenticated} / ${health.realtimeConfigured}',
+              subtitle: '${health.authenticated} / ${health.realtimeConfigured}',
             ),
             _NeonStatusTile(
               title: 'Database / Storage',
-              subtitle:
-                  '${health.databaseReachable} / ${health.storageReachable}',
+              subtitle: '${health.databaseReachable} / ${health.storageReachable}',
             ),
             _NeonStatusTile(title: 'Detail', subtitle: health.message),
             _NeonNavTile(
               title: 'Recheck Backend Health',
-              subtitle:
-                  'Runs diagnostics for Supabase configuration and reachability',
+              subtitle: 'Runs diagnostics for Supabase configuration and reachability',
               onTap: () => ref.invalidate(supabaseBackendHealthProvider),
             ),
           ],
@@ -591,10 +528,8 @@ class _SupabaseBackendHealthSection extends ConsumerWidget {
             ),
           ),
         ),
-        error: (error, _) => _NeonStatusTile(
-          title: 'Backend Health Error',
-          subtitle: error.toString(),
-        ),
+        error: (error, _) =>
+            _NeonStatusTile(title: 'Backend Health Error', subtitle: error.toString()),
       ),
     );
   }
@@ -625,12 +560,9 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
                   'version=${progress.contentVersion} · completed=${progress.completedStepIds.length} · '
                   'skipped=${progress.dismissedStepIds.length} · forever=${progress.skippedForeverStepIds.length}',
             ),
-            loading: () => const _NeonStatusTile(
-              title: 'Status',
-              subtitle: 'Loading tutorial state...',
-            ),
-            error: (e, _) =>
-                _NeonStatusTile(title: 'Status Error', subtitle: e.toString()),
+            loading: () =>
+                const _NeonStatusTile(title: 'Status', subtitle: 'Loading tutorial state...'),
+            error: (e, _) => _NeonStatusTile(title: 'Status Error', subtitle: e.toString()),
           ),
           _NeonNavTile(
             title: 'Start Tutorial',
@@ -639,30 +571,24 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
           ),
           _NeonNavTile(
             title: 'Update Content Version',
-            subtitle:
-                'Applies version migration/reset semantics for tutorial state',
+            subtitle: 'Applies version migration/reset semantics for tutorial state',
             onTap: () => unawaited(
-              ref
-                  .read(tutorialProgressProvider.notifier)
-                  .updateTutorialContentVersion(),
+              ref.read(tutorialProgressProvider.notifier).updateTutorialContentVersion(),
             ),
           ),
           _NeonNavTile(
             title: 'Show First Step Again',
-            subtitle:
-                'Reveals ${TutorialContent.steps.first.id} if hidden or skipped forever',
+            subtitle: 'Reveals ${TutorialContent.steps.first.id} if hidden or skipped forever',
             onTap: () => unawaited(_showFirstStepAgain(context, ref)),
           ),
           _NeonNavTile(
             title: 'Reset Tutorial Progress',
-            subtitle:
-                'Clears completion, skip, and start state for tutorial lifecycle',
+            subtitle: 'Clears completion, skip, and start state for tutorial lifecycle',
             onTap: () => unawaited(_resetTutorialProgress(context, ref)),
           ),
           _NeonNavTile(
             title: 'Replay Onboarding',
-            subtitle:
-                'Marks onboarding incomplete so onboarding flow can be replayed',
+            subtitle: 'Marks onboarding incomplete so onboarding flow can be replayed',
             onTap: () => unawaited(_replayOnboarding(context, ref)),
           ),
         ],
@@ -672,33 +598,26 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
 
   Future<void> _showFirstStepAgain(BuildContext context, WidgetRef ref) async {
     try {
-      await ref
-          .read(tutorialResetServiceProvider)
-          .showAgain(TutorialContent.steps.first.id);
+      await ref.read(tutorialResetServiceProvider).showAgain(TutorialContent.steps.first.id);
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'First tutorial step is visible again: ${TutorialContent.steps.first.id}.',
-          ),
+          content: Text('First tutorial step is visible again: ${TutorialContent.steps.first.id}.'),
         ),
       );
     } catch (_) {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not reveal first tutorial step.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not reveal first tutorial step.')));
     }
   }
 
-  Future<void> _resetTutorialProgress(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _resetTutorialProgress(BuildContext context, WidgetRef ref) async {
     try {
       await ref.read(tutorialResetServiceProvider).resetAll();
       if (!context.mounted) {
@@ -725,16 +644,16 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
         return;
       }
       context.go(routes.onboarding);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Onboarding replay started.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Onboarding replay started.')));
     } catch (_) {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Replay onboarding failed.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Replay onboarding failed.')));
     }
   }
 
@@ -769,11 +688,7 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({
-    required this.label,
-    required this.child,
-    required this.accentColor,
-  });
+  const _Section({required this.label, required this.child, required this.accentColor});
   final String label;
   final Widget child;
   final Color accentColor;
@@ -787,11 +702,7 @@ class _Section extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
         boxShadow: [
-          BoxShadow(
-            color: accentColor.withValues(alpha: 0.06),
-            blurRadius: 16,
-            spreadRadius: -2,
-          ),
+          BoxShadow(color: accentColor.withValues(alpha: 0.06), blurRadius: 16, spreadRadius: -2),
         ],
       ),
       child: Column(
@@ -832,11 +743,7 @@ class _Section extends StatelessWidget {
 }
 
 class _NeonToggleTile extends StatelessWidget {
-  const _NeonToggleTile({
-    required this.title,
-    required this.value,
-    required this.onChanged,
-  });
+  const _NeonToggleTile({required this.title, required this.value, required this.onChanged});
   final String title;
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -848,10 +755,7 @@ class _NeonToggleTile extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
-          ),
+          Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
           Switch(
             value: value,
             onChanged: onChanged,
@@ -886,21 +790,14 @@ class _NeonNavTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
+                  Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
                   if (subtitle != null)
                     Text(
                       subtitle ?? '',
                       maxLines: 3,
                       softWrap: true,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 11,
-                        height: 1.35,
-                      ),
+                      style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.35),
                     ),
                 ],
               ),
@@ -930,20 +827,13 @@ class _NeonStatusTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
-                ),
+                Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
                 Text(
                   subtitle,
                   maxLines: 2,
                   softWrap: true,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 11,
-                    height: 1.35,
-                  ),
+                  style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.35),
                 ),
               ],
             ),

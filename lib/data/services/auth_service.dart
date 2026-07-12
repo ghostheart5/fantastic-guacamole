@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart' as secure_endpoint;
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
@@ -86,6 +87,7 @@ class AuthService implements AuthServiceContract {
       final sb.AuthResponse response = await _auth.auth.signUp(email: email, password: password);
       return UserCredential(user: _mapUser(response.user));
     } on sb.AuthException catch (error) {
+      Logger.errorCategory('Auth Errors', 'Supabase signUp failed', error);
       throw _mapAuthException(error);
     } on Object {
       throw FirebaseAuthException(
@@ -345,6 +347,15 @@ class AuthService implements AuthServiceContract {
   FirebaseAuthException _mapAuthException(sb.AuthException error) {
     final String rawCode = (error.statusCode ?? '').toString().toLowerCase();
     final String message = error.message.toLowerCase();
+    if (message.contains('database error saving new user') ||
+        (message.contains('unexpected') &&
+            message.contains('failure') &&
+            message.contains('new user'))) {
+      return FirebaseAuthException(
+        code: 'operation-failed',
+        message: 'Sign-up is temporarily unavailable. Please retry shortly.',
+      );
+    }
     if (message.contains('invalid login credentials')) {
       return FirebaseAuthException(code: 'wrong-password', message: error.message);
     }

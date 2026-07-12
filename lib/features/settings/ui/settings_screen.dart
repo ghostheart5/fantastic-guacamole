@@ -4,7 +4,6 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
-import 'package:fantastic_guacamole/engine/optimizer/optimization_config.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
@@ -37,12 +36,8 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(extended_domain.extendedDomainBootstrapProvider);
-    final int extendedSettingsCount = ref
-        .watch(extended_domain.appSettingsProvider)
-        .length;
-    final int legalPoliciesCount = ref
-        .watch(extended_domain.privacyPoliciesProvider)
-        .length;
+    final int extendedSettingsCount = ref.watch(extended_domain.appSettingsProvider).length;
+    final int legalPoliciesCount = ref.watch(extended_domain.privacyPoliciesProvider).length;
     final routes = ref.watch(routeSurfaceProvider);
     final soundEnabled = ref.watch(soundEnabledProvider);
     final themeAsync = ref.watch(currentThemeProvider);
@@ -50,9 +45,7 @@ class SettingsScreen extends ConsumerWidget {
     final access = ref.watch(appAccessProvider);
     final hasMockSession = ref.watch(mockAuthSessionProvider);
     final intelligence = ref.watch(intelligenceStateProvider);
-    final bool accountDeletionConfigured = _hasSecureHttpsEndpoint(
-      Env.accountDeleteEndpoint,
-    );
+    final bool accountDeletionConfigured = _hasSecureHttpsEndpoint(Env.accountDeleteEndpoint);
     final bool reflectionTutorialEnabled = ref.watch(
       featureFlagEnabledProvider('daily_reflection_tutorial_enabled'),
     );
@@ -82,9 +75,7 @@ class SettingsScreen extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: AppColors.neonCyan.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: AppColors.neonCyan.withValues(alpha: 0.3),
-                        ),
+                        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.3)),
                       ),
                       child: const Icon(
                         Icons.arrow_back_ios_new,
@@ -118,11 +109,7 @@ class SettingsScreen extends ConsumerWidget {
                           'COMMAND MATRIX',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 10,
-                            letterSpacing: 2,
-                            color: Colors.white38,
-                          ),
+                          style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38),
                         ),
                       ],
                     ),
@@ -149,30 +136,22 @@ class SettingsScreen extends ConsumerWidget {
                     _NeonToggleTile(
                       title: 'Audio FX',
                       value: soundEnabled,
-                      onChanged: (v) =>
-                          ref.read(soundEnabledProvider.notifier).set(v),
+                      onChanged: (v) => ref.read(soundEnabledProvider.notifier).set(v),
                     ),
                     ValueListenableBuilder<bool?>(
-                      valueListenable: ref.watch(
-                        notificationPermissionListenableProvider,
-                      ),
+                      valueListenable: ref.watch(notificationPermissionListenableProvider),
                       builder: (context, granted, _) {
                         final String subtitle = switch (granted) {
                           true => 'Granted',
                           false => 'Denied (scheduling disabled)',
                           null => 'Unknown until app initializes notifications',
                         };
-                        return _NeonStatusTile(
-                          title: 'Alert Permission',
-                          subtitle: subtitle,
-                        );
+                        return _NeonStatusTile(title: 'Alert Permission', subtitle: subtitle);
                       },
                     ),
                     const SizedBox(height: 8),
                     ValueListenableBuilder<bool?>(
-                      valueListenable: ref.watch(
-                        notificationPermissionListenableProvider,
-                      ),
+                      valueListenable: ref.watch(notificationPermissionListenableProvider),
                       builder: (context, granted, _) {
                         return NotificationPermissionPrompt(
                           permissionGranted: granted,
@@ -226,23 +205,19 @@ class SettingsScreen extends ConsumerWidget {
                       subtitle: access.subscriptionStatusDetail,
                       onTap: () => context.go(routes.paywall),
                     ),
-                    if (hasMockSession)
-                      _NeonNavTile(
-                        title: 'Sign out Mock Session',
-                        subtitle:
-                            'Return to login and disable the current tester mock auth session.',
-                        onTap: () {
-                          ref.read(mockAuthSessionProvider.notifier).set(false);
-                          context.go(routes.login);
-                        },
-                      ),
+                    _NeonNavTile(
+                      title: hasMockSession ? 'Sign out Mock Session' : 'Log Out',
+                      subtitle: hasMockSession
+                          ? 'Return to login and disable the current tester mock auth session.'
+                          : 'End the current session and return to login.',
+                      onTap: () =>
+                          unawaited(_signOut(context, ref, hasMockSession: hasMockSession)),
+                    ),
                     if (access.hasTesterFullAccess)
                       _NeonNavTile(
                         title: 'Reset Tester Data',
-                        subtitle:
-                            'Erase local test content and restart onboarding.',
-                        onTap: () =>
-                            unawaited(_confirmTesterReset(context, ref)),
+                        subtitle: 'Erase local test content and restart onboarding.',
+                        onTap: () => unawaited(_confirmTesterReset(context, ref)),
                       ),
                     if (!hasMockSession)
                       _NeonNavTile(
@@ -266,10 +241,7 @@ class SettingsScreen extends ConsumerWidget {
                 accentColor: AppColors.neonCyan,
                 child: Column(
                   children: [
-                    _NeonStatusTile(
-                      title: 'Flavor',
-                      subtitle: intelligence.environment.appFlavor,
-                    ),
+                    _NeonStatusTile(title: 'Flavor', subtitle: intelligence.environment.appFlavor),
                     _NeonStatusTile(
                       title: 'Mock Mode',
                       subtitle: intelligence.flags.mockMode
@@ -284,9 +256,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     _NeonStatusTile(
                       title: 'Mock Login',
-                      subtitle: intelligence.flags.mockLoginEnabled
-                          ? 'Enabled'
-                          : 'Disabled',
+                      subtitle: intelligence.flags.mockLoginEnabled ? 'Enabled' : 'Disabled',
                     ),
                     _NeonStatusTile(
                       title: 'Extended Settings',
@@ -347,22 +317,17 @@ class SettingsScreen extends ConsumerWidget {
                     _NeonNavTile(
                       title: 'Contact Support',
                       subtitle: 'Send email with diagnostics context prefilled',
-                      onTap: () => unawaited(
-                        _contactSupportWithDiagnostics(context, ref),
-                      ),
+                      onTap: () => unawaited(_contactSupportWithDiagnostics(context, ref)),
                     ),
                     _NeonNavTile(
                       title: 'Copy Support Email',
-                      subtitle:
-                          'Copy prefilled support email template to clipboard',
-                      onTap: () =>
-                          unawaited(_copySupportEmailTemplate(context)),
+                      subtitle: 'Copy prefilled support email template to clipboard',
+                      onTap: () => unawaited(_copySupportEmailTemplate(context)),
                     ),
                     _NeonNavTile(
                       title: 'Copy Diagnostics',
                       subtitle: 'Copy app and device context for support forms',
-                      onTap: () =>
-                          unawaited(_copyDiagnosticsToClipboard(context)),
+                      onTap: () => unawaited(_copyDiagnosticsToClipboard(context)),
                     ),
                   ],
                 ),
@@ -375,8 +340,7 @@ class SettingsScreen extends ConsumerWidget {
                   child: _NeonNavTile(
                     title: 'Generate Test Data',
                     subtitle: '20 tasks · XP 2400 · streak 14 · energy 75%',
-                    onTap: () =>
-                        unawaited(TestDataGenerator.generate(ref, context)),
+                    onTap: () => unawaited(TestDataGenerator.generate(ref, context)),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -399,6 +363,28 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _signOut(BuildContext context, WidgetRef ref, {required bool hasMockSession}) async {
+    final routes = ref.read(routeSurfaceProvider);
+    try {
+      if (hasMockSession) {
+        ref.read(mockAuthSessionProvider.notifier).set(false);
+      } else {
+        await ref.read(authServiceProvider).signOut();
+      }
+      if (!context.mounted) {
+        return;
+      }
+      context.go(routes.login);
+    } on Exception {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not log out. Please try again.')));
+    }
   }
 
   Future<void> _confirmTesterReset(BuildContext context, WidgetRef ref) async {
@@ -432,9 +418,9 @@ class SettingsScreen extends ConsumerWidget {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Purging local tester runtime data...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Purging local tester runtime data...')));
 
     try {
       await ref.read(testerDataResetControllerProvider).reset();
@@ -444,20 +430,13 @@ class SettingsScreen extends ConsumerWidget {
     } on Exception {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Tester data purge did not complete. Restart and retry.',
-            ),
-          ),
+          const SnackBar(content: Text('Tester data purge did not complete. Restart and retry.')),
         );
       }
     }
   }
 
-  Future<void> _confirmDeleteAccount(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
     final routes = ref.read(routeSurfaceProvider);
     final bool confirmed =
         await showDialog<bool>(
@@ -503,15 +482,11 @@ class SettingsScreen extends ConsumerWidget {
                 decoration: InputDecoration(
                   labelText: 'Account password',
                   suffixIcon: IconButton(
-                    tooltip: obscurePassword
-                        ? 'Show password'
-                        : 'Hide password',
+                    tooltip: obscurePassword ? 'Show password' : 'Hide password',
                     onPressed: () => setState(() {
                       obscurePassword = !obscurePassword;
                     }),
-                    icon: Icon(
-                      obscurePassword ? Icons.visibility_off : Icons.visibility,
-                    ),
+                    icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),
                   ),
                 ),
                 onSubmitted: (String value) {
@@ -524,9 +499,7 @@ class SettingsScreen extends ConsumerWidget {
                   child: const Text('Abort'),
                 ),
                 FilledButton(
-                  onPressed: () => Navigator.of(
-                    dialogContext,
-                  ).pop(passwordController.text.trim()),
+                  onPressed: () => Navigator.of(dialogContext).pop(passwordController.text.trim()),
                   child: const Text('Purge Account'),
                 ),
               ],
@@ -547,9 +520,7 @@ class SettingsScreen extends ConsumerWidget {
     ).showSnackBar(const SnackBar(content: Text('Executing account purge...')));
 
     try {
-      await ref
-          .read(authServiceProvider)
-          .deleteCurrentAccount(password: secret);
+      await ref.read(authServiceProvider).deleteCurrentAccount(password: secret);
       if (!context.mounted) {
         return;
       }
@@ -568,9 +539,9 @@ class SettingsScreen extends ConsumerWidget {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account purge failed. Retry.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Account purge failed. Retry.')));
     }
   }
 
@@ -603,29 +574,21 @@ class SettingsScreen extends ConsumerWidget {
     required String fallbackRoute,
     required String failureLabel,
   }) async {
-    final bool opened = await ref
-        .read(externalUrlServiceProvider)
-        .open(Uri.parse(url));
+    final bool opened = await ref.read(externalUrlServiceProvider).open(Uri.parse(url));
     if (opened || !context.mounted) {
       return;
     }
     context.push(fallbackRoute);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(failureLabel)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failureLabel)));
   }
 
-  Future<void> _requestAccountDeletionSupport(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _requestAccountDeletionSupport(BuildContext context, WidgetRef ref) async {
     final Uri mail = Uri(
       scheme: 'mailto',
       path: Env.supportEmail,
       queryParameters: <String, String>{
         'subject': 'Account deletion request',
-        'body':
-            'Please delete my ChronoSpark account associated with this email.',
+        'body': 'Please delete my ChronoSpark account associated with this email.',
       },
     );
     final bool opened = await ref.read(externalUrlServiceProvider).open(mail);
@@ -643,29 +606,20 @@ class SettingsScreen extends ConsumerWidget {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-          'No email app found. Account deletion email template copied to clipboard.',
-        ),
+        content: Text('No email app found. Account deletion email template copied to clipboard.'),
       ),
     );
   }
 
-  Future<void> _contactSupportWithDiagnostics(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _contactSupportWithDiagnostics(BuildContext context, WidgetRef ref) async {
     try {
-      final DiagnosticsContext diagnostics =
-          await DiagnosticsContextService.collect();
+      final DiagnosticsContext diagnostics = await DiagnosticsContextService.collect();
       final String body = _buildSupportEmailBody(diagnostics);
 
       final Uri mail = Uri(
         scheme: 'mailto',
         path: Env.supportEmail,
-        queryParameters: <String, String>{
-          'subject': 'ChronoSpark support request',
-          'body': body,
-        },
+        queryParameters: <String, String>{'subject': 'ChronoSpark support request', 'body': body},
       );
 
       final bool opened = await ref.read(externalUrlServiceProvider).open(mail);
@@ -674,8 +628,7 @@ class SettingsScreen extends ConsumerWidget {
       }
       await Clipboard.setData(
         ClipboardData(
-          text:
-              'To: ${Env.supportEmail}\nSubject: ChronoSpark support request\n\n$body',
+          text: 'To: ${Env.supportEmail}\nSubject: ChronoSpark support request\n\n$body',
         ),
       );
       if (!context.mounted) {
@@ -683,53 +636,43 @@ class SettingsScreen extends ConsumerWidget {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'No email app found. Support email template copied to clipboard.',
-          ),
+          content: Text('No email app found. Support email template copied to clipboard.'),
         ),
       );
     } catch (_) {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to gather diagnostics for support.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to gather diagnostics for support.')));
     }
   }
 
   Future<void> _copyDiagnosticsToClipboard(BuildContext context) async {
     try {
-      final DiagnosticsContext diagnostics =
-          await DiagnosticsContextService.collect();
+      final DiagnosticsContext diagnostics = await DiagnosticsContextService.collect();
       final String payload = _buildDiagnosticsPayload(diagnostics);
       await Clipboard.setData(ClipboardData(text: payload));
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Diagnostics copied to clipboard.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Diagnostics copied to clipboard.')));
     } catch (_) {
       if (!context.mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not copy diagnostics. Try Contact Support instead.',
-          ),
-        ),
+        const SnackBar(content: Text('Could not copy diagnostics. Try Contact Support instead.')),
       );
     }
   }
 
   Future<void> _copySupportEmailTemplate(BuildContext context) async {
     try {
-      final DiagnosticsContext diagnostics =
-          await DiagnosticsContextService.collect();
+      final DiagnosticsContext diagnostics = await DiagnosticsContextService.collect();
       final String body = _buildSupportEmailBody(diagnostics);
       final String payload =
           'To: ${Env.supportEmail}\nSubject: ChronoSpark support request\n\n$body';
@@ -737,18 +680,16 @@ class SettingsScreen extends ConsumerWidget {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Support email template copied to clipboard.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Support email template copied to clipboard.')));
     } catch (_) {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not copy support email template.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not copy support email template.')));
     }
   }
 

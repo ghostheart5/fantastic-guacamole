@@ -13,8 +13,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const Color _authBackgroundColor = Color(0xFF0C0812);
 
+bool _isNewUserDatabaseSaveFailure(String message) {
+  final String normalized = message.toLowerCase();
+  return normalized.contains('database error saving new user') ||
+      (normalized.contains('unexpected') &&
+          normalized.contains('failure') &&
+          normalized.contains('new user'));
+}
+
 String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
   final String backendMessage = rawMessage?.trim() ?? '';
+  if (_isNewUserDatabaseSaveFailure(backendMessage)) {
+    return 'Sign-up is temporarily unavailable. Please retry in a moment.';
+  }
   switch (code) {
     case 'invalid-email':
       return 'Invalid email format.';
@@ -111,9 +122,8 @@ class _AuthGateState extends ConsumerState<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasStartupIssue = (widget.startupError?.trim().isNotEmpty ?? false);
     final bool allowMockAccess =
-        widget.enableMockLogin || (!kReleaseMode && (_authInitError != null || hasStartupIssue));
+        widget.enableMockLogin || (!kReleaseMode && _authInitError != null);
     final String? startupMessage = _effectiveStartupError;
     final AuthServiceContract fallbackAuthService = _authService ?? const _UnavailableAuthService();
 

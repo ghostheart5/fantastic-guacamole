@@ -4,8 +4,14 @@ import 'package:fantastic_guacamole/data/models/auth_models.dart';
 abstract class AuthServiceContract {
   Stream<User?> authStateChanges();
   User? get currentUser;
-  Future<UserCredential> signIn({required String email, required String password});
-  Future<UserCredential> signUp({required String email, required String password});
+  Future<UserCredential> signIn({
+    required String email,
+    required String password,
+  });
+  Future<UserCredential> signUp({
+    required String email,
+    required String password,
+  });
   Future<UserCredential> signInWithGoogle();
   Future<UserCredential> signInWithGitHub();
   Future<void> sendPasswordReset(String email);
@@ -64,7 +70,9 @@ extension AuthServiceContractResultX on AuthServiceContract {
     );
   }
 
-  Future<AppResult<void>> deleteCurrentAccountResult({required String password}) {
+  Future<AppResult<void>> deleteCurrentAccountResult({
+    required String password,
+  }) {
     return AppResult.guard<void>(
       () => deleteCurrentAccount(password: password),
       messageFor: (Object error) => 'Account deletion failed: $error',

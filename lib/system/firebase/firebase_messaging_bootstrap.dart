@@ -10,9 +10,14 @@ import 'package:flutter/foundation.dart';
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   }
-  Logger.log('Push', 'Background message received: ${message.messageId ?? 'unknown'}');
+  Logger.log(
+    'Push',
+    'Background message received: ${message.messageId ?? 'unknown'}',
+  );
   RuntimeDiagnostics.record('Push background message received.');
 }
 
@@ -61,7 +66,10 @@ class FirebaseMessagingBootstrap {
       });
 
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        Logger.log('Push', 'Foreground push received: ${message.messageId ?? 'unknown'}');
+        Logger.log(
+          'Push',
+          'Foreground push received: ${message.messageId ?? 'unknown'}',
+        );
         RuntimeDiagnostics.record('Foreground push received.');
       });
 

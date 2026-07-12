@@ -40,13 +40,14 @@ final notificationsServiceProvider = Provider<NotificationsService>((Ref ref) {
   return NotificationsService(ref.read(notificationsRepositoryProvider));
 });
 
-final reminderOrchestratorServiceProvider = Provider<ReminderOrchestratorService>((Ref ref) {
-  return ReminderOrchestratorService(
-    preferences: ref.read(sharedPrefsStoreProvider),
-    notifications: ref.read(notificationsServiceProvider),
-    scheduler: ref.read(notificationSchedulerProvider),
-  );
-});
+final reminderOrchestratorServiceProvider =
+    Provider<ReminderOrchestratorService>((Ref ref) {
+      return ReminderOrchestratorService(
+        preferences: ref.read(sharedPrefsStoreProvider),
+        notifications: ref.read(notificationsServiceProvider),
+        scheduler: ref.read(notificationSchedulerProvider),
+      );
+    });
 
 final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
   return SiEngineDependencies(
@@ -71,7 +72,9 @@ final siEngineServiceProvider = Provider<StateSiEngineService>((Ref ref) {
   );
 });
 
-final workspaceStoreServiceProvider = Provider<WorkspaceStoreService>((Ref ref) {
+final workspaceStoreServiceProvider = Provider<WorkspaceStoreService>((
+  Ref ref,
+) {
   return WorkspaceStoreService(store: ref.read(secureStoreProvider));
 });
 
@@ -79,7 +82,9 @@ final externalUrlServiceProvider = Provider<ExternalUrlService>((_) {
   return const ExternalUrlService();
 });
 
-final reflectionReminderServiceProvider = Provider<ReflectionReminderService>((Ref ref) {
+final reflectionReminderServiceProvider = Provider<ReflectionReminderService>((
+  Ref ref,
+) {
   return ReflectionReminderService(
     preferences: ref.read(sharedPrefsStoreProvider),
     scheduler: ref.read(notificationSchedulerProvider),
@@ -109,14 +114,18 @@ final orphanDataCleanupProvider = Provider<OrphanDataCleanup>((Ref ref) {
   );
 });
 
-final expiredSessionCleanupProvider = Provider<ExpiredSessionCleanup>((Ref ref) {
+final expiredSessionCleanupProvider = Provider<ExpiredSessionCleanup>((
+  Ref ref,
+) {
   return ExpiredSessionCleanup(
     secureStore: ref.read(secureStoreProvider),
     retentionPolicy: ref.read(retentionPolicyProvider),
   );
 });
 
-final staleNotificationCleanupProvider = Provider<StaleNotificationCleanup>((Ref ref) {
+final staleNotificationCleanupProvider = Provider<StaleNotificationCleanup>((
+  Ref ref,
+) {
   return StaleNotificationCleanup(
     repository: ref.read(notificationsRepositoryProvider),
     retentionPolicy: ref.read(retentionPolicyProvider),
@@ -148,7 +157,11 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
     if (token == null || token.trim().isEmpty) {
       return;
     }
-    await bridgeRepository.syncFirebaseMessagingToken(activeClient, token, source: source);
+    await bridgeRepository.syncFirebaseMessagingToken(
+      activeClient,
+      token,
+      source: source,
+    );
   }
 
   if (client != null) {

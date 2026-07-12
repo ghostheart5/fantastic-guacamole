@@ -48,10 +48,11 @@ abstract final class Env {
     'CHRONOSPARK_MOCK_LOGIN_PASSWORD',
     defaultValue: 'ChronoSpark123!',
   );
-  static const String _receiptVerifyEndpointOverrideDefine = String.fromEnvironment(
-    'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
-    defaultValue: '',
-  );
+  static const String _receiptVerifyEndpointOverrideDefine =
+      String.fromEnvironment(
+        'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
+        defaultValue: '',
+      );
   static const String _aiProxyEndpointDefine = String.fromEnvironment(
     'CHRONOSPARK_AI_PROXY_ENDPOINT',
     defaultValue: '',
@@ -101,11 +102,14 @@ abstract final class Env {
     defaultValue: false,
   );
 
-  static String get appFlavor => _readString('CHRONOSPARK_APP_FLAVOR', _appFlavorDefine);
+  static String get appFlavor =>
+      _readString('CHRONOSPARK_APP_FLAVOR', _appFlavorDefine);
   static bool get enableVerboseLogs =>
       _readBool('CHRONOSPARK_VERBOSE_LOGS', _enableVerboseLogsDefine);
-  static bool get enableCrashReporting =>
-      _readBool('CHRONOSPARK_ENABLE_CRASH_REPORTING', _enableCrashReportingDefine);
+  static bool get enableCrashReporting => _readBool(
+    'CHRONOSPARK_ENABLE_CRASH_REPORTING',
+    _enableCrashReportingDefine,
+  );
   static bool get enableAnalytics =>
       _readBool('CHRONOSPARK_ENABLE_ANALYTICS', _enableAnalyticsDefine);
   static bool get enableMockLogin =>
@@ -114,47 +118,70 @@ abstract final class Env {
       _readBool('CHRONOSPARK_ENABLE_MOCK_MODE', _enableMockModeDefine);
   static bool get enablePaywallDisabled =>
       _readBool('CHRONOSPARK_PAYWALL_DISABLED', _enablePaywallDisabledDefine);
-  static bool get enableTesterFullAccess =>
-      _readBool('CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS', _enableTesterFullAccessDefine);
+  static bool get enableTesterFullAccess => _readBool(
+    'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
+    _enableTesterFullAccessDefine,
+  );
   static String get mockLoginEmail =>
       _readString('CHRONOSPARK_MOCK_LOGIN_EMAIL', _mockLoginEmailDefine);
   static String get mockLoginPassword =>
       _readString('CHRONOSPARK_MOCK_LOGIN_PASSWORD', _mockLoginPasswordDefine);
-  static String get _receiptVerifyEndpointOverride =>
-      _readString('CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT', _receiptVerifyEndpointOverrideDefine);
+  static String get _receiptVerifyEndpointOverride => _readString(
+    'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
+    _receiptVerifyEndpointOverrideDefine,
+  );
   static String get aiProxyEndpoint =>
       _readString('CHRONOSPARK_AI_PROXY_ENDPOINT', _aiProxyEndpointDefine);
-  static String get accountDeleteEndpoint =>
-      _readString('CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT', _accountDeleteEndpointDefine);
+  static String get accountDeleteEndpoint => _readString(
+    'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
+    _accountDeleteEndpointDefine,
+  );
   static String get oauthRedirectUrl =>
       _readString('CHRONOSPARK_OAUTH_REDIRECT_URL', _oauthRedirectUrlDefine);
-  static String get githubOauthRedirectUrl =>
-      _readString('CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL', _githubOauthRedirectUrlDefine);
-  static bool get enableRuntimeFeatureFlags =>
-      _readBool('CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS', _enableRuntimeFeatureFlagsDefine);
-  static String get remoteConfigDefaultsJson =>
-      _readString('CHRONOSPARK_REMOTE_CONFIG_JSON', _remoteConfigDefaultsJsonDefine);
-  static String get supabaseUrl => _readString('CHRONOSPARK_SUPABASE_URL', _supabaseUrlDefine);
+  static String get githubOauthRedirectUrl => _readString(
+    'CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL',
+    _githubOauthRedirectUrlDefine,
+  );
+  static bool get enableRuntimeFeatureFlags => _readBool(
+    'CHRONOSPARK_ENABLE_RUNTIME_FEATURE_FLAGS',
+    _enableRuntimeFeatureFlagsDefine,
+  );
+  static String get remoteConfigDefaultsJson => _readString(
+    'CHRONOSPARK_REMOTE_CONFIG_JSON',
+    _remoteConfigDefaultsJsonDefine,
+  );
+  static String get supabaseUrl =>
+      _readString('CHRONOSPARK_SUPABASE_URL', _supabaseUrlDefine);
   static String get supabaseAnonKey =>
       _readString('CHRONOSPARK_SUPABASE_ANON_KEY', _supabaseAnonKeyDefine);
   static bool get enableCloudSync =>
       _readBool('CHRONOSPARK_ENABLE_CLOUD_SYNC', _enableCloudSyncDefine);
-  static String get appLinksAndroidSha256 =>
-      _readString('CHRONOSPARK_ANDROID_SHA256_CERT', _appLinksAndroidSha256Define);
+  static String get appLinksAndroidSha256 => _readString(
+    'CHRONOSPARK_ANDROID_SHA256_CERT',
+    _appLinksAndroidSha256Define,
+  );
   static String get appLinksIosTeamId =>
       _readString('CHRONOSPARK_IOS_TEAM_ID', _appLinksIosTeamIdDefine);
-  static bool get enforceProductionReadiness =>
-      _readBool('CHRONOSPARK_ENFORCE_PROD_READINESS', _enforceProductionReadinessDefine);
+  static bool get enforceProductionReadiness => _readBool(
+    'CHRONOSPARK_ENFORCE_PROD_READINESS',
+    _enforceProductionReadinessDefine,
+  );
 
   static AppFlavor get flavor => AppFlavor.parse(appFlavor);
 
-  static bool resolveIsProduction(String flavor, {required bool isReleaseMode}) {
+  static bool resolveIsProduction(
+    String flavor, {
+    required bool isReleaseMode,
+  }) {
     // Production hardening is enabled only for release + production flavor.
     // QA/testing release builds can still exercise tester-only access paths.
     return isReleaseMode && AppFlavor.parse(flavor).isProduction;
   }
 
-  static bool resolveIsMockMode({required bool isProduction, required bool enableMockMode}) {
+  static bool resolveIsMockMode({
+    required bool isProduction,
+    required bool enableMockMode,
+  }) {
     return !isProduction && enableMockMode;
   }
 
@@ -181,10 +208,13 @@ abstract final class Env {
     return !isProduction && enableTesterFullAccess;
   }
 
-  static bool get isProduction => resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
+  static bool get isProduction =>
+      resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
 
-  static bool get isMockMode =>
-      resolveIsMockMode(isProduction: isProduction, enableMockMode: enableMockMode);
+  static bool get isMockMode => resolveIsMockMode(
+    isProduction: isProduction,
+    enableMockMode: enableMockMode,
+  );
 
   static bool get isPaywallDisabled => resolveIsPaywallDisabled(
     isProduction: isProduction,
@@ -206,7 +236,8 @@ abstract final class Env {
   static bool get isSupabaseConfigured =>
       supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
 
-  static bool get isAiProxyConfigured => resolveIsAiProxyConfigured(aiProxyEndpoint);
+  static bool get isAiProxyConfigured =>
+      resolveIsAiProxyConfigured(aiProxyEndpoint);
 
   static bool resolveIsAiProxyConfigured(String endpoint) {
     final String trimmed = endpoint.trim();
@@ -217,8 +248,10 @@ abstract final class Env {
     return uri != null && uri.hasAuthority && uri.scheme == 'https';
   }
 
-  static String get receiptVerifyEndpoint =>
-      resolveReceiptVerifyEndpoint(_receiptVerifyEndpointOverride, supabaseUrl: supabaseUrl);
+  static String get receiptVerifyEndpoint => resolveReceiptVerifyEndpoint(
+    _receiptVerifyEndpointOverride,
+    supabaseUrl: supabaseUrl,
+  );
 
   static String resolveReceiptVerifyEndpoint(
     String configuredValue, {
@@ -230,7 +263,9 @@ abstract final class Env {
     }
 
     final Uri? supabaseUri = Uri.tryParse(supabaseUrl.trim());
-    if (supabaseUri != null && supabaseUri.hasAuthority && supabaseUri.scheme == 'https') {
+    if (supabaseUri != null &&
+        supabaseUri.hasAuthority &&
+        supabaseUri.scheme == 'https') {
       return supabaseUri.resolve('/functions/v1/verify-receipt').toString();
     }
 
@@ -266,7 +301,11 @@ abstract final class Env {
       label: 'Receipt verification endpoint',
       issues: issues,
     );
-    _validateHttpsEndpoint(aiProxyEndpoint, label: 'AI proxy endpoint', issues: issues);
+    _validateHttpsEndpoint(
+      aiProxyEndpoint,
+      label: 'AI proxy endpoint',
+      issues: issues,
+    );
     _validateHttpsEndpoint(
       accountDeleteEndpoint,
       label: 'Account deletion endpoint',

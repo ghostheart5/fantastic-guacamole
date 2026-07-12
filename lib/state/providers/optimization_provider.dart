@@ -20,25 +20,19 @@ final localMetricsAccumulatorProvider = Provider<LocalMetricsAccumulator>(
   (_) => const LocalMetricsAccumulator(),
 );
 
-final globalAggregationServiceProvider = Provider<GlobalAggregationService>((
-  ref,
-) {
+final globalAggregationServiceProvider = Provider<GlobalAggregationService>((ref) {
   return GlobalAggregationService(
     client: ref.read(supabaseClientProvider),
     ensureIdentity: ref.read(identityServiceProvider).ensureIdentity,
   );
 });
 
-final optimizationConfigProvider = FutureProvider<OptimizationConfig>((
-  ref,
-) async {
+final optimizationConfigProvider = FutureProvider<OptimizationConfig>((ref) async {
   try {
     final streak = ref.watch(profileProvider).streak;
     final localConfig = const LocalOptimizer().compute(streak: streak);
 
-    final globalMetrics = await ref
-        .read(globalAggregationServiceProvider)
-        .fetchGlobalMetrics();
+    final globalMetrics = await ref.read(globalAggregationServiceProvider).fetchGlobalMetrics();
     final globalConfig = const GlobalOptimizer().compute(
       averageTaskCompletionRate: globalMetrics.avgTaskCompletionRate,
     );
@@ -54,19 +48,31 @@ final optimizationConfigProvider = FutureProvider<OptimizationConfig>((
     final accumulator = ref.read(localMetricsAccumulatorProvider);
     final snapshot = await accumulator.snapshot();
     final momentum = ref.read(momentumProvider);
-    final insights = const ProductAdvisorEngine().fromSnapshot(
-      snapshot,
-      momentum.chainCount,
-    );
-    final OptimizationConfig adjusted = const SelfOptimizer().adjust(
-      merged,
-      insights,
-    );
+    final insights = const ProductAdvisorEngine().fromSnapshot(snapshot, momentum.chainCount);
+    final OptimizationConfig adjusted = const SelfOptimizer().adjust(merged, insights);
     await _saveOptimizationConfig(adjusted, today);
     return adjusted;
   } catch (_) {
     return OptimizationConfig.neutral();
   }
+});
+
+class OptimizationDebugViewModel {
+  const OptimizationDebugViewModel({
+    required this.focusDurationMultiplier,
+    required this.taskDifficultyScale,
+  });
+
+  final double focusDurationMultiplier;
+  final double taskDifficultyScale;
+}
+
+final optimizationDebugViewModelProvider = FutureProvider<OptimizationDebugViewModel>((ref) async {
+  final OptimizationConfig config = await ref.read(optimizationConfigProvider.future);
+  return OptimizationDebugViewModel(
+    focusDurationMultiplier: config.focusDurationMultiplier,
+    taskDifficultyScale: config.taskDifficultyScale,
+  );
 });
 
 const String _optimizationConfigKey = 'self_opt_config_v1';
@@ -78,22 +84,16 @@ OptimizationConfig? _loadOptimizationConfig() {
   try {
     final Map<String, dynamic> json = jsonDecode(raw) as Map<String, dynamic>;
     return OptimizationConfig(
-      focusDurationMultiplier:
-          (json['focusDurationMultiplier'] as num?)?.toDouble() ?? 1,
-      taskDifficultyScale:
-          (json['taskDifficultyScale'] as num?)?.toDouble() ?? 1,
-      nextActionAggressiveness:
-          (json['nextActionAggressiveness'] as num?)?.toDouble() ?? 1,
+      focusDurationMultiplier: (json['focusDurationMultiplier'] as num?)?.toDouble() ?? 1,
+      taskDifficultyScale: (json['taskDifficultyScale'] as num?)?.toDouble() ?? 1,
+      nextActionAggressiveness: (json['nextActionAggressiveness'] as num?)?.toDouble() ?? 1,
     );
   } catch (_) {
     return null;
   }
 }
 
-Future<void> _saveOptimizationConfig(
-  OptimizationConfig config,
-  String date,
-) async {
+Future<void> _saveOptimizationConfig(OptimizationConfig config, String date) async {
   await SharedPrefsService.save(_lastOptimizationDateKey, date);
   await SharedPrefsService.save(
     _optimizationConfigKey,

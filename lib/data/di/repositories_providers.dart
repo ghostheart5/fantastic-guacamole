@@ -35,7 +35,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 TaskRepository taskRepository(Ref ref) {
   return TaskRepository(
-    storage: HiveStorage<String>(HiveBoxes.tasks, hive: ref.read(hiveStoreProvider)),
+    storage: HiveStorage<String>(
+      HiveBoxes.tasks,
+      hive: ref.read(hiveStoreProvider),
+    ),
   );
 }
 
@@ -44,16 +47,23 @@ final taskRepositoryProvider = Provider<TaskRepository>(taskRepository);
 final flowmapRepositoryProvider = Provider<FlowmapRepository>((Ref ref) {
   return FlowmapRepository.secure(
     ref.read(secureStoreProvider),
-    legacyStorage: HiveStorage<String>(HiveBoxes.flowmap, hive: ref.read(hiveStoreProvider)),
+    legacyStorage: HiveStorage<String>(
+      HiveBoxes.flowmap,
+      hive: ref.read(hiveStoreProvider),
+    ),
   );
 });
 
 final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
-  return GoalRepository(HiveStorage<String>(HiveBoxes.goals, hive: ref.read(hiveStoreProvider)));
+  return GoalRepository(
+    HiveStorage<String>(HiveBoxes.goals, hive: ref.read(hiveStoreProvider)),
+  );
 });
 
 final habitRepositoryProvider = Provider<HabitRepository>((Ref ref) {
-  return HabitRepository(HiveStorage<String>(HiveBoxes.habits, hive: ref.read(hiveStoreProvider)));
+  return HabitRepository(
+    HiveStorage<String>(HiveBoxes.habits, hive: ref.read(hiveStoreProvider)),
+  );
 });
 
 final insightRepositoryProvider = Provider<InsightRepository>((Ref ref) {
@@ -70,7 +80,10 @@ final memoryRepositoryProvider = Provider<MemoryRepository>((Ref ref) {
 
 final planRepositoryProvider = Provider<PlanRepository>((Ref ref) {
   return PlanRepository(
-    HiveStorage<String>(HiveBoxes.dailyPlans, hive: ref.read(hiveStoreProvider)),
+    HiveStorage<String>(
+      HiveBoxes.dailyPlans,
+      hive: ref.read(hiveStoreProvider),
+    ),
   );
 });
 
@@ -92,9 +105,14 @@ final subtaskRepositoryProvider = Provider<SubtaskRepository>((Ref ref) {
   );
 });
 
-final progressionRepositoryProvider = Provider<ProgressionRepository>((Ref ref) {
+final progressionRepositoryProvider = Provider<ProgressionRepository>((
+  Ref ref,
+) {
   return ProgressionRepository(
-    HiveStorage<String>(HiveBoxes.progression, hive: ref.read(hiveStoreProvider)),
+    HiveStorage<String>(
+      HiveBoxes.progression,
+      hive: ref.read(hiveStoreProvider),
+    ),
   );
 });
 
@@ -102,7 +120,9 @@ final notificationSchedulerProvider = Provider<NotificationScheduler>(
   (Ref ref) => NotificationScheduler(),
 );
 
-final notificationsRepositoryProvider = Provider<NotificationsRepository>((Ref ref) {
+final notificationsRepositoryProvider = Provider<NotificationsRepository>((
+  Ref ref,
+) {
   return NotificationsRepository(
     ref.read(notificationSchedulerProvider),
     ref.read(secureStoreProvider),
@@ -111,9 +131,14 @@ final notificationsRepositoryProvider = Provider<NotificationsRepository>((Ref r
 
 final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
   final bool forceLocalTestingPaywall =
-      Env.isMockLoginEnabled || Env.isMockMode || Env.isPaywallDisabled || Env.hasTesterFullAccess;
+      Env.isMockLoginEnabled ||
+      Env.isMockMode ||
+      Env.isPaywallDisabled ||
+      Env.hasTesterFullAccess;
 
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android && !forceLocalTestingPaywall) {
+  if (!kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.android &&
+      !forceLocalTestingPaywall) {
     final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
       secureStore: ref.read(secureStoreProvider),
     );
@@ -159,8 +184,9 @@ final workspaceRepositoryProvider = Provider<WorkspaceRepository>((Ref ref) {
   return WorkspaceRepository(ref.read(secureStoreProvider));
 });
 
-final firebaseSupabaseBridgeRepositoryProvider = Provider<FirebaseSupabaseBridgeRepository>((
-  Ref ref,
-) {
-  return FirebaseSupabaseBridgeRepository(store: ref.read(secureStoreProvider));
-});
+final firebaseSupabaseBridgeRepositoryProvider =
+    Provider<FirebaseSupabaseBridgeRepository>((Ref ref) {
+      return FirebaseSupabaseBridgeRepository(
+        store: ref.read(secureStoreProvider),
+      );
+    });

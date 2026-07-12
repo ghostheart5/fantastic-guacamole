@@ -76,7 +76,8 @@ class _AppRootState extends ConsumerState<AppRoot> {
         return;
       }
       final controller = ref.read(tutorialControllerProvider);
-      final String route = activeRouter.routeInformationProvider.value.uri.toString();
+      final String route = activeRouter.routeInformationProvider.value.uri
+          .toString();
       controller.updateRoute(route);
     };
     final VoidCallback? listener = _routerListener;
@@ -101,7 +102,10 @@ class _AppRootState extends ConsumerState<AppRoot> {
   Widget build(BuildContext context) {
     final themeEntity = ref.watch(currentThemeProvider).asData?.value;
     final String startupMessage = widget.startupError?.trim() ?? '';
-    final bool showQaDiagnostics = ref.watch(intelligenceStateProvider).flags.testerFullAccess;
+    final bool showQaDiagnostics = ref
+        .watch(intelligenceStateProvider)
+        .flags
+        .testerFullAccess;
     final RemoteAnnouncement? remoteAnnouncement = ref
         .watch(remoteAnnouncementProvider)
         .asData
@@ -162,17 +166,23 @@ class _AppRootState extends ConsumerState<AppRoot> {
                       decoration: BoxDecoration(
                         color: Colors.redAccent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.35)),
+                        border: Border.all(
+                          color: Colors.redAccent.withValues(alpha: 0.35),
+                        ),
                       ),
                       child: Text(
                         startupBannerMessage,
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            if (_showRemoteAnnouncement(remoteAnnouncement) && remoteAnnouncement != null)
+            if (_showRemoteAnnouncement(remoteAnnouncement) &&
+                remoteAnnouncement != null)
               Align(
                 alignment: Alignment.topCenter,
                 child: SafeArea(
@@ -183,9 +193,13 @@ class _AppRootState extends ConsumerState<AppRoot> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _announcementBackground(remoteAnnouncement.level),
+                        color: _announcementBackground(
+                          remoteAnnouncement.level,
+                        ),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,10 +213,14 @@ class _AppRootState extends ConsumerState<AppRoot> {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                          if (remoteAnnouncement.hasTitle) const SizedBox(height: 4),
+                          if (remoteAnnouncement.hasTitle)
+                            const SizedBox(height: 4),
                           Text(
                             remoteAnnouncement.message,
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -219,7 +237,11 @@ class _AppRootState extends ConsumerState<AppRoot> {
                     heroTag: 'qa_diagnostics_fab',
                     backgroundColor: Colors.black.withValues(alpha: 0.72),
                     onPressed: _showDiagnosticsSheet,
-                    child: const Icon(Icons.bug_report_outlined, color: Colors.white, size: 18),
+                    child: const Icon(
+                      Icons.bug_report_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
@@ -320,7 +342,10 @@ class _AppRootState extends ConsumerState<AppRoot> {
     return merged;
   }
 
-  String _startupBannerMessage(String startupMessage, {required bool showQaDiagnostics}) {
+  String _startupBannerMessage(
+    String startupMessage, {
+    required bool showQaDiagnostics,
+  }) {
     if (startupMessage.trim().isEmpty) {
       return '';
     }
@@ -331,7 +356,8 @@ class _AppRootState extends ConsumerState<AppRoot> {
   }
 
   void _showDiagnosticsSheet() {
-    final NavigatorState? navigatorState = _router?.routerDelegate.navigatorKey.currentState;
+    final NavigatorState? navigatorState =
+        _router?.routerDelegate.navigatorKey.currentState;
     if (navigatorState == null) {
       return;
     }
@@ -371,7 +397,10 @@ class _AppRootState extends ConsumerState<AppRoot> {
                         return const Center(
                           child: Text(
                             'No diagnostics captured yet.',
-                            style: TextStyle(color: Colors.white54, fontSize: 13),
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 13,
+                            ),
                           ),
                         );
                       }

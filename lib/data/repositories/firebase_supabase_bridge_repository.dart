@@ -5,7 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 class FirebaseSupabaseBridgeRepository {
   FirebaseSupabaseBridgeRepository({required this._store});
 
-  static const String _cachedFirebaseMessagingTokenKey = 'bridge.firebase_messaging_token';
+  static const String _cachedFirebaseMessagingTokenKey =
+      'bridge.firebase_messaging_token';
 
   final SecureStore _store;
 
@@ -18,7 +19,9 @@ class FirebaseSupabaseBridgeRepository {
   }
 
   Future<String?> readCachedFirebaseMessagingToken() async {
-    final String? token = await _store.readString(_cachedFirebaseMessagingTokenKey);
+    final String? token = await _store.readString(
+      _cachedFirebaseMessagingTokenKey,
+    );
     if (token == null || token.trim().isEmpty) {
       return null;
     }
@@ -61,7 +64,9 @@ class FirebaseSupabaseBridgeRepository {
       ...?user.userMetadata,
       'firebase_messaging_token': trimmed,
       'firebase_messaging_token_source': source,
-      'firebase_messaging_token_updated_at': DateTime.now().toUtc().toIso8601String(),
+      'firebase_messaging_token_updated_at': DateTime.now()
+          .toUtc()
+          .toIso8601String(),
     };
 
     await client.auth.updateUser(sb.UserAttributes(data: metadata));

@@ -171,27 +171,43 @@ Write-Host "Synced android/gradle.properties release version to $BuildName+$Buil
 
 Write-Host "Building production AAB (versionName=$BuildName, versionCode=$BuildNumber)..."
 
+$dartDefineFile = Join-Path $env:TEMP ("chronospark-dart-defines-{0}.json" -f $BuildNumber)
+$dartDefines = [ordered]@{
+    CHRONOSPARK_APP_FLAVOR = 'prod'
+    CHRONOSPARK_ENFORCE_PROD_READINESS = 'true'
+    CHRONOSPARK_SUPABASE_URL = $envValues['CHRONOSPARK_SUPABASE_URL']
+    CHRONOSPARK_SUPABASE_ANON_KEY = $envValues['CHRONOSPARK_SUPABASE_ANON_KEY']
+    CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT = $envValues['CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT']
+    CHRONOSPARK_AI_PROXY_ENDPOINT = $envValues['CHRONOSPARK_AI_PROXY_ENDPOINT']
+    CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT = $envValues['CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT']
+    CHRONOSPARK_ANDROID_SHA256_CERT = $envValues['CHRONOSPARK_ANDROID_SHA256_CERT']
+    CHRONOSPARK_IOS_TEAM_ID = $envValues['CHRONOSPARK_IOS_TEAM_ID']
+}
+
+$dartDefines | ConvertTo-Json | Set-Content -Path $dartDefineFile -Encoding UTF8 -NoNewline
+
 $flutterArgs = @(
     'build',
     'appbundle',
     '--release',
     "--build-name=$BuildName",
     "--build-number=$BuildNumber",
-    '--dart-define=CHRONOSPARK_APP_FLAVOR=prod',
-    '--dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true',
-    "--dart-define=CHRONOSPARK_SUPABASE_URL=$($envValues['CHRONOSPARK_SUPABASE_URL'])",
-    "--dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=$($envValues['CHRONOSPARK_SUPABASE_ANON_KEY'])",
-    "--dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=$($envValues['CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT'])",
-    "--dart-define=CHRONOSPARK_AI_PROXY_ENDPOINT=$($envValues['CHRONOSPARK_AI_PROXY_ENDPOINT'])",
-    "--dart-define=CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=$($envValues['CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT'])",
-    "--dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=$($envValues['CHRONOSPARK_ANDROID_SHA256_CERT'])",
-    "--dart-define=CHRONOSPARK_IOS_TEAM_ID=$($envValues['CHRONOSPARK_IOS_TEAM_ID'])"
+    "--dart-define-from-file=$dartDefineFile"
 )
 
-& flutter @flutterArgs
+$flutterExitCode = 1
+try {
+    & flutter @flutterArgs
+    $flutterExitCode = $LASTEXITCODE
+}
+finally {
+    if (Test-Path $dartDefineFile) {
+        Remove-Item -Path $dartDefineFile -Force -ErrorAction SilentlyContinue
+    }
+}
 
-if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
+if ($flutterExitCode -ne 0) {
+    exit $flutterExitCode
 }
 
 $outputAab = Join-Path $repoRoot 'build/app/outputs/bundle/release/app-release.aab'

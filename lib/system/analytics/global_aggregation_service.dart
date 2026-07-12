@@ -23,11 +23,15 @@ class GlobalAggregationService {
 
   Future<void> push(Map<String, dynamic> dailySnapshot) async {
     final sb.SupabaseClient? client = _client;
-    if (!Env.isSupabaseConfigured || client == null) return;
+    final String? userId = client?.auth.currentUser?.id;
+    if (!Env.isSupabaseConfigured || client == null || userId == null) {
+      return;
+    }
     try {
       final deviceId = await _ensureIdentity();
       await client.from(_kTable).upsert({
         'device_id': deviceId,
+        'user_id': userId,
         'date': dailySnapshot['date'],
         'tasks_created': dailySnapshot['tasks_created'],
         'tasks_completed': dailySnapshot['tasks_completed'],
@@ -42,7 +46,9 @@ class GlobalAggregationService {
     final cached = _loadCache();
     if (cached != null) return cached;
     final sb.SupabaseClient? client = _client;
-    if (!Env.isSupabaseConfigured || client == null) {
+    if (!Env.isSupabaseConfigured ||
+        client == null ||
+        client.auth.currentUser == null) {
       return GlobalMetrics.empty();
     }
     try {
