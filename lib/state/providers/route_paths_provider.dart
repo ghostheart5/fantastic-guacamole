@@ -8,6 +8,7 @@ class RouteSurface {
     required this.settings,
     required this.paywall,
     required this.privacy,
+    required this.deleteAccount,
     required this.terms,
     required this.support,
     required this.advisor,
@@ -19,6 +20,7 @@ class RouteSurface {
   final String settings;
   final String paywall;
   final String privacy;
+  final String deleteAccount;
   final String terms;
   final String support;
   final String advisor;
@@ -32,6 +34,7 @@ final routeSurfaceProvider = Provider<RouteSurface>((_) {
     settings: RoutePaths.settings,
     paywall: RoutePaths.paywall,
     privacy: RoutePaths.privacy,
+    deleteAccount: RoutePaths.deleteAccount,
     terms: RoutePaths.terms,
     support: RoutePaths.support,
     advisor: RoutePaths.advisor,

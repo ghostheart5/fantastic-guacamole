@@ -1,11 +1,14 @@
 class AppUrls {
   static const String _base = 'https://chronospark.app';
+  static const String _githubPagesBase =
+      'https://ghostheart5.github.io/fantastic-guacamole';
 
   // Web
   static const String website = _base;
-  static const String privacy = '$_base/privacy';
-  static const String terms = '$_base/terms';
-  static const String support = '$_base/support';
+  static const String privacy = '$_githubPagesBase/privacy/';
+  static const String deleteAccount = '$_githubPagesBase/delete-account/';
+  static const String terms = '$_githubPagesBase/terms/';
+  static const String support = '$_githubPagesBase/support/';
   static const String changelog = '$_base/changelog';
 
   // App stores

@@ -1,9 +1,14 @@
 # fantastic-guacamole
 
+## Badges
+
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
 [![Dart](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/dart.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/dart.yml)
-[![Deploy Flutter Web to GitHub Pages](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/main.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/main.yml)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Android](https://img.shields.io/badge/Android-Supported-3DDC84?logo=android&logoColor=white)](android/)
+[![Build Status](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/main.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/main.yml)
 [![CodeQL](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/codeql.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/codeql.yml)
-[![ChronoSpark Linux Tester Release](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/linux-release.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/linux-release.yml)
+[![Security](https://img.shields.io/badge/Security-Best%20Practices-blue)](https://github.com/ghostheart5/fantastic-guacamole/security)
 
 ChronoSpark is a Flutter-based second brain for task planning, adaptive learning, time-blocking, and AI-driven decision support.
 

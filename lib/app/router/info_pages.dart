@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:flutter/material.dart';
 
 class SupportPage extends StatelessWidget {
@@ -131,7 +132,7 @@ class AboutPage extends StatelessWidget {
           const _Section(
             title: 'Privacy and Support',
             body:
-                'Official privacy policy: ${Env.privacyPolicyUrl}. Support: ${Env.supportEmail}. Terms and release-facing help live on public HTTPS pages so store reviewers and users see the same current information.',
+              'Official privacy policy: ${AppUrls.privacy}. Terms: ${AppUrls.terms}. Support page: ${AppUrls.support}. Support email: ${Env.supportEmail}.',
           ),
           const _Section(
             title: 'Voice Features',
