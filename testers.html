@@ -23,11 +23,100 @@
 </header>
 <main>
 
-<section class="container page-hero"><div class="badge">Tester Hub</div><h1>ChronoSpark Tester Access</h1><p>This page is for internal, closed, and future public testers helping validate ChronoSpark before release.</p></section>
+<section class="container page-hero"><div class="badge">Tester Hub</div><h1>ChronoSpark Tester Feedback Form</h1><p>Thank you for testing ChronoSpark. Please answer honestly and include as much detail as possible. Your feedback helps confirm whether the app works correctly, feels useful, and is ready for the next Google Play testing stage.</p></section>
 <section class="container content"><div class="legal-stack">
-  <article class="legal-card"><h2>Getting Access</h2><ol><li>Give the developer the Google account email you use for Play Store testing.</li><li>Wait until your email is added to the tester list.</li><li>Open the testing link from the same Google account.</li><li>Install the app and report issues through the support/contact page.</li></ol></article>
-  <article class="legal-card"><h2>What to Test</h2><ul><li>Sign-in and onboarding.</li><li>Task creation, editing, and completion.</li><li>SoulMaps, values, timelines, and milestones.</li><li>Offline or limited-mode behavior.</li><li>Crashes, freezes, layout issues, and broken screens.</li></ul></article>
-  <article class="legal-card"><h2>Known Early-Access Notes</h2><p>Some services may be unavailable while Supabase, Firebase, Play billing, cloud sync, and OAuth redirects are still being validated.</p></article>
+  <article class="legal-card">
+    <h2>Submit Feedback</h2>
+    <p>Complete this form and send it to <a href="mailto:support@chronospark.app">support@chronospark.app</a>. You can also use the <a href="contact.html">contact page</a> for tester requests.</p>
+  </article>
+
+  <article class="legal-card">
+    <form action="mailto:support@chronospark.app" method="post" enctype="text/plain">
+      <h2>Basic Information</h2>
+      <p><label>Email:<br /><input type="email" name="email" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;" /></label></p>
+      <p><label>Device model:<br /><input type="text" name="device_model" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;" /></label></p>
+      <p><label>Android version:<br /><input type="text" name="android_version" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;" /></label></p>
+      <p><label>ChronoSpark app version:<br /><input type="text" name="app_version" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;" /></label></p>
+      <p><label>Date tested:<br /><input type="date" name="date_tested" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;" /></label></p>
+
+      <h2>Authentication</h2>
+      <p><label>Were you able to create an account?<br /><textarea name="auth_create_account" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Were you able to log in successfully?<br /><textarea name="auth_login_success" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Did Google login work?<br /><textarea name="auth_google_login" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Did GitHub login work?<br /><textarea name="auth_github_login" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Did you have any trouble staying signed in?<br /><textarea name="auth_session_issues" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+
+      <h2>Cloud Sync and Data</h2>
+      <p><label>Did cloud sync work correctly?<br /><textarea name="sync_worked" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Did your information appear after closing and reopening the app?<br /><textarea name="sync_persisted_data" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Did you notice any missing, duplicated, or incorrect data?<br /><textarea name="sync_data_issues" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Did you experience any data loss?<br /><textarea name="sync_data_loss" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+
+      <h2>Tasks</h2>
+      <p><label>Were you able to create a task?<br /><textarea name="tasks_create" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Were you able to edit a task?<br /><textarea name="tasks_edit" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Were you able to complete a task?<br /><textarea name="tasks_complete" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Were you able to delete a task?<br /><textarea name="tasks_delete" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>What task feature felt most useful?<br /><textarea name="tasks_most_useful" rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+
+      <h2>SoulMaps</h2>
+      <p><label>Were SoulMaps easy to understand?<br /><textarea name="soulmaps_understandable" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>What confused you about SoulMaps?<br /><textarea name="soulmaps_confusing" rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>What would make SoulMaps more useful?<br /><textarea name="soulmaps_improvements" rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Would you use SoulMaps regularly?<br /><textarea name="soulmaps_regular_use" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+
+      <h2>Timelines and Milestones</h2>
+      <p><label>Were you able to create a timeline event?<br /><textarea name="timeline_create_event" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Were you able to add a milestone?<br /><textarea name="timeline_add_milestone" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Were you able to edit a milestone?<br /><textarea name="timeline_edit_milestone" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Were Timelines and Milestones useful?<br /><textarea name="timeline_useful" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>What would make this feature clearer?<br /><textarea name="timeline_clearer" rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+
+      <h2>Smart Coach</h2>
+      <p><label>Did Smart Coach suggestions feel helpful?<br /><textarea name="coach_helpful" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Did the recommendations make sense?<br /><textarea name="coach_recommendations_sense" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Were the suggestions relevant to what you were doing?<br /><textarea name="coach_relevant" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Did any suggestion feel confusing, repetitive, or unnecessary?<br /><textarea name="coach_confusing_or_repetitive" rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+
+      <h2>Design and Usability</h2>
+      <p>Rate each item from 1 to 5, where 1 means poor and 5 means excellent.</p>
+      <p><label>Appearance (1-5):<br /><input type="number" min="1" max="5" name="rating_appearance" style="width:120px;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;" /></label></p>
+      <p><label>Ease of use (1-5):<br /><input type="number" min="1" max="5" name="rating_ease_of_use" style="width:120px;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;" /></label></p>
+      <p><label>Speed (1-5):<br /><input type="number" min="1" max="5" name="rating_speed" style="width:120px;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;" /></label></p>
+      <p><label>Navigation (1-5):<br /><input type="number" min="1" max="5" name="rating_navigation" style="width:120px;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;" /></label></p>
+      <p><label>Overall experience (1-5):<br /><input type="number" min="1" max="5" name="rating_overall" style="width:120px;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;" /></label></p>
+
+      <h2>Bugs and Problems</h2>
+      <p><label>Did you experience any crashes?<br /><textarea name="bugs_crashes" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Did you notice any missing buttons?<br /><textarea name="bugs_missing_buttons" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Did any screen appear broken or unfinished?<br /><textarea name="bugs_broken_screens" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Did anything load slowly or fail to load?<br /><textarea name="bugs_slow_or_failed_load" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Did you experience any data loss?<br /><textarea name="bugs_data_loss" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>If something broke, what were you doing right before it happened?<br /><textarea name="bugs_repro_steps" rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+
+      <h2>Feature Feedback</h2>
+      <p><label>What feature did you use the most?<br /><textarea name="feature_most_used" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>What confused you?<br /><textarea name="feature_confusing" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>What would you improve?<br /><textarea name="feature_improvements" rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>What feature would you want added next?<br /><textarea name="feature_next_addition" rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p><label>Would you continue using ChronoSpark after testing?<br /><textarea name="feature_continue_using" rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+
+      <h2>Final Recommendation Question</h2>
+      <p>Would you recommend ChronoSpark to a friend?</p>
+      <p>
+        <label><input type="radio" name="recommendation" value="Yes" /> Yes</label><br />
+        <label><input type="radio" name="recommendation" value="Maybe" /> Maybe</label><br />
+        <label><input type="radio" name="recommendation" value="No" /> No</label>
+      </p>
+      <p><label>Why?<br /><textarea name="recommendation_why" rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+      <p>This question is especially valuable for Google Play closed testing because it shows whether testers found ChronoSpark genuinely useful, not just whether the app technically worked.</p>
+
+      <h2>Additional Comments</h2>
+      <p><label>Please share anything else you noticed, liked, disliked, or think should be fixed before ChronoSpark moves forward.<br /><textarea name="additional_comments" rows="5" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;"></textarea></label></p>
+
+      <p><button type="submit" class="btn btn-primary">Send Feedback Email</button></p>
+    </form>
+  </article>
 </div></section>
 
 </main>
