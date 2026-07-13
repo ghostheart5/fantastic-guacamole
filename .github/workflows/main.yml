@@ -42,7 +42,7 @@ jobs:
 
       - name: Build web
         run: |
-          flutter build web --release --no-wasm-dry-run --base-href /fantastic-guacamole/ \
+          flutter build web --release --csp --no-wasm-dry-run --base-href /fantastic-guacamole/ \
             --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }} \
             --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
 
