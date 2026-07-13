@@ -46,6 +46,13 @@ jobs:
             --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }} \
             --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
 
+      - name: Verify no unsafe string-eval patterns in built JS
+        run: |
+          if grep -R --line-number -E "eval\(|new Function\(|setTimeout\(['\"]|setInterval\(['\"]" build/web --include='*.js'; then
+            echo "Unsafe string-evaluation pattern found in build output."
+            exit 1
+          fi
+
       - name: Copy legal and static pages to build
         run: |
           mkdir -p build/web/privacy build/web/privacy-policy build/web/terms build/web/terms-of-service build/web/support build/web/delete-account build/web/code-of-conduct build/web/license build/web/security-policy build/web/readme
