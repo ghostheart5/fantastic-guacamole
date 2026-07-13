@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Create placeholder .env for CI
+        run: cp .env.example .env
+
       - name: Run security secret guard
         shell: pwsh
         run: ./scripts/security_secret_guard.ps1
