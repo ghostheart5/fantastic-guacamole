@@ -58,11 +58,11 @@ jobs:
           cp privacy.html build/web/privacy.html
           cp terms.html build/web/terms.html
           cp support.html build/web/support.html
-          cp privacy.html build/web/privacy/index.html
-          cp privacy.html build/web/privacy-policy/index.html
-          cp terms.html build/web/terms/index.html
-          cp terms.html build/web/terms-of-service/index.html
-          cp support.html build/web/support/index.html
+          cp privacy/index.html build/web/privacy/index.html
+          cp privacy-policy/index.html build/web/privacy-policy/index.html
+          cp terms/index.html build/web/terms/index.html
+          cp terms-of-service/index.html build/web/terms-of-service/index.html
+          cp support/index.html build/web/support/index.html
           cp assets/legal/delete_account.html build/web/delete-account/index.html
           cp assets/legal/code_of_conduct.html build/web/code-of-conduct/index.html
           cp assets/legal/license.html build/web/license/index.html
