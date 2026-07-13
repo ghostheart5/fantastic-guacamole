@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChronoSpark | Your Second Brain for Life Planning</title>
+  <meta
+    name="description"
+    content="ChronoSpark is a second-brain planning app for tasks, goals, time-blocking, SoulMaps, milestones, and SI-powered decision support."
+  />
+  <style>
+    :root {
+      --bg: #070812;
+      --bg-soft: #101225;
+      --card: rgba(255, 255, 255, 0.08);
+      --card-border: rgba(255, 255, 255, 0.14);
+      --text: #f7f7ff;
+      --muted: #b7bdd8;
+      --primary: #8b5cf6;
+      --secondary: #06b6d4;
+      --accent: #f97316;
+      --success: #22c55e;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(139, 92, 246, 0.35), transparent 35%),
+        radial-gradient(circle at top right, rgba(6, 182, 212, 0.28), transparent 35%),
+        radial-gradient(circle at bottom, rgba(249, 115, 22, 0.16), transparent 30%),
+        var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .container {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(18px);
+      background: rgba(7, 8, 18, 0.76);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .logo {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      box-shadow: 0 12px 40px rgba(139, 92, 246, 0.38);
+      font-size: 22px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    .hero {
+      padding: 96px 0 72px;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 22px;
+    }
+
+    .hero h1 {
+      font-size: clamp(3rem, 8vw, 6.1rem);
+      line-height: 0.95;
+      letter-spacing: -0.08em;
+      margin-bottom: 24px;
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #ffffff, #a5f3fc, #c4b5fd);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .hero p {
+      font-size: 1.22rem;
+      max-width: 660px;
+      color: var(--muted);
+      margin-bottom: 32px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px 20px;
+      border-radius: 999px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      box-shadow: 0 18px 50px rgba(6, 182, 212, 0.24);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .hero-note {
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .phone-card {
+      position: relative;
+      border-radius: 36px;
+      padding: 18px;
+      background:
+        linear-gradient(155deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .phone-card::before {
+      content: "";
+      position: absolute;
+      inset: -80px;
+      background:
+        radial-gradient(circle, rgba(139, 92, 246, 0.35), transparent 38%),
+        radial-gradient(circle at right, rgba(6, 182, 212, 0.24), transparent 38%);
+      z-index: -1;
+    }
+
+    .mock-app {
+      border-radius: 28px;
+      background: #0b0d1c;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 22px;
+      min-height: 540px;
+    }
+
+    .mock-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .mock-pill {
+      width: 120px;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .mock-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+    }
+
+    .mock-title {
+      font-size: 1.7rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      margin-bottom: 10px;
+    }
+
+    .mock-subtitle {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 20px;
+    }
+
+    .progress-ring {
+      height: 150px;
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at center, #0b0d1c 0 38%, transparent 39%),
+        conic-gradient(from 180deg, var(--secondary), var(--primary), var(--accent), rgba(255,255,255,0.08));
+      display: grid;
+      place-items: center;
+      margin-bottom: 18px;
+    }
+
+    .progress-ring span {
+      font-size: 2rem;
+      font-weight: 900;
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .mini-card {
+      padding: 16px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .mini-card strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .mini-card span {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    section {
+      padding: 72px 0;
+    }
+
+    .section-heading {
+      text-align: center;
+      margin-bottom: 42px;
+    }
+
+    .section-heading h2 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      line-height: 1.05;
+      letter-spacing: -0.06em;
+      margin-bottom: 14px;
+    }
+
+    .section-heading p {
+      color: var(--muted);
+      max-width: 720px;
+      margin: 0 auto;
+      font-size: 1.08rem;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .card {
+      padding: 24px;
+      border-radius: 28px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.18);
+    }
+
+    .icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 18px;
+      background: rgba(255, 255, 255, 0.1);
+      font-size: 1.35rem;
+    }
+
+    .card h3 {
+      font-size: 1.18rem;
+      margin-bottom: 10px;
+    }
+
+    .card p {
+      color: var(--muted);
+      font-size: 0.98rem;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 28px;
+      align-items: center;
+    }
+
+    .panel {
+      border-radius: 34px;
+      padding: 34px;
+      background:
+        linear-gradient(155deg, rgba(139, 92, 246, 0.16), rgba(6, 182, 212, 0.08)),
+        rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .panel h2 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      line-height: 1.05;
+      letter-spacing: -0.06em;
+      margin-bottom: 18px;
+    }
+
+    .panel p {
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    .check-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .check {
+      display: flex;
+      gap: 12px;
+      color: var(--muted);
+    }
+
+    .check b {
+      color: var(--text);
+    }
+
+    .pricing {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .price-card {
+      position: relative;
+    }
+
+    .popular {
+      border-color: rgba(6, 182, 212, 0.5);
+      box-shadow: 0 24px 80px rgba(6, 182, 212, 0.16);
+    }
+
+    .tag {
+      display: inline-flex;
+      margin-bottom: 14px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(6, 182, 212, 0.14);
+      color: #a5f3fc;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .cta {
+      text-align: center;
+      padding: 72px 26px;
+      border-radius: 38px;
+      background:
+        linear-gradient(135deg, rgba(139, 92, 246, 0.26), rgba(6, 182, 212, 0.18)),
+        rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: var(--shadow);
+    }
+
+    .cta h2 {
+      font-size: clamp(2.2rem, 6vw, 4rem);
+      letter-spacing: -0.07em;
+      line-height: 1;
+      margin-bottom: 18px;
+    }
+
+    .cta p {
+      color: var(--muted);
+      max-width: 680px;
+      margin: 0 auto 28px;
+      font-size: 1.1rem;
+    }
+
+    footer {
+      padding: 42px 0;
+      color: var(--muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-links a:hover {
+      color: var(--text);
+    }
+
+    @media (max-width: 900px) {
+      .hero,
+      .split {
+        grid-template-columns: 1fr;
+      }
+
+      .features,
+      .pricing {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .hero {
+        padding-top: 64px;
+      }
+
+      .mock-app {
+        min-height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <a class="brand" href="index.html" aria-label="ChronoSpark home">
+        <span class="logo">&#9889;</span>
+        <span>ChronoSpark</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="#features">Features</a>
+        <a href="#soulmap">SoulMap</a>
+        <a href="#tiers">Tiers</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="support.html">Support</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="container hero">
+      <div>
+        <div class="badge">&#9889; Second-brain planning for real life</div>
+
+        <h1>
+          Plan your day.
+          <span class="gradient-text">Build your future.</span>
+        </h1>
+
+        <p>
+          ChronoSpark helps you organize tasks, time-block your schedule, track milestones,
+          map your values, and use intelligent decision support to move through life with clarity.
+        </p>
+
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#download">Get ChronoSpark</a>
+          <a class="btn btn-secondary" href="#features">Explore Features</a>
+        </div>
+
+        <div class="hero-note">
+          Android release in progress. Web preview and tester access coming soon.
+        </div>
+      </div>
+
+      <aside class="phone-card" aria-label="ChronoSpark app preview">
+        <div class="mock-app">
+          <div class="mock-top">
+            <div class="mock-pill"></div>
+            <div class="mock-avatar"></div>
+          </div>
+
+          <div class="mock-title">Today's Spark</div>
+          <div class="mock-subtitle">
+            Your task focus, habit momentum, and next best action.
+          </div>
+
+          <div class="progress-ring">
+            <span>82%</span>
+          </div>
+
+          <div class="mini-grid">
+            <div class="mini-card">
+              <strong>Focus Block</strong>
+              <span>Deep work scheduled</span>
+            </div>
+            <div class="mini-card">
+              <strong>SoulMap</strong>
+              <span>Values aligned</span>
+            </div>
+            <div class="mini-card">
+              <strong>Milestone</strong>
+              <span>3 goals moving</span>
+            </div>
+            <div class="mini-card">
+              <strong>Smart Coach</strong>
+              <span>Next action ready</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section id="features" class="container">
+      <div class="section-heading">
+        <h2>A planning system with depth.</h2>
+        <p>
+          ChronoSpark is more than a to-do list. It connects tasks, goals, values,
+          timelines, coaching, and personal growth into one adaptive planning experience.
+        </p>
+      </div>
+
+      <div class="features">
+        <article class="card">
+          <div class="icon">OK</div>
+          <h3>Smart Task Planning</h3>
+          <p>
+            Organize your tasks by priority, energy, timing, and momentum so your day has a clear direction.
+          </p>
+        </article>
+
+        <article class="card">
+          <div class="icon">TB</div>
+          <h3>Time Blocking</h3>
+          <p>
+            Turn intentions into scheduled action with focused blocks designed around your real life.
+          </p>
+        </article>
+
+        <article class="card">
+          <div class="icon">SI</div>
+          <h3>SI Decision Support</h3>
+          <p>
+            Get guided next steps, adaptive suggestions, and planning support when the path feels unclear.
+          </p>
+        </article>
+
+        <article class="card">
+          <div class="icon">SM</div>
+          <h3>SoulMaps</h3>
+          <p>
+            Map identity, values, growth areas, and long-term direction in a deeper visual planning layer.
+          </p>
+        </article>
+
+        <article class="card">
+          <div class="icon">MS</div>
+          <h3>Timelines and Milestones</h3>
+          <p>
+            Track where you have been, what you are building, and the milestones that define your progress.
+          </p>
+        </article>
+
+        <article class="card">
+          <div class="icon">AN</div>
+          <h3>Progress Analytics</h3>
+          <p>
+            See patterns in focus, habits, goals, and completion so you can improve with awareness.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="soulmap" class="container">
+      <div class="split">
+        <div class="panel">
+          <h2>Your future needs more than a checklist.</h2>
+          <p>
+            ChronoSpark is built for people who want more than productivity. It helps you connect
+            what you do today with who you are becoming.
+          </p>
+
+          <div class="check-list">
+            <div class="check">VALUE <span><b>Core Values:</b> Keep your decisions aligned with what matters.</span></div>
+            <div class="check">MOTION <span><b>Momentum:</b> Track the habits and milestones that move your life forward.</span></div>
+            <div class="check">CLARITY <span><b>Clarity:</b> Break big dreams into clear next actions.</span></div>
+            <div class="check">SAFE <span><b>Recovery:</b> Save progress locally and support better continuity.</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="icon">GO</div>
+          <h3>Built for transformation</h3>
+          <p>
+            ChronoSpark combines planning, reflection, and intelligent support to help users turn scattered thoughts
+            into structured progress.
+          </p>
+          <br />
+          <p>
+            Whether you are building a business, healing, studying, managing routines, or planning your next chapter,
+            ChronoSpark gives your future a system.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tiers" class="container">
+      <div class="section-heading">
+        <h2>Designed to grow with you.</h2>
+        <p>
+          Start with core planning, then unlock deeper coaching, SI systems, timelines, and premium growth tools.
+        </p>
+      </div>
+
+      <div class="pricing">
+        <article class="card price-card">
+          <span class="tag">Base</span>
+          <h3>Core Planning</h3>
+          <p>
+            Tasks, basic planning, local progress, and foundational productivity features.
+          </p>
+        </article>
+
+        <article class="card price-card popular">
+          <span class="tag">Premium</span>
+          <h3>Growth Tools</h3>
+          <p>
+            SoulMaps, timelines, enhanced insights, smart coach notes, and deeper tracking features.
+          </p>
+        </article>
+
+        <article class="card price-card">
+          <span class="tag">Ultimate</span>
+          <h3>Full SI Console</h3>
+          <p>
+            Advanced decision support, deeper analytics, premium planning systems, and future expansion tools.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="download" class="container">
+      <div class="cta">
+        <h2>Turn your future into a plan.</h2>
+        <p>
+          ChronoSpark is preparing for Android testing and Google Play release.
+          Follow the project, review the privacy policy, or contact support for tester access.
+        </p>
+
+        <div class="hero-actions" style="justify-content:center;">
+          <a class="btn btn-primary" href="https://play.google.com/store" target="_blank" rel="noopener noreferrer">
+            Google Play Coming Soon
+          </a>
+          <a class="btn btn-secondary" href="support.html">Contact Support</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <div>
+        Copyright 2026 ChronoSpark. Built by Ghost Heart.
+      </div>
+
+      <div class="footer-links">
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="terms.html">Terms</a>
+        <a href="support.html">Support</a>
+        <a href="CHRONOSPARK.md">Developer Docs</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
