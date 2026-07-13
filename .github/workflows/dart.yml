@@ -41,7 +41,14 @@ jobs:
         run: flutter analyze
 
       - name: Run tests
-        run: flutter test --coverage
+        run: flutter test --coverage --machine | tee test-results.json; exit ${PIPESTATUS[0]}
+
+      - name: Upload test results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_number }}
+          path: test-results.json
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
