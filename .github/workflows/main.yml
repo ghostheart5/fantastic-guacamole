@@ -26,6 +26,13 @@ jobs:
         with:
           channel: stable
 
+      - name: Ensure CI .env asset exists
+        run: |
+          cat > .env << 'EOF'
+          CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
+          EOF
+
       - name: Flutter pub get
         run: flutter pub get
 
@@ -35,7 +42,7 @@ jobs:
 
       - name: Build web
         run: |
-          flutter build web --release --base-href /fantastic-guacamole/ \
+          flutter build web --release --no-wasm-dry-run --base-href /fantastic-guacamole/ \
             --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }} \
             --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
 
