@@ -77,7 +77,7 @@ jobs:
           path: build/app/outputs/bundle/release/app-release.aab
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@da05d552573ad5aba039eaad2a28f4b7f4e74182 # v2.3.2
+        uses: softprops/action-gh-release@v2
         with:
           files: build/app/outputs/bundle/release/app-release.aab
           prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-pre') }}
