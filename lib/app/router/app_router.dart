@@ -41,13 +41,30 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
   bool get onboardingComplete => _ref.read(onboardingCompleteGuardProvider);
 }
 
+String _resolveInitialLocation({
+  required bool isAuthenticated,
+  required bool onboardingComplete,
+}) {
+  if (!onboardingComplete) {
+    return RoutePaths.onboarding;
+  }
+  if (!isAuthenticated) {
+    return RoutePaths.login;
+  }
+  return RoutePaths.home;
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final _AppRouterRefreshListenable refresh = ref.read(
     _appRouterRefreshListenableProvider,
   );
+  final String initialLocation = _resolveInitialLocation(
+    isAuthenticated: refresh.isAuthenticated,
+    onboardingComplete: refresh.onboardingComplete,
+  );
 
   return GoRouter(
-    initialLocation: RoutePaths.home,
+    initialLocation: initialLocation,
     debugLogDiagnostics: false,
     refreshListenable: refresh,
     redirect: (BuildContext context, GoRouterState state) {
