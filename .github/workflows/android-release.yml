@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
@@ -51,11 +51,11 @@ jobs:
         run: |
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_ANON_KEY"
-          test -n "$RECEIPT_ENDPOINT"
-          test -n "$AI_ENDPOINT"
-          test -n "$DELETE_ENDPOINT"
-          test -n "$ANDROID_SHA256"
-          test -n "$IOS_TEAM_ID"
+          [ -n "$RECEIPT_ENDPOINT" ] || echo "::warning::CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT is empty"
+          [ -n "$AI_ENDPOINT" ] || echo "::warning::CHRONOSPARK_AI_PROXY_ENDPOINT is empty"
+          [ -n "$DELETE_ENDPOINT" ] || echo "::warning::CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT is empty"
+          [ -n "$ANDROID_SHA256" ] || echo "::warning::CHRONOSPARK_ANDROID_SHA256_CERT is empty"
+          [ -n "$IOS_TEAM_ID" ] || echo "::warning::CHRONOSPARK_IOS_TEAM_ID is empty"
 
       - name: Build signed AAB
         run: >-
