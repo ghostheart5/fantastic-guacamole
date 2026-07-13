@@ -20,6 +20,7 @@ class RoutePaths {
   static const profile = '$advancedRoot/profile';
   static const progression = '$advancedRoot/progression';
   static const si = '$advancedRoot/si-console';
+  static const advisor = '$advancedRoot/advisor';
 
   // Legal and account routes.
   static const paywall = '/paywall';

@@ -157,7 +157,6 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
                     progress: t,
                     opacity: t > 0.02 ? 0.35 * overlayOpacity : 0,
                   ),
-                  size: Size.infinite,
                 ),
               ),
             ?widget.child,

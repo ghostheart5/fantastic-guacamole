@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:flutter/material.dart';
 
@@ -31,6 +32,44 @@ class SupportPage extends StatelessWidget {
             '- What you tapped before the issue\n'
             '- Screenshot or error text if available',
             style: theme.textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 14),
+          FutureBuilder<DiagnosticsContext>(
+            future: DiagnosticsContextService.collect(),
+            builder:
+                (
+                  BuildContext context,
+                  AsyncSnapshot<DiagnosticsContext> snapshot,
+                ) {
+                  final DiagnosticsContext? data = snapshot.data;
+                  final String diagnosticsText = data == null
+                      ? 'Loading diagnostics context...'
+                      : 'Diagnostics context\n'
+                            '- App: ${data.appName}\n'
+                            '- Version: ${data.appVersionLabel}\n'
+                            '- Package: ${data.packageName}\n'
+                            '- Platform: ${data.platform}\n'
+                            '- OS: ${data.osVersion}\n'
+                            '- Device: ${data.model}\n'
+                            '- Physical device: ${data.isPhysicalDevice}';
+                  return Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.22,
+                        ),
+                      ),
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.34),
+                    ),
+                    child: Text(
+                      diagnosticsText,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  );
+                },
           ),
           const SizedBox(height: 18),
           Container(

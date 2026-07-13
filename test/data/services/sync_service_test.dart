@@ -23,7 +23,9 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    hiveDirectory = await Directory.systemTemp.createTemp('chronospark_sync_test_');
+    hiveDirectory = await Directory.systemTemp.createTemp(
+      'chronospark_sync_test_',
+    );
     Hive.init(hiveDirectory.path);
     repository = _MemoryTaskRepository();
     profileStorage = HiveStorage<String>('profile_box', hive: _TestHiveStore());
@@ -47,14 +49,20 @@ void main() {
 
   test('syncToCloud uploads the full backup payload', () async {
     await repository.saveTask(
-      TaskEntity(id: 'task-1', title: 'Upload me', createdAt: DateTime.utc(2026, 7, 5)),
+      TaskEntity(
+        id: 'task-1',
+        title: 'Upload me',
+        createdAt: DateTime.utc(2026, 7, 5),
+      ),
     );
 
     final bool success = await syncService.syncToCloud();
     final Map<String, dynamic> uploadedTask =
-        ((gateway.fullBackup?['tasks'] as List<dynamic>).single as Map<dynamic, dynamic>).map(
-          (dynamic key, dynamic value) => MapEntry(key.toString(), value),
-        );
+        ((gateway.fullBackup?['tasks'] as List<dynamic>).single
+                as Map<dynamic, dynamic>)
+            .map(
+              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+            );
 
     expect(success, isTrue);
     expect(uploadedTask['id'], 'task-1');
@@ -92,14 +100,20 @@ void main() {
 
   test('syncDelta uploads local backup when cloud backup is empty', () async {
     await repository.saveTask(
-      TaskEntity(id: 'local-1', title: 'Local backup', createdAt: DateTime.utc(2026, 7, 5, 9)),
+      TaskEntity(
+        id: 'local-1',
+        title: 'Local backup',
+        createdAt: DateTime.utc(2026, 7, 5, 9),
+      ),
     );
 
     final bool synced = await syncService.syncDelta();
     final Map<String, dynamic> uploadedTask =
-        ((gateway.fullBackup?['tasks'] as List<dynamic>).single as Map<dynamic, dynamic>).map(
-          (dynamic key, dynamic value) => MapEntry(key.toString(), value),
-        );
+        ((gateway.fullBackup?['tasks'] as List<dynamic>).single
+                as Map<dynamic, dynamic>)
+            .map(
+              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+            );
 
     expect(synced, isTrue);
     expect(uploadedTask['id'], 'local-1');
@@ -109,7 +123,11 @@ void main() {
     'syncDelta merges newer local task over older cloud task and restores merged data',
     () async {
       await repository.saveTask(
-        TaskEntity(id: 'shared', title: 'Local newer', createdAt: DateTime.utc(2026, 7, 5, 12)),
+        TaskEntity(
+          id: 'shared',
+          title: 'Local newer',
+          createdAt: DateTime.utc(2026, 7, 5, 12),
+        ),
       );
       gateway.fullBackup = <String, dynamic>{
         'version': '3.0.0',
@@ -135,17 +153,22 @@ void main() {
       final List<Map<String, dynamic>> normalizedTasks = tasks
           .cast<Map<dynamic, dynamic>>()
           .map(
-            (Map<dynamic, dynamic> task) =>
-                task.map((dynamic key, dynamic value) => MapEntry(key.toString(), value)),
+            (Map<dynamic, dynamic> task) => task.map(
+              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+            ),
           )
           .toList(growable: false);
       expect(tasks, hasLength(2));
       expect(
-        normalizedTasks.any((Map<String, dynamic> task) => task['title'] == 'Local newer'),
+        normalizedTasks.any(
+          (Map<String, dynamic> task) => task['title'] == 'Local newer',
+        ),
         isTrue,
       );
       expect(
-        normalizedTasks.any((Map<String, dynamic> task) => task['id'] == 'cloud-only'),
+        normalizedTasks.any(
+          (Map<String, dynamic> task) => task['id'] == 'cloud-only',
+        ),
         isTrue,
       );
       expect((await repository.getAllTasks()).length, 2);
@@ -154,9 +177,16 @@ void main() {
 
   test('syncDelta returns false when merged upload fails', () async {
     await repository.saveTask(
-      TaskEntity(id: 'task-1', title: 'Local only', createdAt: DateTime.utc(2026, 7, 5)),
+      TaskEntity(
+        id: 'task-1',
+        title: 'Local only',
+        createdAt: DateTime.utc(2026, 7, 5),
+      ),
     );
-    gateway.fullBackup = <String, dynamic>{'version': '3.0.0', 'tasks': <Map<String, dynamic>>[]};
+    gateway.fullBackup = <String, dynamic>{
+      'version': '3.0.0',
+      'tasks': <Map<String, dynamic>>[],
+    };
     gateway.uploadShouldFail = true;
 
     final bool synced = await syncService.syncDelta();
@@ -166,7 +196,11 @@ void main() {
 
   test('syncDelta keeps cloud task when it is newer than local task', () async {
     await repository.saveTask(
-      TaskEntity(id: 'shared', title: 'Local older', createdAt: DateTime.utc(2026, 7, 5, 8)),
+      TaskEntity(
+        id: 'shared',
+        title: 'Local older',
+        createdAt: DateTime.utc(2026, 7, 5, 8),
+      ),
     );
     gateway.fullBackup = <String, dynamic>{
       'version': '3.0.0',
@@ -182,68 +216,92 @@ void main() {
 
     final bool synced = await syncService.syncDelta();
     final Map<String, dynamic> mergedTask =
-        ((gateway.fullBackup?['tasks'] as List<dynamic>).single as Map<dynamic, dynamic>).map(
-          (dynamic key, dynamic value) => MapEntry(key.toString(), value),
-        );
+        ((gateway.fullBackup?['tasks'] as List<dynamic>).single
+                as Map<dynamic, dynamic>)
+            .map(
+              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+            );
 
     expect(synced, isTrue);
     expect(mergedTask['title'], 'Cloud newer');
   });
 
-  test('syncTasksOnly and restoreTasksOnly operate on task payloads only', () async {
-    await repository.saveTask(
-      TaskEntity(id: 'task-1', title: 'Task only', createdAt: DateTime.utc(2026, 7, 5)),
-    );
+  test(
+    'syncTasksOnly and restoreTasksOnly operate on task payloads only',
+    () async {
+      await repository.saveTask(
+        TaskEntity(
+          id: 'task-1',
+          title: 'Task only',
+          createdAt: DateTime.utc(2026, 7, 5),
+        ),
+      );
 
-    final bool uploaded = await syncService.syncTasksOnly();
-    final Map<String, dynamic> uploadedTask =
-        ((gateway.tasksBackup?['tasks'] as List<dynamic>).single as Map<dynamic, dynamic>).map(
-          (dynamic key, dynamic value) => MapEntry(key.toString(), value),
-        );
-    expect(uploaded, isTrue);
-    expect(uploadedTask['id'], 'task-1');
+      final bool uploaded = await syncService.syncTasksOnly();
+      final Map<String, dynamic> uploadedTask =
+          ((gateway.tasksBackup?['tasks'] as List<dynamic>).single
+                  as Map<dynamic, dynamic>)
+              .map(
+                (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+              );
+      expect(uploaded, isTrue);
+      expect(uploadedTask['id'], 'task-1');
 
-    repository.tasks.clear();
-    gateway.tasksBackup = <String, dynamic>{
-      'tasks': <Map<String, dynamic>>[
-        <String, dynamic>{
-          'id': 'restored-task',
-          'title': 'Restored only',
-          'createdAt': '2026-07-05T08:00:00.000Z',
-        },
-      ],
-    };
+      repository.tasks.clear();
+      gateway.tasksBackup = <String, dynamic>{
+        'tasks': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'restored-task',
+            'title': 'Restored only',
+            'createdAt': '2026-07-05T08:00:00.000Z',
+          },
+        ],
+      };
 
-    final bool restored = await syncService.restoreTasksOnly();
-    expect(restored, isTrue);
-    expect((await repository.getAllTasks()).single.id, 'restored-task');
-  });
+      final bool restored = await syncService.restoreTasksOnly();
+      expect(restored, isTrue);
+      expect((await repository.getAllTasks()).single.id, 'restored-task');
+    },
+  );
 
-  test('restoreTasksOnly returns false when cloud task payload is empty', () async {
-    final bool restored = await syncService.restoreTasksOnly();
+  test(
+    'restoreTasksOnly returns false when cloud task payload is empty',
+    () async {
+      final bool restored = await syncService.restoreTasksOnly();
 
-    expect(restored, isFalse);
-  });
+      expect(restored, isFalse);
+    },
+  );
 
-  test('local test cloud backup gateway stores and retrieves payloads', () async {
-    final LocalTestCloudBackupGateway localGateway = LocalTestCloudBackupGateway(prefs);
-    final Map<String, dynamic> backup = <String, dynamic>{'version': '3.0.0'};
-    final Map<String, dynamic> tasks = <String, dynamic>{'tasks': <dynamic>[]};
+  test(
+    'local test cloud backup gateway stores and retrieves payloads',
+    () async {
+      final LocalTestCloudBackupGateway localGateway =
+          LocalTestCloudBackupGateway(prefs);
+      final Map<String, dynamic> backup = <String, dynamic>{'version': '3.0.0'};
+      final Map<String, dynamic> tasks = <String, dynamic>{
+        'tasks': <dynamic>[],
+      };
 
-    expect(await localGateway.uploadBackup(backup), isTrue);
-    expect(await localGateway.uploadTasks(tasks), isTrue);
-    expect(await localGateway.downloadBackup(), backup);
-    expect(await localGateway.downloadTasks(), tasks);
-  });
+      expect(await localGateway.uploadBackup(backup), isTrue);
+      expect(await localGateway.uploadTasks(tasks), isTrue);
+      expect(await localGateway.downloadBackup(), backup);
+      expect(await localGateway.downloadTasks(), tasks);
+    },
+  );
 
-  test('unavailable cloud backup gateway always returns empty or false', () async {
-    const UnavailableCloudBackupGateway gateway = UnavailableCloudBackupGateway();
+  test(
+    'unavailable cloud backup gateway always returns empty or false',
+    () async {
+      const UnavailableCloudBackupGateway gateway =
+          UnavailableCloudBackupGateway();
 
-    expect(await gateway.uploadBackup(<String, dynamic>{}), isFalse);
-    expect(await gateway.uploadTasks(<String, dynamic>{}), isFalse);
-    expect(await gateway.downloadBackup(), isEmpty);
-    expect(await gateway.downloadTasks(), isEmpty);
-  });
+      expect(await gateway.uploadBackup(<String, dynamic>{}), isFalse);
+      expect(await gateway.uploadTasks(<String, dynamic>{}), isFalse);
+      expect(await gateway.downloadBackup(), isEmpty);
+      expect(await gateway.downloadTasks(), isEmpty);
+    },
+  );
 }
 
 class _MemoryCloudBackupGateway implements CloudBackupGateway {

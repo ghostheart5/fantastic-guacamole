@@ -4,9 +4,8 @@ import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
-import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
@@ -34,7 +33,6 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   late final Future<void> Function() _stopVoice;
   final _notesController = TextEditingController();
   final _followUpController = TextEditingController();
-  final _quickTaskController = TextEditingController();
   final ScrollController _scroll = ScrollController();
 
   String? _coachingMessage;
@@ -45,7 +43,6 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   bool _saved = false;
   bool _gettingCoaching = false;
   bool _sendingFollowUp = false;
-  bool _quickTaskOpen = false;
 
   List<_Exchange> get _visibleFollowUps {
     const int maxVisibleFollowUps = 20;
@@ -58,6 +55,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   @override
   void initState() {
     super.initState();
+    AppAnalytics.track('coach_opened');
     final voiceService = ref.read(voiceServiceProvider);
     _speakVoice = voiceService.speak;
     _stopVoice = voiceService.stop;
@@ -70,32 +68,8 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
     unawaited(_stopVoice());
     _notesController.dispose();
     _followUpController.dispose();
-    _quickTaskController.dispose();
     _scroll.dispose();
     super.dispose();
-  }
-
-  void _openQuickTaskCreator() {
-    setState(() {
-      _quickTaskOpen = true;
-    });
-  }
-
-  Future<void> _submitQuickTask() async {
-    final String title = _quickTaskController.text.trim();
-    if (title.isEmpty) {
-      return;
-    }
-
-    await ref
-        .read(creatorActionsProvider)
-        .createTask(CreatorFormData(title: title, type: 'Task', priority: 3));
-
-    if (!mounted) return;
-    setState(() {
-      _quickTaskController.clear();
-      _quickTaskOpen = false;
-    });
   }
 
   Future<void> _getCoaching() async {
@@ -126,13 +100,27 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
 
     setState(() => _gettingCoaching = true);
 
-    final CoachCoachingResult result = await coach.requestCoaching(
-      energy: _energy,
-      emotion: _emotion,
-      notes: notes,
-      history: _conversationHistory(),
-      previousSavedNotes: _lastSavedNotes,
-    );
+    final CoachCoachingResult result;
+    try {
+      result = await coach
+          .requestCoaching(
+            energy: _energy,
+            emotion: _emotion,
+            notes: notes,
+            history: _conversationHistory(),
+            previousSavedNotes: _lastSavedNotes,
+          )
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _gettingCoaching = false;
+        _coachingPrompt = notes.isEmpty ? 'quick check-in' : notes;
+        _coachingMessage =
+            'Insight request timed out. Tap GET INSIGHT again or shorten your input for a faster response.';
+      });
+      return;
+    }
     if (!mounted) return;
 
     setState(() {
@@ -185,13 +173,15 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       _followUpError = null;
     });
     try {
-      final String reply = await coach.requestFollowUp(
-        input: text,
-        energy: _energy,
-        emotion: _emotion,
-        reflection: _notesController.text.trim(),
-        history: _conversationHistory(),
-      );
+      final String reply = await coach
+          .requestFollowUp(
+            input: text,
+            energy: _energy,
+            emotion: _emotion,
+            reflection: _notesController.text.trim(),
+            history: _conversationHistory(),
+          )
+          .timeout(const Duration(seconds: 25));
       if (!mounted) return;
       setState(() {
         _followUps.add(_Exchange(question: text, answer: reply));
@@ -211,6 +201,12 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
             curve: Curves.easeOut,
           );
         }
+      });
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _sendingFollowUp = false;
+        _followUpError = 'Follow-up timed out. Retry with a shorter prompt.';
       });
     } catch (error, stackTrace) {
       if (!mounted) return;
@@ -248,12 +244,15 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(extendedDomainBootstrapProvider);
     final smartModel = ref.watch(smartCoachScreenModelProvider).asData?.value;
     final String modelCoachMessage = smartModel?.decision.coachMessage ?? '';
     final String effectiveCoachMessage =
         (_coachingMessage?.trim().isNotEmpty ?? false)
         ? _coachingMessage!
-        : modelCoachMessage;
+        : (modelCoachMessage.trim().isNotEmpty
+              ? modelCoachMessage
+              : 'Stabilize scope and execute one focused action now.');
     final bool hasCoachMessage = effectiveCoachMessage.trim().isNotEmpty;
     final double keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return AnimatedSystemBackground(
@@ -283,43 +282,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     const _QuickNavRow(),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: _openQuickTaskCreator,
-                      child: const Text('CREATE TASK'),
+                      onPressed: () =>
+                          ref.read(appFlowProvider.notifier).toCreator(),
+                      child: const Text('OPEN CREATOR TO MAKE TASK'),
                     ),
-                    if (_quickTaskOpen) ...[
-                      const SizedBox(height: 12),
-                      _CoachPanel(
-                        label: 'QUICK TASK CREATOR',
-                        accentColor: AppColors.neonCyan,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            TextField(
-                              controller: _quickTaskController,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                              ),
-                              decoration: const InputDecoration(
-                                hintText: 'Task title',
-                                hintStyle: TextStyle(color: Colors.white38),
-                                filled: true,
-                                fillColor: Color(0xFF1A2440),
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: ElevatedButton(
-                                onPressed: _submitQuickTask,
-                                child: const Text('ADD'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: 14),
                     _CoachPanel(
                       label: 'ENERGY',
@@ -372,6 +338,8 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                         },
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    const _InsightCheatSheet(),
                     const SizedBox(height: 20),
                     TutorialTarget(
                       id: 'home.start_focus_button',
@@ -407,10 +375,17 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Row(
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
                               children: [
                                 _VoiceButton(message: effectiveCoachMessage),
-                                const SizedBox(width: 10),
+                                _VoiceSummaryButton(
+                                  headline: effectiveCoachMessage,
+                                  energy: _energy,
+                                  emotion: _emotion,
+                                ),
+                                const _VoiceAccessibilityButton(),
                                 const _MicButton(),
                               ],
                             ),
@@ -538,6 +513,31 @@ class _Exchange {
   const _Exchange({required this.question, required this.answer});
   final String question;
   final String answer;
+}
+
+class _InsightCheatSheet extends StatelessWidget {
+  const _InsightCheatSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: const Text(
+        'Get Insight cheat sheet:\n'
+        '• One topic: lose weight, tired, stressed, sleep, nutrition, exercise, productivity, goals\n'
+        '• One feeling: drained, anxious, stuck, unmotivated\n'
+        '• One detail: sleep, food, deadlines, workouts, or what keeps failing\n\n'
+        'Examples: “I’m tired”, “lose weight”, “stressed about work”, “what should I do next?”',
+        style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+      ),
+    );
+  }
 }
 
 class _FollowUpBar extends StatelessWidget {
@@ -799,6 +799,153 @@ class _VoiceButton extends ConsumerWidget {
   }
 }
 
+class _VoiceSummaryButton extends ConsumerWidget {
+  const _VoiceSummaryButton({
+    required this.headline,
+    required this.energy,
+    required this.emotion,
+  });
+
+  final String headline;
+  final double energy;
+  final EmotionalState emotion;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () => unawaited(
+        ref
+            .read(voiceServiceProvider)
+            .speakSummary(
+              title: 'Smart Coach voice summary',
+              points: <String>[
+                'Energy is ${(energy * 100).round()} percent',
+                'Emotion state is ${emotion.name}',
+                headline,
+              ],
+            ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.neonCyan.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.45)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.summarize_rounded, color: AppColors.neonCyan, size: 15),
+            SizedBox(width: 6),
+            Text(
+              'SUMMARY',
+              style: TextStyle(
+                color: AppColors.neonCyan,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VoiceAccessibilityButton extends ConsumerWidget {
+  const _VoiceAccessibilityButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: const Color(0xFF0D1420),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (BuildContext context) {
+            return const SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Accessibility Guide',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'A11Y means accessibility. Use these controls for easier reading and audio guidance.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+        unawaited(
+          ref
+              .read(voiceServiceProvider)
+              .speakAccessibilityHint(
+                surface: 'Smart Coach',
+                controls: const <String>[
+                  'Adjust energy slider to set intensity',
+                  'Select emotional state to tune guidance',
+                  'Use get insight to generate coaching',
+                  'Use speak button to read the latest insight aloud',
+                  'Use summary button for condensed voice recap',
+                  'Use microphone button for voice interactions',
+                ],
+              ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.accessibility_new_rounded,
+              color: Colors.white70,
+              size: 15,
+            ),
+            SizedBox(width: 5),
+            Text(
+              'ACCESS',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MicButton extends ConsumerWidget {
   const _MicButton();
 
@@ -807,11 +954,21 @@ class _MicButton extends ConsumerWidget {
     final VoiceState voice = ref.watch(voiceControllerProvider);
     final bool listening = voice.isListening;
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
         if (listening) {
-          ref.read(voiceControllerProvider.notifier).stopListening();
+          await ref.read(voiceControllerProvider.notifier).stopListening();
         } else {
-          ref.read(voiceControllerProvider.notifier).startListening();
+          await ref.read(settingsUiActionsProvider).requestVoicePermission();
+          await ref.read(voiceControllerProvider.notifier).startListening();
+          if (!context.mounted) {
+            return;
+          }
+          final String message =
+              ref.read(voiceControllerProvider).error ??
+              'Voice input is not available in this build. First step: type your request in Focus Context and tap GET INSIGHT.';
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
         }
       },
       child: Container(

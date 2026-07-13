@@ -32,7 +32,8 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         tasksProvider.overrideWith(
-          (Ref ref) => Future<List<Task>>.error(StateError('task stream failed')),
+          (Ref ref) =>
+              Future<List<Task>>.error(StateError('task stream failed')),
         ),
       ],
     );
@@ -70,7 +71,10 @@ void main() {
     await tester.pump();
 
     expect(find.text('NO PLAN YET'), findsOneWidget);
-    expect(find.text('Add tasks to generate your daily schedule'), findsOneWidget);
+    expect(
+      find.text('Add tasks to generate your daily schedule'),
+      findsOneWidget,
+    );
   });
 }
 

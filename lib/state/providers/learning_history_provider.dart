@@ -4,6 +4,16 @@ import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+class LearningHistorySnapshot {
+  const LearningHistorySnapshot({
+    required this.timestamp,
+    required this.completed,
+  });
+
+  final DateTime timestamp;
+  final int completed;
+}
+
 final learningHistoryProvider =
     NotifierProvider<LearningHistoryController, List<LearningHistoryEntry>>(
       LearningHistoryController.new,
@@ -17,6 +27,21 @@ final learningMetricsProvider = Provider<LearningMetrics>((ref) {
     history: history,
   );
 });
+
+final learningHistorySnapshotsProvider =
+    Provider<List<LearningHistorySnapshot>>((ref) {
+      final List<LearningHistoryEntry> history = ref.watch(
+        learningHistoryProvider,
+      );
+      return history
+          .map(
+            (entry) => LearningHistorySnapshot(
+              timestamp: entry.timestamp,
+              completed: entry.completed,
+            ),
+          )
+          .toList(growable: false);
+    });
 
 class LearningHistoryController extends Notifier<List<LearningHistoryEntry>> {
   @override

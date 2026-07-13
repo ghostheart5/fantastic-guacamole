@@ -8,7 +8,11 @@ void main() {
     test('removes task by id', () async {
       final _FakeTaskRepository repository = _FakeTaskRepository();
       await repository.saveTask(
-        TaskEntity(id: 'task-1', title: 'Delete me', createdAt: DateTime.utc(2026, 7, 5)),
+        TaskEntity(
+          id: 'task-1',
+          title: 'Delete me',
+          createdAt: DateTime.utc(2026, 7, 5),
+        ),
       );
 
       await DeleteTask(repository).call('task-1');
@@ -19,7 +23,10 @@ void main() {
     test('missing id returns safe failure behavior', () async {
       final _FakeTaskRepository repository = _FakeTaskRepository();
 
-      await expectLater(DeleteTask(repository).call('missing-task-id'), completes);
+      await expectLater(
+        DeleteTask(repository).call('missing-task-id'),
+        completes,
+      );
       expect(await repository.getTaskById('missing-task-id'), isNull);
     });
   });

@@ -7,13 +7,19 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets('opens without provider crash', (WidgetTester tester) async {
-    final ValueNotifier<bool?> permissionListenable = ValueNotifier<bool?>(true);
+    final ValueNotifier<bool?> permissionListenable = ValueNotifier<bool?>(
+      true,
+    );
     addTearDown(permissionListenable.dispose);
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
-        settingsUiActionsProvider.overrideWith((Ref ref) => _FakeSettingsUiActions(ref)),
-        notificationPermissionListenableProvider.overrideWithValue(permissionListenable),
+        settingsUiActionsProvider.overrideWith(
+          (Ref ref) => _FakeSettingsUiActions(ref),
+        ),
+        notificationPermissionListenableProvider.overrideWithValue(
+          permissionListenable,
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -37,7 +43,10 @@ class _FakeSettingsUiActions extends SettingsUiActions {
 
   @override
   ReflectionReminderPrefs loadReflectionReminderPrefs() {
-    return const ReflectionReminderPrefs(enabled: false, time: TimeOfDay(hour: 20, minute: 0));
+    return const ReflectionReminderPrefs(
+      enabled: false,
+      time: TimeOfDay(hour: 20, minute: 0),
+    );
   }
 
   @override

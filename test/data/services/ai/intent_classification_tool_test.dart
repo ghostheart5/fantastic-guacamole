@@ -6,15 +6,15 @@ void main() {
     test('routes core intents with bounded confidence', () async {
       const IntentClassificationTool tool = IntentClassificationTool();
 
-      final Map<String, dynamic> planning = await tool.run(const <String, dynamic>{
-        'text': 'Please plan my week',
-      });
-      final Map<String, dynamic> reminder = await tool.run(const <String, dynamic>{
-        'text': 'Remind me tomorrow at 9',
-      });
-      final Map<String, dynamic> research = await tool.run(const <String, dynamic>{
-        'text': 'Research this API change',
-      });
+      final Map<String, dynamic> planning = await tool.run(
+        const <String, dynamic>{'text': 'Please plan my week'},
+      );
+      final Map<String, dynamic> reminder = await tool.run(
+        const <String, dynamic>{'text': 'Remind me tomorrow at 9'},
+      );
+      final Map<String, dynamic> research = await tool.run(
+        const <String, dynamic>{'text': 'Research this API change'},
+      );
       final Map<String, dynamic> chat = await tool.run(const <String, dynamic>{
         'text': 'hello there',
       });
@@ -30,7 +30,10 @@ void main() {
         research,
         chat,
       ]) {
-        expect((result['confidence'] as num).toDouble(), inInclusiveRange(0.0, 1.0));
+        expect(
+          (result['confidence'] as num).toDouble(),
+          inInclusiveRange(0.0, 1.0),
+        );
       }
     });
   });

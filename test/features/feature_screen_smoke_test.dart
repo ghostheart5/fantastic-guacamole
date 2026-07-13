@@ -15,14 +15,17 @@ import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/soul_map/ui/soul_map_screen.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
+import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/insight_model.dart';
 import 'package:fantastic_guacamole/state/models/insights_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
+import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
@@ -32,9 +35,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('TimelineScreen renders grouped events', (WidgetTester tester) async {
+  testWidgets('TimelineScreen renders grouped events', (
+    WidgetTester tester,
+  ) async {
     final ProviderContainer container = ProviderContainer(
-      overrides: [timelineProvider.overrideWith(_StaticTimelineNotifier.new)],
+      overrides: [
+        timelineProvider.overrideWith(_StaticTimelineNotifier.new),
+        goalsProvider.overrideWith(_StaticGoalsNotifier.new),
+      ],
     );
     addTearDown(container.dispose);
 
@@ -50,12 +58,18 @@ void main() {
     expect(find.text('Completed sprint review'), findsOneWidget);
   });
 
-  testWidgets('FlowmapScreen renders nodes from the legacy read path', (WidgetTester tester) async {
+  testWidgets('FlowmapScreen renders nodes from the legacy read path', (
+    WidgetTester tester,
+  ) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         flowmapProvider.overrideWith(_StaticFlowmapController.new),
-        featureFlowmapGraphProvider.overrideWith(_StaticFeatureFlowmapGraphController.new),
-        featureFlagEnabledProvider('flowmap_feature_read_path').overrideWith((Ref ref) => false),
+        featureFlowmapGraphProvider.overrideWith(
+          _StaticFeatureFlowmapGraphController.new,
+        ),
+        featureFlagEnabledProvider(
+          'flowmap_feature_read_path',
+        ).overrideWith((Ref ref) => false),
       ],
     );
     addTearDown(container.dispose);
@@ -72,7 +86,9 @@ void main() {
     expect(find.text('Priority Graph'), findsOneWidget);
   });
 
-  testWidgets('MemoriesScreen renders starred memories first', (WidgetTester tester) async {
+  testWidgets('MemoriesScreen renders starred memories first', (
+    WidgetTester tester,
+  ) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [memoriesProvider.overrideWith(_StaticMemoriesNotifier.new)],
     );
@@ -90,9 +106,12 @@ void main() {
     expect(find.text('Saved the best insight from today'), findsOneWidget);
   });
 
-  testWidgets('SoulMapScreen renders strongest dimensions summary', (WidgetTester tester) async {
+  testWidgets('SoulMapScreen renders strongest dimensions summary', (
+    WidgetTester tester,
+  ) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        goalsProvider.overrideWith(_StaticGoalsNotifier.new),
         soulStateProvider.overrideWithValue(
           const SoulState(
             continuity: 0.88,
@@ -116,10 +135,12 @@ void main() {
     await tester.pump();
 
     expect(find.text('SOUL MAP'), findsOneWidget);
-    expect(find.text('STRONGEST DIMENSIONS'), findsOneWidget);
+    expect(find.text('SOULMAP ANALYSIS'), findsOneWidget);
   });
 
-  testWidgets('NexusScreen renders with a supplied screen model', (WidgetTester tester) async {
+  testWidgets('NexusScreen renders with a supplied screen model', (
+    WidgetTester tester,
+  ) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         nexusScreenModelProvider.overrideWith((Ref ref) async => _nexusModel),
@@ -138,8 +159,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('NEXUS'), findsOneWidget);
-    expect(find.text('Compounding Momentum'), findsOneWidget);
+    expect(find.text('ADAPTIVE LOGIC CORE'), findsOneWidget);
   });
+}
+
+class _StaticGoalsNotifier extends GoalsNotifier {
+  @override
+  List<GoalEntity> build() => const <GoalEntity>[];
 }
 
 class _StaticTimelineNotifier extends TimelineNotifier {
@@ -167,11 +193,14 @@ class _StaticFlowmapController extends FlowmapController {
   ]);
 }
 
-class _StaticFeatureFlowmapGraphController extends FeatureFlowmapGraphController {
+class _StaticFeatureFlowmapGraphController
+    extends FeatureFlowmapGraphController {
   @override
   AsyncValue<FlowmapGraphEntity> build() => const AsyncValue.data(
     FlowmapGraphEntity(
-      nodes: <FlowmapNodeEntity>[FlowmapNodeEntity(id: 'feature-node-1', title: 'Priority Graph')],
+      nodes: <FlowmapNodeEntity>[
+        FlowmapNodeEntity(id: 'feature-node-1', title: 'Priority Graph'),
+      ],
     ),
   );
 }
@@ -195,8 +224,13 @@ class _StaticMemoriesNotifier extends MemoriesNotifier {
 
 class _StaticProfileController extends ProfileController {
   @override
-  ProfileState build() =>
-      ProfileState(xp: 460, level: 10, streak: 21, longestStreak: 21, name: 'Operative');
+  ProfileState build() => ProfileState(
+    xp: 460,
+    level: 10,
+    streak: 21,
+    longestStreak: 21,
+    name: 'Operative',
+  );
 }
 
 const TrajectorySummaryView _trajectory = TrajectorySummaryView(
@@ -223,7 +257,11 @@ final NexusScreenModel _nexusModel = NexusScreenModel(
   aggregation: SIStateAggregation(
     tasks: const <Task>[],
     goals: const <GoalEntity>[],
-    insights: const InsightsBundle(items: <Insight>[], summary: 'Stable', healthScore: 0.76),
+    insights: const InsightsBundle(
+      items: <Insight>[],
+      summary: 'Stable',
+      healthScore: 0.76,
+    ),
     flowmapNodes: const <FlowmapNode>[],
     logs: const <LogEntryEntity>[],
     timeline: const <TimelineEventEntity>[],
@@ -243,6 +281,21 @@ final NexusScreenModel _nexusModel = NexusScreenModel(
       emotionalStrain: false,
       emotionalStability: true,
       emotionalPatterns: <String>['steady'],
+    ),
+    coreValues: const CoreValuesAlignment(
+      scores: <CoreValueType, CoreValueScore>{},
+      overall: 70,
+      strongest: CoreValueType.discipline,
+      mostNeglected: CoreValueType.connection,
+      recommendations: <String>[],
+      selectedValues: <String>{'Discipline', 'Purpose'},
+    ),
+    soulMap: const SoulMapAlignment(
+      scores: <SoulMapDimension, SoulMapDimensionScore>{},
+      overall: 72,
+      strongest: SoulMapDimension.purpose,
+      weakest: SoulMapDimension.growthJourney,
+      recommendations: <String>[],
     ),
   ),
   decision: const SIDecisionOutput(

@@ -4,8 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('captures error and renders fallback with retry', (WidgetTester tester) async {
-    await tester.pumpWidget(const MaterialApp(home: ErrorBoundary(child: _ErrorTriggerWidget())));
+  testWidgets('captures error and renders fallback with retry', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: ErrorBoundary(child: _ErrorTriggerWidget())),
+    );
 
     expect(find.text('child-ready'), findsOneWidget);
 

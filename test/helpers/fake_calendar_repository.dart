@@ -4,7 +4,8 @@ import 'package:fantastic_guacamole/domain/interfaces/i_calendar_repository.dart
 class FakeCalendarRepository implements ICalendarRepository {
   FakeCalendarRepository([List<CalendarEntryEntity>? seed])
     : _entries = <String, CalendarEntryEntity>{
-        for (final CalendarEntryEntity entry in (seed ?? const <CalendarEntryEntity>[]))
+        for (final CalendarEntryEntity entry
+            in (seed ?? const <CalendarEntryEntity>[]))
           entry.id: entry,
       };
 

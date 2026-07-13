@@ -29,23 +29,26 @@ void main() {
       expect(NotificationPolicy.canSchedule(notification, now: now), isFalse);
     });
 
-    test('canSchedule returns false when scheduledAt is now or in the past', () {
-      final atNow = NotificationEntity(
-        id: 'n3',
-        title: 'Now',
-        message: 'Edge case',
-        scheduledAt: now,
-      );
-      final inPast = NotificationEntity(
-        id: 'n4',
-        title: 'Past',
-        message: 'Too late',
-        scheduledAt: now.subtract(const Duration(seconds: 1)),
-      );
+    test(
+      'canSchedule returns false when scheduledAt is now or in the past',
+      () {
+        final atNow = NotificationEntity(
+          id: 'n3',
+          title: 'Now',
+          message: 'Edge case',
+          scheduledAt: now,
+        );
+        final inPast = NotificationEntity(
+          id: 'n4',
+          title: 'Past',
+          message: 'Too late',
+          scheduledAt: now.subtract(const Duration(seconds: 1)),
+        );
 
-      expect(NotificationPolicy.canSchedule(atNow, now: now), isFalse);
-      expect(NotificationPolicy.canSchedule(inPast, now: now), isFalse);
-    });
+        expect(NotificationPolicy.canSchedule(atNow, now: now), isFalse);
+        expect(NotificationPolicy.canSchedule(inPast, now: now), isFalse);
+      },
+    );
 
     test('canSchedule uses current time when now argument is omitted', () {
       final notification = NotificationEntity(

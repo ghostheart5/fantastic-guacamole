@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/domain/usecases/restore_purchases.dart';
 import 'package:fantastic_guacamole/domain/usecases/start_subscription.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -52,6 +53,9 @@ final paywallSubscriptionProvider = FutureProvider<SubscriptionState>((
 
 final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
   final bool aiProxyConfigured = Env.isAiProxyConfigured;
+  final RemotePaywallConfig remoteConfig = await ref.read(
+    remotePaywallConfigProvider.future,
+  );
   final List<PaywallPlan> plans = await ref
       .read(getAvailablePlansUseCaseProvider)
       .call();
@@ -60,12 +64,16 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
       .getUserSubscriptionState();
   return PaywallEntity(
     featureId: 'premium',
-    title: subscription.isTesting
+    title: remoteConfig.hasTitleOverride
+        ? remoteConfig.titleOverride
+        : subscription.isTesting
         ? 'Unlocked for testing'
         : (aiProxyConfigured
               ? 'AI Credits + Premium'
               : 'Smart Credits + Premium'),
-    body: subscription.isTesting
+    body: remoteConfig.hasBodyOverride
+        ? remoteConfig.bodyOverride
+        : subscription.isTesting
         ? 'Premium gates are bypassed in this build.'
         : (aiProxyConfigured
               ? 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.'
@@ -118,5 +126,12 @@ class PaywallPrompt {
 }
 
 final paywallEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(appAccessProvider).paywallEnabled;
+  final bool localEnabled = ref.watch(appAccessProvider).paywallEnabled;
+  final bool remoteEnabled = ref
+      .watch(remotePaywallConfigProvider)
+      .maybeWhen(
+        data: (RemotePaywallConfig config) => config.enabled,
+        orElse: () => true,
+      );
+  return localEnabled && remoteEnabled;
 });

@@ -15,6 +15,29 @@ class TutorialStepContent {
   final String ctaLabel;
 }
 
+@immutable
+class AcademyLesson {
+  const AcademyLesson({required this.title});
+
+  final String title;
+}
+
+@immutable
+class AcademyTrack {
+  const AcademyTrack({required this.title, required this.lessons});
+
+  final String title;
+  final List<AcademyLesson> lessons;
+}
+
+@immutable
+class FirstWeekJourneyDay {
+  const FirstWeekJourneyDay({required this.day, required this.goal});
+
+  final String day;
+  final String goal;
+}
+
 class TutorialContent {
   const TutorialContent._();
 
@@ -127,6 +150,57 @@ class TutorialContent {
       ctaLabel: 'OPEN TIMELINE',
     ),
   ];
+
+  static const List<AcademyTrack> academyTracks = <AcademyTrack>[
+    AcademyTrack(
+      title: 'Getting Started',
+      lessons: <AcademyLesson>[
+        AcademyLesson(title: 'Creating Goals'),
+        AcademyLesson(title: 'Planning Days'),
+        AcademyLesson(title: 'Habits'),
+        AcademyLesson(title: 'Streaks'),
+      ],
+    ),
+    AcademyTrack(
+      title: 'Growth',
+      lessons: <AcademyLesson>[
+        AcademyLesson(title: 'Milestones'),
+        AcademyLesson(title: 'Timelines'),
+        AcademyLesson(title: 'Core Values'),
+        AcademyLesson(title: 'Vision Building'),
+      ],
+    ),
+    AcademyTrack(
+      title: 'Intelligence',
+      lessons: <AcademyLesson>[
+        AcademyLesson(title: 'Smart Coach'),
+        AcademyLesson(title: 'Recommendations'),
+        AcademyLesson(title: 'Analytics'),
+      ],
+    ),
+    AcademyTrack(
+      title: 'Mastery',
+      lessons: <AcademyLesson>[
+        AcademyLesson(title: 'Long-term planning'),
+        AcademyLesson(title: 'Life systems'),
+        AcademyLesson(title: 'Identity building'),
+      ],
+    ),
+  ];
+
+  static const List<FirstWeekJourneyDay> firstWeekJourney =
+      <FirstWeekJourneyDay>[
+        FirstWeekJourneyDay(day: 'Day 1', goal: 'Create your first goal.'),
+        FirstWeekJourneyDay(day: 'Day 2', goal: 'Build a habit.'),
+        FirstWeekJourneyDay(day: 'Day 3', goal: 'Define milestones.'),
+        FirstWeekJourneyDay(day: 'Day 4', goal: 'Review progress.'),
+        FirstWeekJourneyDay(day: 'Day 5', goal: 'Use your SI Coach.'),
+        FirstWeekJourneyDay(day: 'Day 6', goal: 'Reflect on wins.'),
+        FirstWeekJourneyDay(
+          day: 'Day 7',
+          goal: 'Complete your first weekly review.',
+        ),
+      ];
 
   static const Map<String, String> contextualHints = {
     'nexus':

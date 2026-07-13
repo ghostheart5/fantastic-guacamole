@@ -2,10 +2,11 @@ import 'package:fantastic_guacamole/app/navigation_shell.dart';
 import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
+import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
-import 'package:fantastic_guacamole/onboarding/onboarding_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     hide authenticatedGuardProvider;
@@ -52,9 +53,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       final bool isAuthenticated = refresh.isAuthenticated;
       final bool onboardingComplete = refresh.onboardingComplete;
+      final bool mockLoginEnabled = ref
+          .read(intelligenceStateProvider)
+          .flags
+          .mockLoginEnabled;
       final String location = state.matchedLocation;
 
       if (!onboardingComplete && location != RoutePaths.onboarding) {
+        if (mockLoginEnabled && location == RoutePaths.login) {
+          return null;
+        }
         return RoutePaths.onboarding;
       }
 
@@ -63,11 +71,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (location == RoutePaths.onboarding) {
-        if (isAuthenticated) {
-          return RoutePaths.home;
-        }
         if (!onboardingComplete) {
           return null;
+        }
+        if (isAuthenticated) {
+          return RoutePaths.home;
         }
         return RoutePaths.login;
       }
@@ -78,7 +86,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return RoutePaths.login;
       }
 
-      if (location == RoutePaths.login && !onboardingComplete) {
+      if (location == RoutePaths.login &&
+          !onboardingComplete &&
+          !mockLoginEnabled) {
         return RoutePaths.onboarding;
       }
 
@@ -152,6 +162,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (BuildContext context, GoRouterState state) =>
             const NavigationShell(initialView: AppView.console),
       ),
+      GoRoute(
+        path: RoutePaths.advisor,
+        builder: (BuildContext context, GoRouterState state) =>
+            const ProductAdvisorScreen(),
+      ),
 
       // Legacy top-level routes redirect into the secondary hierarchy.
       // Sunset target is tracked in docs/LEGACY_ROUTE_SUNSET.md and reviewed by 2026-10-01.
@@ -184,9 +199,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final intelligence = ref.read(intelligenceStateProvider);
           final mockLoginConfig = ref.read(mockLoginConfigProvider);
           return AuthGate(
-            enableMockLogin: intelligence.flags.mockLoginEnabled,
+            enableMockLogin:
+                intelligence.flags.mockLoginEnabled ||
+                intelligence.flags.testerFullAccess,
             mockLoginEmail: mockLoginConfig.email,
             mockLoginPassword: mockLoginConfig.password,
+            deepLinkMode: state.uri.queryParameters['mode'],
             child: const NavigationShell(),
           );
         },

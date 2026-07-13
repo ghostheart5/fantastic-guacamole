@@ -10,6 +10,7 @@ class TimeBlockWidget extends StatelessWidget {
     required this.end,
     required this.accent,
     this.completed = false,
+    this.isCompleting = false,
     this.onCompleteTask,
   });
 
@@ -19,6 +20,7 @@ class TimeBlockWidget extends StatelessWidget {
   final String end;
   final Color accent;
   final bool completed;
+  final bool isCompleting;
   final Future<void> Function(String taskId)? onCompleteTask;
 
   @override
@@ -70,17 +72,31 @@ class TimeBlockWidget extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               if (onCompleteTask != null && !completed)
-                GestureDetector(
-                  onTap: () => onCompleteTask!(taskId),
-                  child: Text(
-                    'COMPLETE',
-                    style: TextStyle(
-                      fontSize: 10,
-                      letterSpacing: 1.3,
-                      color: accent,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: isCompleting
+                      ? SizedBox(
+                          key: const ValueKey<String>('completing'),
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(accent),
+                          ),
+                        )
+                      : GestureDetector(
+                          key: const ValueKey<String>('idle'),
+                          onTap: () => onCompleteTask!(taskId),
+                          child: Text(
+                            'COMPLETE',
+                            style: TextStyle(
+                              fontSize: 10,
+                              letterSpacing: 1.3,
+                              color: accent,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                 )
               else if (completed)
                 const Text(

@@ -1,6 +1,8 @@
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/profile/ui/widgets/profile_header.dart';
 import 'package:fantastic_guacamole/features/profile/ui/widgets/stats_card.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/profile_view_state.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
@@ -8,9 +10,12 @@ import 'package:fantastic_guacamole/state/providers/profile_provider.dart';
 import 'package:fantastic_guacamole/state/providers/profile_values_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -32,6 +37,44 @@ class ProfileScreen extends ConsumerWidget {
 class _ProfileBody extends ConsumerWidget {
   const _ProfileBody({required this.state});
   final ProfileViewState state;
+
+  Future<void> _inviteFriends(
+    BuildContext context,
+    ProfileViewState state,
+  ) async {
+    final String text =
+        'I am using ChronoSpark to run my goals, progression, and focus system.\n'
+        'Join me: ${AppUrls.website}\n'
+        'Current streak: ${state.profile.streak}d | Level ${state.profile.level}';
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: text,
+          title: 'Join me on ChronoSpark',
+          subject: 'Invite to ChronoSpark',
+        ),
+      );
+      AppAnalytics.track(
+        'invite_friends_shared',
+        params: <String, Object?>{'method': 'share_sheet'},
+      );
+      return;
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: text));
+      AppAnalytics.track(
+        'invite_friends_shared',
+        params: <String, Object?>{'method': 'clipboard_fallback'},
+      );
+    }
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Share sheet unavailable. Invite copied to clipboard.'),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -90,6 +133,7 @@ class _ProfileBody extends ConsumerWidget {
         _NavButtons(
           onTimeline: () => ref.read(appFlowProvider.notifier).toTimeline(),
           onProgression: actions.openProgression,
+          onInviteFriends: () => _inviteFriends(context, state),
         ),
       ],
     );
@@ -243,43 +287,20 @@ class _IdentityBar extends StatelessWidget {
   }
 }
 
-class _ValuesCard extends ConsumerStatefulWidget {
+class _ValuesCard extends ConsumerWidget {
   const _ValuesCard();
 
-  @override
-  ConsumerState<_ValuesCard> createState() => _ValuesCardState();
-}
-
-class _ValuesCardState extends ConsumerState<_ValuesCard> {
-  static const _allValues = [
-    'Discipline',
-    'Growth',
-    'Clarity',
-    'Resilience',
-    'Creativity',
-    'Connection',
-  ];
-  Set<String> _selected = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = ref.read(profileValuesStoreProvider).load();
-  }
-
-  Future<void> _toggle(String value) async {
-    setState(() {
-      if (_selected.contains(value)) {
-        _selected = Set.from(_selected)..remove(value);
-      } else {
-        _selected = Set.from(_selected)..add(value);
-      }
-    });
-    await ref.read(profileValuesStoreProvider).save(_selected);
+  Future<void> _toggle(WidgetRef ref, String value) {
+    return ref.read(profileValuesProvider.notifier).toggle(value);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final Set<String> selected = ref.watch(profileValuesProvider);
+    final CoreValuesAlignment alignment = ref.watch(
+      coreValuesAlignmentProvider,
+    );
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -313,14 +334,25 @@ class _ValuesCardState extends ConsumerState<_ValuesCard> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          Text(
+            'Alignment ${alignment.overall}% · Strongest ${coreValueTitle(alignment.strongest)} · Needs focus ${coreValueTitle(alignment.mostNeglected)}',
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
           const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _allValues.map((v) {
-              final sel = _selected.contains(v);
+            children: CoreValueType.values.map((CoreValueType value) {
+              final String title = coreValueTitle(value);
+              final bool sel = selected.contains(title);
+              final int score = alignment.scores[value]?.score ?? 0;
               return GestureDetector(
-                onTap: () => _toggle(v),
+                onTap: () => _toggle(ref, title),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(
@@ -339,7 +371,7 @@ class _ValuesCardState extends ConsumerState<_ValuesCard> {
                     ),
                   ),
                   child: Text(
-                    v,
+                    '$title $score%',
                     style: TextStyle(
                       color: sel ? AppColors.neonCyan : Colors.white54,
                       fontSize: 12,
@@ -350,6 +382,59 @@ class _ValuesCardState extends ConsumerState<_ValuesCard> {
               );
             }).toList(),
           ),
+          const SizedBox(height: 12),
+          ...CoreValueType.values
+              .where((CoreValueType value) {
+                return selected.contains(coreValueTitle(value));
+              })
+              .map((CoreValueType value) {
+                final CoreValueDefinition definition =
+                    coreValueDefinitions[value]!;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          definition.title,
+                          style: const TextStyle(
+                            color: AppColors.neonCyan,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          definition.definition,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Guiding question: ${definition.guidingQuestion}',
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
         ],
       ),
     );
@@ -357,30 +442,46 @@ class _ValuesCardState extends ConsumerState<_ValuesCard> {
 }
 
 class _NavButtons extends StatelessWidget {
-  const _NavButtons({required this.onTimeline, required this.onProgression});
+  const _NavButtons({
+    required this.onTimeline,
+    required this.onProgression,
+    required this.onInviteFriends,
+  });
   final VoidCallback onTimeline;
   final VoidCallback onProgression;
+  final VoidCallback onInviteFriends;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _NavBtn(
-            label: 'TIMELINE OPS',
-            icon: Icons.timeline_rounded,
-            color: AppColors.neonViolet,
-            onTap: onTimeline,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _NavBtn(
+                label: 'TIMELINE OPS',
+                icon: Icons.timeline_rounded,
+                color: AppColors.neonViolet,
+                onTap: onTimeline,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _NavBtn(
+                label: 'PROGRESSION INTEL',
+                icon: Icons.bolt,
+                color: AppColors.memoryAmber,
+                onTap: onProgression,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _NavBtn(
-            label: 'PROGRESSION INTEL',
-            icon: Icons.bolt,
-            color: AppColors.memoryAmber,
-            onTap: onProgression,
-          ),
+        const SizedBox(height: 10),
+        _NavBtn(
+          label: 'INVITE FRIENDS',
+          icon: Icons.group_add_rounded,
+          color: AppColors.neonCyan,
+          onTap: onInviteFriends,
         ),
       ],
     );

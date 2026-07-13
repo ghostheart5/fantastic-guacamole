@@ -7,7 +7,9 @@ import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
+import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/insights_models.dart';
+import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 
 class SISignalExtraction {
@@ -49,6 +51,8 @@ class SIStateAggregation {
     required this.siState,
     required this.trajectory,
     required this.signals,
+    required this.coreValues,
+    required this.soulMap,
   });
 
   final List<Task> tasks;
@@ -64,6 +68,8 @@ class SIStateAggregation {
   final SIState siState;
   final TrajectorySummaryView trajectory;
   final SISignalExtraction signals;
+  final CoreValuesAlignment coreValues;
+  final SoulMapAlignment soulMap;
 }
 
 class SIDecisionOutput {

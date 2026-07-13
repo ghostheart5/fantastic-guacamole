@@ -47,7 +47,10 @@ void main() {
     final ProviderContainer container = _buildTaskContainer(repository);
     addTearDown(container.dispose);
 
-    await expectLater(container.read(tasksProvider.future), throwsA(isA<StateError>()));
+    await expectLater(
+      container.read(tasksProvider.future),
+      throwsA(isA<StateError>()),
+    );
   });
 
   test('createQuickTask ignores blank titles', () async {
@@ -65,7 +68,9 @@ void main() {
     final ProviderContainer container = _buildTaskContainer(repository);
     addTearDown(container.dispose);
 
-    await container.read(taskActionsProvider).createQuickTask('  Launch prep  ');
+    await container
+        .read(taskActionsProvider)
+        .createQuickTask('  Launch prep  ');
 
     final List<Task> tasks = await container.read(tasksProvider.future);
     expect(repository.saved, hasLength(1));
@@ -93,7 +98,9 @@ void main() {
     addTearDown(container.dispose);
 
     expect(await container.read(tasksProvider.future), hasLength(1));
-    await container.read(taskActionsProvider).completeTask('task-1', notify: false);
+    await container
+        .read(taskActionsProvider)
+        .completeTask('task-1', notify: false);
 
     final TaskEntity? stored = await repository.getTaskById('task-1');
     expect(stored?.isCompleted, isTrue);
@@ -104,45 +111,60 @@ void main() {
     expect(container.read(siStateProvider).completedToday, 1);
   });
 
-  test('complete task recovers task details from repository when provider list is stale', () async {
-    final _MemoryTaskRepository repository = _MemoryTaskRepository();
-    final TaskEntity seed = TaskEntity(
-      id: 'task-stale',
-      title: 'Recover score context',
-      createdAt: DateTime.utc(2026, 7, 6),
-      difficulty: 3,
-      priority: 4,
-      energyRequired: 3,
-    );
-    await repository.saveTask(seed);
+  test(
+    'complete task recovers task details from repository when provider list is stale',
+    () async {
+      final _MemoryTaskRepository repository = _MemoryTaskRepository();
+      final TaskEntity seed = TaskEntity(
+        id: 'task-stale',
+        title: 'Recover score context',
+        createdAt: DateTime.utc(2026, 7, 6),
+        difficulty: 3,
+        priority: 4,
+        energyRequired: 3,
+      );
+      await repository.saveTask(seed);
 
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        secureStoreProvider.overrideWithValue(SecureStore(backend: InMemorySecureStoreBackend())),
-        tasksProvider.overrideWith((Ref ref) async => const <Task>[]),
-        domainTaskRepositoryProvider.overrideWithValue(repository),
-        completeTaskUseCaseProvider.overrideWithValue(CompleteTask(repository)),
-        optimizationConfigProvider.overrideWith((Ref ref) async => OptimizationConfig.neutral()),
-        learningProvider.overrideWith(_FixedLearningController.new),
-        profileProvider.overrideWith(_TestProfileController.new),
-        siStateProvider.overrideWith(_FixedSiStateController.new),
-      ],
-    );
-    addTearDown(container.dispose);
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          secureStoreProvider.overrideWithValue(
+            SecureStore(backend: InMemorySecureStoreBackend()),
+          ),
+          tasksProvider.overrideWith((Ref ref) async => const <Task>[]),
+          domainTaskRepositoryProvider.overrideWithValue(repository),
+          completeTaskUseCaseProvider.overrideWithValue(
+            CompleteTask(repository),
+          ),
+          optimizationConfigProvider.overrideWith(
+            (Ref ref) async => OptimizationConfig.neutral(),
+          ),
+          learningProvider.overrideWith(_FixedLearningController.new),
+          profileProvider.overrideWith(_TestProfileController.new),
+          siStateProvider.overrideWith(_FixedSiStateController.new),
+        ],
+      );
+      addTearDown(container.dispose);
 
-    await container.read(taskActionsProvider).completeTask('task-stale', notify: false);
+      await container
+          .read(taskActionsProvider)
+          .completeTask('task-stale', notify: false);
 
-    final TaskEntity? stored = await repository.getTaskById('task-stale');
-    expect(stored?.isCompleted, isTrue);
-    final score = container.read(sessionScoreProvider);
-    expect(score, isNotNull);
-    expect(score!.xp, greaterThan(0));
-  });
+      final TaskEntity? stored = await repository.getTaskById('task-stale');
+      expect(stored?.isCompleted, isTrue);
+      final score = container.read(sessionScoreProvider);
+      expect(score, isNotNull);
+      expect(score!.xp, greaterThan(0));
+    },
+  );
 
   test('refreshing does not duplicate tasks', () async {
     final _MemoryTaskRepository repository = _MemoryTaskRepository();
     await repository.saveTask(
-      TaskEntity(id: 'task-refresh', title: 'Refresh once', createdAt: DateTime.utc(2026, 7, 5)),
+      TaskEntity(
+        id: 'task-refresh',
+        title: 'Refresh once',
+        createdAt: DateTime.utc(2026, 7, 5),
+      ),
     );
     final ProviderContainer container = _buildTaskContainer(repository);
     addTearDown(container.dispose);
@@ -160,11 +182,15 @@ void main() {
 ProviderContainer _buildTaskContainer(ITaskRepository repository) {
   return ProviderContainer(
     overrides: [
-      secureStoreProvider.overrideWithValue(SecureStore(backend: InMemorySecureStoreBackend())),
+      secureStoreProvider.overrideWithValue(
+        SecureStore(backend: InMemorySecureStoreBackend()),
+      ),
       getTasksUseCaseProvider.overrideWithValue(GetTasks(repository)),
       createTaskUseCaseProvider.overrideWithValue(CreateTask(repository)),
       completeTaskUseCaseProvider.overrideWithValue(CompleteTask(repository)),
-      optimizationConfigProvider.overrideWith((Ref ref) async => OptimizationConfig.neutral()),
+      optimizationConfigProvider.overrideWith(
+        (Ref ref) async => OptimizationConfig.neutral(),
+      ),
       learningProvider.overrideWith(_FixedLearningController.new),
       profileProvider.overrideWith(_TestProfileController.new),
       siStateProvider.overrideWith(_FixedSiStateController.new),
@@ -200,7 +226,8 @@ class _MemoryTaskRepository implements ITaskRepository {
 
 class _FixedSiStateController extends SIStateController {
   @override
-  SIState build() => const SIState(energy: 0.8, fatigue: 0.2, completedToday: 0);
+  SIState build() =>
+      const SIState(energy: 0.8, fatigue: 0.2, completedToday: 0);
 }
 
 class _FixedLearningController extends LearningController {

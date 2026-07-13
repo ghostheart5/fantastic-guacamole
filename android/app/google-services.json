@@ -12,7 +12,12 @@
           "package_name": "com.example.chronospark"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "956622397052-0et1b7b7gkndmf1knbsn6dbnuo7e9bov.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBEdXHOa-AZLTDCi97SBqD4fAvH3vdnneU"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "956622397052-0et1b7b7gkndmf1knbsn6dbnuo7e9bov.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     },
@@ -31,7 +41,12 @@
           "package_name": "com.ghostheart5.chronospark"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "956622397052-0et1b7b7gkndmf1knbsn6dbnuo7e9bov.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBEdXHOa-AZLTDCi97SBqD4fAvH3vdnneU"
@@ -39,7 +54,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "956622397052-0et1b7b7gkndmf1knbsn6dbnuo7e9bov.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

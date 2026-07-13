@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/core/utils/helpers.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -41,6 +42,28 @@ class Logger {
     }
   }
 
+  static void errorCategory(
+    String category,
+    Object? message, [
+    Object? exception,
+    StackTrace? stackTrace,
+  ]) {
+    if (errorOutputEnabled) {
+      debugPrint(
+        '[${_now()}][ERROR][$category] ${redactSensitive(safeString(message))}'
+        '${exception != null ? ' | ${redactSensitive(safeString(exception))}' : ''}',
+      );
+    }
+    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+      FirebaseCrashlytics.instance.recordError(
+        exception ?? Exception(redactSensitive(safeString(message))),
+        stackTrace,
+        reason: '$category: ${redactSensitive(safeString(message))}',
+        fatal: false,
+      );
+    }
+  }
+
   static Future<T> withMutedErrors<T>(Future<T> Function() action) async {
     final bool previous = errorOutputEnabled;
     errorOutputEnabled = false;
@@ -51,7 +74,7 @@ class Logger {
     }
   }
 
-  static String _now() => DateTime.now().toIso8601String();
+  static String _now() => DateTimeFormats.reportTimestamp(DateTime.now());
 
   static String redactSensitive(String value) {
     return value

@@ -85,9 +85,9 @@ android {
             if (releaseSigningConfig != null) {
                 signingConfig = releaseSigningConfig
             } else {
-                // Temporary fallback for local testing only.
-                // Do NOT upload this debug-signed build to Google Play.
-                signingConfig = signingConfigs.getByName("debug")
+                error(
+                    "Release signing is not configured. Populate android/key.properties with the upload keystore values before building a Play bundle.",
+                )
             }
         }
     }

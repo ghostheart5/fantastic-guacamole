@@ -4,16 +4,19 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('CalendarPolicy', () {
-    test('isValidEntry returns true when title is non-empty and end is after start', () {
-      final entry = CalendarEntryEntity(
-        id: 'c1',
-        title: 'Standup',
-        start: DateTime.utc(2026, 7, 5, 9),
-        end: DateTime.utc(2026, 7, 5, 9, 30),
-      );
+    test(
+      'isValidEntry returns true when title is non-empty and end is after start',
+      () {
+        final entry = CalendarEntryEntity(
+          id: 'c1',
+          title: 'Standup',
+          start: DateTime.utc(2026, 7, 5, 9),
+          end: DateTime.utc(2026, 7, 5, 9, 30),
+        );
 
-      expect(CalendarPolicy.isValidEntry(entry), isTrue);
-    });
+        expect(CalendarPolicy.isValidEntry(entry), isTrue);
+      },
+    );
 
     test('isValidEntry returns false for blank title', () {
       final entry = CalendarEntryEntity(
@@ -116,7 +119,10 @@ void main() {
       );
 
       expect(
-        CalendarPolicy.canPlaceEntry(candidate: invalid, dayEntries: const <CalendarEntryEntity>[]),
+        CalendarPolicy.canPlaceEntry(
+          candidate: invalid,
+          dayEntries: const <CalendarEntryEntity>[],
+        ),
         isFalse,
       );
     });

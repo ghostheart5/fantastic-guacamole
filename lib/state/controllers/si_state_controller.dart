@@ -5,10 +5,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SIStateController extends Notifier<SIState> {
+  bool _loadScheduled = false;
+
   /// Owns live SI operating state used by chat and recommendation flows.
   @override
   SIState build() {
-    _loadFromAsset();
+    if (!_loadScheduled) {
+      _loadScheduled = true;
+      Future<void>.microtask(_loadFromAsset);
+    }
     return const SIState();
   }
 

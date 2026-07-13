@@ -29,10 +29,15 @@ AuthServiceContract createAuthService({
   if (intelligence.flags.mockLoginEnabled) {
     return MockAuthService();
   }
-  if (!intelligence.environment.isSupabaseConfigured ||
-      supabaseClient == null) {
+  if (!intelligence.environment.isSupabaseConfigured) {
     return const UnavailableAuthService(
       message: 'Authentication backend is not configured for this build.',
+    );
+  }
+  if (supabaseClient == null) {
+    return const UnavailableAuthService(
+      message:
+          'Authentication backend has not finished initialization. Please retry.',
     );
   }
   return AuthService(supabaseClient: supabaseClient, store: store);

@@ -16,7 +16,10 @@ void main() {
     });
 
     test('returns no-state rationale when SI state is missing', () async {
-      final decision = await GenerateSiDecision(taskRepository, siRepository).call();
+      final decision = await GenerateSiDecision(
+        taskRepository,
+        siRepository,
+      ).call();
 
       expect(decision.rationale, 'No state available.');
       expect(decision.selectedTaskId, isNull);
@@ -25,7 +28,10 @@ void main() {
     test('suggests break when fatigue high or energy low', () async {
       siRepository.state = SiStateEntity(energy: 0.2, focus: 0.5, fatigue: 0.8);
 
-      final decision = await GenerateSiDecision(taskRepository, siRepository).call();
+      final decision = await GenerateSiDecision(
+        taskRepository,
+        siRepository,
+      ).call();
 
       expect(decision.shouldTakeBreak, isTrue);
       expect(decision.rationale, contains('take a break'));
@@ -34,27 +40,50 @@ void main() {
     test('returns no tasks rationale when task list empty', () async {
       siRepository.state = SiStateEntity(energy: 0.8, focus: 0.8, fatigue: 0.2);
 
-      final decision = await GenerateSiDecision(taskRepository, siRepository).call();
+      final decision = await GenerateSiDecision(
+        taskRepository,
+        siRepository,
+      ).call();
 
       expect(decision.rationale, 'No tasks available.');
     });
 
-    test('selects highest priority task and orders task IDs descending', () async {
-      siRepository.state = SiStateEntity(energy: 0.8, focus: 0.8, fatigue: 0.2);
-      await taskRepository.saveTask(
-        TaskEntity(id: 'low', title: 'Low', createdAt: DateTime.utc(2026, 7, 5), priority: 1),
-      );
-      await taskRepository.saveTask(
-        TaskEntity(id: 'high', title: 'High', createdAt: DateTime.utc(2026, 7, 5), priority: 5),
-      );
+    test(
+      'selects highest priority task and orders task IDs descending',
+      () async {
+        siRepository.state = SiStateEntity(
+          energy: 0.8,
+          focus: 0.8,
+          fatigue: 0.2,
+        );
+        await taskRepository.saveTask(
+          TaskEntity(
+            id: 'low',
+            title: 'Low',
+            createdAt: DateTime.utc(2026, 7, 5),
+            priority: 1,
+          ),
+        );
+        await taskRepository.saveTask(
+          TaskEntity(
+            id: 'high',
+            title: 'High',
+            createdAt: DateTime.utc(2026, 7, 5),
+            priority: 5,
+          ),
+        );
 
-      final decision = await GenerateSiDecision(taskRepository, siRepository).call();
+        final decision = await GenerateSiDecision(
+          taskRepository,
+          siRepository,
+        ).call();
 
-      expect(decision.selectedTaskId, 'high');
-      expect(decision.orderedTaskIds, <String>['high', 'low']);
-      expect(decision.action, 'Focus on: High');
-      expect(decision.recommendedFocusMinutes, 25);
-    });
+        expect(decision.selectedTaskId, 'high');
+        expect(decision.orderedTaskIds, <String>['high', 'low']);
+        expect(decision.action, 'Focus on: High');
+        expect(decision.recommendedFocusMinutes, 25);
+      },
+    );
   });
 }
 

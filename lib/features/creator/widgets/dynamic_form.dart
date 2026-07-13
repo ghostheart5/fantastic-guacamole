@@ -348,8 +348,10 @@ class _ScheduleDatePicker extends StatelessWidget {
           initialDate: selected ?? DateTime.now(),
           firstDate: DateTime.now(),
           lastDate: DateTime.now().add(const Duration(days: 365)),
-          builder: (context, child) =>
-              Theme(data: ThemeData.dark(), child: child!),
+          builder: (context, child) => Theme(
+            data: ThemeData.dark(),
+            child: child ?? const SizedBox.shrink(),
+          ),
         ).then(onPick);
       },
       child: Container(

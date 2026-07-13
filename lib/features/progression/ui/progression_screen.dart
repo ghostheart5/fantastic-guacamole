@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/engine/learning/learning_history.dart';
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/level_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/streak_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/weekly_summary_card.dart';
@@ -36,9 +36,17 @@ class ProgressionScreen extends ConsumerWidget {
           subject: 'My ChronoSpark progression update',
         ),
       );
+      AppAnalytics.track(
+        'share_progress',
+        params: <String, Object?>{'method': 'share_sheet'},
+      );
       return;
     } catch (_) {
       await Clipboard.setData(ClipboardData(text: text));
+      AppAnalytics.track(
+        'share_progress',
+        params: <String, Object?>{'method': 'clipboard_fallback'},
+      );
     }
     if (!context.mounted) {
       return;
@@ -47,6 +55,51 @@ class ProgressionScreen extends ConsumerWidget {
       const SnackBar(
         content: Text(
           'Share sheet unavailable. Progress snapshot copied to clipboard.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _shareAchievementCard(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final profile = ref.read(profileProvider);
+    final trajectory = ref.read(trajectorySummaryProvider);
+    final String text =
+        'ChronoSpark Achievement Unlocked\n'
+        'Level ${profile.level} achieved\n'
+        'Current streak: ${profile.streak} days\n'
+        'Momentum ${(trajectory.momentum * 100).round()}%\n'
+        'Join me in ChronoSpark: ${AppUrls.website}';
+
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          text: text,
+          title: 'ChronoSpark Achievement',
+          subject: 'I hit a new ChronoSpark milestone',
+        ),
+      );
+      AppAnalytics.track(
+        'share_achievement',
+        params: <String, Object?>{'method': 'share_sheet'},
+      );
+      return;
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: text));
+      AppAnalytics.track(
+        'share_achievement',
+        params: <String, Object?>{'method': 'clipboard_fallback'},
+      );
+    }
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Share sheet unavailable. Achievement summary copied to clipboard.',
         ),
       ),
     );
@@ -131,6 +184,14 @@ class ProgressionScreen extends ConsumerWidget {
                       icon: const Icon(
                         Icons.ios_share_rounded,
                         color: AppColors.memoryAmber,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Share achievement',
+                      onPressed: () => _shareAchievementCard(context, ref),
+                      icon: const Icon(
+                        Icons.emoji_events_outlined,
+                        color: AppColors.neonCyan,
                       ),
                     ),
                   ],
@@ -378,7 +439,7 @@ class _XpProgressChartCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
-    final history = ref.watch(learningHistoryProvider);
+    final history = ref.watch(learningHistorySnapshotsProvider);
     final List<_XpPoint> points = _buildXpPoints(profile.xp, history);
     final int start = points.isEmpty ? profile.xp : points.first.xp;
     final int end = points.isEmpty ? profile.xp : points.last.xp;
@@ -421,7 +482,7 @@ class _XpProgressChartCard extends ConsumerWidget {
 
   List<_XpPoint> _buildXpPoints(
     int currentXp,
-    List<LearningHistoryEntry> history,
+    List<LearningHistorySnapshot> history,
   ) {
     final DateTime now = DateTime.now();
     final DateTime windowStart = DateTime(
@@ -431,7 +492,7 @@ class _XpProgressChartCard extends ConsumerWidget {
     ).subtract(const Duration(days: 29));
     final Map<String, int> completedByDay = <String, int>{};
 
-    for (final LearningHistoryEntry entry in history) {
+    for (final LearningHistorySnapshot entry in history) {
       final DateTime timestamp = entry.timestamp;
       final DateTime day = DateTime(
         timestamp.year,

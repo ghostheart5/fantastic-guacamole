@@ -1,6 +1,7 @@
 // lib/engine/si/si_cognitive_evolution_timeline.dart
 
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_ecosystem_layer.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_micro_pattern_engine.dart';
 
@@ -54,9 +55,10 @@ class EvolutionTimelineUpdate {
   final String summary;
 }
 
-class SICognitiveEvolutionTimelineEngine {
+class SICognitiveEvolutionTimelineEngine implements AssistantTimelineEngine {
   const SICognitiveEvolutionTimelineEngine();
 
+  @override
   EvolutionTimelineUpdate track({
     required EvolutionTimeline current,
     required SIMemoryStore memory,

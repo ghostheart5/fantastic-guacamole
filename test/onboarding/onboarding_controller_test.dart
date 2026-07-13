@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final NotifierProvider<OnboardingController, OnboardingState> provider =
-      NotifierProvider<OnboardingController, OnboardingState>(OnboardingController.new);
+      NotifierProvider<OnboardingController, OnboardingState>(
+        OnboardingController.new,
+      );
 
   test('starts in initial state and start moves to step zero', () {
     final ProviderContainer container = ProviderContainer();
@@ -49,7 +51,8 @@ void main() {
     controller.start();
 
     controller.previousStep();
-    final OnboardingInProgress state = container.read(provider) as OnboardingInProgress;
+    final OnboardingInProgress state =
+        container.read(provider) as OnboardingInProgress;
     expect(state.step, 0);
   });
 

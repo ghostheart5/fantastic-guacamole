@@ -29,7 +29,10 @@ void main() {
         plannedDuration: const Duration(minutes: 20),
       );
 
-      await StartSession(sessionRepository, progressionRepo: progressionRepository).call(session);
+      await StartSession(
+        sessionRepository,
+        progressionRepo: progressionRepository,
+      ).call(session);
 
       expect(sessionRepository.started.single.id, 'session-1');
       expect(progressionRepository.progression?.xp, 25);
@@ -43,7 +46,10 @@ void main() {
         plannedDuration: const Duration(minutes: 3),
       );
 
-      await expectLater(() => StartSession(sessionRepository).call(session), throwsException);
+      await expectLater(
+        () => StartSession(sessionRepository).call(session),
+        throwsException,
+      );
     });
 
     test('uses SI recommendation to shorten planned duration', () async {
@@ -71,7 +77,8 @@ void main() {
 }
 
 class _StubGenerateSiDecision extends GenerateSiDecision {
-  _StubGenerateSiDecision(this._decision) : super(_FakeTaskRepository(), _FakeSiRepository());
+  _StubGenerateSiDecision(this._decision)
+    : super(_FakeTaskRepository(), _FakeSiRepository());
 
   final SiDecisionEntity _decision;
 
@@ -86,7 +93,8 @@ class _FakeSessionRepository implements ISessionRepository {
   Future<void> endSession(String sessionId, DateTime endedAt) async {}
 
   @override
-  Future<List<SessionEntity>> getSessionsForTask(String taskId) async => <SessionEntity>[];
+  Future<List<SessionEntity>> getSessionsForTask(String taskId) async =>
+      <SessionEntity>[];
 
   @override
   Future<void> pauseSession(String sessionId, DateTime pausedAt) async {}

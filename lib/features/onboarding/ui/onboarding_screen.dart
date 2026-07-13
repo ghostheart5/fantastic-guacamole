@@ -1,14 +1,16 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
-import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -82,33 +84,63 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   }
 
   Future<void> _complete() async {
-    final name = _nameCtrl.text.trim();
-    if (name.isNotEmpty) {
-      ref.read(profileProvider.notifier).updateName(name);
-    }
-    if (_selectedGoalType != null) {
-      await SharedPrefsService.save('primary_goal_type', _selectedGoalType!);
-    }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(onboardingCompleteStorageKey, true);
-    await prefs.setInt(
-      onboardingContentVersionStorageKey,
-      TutorialContent.contentVersion,
-    );
-    AppAnalytics.track(
-      'onboarding_completed',
-      params: <String, Object?>{'selected_goal_type': _selectedGoalType ?? ''},
-    );
-    if (!mounted) return;
-    ref.read(onboardingCompleteProvider.notifier).set(true);
+    try {
+      final PreferenceService preferenceService = PreferenceService();
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String name = _nameCtrl.text.trim();
+      final String? selectedGoalType = _selectedGoalType;
 
-    final bool isAuthenticated = ref
-        .read(intelligenceStateProvider)
-        .auth
-        .isAuthenticated;
-    final GoRouter? router = GoRouter.maybeOf(context);
-    if (router != null) {
-      context.go(isAuthenticated ? RoutePaths.home : RoutePaths.login);
+      if (name.isNotEmpty) {
+        ref.read(profileProvider.notifier).updateName(name);
+      }
+      if (selectedGoalType != null && selectedGoalType.trim().isNotEmpty) {
+        await prefs.setString('primary_goal_type', selectedGoalType);
+        await preferenceService.setUserPreference(
+          'primary_goal_type',
+          selectedGoalType,
+        );
+      }
+
+      await prefs.setBool(onboardingCompleteStorageKey, true);
+      await prefs.setInt(
+        onboardingContentVersionStorageKey,
+        TutorialContent.contentVersion,
+      );
+      AppAnalytics.track(
+        'onboarding_completed',
+        params: <String, Object?>{'selected_goal_type': selectedGoalType ?? ''},
+      );
+      if (!mounted) return;
+
+      ref.read(onboardingCompleteProvider.notifier).set(true);
+      final bool isAuthenticated = ref
+          .read(intelligenceStateProvider)
+          .auth
+          .isAuthenticated;
+      final routes = ref.read(routeSurfaceProvider);
+      final GoRouter? router = GoRouter.maybeOf(context);
+      if (router != null) {
+        context.go(isAuthenticated ? '/' : routes.login);
+      }
+    } on Object catch (error, stackTrace) {
+      Logger.errorCategory(
+        'onboarding',
+        'Onboarding completion failed.',
+        error,
+        stackTrace,
+      );
+      AppAnalytics.track(
+        'onboarding_complete_failed',
+        params: <String, Object?>{'error': error.toString()},
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to finish onboarding. Please try again.'),
+        ),
+      );
     }
   }
 
@@ -341,6 +373,18 @@ class _SlideView extends StatelessWidget {
 
   final _Slide slide;
 
+  Widget _buildPulseAura({required double width, required double height}) {
+    return Lottie.asset(
+      AppAssets.animFocusPulse,
+      width: width,
+      height: height,
+      repeat: true,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) =>
+          SizedBox(width: width, height: height),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -389,10 +433,16 @@ class _SlideView extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: Icon(
-                            slide.icon,
-                            color: slide.iconColor,
-                            size: 36,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              _buildPulseAura(width: 86, height: 86),
+                              Icon(
+                                slide.icon,
+                                color: slide.iconColor,
+                                size: 36,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -503,7 +553,13 @@ class _SlideView extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Icon(slide.icon, color: slide.iconColor, size: 32),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    _buildPulseAura(width: 66, height: 66),
+                    Icon(slide.icon, color: slide.iconColor, size: 32),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
               Container(

@@ -52,7 +52,21 @@ class MockAuthService implements AuthServiceContract {
   }
 
   @override
+  Future<UserCredential> signInWithGitHub() async {
+    _currentUser = const User(
+      id: 'mock-github-user',
+      email: 'mock@chronospark.app',
+      displayName: 'Tester',
+      emailVerified: true,
+    );
+    return UserCredential(user: _currentUser);
+  }
+
+  @override
   Future<void> sendPasswordReset(String email) async {}
+
+  @override
+  Future<void> updatePassword({required String newPassword}) async {}
 
   @override
   Future<void> sendEmailVerification() async {}

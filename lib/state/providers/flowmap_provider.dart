@@ -13,9 +13,14 @@ final flowmapProvider =
     );
 
 class FlowmapController extends Notifier<AsyncValue<List<FlowmapNode>>> {
+  bool _loadScheduled = false;
+
   @override
   AsyncValue<List<FlowmapNode>> build() {
-    _load();
+    if (!_loadScheduled) {
+      _loadScheduled = true;
+      Future<void>.microtask(_load);
+    }
     return const AsyncValue.loading();
   }
 

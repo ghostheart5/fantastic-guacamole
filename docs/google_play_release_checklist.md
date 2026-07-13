@@ -1,5 +1,7 @@
 # ChronoSpark Google Play Release Checklist
 
+Quick release gate audit: [GOOGLE_PLAY_READINESS_AUDIT.md](GOOGLE_PLAY_READINESS_AUDIT.md)
+
 ## Firebase
 - [x] FlutterFire project configured for `chronospark-app`
 - [ ] Verify `lib/firebase_options.dart` values match the intended Firebase project for the tester track

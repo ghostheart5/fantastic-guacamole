@@ -50,6 +50,7 @@ class _MicroTutorialCardState extends ConsumerState<MicroTutorialCard> {
 
   @override
   Widget build(BuildContext context) {
+    final String? contextHint = _contextHint;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -86,11 +87,11 @@ class _MicroTutorialCardState extends ConsumerState<MicroTutorialCard> {
             ),
           ),
 
-          if (_contextHint != null && _contextHint!.trim().isNotEmpty) ...[
+          if (contextHint != null && contextHint.trim().isNotEmpty) ...[
             const SizedBox(height: 8),
 
             Text(
-              _contextHint!,
+              contextHint,
               style: const TextStyle(
                 color: AppColors.neonCyan,
                 fontSize: 12,

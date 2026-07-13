@@ -95,6 +95,15 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
           'testing_mode': paywallTestingMode,
         },
       );
+      if (subscription.isActive) {
+        AppAnalytics.track(
+          'subscription_purchased',
+          params: <String, Object?>{
+            'plan_id': planId,
+            'testing_mode': paywallTestingMode,
+          },
+        );
+      }
     } on StateError catch (error) {
       if (!mounted) {
         return;

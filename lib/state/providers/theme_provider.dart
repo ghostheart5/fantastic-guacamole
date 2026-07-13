@@ -24,6 +24,10 @@ class CurrentThemeController extends AsyncNotifier<AppThemeEntity> {
     return await ref.read(getCurrentThemeUseCaseProvider).call() ??
         AppThemeEntity.defaultTheme();
   }
+
+  void setTheme(AppThemeEntity theme) {
+    state = AsyncData(theme);
+  }
 }
 
 class ThemeActions {
@@ -32,6 +36,7 @@ class ThemeActions {
   final Ref _ref;
 
   Future<void> save(AppThemeEntity theme) async {
+    _ref.read(currentThemeProvider.notifier).setTheme(theme);
     await _ref.read(saveThemeUseCaseProvider).call(theme);
     _ref.invalidate(currentThemeProvider);
     _ref.invalidate(availableThemesProvider);

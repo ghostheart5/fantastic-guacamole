@@ -4,10 +4,16 @@ import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class TimelineView extends StatelessWidget {
-  const TimelineView({super.key, required this.blocks, this.onCompleteTask});
+  const TimelineView({
+    super.key,
+    required this.blocks,
+    this.onCompleteTask,
+    this.completingTaskIds = const <String>{},
+  });
 
   final List<TimeBlock> blocks;
   final Future<void> Function(String taskId)? onCompleteTask;
+  final Set<String> completingTaskIds;
 
   Color _blockColor(int index) {
     const List<Color> colors = <Color>[
@@ -39,6 +45,7 @@ class TimelineView extends StatelessWidget {
           accent: _blockColor(index),
           completed: block.completed,
           onCompleteTask: onCompleteTask,
+          isCompleting: completingTaskIds.contains(block.taskId),
         );
       },
     );

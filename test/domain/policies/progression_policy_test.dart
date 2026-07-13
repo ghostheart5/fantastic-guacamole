@@ -27,8 +27,14 @@ void main() {
     test('levelProgressFraction clamps in range and tracks current band', () {
       expect(ProgressionPolicy.levelProgressFraction(-10), 0.0);
       expect(ProgressionPolicy.levelProgressFraction(100), 0.0);
-      expect(ProgressionPolicy.levelProgressFraction(150), closeTo(0.1666, 0.001));
-      expect(ProgressionPolicy.levelProgressFraction(10000), inInclusiveRange(0.0, 1.0));
+      expect(
+        ProgressionPolicy.levelProgressFraction(150),
+        closeTo(0.1666, 0.001),
+      );
+      expect(
+        ProgressionPolicy.levelProgressFraction(10000),
+        inInclusiveRange(0.0, 1.0),
+      );
     });
 
     test('xpToNextLevel and didLevelUp report progression correctly', () {

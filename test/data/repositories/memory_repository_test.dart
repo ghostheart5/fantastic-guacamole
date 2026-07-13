@@ -12,28 +12,48 @@ void main() {
     repository = MemoryRepository(store);
   });
 
-  test('returns paged memories newest first with cursor continuation', () async {
-    await repository.saveMemory(
-      MemoryEntity(id: 'memory-1', text: 'First', date: DateTime.utc(2026, 7, 4, 10)),
-    );
-    await repository.saveMemory(
-      MemoryEntity(id: 'memory-2', text: 'Second', date: DateTime.utc(2026, 7, 4, 11)),
-    );
-    await repository.saveMemory(
-      MemoryEntity(id: 'memory-3', text: 'Third', date: DateTime.utc(2026, 7, 4, 12)),
-    );
+  test(
+    'returns paged memories newest first with cursor continuation',
+    () async {
+      await repository.saveMemory(
+        MemoryEntity(
+          id: 'memory-1',
+          text: 'First',
+          date: DateTime.utc(2026, 7, 4, 10),
+        ),
+      );
+      await repository.saveMemory(
+        MemoryEntity(
+          id: 'memory-2',
+          text: 'Second',
+          date: DateTime.utc(2026, 7, 4, 11),
+        ),
+      );
+      await repository.saveMemory(
+        MemoryEntity(
+          id: 'memory-3',
+          text: 'Third',
+          date: DateTime.utc(2026, 7, 4, 12),
+        ),
+      );
 
-    final firstPage = repository.getMemoriesPage(limit: 2);
-    final secondPage = repository.getMemoriesPage(cursor: firstPage.nextCursor, limit: 2);
+      final firstPage = repository.getMemoriesPage(limit: 2);
+      final secondPage = repository.getMemoriesPage(
+        cursor: firstPage.nextCursor,
+        limit: 2,
+      );
 
-    expect(firstPage.items.map((MemoryEntity memory) => memory.id), <String>[
-      'memory-3',
-      'memory-2',
-    ]);
-    expect(firstPage.nextCursor, 'memory-2');
-    expect(secondPage.items.map((MemoryEntity memory) => memory.id), <String>['memory-1']);
-    expect(secondPage.nextCursor, isNull);
-  });
+      expect(firstPage.items.map((MemoryEntity memory) => memory.id), <String>[
+        'memory-3',
+        'memory-2',
+      ]);
+      expect(firstPage.nextCursor, 'memory-2');
+      expect(secondPage.items.map((MemoryEntity memory) => memory.id), <String>[
+        'memory-1',
+      ]);
+      expect(secondPage.nextCursor, isNull);
+    },
+  );
 }
 
 class _InMemorySharedPrefsStore implements SharedPrefsStore {

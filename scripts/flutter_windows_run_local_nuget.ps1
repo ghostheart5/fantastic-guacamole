@@ -12,7 +12,7 @@ if (-not (Test-Path $toolsDir)) {
 
 if (-not (Test-Path $nugetPath)) {
     Write-Host "nuget.exe not found. Downloading to: $nugetPath"
-    Invoke-WebRequest -Uri 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -OutFile $nugetPath
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -OutFile $nugetPath
 }
 
 # Prepend local tools so CMake/plugin build steps can resolve nuget reliably.

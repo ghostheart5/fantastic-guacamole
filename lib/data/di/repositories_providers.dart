@@ -1,10 +1,13 @@
 // Package imports.
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/flowmap_nodes_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/goal_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/google_play_paywall_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/identity_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/insight_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/log_repository.dart';
@@ -14,9 +17,12 @@ import 'package:fantastic_guacamole/data/repositories/paywall_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/plan_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/profile_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/progression_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/project_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/routine_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/session_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/settings_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/si_engine_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/subtask_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/task_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/theme_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/timeline_repository.dart';
@@ -28,9 +34,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 TaskRepository taskRepository(Ref ref) {
-  return TaskRepository.secure(
-    ref.read(secureStoreProvider),
-    legacyStorage: HiveStorage<String>(
+  return TaskRepository(
+    storage: HiveStorage<String>(
       HiveBoxes.tasks,
       hive: ref.read(hiveStoreProvider),
     ),
@@ -50,7 +55,15 @@ final flowmapRepositoryProvider = Provider<FlowmapRepository>((Ref ref) {
 });
 
 final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
-  return GoalRepository(ref.read(sensitivePrefsStoreProvider));
+  return GoalRepository(
+    HiveStorage<String>(HiveBoxes.goals, hive: ref.read(hiveStoreProvider)),
+  );
+});
+
+final habitRepositoryProvider = Provider<HabitRepository>((Ref ref) {
+  return HabitRepository(
+    HiveStorage<String>(HiveBoxes.habits, hive: ref.read(hiveStoreProvider)),
+  );
 });
 
 final insightRepositoryProvider = Provider<InsightRepository>((Ref ref) {
@@ -66,13 +79,41 @@ final memoryRepositoryProvider = Provider<MemoryRepository>((Ref ref) {
 });
 
 final planRepositoryProvider = Provider<PlanRepository>((Ref ref) {
-  return PlanRepository(ref.read(sharedPrefsStoreProvider));
+  return PlanRepository(
+    HiveStorage<String>(
+      HiveBoxes.dailyPlans,
+      hive: ref.read(hiveStoreProvider),
+    ),
+  );
+});
+
+final projectRepositoryProvider = Provider<ProjectRepository>((Ref ref) {
+  return ProjectRepository(
+    HiveStorage<String>(HiveBoxes.projects, hive: ref.read(hiveStoreProvider)),
+  );
+});
+
+final routineRepositoryProvider = Provider<RoutineRepository>((Ref ref) {
+  return RoutineRepository(
+    HiveStorage<String>(HiveBoxes.routines, hive: ref.read(hiveStoreProvider)),
+  );
+});
+
+final subtaskRepositoryProvider = Provider<SubtaskRepository>((Ref ref) {
+  return SubtaskRepository(
+    HiveStorage<String>(HiveBoxes.subtasks, hive: ref.read(hiveStoreProvider)),
+  );
 });
 
 final progressionRepositoryProvider = Provider<ProgressionRepository>((
   Ref ref,
 ) {
-  return ProgressionRepository(ref.read(secureStoreProvider));
+  return ProgressionRepository(
+    HiveStorage<String>(
+      HiveBoxes.progression,
+      hive: ref.read(hiveStoreProvider),
+    ),
+  );
 });
 
 final notificationSchedulerProvider = Provider<NotificationScheduler>(
@@ -89,14 +130,22 @@ final notificationsRepositoryProvider = Provider<NotificationsRepository>((
 });
 
 final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+  final bool forceLocalTestingPaywall =
+      Env.isMockLoginEnabled ||
+      Env.isMockMode ||
+      Env.isPaywallDisabled ||
+      Env.hasTesterFullAccess;
+
+  if (!kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.android &&
+      !forceLocalTestingPaywall) {
     final GooglePlayPaywallRepository repository = GooglePlayPaywallRepository(
       secureStore: ref.read(secureStoreProvider),
     );
     ref.onDispose(repository.dispose);
     return repository;
   }
-  return PaywallRepository();
+  return PaywallRepository(testingModeOverride: forceLocalTestingPaywall);
 });
 
 final siEngineRepositoryProvider = Provider<SiEngineRepository>((Ref ref) {
@@ -120,7 +169,7 @@ final profileRepositoryProvider = Provider<ProfileRepository>((Ref ref) {
 });
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((Ref ref) {
-  return SettingsRepository(ref.read(secureStoreProvider));
+  return SettingsRepository(ref.read(sharedPrefsStoreProvider));
 });
 
 final themeRepositoryProvider = Provider<ThemeRepository>((Ref ref) {
@@ -134,3 +183,10 @@ final sessionRepositoryProvider = Provider<SessionRepository>((Ref ref) {
 final workspaceRepositoryProvider = Provider<WorkspaceRepository>((Ref ref) {
   return WorkspaceRepository(ref.read(secureStoreProvider));
 });
+
+final firebaseSupabaseBridgeRepositoryProvider =
+    Provider<FirebaseSupabaseBridgeRepository>((Ref ref) {
+      return FirebaseSupabaseBridgeRepository(
+        store: ref.read(secureStoreProvider),
+      );
+    });

@@ -18,7 +18,8 @@ void main() {
   });
 
   test('restores defaults when value is missing', () {
-    final String value = SharedPrefsService.load('missing.setting') ?? 'default-value';
+    final String value =
+        SharedPrefsService.load('missing.setting') ?? 'default-value';
 
     expect(value, 'default-value');
   });

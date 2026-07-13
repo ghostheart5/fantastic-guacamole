@@ -6,13 +6,21 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('CreditService subscription tiers', () {
     test('enforce credit limits for free and premium-like access', () async {
-      final CreditService baseService = CreditService(prefs: _MemoryPrefsStore());
-      final CreditService premiumService = CreditService(prefs: _MemoryPrefsStore());
-      final CreditService ultimateService = CreditService(prefs: _MemoryPrefsStore());
+      final CreditService baseService = CreditService(
+        prefs: _MemoryPrefsStore(),
+      );
+      final CreditService premiumService = CreditService(
+        prefs: _MemoryPrefsStore(),
+      );
+      final CreditService ultimateService = CreditService(
+        prefs: _MemoryPrefsStore(),
+      );
 
       final baseWallet = await baseService.loadWallet(premium: false);
       final premiumWallet = await premiumService.loadWallet(premium: true);
-      final ultimateLikeWallet = await ultimateService.loadWallet(premium: true);
+      final ultimateLikeWallet = await ultimateService.loadWallet(
+        premium: true,
+      );
 
       expect(baseWallet.tier, 'free');
       expect(baseWallet.allowance, 20);
@@ -24,7 +32,10 @@ void main() {
       final baseDenied = await baseService.spend(premium: false, amount: 21);
       expect(baseDenied.allowed, isFalse);
 
-      final premiumAllowed = await premiumService.spend(premium: true, amount: 250);
+      final premiumAllowed = await premiumService.spend(
+        premium: true,
+        amount: 250,
+      );
       expect(premiumAllowed.allowed, isTrue);
 
       const AppAccessState ultimateLike = AppAccessState(

@@ -1,4 +1,5 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 
 class AudioService {
   static final AudioPlayer _player = AudioPlayer();
@@ -81,6 +82,18 @@ class AudioService {
     } catch (_) {
       _typingSoundAvailable = false;
     }
+  }
+
+  static Future<void> playAchievement(bool enabled) {
+    return play(AppAssets.audioTaskComplete, enabled);
+  }
+
+  static Future<void> playNotification(bool enabled) {
+    return play(AppAssets.audioAiDecision, enabled);
+  }
+
+  static Future<void> playMilestone(bool enabled) {
+    return play(AppAssets.audioFocusStart, enabled);
   }
 
   static Future<void> dispose() async {

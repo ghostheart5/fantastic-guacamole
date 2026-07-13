@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 
@@ -8,13 +8,17 @@ class GoalRepository implements IGoalRepository {
   GoalRepository(this._store);
 
   static const String _key = 'goals_v2';
-  static const String _legacyKey = 'goals_v1';
 
-  final SharedPrefsStore _store;
+  final HiveStorage<String> _store;
 
   @override
   List<GoalEntity> getGoals() {
-    final String? raw = _store.load(_key) ?? _store.load(_legacyKey);
+    String? raw;
+    try {
+      raw = _store.get(_key);
+    } on StateError {
+      return const <GoalEntity>[];
+    }
     if (raw == null || raw.trim().isEmpty) {
       return const <GoalEntity>[];
     }
@@ -45,7 +49,7 @@ class GoalRepository implements IGoalRepository {
 
   @override
   Future<void> saveGoals(List<GoalEntity> goals) {
-    return _store.save(
+    return _store.put(
       _key,
       jsonEncode(goals.map((GoalEntity g) => g.toJson()).toList()),
     );

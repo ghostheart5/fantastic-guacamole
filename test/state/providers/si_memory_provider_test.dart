@@ -4,38 +4,44 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('capture appends snapshots and latestSiSnapshotProvider returns newest', () {
-    final ProviderContainer container = ProviderContainer();
-    addTearDown(container.dispose);
+  test(
+    'capture appends snapshots and latestSiSnapshotProvider returns newest',
+    () {
+      final ProviderContainer container = ProviderContainer();
+      addTearDown(container.dispose);
 
-    final SISnapshot first = SISnapshot(
-      timestamp: DateTime.utc(2026, 7, 5, 10),
-      energy: 0.6,
-      fatigue: 0.3,
-      completed: 1,
-      skipped: 0,
-      responseSummary: 'first',
-      responseHash: 'h1',
-      actionKey: 'a1',
-    );
-    final SISnapshot second = SISnapshot(
-      timestamp: DateTime.utc(2026, 7, 5, 11),
-      energy: 0.7,
-      fatigue: 0.2,
-      completed: 2,
-      skipped: 0,
-      responseSummary: 'second',
-      responseHash: 'h2',
-      actionKey: 'a2',
-    );
+      final SISnapshot first = SISnapshot(
+        timestamp: DateTime.utc(2026, 7, 5, 10),
+        energy: 0.6,
+        fatigue: 0.3,
+        completed: 1,
+        skipped: 0,
+        responseSummary: 'first',
+        responseHash: 'h1',
+        actionKey: 'a1',
+      );
+      final SISnapshot second = SISnapshot(
+        timestamp: DateTime.utc(2026, 7, 5, 11),
+        energy: 0.7,
+        fatigue: 0.2,
+        completed: 2,
+        skipped: 0,
+        responseSummary: 'second',
+        responseHash: 'h2',
+        actionKey: 'a2',
+      );
 
-    container.read(siMemoryProvider.notifier).capture(first);
-    container.read(siMemoryProvider.notifier).capture(second);
+      container.read(siMemoryProvider.notifier).capture(first);
+      container.read(siMemoryProvider.notifier).capture(second);
 
-    final memory = container.read(siMemoryProvider);
-    expect(memory.entries, hasLength(2));
-    expect(container.read(latestSiSnapshotProvider)?.responseSummary, 'second');
-  });
+      final memory = container.read(siMemoryProvider);
+      expect(memory.entries, hasLength(2));
+      expect(
+        container.read(latestSiSnapshotProvider)?.responseSummary,
+        'second',
+      );
+    },
+  );
 
   test('clear removes memory snapshots', () {
     final ProviderContainer container = ProviderContainer();

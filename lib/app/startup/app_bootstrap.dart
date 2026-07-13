@@ -4,6 +4,8 @@ import 'package:fantastic_guacamole/app/app_root.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
+import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/observers/riverpod_observer.dart';
@@ -23,6 +25,7 @@ import 'package:fantastic_guacamole/state/providers/service_providers.dart'
     show identityServiceProvider;
 import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_bootstrap.dart';
+import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/system/system_boot.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
@@ -31,20 +34,26 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 class AppBootstrapper {
   const AppBootstrapper();
 
   void run() {
-    runZonedGuarded(_runApp, _handleUncaughtZoneError);
+    runZonedGuarded(() async {
+      WidgetsFlutterBinding.ensureInitialized();
+      await _loadDotEnv();
+      FirebaseMessagingBootstrap.configureBackgroundHandler();
+      _runApp();
+    }, _handleUncaughtZoneError);
   }
 
   void _runApp() {
-    WidgetsFlutterBinding.ensureInitialized();
-
     final config = AppConfig.fromEnv();
     final intelligence = const IntelligenceService().environmentOnly();
     Logger.enabled = config.verboseLogs;
@@ -64,17 +73,17 @@ class AppBootstrapper {
       FlutterError.presentError(errorDetails);
       final String stack = (errorDetails.stack ?? StackTrace.current)
           .toString();
-      final String appLine = stack
-          .split('\n')
-          .firstWhere(
-            (line) => line.contains('package:fantastic_guacamole/'),
-            orElse: () => '',
-          )
-          .trim();
+      debugPrint(
+        'FLUTTER_ERROR_MARKER >>> ${errorDetails.exceptionAsString()}',
+      );
+      debugPrint(stack);
+      debugPrint('FLUTTER_ERROR_MARKER <<<');
       RuntimeDiagnostics.record(
-        'Flutter framework error: ${errorDetails.exceptionAsString()}\n'
-        '${appLine.isEmpty ? '' : 'app: $appLine\n'}'
-        '$stack',
+        _formatGlobalErrorForDiagnostics(
+          prefix: 'Flutter framework error',
+          error: errorDetails.exceptionAsString(),
+          stack: stack,
+        ),
       );
       ErrorBoundary.reportGlobalError(
         errorDetails.exception,
@@ -86,7 +95,16 @@ class AppBootstrapper {
     };
 
     PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-      RuntimeDiagnostics.record('Platform dispatcher uncaught error: $error');
+      debugPrint('PLATFORM_ERROR_MARKER >>> $error');
+      debugPrint(stack.toString());
+      debugPrint('PLATFORM_ERROR_MARKER <<<');
+      RuntimeDiagnostics.record(
+        _formatGlobalErrorForDiagnostics(
+          prefix: 'Platform dispatcher uncaught error',
+          error: error,
+          stack: stack.toString(),
+        ),
+      );
       ErrorBoundary.reportGlobalError(error, stack);
       if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
         FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
@@ -106,12 +124,42 @@ class AppBootstrapper {
     FlutterError.presentError(
       FlutterErrorDetails(exception: error, stack: stack),
     );
-    RuntimeDiagnostics.record('Uncaught zone error: $error');
+    RuntimeDiagnostics.record(
+      _formatGlobalErrorForDiagnostics(
+        prefix: 'Uncaught zone error',
+        error: error,
+        stack: stack.toString(),
+      ),
+    );
     ErrorBoundary.reportGlobalError(error, stack);
     if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     }
   }
+
+  Future<void> _loadDotEnv() async {
+    try {
+      await dotenv.load(fileName: '.env');
+      Logger.info('Loaded local .env configuration.');
+    } on Object catch (error) {
+      Logger.info('No local .env loaded: $error');
+    }
+  }
+}
+
+String _formatGlobalErrorForDiagnostics({
+  required String prefix,
+  required Object error,
+  required String stack,
+}) {
+  final String appLine = stack
+      .split('\n')
+      .firstWhere(
+        (line) => line.contains('package:fantastic_guacamole/'),
+        orElse: () => '',
+      )
+      .trim();
+  return '$prefix: $error\n${appLine.isEmpty ? '' : 'app: $appLine\n'}$stack';
 }
 
 bool get _supportsCrashlytics =>
@@ -171,6 +219,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       _startupError = startupError;
       _ready = true;
     });
+    AppAnalytics.track('app_open');
   }
 
   @override
@@ -232,37 +281,40 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   final Stopwatch totalBootstrap = Stopwatch()..start();
 
   const SystemBoot();
-  tz.initializeTimeZones();
+  tzdata.initializeTimeZones();
+  await _configureLocalTimezone();
 
-  final Future<String?> storageIssueFuture = _measureIssueStage(
+  final String? storageIssue = await _measureIssueStage(
     'storage',
     _initStorageSafe,
   );
-  final Future<String?> firebaseIssueFuture = _measureIssueStage(
+  startupError = _appendStartupIssue(startupError, storageIssue ?? '');
+
+  final String? firebaseIssue = await _measureIssueStage(
     'firebase',
     () => _initFirebaseSafe(isMockMode: intelligence.flags.mockMode),
   );
-  final Future<String?> supabaseIssueFuture = _measureIssueStage(
+  startupError = _appendStartupIssue(startupError, firebaseIssue ?? '');
+
+  final String? messagingIssue = await _measureIssueStage(
+    'push_notifications',
+    () => _initMessagingSafe(isMockMode: intelligence.flags.mockMode),
+  );
+  startupError = _appendStartupIssue(startupError, messagingIssue ?? '');
+
+  final String? supabaseIssue = await _measureIssueStage(
     'supabase',
     () => _initSupabaseSafe(isMockMode: intelligence.flags.mockMode),
   );
-  final Future<String?> identityIssueFuture = _measureIssueStage(
+  startupError = _appendStartupIssue(startupError, supabaseIssue ?? '');
+
+  final String? identityIssue = await _measureIssueStage(
     'identity',
     () => _initIdentitySafe(ref),
   );
-  final Future<PrefsLoadResult> prefsResultFuture = _measurePrefsStage(
-    _loadPrefsSafe,
-  );
+  startupError = _appendStartupIssue(startupError, identityIssue ?? '');
 
-  final List<String?> startupIssues = await Future.wait<String?>(
-    <Future<String?>>[
-      storageIssueFuture,
-      firebaseIssueFuture,
-      supabaseIssueFuture,
-      identityIssueFuture,
-    ],
-  );
-  final PrefsLoadResult prefsResult = await prefsResultFuture;
+  final PrefsLoadResult prefsResult = await _measurePrefsStage(_loadPrefsSafe);
 
   unawaited(
     _measureIssueStage(
@@ -273,10 +325,6 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
     ),
   );
   unawaited(_measureIssueStage('deep_links', _initDeepLinksSafe));
-
-  for (final String? issue in startupIssues) {
-    startupError = _appendStartupIssue(startupError, issue ?? '');
-  }
   startupError = _appendStartupIssue(startupError, prefsResult.issue ?? '');
 
   final bool hasOnboarded = prefsResult.hasOnboarded;
@@ -326,6 +374,19 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
     hasOnboarded: hasOnboarded,
     startupError: startupError,
   );
+}
+
+Future<void> _configureLocalTimezone() async {
+  try {
+    final String timezoneName = await FlutterTimezone.getLocalTimezone();
+    final tz.Location location = tz.getLocation(timezoneName);
+    tz.setLocalLocation(location);
+    Logger.log('Startup', 'Timezone configured: $timezoneName');
+    RuntimeDiagnostics.record('Timezone configured: $timezoneName');
+  } catch (error) {
+    Logger.warn('Failed to configure local timezone: $error');
+    RuntimeDiagnostics.record('Failed to configure local timezone: $error');
+  }
 }
 
 Future<String?> _initStorageSafe() async {
@@ -390,11 +451,88 @@ Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
   if (issue == null) {
     Logger.log('Startup', 'Firebase initialized.');
     RuntimeDiagnostics.record('Firebase initialized.');
+    unawaited(_captureDiagnosticsContext());
   } else {
     Logger.error('Firebase initialization failed.', issue);
     RuntimeDiagnostics.record('Firebase initialization failed: $issue');
   }
   return issue;
+}
+
+Future<String?> _initMessagingSafe({required bool isMockMode}) async {
+  if (isMockMode) {
+    Logger.log(
+      'Startup',
+      'Mock mode active: Push notifications startup skipped.',
+    );
+    RuntimeDiagnostics.record(
+      'Mock mode active: Push notifications startup skipped.',
+    );
+    return null;
+  }
+
+  Logger.log('Startup', 'Initializing Firebase Messaging...');
+  RuntimeDiagnostics.record('Initializing Firebase Messaging...');
+  final String? issue = await const FirebaseMessagingBootstrap().initialize(
+    isMockMode: isMockMode,
+  );
+  if (issue == null) {
+    Logger.log('Startup', 'Firebase Messaging initialized.');
+    RuntimeDiagnostics.record('Firebase Messaging initialized.');
+  } else {
+    Logger.warn(issue);
+    RuntimeDiagnostics.record(issue);
+  }
+  return issue;
+}
+
+Future<void> _captureDiagnosticsContext() async {
+  try {
+    final DiagnosticsContext context =
+        await DiagnosticsContextService.collect();
+    RuntimeDiagnostics.recordState(
+      'diagnostics.context',
+      message: 'Captured app/device diagnostics context',
+      data: context.toMap(),
+    );
+
+    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+      await FirebaseCrashlytics.instance.setCustomKey(
+        'app_version',
+        context.version,
+      );
+      await FirebaseCrashlytics.instance.setCustomKey(
+        'build_number',
+        context.buildNumber,
+      );
+      await FirebaseCrashlytics.instance.setCustomKey(
+        'platform',
+        context.platform,
+      );
+      await FirebaseCrashlytics.instance.setCustomKey(
+        'os_version',
+        context.osVersion,
+      );
+      await FirebaseCrashlytics.instance.setCustomKey(
+        'device_model',
+        context.model,
+      );
+      await FirebaseCrashlytics.instance.setCustomKey(
+        'is_physical_device',
+        context.isPhysicalDevice,
+      );
+    }
+  } on Object catch (error, stackTrace) {
+    Logger.warn('Diagnostics context capture failed (non-fatal): $error');
+    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+      FirebaseCrashlytics.instance.recordError(
+        error,
+        stackTrace,
+        reason: 'Failed to capture diagnostics context',
+        fatal: false,
+      );
+    }
+  }
 }
 
 Future<String?> _initSupabaseSafe({required bool isMockMode}) async {
@@ -513,9 +651,25 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
     final prefs = await SharedPreferences.getInstance().timeout(
       const Duration(seconds: 6),
     );
-    hasOnboarded = prefs.getBool(onboardingCompleteStorageKey) ?? false;
+    final Object? rawOnboardingComplete = prefs.get(
+      onboardingCompleteStorageKey,
+    );
+    hasOnboarded = _coercePrefsBool(rawOnboardingComplete) ?? false;
+    if (rawOnboardingComplete is String) {
+      await prefs.setBool(onboardingCompleteStorageKey, hasOnboarded);
+    }
+
+    final Object? rawOnboardingVersion = prefs.get(
+      onboardingContentVersionStorageKey,
+    );
     final int storedOnboardingVersion =
-        prefs.getInt(onboardingContentVersionStorageKey) ?? 0;
+        _coercePrefsInt(rawOnboardingVersion) ?? 0;
+    if (rawOnboardingVersion is String) {
+      await prefs.setInt(
+        onboardingContentVersionStorageKey,
+        storedOnboardingVersion,
+      );
+    }
     final int currentOnboardingVersion = TutorialContent.contentVersion;
 
     if (storedOnboardingVersion < currentOnboardingVersion) {
@@ -551,7 +705,7 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
       hasOnboarded: false,
       issue: 'Local preferences initialization timed out.',
     );
-  } on Exception catch (error) {
+  } on Object catch (error) {
     Logger.error('Local preferences initialization failed.', error);
     RuntimeDiagnostics.record(
       'Local preferences initialization failed: $error',
@@ -561,6 +715,43 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
       issue: 'Local preferences initialization failed: $error',
     );
   }
+}
+
+bool? _coercePrefsBool(Object? value) {
+  if (value is bool) {
+    return value;
+  }
+  if (value is String) {
+    final String normalized = value.trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1') {
+      return true;
+    }
+    if (normalized == 'false' || normalized == '0') {
+      return false;
+    }
+  }
+  if (value is num) {
+    if (value == 1) {
+      return true;
+    }
+    if (value == 0) {
+      return false;
+    }
+  }
+  return null;
+}
+
+int? _coercePrefsInt(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is String) {
+    return int.tryParse(value.trim());
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  return null;
 }
 
 String? _appendStartupIssue(String? current, String next) {

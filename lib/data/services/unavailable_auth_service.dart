@@ -40,7 +40,17 @@ class UnavailableAuthService implements AuthServiceContract {
   }
 
   @override
+  Future<UserCredential> signInWithGitHub() async {
+    throw _error();
+  }
+
+  @override
   Future<void> sendPasswordReset(String email) async {
+    throw _error();
+  }
+
+  @override
+  Future<void> updatePassword({required String newPassword}) async {
     throw _error();
   }
 

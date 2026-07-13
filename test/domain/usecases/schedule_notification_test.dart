@@ -41,11 +41,17 @@ void main() {
       await ScheduleNotification(
         repository,
         generateSiDecision: _StubGenerateSiDecision(
-          const SiDecisionEntity(rationale: 'Adaptive', action: 'Execute one focused step now.'),
+          const SiDecisionEntity(
+            rationale: 'Adaptive',
+            action: 'Execute one focused step now.',
+          ),
         ),
       ).call(notification);
 
-      expect(repository.scheduled.single.message, 'Execute one focused step now.');
+      expect(
+        repository.scheduled.single.message,
+        'Execute one focused step now.',
+      );
     });
 
     test('throws for disabled or past notifications', () async {
@@ -78,7 +84,8 @@ void main() {
 }
 
 class _StubGenerateSiDecision extends GenerateSiDecision {
-  _StubGenerateSiDecision(this._decision) : super(_FakeTaskRepository(), _FakeSiRepository());
+  _StubGenerateSiDecision(this._decision)
+    : super(_FakeTaskRepository(), _FakeSiRepository());
 
   final SiDecisionEntity _decision;
 

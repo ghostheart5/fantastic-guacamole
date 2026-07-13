@@ -11,6 +11,8 @@ class RouteSurface {
     required this.deleteAccount,
     required this.terms,
     required this.support,
+    required this.advisor,
+    required this.notifications,
   });
 
   final String onboarding;
@@ -21,6 +23,8 @@ class RouteSurface {
   final String deleteAccount;
   final String terms;
   final String support;
+  final String advisor;
+  final String notifications;
 }
 
 final routeSurfaceProvider = Provider<RouteSurface>((_) {
@@ -33,5 +37,7 @@ final routeSurfaceProvider = Provider<RouteSurface>((_) {
     deleteAccount: RoutePaths.deleteAccount,
     terms: RoutePaths.terms,
     support: RoutePaths.support,
+    advisor: RoutePaths.advisor,
+    notifications: RoutePaths.notifications,
   );
 });

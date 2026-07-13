@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -9,12 +10,15 @@ import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final goalsProvider = NotifierProvider<GoalsNotifier, List<GoalEntity>>(
   GoalsNotifier.new,
 );
+
+final goalProvider = goalsProvider;
 
 final goalProgressProvider = FutureProvider.family<GoalProgressView, String>((
   Ref ref,
@@ -35,7 +39,13 @@ final goalProgressProvider = FutureProvider.family<GoalProgressView, String>((
 class GoalsNotifier extends Notifier<List<GoalEntity>> {
   @override
   List<GoalEntity> build() {
-    return ref.read(getGoalsUseCaseProvider).call();
+    final List<GoalEntity> goals = ref.read(getGoalsUseCaseProvider).call();
+    final reminders = ref.read(reminderOrchestratorServiceProvider);
+    Future<void>(() async {
+      await reminders.syncGoalReminders(goals);
+      await reminders.ensureDailyPlanningReminder();
+    });
+    return goals;
   }
 
   Future<void> add({
@@ -54,6 +64,13 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     );
     await ref.read(createGoalUseCaseProvider).call(goal);
     state = [goal, ...state];
+    AppAnalytics.track(
+      'goal_created',
+      params: <String, Object?>{'goal_id': goal.id},
+    );
+    await ref
+        .read(reminderOrchestratorServiceProvider)
+        .syncGoalReminders(state);
     await _fanOutGoalEvent(goal: goal, action: _GoalAction.created);
     ref.invalidate(goalProgressProvider);
   }
@@ -61,6 +78,9 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
   Future<void> update(GoalEntity updated) async {
     await ref.read(updateGoalUseCaseProvider).call(updated);
     state = state.map((g) => g.id == updated.id ? updated : g).toList();
+    await ref
+        .read(reminderOrchestratorServiceProvider)
+        .syncGoalReminders(state);
     await _fanOutGoalEvent(goal: updated, action: _GoalAction.updated);
     ref.invalidate(goalProgressProvider);
   }
@@ -80,7 +100,14 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
 
     await ref.read(completeGoalUseCaseProvider).call(id);
     state = state.where((g) => g.id != id).toList();
+    await ref
+        .read(reminderOrchestratorServiceProvider)
+        .syncGoalReminders(state);
     if (selectedGoal != null) {
+      AppAnalytics.track(
+        'goal_completed',
+        params: <String, Object?>{'goal_id': selectedGoal.id},
+      );
       await _fanOutGoalEvent(goal: selectedGoal, action: _GoalAction.completed);
     }
     ref.invalidate(goalProgressProvider);

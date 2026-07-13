@@ -34,7 +34,15 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
   }
 
   @override
+  Future<UserCredential> signInWithGitHub() async {
+    return UserCredential(user: _user);
+  }
+
+  @override
   Future<void> sendPasswordReset(String email) async {}
+
+  @override
+  Future<void> updatePassword({required String newPassword}) async {}
 
   @override
   Future<void> sendEmailVerification() async {}

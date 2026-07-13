@@ -47,5 +47,11 @@ CalendarEntryEntity testCalendarEntry({
   final DateTime startTime = start ?? DateTime.utc(2026, 1, 1, 9);
   final DateTime endTime = end ?? startTime.add(const Duration(minutes: 30));
 
-  return CalendarEntryEntity(id: id, title: title, start: startTime, end: endTime, taskId: taskId);
+  return CalendarEntryEntity(
+    id: id,
+    title: title,
+    start: startTime,
+    end: endTime,
+    taskId: taskId,
+  );
 }

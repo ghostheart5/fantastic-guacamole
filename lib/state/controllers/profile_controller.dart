@@ -85,9 +85,14 @@ final profileProvider = NotifierProvider<ProfileController, ProfileState>(
 );
 
 class ProfileController extends Notifier<ProfileState> {
+  bool _initScheduled = false;
+
   @override
   ProfileState build() {
-    _init();
+    if (!_initScheduled) {
+      _initScheduled = true;
+      Future<void>.microtask(_init);
+    }
     return ProfileState();
   }
 

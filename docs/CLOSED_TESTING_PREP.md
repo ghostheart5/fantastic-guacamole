@@ -21,29 +21,26 @@ It assumes the app may keep tester-only access overrides enabled and is not yet 
 
 ### Recommended Tester Build Command
 
-Use a QA flavor-style release build with explicit tester overrides:
+Use the guarded script to build a QA tester release with mock login enabled and real backend services required:
 
 ```powershell
-flutter build appbundle --release \
-	--dart-define=CHRONOSPARK_APP_FLAVOR=qa \
-	--dart-define=CHRONOSPARK_ENABLE_MOCK_LOGIN=true \
-	--dart-define=CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS=true \
-	--dart-define=CHRONOSPARK_ENABLE_CLOUD_SYNC=false
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_android_aab_tester_guarded.ps1
 ```
 
-If Supabase auth should be available for testers, add:
+This script will:
 
-```powershell
-	--dart-define=CHRONOSPARK_SUPABASE_URL=<your-supabase-url> \
-	--dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=<your-supabase-publishable-key>
-```
+- Fail fast if required backend environment variables are missing.
+- Keep `CHRONOSPARK_APP_FLAVOR=qa`.
+- Enable tester login and full tester access (`CHRONOSPARK_ENABLE_MOCK_LOGIN=true`, `CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS=true`).
+- Keep cloud sync enabled so tester data/auth paths hit real services.
+- Emit a uniquely named artifact like `app-release-qa-mock-vcNN.aab`.
 
 ### What Testers Should Expect
 
-- Login screen shows `Tester Access` instead of exposing mock credentials.
+- Login screen shows `Tester Access` for mock login.
 - Settings shows `Tester Access` when QA full access is enabled.
 - SI Console is reachable in tester mode.
-- Billing UI is informational only, not a real subscription purchase flow.
+- Real authentication and cloud sync remain available when backend variables are set.
 
 ### Remaining Blockers Before Play Tester Upload
 

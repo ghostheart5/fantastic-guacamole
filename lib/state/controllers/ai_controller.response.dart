@@ -29,7 +29,8 @@ final aiResponseProvider =
       AIResponseController.new,
     );
 
-class AIResponseController extends AsyncNotifier<AIRecommendation?> {
+class AIResponseController extends AsyncNotifier<AIRecommendation?>
+    implements SIConsoleInterface {
   static int _requestCounter = 0;
   String? _activeRequestId;
 
@@ -52,6 +53,12 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?> {
     );
   }
 
+  @override
+  Future<AIRecommendation?> sendMessage(String text) {
+    return executeConsoleQuery(input: text);
+  }
+
+  @override
   Future<AIRecommendation?> executeConsoleQuery({
     required String input,
     List<Map<String, String>> history = const <Map<String, String>>[],

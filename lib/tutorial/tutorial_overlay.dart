@@ -58,9 +58,10 @@ class _TutorialOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Rect? target = step.targetId == null
+    final String? targetId = step.targetId;
+    final Rect? target = targetId == null
         ? null
-        : TutorialTargetRegistry.instance.rectFor(step.targetId!);
+        : TutorialTargetRegistry.instance.rectFor(targetId);
 
     final bool nonBlocking = step.blockMode == TutorialBlockMode.nonBlocking;
 
@@ -81,7 +82,7 @@ class _TutorialOverlay extends StatelessWidget {
                   controller.reportEvent('longPress:${step.targetId}');
                 }
               },
-              child: CustomPaint(painter: _TutorialPainter(target: target)),
+              child: _PulsePaint(target: target),
             ),
           ),
           _TooltipCard(step: step, target: target, controller: controller),
@@ -91,10 +92,49 @@ class _TutorialOverlay extends StatelessWidget {
   }
 }
 
-class _TutorialPainter extends CustomPainter {
-  const _TutorialPainter({required this.target});
+class _PulsePaint extends StatefulWidget {
+  const _PulsePaint({required this.target});
 
   final Rect? target;
+
+  @override
+  State<_PulsePaint> createState() => _PulsePaintState();
+}
+
+class _PulsePaintState extends State<_PulsePaint>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat(reverse: false);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return CustomPaint(
+          painter: _TutorialPainter(
+            target: widget.target,
+            pulse: Curves.easeOut.transform(_controller.value),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TutorialPainter extends CustomPainter {
+  const _TutorialPainter({required this.target, required this.pulse});
+
+  final Rect? target;
+  final double pulse;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -106,7 +146,7 @@ class _TutorialPainter extends CustomPainter {
       return;
     }
 
-    final Rect hole = target!.inflate(8);
+    final Rect hole = target?.inflate(8) ?? Rect.zero;
     final Path cutout = Path()
       ..addRRect(RRect.fromRectAndRadius(hole, const Radius.circular(16)));
 
@@ -117,6 +157,20 @@ class _TutorialPainter extends CustomPainter {
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
+    final double pulseRadius = 16 + (pulse * 18);
+    final Paint pulsePaint = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.18 * (1 - pulse))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        hole.inflate(pulseRadius),
+        const Radius.circular(24),
+      ),
+      pulsePaint,
+    );
+
     canvas.drawRRect(
       RRect.fromRectAndRadius(hole, const Radius.circular(16)),
       border,
@@ -125,7 +179,7 @@ class _TutorialPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TutorialPainter oldDelegate) {
-    return oldDelegate.target != target;
+    return oldDelegate.target != target || oldDelegate.pulse != pulse;
   }
 }
 
@@ -143,16 +197,23 @@ class _TooltipCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Size screen = MediaQuery.sizeOf(context);
-    final double width = math.min(screen.width - 32, 360);
+    final double width = math.min(screen.width - 32, 320);
+    final TextStyle fallbackBodyStyle =
+        Theme.of(context).textTheme.bodyMedium ??
+        const TextStyle(fontSize: 14, color: Colors.white);
 
-    double top = 96;
-    double left = 16;
+    double top = (screen.height * 0.62).clamp(24, screen.height - 206);
+    double left = ((screen.width - width) / 2).clamp(
+      16,
+      screen.width - width - 16,
+    );
 
-    if (target != null) {
-      top = target!.bottom + 18;
-      if (top + 220 > screen.height) top = target!.top - 220;
-      top = top.clamp(24, screen.height - 240);
-      left = (target!.center.dx - width / 2).clamp(
+    final Rect? targetRect = target;
+    if (targetRect != null) {
+      top = targetRect.bottom + 14;
+      if (top + 190 > screen.height) top = targetRect.top - 190;
+      top = top.clamp(24, screen.height - 206);
+      left = (targetRect.center.dx - width / 2).clamp(
         16,
         screen.width - width - 16,
       );
@@ -172,7 +233,7 @@ class _TooltipCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: DefaultTextStyle(
-              style: Theme.of(context).textTheme.bodyMedium!,
+              style: fallbackBodyStyle,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,7 +244,7 @@ class _TooltipCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(step.body),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Row(
                     children: <Widget>[
                       TextButton(
@@ -197,7 +258,7 @@ class _TooltipCard extends StatelessWidget {
                       const Spacer(),
                       FilledButton(
                         onPressed: controller.next,
-                        child: const Text('Next'),
+                        child: const Text('Next Tip'),
                       ),
                     ],
                   ),

@@ -2,66 +2,229 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Delete Account - ChronoSpark</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 860px;
-      margin: 32px auto;
-      padding: 0 16px;
-      color: #1f1f1f;
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Delete Account - ChronoSpark</title>
+    <style>
+        :root {
+            --bg: #090b18;
+            --card: rgba(255, 255, 255, 0.08);
+            --card-border: rgba(255, 255, 255, 0.16);
+            --text: #f4f7ff;
+            --muted: #b9c2d6;
+            --accent: #7c4dff;
+            --accent-2: #00e5ff;
+            --danger: #ff4d6d;
+            --success: #38ef7d;
+        }
 
-    h1,
-    h2 {
-      color: #111;
-    }
+        * {
+            box-sizing: border-box;
+        }
 
-    p,
-    li {
-      line-height: 1.55;
-    }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, Helvetica, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(124, 77, 255, 0.35), transparent 35%),
+                radial-gradient(circle at bottom right, rgba(0, 229, 255, 0.25), transparent 35%),
+                linear-gradient(135deg, #090b18 0%, #11142a 55%, #050711 100%);
+            line-height: 1.65;
+        }
 
-    .muted {
-      color: #666;
-    }
-  </style>
+        .page {
+            width: min(960px, 92%);
+            margin: 0 auto;
+            padding: 48px 0;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(16px);
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            line-height: 1.1;
+            background: linear-gradient(90deg, var(--accent-2), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        h2 {
+            margin-top: 32px;
+            color: var(--accent-2);
+            font-size: 1.35rem;
+        }
+
+        p,
+        li {
+            color: var(--muted);
+            font-size: 1rem;
+        }
+
+        strong {
+            color: var(--text);
+        }
+
+        a {
+            color: var(--accent-2);
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .notice {
+            border-left: 4px solid var(--accent-2);
+            padding: 16px 18px;
+            background: rgba(0, 229, 255, 0.08);
+            border-radius: 14px;
+            margin: 24px 0;
+        }
+
+        .danger {
+            border-left-color: var(--danger);
+            background: rgba(255, 77, 109, 0.08);
+        }
+
+        .success {
+            border-left-color: var(--success);
+            background: rgba(56, 239, 125, 0.08);
+        }
+
+        .footer {
+            margin-top: 32px;
+            font-size: 0.92rem;
+            color: var(--muted);
+        }
+
+        .email-box {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--card-border);
+        }
+    </style>
 </head>
 
 <body>
-  <h1>Delete Account - ChronoSpark</h1>
-  <p class="muted">Last updated: July 7, 2026</p>
+    <main class="page">
+        <section class="card">
+            <h1>ChronoSpark Account Deletion</h1>
 
-  <p>
-    To request account deletion, email
-    <a href="mailto:support@chronospark.app">support@chronospark.app</a> from or with the email address connected to your ChronoSpark account.
-  </p>
+            <p>
+                This page explains how ChronoSpark users can request deletion of their account and associated data.
+            </p>
 
-  <h2>How to Request Deletion</h2>
-  <ul>
-    <li>Send an email to <a href="mailto:support@chronospark.app">support@chronospark.app</a>.</li>
-    <li>Use a subject such as "Account Deletion Request".</li>
-    <li>Include the email address connected to your account so we can verify ownership.</li>
-  </ul>
+            <div class="notice">
+                <strong>Account deletion requests are completed within 30 days.</strong>
+            </div>
 
-  <h2>What Will Be Deleted</h2>
-  <p>
-    After verification, we will delete your account profile and associated account data, including cloud-linked app data tied to that account.
-  </p>
+            <h2>How to Request Account Deletion</h2>
 
-  <h2>What May Be Retained</h2>
-  <p>
-    Limited data may be retained when necessary for legal obligations, security monitoring, fraud prevention, tax and accounting requirements, dispute resolution, or other compliance duties.
-  </p>
+            <p>
+                To request deletion of your ChronoSpark account, email our support team at:
+            </p>
 
-  <h2>Processing Time and Important Notes</h2>
-  <ul>
-    <li>Verified account deletion requests are completed within 30 days.</li>
-    <li>Deleting the app does not automatically delete your account.</li>
-    <li>Account deletion is permanent and may not be recoverable.</li>
-  </ul>
+            <p class="email-box">
+                <a href="mailto:support@chronospark.app?subject=ChronoSpark Account Deletion Request">
+                    support@chronospark.app
+                </a>
+            </p>
+
+            <p>
+                Please include the following information in your email so we can identify your account:
+            </p>
+
+            <ul>
+                <li>The email address associated with your ChronoSpark account.</li>
+                <li>Your display name or username, if applicable.</li>
+                <li>A clear statement that you want your account deleted.</li>
+            </ul>
+
+            <h2>What Data Will Be Deleted</h2>
+
+            <p>
+                When your account deletion request is processed, ChronoSpark will delete or anonymize account data
+                associated
+                with your user profile, including where applicable:
+            </p>
+
+            <ul>
+                <li>Account profile information.</li>
+                <li>App preferences connected to your account.</li>
+                <li>Saved planning data connected to your account.</li>
+                <li>Progress, goal, or productivity records connected to your account.</li>
+                <li>Cloud-stored user content associated with your account, if any.</li>
+            </ul>
+
+            <h2>What Data May Be Retained</h2>
+
+            <p>
+                Some limited information may be retained when necessary for legitimate business, legal, security,
+                fraud-prevention, tax, dispute-resolution, or compliance purposes.
+            </p>
+
+            <p>
+                Retained information is only kept for as long as necessary and is not used to recreate your deleted
+                account.
+            </p>
+
+            <h2>Deletion Timeline</h2>
+
+            <div class="notice success">
+                <strong>We aim to complete verified deletion requests within 30 days.</strong>
+            </div>
+
+            <p>
+                If additional verification is required to protect your account from unauthorized deletion, we may
+                contact you
+                using the email address provided in your request.
+            </p>
+
+            <h2>Important Notes</h2>
+
+            <div class="notice danger">
+                <strong>Account deletion is permanent.</strong>
+                Once your account and associated data are deleted, they may not be recoverable.
+            </div>
+
+            <p>
+                Deleting the ChronoSpark app from your device does not automatically delete your account. You must
+                submit an
+                account deletion request using the instructions on this page.
+            </p>
+
+            <h2>Contact</h2>
+
+            <p>
+                For deletion requests or privacy questions, contact:
+            </p>
+
+            <p class="email-box">
+                <a href="mailto:support@chronospark.app">
+                    support@chronospark.app
+                </a>
+            </p>
+
+            <p class="footer">
+                Last updated: July 7, 2026
+            </p>
+        </section>
+    </main>
 </body>
 
 </html>

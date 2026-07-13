@@ -1,4 +1,6 @@
-import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
+import 'dart:convert';
+
+import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:flutter/foundation.dart';
 
 @immutable
@@ -69,10 +71,18 @@ class OfflineSyncQueueService {
 
   static const String storageKey = 'offline_sync_queue_v1';
 
-  final SharedPrefsStorage _prefs;
+  final HiveStorage<String> _prefs;
 
   Future<List<OfflineSyncQueueItem>> loadQueue() async {
-    final List<dynamic> raw = _prefs.getJsonList(storageKey);
+    await _prefs.open();
+    final String? encoded = _prefs.get(storageKey);
+    if (encoded == null || encoded.trim().isEmpty) {
+      return const <OfflineSyncQueueItem>[];
+    }
+    final Object? decoded = jsonDecode(encoded);
+    final List<dynamic> raw = decoded is List<dynamic>
+        ? decoded
+        : const <dynamic>[];
     return raw
         .whereType<Map<dynamic, dynamic>>()
         .map(
@@ -118,7 +128,7 @@ class OfflineSyncQueueService {
   }
 
   Future<void> clear() async {
-    await _prefs.remove(storageKey);
+    await _prefs.delete(storageKey);
   }
 
   Future<int> replay({
@@ -175,11 +185,13 @@ class OfflineSyncQueueService {
   }
 
   Future<void> _persist(List<OfflineSyncQueueItem> queue) {
-    return _prefs.setJsonList(
+    return _prefs.put(
       storageKey,
-      queue
-          .map((OfflineSyncQueueItem item) => item.toJson())
-          .toList(growable: false),
+      jsonEncode(
+        queue
+            .map((OfflineSyncQueueItem item) => item.toJson())
+            .toList(growable: false),
+      ),
     );
   }
 }

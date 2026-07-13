@@ -49,7 +49,8 @@ void main() {
       );
 
       final bool accepted = service.validateOutput(
-        message: 'Triage your top three tasks, then execute the first for 25 minutes.',
+        message:
+            'Triage your top three tasks, then execute the first for 25 minutes.',
         confidence: 0.82,
         deduped: true,
       );
@@ -125,7 +126,8 @@ class _FakeInsightRepository implements IInsightRepository {
   Future<void> saveInsight(InsightEntity insight) async {}
 
   @override
-  Future<List<InsightEntity>> searchInsights(String query) async => const <InsightEntity>[];
+  Future<List<InsightEntity>> searchInsights(String query) async =>
+      const <InsightEntity>[];
 }
 
 class _FakeFlowmapRepository implements IFlowmapRepository {
@@ -166,7 +168,8 @@ class _FakeTimelineRepository implements ITimelineRepository {
 
 class _FakeProgressionRepository implements IProgressionRepository {
   @override
-  Future<ProgressionEntity?> getProgression() async => const ProgressionEntity();
+  Future<ProgressionEntity?> getProgression() async =>
+      const ProgressionEntity();
 
   @override
   Future<void> saveProgression(ProgressionEntity progression) async {}
@@ -202,7 +205,8 @@ class _FakeNotificationRepository implements INotificationRepository {
   Future<void> delete(String id) async {}
 
   @override
-  Future<List<NotificationEntity>> getNotifications() async => const <NotificationEntity>[];
+  Future<List<NotificationEntity>> getNotifications() async =>
+      const <NotificationEntity>[];
 
   @override
   Future<void> markRead(String id) async {}

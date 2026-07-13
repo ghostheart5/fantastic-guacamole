@@ -9,10 +9,14 @@ final identityStateProvider = NotifierProvider<IdentityNotifier, IdentityState>(
 
 class IdentityNotifier extends Notifier<IdentityState> {
   static const _engine = IdentityEngine();
+  bool _hydrateScheduled = false;
 
   @override
   IdentityState build() {
-    _hydrate();
+    if (!_hydrateScheduled) {
+      _hydrateScheduled = true;
+      Future<void>.microtask(_hydrate);
+    }
     return const IdentityState(
       disciplineIdentity: 0.1,
       focusIdentity: 0.1,

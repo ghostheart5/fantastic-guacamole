@@ -23,7 +23,13 @@ void main() {
 
     await container
         .read(creatorActionsProvider)
-        .createTask(const CreatorFormData(title: 'Morning reset', type: 'Routine', priority: 2));
+        .createTask(
+          const CreatorFormData(
+            title: 'Morning reset',
+            type: 'Routine',
+            priority: 2,
+          ),
+        );
 
     final TaskEntity created = capture.lastCreated!;
     expect(created.recurrenceRule.name, 'daily');
@@ -38,14 +44,22 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         createTaskUseCaseProvider.overrideWithValue(capture),
-        localMetricsAccumulatorProvider.overrideWithValue(_FakeLocalMetricsAccumulator()),
+        localMetricsAccumulatorProvider.overrideWithValue(
+          _FakeLocalMetricsAccumulator(),
+        ),
       ],
     );
     addTearDown(container.dispose);
 
     await container
         .read(creatorActionsProvider)
-        .createTask(const CreatorFormData(title: 'Big launch prep', type: 'Mission', priority: 2));
+        .createTask(
+          const CreatorFormData(
+            title: 'Big launch prep',
+            type: 'Mission',
+            priority: 2,
+          ),
+        );
 
     final TaskEntity mission = capture.lastCreated!;
     expect(mission.priority, 4);
@@ -55,7 +69,11 @@ void main() {
     await container
         .read(creatorActionsProvider)
         .createTask(
-          const CreatorFormData(title: 'Capture quick thought', type: 'Note', priority: 5),
+          const CreatorFormData(
+            title: 'Capture quick thought',
+            type: 'Note',
+            priority: 5,
+          ),
         );
 
     final TaskEntity note = capture.lastCreated!;

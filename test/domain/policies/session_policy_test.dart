@@ -4,16 +4,19 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('SessionPolicy', () {
-    test('canStart returns true for planned durations of 5 minutes or more', () {
-      final session = SessionEntity(
-        id: 's1',
-        taskId: 't1',
-        startedAt: DateTime.utc(2026, 7, 5),
-        plannedDuration: const Duration(minutes: 5),
-      );
+    test(
+      'canStart returns true for planned durations of 5 minutes or more',
+      () {
+        final session = SessionEntity(
+          id: 's1',
+          taskId: 't1',
+          startedAt: DateTime.utc(2026, 7, 5),
+          plannedDuration: const Duration(minutes: 5),
+        );
 
-      expect(SessionPolicy.canStart(session), isTrue);
-    });
+        expect(SessionPolicy.canStart(session), isTrue);
+      },
+    );
 
     test('canStart returns false when planned duration is under 5 minutes', () {
       final session = SessionEntity(

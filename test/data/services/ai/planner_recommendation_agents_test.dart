@@ -8,12 +8,12 @@ void main() {
       const PlannerAgent planner = PlannerAgent();
       const RecommendationAgent recommendation = RecommendationAgent();
 
-      final Map<String, dynamic> plan = await planner.execute(const <String, dynamic>{
-        'goal': 'Ship by Friday',
-      });
-      final Map<String, dynamic> rec = await recommendation.execute(const <String, dynamic>{
-        'prompt': 'What is best now?',
-      });
+      final Map<String, dynamic> plan = await planner.execute(
+        const <String, dynamic>{'goal': 'Ship by Friday'},
+      );
+      final Map<String, dynamic> rec = await recommendation.execute(
+        const <String, dynamic>{'prompt': 'What is best now?'},
+      );
 
       expect(plan['agent'], 'planning');
       expect(plan['mode'], 'planning');

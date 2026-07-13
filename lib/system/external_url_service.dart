@@ -8,10 +8,35 @@ class ExternalUrlService {
     Uri uri, {
     LaunchMode mode = LaunchMode.externalApplication,
   }) async {
-    final bool supported = await canLaunchUrl(uri);
-    if (!supported) {
-      return false;
+    final String scheme = uri.scheme.toLowerCase();
+    final bool webScheme = scheme == 'http' || scheme == 'https';
+    final List<LaunchMode> modes = webScheme
+        ? <LaunchMode>[
+            mode,
+            LaunchMode.platformDefault,
+            LaunchMode.inAppBrowserView,
+            LaunchMode.inAppWebView,
+            LaunchMode.externalApplication,
+          ]
+        : <LaunchMode>[
+            mode,
+            LaunchMode.externalApplication,
+            LaunchMode.platformDefault,
+          ];
+    for (final LaunchMode candidate in modes.toSet()) {
+      try {
+        final bool supported = await canLaunchUrl(uri);
+        if (!supported) {
+          continue;
+        }
+        final bool launched = await launchUrl(uri, mode: candidate);
+        if (launched) {
+          return true;
+        }
+      } catch (_) {
+        // Try the next launch mode.
+      }
     }
-    return launchUrl(uri, mode: mode);
+    return false;
   }
 }
