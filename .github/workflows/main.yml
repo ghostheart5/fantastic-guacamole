@@ -46,14 +46,23 @@ jobs:
             --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }} \
             --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
 
-      - name: Copy legal pages to build
+      - name: Copy legal and static pages to build
         run: |
           mkdir -p build/web/privacy build/web/privacy-policy build/web/terms build/web/terms-of-service build/web/support build/web/delete-account build/web/code-of-conduct build/web/license build/web/security-policy build/web/readme
-          cp assets/legal/privacy_policy.html build/web/privacy/index.html
-          cp assets/legal/privacy_policy.html build/web/privacy-policy/index.html
-          cp assets/legal/terms_of_service.html build/web/terms/index.html
-          cp assets/legal/terms_of_service.html build/web/terms-of-service/index.html
-          cp assets/legal/support.html build/web/support/index.html
+          cp styles.css build/web/styles.css
+          cp about.html build/web/about.html
+          cp CHRONOSPARK.html build/web/CHRONOSPARK.html
+          cp contact.html build/web/contact.html
+          cp download.html build/web/download.html
+          cp testers.html build/web/testers.html
+          cp privacy.html build/web/privacy.html
+          cp terms.html build/web/terms.html
+          cp support.html build/web/support.html
+          cp privacy.html build/web/privacy/index.html
+          cp privacy.html build/web/privacy-policy/index.html
+          cp terms.html build/web/terms/index.html
+          cp terms.html build/web/terms-of-service/index.html
+          cp support.html build/web/support/index.html
           cp assets/legal/delete_account.html build/web/delete-account/index.html
           cp assets/legal/code_of_conduct.html build/web/code-of-conduct/index.html
           cp assets/legal/license.html build/web/license/index.html
