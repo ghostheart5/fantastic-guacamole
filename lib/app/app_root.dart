@@ -282,7 +282,13 @@ class _AppRootState extends ConsumerState<AppRoot> {
     if (location.isEmpty) {
       return;
     }
-    router.go(location);
+    final String currentLocation = router.state.matchedLocation;
+    if (currentLocation == location) {
+      return;
+    }
+    // Deep links are handled automatically without direct user interaction.
+    // Use replace to avoid creating a synthetic browser history entry.
+    router.replace(location);
   }
 
   String _resolveDeepLinkLocation(Uri uri) {
