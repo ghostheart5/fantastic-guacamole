@@ -31,13 +31,34 @@ jobs:
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
 
       - name: Write key.properties
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          cat > android/key.properties << 'EOF'
-          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          keyAlias=upload
+          if [ ! -s android/app/key.jks ]; then
+            echo "::error::Decoded keystore is missing or empty. Check ANDROID_KEYSTORE_BASE64."
+            exit 1
+          fi
+          if [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::ANDROID_STORE_PASSWORD and ANDROID_KEY_PASSWORD are required."
+            exit 1
+          fi
+          RESOLVED_ALIAS="$KEY_ALIAS"
+          if [ -z "$RESOLVED_ALIAS" ]; then
+            RESOLVED_ALIAS=$(keytool -list -keystore android/app/key.jks -storepass "$STORE_PASSWORD" 2>/dev/null | awk -F, 'NR > 1 {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); if ($1 != "") {print $1; exit}}')
+          fi
+          if [ -z "$RESOLVED_ALIAS" ]; then
+            echo "::error::Unable to resolve keystore alias. Set ANDROID_KEY_ALIAS secret."
+            exit 1
+          fi
+          cat > android/key.properties << EOF
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$RESOLVED_ALIAS
           storeFile=app/key.jks
           EOF
+          echo "Using keystore alias: $RESOLVED_ALIAS"
 
       - name: Configure optional Firebase Android file
         env:
