@@ -26,6 +26,13 @@ jobs:
         with:
           channel: stable
 
+      - name: Validate required deploy secrets
+        run: |
+          if [ -z "${{ secrets.CHRONOSPARK_SUPABASE_URL }}" ] || [ -z "${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}" ]; then
+            echo "Missing required repository secrets: CHRONOSPARK_SUPABASE_URL and/or CHRONOSPARK_SUPABASE_ANON_KEY"
+            exit 1
+          fi
+
       - name: Ensure CI .env asset exists
         run: |
           cat > .env << 'EOF'
