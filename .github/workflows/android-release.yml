@@ -56,12 +56,18 @@ jobs:
           [ -n "$DELETE_ENDPOINT" ] || echo "::warning::CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT is empty"
           [ -n "$ANDROID_SHA256" ] || echo "::warning::CHRONOSPARK_ANDROID_SHA256_CERT is empty"
           [ -n "$IOS_TEAM_ID" ] || echo "::warning::CHRONOSPARK_IOS_TEAM_ID is empty"
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            echo "PROD_READINESS=true" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Disabling CHRONOSPARK_ENFORCE_PROD_READINESS because required prod secrets are missing"
+            echo "PROD_READINESS=false" >> "$GITHUB_ENV"
+          fi
 
       - name: Build signed AAB
         run: >-
           flutter build appbundle --release
           --dart-define=CHRONOSPARK_APP_FLAVOR=prod
-          --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true
+          --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=${{ env.PROD_READINESS }}
           --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }}
           --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
           --dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
