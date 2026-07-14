@@ -49,8 +49,8 @@ jobs:
           ANDROID_SHA256: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
           IOS_TEAM_ID: ${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
         run: |
-          test -n "$SUPABASE_URL"
-          test -n "$SUPABASE_ANON_KEY"
+          [ -n "$SUPABASE_URL" ] || echo "::warning::CHRONOSPARK_SUPABASE_URL is empty"
+          [ -n "$SUPABASE_ANON_KEY" ] || echo "::warning::CHRONOSPARK_SUPABASE_ANON_KEY is empty"
           [ -n "$RECEIPT_ENDPOINT" ] || echo "::warning::CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT is empty"
           [ -n "$AI_ENDPOINT" ] || echo "::warning::CHRONOSPARK_AI_PROXY_ENDPOINT is empty"
           [ -n "$DELETE_ENDPOINT" ] || echo "::warning::CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT is empty"
