@@ -39,6 +39,21 @@ jobs:
           storeFile=app/key.jks
           EOF
 
+      - name: Configure optional Firebase Android file
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > android/app/google-services.json
+            echo "Configured android/app/google-services.json from ANDROID_GOOGLE_SERVICES_JSON_BASE64."
+          elif [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            echo "Configured android/app/google-services.json from ANDROID_GOOGLE_SERVICES_JSON."
+          else
+            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON(_BASE64) is not set; building without Firebase Google Services config."
+          fi
+
       - name: Validate production configuration
         env:
           SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}

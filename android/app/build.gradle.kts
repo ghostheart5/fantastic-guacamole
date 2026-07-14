@@ -2,16 +2,24 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
-    id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics")
-    // END: FlutterFire Configuration
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
+val googleServicesJsonFile = project.file("google-services.json")
+val hasGoogleServicesJson = googleServicesJsonFile.exists()
+
+if (hasGoogleServicesJson) {
+    // Apply Firebase plugins only when Android firebase config is available.
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+} else {
+    logger.lifecycle(
+        "google-services.json was not found at ${googleServicesJsonFile.path}. Skipping Firebase Gradle plugins for this build.",
+    )
+}
 
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
