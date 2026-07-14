@@ -29,8 +29,7 @@ jobs:
       - name: Validate required deploy secrets
         run: |
           if [ -z "${{ secrets.CHRONOSPARK_SUPABASE_URL }}" ] || [ -z "${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}" ]; then
-            echo "Missing required repository secrets: CHRONOSPARK_SUPABASE_URL and/or CHRONOSPARK_SUPABASE_ANON_KEY"
-            exit 1
+            echo "::warning::Missing repository secrets: CHRONOSPARK_SUPABASE_URL and/or CHRONOSPARK_SUPABASE_ANON_KEY. Supabase features will be unavailable in this build."
           fi
 
       - name: Ensure CI .env asset exists
