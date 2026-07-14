@@ -99,6 +99,9 @@ jobs:
             echo "PROD_READINESS=false" >> "$GITHUB_ENV"
           fi
 
+      - name: Create empty .env file for asset bundling
+        run: touch .env
+
       - name: Build signed AAB
         run: >-
           flutter build appbundle --release
