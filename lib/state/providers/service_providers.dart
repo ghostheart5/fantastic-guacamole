@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
@@ -149,19 +150,25 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
   );
 
   Future<void> syncIfPossible({required String source}) async {
-    final sb.SupabaseClient? activeClient = ref.read(supabaseClientProvider);
-    if (activeClient == null) {
-      return;
+    try {
+      final sb.SupabaseClient? activeClient = ref.read(supabaseClientProvider);
+      if (activeClient == null) {
+        return;
+      }
+      final String? token = FirebaseMessagingBootstrap.latestToken;
+      if (token == null || token.trim().isEmpty) {
+        return;
+      }
+      await bridgeRepository.syncFirebaseMessagingToken(
+        activeClient,
+        token,
+        source: source,
+      );
+    } on Exception catch (error) {
+      Logger.warn(
+        'Firebase->Supabase bridge sync skipped non-fatally (source=$source): $error',
+      );
     }
-    final String? token = FirebaseMessagingBootstrap.latestToken;
-    if (token == null || token.trim().isEmpty) {
-      return;
-    }
-    await bridgeRepository.syncFirebaseMessagingToken(
-      activeClient,
-      token,
-      source: source,
-    );
   }
 
   if (client != null) {

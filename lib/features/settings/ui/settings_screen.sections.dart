@@ -498,6 +498,7 @@ class _SupabaseBackendHealthSection extends ConsumerWidget {
         data: (health) => Column(
           children: [
             _NeonStatusTile(title: 'Status', subtitle: health.isHealthy ? 'Healthy' : 'Degraded'),
+            _NeonStatusTile(title: 'Health Badge', subtitle: health.badgeLabel),
             _NeonStatusTile(
               title: 'Configured / Initialized',
               subtitle: '${health.configured} / ${health.initialized}',

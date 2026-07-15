@@ -7,6 +7,9 @@ class FirebaseSupabaseBridgeRepository {
 
   static const String _cachedFirebaseMessagingTokenKey =
       'bridge.firebase_messaging_token';
+  static const Duration _minSyncInterval = Duration(minutes: 2);
+  static String? _lastSyncedToken;
+  static DateTime? _lastSyncedAt;
 
   final SecureStore _store;
 
@@ -60,6 +63,18 @@ class FirebaseSupabaseBridgeRepository {
       return;
     }
 
+    final DateTime now = DateTime.now().toUtc();
+    if (_lastSyncedToken == trimmed && _lastSyncedAt != null) {
+      final Duration elapsed = now.difference(_lastSyncedAt!);
+      if (elapsed < _minSyncInterval) {
+        Logger.log(
+          'Bridge',
+          'Skipped Firebase->Supabase sync (source=$source): token already synced recently.',
+        );
+        return;
+      }
+    }
+
     final Map<String, dynamic> metadata = <String, dynamic>{
       ...?user.userMetadata,
       'firebase_messaging_token': trimmed,
@@ -69,10 +84,31 @@ class FirebaseSupabaseBridgeRepository {
           .toIso8601String(),
     };
 
-    await client.auth.updateUser(sb.UserAttributes(data: metadata));
-    Logger.log(
-      'Bridge',
-      'Synced Firebase messaging token into Supabase auth metadata (source=$source).',
-    );
+    try {
+      await client.auth.updateUser(sb.UserAttributes(data: metadata));
+      _lastSyncedToken = trimmed;
+      _lastSyncedAt = now;
+      Logger.log(
+        'Bridge',
+        'Synced Firebase messaging token into Supabase auth metadata (source=$source).',
+      );
+    } on Exception catch (error) {
+      if (_isOverRateLimit(error)) {
+        Logger.warn(
+          'Skipped Firebase->Supabase metadata update due to auth rate limit (source=$source): $error',
+        );
+        return;
+      }
+      Logger.warn(
+        'Firebase->Supabase metadata sync failed non-fatally (source=$source): $error',
+      );
+    }
+  }
+
+  bool _isOverRateLimit(Object error) {
+    final String text = error.toString().toLowerCase();
+    return text.contains('over_request_rate_limit') ||
+        text.contains('statuscode: 429') ||
+        text.contains('request rate limit reached');
   }
 }

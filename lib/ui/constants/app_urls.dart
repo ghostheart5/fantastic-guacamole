@@ -4,7 +4,7 @@ class AppUrls {
       'https://ghostheart5.github.io/fantastic-guacamole';
 
   // Web
-  static const String website = _base;
+    static const String website = _githubPagesBase;
   static const String privacy = '$_githubPagesBase/privacy/';
   static const String deleteAccount = '$_githubPagesBase/delete-account/';
   static const String terms = '$_githubPagesBase/terms/';

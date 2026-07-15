@@ -1,0 +1,20 @@
+name: PR Policy
+
+on:
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  enforce-maintainer-only:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce maintainer-only PR policy
+        run: |
+          if [ "${{ github.actor }}" != "ghostheart5" ]; then
+            echo "Pull requests to main are restricted to maintainer-managed changes."
+            echo "Actor '${{ github.actor }}' is not allowed by PR policy."
+            exit 1
+          fi

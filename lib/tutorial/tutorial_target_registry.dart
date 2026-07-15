@@ -8,8 +8,8 @@ class TutorialTargetRegistry {
 
   final Map<String, GlobalKey> _keys = <String, GlobalKey>{};
 
-  GlobalKey keyFor(String id) {
-    return _keys.putIfAbsent(id, () => GlobalKey(debugLabel: 'tutorial:$id'));
+  void register(String id, GlobalKey key) {
+    _keys[id] = key;
   }
 
   Rect? rectFor(String id) {
@@ -40,8 +40,10 @@ class TutorialTargetRegistry {
     }
   }
 
-  void unregister(String id) {
-    _keys.remove(id);
+  void unregister(String id, GlobalKey key) {
+    if (identical(_keys[id], key)) {
+      _keys.remove(id);
+    }
   }
 }
 
@@ -64,12 +66,29 @@ class TutorialTarget extends StatefulWidget {
 }
 
 class _TutorialTargetState extends State<TutorialTarget> {
-  late final GlobalKey _key;
+  late final GlobalKey _key = GlobalKey(
+    debugLabel: 'tutorial:${widget.id}:${identityHashCode(this)}',
+  );
 
   @override
   void initState() {
     super.initState();
-    _key = TutorialTargetRegistry.instance.keyFor(widget.id);
+    TutorialTargetRegistry.instance.register(widget.id, _key);
+  }
+
+  @override
+  void didUpdateWidget(covariant TutorialTarget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.id != widget.id) {
+      TutorialTargetRegistry.instance.unregister(oldWidget.id, _key);
+      TutorialTargetRegistry.instance.register(widget.id, _key);
+    }
+  }
+
+  @override
+  void dispose() {
+    TutorialTargetRegistry.instance.unregister(widget.id, _key);
+    super.dispose();
   }
 
   @override

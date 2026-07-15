@@ -1,0 +1,8 @@
+# Require maintainer review for all repository changes.
+* @ghostheart5
+
+# Extra-sensitive paths.
+/.github/ @ghostheart5
+/android/ @ghostheart5
+/lib/ @ghostheart5
+/supabase/ @ghostheart5
