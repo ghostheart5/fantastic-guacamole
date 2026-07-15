@@ -53,5 +53,13 @@ Required repository secrets:
 Local AAB build command:
 
 ```powershell
+./scripts/verify_android_upload_key.ps1
 flutter build appbundle --release
 ```
+
+Expected upload certificate SHA1:
+
+`13:60:98:6B:E3:45:4F:75:52:56:2E:9A:97:CE:CE:37:74:E2:FD:46`
+
+If verification fails, your local/CI keystore is not the Play Console upload key.
+Replace `ANDROID_KEYSTORE_BASE64` (CI) and `android/app/key.jks` or the keystore pointed to by `android/key.properties` (local) with the correct upload keystore.

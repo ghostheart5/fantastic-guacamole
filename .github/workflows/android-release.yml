@@ -60,6 +60,21 @@ jobs:
           EOF
           echo "Using keystore alias: $RESOLVED_ALIAS"
 
+      - name: Verify upload key fingerprint
+        env:
+          EXPECTED_UPLOAD_SHA1: "13:60:98:6B:E3:45:4F:75:52:56:2E:9A:97:CE:CE:37:74:E2:FD:46"
+        run: |
+          ACTUAL_SHA1=$(keytool -list -v -keystore android/app/key.jks -storepass "${{ secrets.ANDROID_STORE_PASSWORD }}" -alias "$(awk -F= '$1=="keyAlias" {print $2}' android/key.properties)" 2>/dev/null | awk -F': ' '/SHA1:/{print $2; exit}')
+          if [ -z "$ACTUAL_SHA1" ]; then
+            echo "::error::Unable to read upload key SHA1 fingerprint from android/app/key.jks"
+            exit 1
+          fi
+          echo "Resolved upload key SHA1: $ACTUAL_SHA1"
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_UPLOAD_SHA1" ]; then
+            echo "::error::Upload key SHA1 mismatch. Expected $EXPECTED_UPLOAD_SHA1 but found $ACTUAL_SHA1"
+            exit 1
+          fi
+
       - name: Configure optional Firebase Android file
         env:
           GOOGLE_SERVICES_JSON_B64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
