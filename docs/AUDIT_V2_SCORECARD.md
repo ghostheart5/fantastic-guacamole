@@ -262,7 +262,7 @@ Total test files: 98 (up from 36 covered at v1 time).
 ### 🟡 Medium Priority
 
 6. **Sign-out guards** — Add `currentUser != null` checks before user-scoped writes in `WorkspaceStoreService` and `SIAIService`.
-7. **Prompt length limit** — Cap `SIInputPacket.text` at 5 000 chars to prevent over-length API payloads.
+7. **Prompt length limit** — Cap `SIInputPacket.text` at 5,000 chars to prevent over-length API payloads.
 8. **Edge case tests** — Token expiration, sign-out mid-op, prompt limit, concurrent SecureStore access.
 
 ---
