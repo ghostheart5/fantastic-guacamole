@@ -25,6 +25,7 @@ For subscription and paywall validation, see [docs/SUBSCRIPTION_PAYWALL_AUDIT.md
 For file and placeholder cleanup tracking, see [docs/FILE_PLACEHOLDER_AUDIT.md](docs/FILE_PLACEHOLDER_AUDIT.md).
 For build verification commands, see [docs/BUILD_AUDIT_COMMANDS.md](docs/BUILD_AUDIT_COMMANDS.md).
 For the master release checklist, see [docs/FINAL_AUDIT_SCORECARD.md](docs/FINAL_AUDIT_SCORECARD.md).
+For the second-pass audit (v2.0) findings, see [docs/AUDIT_V2_SCORECARD.md](docs/AUDIT_V2_SCORECARD.md).
 
 ## Highlights
 
