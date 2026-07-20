@@ -74,19 +74,12 @@ fun File.resolveAgainst(base: File): File = if (isAbsolute) this else File(base,
 android {
     namespace = releaseApplicationId
     compileSdk = maxOf(flutter.compileSdkVersion, 34)
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
-    }
-
-    packaging {
-        jniLibs {
-            // Avoid AGP stripDebugSymbols failures on local toolchains by keeping symbols.
-            keepDebugSymbols += "**/*.so"
-        }
     }
 
     defaultConfig {
