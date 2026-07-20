@@ -42,9 +42,13 @@ class FirebaseMessagingBootstrap {
 
     try {
       final FirebaseMessaging messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission(alert: true, badge: true, sound: true);
+      await messaging
+          .requestPermission(alert: true, badge: true, sound: true)
+          .timeout(const Duration(seconds: 5));
 
-      final String? token = await messaging.getToken();
+      final String? token = await messaging
+          .getToken()
+          .timeout(const Duration(seconds: 10));
       if (token != null && token.trim().isNotEmpty) {
         _latestToken = token.trim();
         Logger.log('Push', 'FCM token acquired.');
@@ -74,8 +78,14 @@ class FirebaseMessagingBootstrap {
       });
 
       return null;
+    } on TimeoutException catch (error) {
+      Logger.warn('Firebase Messaging initialization timed out: $error');
+      RuntimeDiagnostics.record('Firebase Messaging initialization timed out.');
+      return null;
     } on Exception catch (error) {
-      return 'Firebase Messaging initialization failed: $error';
+      Logger.warn('Firebase Messaging initialization failed: $error');
+      RuntimeDiagnostics.record('Firebase Messaging initialization failed.');
+      return null;
     }
   }
 }

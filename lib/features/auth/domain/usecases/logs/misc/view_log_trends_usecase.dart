@@ -1,0 +1,3 @@
+﻿class ViewLogTrendsUsecase {
+  const ViewLogTrendsUsecase();
+}

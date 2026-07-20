@@ -1,0 +1,3 @@
+﻿class AddGoalCollaboratorUsecase {
+  const AddGoalCollaboratorUsecase();
+}

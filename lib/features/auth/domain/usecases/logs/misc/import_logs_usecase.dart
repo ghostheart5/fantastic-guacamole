@@ -1,0 +1,3 @@
+﻿class ImportLogsUsecase {
+  const ImportLogsUsecase();
+}

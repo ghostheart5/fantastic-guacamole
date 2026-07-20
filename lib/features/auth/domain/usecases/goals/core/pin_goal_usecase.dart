@@ -1,0 +1,3 @@
+﻿class PinGoalUsecase {
+  const PinGoalUsecase();
+}

@@ -43,7 +43,7 @@ Quick release gate audit: [GOOGLE_PLAY_READINESS_AUDIT.md](GOOGLE_PLAY_READINESS
 ## Versioning and Release
 - [x] Gradle release override support for app id and versioning added
 - [ ] Set release values via `android/release.properties.example` -> `android/gradle.properties`
-- [ ] Build signed Android App Bundle (`flutter build appbundle --release`)
+- [ ] Build signed Android App Bundle (`flutter build appbundle --release --dart-define=CHRONOSPARK_APP_FLAVOR=prod --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true`)
 - [ ] Upload `.aab` to Google Play internal testing track
 
 ## Testing

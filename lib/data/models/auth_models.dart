@@ -27,3 +27,17 @@ class UserCredential {
 
   final User? user;
 }
+
+class AuthSessionSnapshot {
+  const AuthSessionSnapshot({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.expiresAt,
+    required this.issuedAt,
+  });
+
+  final String accessToken;
+  final String refreshToken;
+  final DateTime expiresAt;
+  final DateTime issuedAt;
+}

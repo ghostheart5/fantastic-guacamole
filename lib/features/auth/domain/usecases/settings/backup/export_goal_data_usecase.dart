@@ -1,0 +1,3 @@
+﻿class ExportGoalDataUsecase {
+  const ExportGoalDataUsecase();
+}

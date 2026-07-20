@@ -1,0 +1,3 @@
+﻿class ViewTimelineEventUsecase {
+  const ViewTimelineEventUsecase();
+}

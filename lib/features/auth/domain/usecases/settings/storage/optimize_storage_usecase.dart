@@ -1,0 +1,3 @@
+﻿class OptimizeStorageUsecase {
+  const OptimizeStorageUsecase();
+}

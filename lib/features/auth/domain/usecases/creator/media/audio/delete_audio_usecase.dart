@@ -1,0 +1,3 @@
+﻿class DeleteAudioUsecase {
+  const DeleteAudioUsecase();
+}

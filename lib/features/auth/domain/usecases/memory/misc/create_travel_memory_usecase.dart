@@ -1,0 +1,3 @@
+﻿class CreateTravelMemoryUsecase {
+  const CreateTravelMemoryUsecase();
+}

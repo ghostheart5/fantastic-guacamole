@@ -1,0 +1,3 @@
+﻿class UnlockRewardUsecase {
+  const UnlockRewardUsecase();
+}

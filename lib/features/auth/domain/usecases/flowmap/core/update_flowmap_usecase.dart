@@ -1,0 +1,3 @@
+﻿class UpdateFlowmapUsecase {
+  const UpdateFlowmapUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class CreateFitnessGoalUsecase {
+  const CreateFitnessGoalUsecase();
+}

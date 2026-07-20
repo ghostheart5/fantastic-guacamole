@@ -1,0 +1,3 @@
+﻿class ViewJournalInsightsUsecase {
+  const ViewJournalInsightsUsecase();
+}

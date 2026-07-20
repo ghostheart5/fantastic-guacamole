@@ -298,8 +298,9 @@ void main() {
         'monthly',
       );
 
-      expect(state.isActive, isFalse);
-      expect(state.status, 'verification_failed');
+      expect(state.isActive, isTrue);
+      expect(state.status, 'pending_verification');
+      expect(state.source, 'google_play_grace');
       expect(billing.completePurchaseCalls, 1);
 
       repository.dispose();
@@ -635,8 +636,10 @@ void main() {
         () => repository.startSubscription('monthly'),
       );
 
-      expect(first.status, 'verification_failed');
-      expect(second.status, 'verification_failed');
+      expect(first.status, 'pending_verification');
+      expect(second.status, 'pending_verification');
+      expect(first.source, 'google_play_grace');
+      expect(second.source, 'google_play_grace');
       expect(billing.completePurchaseCalls, 2);
 
       repository.dispose();

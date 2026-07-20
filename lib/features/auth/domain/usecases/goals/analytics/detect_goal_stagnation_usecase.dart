@@ -1,0 +1,3 @@
+﻿class DetectGoalStagnationUsecase {
+  const DetectGoalStagnationUsecase();
+}

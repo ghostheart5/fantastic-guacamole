@@ -13,6 +13,7 @@ class RouteSurface {
     required this.support,
     required this.advisor,
     required this.notifications,
+    required this.notificationPermissionRecovery,
   });
 
   final String onboarding;
@@ -25,6 +26,7 @@ class RouteSurface {
   final String support;
   final String advisor;
   final String notifications;
+  final String notificationPermissionRecovery;
 }
 
 final routeSurfaceProvider = Provider<RouteSurface>((_) {
@@ -39,5 +41,6 @@ final routeSurfaceProvider = Provider<RouteSurface>((_) {
     support: RoutePaths.support,
     advisor: RoutePaths.advisor,
     notifications: RoutePaths.notifications,
+    notificationPermissionRecovery: RoutePaths.notificationPermissionRecovery,
   );
 });

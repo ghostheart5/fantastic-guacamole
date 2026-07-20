@@ -1,0 +1,3 @@
+﻿class SyncSubscriptionStatusUsecase {
+  const SyncSubscriptionStatusUsecase();
+}

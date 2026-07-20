@@ -1,0 +1,3 @@
+﻿class CreateJournalNodeUsecase {
+  const CreateJournalNodeUsecase();
+}

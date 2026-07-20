@@ -1,0 +1,3 @@
+﻿class ScheduleQuoteUsecase {
+  const ScheduleQuoteUsecase();
+}

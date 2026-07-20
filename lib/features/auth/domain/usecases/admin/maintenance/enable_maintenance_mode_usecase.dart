@@ -1,0 +1,3 @@
+﻿class EnableMaintenanceModeUsecase {
+  const EnableMaintenanceModeUsecase();
+}

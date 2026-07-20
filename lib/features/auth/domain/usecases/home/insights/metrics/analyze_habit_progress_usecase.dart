@@ -1,0 +1,3 @@
+﻿class AnalyzeHabitProgressUsecase {
+  const AnalyzeHabitProgressUsecase();
+}

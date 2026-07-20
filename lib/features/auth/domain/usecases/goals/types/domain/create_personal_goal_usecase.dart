@@ -1,0 +1,3 @@
+﻿class CreatePersonalGoalUsecase {
+  const CreatePersonalGoalUsecase();
+}

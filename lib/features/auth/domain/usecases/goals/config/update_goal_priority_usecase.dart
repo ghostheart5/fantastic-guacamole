@@ -1,0 +1,3 @@
+﻿class UpdateGoalPriorityUsecase {
+  const UpdateGoalPriorityUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class SetGoalDeadlineUsecase {
+  const SetGoalDeadlineUsecase();
+}

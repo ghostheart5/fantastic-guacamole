@@ -1,0 +1,3 @@
+﻿class GenerateGoalSummaryUsecase {
+  const GenerateGoalSummaryUsecase();
+}

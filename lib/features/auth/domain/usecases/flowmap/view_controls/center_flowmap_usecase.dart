@@ -1,0 +1,3 @@
+﻿class CenterFlowmapUsecase {
+  const CenterFlowmapUsecase();
+}

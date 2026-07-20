@@ -1,0 +1,3 @@
+﻿class EditCreatorProfileUsecase {
+  const EditCreatorProfileUsecase();
+}

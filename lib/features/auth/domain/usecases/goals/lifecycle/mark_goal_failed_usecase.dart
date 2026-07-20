@@ -1,0 +1,3 @@
+﻿class MarkGoalFailedUsecase {
+  const MarkGoalFailedUsecase();
+}

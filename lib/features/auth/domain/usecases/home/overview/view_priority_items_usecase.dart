@@ -1,0 +1,3 @@
+﻿class ViewPriorityItemsUsecase {
+  const ViewPriorityItemsUsecase();
+}

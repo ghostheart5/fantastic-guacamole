@@ -1,0 +1,3 @@
+﻿class RestoreFlowmapVersionUsecase {
+  const RestoreFlowmapVersionUsecase();
+}

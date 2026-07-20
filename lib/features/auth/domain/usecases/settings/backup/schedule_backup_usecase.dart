@@ -1,0 +1,3 @@
+﻿class ScheduleBackupUsecase {
+  const ScheduleBackupUsecase();
+}

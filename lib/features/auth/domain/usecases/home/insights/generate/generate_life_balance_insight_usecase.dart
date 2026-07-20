@@ -1,0 +1,3 @@
+﻿class GenerateLifeBalanceInsightUsecase {
+  const GenerateLifeBalanceInsightUsecase();
+}

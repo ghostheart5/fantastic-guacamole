@@ -1,0 +1,3 @@
+﻿class ViewBiggestWinsUsecase {
+  const ViewBiggestWinsUsecase();
+}

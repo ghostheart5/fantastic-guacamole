@@ -1,0 +1,3 @@
+﻿class ReopenGoalUsecase {
+  const ReopenGoalUsecase();
+}

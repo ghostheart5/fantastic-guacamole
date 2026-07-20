@@ -1,0 +1,3 @@
+﻿class DeleteTaskUsecase {
+  const DeleteTaskUsecase();
+}

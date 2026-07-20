@@ -1,0 +1,3 @@
+﻿class ReopenMilestoneUsecase {
+  const ReopenMilestoneUsecase();
+}

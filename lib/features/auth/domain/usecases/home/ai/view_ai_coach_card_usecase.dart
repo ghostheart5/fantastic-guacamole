@@ -1,0 +1,3 @@
+﻿class ViewAiCoachCardUsecase {
+  const ViewAiCoachCardUsecase();
+}

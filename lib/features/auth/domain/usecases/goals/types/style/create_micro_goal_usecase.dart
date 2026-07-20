@@ -1,0 +1,3 @@
+﻿class CreateMicroGoalUsecase {
+  const CreateMicroGoalUsecase();
+}

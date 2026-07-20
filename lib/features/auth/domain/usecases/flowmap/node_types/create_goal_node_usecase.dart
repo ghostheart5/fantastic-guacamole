@@ -1,0 +1,3 @@
+﻿class CreateGoalNodeUsecase {
+  const CreateGoalNodeUsecase();
+}

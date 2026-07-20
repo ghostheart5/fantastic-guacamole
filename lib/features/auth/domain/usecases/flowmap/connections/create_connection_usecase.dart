@@ -1,0 +1,3 @@
+﻿class CreateConnectionUsecase {
+  const CreateConnectionUsecase();
+}

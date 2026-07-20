@@ -1,0 +1,3 @@
+﻿class PredictProductivityTrendsUsecase {
+  const PredictProductivityTrendsUsecase();
+}

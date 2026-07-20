@@ -1,0 +1,3 @@
+﻿class GenerateNextStepRecommendationsUsecase {
+  const GenerateNextStepRecommendationsUsecase();
+}

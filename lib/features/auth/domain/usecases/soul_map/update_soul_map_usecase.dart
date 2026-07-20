@@ -1,0 +1,3 @@
+﻿class UpdateSoulMapUsecase {
+  const UpdateSoulMapUsecase();
+}

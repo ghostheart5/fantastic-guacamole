@@ -1,0 +1,3 @@
+﻿class ClaimRewardUsecase {
+  const ClaimRewardUsecase();
+}

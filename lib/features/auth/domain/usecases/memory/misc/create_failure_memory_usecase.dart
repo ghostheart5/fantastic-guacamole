@@ -1,0 +1,3 @@
+﻿class CreateFailureMemoryUsecase {
+  const CreateFailureMemoryUsecase();
+}

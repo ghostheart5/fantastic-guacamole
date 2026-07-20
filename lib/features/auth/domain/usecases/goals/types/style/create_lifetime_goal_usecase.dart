@@ -1,0 +1,3 @@
+﻿class CreateLifetimeGoalUsecase {
+  const CreateLifetimeGoalUsecase();
+}

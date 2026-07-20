@@ -1,0 +1,3 @@
+﻿class GenerateMemoryInsightsUsecase {
+  const GenerateMemoryInsightsUsecase();
+}

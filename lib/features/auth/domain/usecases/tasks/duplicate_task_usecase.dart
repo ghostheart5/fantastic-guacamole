@@ -1,0 +1,3 @@
+﻿class DuplicateTaskUsecase {
+  const DuplicateTaskUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class AddVoiceNoteToNodeUsecase {
+  const AddVoiceNoteToNodeUsecase();
+}

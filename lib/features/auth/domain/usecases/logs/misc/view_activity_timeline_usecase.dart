@@ -1,0 +1,3 @@
+﻿class ViewActivityTimelineUsecase {
+  const ViewActivityTimelineUsecase();
+}

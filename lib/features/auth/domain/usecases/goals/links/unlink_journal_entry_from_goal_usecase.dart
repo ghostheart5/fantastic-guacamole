@@ -1,0 +1,3 @@
+﻿class UnlinkJournalEntryFromGoalUsecase {
+  const UnlinkJournalEntryFromGoalUsecase();
+}

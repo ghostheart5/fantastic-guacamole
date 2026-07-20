@@ -1,0 +1,3 @@
+﻿class ViewFlowmapRevisionsUsecase {
+  const ViewFlowmapRevisionsUsecase();
+}

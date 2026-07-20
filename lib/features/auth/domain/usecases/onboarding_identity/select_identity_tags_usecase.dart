@@ -1,0 +1,3 @@
+﻿class SelectIdentityTagsUsecase {
+  const SelectIdentityTagsUsecase();
+}

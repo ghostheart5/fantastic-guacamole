@@ -1,0 +1,3 @@
+﻿class GenerateFlowmapRecommendationsUsecase {
+  const GenerateFlowmapRecommendationsUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class GenerateEmotionReportUsecase {
+  const GenerateEmotionReportUsecase();
+}

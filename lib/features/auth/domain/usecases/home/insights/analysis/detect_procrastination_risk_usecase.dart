@@ -1,0 +1,3 @@
+﻿class DetectProcrastinationRiskUsecase {
+  const DetectProcrastinationRiskUsecase();
+}

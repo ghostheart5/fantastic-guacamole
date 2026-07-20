@@ -1,0 +1,3 @@
+﻿class BackupGoalsUsecase {
+  const BackupGoalsUsecase();
+}

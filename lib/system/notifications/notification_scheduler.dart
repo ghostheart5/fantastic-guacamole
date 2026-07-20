@@ -1,9 +1,18 @@
+import 'dart:convert';
+
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
+
+enum NotificationScheduleResult {
+  scheduled,
+  skippedNotInitialized,
+  skippedPermissionDenied,
+  skippedPastTime,
+}
 
 class NotificationScheduler {
   factory NotificationScheduler() => _instance;
@@ -15,8 +24,17 @@ class NotificationScheduler {
   final FlutterLocalNotificationsPlugin _plugin;
   bool _initialized = false;
   bool _permissionGranted = true;
+  static String? _pendingNotificationPayload;
   static final ValueNotifier<bool?> permissionGrantedListenable =
       ValueNotifier<bool?>(null);
+  static final ValueNotifier<String?> notificationPayloadListenable =
+      ValueNotifier<String?>(null);
+
+  static String? consumePendingNotificationPayload() {
+    final String? payload = _pendingNotificationPayload;
+    _pendingNotificationPayload = null;
+    return payload;
+  }
 
   static const _channel = AndroidNotificationChannel(
     'chronospark_channel',
@@ -48,7 +66,19 @@ class NotificationScheduler {
       iOS: darwin,
       macOS: darwin,
     );
-    await _plugin.initialize(settings: settings);
+    await _plugin.initialize(
+      settings: settings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        final String? payload = response.payload?.trim();
+        if (payload == null || payload.isEmpty) {
+          return;
+        }
+        _pendingNotificationPayload = payload;
+        notificationPayloadListenable.value = payload;
+      },
+      onDidReceiveBackgroundNotificationResponse:
+          notificationTapBackgroundHandler,
+    );
     _initialized = true;
 
     final AndroidFlutterLocalNotificationsPlugin? androidPlugin = _plugin
@@ -115,6 +145,12 @@ class NotificationScheduler {
   Future<bool> requestPermissions() => init(requestPermissions: true);
 
   Future<void> schedule(NotificationEntity notification) async {
+    await scheduleWithStatus(notification);
+  }
+
+  Future<NotificationScheduleResult> scheduleWithStatus(
+    NotificationEntity notification,
+  ) async {
     if (!_initialized) {
       Logger.warn(
         'Skipped schedule because notification scheduler is not initialized.',
@@ -122,7 +158,7 @@ class NotificationScheduler {
       RuntimeDiagnostics.record(
         'Skipped notification schedule because scheduler is not initialized.',
       );
-      return;
+      return NotificationScheduleResult.skippedNotInitialized;
     }
     if (!_permissionGranted) {
       Logger.log(
@@ -132,7 +168,7 @@ class NotificationScheduler {
       RuntimeDiagnostics.record(
         'Skipped notification schedule because permission is not granted.',
       );
-      return;
+      return NotificationScheduleResult.skippedPermissionDenied;
     }
     final scheduledTz = tz.TZDateTime.from(notification.scheduledAt, tz.local);
     if (scheduledTz.isBefore(tz.TZDateTime.now(tz.local))) {
@@ -143,7 +179,7 @@ class NotificationScheduler {
       RuntimeDiagnostics.record(
         'Skipped notification schedule for past time: ${notification.id}.',
       );
-      return;
+      return NotificationScheduleResult.skippedPastTime;
     }
     await _plugin.zonedSchedule(
       id: _notificationId(notification.id),
@@ -151,8 +187,13 @@ class NotificationScheduler {
       body: notification.message,
       scheduledDate: scheduledTz,
       notificationDetails: _notifDetails,
+      payload: jsonEncode(<String, String>{
+        'route': '/notifications',
+        'notificationId': notification.id,
+      }),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
+    return NotificationScheduleResult.scheduled;
   }
 
   Future<void> scheduleDailyAt({
@@ -162,8 +203,28 @@ class NotificationScheduler {
     required int hour,
     required int minute,
   }) async {
-    if (!_initialized) return;
-    if (!_permissionGranted) return;
+    await scheduleDailyAtWithStatus(
+      id: id,
+      title: title,
+      body: body,
+      hour: hour,
+      minute: minute,
+    );
+  }
+
+  Future<NotificationScheduleResult> scheduleDailyAtWithStatus({
+    required String id,
+    required String title,
+    required String body,
+    required int hour,
+    required int minute,
+  }) async {
+    if (!_initialized) {
+      return NotificationScheduleResult.skippedNotInitialized;
+    }
+    if (!_permissionGranted) {
+      return NotificationScheduleResult.skippedPermissionDenied;
+    }
     final now = tz.TZDateTime.now(tz.local);
     var scheduled = tz.TZDateTime(
       tz.local,
@@ -182,9 +243,14 @@ class NotificationScheduler {
       body: body,
       scheduledDate: scheduled,
       notificationDetails: _notifDetails,
+      payload: jsonEncode(<String, String>{
+        'route': '/notifications',
+        'notificationId': id,
+      }),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
     );
+    return NotificationScheduleResult.scheduled;
   }
 
   Future<void> cancel(String id) async {
@@ -223,4 +289,14 @@ class NotificationScheduler {
     }
     return hash;
   }
+}
+
+@pragma('vm:entry-point')
+void notificationTapBackgroundHandler(NotificationResponse response) {
+  final String? payload = response.payload?.trim();
+  if (payload == null || payload.isEmpty) {
+    return;
+  }
+  NotificationScheduler._pendingNotificationPayload = payload;
+  NotificationScheduler.notificationPayloadListenable.value = payload;
 }

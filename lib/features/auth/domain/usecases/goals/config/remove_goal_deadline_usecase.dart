@@ -1,0 +1,3 @@
+﻿class RemoveGoalDeadlineUsecase {
+  const RemoveGoalDeadlineUsecase();
+}

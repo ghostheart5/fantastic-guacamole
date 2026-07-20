@@ -21,7 +21,7 @@ function send(res, code, payload) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.method !== 'POST' || req.url !== '/verify-receipt') {
+  if (req.method !== 'POST' || req.url !== '/monetization-verify') {
     return send(res, 404, { valid: false, reason: 'not_found' });
   }
 

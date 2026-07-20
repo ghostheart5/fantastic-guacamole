@@ -1,0 +1,3 @@
+﻿class ChangePasswordUsecase {
+  const ChangePasswordUsecase();
+}

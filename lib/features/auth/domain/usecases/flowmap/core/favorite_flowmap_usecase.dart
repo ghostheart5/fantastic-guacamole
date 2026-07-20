@@ -1,0 +1,3 @@
+﻿class FavoriteFlowmapUsecase {
+  const FavoriteFlowmapUsecase();
+}

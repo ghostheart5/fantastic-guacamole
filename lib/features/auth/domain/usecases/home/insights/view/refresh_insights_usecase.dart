@@ -1,0 +1,3 @@
+﻿class RefreshInsightsUsecase {
+  const RefreshInsightsUsecase();
+}

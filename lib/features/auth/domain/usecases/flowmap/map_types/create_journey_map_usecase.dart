@@ -1,0 +1,3 @@
+﻿class CreateJourneyMapUsecase {
+  const CreateJourneyMapUsecase();
+}

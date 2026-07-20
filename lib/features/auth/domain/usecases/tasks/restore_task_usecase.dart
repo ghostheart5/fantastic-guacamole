@@ -1,0 +1,3 @@
+﻿class RestoreTaskUsecase {
+  const RestoreTaskUsecase();
+}

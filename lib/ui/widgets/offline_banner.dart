@@ -12,6 +12,7 @@ class OfflineBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isOnline = ref.watch(isOnlineProvider);
+    final String? syncError = ref.watch(syncErrorMessageProvider);
     final int pendingSyncCount = ref
         .watch(offlineQueueCountProvider)
         .maybeWhen(data: (int count) => count, orElse: () => 0);
@@ -23,7 +24,10 @@ class OfflineBanner extends ConsumerWidget {
           curve: Curves.easeInOut,
           child: isOnline
               ? const SizedBox.shrink()
-              : _OfflineBannerBar(pendingSyncCount: pendingSyncCount),
+              : _OfflineBannerBar(
+                  pendingSyncCount: pendingSyncCount,
+                  syncError: syncError,
+                ),
         ),
         Expanded(child: child),
       ],
@@ -32,9 +36,13 @@ class OfflineBanner extends ConsumerWidget {
 }
 
 class _OfflineBannerBar extends StatelessWidget {
-  const _OfflineBannerBar({required this.pendingSyncCount});
+  const _OfflineBannerBar({
+    required this.pendingSyncCount,
+    required this.syncError,
+  });
 
   final int pendingSyncCount;
+  final String? syncError;
 
   @override
   Widget build(BuildContext context) {
@@ -43,8 +51,8 @@ class _OfflineBannerBar extends StatelessWidget {
       liveRegion: true,
       container: true,
       label: pendingSyncCount > 0
-          ? 'Offline mode. $pendingSyncCount actions queued. Actions will sync later.'
-          : 'Offline mode. Actions will sync later.',
+          ? 'Offline mode. $pendingSyncCount actions queued. ${syncError ?? 'Actions will sync later.'}'
+          : 'Offline mode. ${syncError ?? 'Actions will sync later.'}',
       child: ExcludeSemantics(
         child: Container(
           width: double.infinity,
@@ -60,7 +68,9 @@ class _OfflineBannerBar extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                pendingSyncCount > 0
+                syncError != null
+                    ? 'Offline Mode — $syncError'
+                    : pendingSyncCount > 0
                     ? 'Offline Mode — $pendingSyncCount queued, syncing later'
                     : 'Offline Mode — actions will sync later',
                 style: const TextStyle(

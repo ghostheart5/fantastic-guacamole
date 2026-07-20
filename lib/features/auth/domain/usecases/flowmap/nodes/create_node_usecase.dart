@@ -1,0 +1,3 @@
+﻿class CreateNodeUsecase {
+  const CreateNodeUsecase();
+}

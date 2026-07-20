@@ -1,0 +1,3 @@
+﻿class CompareTimelinesUsecase {
+  const CompareTimelinesUsecase();
+}

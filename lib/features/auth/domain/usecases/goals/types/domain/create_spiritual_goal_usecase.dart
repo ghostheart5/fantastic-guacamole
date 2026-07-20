@@ -1,0 +1,3 @@
+﻿class CreateSpiritualGoalUsecase {
+  const CreateSpiritualGoalUsecase();
+}

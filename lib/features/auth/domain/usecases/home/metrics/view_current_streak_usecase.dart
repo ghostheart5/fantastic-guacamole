@@ -1,0 +1,3 @@
+﻿class ViewCurrentStreakUsecase {
+  const ViewCurrentStreakUsecase();
+}

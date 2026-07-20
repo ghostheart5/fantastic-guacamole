@@ -1,0 +1,3 @@
+﻿class ResetGoalProgressUsecase {
+  const ResetGoalProgressUsecase();
+}

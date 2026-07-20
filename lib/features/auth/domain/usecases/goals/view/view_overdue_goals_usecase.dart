@@ -1,0 +1,3 @@
+﻿class ViewOverdueGoalsUsecase {
+  const ViewOverdueGoalsUsecase();
+}

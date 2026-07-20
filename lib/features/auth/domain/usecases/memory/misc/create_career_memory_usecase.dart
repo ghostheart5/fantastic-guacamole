@@ -1,0 +1,3 @@
+﻿class CreateCareerMemoryUsecase {
+  const CreateCareerMemoryUsecase();
+}

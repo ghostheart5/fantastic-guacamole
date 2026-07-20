@@ -37,8 +37,47 @@ class FlowmapNode {
 
   String toRaw() => jsonEncode(toJson());
 
-  static FlowmapNode fromRaw(String raw) =>
-      FlowmapNode.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+  static FlowmapNode? tryFromRaw(String raw) {
+    try {
+      final dynamic decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return null;
+      }
+      final String? id = decoded['id']?.toString();
+      final String? title = decoded['title']?.toString();
+      final String? createdAtRaw = decoded['createdAt']?.toString();
+      final DateTime? createdAt = createdAtRaw == null
+          ? null
+          : DateTime.tryParse(createdAtRaw);
+      if (id == null || title == null || createdAt == null) {
+        return null;
+      }
+      return FlowmapNode(
+        id: id,
+        title: title,
+        description: decoded['description']?.toString(),
+        tags: (decoded['tags'] as List<dynamic>?)
+                ?.map((dynamic e) => e.toString())
+                .toList(growable: false) ??
+            const <String>[],
+        connectedTo: (decoded['connectedTo'] as List<dynamic>?)
+                ?.map((dynamic e) => e.toString())
+                .toList(growable: false) ??
+            const <String>[],
+        createdAt: createdAt,
+      );
+    } on Object {
+      return null;
+    }
+  }
+
+  static FlowmapNode fromRaw(String raw) {
+    final FlowmapNode? node = tryFromRaw(raw);
+    if (node == null) {
+      throw const FormatException('Invalid flowmap node payload');
+    }
+    return node;
+  }
 
   FlowmapNode copyWith({
     String? title,

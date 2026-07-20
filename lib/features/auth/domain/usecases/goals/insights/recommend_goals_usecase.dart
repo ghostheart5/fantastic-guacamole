@@ -1,0 +1,3 @@
+﻿class RecommendGoalsUsecase {
+  const RecommendGoalsUsecase();
+}

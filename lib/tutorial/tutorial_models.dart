@@ -32,7 +32,15 @@ class TutorialDefinition {
   }
 
   static TutorialDefinition decode(String raw) {
-    return TutorialDefinition.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    final dynamic decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) {
+      return const TutorialDefinition(
+        id: 'tutorial',
+        title: 'Tutorial',
+        steps: <TutorialStep>[],
+      );
+    }
+    return TutorialDefinition.fromJson(decoded);
   }
 }
 

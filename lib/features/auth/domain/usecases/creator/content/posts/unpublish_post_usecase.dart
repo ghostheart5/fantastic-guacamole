@@ -1,0 +1,3 @@
+﻿class UnpublishPostUsecase {
+  const UnpublishPostUsecase();
+}

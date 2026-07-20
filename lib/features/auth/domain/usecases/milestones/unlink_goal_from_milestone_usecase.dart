@@ -1,0 +1,3 @@
+﻿class UnlinkGoalFromMilestoneUsecase {
+  const UnlinkGoalFromMilestoneUsecase();
+}

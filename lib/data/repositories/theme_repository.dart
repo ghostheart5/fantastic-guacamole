@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_theme_repository.dart';
@@ -31,7 +32,10 @@ class ThemeRepository implements IThemeRepository {
           isDark: (decoded['isDark'] as bool?) ?? true,
         );
       }
-    } catch (_) {}
+      Logger.warn('Theme payload is not a JSON object; using default theme.');
+    } on FormatException catch (error) {
+      Logger.warn('Theme payload is corrupted; using default theme: $error');
+    }
     return AppThemeEntity.defaultTheme();
   }
 

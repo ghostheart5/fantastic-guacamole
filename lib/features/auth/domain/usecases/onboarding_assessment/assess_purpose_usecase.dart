@@ -1,0 +1,3 @@
+﻿class AssessPurposeUsecase {
+  const AssessPurposeUsecase();
+}

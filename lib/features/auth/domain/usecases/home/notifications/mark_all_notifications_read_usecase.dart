@@ -1,0 +1,3 @@
+﻿class MarkAllNotificationsReadUsecase {
+  const MarkAllNotificationsReadUsecase();
+}

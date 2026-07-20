@@ -1,0 +1,3 @@
+﻿class ViewHabitInsightsUsecase {
+  const ViewHabitInsightsUsecase();
+}

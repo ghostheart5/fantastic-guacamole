@@ -1,0 +1,3 @@
+﻿class DetectPatternsUsecase {
+  const DetectPatternsUsecase();
+}

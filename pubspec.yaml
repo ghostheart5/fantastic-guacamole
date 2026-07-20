@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 4.0.0+2026071133
+version: 4.0.3+2026071604
 environment:
   sdk: ^3.12.0
 
@@ -81,6 +81,7 @@ dependencies:
   cloud_firestore: ^6.6.0
   firebase_storage: ^13.4.3
 
+  state_notifier: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -99,6 +100,12 @@ dev_dependencies:
   riverpod_generator: ^4.0.4
   freezed: ^3.0.0
   json_serializable: ^6.9.5
+
+dependency_overrides:
+  # path_provider_foundation 2.6.0 introduced an Objective-C native-assets
+  # hook that fails in this Windows environment when paths contain spaces.
+  # Pinning to 2.5.1 keeps the plugin-based implementation for local runs.
+  path_provider_foundation: 2.5.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

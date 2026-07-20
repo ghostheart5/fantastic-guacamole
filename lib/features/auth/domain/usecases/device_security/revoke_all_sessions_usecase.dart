@@ -1,0 +1,3 @@
+﻿class RevokeAllSessionsUsecase {
+  const RevokeAllSessionsUsecase();
+}

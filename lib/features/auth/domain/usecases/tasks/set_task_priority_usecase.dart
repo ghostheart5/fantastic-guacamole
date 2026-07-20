@@ -1,0 +1,3 @@
+﻿class SetTaskPriorityUsecase {
+  const SetTaskPriorityUsecase();
+}

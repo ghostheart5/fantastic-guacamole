@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/features/monetization/providers/monetization_feature_providers.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -54,9 +55,11 @@ final appAccessProvider = Provider<AppAccessState>((ref) {
       intelligence.flags.mockMode ||
       intelligence.flags.paywallDisabled;
   final bool runtimePremiumAccess = ref.watch(runtimePremiumAccessProvider);
+  final bool monetizationPremiumAccess = ref.watch(premiumAccessProvider);
 
   return AppAccessState(
-    hasPremiumAccess: testerFullAccess || runtimePremiumAccess,
+    hasPremiumAccess:
+        testerFullAccess || runtimePremiumAccess || monetizationPremiumAccess,
     hasTesterFullAccess: testerFullAccess,
     paywallDisabled: intelligence.flags.paywallDisabled,
   );

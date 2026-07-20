@@ -1,0 +1,3 @@
+﻿class GenerateTimelineSummaryUsecase {
+  const GenerateTimelineSummaryUsecase();
+}

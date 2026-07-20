@@ -1,0 +1,3 @@
+﻿class LinkJournalEntryToGoalUsecase {
+  const LinkJournalEntryToGoalUsecase();
+}

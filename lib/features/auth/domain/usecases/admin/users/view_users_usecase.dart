@@ -1,0 +1,3 @@
+﻿class ViewUsersUsecase {
+  const ViewUsersUsecase();
+}

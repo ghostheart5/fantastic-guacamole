@@ -1,0 +1,3 @@
+﻿class ViewDailyTimelineUsecase {
+  const ViewDailyTimelineUsecase();
+}

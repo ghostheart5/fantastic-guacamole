@@ -1,0 +1,3 @@
+﻿class DeleteMilestoneUsecase {
+  const DeleteMilestoneUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class GetRecommendedJournalPromptForEmotionUsecase {
+  const GetRecommendedJournalPromptForEmotionUsecase();
+}

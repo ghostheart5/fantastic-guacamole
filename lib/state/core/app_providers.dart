@@ -14,6 +14,21 @@ export 'package:fantastic_guacamole/state/providers/task_provider.dart';
 
 const String onboardingCompleteStorageKey = 'onboarding_complete';
 const String onboardingContentVersionStorageKey = 'onboarding_content_version';
+const String onboardingStepStorageKey = 'onboarding_step_index';
+
+enum OnboardingStatus { unknown, incomplete, complete }
+
+String onboardingCompleteStorageKeyForUser(String userId) {
+  return '${onboardingCompleteStorageKey}_$userId';
+}
+
+String onboardingContentVersionStorageKeyForUser(String userId) {
+  return '${onboardingContentVersionStorageKey}_$userId';
+}
+
+String onboardingStepStorageKeyForUser(String userId) {
+  return '${onboardingStepStorageKey}_$userId';
+}
 
 final soundEnabledProvider = NotifierProvider<SoundEnabledNotifier, bool>(
   SoundEnabledNotifier.new,
@@ -21,6 +36,10 @@ final soundEnabledProvider = NotifierProvider<SoundEnabledNotifier, bool>(
 final onboardingCompleteProvider =
     NotifierProvider<OnboardingCompleteNotifier, bool>(
       OnboardingCompleteNotifier.new,
+    );
+final onboardingStatusProvider =
+    NotifierProvider<OnboardingStatusNotifier, OnboardingStatus>(
+      OnboardingStatusNotifier.new,
     );
 
 class SoundEnabledNotifier extends Notifier<bool> {
@@ -35,4 +54,11 @@ class OnboardingCompleteNotifier extends Notifier<bool> {
   bool build() => false;
 
   void set(bool value) => state = value;
+}
+
+class OnboardingStatusNotifier extends Notifier<OnboardingStatus> {
+  @override
+  OnboardingStatus build() => OnboardingStatus.unknown;
+
+  void set(OnboardingStatus value) => state = value;
 }

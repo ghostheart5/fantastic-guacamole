@@ -1,0 +1,3 @@
+﻿class ViewMemoryAnalyticsUsecase {
+  const ViewMemoryAnalyticsUsecase();
+}

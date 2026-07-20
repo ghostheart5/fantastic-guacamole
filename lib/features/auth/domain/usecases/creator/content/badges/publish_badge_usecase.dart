@@ -1,0 +1,3 @@
+﻿class PublishBadgeUsecase {
+  const PublishBadgeUsecase();
+}

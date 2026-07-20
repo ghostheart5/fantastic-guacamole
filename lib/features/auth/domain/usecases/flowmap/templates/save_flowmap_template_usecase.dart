@@ -1,0 +1,3 @@
+﻿class SaveFlowmapTemplateUsecase {
+  const SaveFlowmapTemplateUsecase();
+}

@@ -505,12 +505,18 @@ class _NexusBridgeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool ultraCompact = MediaQuery.sizeOf(context).width < 340;
+    final bool profileReady = profile.hasValidProfile;
+    final String displayName = profileReady
+      ? profile.name.trim().toUpperCase()
+      : 'OPERATOR';
 
-    final String greeting = energy >= 0.65
-        ? 'High-capacity window active. Start one high-impact step now.'
-        : energy >= 0.4
-        ? 'Stable state online. Build momentum with one clear step.'
-        : 'Low reserve detected. Start with one light win to restore rhythm.';
+    final String greeting = !profileReady
+      ? 'Profile sync pending. Complete onboarding identity to unlock full personalization.'
+      : energy >= 0.65
+      ? 'High-capacity window active. Start one high-impact step now.'
+      : energy >= 0.4
+      ? 'Stable state online. Build momentum with one clear step.'
+      : 'Low reserve detected. Start with one light win to restore rhythm.';
 
     return Container(
       width: double.infinity,
@@ -529,7 +535,7 @@ class _NexusBridgeCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'WELCOME BACK, ${profile.name.toUpperCase()}',
+            'WELCOME BACK, $displayName',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -546,7 +552,9 @@ class _NexusBridgeCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'LVL ${profile.level}  ·  STREAK ${profile.streak}d  ·  TODAY $completedToday',
+            profileReady
+                ? 'LVL ${profile.level}  ·  STREAK ${profile.streak}d  ·  TODAY $completedToday'
+                : 'PROFILE STATUS  ·  INITIALIZING',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -727,15 +735,29 @@ class _DependencyMesh extends ConsumerWidget {
     final model = modelAsync.asData?.value;
     final aggregation = model?.aggregation;
     final decision = model?.decision;
+    final SISourceHealth? sourceHealth = aggregation?.sourceHealth;
+    final SISourceStatus tasksStatus = sourceHealth?.tasks ??
+      (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
+    final SISourceStatus goalsStatus = sourceHealth?.goals ??
+      (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
+    final SISourceStatus insightsStatus = sourceHealth?.insights ??
+      (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
+    final SISourceStatus flowmapStatus = sourceHealth?.flowmap ??
+      (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
+    final SISourceStatus memoriesStatus = sourceHealth?.memories ??
+      (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
     final List<Task> tasks = aggregation?.tasks ?? const <Task>[];
     final List<GoalEntity> goals = aggregation?.goals ?? const <GoalEntity>[];
     final List<MemoryEntity> memories = aggregation?.memories ?? const <MemoryEntity>[];
     final List<FlowmapNode> flowNodesData = aggregation?.flowmapNodes ?? const <FlowmapNode>[];
 
     final int pendingTasks = tasks.length;
-    final String nextTaskTitle = aggregation == null
-        ? 'Loading task queue...'
-        : (tasks.isEmpty ? 'Queue clear' : tasks.first.title);
+    final String nextTaskTitle = switch (tasksStatus) {
+      SISourceStatus.loading => 'Loading task queue...',
+      SISourceStatus.error => 'Task queue unavailable',
+      SISourceStatus.empty => 'Queue clear',
+      SISourceStatus.ready => tasks.isEmpty ? 'Queue clear' : tasks.first.title,
+    };
     final int linkedTasks = tasks
         .where((Task task) => task.goalId != null && task.goalId!.isNotEmpty)
         .length;
@@ -744,23 +766,38 @@ class _DependencyMesh extends ConsumerWidget {
         .map((GoalEntity goal) => goal.title.trim())
         .where((String title) => title.isNotEmpty)
         .toList(growable: false);
-    final String goalHeadline = goalTitles.isEmpty
-        ? 'No active goals'
-        : goalTitles.firstWhere(
-            (String title) => title.toLowerCase() != nextTaskTitle.toLowerCase(),
-            orElse: () => 'Goal linked to "$nextTaskTitle"',
-          );
+    final String goalHeadline = switch (goalsStatus) {
+      SISourceStatus.loading => 'Loading goals...',
+      SISourceStatus.error => 'Goals unavailable',
+      SISourceStatus.empty => 'No active goals',
+      SISourceStatus.ready => goalTitles.isEmpty
+          ? 'No active goals'
+          : goalTitles.firstWhere(
+              (String title) => title.toLowerCase() != nextTaskTitle.toLowerCase(),
+              orElse: () => 'Goal linked to "$nextTaskTitle"',
+            ),
+    };
     final int goalsWithTarget = goals.where((GoalEntity goal) => goal.targetDate != null).length;
 
     final insights = aggregation?.insights;
-    final String insightsHeadline = (insights == null || insights.items.isEmpty)
+    final String insightsHeadline = switch (insightsStatus) {
+      SISourceStatus.loading => 'Computing insight bundle...',
+      SISourceStatus.error => 'Insight pipeline unavailable',
+      SISourceStatus.empty => 'No insight bundle published',
+      SISourceStatus.ready => (insights == null || insights.items.isEmpty)
         ? 'No insight bundle published'
-        : insights.items.first.title;
+        : insights.items.first.title,
+    };
 
     final int recentMemories = memories.where((MemoryEntity memory) => memory.isRecent).length;
-    final String memoryHeadline = memories.isEmpty
+    final String memoryHeadline = switch (memoriesStatus) {
+      SISourceStatus.loading => 'Loading memory traces...',
+      SISourceStatus.error => 'Memory stream unavailable',
+      SISourceStatus.empty => 'No recent memory capture',
+      SISourceStatus.ready => memories.isEmpty
         ? 'No recent memory capture'
-        : memories.first.text;
+        : memories.first.text,
+    };
 
     final int flowNodes = flowNodesData.length;
     final int connectedNodes = flowNodesData
@@ -770,15 +807,51 @@ class _DependencyMesh extends ConsumerWidget {
         .map((FlowmapNode node) => node.title.trim())
         .where((String title) => title.isNotEmpty)
         .toList(growable: false);
-    final String flowHeadline = flowTitles.isEmpty
-        ? 'No mapped threads'
-        : flowTitles.firstWhere((String title) {
-            final String lowered = title.toLowerCase();
-            return lowered != nextTaskTitle.toLowerCase() && lowered != goalHeadline.toLowerCase();
-          }, orElse: () => 'Flow linked to "$nextTaskTitle"');
+    final String flowHeadline = switch (flowmapStatus) {
+      SISourceStatus.loading => 'Loading mapped threads...',
+      SISourceStatus.error => 'Flowmap unavailable',
+      SISourceStatus.empty => 'No mapped threads',
+      SISourceStatus.ready => flowTitles.isEmpty
+          ? 'No mapped threads'
+          : flowTitles.firstWhere((String title) {
+              final String lowered = title.toLowerCase();
+              return lowered != nextTaskTitle.toLowerCase() &&
+                  lowered != goalHeadline.toLowerCase();
+            }, orElse: () => 'Flow linked to "$nextTaskTitle"'),
+    };
+    final bool hasCriticalError =
+      tasksStatus == SISourceStatus.error ||
+      insightsStatus == SISourceStatus.error ||
+      modelAsync.hasError;
+    final bool hasAnyError =
+      hasCriticalError ||
+      goalsStatus == SISourceStatus.error ||
+      flowmapStatus == SISourceStatus.error ||
+      memoriesStatus == SISourceStatus.error;
     final String syncStatus = modelAsync.isLoading
-        ? 'SYNCING'
-        : (modelAsync.hasError ? 'DEGRADED' : 'LIVE');
+      ? 'SYNCING'
+      : hasCriticalError
+      ? 'DEGRADED'
+      : hasAnyError
+      ? 'LIMITED'
+      : 'LIVE';
+    final String? modelErrorSummary = modelAsync.whenOrNull(
+      error: (Object error, StackTrace stackTrace) => _errorSummary(error),
+    );
+    final List<String> sourceIssues = <String>[
+      if (tasksStatus == SISourceStatus.error) 'tasks',
+      if (goalsStatus == SISourceStatus.error) 'goals',
+      if (insightsStatus == SISourceStatus.error) 'insights',
+      if (flowmapStatus == SISourceStatus.error) 'flowmap',
+      if (memoriesStatus == SISourceStatus.error) 'memories',
+    ];
+    final String? syncDetail = modelAsync.isLoading
+        ? null
+        : modelAsync.hasError
+        ? 'Model sync failure: ${modelErrorSummary ?? 'unknown error'}'
+        : sourceIssues.isEmpty
+        ? null
+        : 'Partial degradation in ${sourceIssues.join(', ')}.';
     final DateTime now = DateTime.now();
     final String syncTime =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
@@ -788,7 +861,7 @@ class _DependencyMesh extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _NexusSyncStrip(status: syncStatus, timestamp: syncTime),
+        _NexusSyncStrip(status: syncStatus, timestamp: syncTime, detail: syncDetail),
         const SizedBox(height: 10),
         const Padding(
           padding: EdgeInsets.only(bottom: 10),
@@ -812,11 +885,15 @@ class _DependencyMesh extends ConsumerWidget {
               emphasize: true,
               value: modelAsync.isLoading
                   ? 'Syncing'
+                : modelAsync.hasError
+                ? 'Unavailable'
                   : (decision?.coachMessage.trim().isNotEmpty ?? false)
                   ? 'Live'
                   : 'Idle',
               headline: decision?.coachMessage ?? 'No active coaching advice yet.',
-              detail: (decision?.nextAction.trim().isNotEmpty ?? false)
+              detail: modelAsync.hasError
+                ? 'Decision pipeline degraded. Verify upstream providers and repository health.'
+                : (decision?.nextAction.trim().isNotEmpty ?? false)
                   ? 'Next action: ${decision!.nextAction}'
                   : 'SI engine advice routed into Nexus.',
             ),
@@ -832,28 +909,36 @@ class _DependencyMesh extends ConsumerWidget {
               accent: AppColors.memoryAmber,
               value: '$pendingTasks queued',
               headline: nextTaskTitle,
-              detail: '$linkedTasks linked to goals.',
+              detail: tasksStatus == SISourceStatus.error
+                  ? 'Task source error: ${_errorSummary(sourceHealth?.tasksError)}'
+                  : '$linkedTasks linked to goals.',
             ),
             _DependencyCard(
               label: 'Goals',
               accent: const Color(0xFF7AF7C4),
               value: '${goals.length} active',
               headline: goalHeadline,
-              detail: '$goalsWithTarget with target dates.',
+              detail: goalsStatus == SISourceStatus.error
+                  ? 'Goals source unavailable. Check domain repository wiring.'
+                  : '$goalsWithTarget with target dates.',
             ),
             _DependencyCard(
               label: 'Insights',
               accent: AppColors.neonViolet,
               value: '${insights?.items.length ?? 0} signals',
               headline: insightsHeadline,
-              detail: 'Health ${(((insights?.healthScore ?? 0) * 100).round())}%.',
+              detail: insightsStatus == SISourceStatus.error
+                  ? 'Insight source error: ${_errorSummary(sourceHealth?.insightsError)}'
+                  : 'Health ${(((insights?.healthScore ?? 0) * 100).round())}%.',
             ),
             _DependencyCard(
               label: 'Flowmap',
               accent: const Color(0xFF4BE6B0),
               value: '$flowNodes nodes',
               headline: flowHeadline,
-              detail:
+              detail: flowmapStatus == SISourceStatus.error
+                  ? 'Flowmap source error: ${_errorSummary(sourceHealth?.flowmapError)}'
+                  :
                   '$connectedNodes/$flowNodes connected decision nodes (node = a mapped task, goal, or idea link).',
             ),
             _DependencyCard(
@@ -861,7 +946,9 @@ class _DependencyMesh extends ConsumerWidget {
               accent: const Color(0xFFFFB86B),
               value: '${memories.length} stored',
               headline: _truncate(memoryHeadline),
-              detail: '$recentMemories recent memory traces.',
+              detail: memoriesStatus == SISourceStatus.error
+                  ? 'Memory source unavailable. Validate secure storage state.'
+                  : '$recentMemories recent memory traces.',
             ),
           ],
         ),
@@ -894,15 +981,23 @@ class _SignalPill extends StatelessWidget {
 }
 
 class _NexusSyncStrip extends StatelessWidget {
-  const _NexusSyncStrip({required this.status, required this.timestamp});
+  const _NexusSyncStrip({
+    required this.status,
+    required this.timestamp,
+    this.detail,
+  });
 
   final String status;
   final String timestamp;
+  final String? detail;
 
   @override
   Widget build(BuildContext context) {
-    final bool degraded = status == 'DEGRADED';
-    final Color accent = degraded ? AppColors.recallRed : AppColors.neonCyan;
+    final Color accent = switch (status) {
+      'DEGRADED' => AppColors.recallRed,
+      'LIMITED' => AppColors.memoryAmber,
+      _ => AppColors.neonCyan,
+    };
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -911,36 +1006,66 @@ class _NexusSyncStrip extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.22),
         border: Border.all(color: accent.withValues(alpha: 0.35)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              color: accent,
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 8)],
+          Row(
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 8)],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'NEXUS CORE SYNC: $status',
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                timestamp,
+                style: const TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1),
+              ),
+            ],
+          ),
+          if (detail != null && detail!.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: 6),
+            Text(
+              detail!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.25),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'NEXUS CORE SYNC: $status',
-            style: TextStyle(
-              color: accent,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.4,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            timestamp,
-            style: const TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1),
-          ),
+          ],
         ],
       ),
     );
   }
+}
+
+String _errorSummary(Object? error) {
+  if (error == null) {
+    return 'unknown error';
+  }
+  final String text = error.toString().trim();
+  if (text.isEmpty) {
+    return 'unknown error';
+  }
+  final int lineBreak = text.indexOf('\n');
+  final String firstLine = lineBreak >= 0 ? text.substring(0, lineBreak) : text;
+  if (firstLine.length <= 84) {
+    return firstLine;
+  }
+  return '${firstLine.substring(0, 83)}...';
 }
 
 class _DependencyCard extends StatelessWidget {

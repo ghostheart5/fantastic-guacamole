@@ -1,0 +1,3 @@
+﻿class RecommendNextActionUsecase {
+  const RecommendNextActionUsecase();
+}

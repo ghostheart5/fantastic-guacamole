@@ -1,0 +1,3 @@
+﻿class CreateProductivityGoalUsecase {
+  const CreateProductivityGoalUsecase();
+}

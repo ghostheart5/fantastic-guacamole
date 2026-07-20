@@ -1,0 +1,3 @@
+﻿class UpdateDisplayNameUsecase {
+  const UpdateDisplayNameUsecase();
+}

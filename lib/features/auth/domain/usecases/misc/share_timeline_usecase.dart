@@ -1,0 +1,3 @@
+﻿class ShareTimelineUsecase {
+  const ShareTimelineUsecase();
+}

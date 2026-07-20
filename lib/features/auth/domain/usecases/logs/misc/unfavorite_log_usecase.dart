@@ -1,0 +1,3 @@
+﻿class UnfavoriteLogUsecase {
+  const UnfavoriteLogUsecase();
+}

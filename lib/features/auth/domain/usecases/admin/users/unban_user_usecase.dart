@@ -1,0 +1,3 @@
+﻿class UnbanUserUsecase {
+  const UnbanUserUsecase();
+}

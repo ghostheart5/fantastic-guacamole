@@ -21,33 +21,8 @@ class LogRepository implements ILogRepository {
     }
 
     try {
-      final Object? decoded = jsonDecode(raw);
-      if (decoded is! List<dynamic>) {
-        throw const FormatException('Log storage is not a list.');
-      }
-      final List<LogEntryEntity> entries = <LogEntryEntity>[];
-      int malformedCount = 0;
-      for (final Object? value in decoded) {
-        if (value is! Map) {
-          continue;
-        }
-        try {
-          final Map<String, dynamic> json = value.map(
-            (dynamic key, dynamic item) => MapEntry(key.toString(), item),
-          );
-          entries.add(LogEntryRecord.fromJson(json).toEntity());
-        } on FormatException catch (error) {
-          malformedCount++;
-          if (malformedCount == 1) {
-            Logger.warn('Skipping malformed log entry: $error');
-          }
-        }
-      }
-      if (malformedCount > 1) {
-        Logger.warn(
-          'Skipped $malformedCount malformed log entries while reading storage.',
-        );
-      }
+      final _LogsDecodeResult decoded = _decodeStoredLogs(raw);
+      final List<LogEntryEntity> entries = decoded.entries;
       entries.sort(
         (LogEntryEntity a, LogEntryEntity b) =>
             b.timestamp.compareTo(a.timestamp),
@@ -55,7 +30,9 @@ class LogRepository implements ILogRepository {
       return entries;
     } on FormatException catch (error) {
       Logger.error('Stored logs are corrupt.', error);
-      return const <LogEntryEntity>[];
+      throw StateError(
+        'Log storage is corrupted. Refusing to treat it as empty history.',
+      );
     }
   }
 
@@ -87,7 +64,18 @@ class LogRepository implements ILogRepository {
 
   @override
   Future<void> addLog(LogEntryEntity entry) async {
-    final List<LogEntryEntity> entries = await getLogs();
+    final String? raw = await _store.readString(_entriesKey);
+    final _LogsDecodeResult decoded;
+    try {
+      decoded = raw == null || raw.trim().isEmpty
+          ? const _LogsDecodeResult(entries: <LogEntryEntity>[])
+          : _decodeStoredLogs(raw);
+    } on FormatException {
+      throw StateError(
+        'Log storage is corrupted. Refusing to overwrite until repaired.',
+      );
+    }
+    final List<LogEntryEntity> entries = decoded.entries;
     final List<LogEntryEntity> updated = <LogEntryEntity>[
       entry,
       ...entries.where((LogEntryEntity item) => item.id != entry.id),
@@ -107,4 +95,40 @@ class LogRepository implements ILogRepository {
   Future<void> clear() {
     return _store.delete(_entriesKey);
   }
+
+  _LogsDecodeResult _decodeStoredLogs(String raw) {
+    final Object? decoded = jsonDecode(raw);
+    if (decoded is! List<dynamic>) {
+      throw const FormatException('Log storage is not a list.');
+    }
+    final List<LogEntryEntity> entries = <LogEntryEntity>[];
+    int malformedCount = 0;
+    for (final Object? value in decoded) {
+      if (value is! Map) {
+        malformedCount++;
+        continue;
+      }
+      try {
+        final Map<String, dynamic> json = value.map(
+          (dynamic key, dynamic item) => MapEntry(key.toString(), item),
+        );
+        entries.add(LogEntryRecord.fromJson(json).toEntity());
+      } on FormatException catch (error) {
+        malformedCount++;
+        if (malformedCount == 1) {
+          Logger.warn('Skipping malformed log entry: $error');
+        }
+      }
+    }
+    if (malformedCount > 1) {
+      Logger.warn('Skipped $malformedCount malformed log entries while reading storage.');
+    }
+    return _LogsDecodeResult(entries: entries);
+  }
+}
+
+class _LogsDecodeResult {
+  const _LogsDecodeResult({required this.entries});
+
+  final List<LogEntryEntity> entries;
 }

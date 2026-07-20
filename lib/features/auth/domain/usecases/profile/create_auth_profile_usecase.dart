@@ -1,0 +1,3 @@
+﻿class CreateAuthProfileUsecase {
+  const CreateAuthProfileUsecase();
+}

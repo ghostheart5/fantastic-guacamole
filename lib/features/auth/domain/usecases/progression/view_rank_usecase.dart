@@ -1,0 +1,3 @@
+﻿class ViewRankUsecase {
+  const ViewRankUsecase();
+}

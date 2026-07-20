@@ -1,0 +1,3 @@
+﻿class PauseGoalUsecase {
+  const PauseGoalUsecase();
+}

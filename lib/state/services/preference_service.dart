@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 
 class PreferenceService {
@@ -58,8 +59,9 @@ class PreferenceService {
           (dynamic key, dynamic value) => MapEntry(key.toString(), value),
         );
       }
-    } catch (_) {
-      // Fall through to empty map on invalid payloads.
+      Logger.warn('User preferences payload is not a JSON object and will be ignored.');
+    } on FormatException catch (error) {
+      Logger.warn('User preferences payload is corrupted and will be ignored: $error');
     }
     return <String, dynamic>{};
   }

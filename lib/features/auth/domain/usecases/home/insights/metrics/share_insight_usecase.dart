@@ -1,0 +1,3 @@
+﻿class ShareInsightUsecase {
+  const ShareInsightUsecase();
+}

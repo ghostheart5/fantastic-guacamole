@@ -1,0 +1,3 @@
+﻿class ConfigureMotivationalQuotesUsecase {
+  const ConfigureMotivationalQuotesUsecase();
+}

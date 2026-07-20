@@ -1,0 +1,3 @@
+﻿class ViewGoalHistoryUsecase {
+  const ViewGoalHistoryUsecase();
+}

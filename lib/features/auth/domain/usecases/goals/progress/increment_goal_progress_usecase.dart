@@ -1,0 +1,3 @@
+﻿class IncrementGoalProgressUsecase {
+  const IncrementGoalProgressUsecase();
+}

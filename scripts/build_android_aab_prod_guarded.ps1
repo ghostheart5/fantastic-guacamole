@@ -71,7 +71,10 @@ $requiredEnv = @(
     'CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT',
     'CHRONOSPARK_AI_PROXY_ENDPOINT',
     'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
-    'CHRONOSPARK_ANDROID_SHA256_CERT',
+    'CHRONOSPARK_ANDROID_SHA256_CERT'
+)
+
+$optionalEnv = @(
     'CHRONOSPARK_IOS_TEAM_ID'
 )
 
@@ -87,6 +90,16 @@ foreach ($key in $requiredEnv) {
         $missing.Add($key)
     }
     else {
+        $envValues[$key] = $value
+    }
+}
+
+foreach ($key in $optionalEnv) {
+    $value = Get-EnvValue -Name $key
+    if ([string]::IsNullOrWhiteSpace($value) -and $dotEnvValues.ContainsKey($key)) {
+        $value = $dotEnvValues[$key]
+    }
+    if (-not [string]::IsNullOrWhiteSpace($value)) {
         $envValues[$key] = $value
     }
 }
@@ -181,7 +194,10 @@ $dartDefines = [ordered]@{
     CHRONOSPARK_AI_PROXY_ENDPOINT = $envValues['CHRONOSPARK_AI_PROXY_ENDPOINT']
     CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT = $envValues['CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT']
     CHRONOSPARK_ANDROID_SHA256_CERT = $envValues['CHRONOSPARK_ANDROID_SHA256_CERT']
-    CHRONOSPARK_IOS_TEAM_ID = $envValues['CHRONOSPARK_IOS_TEAM_ID']
+}
+
+if ($envValues.ContainsKey('CHRONOSPARK_IOS_TEAM_ID')) {
+    $dartDefines['CHRONOSPARK_IOS_TEAM_ID'] = $envValues['CHRONOSPARK_IOS_TEAM_ID']
 }
 
 $dartDefines | ConvertTo-Json | Set-Content -Path $dartDefineFile -Encoding UTF8 -NoNewline

@@ -1,0 +1,3 @@
+﻿class AddImageToNodeUsecase {
+  const AddImageToNodeUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class RemoveImageFromNodeUsecase {
+  const RemoveImageFromNodeUsecase();
+}

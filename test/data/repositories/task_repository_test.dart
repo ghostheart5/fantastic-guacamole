@@ -65,6 +65,14 @@ void main() {
     expect(await repository.getTaskById('task-delete'), isNull);
   });
 
+  test('returns null instead of throwing for a corrupted single task payload', () async {
+    final repository = TaskRepository(storage: storage);
+
+    await storage.put('task-corrupt', '{not-json');
+
+    expect(await repository.getTaskById('task-corrupt'), isNull);
+  });
+
   test('returns paged tasks newest first with cursor continuation', () async {
     final repository = TaskRepository(storage: storage);
     await repository.saveTask(

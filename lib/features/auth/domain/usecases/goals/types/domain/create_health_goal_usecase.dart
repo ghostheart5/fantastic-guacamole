@@ -1,0 +1,3 @@
+﻿class CreateHealthGoalUsecase {
+  const CreateHealthGoalUsecase();
+}

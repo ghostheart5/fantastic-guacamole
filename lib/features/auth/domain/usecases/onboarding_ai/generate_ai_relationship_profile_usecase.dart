@@ -1,0 +1,3 @@
+﻿class GenerateAiRelationshipProfileUsecase {
+  const GenerateAiRelationshipProfileUsecase();
+}

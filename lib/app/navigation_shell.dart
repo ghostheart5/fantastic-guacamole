@@ -117,14 +117,14 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       }
       _triggerCloudSyncReplay();
     });
+    _restoreLastOpenedTab(widget.initialView);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(_restoreLastOpenedTab(widget.initialView));
       _checkRecovery();
     });
   }
 
-  Future<void> _restoreLastOpenedTab(AppView fallbackView) async {
+  void _restoreLastOpenedTab(AppView fallbackView) {
     final int? restoredTab = _preferenceService.getLastOpenedTab();
     if (!mounted) {
       return;

@@ -1,0 +1,3 @@
+﻿class DeleteMoodUsecase {
+  const DeleteMoodUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class FilterTasksUsecase {
+  const FilterTasksUsecase();
+}

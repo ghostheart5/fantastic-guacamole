@@ -1,0 +1,3 @@
+﻿class ExportLogsUsecase {
+  const ExportLogsUsecase();
+}

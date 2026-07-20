@@ -1,0 +1,3 @@
+﻿class RemoveItemFromTimelineUsecase {
+  const RemoveItemFromTimelineUsecase();
+}

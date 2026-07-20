@@ -25,7 +25,10 @@ class FlowmapRepository implements IFlowmapRepository {
   @override
   Future<List<FlowmapNode>> getNodes() async {
     final Map<dynamic, String> entries = await _entries();
-    return entries.values.map(FlowmapNode.fromRaw).toList()
+    return entries.values
+        .map(FlowmapNode.tryFromRaw)
+        .whereType<FlowmapNode>()
+        .toList(growable: false)
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
   }
 

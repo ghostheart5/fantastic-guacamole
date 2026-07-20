@@ -1,0 +1,3 @@
+﻿class RestoreDraftUsecase {
+  const RestoreDraftUsecase();
+}

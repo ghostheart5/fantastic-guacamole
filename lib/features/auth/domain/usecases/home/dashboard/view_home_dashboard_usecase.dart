@@ -1,0 +1,3 @@
+﻿class ViewHomeDashboardUsecase {
+  const ViewHomeDashboardUsecase();
+}

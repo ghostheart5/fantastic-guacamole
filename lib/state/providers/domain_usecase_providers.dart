@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
 import 'package:fantastic_guacamole/domain/entities/si_decision_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
@@ -609,7 +612,15 @@ final generateSiDecisionUseCaseProvider = Provider<GenerateSiDecision>((ref) {
   );
 });
 
+const String _siDecisionSnapshotKey = 'si_decision_snapshot_v1';
+const Duration _siDecisionSnapshotTtl = Duration(minutes: 20);
+
 final domainSiDecisionProvider = FutureProvider<Task?>((ref) async {
+  final Task? cached = await _loadCachedSiDecisionTask(ref);
+  if (cached != null) {
+    return cached;
+  }
+
   final SiDecisionEntity decision = await ref
       .read(generateSiDecisionUseCaseProvider)
       .call();
@@ -621,8 +632,65 @@ final domainSiDecisionProvider = FutureProvider<Task?>((ref) async {
   final TaskEntity? task = await ref
       .read(domainTaskRepositoryProvider)
       .getTaskById(selectedTaskId);
-  return task == null ? null : _taskFromEntity(task);
+  final Task? selected = task == null ? null : _taskFromEntity(task);
+  await _persistSiDecisionSnapshot(ref, selectedTaskId: selectedTaskId);
+  return selected;
 });
+
+Future<Task?> _loadCachedSiDecisionTask(Ref ref) async {
+  try {
+    final String? raw = await ref
+        .read(secureStoreProvider)
+        .readString(_siDecisionSnapshotKey);
+    if (raw == null || raw.trim().isEmpty) {
+      return null;
+    }
+    final Object? decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) {
+      return null;
+    }
+    final String selectedTaskId =
+        (decoded['selectedTaskId'] as String?)?.trim() ?? '';
+    if (selectedTaskId.isEmpty) {
+      return null;
+    }
+    final DateTime? cachedAt = DateTime.tryParse(
+      (decoded['cachedAt'] as String?) ?? '',
+    );
+    if (cachedAt == null ||
+        DateTime.now().difference(cachedAt) > _siDecisionSnapshotTtl) {
+      return null;
+    }
+    final TaskEntity? task = await ref
+        .read(domainTaskRepositoryProvider)
+        .getTaskById(selectedTaskId);
+    if (task == null) {
+      return null;
+    }
+    return _taskFromEntity(task);
+  } on Object {
+    return null;
+  }
+}
+
+Future<void> _persistSiDecisionSnapshot(
+  Ref ref, {
+  required String selectedTaskId,
+}) async {
+  try {
+    await ref
+        .read(secureStoreProvider)
+        .writeString(
+          _siDecisionSnapshotKey,
+          jsonEncode(<String, String>{
+            'selectedTaskId': selectedTaskId,
+            'cachedAt': DateTime.now().toIso8601String(),
+          }),
+        );
+  } on Object {
+    // Non-fatal: decision can still be recomputed live.
+  }
+}
 
 Task _taskFromEntity(TaskEntity task) {
   return Task(

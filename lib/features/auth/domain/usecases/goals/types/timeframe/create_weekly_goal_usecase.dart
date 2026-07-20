@@ -1,0 +1,3 @@
+﻿class CreateWeeklyGoalUsecase {
+  const CreateWeeklyGoalUsecase();
+}

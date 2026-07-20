@@ -28,17 +28,17 @@ import 'package:fantastic_guacamole/engine/si/si_decision.dart';
 import 'package:fantastic_guacamole/engine/si/si_response_policy.dart';
 import 'package:fantastic_guacamole/engine/si/si_task_core.dart';
 import 'package:fantastic_guacamole/engine/si/synthetic_intelligence_engine.dart';
+import 'package:fantastic_guacamole/features/monetization/guards/monetization_guards.dart';
+import 'package:fantastic_guacamole/features/monetization/providers/monetization_providers.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_memory_selection.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
-import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
-import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -61,7 +61,6 @@ import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
-import 'package:fantastic_guacamole/state/services/credit_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'ai_controller.helpers.dart';
@@ -1476,13 +1475,22 @@ class AIController {
     final store = _ref.read(secureStoreProvider);
     final String? raw = await store.readString(_neuralDumpKey);
 
-    final List<Map<String, dynamic>> existing =
-        (raw == null || raw.trim().isEmpty)
-        ? <Map<String, dynamic>>[]
-        : ((jsonDecode(raw) as List<dynamic>)
-              .whereType<Map<String, dynamic>>()
-              .map((Map<String, dynamic> e) => e)
-              .toList());
+    final List<Map<String, dynamic>> existing = (() {
+      if (raw == null || raw.trim().isEmpty) {
+        return <Map<String, dynamic>>[];
+      }
+      try {
+        final dynamic decoded = jsonDecode(raw);
+        if (decoded is! List) {
+          return <Map<String, dynamic>>[];
+        }
+        return decoded
+            .whereType<Map<String, dynamic>>()
+            .toList(growable: true);
+      } on Object {
+        return <Map<String, dynamic>>[];
+      }
+    })();
 
     final NeuralEntry entry = NeuralEntry(
       task: task,

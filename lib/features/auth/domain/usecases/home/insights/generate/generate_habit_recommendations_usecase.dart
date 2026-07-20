@@ -1,0 +1,3 @@
+﻿class GenerateHabitRecommendationsUsecase {
+  const GenerateHabitRecommendationsUsecase();
+}

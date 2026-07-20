@@ -15,6 +15,7 @@ class TaskEntityMapper {
     return TaskEntity(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? 'Untitled Task',
+      kind: json['kind']?.toString(),
       description: json['description']?.toString(),
       createdAt:
           _dateTimeFromJson(json['createdAt']) ??
@@ -46,6 +47,7 @@ class TaskEntityMapper {
   static Map<String, dynamic> toJson(TaskEntity task) => <String, dynamic>{
     'id': task.id,
     'title': task.title,
+    'kind': task.kind,
     'description': task.description,
     'createdAt': task.createdAt.toIso8601String(),
     'isCompleted': task.isCompleted,

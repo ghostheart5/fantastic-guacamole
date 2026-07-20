@@ -1,0 +1,3 @@
+﻿class ShareMemoryUsecase {
+  const ShareMemoryUsecase();
+}

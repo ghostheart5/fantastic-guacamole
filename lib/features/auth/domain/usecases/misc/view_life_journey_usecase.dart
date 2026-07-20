@@ -1,0 +1,3 @@
+﻿class ViewLifeJourneyUsecase {
+  const ViewLifeJourneyUsecase();
+}

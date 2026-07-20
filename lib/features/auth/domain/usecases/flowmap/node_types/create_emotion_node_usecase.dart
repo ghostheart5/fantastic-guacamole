@@ -1,0 +1,3 @@
+﻿class CreateEmotionNodeUsecase {
+  const CreateEmotionNodeUsecase();
+}

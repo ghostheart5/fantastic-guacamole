@@ -1,0 +1,3 @@
+﻿class CreateHabitNodeUsecase {
+  const CreateHabitNodeUsecase();
+}

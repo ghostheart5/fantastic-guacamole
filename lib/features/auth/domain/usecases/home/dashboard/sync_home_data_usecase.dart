@@ -1,0 +1,3 @@
+﻿class SyncHomeDataUsecase {
+  const SyncHomeDataUsecase();
+}

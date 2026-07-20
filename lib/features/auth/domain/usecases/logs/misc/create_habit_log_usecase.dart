@@ -1,0 +1,3 @@
+﻿class CreateHabitLogUsecase {
+  const CreateHabitLogUsecase();
+}

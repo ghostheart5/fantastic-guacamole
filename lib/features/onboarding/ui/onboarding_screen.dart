@@ -1,17 +1,23 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -80,7 +86,101 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   @override
   void initState() {
     super.initState();
+    _restoreOnboardingProgress();
     AppAnalytics.track('onboarding_started');
+  }
+
+  Future<void> _restoreOnboardingProgress() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String stepKey = _resolveStepKey();
+    final int restoredStep = (prefs.getInt(stepKey) ?? prefs.getInt(onboardingStepStorageKey) ?? 0)
+        .clamp(0, _totalPages - 1);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _current = restoredStep);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _page.jumpToPage(restoredStep);
+    });
+  }
+
+  Future<void> _persistOnboardingProgress(int step) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String stepKey = _resolveStepKey();
+    await prefs.setInt(stepKey, step);
+    await prefs.setInt(onboardingStepStorageKey, step);
+  }
+
+  String _resolveStepKey() {
+    final String? userId = _currentSupabaseUserId();
+    if (userId == null) {
+      return onboardingStepStorageKey;
+    }
+    return onboardingStepStorageKeyForUser(userId);
+  }
+
+  String? _currentSupabaseUserId() {
+    try {
+      if (!Env.isSupabaseConfigured) {
+        return null;
+      }
+      final String? userId = sb.Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null || userId.trim().isEmpty) {
+        return null;
+      }
+      return userId.trim();
+    } on Object {
+      return null;
+    }
+  }
+
+  Future<bool> _onWillPop() async {
+    if (_current > 0) {
+      _page.previousPage(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOut,
+      );
+      return false;
+    }
+
+    final bool shouldExit =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: const Text('Exit onboarding?'),
+              content: const Text(
+                'You can continue onboarding later, but setup will stay incomplete.',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Stay'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Exit'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    return shouldExit;
+  }
+
+  Future<void> _handleBackNavigation() async {
+    final bool allowExit = await _onWillPop();
+    if (allowExit && mounted) {
+      final bool popped = await Navigator.of(context).maybePop();
+      if (!popped) {
+        await SystemNavigator.pop();
+      }
+    }
   }
 
   Future<void> _complete() async {
@@ -88,23 +188,74 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       final PreferenceService preferenceService = PreferenceService();
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       final String name = _nameCtrl.text.trim();
+      final String resolvedName = name.isNotEmpty
+          ? name
+          : _fallbackProfileName();
       final String? selectedGoalType = _selectedGoalType;
 
-      if (name.isNotEmpty) {
-        ref.read(profileProvider.notifier).updateName(name);
-      }
+      ref.read(profileProvider.notifier).ensureProfile(preferredName: resolvedName);
       if (selectedGoalType != null && selectedGoalType.trim().isNotEmpty) {
-        await prefs.setString('primary_goal_type', selectedGoalType);
+        await SharedPrefsService.saveStringWithPrefs(
+          prefs,
+          'primary_goal_type',
+          selectedGoalType,
+        );
         await preferenceService.setUserPreference(
           'primary_goal_type',
           selectedGoalType,
         );
       }
 
-      await prefs.setBool(onboardingCompleteStorageKey, true);
-      await prefs.setInt(
+      await SharedPrefsService.saveBoolWithPrefs(
+        prefs,
+        onboardingCompleteStorageKey,
+        true,
+      );
+      await SharedPrefsService.saveIntWithPrefs(
+        prefs,
         onboardingContentVersionStorageKey,
         TutorialContent.contentVersion,
+      );
+      final String? userId = _currentSupabaseUserId();
+      if (userId != null) {
+        await SharedPrefsService.saveBoolWithPrefs(
+          prefs,
+          onboardingCompleteStorageKeyForUser(userId),
+          true,
+        );
+        await SharedPrefsService.saveIntWithPrefs(
+          prefs,
+          onboardingContentVersionStorageKeyForUser(userId),
+          TutorialContent.contentVersion,
+        );
+        await SharedPrefsService.saveIntWithPrefs(
+          prefs,
+          onboardingStepStorageKeyForUser(userId),
+          0,
+        );
+        await SharedPrefsService.saveStringWithPrefs(
+          prefs,
+          'onboarding_state_v1_$userId',
+          jsonEncode(<String, Object?>{
+            'complete': true,
+            'version': TutorialContent.contentVersion,
+            'updatedAt': DateTime.now().toIso8601String(),
+          }),
+        );
+      }
+      await SharedPrefsService.saveStringWithPrefs(
+        prefs,
+        'onboarding_state_v1',
+        jsonEncode(<String, Object?>{
+          'complete': true,
+          'version': TutorialContent.contentVersion,
+          'updatedAt': DateTime.now().toIso8601String(),
+        }),
+      );
+      await SharedPrefsService.saveIntWithPrefs(
+        prefs,
+        onboardingStepStorageKey,
+        0,
       );
       AppAnalytics.track(
         'onboarding_completed',
@@ -113,6 +264,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       if (!mounted) return;
 
       ref.read(onboardingCompleteProvider.notifier).set(true);
+      ref.read(onboardingStatusProvider.notifier).set(OnboardingStatus.complete);
       final bool isAuthenticated = ref
           .read(intelligenceStateProvider)
           .auth
@@ -144,6 +296,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     }
   }
 
+  String _fallbackProfileName() {
+    try {
+      if (!Env.isSupabaseConfigured) {
+        return 'Operator';
+      }
+      final String? email = sb.Supabase.instance.client.auth.currentUser?.email;
+      if (email == null || email.trim().isEmpty) {
+        return 'Operator';
+      }
+      final String localPart = email.split('@').first.trim();
+      if (localPart.isEmpty) {
+        return 'Operator';
+      }
+      return localPart;
+    } on Object {
+      return 'Operator';
+    }
+  }
+
   void _next() {
     if (_current < _totalPages - 1) {
       AppAnalytics.track(
@@ -170,7 +341,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   Widget build(BuildContext context) {
     final media = MediaQuery.sizeOf(context);
     final bool landscape = media.width > media.height;
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? _) {
+        if (didPop) {
+          return;
+        }
+        unawaited(_handleBackNavigation());
+      },
+      child: Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
@@ -180,7 +359,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           // Page content
           PageView.builder(
             controller: _page,
-            onPageChanged: (i) => setState(() => _current = i),
+            onPageChanged: (i) {
+              setState(() => _current = i);
+              unawaited(_persistOnboardingProgress(i));
+            },
             itemCount: _totalPages,
             itemBuilder: (context, i) {
               if (i < _slides.length) return _SlideView(slide: _slides[i]);
@@ -345,6 +527,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             ),
           ),
         ],
+      ),
       ),
     );
   }

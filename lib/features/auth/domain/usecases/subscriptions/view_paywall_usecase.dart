@@ -1,0 +1,3 @@
+﻿class ViewPaywallUsecase {
+  const ViewPaywallUsecase();
+}

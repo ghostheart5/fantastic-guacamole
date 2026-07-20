@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
@@ -627,9 +628,20 @@ class MilestonesNotifier extends AsyncNotifier<List<MilestoneEntity>> {
     if (raw == null || raw.trim().isEmpty) {
       return const <MilestoneEntity>[];
     }
-    final dynamic decoded = jsonDecode(raw);
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException catch (error) {
+      Logger.error('Milestones storage is corrupted.', error);
+      throw StateError(
+        'Milestones storage is corrupted. Refusing to treat it as empty.',
+      );
+    }
     if (decoded is! List<dynamic>) {
-      return const <MilestoneEntity>[];
+      Logger.error('Milestones storage is corrupted: top-level payload is not a list.');
+      throw StateError(
+        'Milestones storage is corrupted. Refusing to treat it as empty.',
+      );
     }
     return decoded
         .whereType<Map<String, dynamic>>()

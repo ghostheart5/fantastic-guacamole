@@ -1,5 +1,8 @@
 [functions.ai-proxy]
 verify_jwt = true
 
-[functions.verify-receipt]
+[functions.monetization-verify]
+verify_jwt = true
+
+[functions.account-delete]
 verify_jwt = true

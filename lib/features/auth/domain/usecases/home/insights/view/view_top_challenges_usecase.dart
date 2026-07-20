@@ -1,0 +1,3 @@
+﻿class ViewTopChallengesUsecase {
+  const ViewTopChallengesUsecase();
+}

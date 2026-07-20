@@ -1,0 +1,3 @@
+﻿class ViewFocusLogsUsecase {
+  const ViewFocusLogsUsecase();
+}

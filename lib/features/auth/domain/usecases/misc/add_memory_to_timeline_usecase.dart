@@ -1,0 +1,3 @@
+﻿class AddMemoryToTimelineUsecase {
+  const AddMemoryToTimelineUsecase();
+}

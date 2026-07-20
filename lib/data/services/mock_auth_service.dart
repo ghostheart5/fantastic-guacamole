@@ -82,6 +82,22 @@ class MockAuthService implements AuthServiceContract {
   }
 
   @override
+  Future<AuthSessionSnapshot?> getCurrentSessionSnapshot({
+    bool forceRefresh = false,
+  }) async {
+    if (_currentUser == null) {
+      return null;
+    }
+    final DateTime issuedAt = DateTime.now();
+    return AuthSessionSnapshot(
+      accessToken: 'mock-token',
+      refreshToken: 'mock-refresh-token',
+      expiresAt: issuedAt.add(const Duration(hours: 1)),
+      issuedAt: issuedAt,
+    );
+  }
+
+  @override
   Future<void> signOut() async {
     _currentUser = null;
   }

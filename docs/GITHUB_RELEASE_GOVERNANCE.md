@@ -54,7 +54,9 @@ Local AAB build command:
 
 ```powershell
 ./scripts/verify_android_upload_key.ps1
-flutter build appbundle --release
+flutter build appbundle --release `
+  --dart-define=CHRONOSPARK_APP_FLAVOR=prod `
+  --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true
 ```
 
 Expected upload certificate SHA1:

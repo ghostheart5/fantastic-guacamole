@@ -1,0 +1,3 @@
+﻿class PredictGoalSuccessUsecase {
+  const PredictGoalSuccessUsecase();
+}

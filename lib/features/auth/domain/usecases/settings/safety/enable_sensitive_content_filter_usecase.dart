@@ -1,0 +1,3 @@
+﻿class EnableSensitiveContentFilterUsecase {
+  const EnableSensitiveContentFilterUsecase();
+}

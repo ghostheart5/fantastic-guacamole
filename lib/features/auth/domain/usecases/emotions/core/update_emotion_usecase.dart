@@ -1,0 +1,3 @@
+﻿class UpdateEmotionUsecase {
+  const UpdateEmotionUsecase();
+}

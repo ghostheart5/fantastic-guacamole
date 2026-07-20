@@ -1,0 +1,3 @@
+﻿class DismissReportUsecase {
+  const DismissReportUsecase();
+}

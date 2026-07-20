@@ -1,0 +1,3 @@
+﻿class ViewSiEngineMetricsUsecase {
+  const ViewSiEngineMetricsUsecase();
+}

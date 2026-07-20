@@ -1,0 +1,3 @@
+﻿class SaveIdentityProfileUsecase {
+  const SaveIdentityProfileUsecase();
+}

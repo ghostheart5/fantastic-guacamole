@@ -1,0 +1,3 @@
+﻿class CalculateConsistencyScoreUsecase {
+  const CalculateConsistencyScoreUsecase();
+}

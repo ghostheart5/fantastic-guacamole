@@ -1,0 +1,3 @@
+﻿class UnfavoriteGoalUsecase {
+  const UnfavoriteGoalUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class EditChallengeUsecase {
+  const EditChallengeUsecase();
+}

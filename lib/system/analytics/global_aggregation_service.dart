@@ -52,13 +52,16 @@ class GlobalAggregationService {
       return GlobalMetrics.empty();
     }
     try {
-      final data = await client
-          .from(_kTable)
-          .select()
-          .order('created_at', ascending: false)
-          .limit(1000);
-      final rows = (data as List).cast<Map<String, dynamic>>();
-      final metrics = GlobalMetrics.fromRows(rows);
+      final dynamic data = await client.rpc<dynamic>('get_global_metrics');
+      final Map<String, dynamic>? payload = _coerceMetricsPayload(data);
+      if (payload == null) {
+        throw const FormatException('Invalid global metrics payload.');
+      }
+      final metrics = GlobalMetrics(
+        avgTaskCompletionRate:
+            (payload['avgTaskCompletionRate'] as num?)?.toDouble() ?? 0,
+        avgMomentumPeak: (payload['avgMomentumPeak'] as num?)?.toDouble() ?? 0,
+      );
       await _saveCache(metrics);
       return metrics;
     } catch (e) {
@@ -98,5 +101,23 @@ class GlobalAggregationService {
         'avgMomentumPeak': metrics.avgMomentumPeak,
       }),
     );
+  }
+
+  Map<String, dynamic>? _coerceMetricsPayload(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    if (data is Map) {
+      return data.map(
+        (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+      );
+    }
+    if (data is List && data.isNotEmpty && data.first is Map) {
+      final Map<dynamic, dynamic> first = data.first as Map<dynamic, dynamic>;
+      return first.map(
+        (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+      );
+    }
+    return null;
   }
 }

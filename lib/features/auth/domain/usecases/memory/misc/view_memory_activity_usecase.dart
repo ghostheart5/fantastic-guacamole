@@ -1,0 +1,3 @@
+﻿class ViewMemoryActivityUsecase {
+  const ViewMemoryActivityUsecase();
+}

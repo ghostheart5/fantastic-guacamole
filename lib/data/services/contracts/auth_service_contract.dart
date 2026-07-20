@@ -19,6 +19,9 @@ abstract class AuthServiceContract {
   Future<void> sendEmailVerification();
   Future<User?> reloadCurrentUser();
   Future<String?> getIdToken({bool forceRefresh = false});
+  Future<AuthSessionSnapshot?> getCurrentSessionSnapshot({
+    bool forceRefresh = false,
+  });
   Future<void> signOut();
   Future<void> deleteCurrentAccount({required String password});
 }

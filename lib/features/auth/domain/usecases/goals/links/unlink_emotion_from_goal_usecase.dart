@@ -1,0 +1,3 @@
+﻿class UnlinkEmotionFromGoalUsecase {
+  const UnlinkEmotionFromGoalUsecase();
+}

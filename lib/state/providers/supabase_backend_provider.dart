@@ -82,13 +82,26 @@ final supabaseBackendHealthProvider = FutureProvider<SupabaseBackendHealth>((
 
   final bool authenticated = client.auth.currentSession != null;
 
+  if (!authenticated) {
+    return const SupabaseBackendHealth(
+      configured: true,
+      initialized: true,
+      authenticated: false,
+      databaseReachable: false,
+      storageReachable: false,
+      realtimeConfigured: false,
+      badge: SupabaseHealthBadge.sessionMissing,
+      message: 'Supabase is initialized, but no authenticated session is available.',
+    );
+  }
+
   bool databaseReachable = false;
   bool storageReachable = false;
   bool databasePermissionDenied = false;
   bool storagePermissionDenied = false;
 
   try {
-    await client.from('user_daily_metrics').select('date').limit(1);
+    await client.rpc<dynamic>('get_global_metrics');
     databaseReachable = true;
   } catch (error) {
     databasePermissionDenied = _looksLikePermissionDenied(error);
@@ -99,7 +112,7 @@ final supabaseBackendHealthProvider = FutureProvider<SupabaseBackendHealth>((
   }
 
   try {
-    final String uid = client.auth.currentUser?.id ?? 'anonymous';
+    final String uid = client.auth.currentUser!.id;
     await client.storage.from('chronospark-sync').list(path: '$uid/backup');
     storageReachable = true;
   } catch (error) {
@@ -183,7 +196,7 @@ final supabaseMetricsRealtimeProvider =
 
       return client
           .from('user_daily_metrics')
-          .stream(primaryKey: const <String>['device_id', 'date'])
+          .stream(primaryKey: const <String>['user_id', 'date'])
           .order('created_at')
           .map(
             (rows) => rows

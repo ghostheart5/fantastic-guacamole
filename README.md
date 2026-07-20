@@ -48,6 +48,10 @@ For the master release checklist, see [docs/FINAL_AUDIT_SCORECARD.md](docs/FINAL
 - Local `.env` support is enabled too:
   - Put the same values in [/.env](.env) or copy [/.env.example](.env.example)
   - The app loads `.env` at startup and the Android build scripts read it as a fallback
+  - This root `.env` is for Flutter client/runtime values only. Do not place `SUPABASE_SECRET_KEY` in it.
+- Supabase Edge Functions in this repo do not need `npm install @supabase/server`.
+  - Hosted Edge Functions inject their Supabase auth/admin environment automatically.
+  - For local function development or any non-Edge server runtime, copy [supabase/functions/.env.example](supabase/functions/.env.example) to a local-only `supabase/functions/.env` and keep `SUPABASE_SECRET_KEY` there.
 - OAuth callback config:
   - `--dart-define=CHRONOSPARK_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback`
   - `--dart-define=CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback`
@@ -114,7 +118,7 @@ Example run:
   before production rollout.
 - For production enforcement, set:
   - `--dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true`
-  - `--dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=https://<your-domain>/verify-receipt`
+  - `--dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=https://<your-domain>/monetization-verify`
   - `--dart-define=CHRONOSPARK_AI_PROXY_ENDPOINT=https://<your-domain>/ai-proxy`
   - `--dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=<release-cert-sha256>`
   - `--dart-define=CHRONOSPARK_IOS_TEAM_ID=<apple-team-id>`

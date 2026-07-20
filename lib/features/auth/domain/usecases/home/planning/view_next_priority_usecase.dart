@@ -1,0 +1,3 @@
+﻿class ViewNextPriorityUsecase {
+  const ViewNextPriorityUsecase();
+}

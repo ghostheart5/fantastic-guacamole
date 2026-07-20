@@ -1,0 +1,3 @@
+﻿class DeleteLogUsecase {
+  const DeleteLogUsecase();
+}

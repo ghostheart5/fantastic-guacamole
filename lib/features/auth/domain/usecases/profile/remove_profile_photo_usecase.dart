@@ -1,0 +1,3 @@
+﻿class RemoveProfilePhotoUsecase {
+  const RemoveProfilePhotoUsecase();
+}

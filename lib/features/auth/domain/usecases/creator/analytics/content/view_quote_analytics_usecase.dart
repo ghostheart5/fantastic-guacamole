@@ -1,0 +1,3 @@
+﻿class ViewQuoteAnalyticsUsecase {
+  const ViewQuoteAnalyticsUsecase();
+}

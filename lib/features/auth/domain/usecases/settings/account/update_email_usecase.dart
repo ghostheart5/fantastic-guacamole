@@ -1,0 +1,3 @@
+﻿class UpdateEmailUsecase {
+  const UpdateEmailUsecase();
+}

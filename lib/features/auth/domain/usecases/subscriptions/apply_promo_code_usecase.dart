@@ -1,0 +1,3 @@
+﻿class ApplyPromoCodeUsecase {
+  const ApplyPromoCodeUsecase();
+}

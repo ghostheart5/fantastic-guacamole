@@ -1,5 +1,4 @@
 import 'package:fantastic_guacamole/config/env.dart';
-import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
@@ -15,6 +14,18 @@ import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+final syncErrorMessageProvider =
+    NotifierProvider<SyncErrorMessageNotifier, String?>(
+      SyncErrorMessageNotifier.new,
+    );
+
+class SyncErrorMessageNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? value) => state = value;
+}
 
 final _sharedPrefsProvider = FutureProvider<SharedPrefsStorage>((ref) async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -67,32 +78,26 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
 
 final syncToCloudProvider = FutureProvider<bool>((ref) async {
   final OfflineSyncQueueService? queue = ref.read(_offlineSyncQueueProvider);
-  try {
-    await queue?.replay(
-      executor: (OfflineSyncQueueItem item) async {
-        return _executeQueuedSyncAction(ref, item);
-      },
-    );
+  await queue?.replay(
+    executor: (OfflineSyncQueueItem item) async {
+      return _executeQueuedSyncAction(ref, item);
+    },
+  );
 
-    final bool success =
-        await ref.read(syncServiceProvider)?.syncToCloud() ?? false;
-    if (!success) {
-      await queue?.enqueue(
-        actionType: 'sync_to_cloud',
-        dedupeKey: 'sync_to_cloud',
-        payload: const <String, dynamic>{},
-      );
-    }
-    return success;
-  } catch (error, stackTrace) {
-    Logger.errorCategory(
-      'Sync Errors',
-      'syncToCloudProvider execution failed',
-      error,
-      stackTrace,
+  final bool success = await ref.read(syncServiceProvider)?.syncToCloud() ?? false;
+  if (!success) {
+    await queue?.enqueue(
+      actionType: 'sync_to_cloud',
+      dedupeKey: 'sync_to_cloud',
+      payload: const <String, dynamic>{},
     );
+    ref
+        .read(syncErrorMessageProvider.notifier)
+        .set('Cloud sync failed. The action was queued for a later retry.');
     return false;
   }
+  ref.read(syncErrorMessageProvider.notifier).set(null);
+  return true;
 });
 
 final replayOfflineQueueProvider = FutureProvider<int>((ref) async {
@@ -116,25 +121,19 @@ final offlineQueueCountProvider = FutureProvider<int>((ref) async {
 });
 
 final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
-  try {
-    final bool restored =
-        await ref.read(syncServiceProvider)?.restoreFromCloud() ?? false;
-    if (restored) {
-      ref.invalidate(tasksProvider);
-      ref.invalidate(profileProvider);
-      ref.invalidate(goalProgressProvider);
-      ref.invalidate(optimizationConfigProvider);
-    }
-    return restored;
-  } catch (error, stackTrace) {
-    Logger.errorCategory(
-      'Sync Errors',
-      'restoreFromCloudProvider execution failed',
-      error,
-      stackTrace,
-    );
+  final bool restored = await ref.read(syncServiceProvider)?.restoreFromCloud() ?? false;
+  if (!restored) {
+    ref
+        .read(syncErrorMessageProvider.notifier)
+        .set('Cloud restore failed or no backup was available.');
     return false;
   }
+  ref.read(syncErrorMessageProvider.notifier).set(null);
+  ref.invalidate(tasksProvider);
+  ref.invalidate(profileProvider);
+  ref.invalidate(goalProgressProvider);
+  ref.invalidate(optimizationConfigProvider);
+  return true;
 });
 
 Future<bool> _executeQueuedSyncAction(

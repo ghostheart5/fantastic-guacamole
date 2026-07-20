@@ -1,0 +1,3 @@
+﻿class BroadcastNotificationUsecase {
+  const BroadcastNotificationUsecase();
+}

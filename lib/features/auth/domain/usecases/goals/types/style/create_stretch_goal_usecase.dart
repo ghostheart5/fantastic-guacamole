@@ -1,0 +1,3 @@
+﻿class CreateStretchGoalUsecase {
+  const CreateStretchGoalUsecase();
+}

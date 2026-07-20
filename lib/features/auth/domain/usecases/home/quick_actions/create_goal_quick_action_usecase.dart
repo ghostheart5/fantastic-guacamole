@@ -1,0 +1,3 @@
+﻿class CreateGoalQuickActionUsecase {
+  const CreateGoalQuickActionUsecase();
+}

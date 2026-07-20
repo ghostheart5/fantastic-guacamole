@@ -1,0 +1,3 @@
+﻿class UpdateNodeUsecase {
+  const UpdateNodeUsecase();
+}

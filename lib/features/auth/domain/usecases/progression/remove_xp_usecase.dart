@@ -1,0 +1,3 @@
+﻿class RemoveXpUsecase {
+  const RemoveXpUsecase();
+}

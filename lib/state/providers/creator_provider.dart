@@ -44,6 +44,7 @@ class CreatorActions {
     final entity = TaskEntity(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       title: data.title,
+      kind: kind,
       description: data.description,
       createdAt: DateTime.now(),
       priority: priority,

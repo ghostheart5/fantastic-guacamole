@@ -1,0 +1,3 @@
+﻿class ViewFlowmapHighlightsUsecase {
+  const ViewFlowmapHighlightsUsecase();
+}

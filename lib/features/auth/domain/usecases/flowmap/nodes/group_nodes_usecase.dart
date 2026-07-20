@@ -1,0 +1,3 @@
+﻿class GroupNodesUsecase {
+  const GroupNodesUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class RequestAccountDataUsecase {
+  const RequestAccountDataUsecase();
+}

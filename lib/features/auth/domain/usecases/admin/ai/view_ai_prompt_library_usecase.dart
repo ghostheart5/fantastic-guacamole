@@ -1,0 +1,3 @@
+﻿class ViewAiPromptLibraryUsecase {
+  const ViewAiPromptLibraryUsecase();
+}

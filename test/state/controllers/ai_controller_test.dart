@@ -79,4 +79,9 @@ void main() {
 
     expect(result, isNull);
   });
+
+  test('safeInputLength handles null safely', () {
+    expect(safeInputLength(null), 0);
+    expect(safeInputLength('abc'), 3);
+  });
 }

@@ -2,7 +2,7 @@
 
 ## Endpoint
 - Method: POST
-- Path: /verify-receipt
+- Path: /monetization-verify
 - Content-Type: application/json
 - Optional auth header: Authorization: Bearer <CHRONOSPARK_RECEIPT_VERIFY_KEY>
 
@@ -40,7 +40,7 @@ node scripts/receipt_verifier_stub.js
 Use app runtime defines:
 
 ```bash
---dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=http://10.0.2.2:8787/verify-receipt
+--dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=http://10.0.2.2:8787/monetization-verify
 --dart-define=CHRONOSPARK_RECEIPT_VERIFY_KEY=your-local-key
 ```
 

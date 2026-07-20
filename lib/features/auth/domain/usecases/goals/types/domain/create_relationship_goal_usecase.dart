@@ -1,0 +1,3 @@
+﻿class CreateRelationshipGoalUsecase {
+  const CreateRelationshipGoalUsecase();
+}

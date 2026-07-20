@@ -1,0 +1,3 @@
+﻿class ExportMoodDataUsecase {
+  const ExportMoodDataUsecase();
+}

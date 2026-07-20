@@ -65,12 +65,19 @@ void main() {
       final ProviderContainer container = ProviderContainer();
       addTearDown(container.dispose);
 
+      final ProviderSubscription<AsyncValue<User?>> sub =
+          container.listen<AsyncValue<User?>>(
+        authUserProvider,
+        (AsyncValue<User?>? previous, AsyncValue<User?> next) {},
+        fireImmediately: true,
+      );
+      addTearDown(sub.close);
+
       container.read(mockAuthSessionProvider.notifier).set(true);
 
-      expect(container.read(authenticatedGuardProvider), isTrue);
       final User? mockUser = await container.read(authUserProvider.future);
-      expect(mockUser, isNotNull);
       expect(mockUser?.id, 'mock-user');
+      expect(container.read(authenticatedGuardProvider), isTrue);
     },
   );
 

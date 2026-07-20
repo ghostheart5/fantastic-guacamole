@@ -18,9 +18,21 @@ class CreditService {
     final String? raw = _prefs.load(_walletKey);
     final DateTime now = DateTime.now();
 
-    AiCreditWallet wallet = raw == null || raw.trim().isEmpty
-        ? _createWallet(premium: premium, now: now)
-        : AiCreditWallet.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    late AiCreditWallet wallet;
+    if (raw == null || raw.trim().isEmpty) {
+      wallet = _createWallet(premium: premium, now: now);
+    } else {
+      try {
+        final dynamic decoded = jsonDecode(raw);
+        if (decoded is! Map<String, dynamic>) {
+          wallet = _createWallet(premium: premium, now: now);
+        } else {
+          wallet = AiCreditWallet.fromJson(decoded);
+        }
+      } on Object {
+        wallet = _createWallet(premium: premium, now: now);
+      }
+    }
 
     if (premium && wallet.tier != 'premium') {
       wallet = _createWallet(premium: true, now: now);

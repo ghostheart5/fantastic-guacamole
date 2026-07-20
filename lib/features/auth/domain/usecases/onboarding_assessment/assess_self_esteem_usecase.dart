@@ -1,0 +1,3 @@
+﻿class AssessSelfEsteemUsecase {
+  const AssessSelfEsteemUsecase();
+}

@@ -315,6 +315,11 @@ class _IntegrationFakeAuthService implements AuthServiceContract {
   Future<String?> getIdToken({bool forceRefresh = false}) async => null;
 
   @override
+  Future<AuthSessionSnapshot?> getCurrentSessionSnapshot({
+    bool forceRefresh = false,
+  }) async => null;
+
+  @override
   Future<void> deleteCurrentAccount({required String password}) async {}
 
   @override

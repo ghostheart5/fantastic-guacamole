@@ -1,0 +1,3 @@
+﻿class ShareLogUsecase {
+  const ShareLogUsecase();
+}

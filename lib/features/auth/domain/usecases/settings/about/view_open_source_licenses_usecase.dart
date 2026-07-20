@@ -1,0 +1,3 @@
+﻿class ViewOpenSourceLicensesUsecase {
+  const ViewOpenSourceLicensesUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class ViewRecentFlowmapsUsecase {
+  const ViewRecentFlowmapsUsecase();
+}

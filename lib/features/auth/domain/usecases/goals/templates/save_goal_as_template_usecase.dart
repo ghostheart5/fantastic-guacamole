@@ -1,0 +1,3 @@
+﻿class SaveGoalAsTemplateUsecase {
+  const SaveGoalAsTemplateUsecase();
+}

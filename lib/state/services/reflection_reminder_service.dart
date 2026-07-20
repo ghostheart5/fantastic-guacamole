@@ -2,6 +2,14 @@ import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+enum NotificationPermissionState {
+  granted,
+  denied,
+  permanentlyDenied,
+  unknown,
+}
 
 @immutable
 class ReflectionReminderPrefs {
@@ -66,19 +74,25 @@ class ReflectionReminderService {
       return false;
     }
 
-    await _scheduler.scheduleDailyAt(
+    final NotificationScheduleResult result = await _scheduler
+        .scheduleDailyAtWithStatus(
       id: notificationId,
       title: 'Daily Reflection',
       body: 'Take 3 minutes to review your day and set intent for tomorrow.',
       hour: time.hour,
       minute: time.minute,
     );
+    if (result != NotificationScheduleResult.scheduled) {
+      await _preferences.save(enabledKey, 'false');
+      await _scheduler.cancel(notificationId);
+      return false;
+    }
     return true;
   }
 
   Future<void> setTime({required TimeOfDay time}) async {
     await _preferences.save(timeKey, '${time.hour}:${time.minute}');
-    await _scheduler.scheduleDailyAt(
+    await _scheduler.scheduleDailyAtWithStatus(
       id: notificationId,
       title: 'Daily Reflection',
       body: 'Take 3 minutes to review your day and set intent for tomorrow.',
@@ -89,6 +103,34 @@ class ReflectionReminderService {
 
   Future<bool> requestNotificationPermission() {
     return _scheduler.requestPermissions();
+  }
+
+  Future<NotificationPermissionState> requestNotificationPermissionDetailed() async {
+    await _scheduler.requestPermissions();
+    return getNotificationPermissionState();
+  }
+
+  Future<NotificationPermissionState> getNotificationPermissionState() async {
+    if (kIsWeb) {
+      final bool? granted = permissionListenable.value;
+      if (granted == true) {
+        return NotificationPermissionState.granted;
+      }
+      if (granted == false) {
+        return NotificationPermissionState.denied;
+      }
+      return NotificationPermissionState.unknown;
+    }
+
+    final PermissionStatus status = await Permission.notification.status;
+    return switch (status) {
+      PermissionStatus.granted ||
+      PermissionStatus.limited ||
+      PermissionStatus.provisional => NotificationPermissionState.granted,
+      PermissionStatus.permanentlyDenied ||
+      PermissionStatus.restricted => NotificationPermissionState.permanentlyDenied,
+      PermissionStatus.denied => NotificationPermissionState.denied,
+    };
   }
 }
 

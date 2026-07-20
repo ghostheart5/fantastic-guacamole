@@ -10,7 +10,7 @@ abstract final class Env {
   static const String supportEmail = 'support@chronospark.app';
   static const String _appFlavorDefine = String.fromEnvironment(
     'CHRONOSPARK_APP_FLAVOR',
-    defaultValue: 'prod',
+    defaultValue: 'dev',
   );
   static const bool _enableVerboseLogsDefine = bool.fromEnvironment(
     'CHRONOSPARK_VERBOSE_LOGS',
@@ -134,7 +134,10 @@ abstract final class Env {
       _readString('CHRONOSPARK_AI_PROXY_ENDPOINT', _aiProxyEndpointDefine);
   static String get accountDeleteEndpoint => _readString(
     'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
-    _accountDeleteEndpointDefine,
+    resolveAccountDeleteEndpoint(
+      _accountDeleteEndpointDefine,
+      supabaseUrl: supabaseUrl,
+    ),
   );
   static String get oauthRedirectUrl =>
       _readString('CHRONOSPARK_OAUTH_REDIRECT_URL', _oauthRedirectUrlDefine);
@@ -198,18 +201,21 @@ abstract final class Env {
     required bool isMockMode,
     required bool enableMockLogin,
   }) {
-    return !isProduction && (isMockMode || enableMockLogin);
+    return !kReleaseMode && !isProduction && (isMockMode || enableMockLogin);
   }
 
   static bool resolveHasTesterFullAccess({
     required bool isProduction,
     required bool enableTesterFullAccess,
   }) {
-    return !isProduction && enableTesterFullAccess;
+    return !kReleaseMode && !isProduction && enableTesterFullAccess;
   }
 
   static bool get isProduction =>
       resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
+
+    static bool get hasSupabaseCredentialsPresent =>
+      supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
 
   static bool get isMockMode => resolveIsMockMode(
     isProduction: isProduction,
@@ -234,7 +240,23 @@ abstract final class Env {
   );
 
   static bool get isSupabaseConfigured =>
-      supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
+      resolveIsSupabaseConfigured(
+        supabaseUrl: supabaseUrl,
+        supabaseAnonKey: supabaseAnonKey,
+      );
+
+  static bool resolveIsSupabaseConfigured({
+    required String supabaseUrl,
+    required String supabaseAnonKey,
+  }) {
+    final String url = supabaseUrl.trim();
+    final String key = supabaseAnonKey.trim();
+    if (url.isEmpty || key.isEmpty) {
+      return false;
+    }
+    final Uri? uri = Uri.tryParse(url);
+    return uri != null && uri.hasAuthority && uri.scheme == 'https';
+  }
 
   static bool get isAiProxyConfigured =>
       resolveIsAiProxyConfigured(aiProxyEndpoint);
@@ -253,6 +275,25 @@ abstract final class Env {
     supabaseUrl: supabaseUrl,
   );
 
+  static String resolveAccountDeleteEndpoint(
+    String configuredValue, {
+    required String supabaseUrl,
+  }) {
+    final String configured = configuredValue.trim();
+    if (configured.isNotEmpty) {
+      return configured;
+    }
+
+    final Uri? supabaseUri = Uri.tryParse(supabaseUrl.trim());
+    if (supabaseUri != null &&
+        supabaseUri.hasAuthority &&
+        supabaseUri.scheme == 'https') {
+      return supabaseUri.resolve('/functions/v1/account-delete').toString();
+    }
+
+    return '';
+  }
+
   static String resolveReceiptVerifyEndpoint(
     String configuredValue, {
     required String supabaseUrl,
@@ -266,18 +307,21 @@ abstract final class Env {
     if (supabaseUri != null &&
         supabaseUri.hasAuthority &&
         supabaseUri.scheme == 'https') {
-      return supabaseUri.resolve('/functions/v1/verify-receipt').toString();
+      return supabaseUri.resolve('/functions/v1/monetization-verify').toString();
     }
 
-    return 'https://chronospark.app/verify-receipt';
+    return 'https://chronospark.app/monetization-verify';
   }
 
   static List<String> productionReadinessIssues({bool force = false}) {
-    if (!force && !enforceProductionReadiness && !isProduction) {
+    if (!force && !enforceProductionReadiness && !isProduction && !kReleaseMode) {
       return const <String>[];
     }
 
     final List<String> issues = <String>[];
+    if (kReleaseMode && !AppFlavor.parse(appFlavor).isProduction) {
+      issues.add('Release builds must use CHRONOSPARK_APP_FLAVOR=prod.');
+    }
     if (enableCrashReporting == false) {
       issues.add('Crash reporting is disabled.');
     }
@@ -293,8 +337,10 @@ abstract final class Env {
     if (enableTesterFullAccess) {
       issues.add('Tester full-access override is enabled.');
     }
-    if (!isSupabaseConfigured) {
+    if (!hasSupabaseCredentialsPresent) {
       issues.add('Supabase authentication is not configured.');
+    } else if (!isSupabaseConfigured) {
+      issues.add('Supabase URL must be a valid HTTPS URL.');
     }
     _validateHttpsEndpoint(
       receiptVerifyEndpoint,

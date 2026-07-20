@@ -10,9 +10,9 @@ final networkStatusProvider = StreamProvider<bool>((ref) {
 });
 
 /// Synchronous bool derived from [networkStatusProvider].
-/// Returns `true` if online or the status is not yet known.
+/// Returns `true` only when online is confirmed.
 final isOnlineProvider = Provider<bool>((ref) {
   return ref
       .watch(networkStatusProvider)
-      .when(data: (v) => v, loading: () => true, error: (_, _) => true);
+  .when(data: (v) => v, loading: () => false, error: (_, _) => false);
 });

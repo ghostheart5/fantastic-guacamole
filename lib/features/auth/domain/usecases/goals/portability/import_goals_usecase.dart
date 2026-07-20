@@ -1,0 +1,3 @@
+﻿class ImportGoalsUsecase {
+  const ImportGoalsUsecase();
+}

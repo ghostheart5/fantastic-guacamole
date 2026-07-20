@@ -1,0 +1,3 @@
+﻿class UnlockFeatureUsecase {
+  const UnlockFeatureUsecase();
+}

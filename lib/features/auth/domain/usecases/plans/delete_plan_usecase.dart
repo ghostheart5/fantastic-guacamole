@@ -1,0 +1,3 @@
+﻿class DeletePlanUsecase {
+  const DeletePlanUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class ViewTimeAnalyticsUsecase {
+  const ViewTimeAnalyticsUsecase();
+}

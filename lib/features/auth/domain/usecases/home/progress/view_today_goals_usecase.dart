@@ -1,0 +1,3 @@
+﻿class ViewTodayGoalsUsecase {
+  const ViewTodayGoalsUsecase();
+}

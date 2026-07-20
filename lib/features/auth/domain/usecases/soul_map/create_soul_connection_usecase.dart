@@ -1,0 +1,3 @@
+﻿class CreateSoulConnectionUsecase {
+  const CreateSoulConnectionUsecase();
+}

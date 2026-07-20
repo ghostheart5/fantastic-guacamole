@@ -1,0 +1,3 @@
+﻿class ViewGoalTimelineUsecase {
+  const ViewGoalTimelineUsecase();
+}

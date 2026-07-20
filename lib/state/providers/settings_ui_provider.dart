@@ -8,6 +8,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class SettingsUiActions {
   SettingsUiActions(this._ref);
 
+  static final ValueNotifier<NotificationPermissionState>
+  _notificationPermissionStateListenable =
+      ValueNotifier<NotificationPermissionState>(
+        NotificationPermissionState.unknown,
+      );
+
   final Ref _ref;
 
   ReflectionReminderService get _reminderService {
@@ -30,7 +36,29 @@ class SettingsUiActions {
   }
 
   Future<bool> requestNotificationPermission() {
-    return _reminderService.requestNotificationPermission();
+    return requestNotificationPermissionDetailed().then(
+      (NotificationPermissionState state) =>
+          state == NotificationPermissionState.granted,
+    );
+  }
+
+  ValueListenable<NotificationPermissionState>
+  get notificationPermissionStateListenable {
+    return _notificationPermissionStateListenable;
+  }
+
+  Future<NotificationPermissionState> requestNotificationPermissionDetailed() async {
+    final NotificationPermissionState state =
+        await _reminderService.requestNotificationPermissionDetailed();
+    _notificationPermissionStateListenable.value = state;
+    return state;
+  }
+
+  Future<NotificationPermissionState> refreshNotificationPermissionState() async {
+    final NotificationPermissionState state =
+        await _reminderService.getNotificationPermissionState();
+    _notificationPermissionStateListenable.value = state;
+    return state;
   }
 
   ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {
@@ -87,6 +115,12 @@ final settingsUiActionsProvider = Provider<SettingsUiActions>((Ref ref) {
 final notificationPermissionListenableProvider =
     Provider<ValueListenable<bool?>>((ref) {
       return ref.read(reflectionReminderServiceProvider).permissionListenable;
+    });
+
+final notificationPermissionStateListenableProvider =
+    Provider<ValueListenable<NotificationPermissionState>>((ref) {
+      final SettingsUiActions actions = ref.read(settingsUiActionsProvider);
+      return actions.notificationPermissionStateListenable;
     });
 
 class VoicePermissionStatusNotifier extends Notifier<bool?> {

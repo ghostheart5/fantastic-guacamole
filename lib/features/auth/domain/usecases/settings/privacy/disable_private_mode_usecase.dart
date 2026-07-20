@@ -1,0 +1,3 @@
+﻿class DisablePrivateModeUsecase {
+  const DisablePrivateModeUsecase();
+}

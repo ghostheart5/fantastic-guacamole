@@ -272,6 +272,59 @@ class TaskActions {
     _ref.invalidate(goalProgressProvider);
   }
 
+  Future<void> delayTask(
+    String id, {
+    Duration by = const Duration(hours: 2),
+    bool notify = true,
+  }) async {
+    if (id.trim().isEmpty) {
+      throw StateError('Task not found');
+    }
+    final TaskEntity? entity = await _ref
+        .read(domainTaskRepositoryProvider)
+        .getTaskById(id);
+    if (entity == null || entity.isCompleted || entity.isCanceled) {
+      throw StateError('Task not found');
+    }
+    final DateTime now = DateTime.now();
+    final DateTime nextSchedule =
+        (entity.scheduledFor ?? now).add(by).isBefore(now)
+        ? now.add(by)
+        : (entity.scheduledFor ?? now).add(by);
+    final TaskEntity delayed = entity.copyWith(scheduledFor: nextSchedule);
+    await _ref.read(updateTaskUseCaseProvider).call(delayed);
+    await _ref
+        .read(logsActionsProvider)
+        .addMirroredEntry(source: 'task_delayed', message: delayed.title);
+    await _ref
+        .read(timelineActionsProvider)
+        .addMirroredEvent(
+          TimelineEventEntity(
+            id: 'timeline-task-delayed-${now.microsecondsSinceEpoch}',
+            type: TimelineEventType.reflection,
+            title: 'Task Delayed',
+            detail:
+                '${delayed.title} delayed until ${nextSchedule.toLocal().toIso8601String()}.',
+            timestamp: now,
+          ),
+        );
+    if (notify) {
+      await _refreshCoachDecision(notify: true);
+    }
+    _ref
+        .read(eventBusProvider)
+        .emit(
+          TaskLifecycleEvent(
+            taskId: delayed.id,
+            title: delayed.title,
+            action: 'delayed',
+          ),
+        );
+    _ref.invalidate(tasksProvider);
+    _ref.invalidate(goalProgressProvider);
+    _ref.invalidate(domainSiDecisionProvider);
+  }
+
   Future<void> _refreshCoachDecision({required bool notify}) async {
     try {
       final decision = await _ref

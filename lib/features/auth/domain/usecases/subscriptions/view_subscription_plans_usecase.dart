@@ -1,0 +1,3 @@
+﻿class ViewSubscriptionPlansUsecase {
+  const ViewSubscriptionPlansUsecase();
+}

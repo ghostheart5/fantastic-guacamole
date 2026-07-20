@@ -1,0 +1,3 @@
+﻿class AssessHealthUsecase {
+  const AssessHealthUsecase();
+}

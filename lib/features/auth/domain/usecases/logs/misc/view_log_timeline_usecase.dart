@@ -1,0 +1,3 @@
+﻿class ViewLogTimelineUsecase {
+  const ViewLogTimelineUsecase();
+}

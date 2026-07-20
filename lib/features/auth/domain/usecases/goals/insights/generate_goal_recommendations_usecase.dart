@@ -1,0 +1,3 @@
+﻿class GenerateGoalRecommendationsUsecase {
+  const GenerateGoalRecommendationsUsecase();
+}

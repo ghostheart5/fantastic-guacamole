@@ -81,7 +81,12 @@ class NotificationsRepository implements INotificationRepository {
       if (schedule != null) {
         await schedule(notification);
       } else {
-        await _scheduler.schedule(notification);
+        final result = await _scheduler.scheduleWithStatus(notification);
+        if (result != NotificationScheduleResult.scheduled) {
+          Logger.warn(
+            'Notification ${notification.id} was not scheduled: $result',
+          );
+        }
       }
     } catch (error) {
       Logger.warn('Failed to schedule notification ${notification.id}: $error');

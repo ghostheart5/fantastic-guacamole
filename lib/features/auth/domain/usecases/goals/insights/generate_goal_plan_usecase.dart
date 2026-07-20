@@ -1,0 +1,3 @@
+﻿class GenerateGoalPlanUsecase {
+  const GenerateGoalPlanUsecase();
+}

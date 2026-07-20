@@ -1,0 +1,3 @@
+﻿class CreateDailyGoalUsecase {
+  const CreateDailyGoalUsecase();
+}

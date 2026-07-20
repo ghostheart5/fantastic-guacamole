@@ -58,7 +58,9 @@ class InMemorySecureStoreBackend implements SecureStoreBackend {
 }
 
 class SecureStore {
-  SecureStore({required this._backend});
+  SecureStore({required SecureStoreBackend backend}) : this._(backend);
+
+  SecureStore._(this._backend);
 
   final SecureStoreBackend _backend;
 

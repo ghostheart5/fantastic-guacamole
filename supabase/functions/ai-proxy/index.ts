@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
+  Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const ALLOWED_ORIGINS = new Set(
   (Deno.env.get("ALLOWED_ORIGINS") ?? "https://chronospark.app,https://www.chronospark.app")
     .split(",")
@@ -21,9 +22,9 @@ function cors(req: Request): Record<string, string> {
 
 async function authenticatedUserId(req: Request): Promise<string | null> {
   const authorization = req.headers.get("authorization") ?? "";
-  if (!authorization.startsWith("Bearer ") || !SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+  if (!authorization.startsWith("Bearer ") || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return null;
   const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: authorization, apikey: SUPABASE_ANON_KEY },
+    headers: { Authorization: authorization, apikey: SUPABASE_PUBLISHABLE_KEY },
   });
   if (!response.ok) return null;
   const user = await response.json();

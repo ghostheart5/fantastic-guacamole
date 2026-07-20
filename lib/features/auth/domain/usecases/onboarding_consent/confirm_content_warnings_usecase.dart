@@ -1,0 +1,3 @@
+﻿class ConfirmContentWarningsUsecase {
+  const ConfirmContentWarningsUsecase();
+}

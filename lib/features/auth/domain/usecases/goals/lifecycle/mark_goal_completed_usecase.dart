@@ -1,0 +1,3 @@
+﻿class MarkGoalCompletedUsecase {
+  const MarkGoalCompletedUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class CreateEmotionMapUsecase {
+  const CreateEmotionMapUsecase();
+}

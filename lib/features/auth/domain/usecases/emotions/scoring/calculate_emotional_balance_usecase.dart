@@ -1,0 +1,3 @@
+﻿class CalculateEmotionalBalanceUsecase {
+  const CalculateEmotionalBalanceUsecase();
+}

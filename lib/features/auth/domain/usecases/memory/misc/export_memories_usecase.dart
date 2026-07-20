@@ -1,0 +1,3 @@
+﻿class ExportMemoriesUsecase {
+  const ExportMemoriesUsecase();
+}

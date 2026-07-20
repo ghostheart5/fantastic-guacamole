@@ -1,0 +1,3 @@
+﻿class GetSettingsUsecase {
+  const GetSettingsUsecase();
+}

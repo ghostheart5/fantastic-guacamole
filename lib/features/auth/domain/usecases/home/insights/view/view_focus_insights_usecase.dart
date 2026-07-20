@@ -1,0 +1,3 @@
+﻿class ViewFocusInsightsUsecase {
+  const ViewFocusInsightsUsecase();
+}

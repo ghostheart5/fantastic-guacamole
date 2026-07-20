@@ -1,0 +1,3 @@
+﻿class AssignTaskCategoryUsecase {
+  const AssignTaskCategoryUsecase();
+}

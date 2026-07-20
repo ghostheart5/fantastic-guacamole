@@ -1,0 +1,3 @@
+﻿class UpdateEmotionReminderUsecase {
+  const UpdateEmotionReminderUsecase();
+}

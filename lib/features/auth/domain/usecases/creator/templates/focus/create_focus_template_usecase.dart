@@ -1,0 +1,3 @@
+﻿class CreateFocusTemplateUsecase {
+  const CreateFocusTemplateUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class GenerateMilestoneInsightsUsecase {
+  const GenerateMilestoneInsightsUsecase();
+}

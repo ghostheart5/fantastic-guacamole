@@ -1,0 +1,3 @@
+﻿class GenerateDailyReflectionUsecase {
+  const GenerateDailyReflectionUsecase();
+}

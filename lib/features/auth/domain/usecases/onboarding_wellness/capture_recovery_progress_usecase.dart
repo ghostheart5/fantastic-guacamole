@@ -1,0 +1,3 @@
+﻿class CaptureRecoveryProgressUsecase {
+  const CaptureRecoveryProgressUsecase();
+}

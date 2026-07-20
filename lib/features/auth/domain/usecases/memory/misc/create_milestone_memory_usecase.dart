@@ -1,0 +1,3 @@
+﻿class CreateMilestoneMemoryUsecase {
+  const CreateMilestoneMemoryUsecase();
+}

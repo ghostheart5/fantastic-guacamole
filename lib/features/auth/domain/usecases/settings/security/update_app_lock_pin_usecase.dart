@@ -1,0 +1,3 @@
+﻿class UpdateAppLockPinUsecase {
+  const UpdateAppLockPinUsecase();
+}

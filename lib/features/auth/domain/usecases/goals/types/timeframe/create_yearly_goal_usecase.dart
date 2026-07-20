@@ -1,0 +1,3 @@
+﻿class CreateYearlyGoalUsecase {
+  const CreateYearlyGoalUsecase();
+}

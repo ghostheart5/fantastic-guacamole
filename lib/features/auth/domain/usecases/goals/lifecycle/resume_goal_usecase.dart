@@ -1,0 +1,3 @@
+﻿class ResumeGoalUsecase {
+  const ResumeGoalUsecase();
+}

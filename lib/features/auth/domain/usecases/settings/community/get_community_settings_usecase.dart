@@ -1,0 +1,3 @@
+﻿class GetCommunitySettingsUsecase {
+  const GetCommunitySettingsUsecase();
+}

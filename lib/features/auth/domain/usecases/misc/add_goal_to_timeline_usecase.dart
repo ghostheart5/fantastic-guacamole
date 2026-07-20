@@ -1,0 +1,3 @@
+﻿class AddGoalToTimelineUsecase {
+  const AddGoalToTimelineUsecase();
+}

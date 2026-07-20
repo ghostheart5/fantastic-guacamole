@@ -1,0 +1,3 @@
+﻿class ViewPlanProgressUsecase {
+  const ViewPlanProgressUsecase();
+}

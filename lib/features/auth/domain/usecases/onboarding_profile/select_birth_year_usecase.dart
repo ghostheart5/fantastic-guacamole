@@ -1,0 +1,3 @@
+﻿class SelectBirthYearUsecase {
+  const SelectBirthYearUsecase();
+}

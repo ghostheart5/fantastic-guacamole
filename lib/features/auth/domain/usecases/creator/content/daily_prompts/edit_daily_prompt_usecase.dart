@@ -1,0 +1,3 @@
+﻿class EditDailyPromptUsecase {
+  const EditDailyPromptUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class ImportUserDataUsecase {
+  const ImportUserDataUsecase();
+}

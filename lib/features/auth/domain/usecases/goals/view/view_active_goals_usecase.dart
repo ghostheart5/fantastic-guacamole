@@ -1,0 +1,3 @@
+﻿class ViewActiveGoalsUsecase {
+  const ViewActiveGoalsUsecase();
+}

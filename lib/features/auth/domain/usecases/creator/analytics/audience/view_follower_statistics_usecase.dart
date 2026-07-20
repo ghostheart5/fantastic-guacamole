@@ -1,0 +1,3 @@
+﻿class ViewFollowerStatisticsUsecase {
+  const ViewFollowerStatisticsUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class ViewNextUnlockUsecase {
+  const ViewNextUnlockUsecase();
+}

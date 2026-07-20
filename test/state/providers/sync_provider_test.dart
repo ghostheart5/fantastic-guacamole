@@ -64,7 +64,7 @@ void main() {
     }
   });
 
-  test('syncToCloudProvider returns false when upload fails', () async {
+  test('syncToCloudProvider returns false and surfaces failure state when upload fails', () async {
     await repository.saveTask(
       TaskEntity(
         id: 'task-1',
@@ -74,7 +74,12 @@ void main() {
     );
 
     final bool first = await container.read(syncToCloudProvider.future);
+
     expect(first, isFalse);
+    expect(
+      container.read(syncErrorMessageProvider),
+      'Cloud sync failed. The action was queued for a later retry.',
+    );
     expect(gateway.uploadAttempts, 1);
   });
 

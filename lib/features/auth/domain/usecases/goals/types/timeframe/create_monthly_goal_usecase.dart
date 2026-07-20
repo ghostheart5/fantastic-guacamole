@@ -1,0 +1,3 @@
+﻿class CreateMonthlyGoalUsecase {
+  const CreateMonthlyGoalUsecase();
+}

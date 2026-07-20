@@ -1,0 +1,3 @@
+﻿class ViewYearlyTimelineUsecase {
+  const ViewYearlyTimelineUsecase();
+}

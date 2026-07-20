@@ -1,0 +1,3 @@
+﻿class CalculateXpUsecase {
+  const CalculateXpUsecase();
+}

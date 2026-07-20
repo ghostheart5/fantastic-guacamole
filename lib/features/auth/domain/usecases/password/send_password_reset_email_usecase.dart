@@ -1,0 +1,3 @@
+﻿class SendPasswordResetEmailUsecase {
+  const SendPasswordResetEmailUsecase();
+}

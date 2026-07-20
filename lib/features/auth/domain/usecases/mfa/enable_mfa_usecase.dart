@@ -1,0 +1,3 @@
+﻿class EnableMfaUsecase {
+  const EnableMfaUsecase();
+}

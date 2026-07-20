@@ -1,0 +1,3 @@
+﻿class UpdateLogUsecase {
+  const UpdateLogUsecase();
+}

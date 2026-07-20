@@ -1,0 +1,3 @@
+﻿class UpdateMilestoneUsecase {
+  const UpdateMilestoneUsecase();
+}

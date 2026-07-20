@@ -1,0 +1,3 @@
+﻿class ConfigureAccessibilityProfileUsecase {
+  const ConfigureAccessibilityProfileUsecase();
+}

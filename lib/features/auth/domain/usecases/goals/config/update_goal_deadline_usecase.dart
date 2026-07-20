@@ -1,0 +1,3 @@
+﻿class UpdateGoalDeadlineUsecase {
+  const UpdateGoalDeadlineUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class ViewFocusStatisticsUsecase {
+  const ViewFocusStatisticsUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class UnlockPremiumFeatureUsecase {
+  const UnlockPremiumFeatureUsecase();
+}

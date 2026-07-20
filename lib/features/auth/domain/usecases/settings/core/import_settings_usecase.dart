@@ -1,0 +1,3 @@
+﻿class ImportSettingsUsecase {
+  const ImportSettingsUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class AwardGoalAchievementUsecase {
+  const AwardGoalAchievementUsecase();
+}

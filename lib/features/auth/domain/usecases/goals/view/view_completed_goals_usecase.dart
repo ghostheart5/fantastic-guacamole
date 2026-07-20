@@ -1,0 +1,3 @@
+﻿class ViewCompletedGoalsUsecase {
+  const ViewCompletedGoalsUsecase();
+}

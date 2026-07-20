@@ -1,0 +1,3 @@
+﻿class LinkTaskToGoalUsecase {
+  const LinkTaskToGoalUsecase();
+}

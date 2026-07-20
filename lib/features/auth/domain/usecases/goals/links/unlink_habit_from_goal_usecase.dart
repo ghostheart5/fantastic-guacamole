@@ -1,0 +1,3 @@
+﻿class UnlinkHabitFromGoalUsecase {
+  const UnlinkHabitFromGoalUsecase();
+}

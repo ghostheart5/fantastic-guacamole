@@ -1,0 +1,3 @@
+﻿class ViewMonthlyTimelineUsecase {
+  const ViewMonthlyTimelineUsecase();
+}

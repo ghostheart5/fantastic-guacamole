@@ -87,7 +87,8 @@ jobs:
             printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
             echo "Configured android/app/google-services.json from ANDROID_GOOGLE_SERVICES_JSON."
           else
-            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON(_BASE64) is not set; building without Firebase Google Services config."
+            echo "::error::ANDROID_GOOGLE_SERVICES_JSON(_BASE64) is required for release builds."
+            exit 1
           fi
 
       - name: Validate production configuration
@@ -100,19 +101,14 @@ jobs:
           ANDROID_SHA256: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
           IOS_TEAM_ID: ${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
         run: |
-          [ -n "$SUPABASE_URL" ] || echo "::warning::CHRONOSPARK_SUPABASE_URL is empty"
-          [ -n "$SUPABASE_ANON_KEY" ] || echo "::warning::CHRONOSPARK_SUPABASE_ANON_KEY is empty"
-          [ -n "$RECEIPT_ENDPOINT" ] || echo "::warning::CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT is empty"
-          [ -n "$AI_ENDPOINT" ] || echo "::warning::CHRONOSPARK_AI_PROXY_ENDPOINT is empty"
-          [ -n "$DELETE_ENDPOINT" ] || echo "::warning::CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT is empty"
-          [ -n "$ANDROID_SHA256" ] || echo "::warning::CHRONOSPARK_ANDROID_SHA256_CERT is empty"
-          [ -n "$IOS_TEAM_ID" ] || echo "::warning::CHRONOSPARK_IOS_TEAM_ID is empty"
-          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
-            echo "PROD_READINESS=true" >> "$GITHUB_ENV"
-          else
-            echo "::warning::Disabling CHRONOSPARK_ENFORCE_PROD_READINESS because required prod secrets are missing"
-            echo "PROD_READINESS=false" >> "$GITHUB_ENV"
-          fi
+          [ -n "$SUPABASE_URL" ] || { echo "::error::CHRONOSPARK_SUPABASE_URL is required for release."; exit 1; }
+          [ -n "$SUPABASE_ANON_KEY" ] || { echo "::error::CHRONOSPARK_SUPABASE_ANON_KEY is required for release."; exit 1; }
+          [ -n "$RECEIPT_ENDPOINT" ] || { echo "::error::CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT is required for release."; exit 1; }
+          [ -n "$AI_ENDPOINT" ] || { echo "::error::CHRONOSPARK_AI_PROXY_ENDPOINT is required for release."; exit 1; }
+          [ -n "$DELETE_ENDPOINT" ] || { echo "::error::CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT is required for release."; exit 1; }
+          [ -n "$ANDROID_SHA256" ] || { echo "::error::CHRONOSPARK_ANDROID_SHA256_CERT is required for release."; exit 1; }
+          [ -n "$IOS_TEAM_ID" ] || { echo "::error::CHRONOSPARK_IOS_TEAM_ID is required for release."; exit 1; }
+          echo "PROD_READINESS=true" >> "$GITHUB_ENV"
 
       - name: Build signed AAB
         run: >-

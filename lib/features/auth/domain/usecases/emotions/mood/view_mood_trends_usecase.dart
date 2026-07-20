@@ -1,0 +1,3 @@
+﻿class ViewMoodTrendsUsecase {
+  const ViewMoodTrendsUsecase();
+}

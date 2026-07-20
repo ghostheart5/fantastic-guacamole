@@ -1,0 +1,3 @@
+﻿class SetLanguagePreferenceUsecase {
+  const SetLanguagePreferenceUsecase();
+}

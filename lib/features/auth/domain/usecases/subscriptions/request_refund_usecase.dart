@@ -1,0 +1,3 @@
+﻿class RequestRefundUsecase {
+  const RequestRefundUsecase();
+}

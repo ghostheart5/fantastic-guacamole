@@ -14,6 +14,8 @@ class RoutePaths {
 
   // Secondary and advanced surfaces.
   static const notifications = '/settings/notifications';
+  static const notificationPermissionRecovery =
+      '/settings/notifications/recovery';
   static const advancedRoot = '/settings/advanced';
   static const logs = '$advancedRoot/logs';
   static const tasks = '$advancedRoot/tasks';
@@ -24,6 +26,10 @@ class RoutePaths {
 
   // Legal and account routes.
   static const paywall = '/paywall';
+  static const planComparison = '/paywall/compare';
+  static const creditStore = '/paywall/credits';
+  static const creditHistory = '/paywall/credits/history';
+  static const subscriptionManagement = '/paywall/manage';
   static const privacy = '/privacy';
   static const deleteAccount = '/delete-account';
   static const terms = '/terms';

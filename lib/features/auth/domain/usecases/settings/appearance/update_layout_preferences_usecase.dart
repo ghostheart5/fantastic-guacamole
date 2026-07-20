@@ -1,0 +1,3 @@
+﻿class UpdateLayoutPreferencesUsecase {
+  const UpdateLayoutPreferencesUsecase();
+}

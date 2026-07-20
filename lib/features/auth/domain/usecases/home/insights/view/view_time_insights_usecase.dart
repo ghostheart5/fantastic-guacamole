@@ -1,0 +1,3 @@
+﻿class ViewTimeInsightsUsecase {
+  const ViewTimeInsightsUsecase();
+}

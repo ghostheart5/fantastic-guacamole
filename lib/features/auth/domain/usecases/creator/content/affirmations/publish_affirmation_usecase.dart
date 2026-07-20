@@ -1,0 +1,3 @@
+﻿class PublishAffirmationUsecase {
+  const PublishAffirmationUsecase();
+}

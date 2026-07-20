@@ -1,0 +1,3 @@
+﻿class DuplicateNodeUsecase {
+  const DuplicateNodeUsecase();
+}

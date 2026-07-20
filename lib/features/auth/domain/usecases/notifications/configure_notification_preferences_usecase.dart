@@ -1,0 +1,3 @@
+﻿class ConfigureNotificationPreferencesUsecase {
+  const ConfigureNotificationPreferencesUsecase();
+}

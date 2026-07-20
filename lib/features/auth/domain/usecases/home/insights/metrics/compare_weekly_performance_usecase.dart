@@ -1,0 +1,3 @@
+﻿class CompareWeeklyPerformanceUsecase {
+  const CompareWeeklyPerformanceUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class GenerateMemoryReflectionUsecase {
+  const GenerateMemoryReflectionUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class ViewSoulMapTimelineUsecase {
+  const ViewSoulMapTimelineUsecase();
+}

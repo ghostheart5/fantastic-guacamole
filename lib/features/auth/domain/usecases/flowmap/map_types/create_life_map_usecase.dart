@@ -1,0 +1,3 @@
+﻿class CreateLifeMapUsecase {
+  const CreateLifeMapUsecase();
+}

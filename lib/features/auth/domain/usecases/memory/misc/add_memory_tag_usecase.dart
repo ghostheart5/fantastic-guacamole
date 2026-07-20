@@ -1,0 +1,3 @@
+﻿class AddMemoryTagUsecase {
+  const AddMemoryTagUsecase();
+}

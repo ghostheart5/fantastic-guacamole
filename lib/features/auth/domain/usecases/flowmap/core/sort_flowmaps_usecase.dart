@@ -1,0 +1,3 @@
+﻿class SortFlowmapsUsecase {
+  const SortFlowmapsUsecase();
+}

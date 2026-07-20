@@ -2,27 +2,40 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/network/retry_executor.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart' as secure_endpoint;
+import 'package:fantastic_guacamole/data/services/local_user_data_cleanup_service.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 class AuthService implements AuthServiceContract {
   AuthService({
     required sb.SupabaseClient supabaseClient,
-    required this._store,
+    required SecureStore store,
     http.Client? httpClient,
     String? accountDeleteEndpoint,
     String? oauthGoogleRedirectUrl,
     String? oauthGitHubRedirectUrl,
+    LocalUserDataCleanupService? localUserDataCleanupService,
   }) : _auth = supabaseClient,
+       _store = store,
        _httpClient = httpClient ?? _sharedHttpClient,
        _accountDeleteEndpoint = accountDeleteEndpoint ?? Env.accountDeleteEndpoint,
        _oauthGoogleRedirectUrl = oauthGoogleRedirectUrl ?? Env.oauthRedirectUrl,
-       _oauthGitHubRedirectUrl = oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl;
+       _oauthGitHubRedirectUrl = oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl,
+       _localUserDataCleanupService =
+           localUserDataCleanupService ??
+           LocalUserDataCleanupService(
+             preferences: const SharedPrefsStoreAdapter(),
+             hive: const HiveStoreAdapter(),
+             secureStore: store,
+           );
 
   static final http.Client _sharedHttpClient = http.Client();
 
@@ -32,6 +45,7 @@ class AuthService implements AuthServiceContract {
   final String _accountDeleteEndpoint;
   final String _oauthGoogleRedirectUrl;
   final String _oauthGitHubRedirectUrl;
+  final LocalUserDataCleanupService _localUserDataCleanupService;
   int _failedSignInAttempts = 0;
   DateTime? _signInBlockedUntil;
 
@@ -85,6 +99,7 @@ class AuthService implements AuthServiceContract {
   Future<UserCredential> signUp({required String email, required String password}) async {
     try {
       final sb.AuthResponse response = await _auth.auth.signUp(email: email, password: password);
+      await _seedProfileStateFromSignupEmail(email);
       return UserCredential(user: _mapUser(response.user));
     } on sb.AuthException catch (error) {
       Logger.errorCategory('Auth Errors', 'Supabase signUp failed', error);
@@ -95,6 +110,28 @@ class AuthService implements AuthServiceContract {
         message: 'Authentication backend is unavailable.',
       );
     }
+  }
+
+  Future<void> _seedProfileStateFromSignupEmail(String email) async {
+    const String secureProfileStateKey = 'profile_state_v2';
+    final String normalizedEmail = email.trim();
+    final String localPart = normalizedEmail.contains('@')
+        ? normalizedEmail.split('@').first.trim()
+        : '';
+    final String profileName = localPart.isEmpty ? 'Operator' : localPart;
+    final DateTime now = DateTime.now();
+    final Map<String, dynamic> payload = <String, dynamic>{
+      'xp': 0,
+      'level': 1,
+      'streak': 0,
+      'longestStreak': 0,
+      'name': profileName,
+      'soundEnabled': true,
+      'lastActiveDate': null,
+      'profileReady': true,
+      'updatedAt': now.toIso8601String(),
+    };
+    await _store.writeString(secureProfileStateKey, jsonEncode(payload));
   }
 
   @override
@@ -219,8 +256,39 @@ class AuthService implements AuthServiceContract {
   }
 
   @override
+  Future<AuthSessionSnapshot?> getCurrentSessionSnapshot({
+    bool forceRefresh = false,
+  }) async {
+    try {
+      if (forceRefresh) {
+        await _auth.auth.refreshSession();
+      }
+      final sb.Session? session = _auth.auth.currentSession;
+      if (session == null) {
+        return null;
+      }
+      final DateTime issuedAt = DateTime.now();
+      return AuthSessionSnapshot(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken ?? '',
+        expiresAt: _sessionExpiry(session) ?? issuedAt,
+        issuedAt: issuedAt,
+      );
+    } on sb.AuthException catch (error) {
+      throw _mapAuthException(error);
+    } on Object {
+      throw FirebaseAuthException(
+        code: 'auth-unavailable',
+        message: 'Unable to retrieve the current authentication session.',
+      );
+    }
+  }
+
+  @override
   Future<void> signOut() async {
+    final String? userId = _auth.auth.currentUser?.id;
     await _auth.auth.signOut();
+    await _localUserDataCleanupService.clear(userId: userId);
   }
 
   @override
@@ -273,16 +341,36 @@ class AuthService implements AuthServiceContract {
         );
       }
 
-      final http.Response response = await _httpClient
-          .post(
-            uri,
-            headers: <String, String>{
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $accessToken',
-            },
-            body: jsonEncode(<String, String>{'userId': user.id, 'email': email}),
-          )
-          .timeout(const Duration(seconds: 20));
+      final http.Response response = await runWithRetry<http.Response>(
+        maxAttempts: 3,
+        action: () async {
+          final http.Response next = await _httpClient
+              .post(
+                uri,
+                headers: <String, String>{
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer $accessToken',
+                },
+                body: jsonEncode(<String, String>{
+                  'userId': user.id,
+                  'email': email,
+                }),
+              )
+              .timeout(const Duration(seconds: 20));
+          if (next.statusCode == 408 ||
+              next.statusCode == 429 ||
+              next.statusCode >= 500) {
+            throw http.ClientException(
+              'Transient account deletion endpoint failure: ${next.statusCode}',
+              uri,
+            );
+          }
+          return next;
+        },
+        retryIf: (Object error) {
+          return error is TimeoutException || error is http.ClientException;
+        },
+      );
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw FirebaseAuthException(
@@ -304,8 +392,12 @@ class AuthService implements AuthServiceContract {
       );
     } finally {
       if (deleted) {
-        await _store.deleteAll();
-        await _auth.auth.signOut();
+        await _localUserDataCleanupService.clear(userId: user.id);
+        try {
+          await _auth.auth.signOut();
+        } on Object catch (error) {
+          Logger.warn('Final sign-out after account deletion failed: $error');
+        }
       }
     }
   }
@@ -375,5 +467,17 @@ class AuthService implements AuthServiceContract {
       return FirebaseAuthException(code: 'weak-password', message: error.message);
     }
     return FirebaseAuthException(code: 'auth-unavailable', message: error.message);
+  }
+
+  DateTime? _sessionExpiry(sb.Session session) {
+    final dynamic raw = session.expiresAt;
+    if (raw is int) {
+      return DateTime.fromMillisecondsSinceEpoch(raw * 1000, isUtc: true)
+          .toLocal();
+    }
+    if (raw is String) {
+      return DateTime.tryParse(raw);
+    }
+    return null;
   }
 }

@@ -4,14 +4,23 @@ import 'package:fantastic_guacamole/app/router/route_guards.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
 import 'package:fantastic_guacamole/features/auth/screens/auth_gate.dart';
+import 'package:fantastic_guacamole/features/monetization/presentation/screens/credit_history_screen.dart';
+import 'package:fantastic_guacamole/features/monetization/presentation/screens/credit_store_screen.dart';
+import 'package:fantastic_guacamole/features/monetization/presentation/screens/paywall_screen.dart';
+import 'package:fantastic_guacamole/features/monetization/presentation/plan_comparison_screen.dart';
+import 'package:fantastic_guacamole/features/monetization/presentation/screens/subscription_management_screen.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
-import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
+import 'package:fantastic_guacamole/features/permissions/notification_permission_recovery_screen.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart'
+  show OnboardingStatus;
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     hide authenticatedGuardProvider;
+import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/widgets/web_page_view.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -31,6 +40,11 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
       onboardingCompleteGuardProvider,
       (_, _) => notifyListeners(),
     );
+    _ref.listen<OnboardingStatus>(
+      onboardingStatusGuardProvider,
+      (_, _) => notifyListeners(),
+    );
+    _ref.listen<bool>(profileCompleteGuardProvider, (_, _) => notifyListeners());
     _ref.listen(intelligenceStateProvider, (_, _) => notifyListeners());
     _ref.listen(mockLoginConfigProvider, (_, _) => notifyListeners());
   }
@@ -39,17 +53,27 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
 
   bool get isAuthenticated => _ref.read(authenticatedGuardProvider);
   bool get onboardingComplete => _ref.read(onboardingCompleteGuardProvider);
+  OnboardingStatus get onboardingStatus => _ref.read(onboardingStatusGuardProvider);
+  bool get hasValidProfile => _ref.read(profileCompleteGuardProvider);
 }
 
 String _resolveInitialLocation({
   required bool isAuthenticated,
-  required bool onboardingComplete,
+  required OnboardingStatus onboardingStatus,
+  required bool hasValidProfile,
 }) {
+  if (onboardingStatus == OnboardingStatus.unknown) {
+    return RoutePaths.onboarding;
+  }
+  final bool onboardingComplete = onboardingStatus == OnboardingStatus.complete;
   if (!onboardingComplete) {
     return RoutePaths.onboarding;
   }
   if (!isAuthenticated) {
     return RoutePaths.login;
+  }
+  if (!hasValidProfile) {
+    return RoutePaths.onboarding;
   }
   return RoutePaths.home;
 }
@@ -60,24 +84,90 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
   final String initialLocation = _resolveInitialLocation(
     isAuthenticated: refresh.isAuthenticated,
-    onboardingComplete: refresh.onboardingComplete,
+    onboardingStatus: refresh.onboardingStatus,
+    hasValidProfile: refresh.hasValidProfile,
   );
 
   return GoRouter(
     initialLocation: initialLocation,
     debugLogDiagnostics: false,
     refreshListenable: refresh,
+    errorBuilder: (BuildContext context, GoRouterState state) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Route not found')),
+        body: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text('Unknown route: ${state.uri}'),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => context.go(RoutePaths.home),
+                child: const Text('Go to Home'),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
     redirect: (BuildContext context, GoRouterState state) {
       final bool isAuthenticated = refresh.isAuthenticated;
-      final bool onboardingComplete = refresh.onboardingComplete;
+      final OnboardingStatus onboardingStatus = refresh.onboardingStatus;
+      if (onboardingStatus == OnboardingStatus.unknown) {
+        return state.matchedLocation == RoutePaths.onboarding
+            ? null
+            : RoutePaths.onboarding;
+      }
+
+      final bool onboardingComplete =
+          onboardingStatus == OnboardingStatus.complete;
+        final bool hasValidProfile = ref.read(profileCompleteGuardProvider);
       final bool mockLoginEnabled = ref
           .read(intelligenceStateProvider)
           .flags
           .mockLoginEnabled;
+      final bool hasPremiumAccess = ref.read(premiumAccessGuardProvider);
+      final bool hasAdminAccess = ref.read(adminAccessGuardProvider);
       final String location = state.matchedLocation;
+      final bool qaSkipOnboarding =
+          !kReleaseMode && state.uri.queryParameters['qa_skip_onboarding'] == '1';
+      final String loginMode = (state.uri.queryParameters['mode'] ?? '')
+          .trim()
+          .toLowerCase();
+      final bool allowLoginDuringOnboarding =
+          location == RoutePaths.login &&
+          (loginMode == 'recovery' ||
+              loginMode == 'verify-email' ||
+              loginMode == 'auth-callback');
+
+      final bool premiumOnlyLocation = location == RoutePaths.advisor;
+      if (premiumOnlyLocation && !hasPremiumAccess) {
+        return RoutePaths.paywall;
+      }
+
+      if (location == RoutePaths.advisor && !hasAdminAccess) {
+        return RoutePaths.settings;
+      }
+
+      if (location == RoutePaths.notificationPermissionRecovery &&
+          NotificationScheduler.permissionGrantedListenable.value == true) {
+        return RoutePaths.notifications;
+      }
 
       if (!onboardingComplete && location != RoutePaths.onboarding) {
-        if (mockLoginEnabled && location == RoutePaths.login) {
+        if (allowLoginDuringOnboarding) {
+          return null;
+        }
+        if (qaSkipOnboarding && mockLoginEnabled && location == RoutePaths.login) {
+          return null;
+        }
+        return RoutePaths.onboarding;
+      }
+
+      if (isAuthenticated && onboardingComplete && !hasValidProfile) {
+        if (location == RoutePaths.onboarding) {
           return null;
         }
         return RoutePaths.onboarding;
@@ -88,7 +178,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (location == RoutePaths.onboarding) {
-        if (!onboardingComplete) {
+        if (!onboardingComplete || (isAuthenticated && !hasValidProfile)) {
           return null;
         }
         if (isAuthenticated) {
@@ -116,6 +206,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: <RouteBase>[
+      GoRoute(path: RoutePaths.shell, redirect: (_, _) => RoutePaths.home),
+
       // Primary surfaces: Now, Plan, Add, Reflect, Settings.
       GoRoute(
         path: RoutePaths.onboarding,
@@ -153,6 +245,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.notifications,
         builder: (BuildContext context, GoRouterState state) =>
             const NotificationsPage(),
+      ),
+      GoRoute(
+        path: RoutePaths.notificationPermissionRecovery,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NotificationPermissionRecoveryScreen(),
       ),
       GoRoute(
         path: RoutePaths.logs,
@@ -229,7 +326,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.paywall,
         builder: (BuildContext context, GoRouterState state) =>
-            const PaywallPage(),
+            const PaywallScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.planComparison,
+        builder: (BuildContext context, GoRouterState state) =>
+            const PlanComparisonScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.creditStore,
+        builder: (BuildContext context, GoRouterState state) =>
+            const CreditStoreScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.creditHistory,
+        builder: (BuildContext context, GoRouterState state) =>
+            const CreditHistoryScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.subscriptionManagement,
+        builder: (BuildContext context, GoRouterState state) =>
+            const SubscriptionManagementScreen(),
       ),
       GoRoute(
         path: RoutePaths.privacy,

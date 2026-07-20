@@ -1,0 +1,3 @@
+﻿class UnfavoriteFlowmapUsecase {
+  const UnfavoriteFlowmapUsecase();
+}

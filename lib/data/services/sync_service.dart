@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/network/retry_executor.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
@@ -97,9 +99,19 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   Future<Map<String, dynamic>> _downloadObject(String baseObjectPath) async {
     final String objectPath = _scopedPath(baseObjectPath);
     try {
-      final List<int> bytes = await _client.storage
-          .from(bucket)
-          .download(objectPath);
+      final List<int> bytes = await runWithRetry<List<int>>(
+        maxAttempts: 3,
+        action: () {
+          return _client.storage.from(bucket).download(objectPath);
+        },
+        retryIf: (Object error) {
+          if (error is sb.StorageException) {
+            final String code = (error.statusCode ?? '').toLowerCase();
+            return code.startsWith('5') || code.contains('429');
+          }
+          return true;
+        },
+      );
       final Object? decoded = jsonDecode(utf8.decode(bytes));
       if (decoded is Map<String, dynamic>) {
         return decoded;
@@ -135,17 +147,29 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
     final String objectPath = _scopedPath(baseObjectPath);
     try {
       final String json = jsonEncode(payload);
-      await _client.storage
-          .from(bucket)
-          .uploadBinary(
-            objectPath,
-            utf8.encode(json),
-            fileOptions: const sb.FileOptions(
-              cacheControl: '0',
-              contentType: 'application/json',
-              upsert: true,
-            ),
-          );
+      await runWithRetry<void>(
+        maxAttempts: 3,
+        action: () async {
+          await _client.storage
+              .from(bucket)
+              .uploadBinary(
+                objectPath,
+                utf8.encode(json),
+                fileOptions: const sb.FileOptions(
+                  cacheControl: '0',
+                  contentType: 'application/json',
+                  upsert: true,
+                ),
+              );
+        },
+        retryIf: (Object error) {
+          if (error is sb.StorageException) {
+            final String code = (error.statusCode ?? '').toLowerCase();
+            return code.startsWith('5') || code.contains('429');
+          }
+          return true;
+        },
+      );
       return true;
     } catch (error) {
       Logger.errorCategory(
@@ -184,6 +208,13 @@ class SyncService {
   }
 
   Future<bool> syncDelta() async {
+    if (Env.isProduction) {
+      Logger.warn(
+        'syncDelta is disabled in production pending full-domain merge hardening. Falling back to syncToCloud.',
+      );
+      return syncToCloud();
+    }
+
     final Map<String, dynamic> localBackup = await backup.createFullBackup();
     final Map<String, dynamic> cloudBackup = await gateway.downloadBackup();
     if (cloudBackup.isEmpty) {

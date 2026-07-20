@@ -1,0 +1,3 @@
+﻿class AddEmotionTriggerUsecase {
+  const AddEmotionTriggerUsecase();
+}

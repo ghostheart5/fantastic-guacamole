@@ -1,0 +1,3 @@
+﻿class RemoveVoiceNoteFromNodeUsecase {
+  const RemoveVoiceNoteFromNodeUsecase();
+}

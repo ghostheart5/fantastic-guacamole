@@ -1,0 +1,3 @@
+﻿class ViewLatestBadgesUsecase {
+  const ViewLatestBadgesUsecase();
+}

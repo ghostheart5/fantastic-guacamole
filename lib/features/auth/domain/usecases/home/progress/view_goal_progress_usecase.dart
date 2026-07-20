@@ -1,0 +1,3 @@
+﻿class ViewGoalProgressUsecase {
+  const ViewGoalProgressUsecase();
+}

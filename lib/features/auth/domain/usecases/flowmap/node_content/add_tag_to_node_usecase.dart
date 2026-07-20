@@ -1,0 +1,3 @@
+﻿class AddTagToNodeUsecase {
+  const AddTagToNodeUsecase();
+}

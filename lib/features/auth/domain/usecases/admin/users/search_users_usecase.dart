@@ -1,0 +1,3 @@
+﻿class SearchUsersUsecase {
+  const SearchUsersUsecase();
+}

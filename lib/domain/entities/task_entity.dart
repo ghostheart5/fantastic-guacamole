@@ -4,6 +4,7 @@ class TaskEntity {
   const TaskEntity({
     required this.id,
     required this.title,
+    this.kind,
     this.description,
     required this.createdAt,
     this.isCompleted = false,
@@ -22,6 +23,7 @@ class TaskEntity {
 
   final String id;
   final String title;
+  final String? kind;
   final String? description;
   final DateTime createdAt;
   final bool isCompleted;
@@ -40,6 +42,7 @@ class TaskEntity {
   TaskEntity copyWith({
     String? id,
     String? title,
+    String? kind,
     String? description,
     DateTime? createdAt,
     bool? isCompleted,
@@ -58,6 +61,7 @@ class TaskEntity {
     return TaskEntity(
       id: id ?? this.id,
       title: title ?? this.title,
+      kind: kind ?? this.kind,
       description: description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
       isCompleted: isCompleted ?? this.isCompleted,

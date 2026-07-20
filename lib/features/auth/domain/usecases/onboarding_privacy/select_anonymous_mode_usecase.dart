@@ -1,0 +1,3 @@
+﻿class SelectAnonymousModeUsecase {
+  const SelectAnonymousModeUsecase();
+}

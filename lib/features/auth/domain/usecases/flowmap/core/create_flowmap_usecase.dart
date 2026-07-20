@@ -1,0 +1,3 @@
+﻿class CreateFlowmapUsecase {
+  const CreateFlowmapUsecase();
+}

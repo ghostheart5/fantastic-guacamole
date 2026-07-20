@@ -1,0 +1,3 @@
+﻿class ExportSoulMapUsecase {
+  const ExportSoulMapUsecase();
+}

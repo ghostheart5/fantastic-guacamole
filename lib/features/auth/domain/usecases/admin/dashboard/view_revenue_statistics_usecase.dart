@@ -1,0 +1,3 @@
+﻿class ViewRevenueStatisticsUsecase {
+  const ViewRevenueStatisticsUsecase();
+}

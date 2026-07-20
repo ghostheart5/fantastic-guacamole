@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 
@@ -115,13 +116,17 @@ class ReminderOrchestratorService {
       return;
     }
 
-    await _scheduler.scheduleDailyAt(
+    final NotificationScheduleResult result = await _scheduler
+        .scheduleDailyAtWithStatus(
       id: _habitReminderId,
       title: 'Habit Reminder',
       body: 'Stay consistent: ${activeHabit.title}',
       hour: 20,
       minute: 0,
     );
+    if (result != NotificationScheduleResult.scheduled) {
+      Logger.warn('Habit reminder scheduling skipped: $result');
+    }
   }
 
   Future<void> ensureDailyPlanningReminder() async {
@@ -131,13 +136,17 @@ class ReminderOrchestratorService {
     }
 
     final (int hour, int minute) = _dailyPlanningTime();
-    await _scheduler.scheduleDailyAt(
+    final NotificationScheduleResult result = await _scheduler
+        .scheduleDailyAtWithStatus(
       id: _dailyPlanningReminderId,
       title: 'Daily Planning Reminder',
       body: 'Open Planner and set your top 3 execution targets.',
       hour: hour,
       minute: minute,
     );
+    if (result != NotificationScheduleResult.scheduled) {
+      Logger.warn('Daily planning reminder scheduling skipped: $result');
+    }
   }
 
   Future<void> setDailyPlanningReminder({

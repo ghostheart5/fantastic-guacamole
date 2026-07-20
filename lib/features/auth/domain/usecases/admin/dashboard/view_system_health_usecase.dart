@@ -1,0 +1,3 @@
+﻿class ViewSystemHealthUsecase {
+  const ViewSystemHealthUsecase();
+}

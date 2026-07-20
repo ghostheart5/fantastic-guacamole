@@ -101,7 +101,7 @@ class AuthGate extends ConsumerStatefulWidget {
 }
 
 class _AuthGateState extends ConsumerState<AuthGate> {
-  late final Future<void> _authReadyFuture;
+  Future<void>? _authReadyFuture;
   AuthServiceContract? _authService;
   String? _authInitError;
   bool _mockSessionActive = false;
@@ -110,6 +110,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   @override
   void initState() {
     super.initState();
+    _startAuthInitialization();
+  }
+
+  void _startAuthInitialization() {
     _authReadyFuture = _initializeAuth().timeout(
       const Duration(seconds: 8),
       onTimeout: () {
@@ -118,6 +122,15 @@ class _AuthGateState extends ConsumerState<AuthGate> {
         _authService ??= const _UnavailableAuthService();
       },
     );
+  }
+
+  void _retryAuthInitialization() {
+    setState(() {
+      _authService = null;
+      _authInitError = null;
+      _authReadyTimedOut = false;
+      _startAuthInitialization();
+    });
   }
 
   @override
@@ -153,9 +166,11 @@ class _AuthGateState extends ConsumerState<AuthGate> {
         }
 
         if (authSnapshot.hasError) {
-          return const _AuthStatusMessage(
+          return _AuthStatusMessage(
             title: 'Authentication unavailable',
             message: 'Auth initialization failed. Please restart and try again.',
+            actionLabel: 'Retry',
+            onAction: _retryAuthInitialization,
           );
         }
 
@@ -177,6 +192,8 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             message: _authReadyTimedOut
                 ? 'Auth initialization timed out. Please retry.'
                 : 'Auth service is not ready in this runtime.',
+            actionLabel: 'Retry',
+            onAction: _retryAuthInitialization,
           );
         }
 
@@ -213,9 +230,11 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               );
             }
             if (snapshot.hasError) {
-              return const _AuthStatusMessage(
+              return _AuthStatusMessage(
                 title: 'Authentication unavailable',
                 message: 'Auth service reported an error. Please restart and try again.',
+                actionLabel: 'Retry',
+                onAction: _retryAuthInitialization,
               );
             }
 
@@ -700,6 +719,13 @@ class _UnavailableAuthService implements AuthServiceContract {
   }
 
   @override
+  Future<AuthSessionSnapshot?> getCurrentSessionSnapshot({
+    bool forceRefresh = false,
+  }) async {
+    throw _error();
+  }
+
+  @override
   Future<User?> reloadCurrentUser() async {
     return null;
   }
@@ -848,10 +874,17 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
 }
 
 class _AuthStatusMessage extends StatelessWidget {
-  const _AuthStatusMessage({required this.title, required this.message});
+  const _AuthStatusMessage({
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
 
   final String title;
   final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -866,6 +899,13 @@ class _AuthStatusMessage extends StatelessWidget {
               Text(title, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
               Text(message, textAlign: TextAlign.center),
+              if (actionLabel != null && onAction != null) ...<Widget>[
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: onAction,
+                  child: Text(actionLabel!),
+                ),
+              ],
             ],
           ),
         ),

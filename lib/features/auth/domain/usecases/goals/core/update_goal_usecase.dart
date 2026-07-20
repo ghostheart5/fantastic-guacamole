@@ -1,0 +1,3 @@
+﻿class UpdateGoalUsecase {
+  const UpdateGoalUsecase();
+}

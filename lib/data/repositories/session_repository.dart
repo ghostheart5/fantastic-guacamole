@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 // Package imports.
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/session_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_session_repository.dart';
@@ -76,35 +77,57 @@ class SessionRepository implements ISessionRepository {
       return const <SessionEntity>[];
     }
 
-    final Object? decoded = jsonDecode(raw);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException catch (error) {
+      Logger.error('Session storage is corrupted.', error);
+      throw StateError(
+        'Session storage is corrupted. Refusing to treat it as empty history.',
+      );
+    }
     if (decoded is! List<dynamic>) {
-      return const <SessionEntity>[];
+      Logger.error('Session storage is corrupted: top-level payload is not a list.');
+      throw StateError(
+        'Session storage is corrupted. Refusing to treat it as empty history.',
+      );
     }
 
     final List<SessionEntity> sessions = <SessionEntity>[];
+    int malformedCount = 0;
     for (final Object? value in decoded) {
       if (value is! Map) {
+        malformedCount++;
         continue;
       }
       final Map<String, dynamic> json = value.map(
         (dynamic key, dynamic item) => MapEntry(key.toString(), item),
       );
-      final DateTime startedAt =
-          DateTime.tryParse((json['startedAt'] as String?) ?? '') ??
-          DateTime.now();
+      final String id = (json['id'] as String?) ?? '';
+      final String taskId = (json['taskId'] as String?) ?? '';
+      final DateTime? startedAt = DateTime.tryParse(
+        (json['startedAt'] as String?) ?? '',
+      );
+      if (id.trim().isEmpty || taskId.trim().isEmpty || startedAt == null) {
+        malformedCount++;
+        continue;
+      }
       final DateTime? endedAt = DateTime.tryParse(
         (json['endedAt'] as String?) ?? '',
       );
       final int plannedMs = (json['plannedDurationMs'] as num?)?.toInt() ?? 0;
       sessions.add(
         SessionEntity(
-          id: (json['id'] as String?) ?? '',
-          taskId: (json['taskId'] as String?) ?? '',
+          id: id,
+          taskId: taskId,
           startedAt: startedAt,
           endedAt: endedAt,
           plannedDuration: Duration(milliseconds: plannedMs),
         ),
       );
+    }
+    if (malformedCount > 0) {
+      Logger.warn('Skipped $malformedCount malformed session entries.');
     }
     return sessions;
   }

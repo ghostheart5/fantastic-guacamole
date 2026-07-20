@@ -1,0 +1,3 @@
+﻿class CreateMonthlyPlanUsecase {
+  const CreateMonthlyPlanUsecase();
+}

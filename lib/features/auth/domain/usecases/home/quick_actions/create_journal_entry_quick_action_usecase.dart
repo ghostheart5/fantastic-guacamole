@@ -1,0 +1,3 @@
+﻿class CreateJournalEntryQuickActionUsecase {
+  const CreateJournalEntryQuickActionUsecase();
+}

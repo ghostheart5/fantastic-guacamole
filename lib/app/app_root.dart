@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
@@ -12,6 +13,7 @@ import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_overlay.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
+import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,6 +38,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
   VoidCallback? _routerListener;
   bool _tutorialAssetsLoaded = false;
   final Set<String> _handledDeepLinks = <String>{};
+  final Set<String> _handledNotificationPayloads = <String>{};
 
   @override
   void initState() {
@@ -130,6 +133,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
     });
 
     _attachRouterListener(router);
+    _handlePendingNotificationTap(router);
 
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
@@ -282,13 +286,13 @@ class _AppRootState extends ConsumerState<AppRoot> {
     if (location.isEmpty) {
       return;
     }
-    final String currentLocation = router.state.matchedLocation;
-    if (currentLocation == location) {
+    final String currentUri = router.state.uri.toString();
+    if (currentUri == location) {
       return;
     }
     // Deep links are handled automatically without direct user interaction.
     // Use replace to avoid creating a synthetic browser history entry.
-    router.replace(location);
+    router.replace<void>(location);
   }
 
   String _resolveDeepLinkLocation(Uri uri) {
@@ -437,5 +441,41 @@ class _AppRootState extends ConsumerState<AppRoot> {
         );
       },
     );
+  }
+
+  void _handlePendingNotificationTap(GoRouter router) {
+    final String? payload = NotificationScheduler.consumePendingNotificationPayload();
+    if (payload == null || payload.isEmpty) {
+      return;
+    }
+    if (_handledNotificationPayloads.contains(payload)) {
+      return;
+    }
+    _handledNotificationPayloads.add(payload);
+
+    final String location = _resolveNotificationPayloadLocation(payload);
+    if (location.isEmpty) {
+      return;
+    }
+    if (router.state.uri.toString() == location) {
+      return;
+    }
+    router.replace<void>(location);
+  }
+
+  String _resolveNotificationPayloadLocation(String payload) {
+    try {
+      final Object? decoded = jsonDecode(payload);
+      if (decoded is Map) {
+        final Object? rawRoute = decoded['route'];
+        final String? route = rawRoute is String ? rawRoute.trim() : null;
+        if (route != null && route.isNotEmpty) {
+          return route;
+        }
+      }
+    } on FormatException {
+      // Fall through to safe default route.
+    }
+    return RoutePaths.notifications;
   }
 }

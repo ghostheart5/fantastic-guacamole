@@ -1,0 +1,3 @@
+﻿class SnoozeGoalReminderUsecase {
+  const SnoozeGoalReminderUsecase();
+}

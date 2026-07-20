@@ -1,0 +1,3 @@
+﻿class LoadFlowmapTemplateUsecase {
+  const LoadFlowmapTemplateUsecase();
+}

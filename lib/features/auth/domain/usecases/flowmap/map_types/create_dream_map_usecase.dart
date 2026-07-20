@@ -1,0 +1,3 @@
+﻿class CreateDreamMapUsecase {
+  const CreateDreamMapUsecase();
+}

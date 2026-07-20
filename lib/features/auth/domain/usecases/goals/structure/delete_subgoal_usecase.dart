@@ -1,0 +1,3 @@
+﻿class DeleteSubgoalUsecase {
+  const DeleteSubgoalUsecase();
+}

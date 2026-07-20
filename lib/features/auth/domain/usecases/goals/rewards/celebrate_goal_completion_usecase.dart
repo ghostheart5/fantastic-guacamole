@@ -1,0 +1,3 @@
+﻿class CelebrateGoalCompletionUsecase {
+  const CelebrateGoalCompletionUsecase();
+}

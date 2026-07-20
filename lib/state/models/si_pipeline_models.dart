@@ -36,6 +36,40 @@ class SISignalExtraction {
   final List<String> emotionalPatterns;
 }
 
+enum SISourceStatus {
+  loading,
+  ready,
+  empty,
+  error,
+}
+
+class SISourceHealth {
+  const SISourceHealth({
+    required this.tasks,
+    required this.goals,
+    required this.insights,
+    required this.flowmap,
+    required this.memories,
+    this.tasksError,
+    this.goalsError,
+    this.insightsError,
+    this.flowmapError,
+    this.memoriesError,
+  });
+
+  final SISourceStatus tasks;
+  final SISourceStatus goals;
+  final SISourceStatus insights;
+  final SISourceStatus flowmap;
+  final SISourceStatus memories;
+
+  final String? tasksError;
+  final String? goalsError;
+  final String? insightsError;
+  final String? flowmapError;
+  final String? memoriesError;
+}
+
 class SIStateAggregation {
   const SIStateAggregation({
     required this.tasks,
@@ -53,6 +87,7 @@ class SIStateAggregation {
     required this.signals,
     required this.coreValues,
     required this.soulMap,
+    required this.sourceHealth,
   });
 
   final List<Task> tasks;
@@ -70,6 +105,7 @@ class SIStateAggregation {
   final SISignalExtraction signals;
   final CoreValuesAlignment coreValues;
   final SoulMapAlignment soulMap;
+  final SISourceHealth sourceHealth;
 }
 
 class SIDecisionOutput {

@@ -1,0 +1,3 @@
+﻿class SyncLogsUsecase {
+  const SyncLogsUsecase();
+}

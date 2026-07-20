@@ -1,0 +1,3 @@
+﻿class ViewGoalTrendsUsecase {
+  const ViewGoalTrendsUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class DeleteChallengeUsecase {
+  const DeleteChallengeUsecase();
+}

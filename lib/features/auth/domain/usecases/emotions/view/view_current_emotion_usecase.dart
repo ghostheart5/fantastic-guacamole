@@ -1,0 +1,3 @@
+﻿class ViewCurrentEmotionUsecase {
+  const ViewCurrentEmotionUsecase();
+}

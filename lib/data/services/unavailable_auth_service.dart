@@ -70,6 +70,13 @@ class UnavailableAuthService implements AuthServiceContract {
   }
 
   @override
+  Future<AuthSessionSnapshot?> getCurrentSessionSnapshot({
+    bool forceRefresh = false,
+  }) async {
+    throw _error();
+  }
+
+  @override
   Future<void> signOut() async {}
 
   @override

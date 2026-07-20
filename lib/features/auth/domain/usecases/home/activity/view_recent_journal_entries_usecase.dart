@@ -1,0 +1,3 @@
+﻿class ViewRecentJournalEntriesUsecase {
+  const ViewRecentJournalEntriesUsecase();
+}

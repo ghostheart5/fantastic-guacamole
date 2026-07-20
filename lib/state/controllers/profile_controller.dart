@@ -20,6 +20,7 @@ class ProfileState {
   final String name;
   final bool soundEnabled;
   final DateTime? lastActiveDate;
+  final bool profileReady;
 
   ProfileState({
     this.xp = 0,
@@ -30,7 +31,10 @@ class ProfileState {
     this.name = 'Operative',
     this.soundEnabled = true,
     this.lastActiveDate,
+    this.profileReady = false,
   });
+
+  bool get hasValidProfile => profileReady && name.trim().isNotEmpty;
 
   ProfileState copyWith({
     int? xp,
@@ -41,6 +45,7 @@ class ProfileState {
     String? name,
     bool? soundEnabled,
     DateTime? lastActiveDate,
+    bool? profileReady,
     bool clearLastActiveDate = false,
   }) {
     return ProfileState(
@@ -54,6 +59,7 @@ class ProfileState {
       lastActiveDate: clearLastActiveDate
           ? null
           : (lastActiveDate ?? this.lastActiveDate),
+      profileReady: profileReady ?? this.profileReady,
     );
   }
 
@@ -65,6 +71,7 @@ class ProfileState {
     'name': name,
     'soundEnabled': soundEnabled,
     'lastActiveDate': lastActiveDate?.toIso8601String(),
+    'profileReady': profileReady,
   };
 
   factory ProfileState.fromJson(Map<String, dynamic> json) => ProfileState(
@@ -77,6 +84,7 @@ class ProfileState {
     lastActiveDate: json['lastActiveDate'] != null
         ? DateTime.tryParse(json['lastActiveDate'] as String)
         : null,
+    profileReady: json['profileReady'] as bool? ?? false,
   );
 }
 
@@ -171,8 +179,22 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   void updateName(String name) {
+    final String normalizedName = name.trim();
+    if (normalizedName.isEmpty) {
+      return;
+    }
+    state = state.copyWith(name: normalizedName, profileReady: true);
+    _save();
+  }
+
+  void ensureProfile({String? preferredName}) {
+    final String normalizedPreferred = preferredName?.trim() ?? '';
+    final String fallbackName = state.name.trim().isEmpty
+        ? 'Operator'
+        : state.name.trim();
     state = state.copyWith(
-      name: name.trim().isEmpty ? state.name : name.trim(),
+      name: normalizedPreferred.isNotEmpty ? normalizedPreferred : fallbackName,
+      profileReady: true,
     );
     _save();
   }

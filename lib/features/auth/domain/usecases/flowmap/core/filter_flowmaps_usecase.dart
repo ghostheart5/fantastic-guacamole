@@ -1,0 +1,3 @@
+﻿class FilterFlowmapsUsecase {
+  const FilterFlowmapsUsecase();
+}

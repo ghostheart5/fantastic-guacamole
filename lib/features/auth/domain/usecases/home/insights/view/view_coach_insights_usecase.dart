@@ -1,0 +1,3 @@
+﻿class ViewCoachInsightsUsecase {
+  const ViewCoachInsightsUsecase();
+}

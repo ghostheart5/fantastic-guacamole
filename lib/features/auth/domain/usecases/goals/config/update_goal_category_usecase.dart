@@ -1,0 +1,3 @@
+﻿class UpdateGoalCategoryUsecase {
+  const UpdateGoalCategoryUsecase();
+}

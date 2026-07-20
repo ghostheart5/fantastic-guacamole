@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
     as extended_domain;
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
+import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
@@ -27,6 +28,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 part 'settings_screen.sections.dart';
 
@@ -46,6 +49,7 @@ class SettingsScreen extends ConsumerWidget {
     final hasMockSession = ref.watch(mockAuthSessionProvider);
     final intelligence = ref.watch(intelligenceStateProvider);
     final bool accountDeletionConfigured = _hasSecureHttpsEndpoint(Env.accountDeleteEndpoint);
+    final bool allowDeletionSupportFallback = !kReleaseMode;
     final bool reflectionTutorialEnabled = ref.watch(
       featureFlagEnabledProvider('daily_reflection_tutorial_enabled'),
     );
@@ -150,32 +154,56 @@ class SettingsScreen extends ConsumerWidget {
                       },
                     ),
                     const SizedBox(height: 8),
-                    ValueListenableBuilder<bool?>(
-                      valueListenable: ref.watch(notificationPermissionListenableProvider),
-                      builder: (context, granted, _) {
-                        return NotificationPermissionPrompt(
-                          permissionGranted: granted,
-                          onRequestPermission: () async {
-                            final bool granted = await ref
-                                .read(settingsUiActionsProvider)
-                                .requestNotificationPermission();
-                            return granted;
-                          },
-                          onOpenSystemSettings: () async {
-                            final bool opened = await ref
-                                .read(settingsUiActionsProvider)
-                                .openSystemAppSettings();
-                            if (!context.mounted || opened) {
-                              return;
-                            }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Open your device app settings and enable notifications for ChronoSpark.',
+                    ValueListenableBuilder<NotificationPermissionState>(
+                      valueListenable: ref.watch(
+                        notificationPermissionStateListenableProvider,
+                      ),
+                      builder: (context, permissionState, _) {
+                        final bool? granted = ref
+                            .watch(notificationPermissionListenableProvider)
+                            .value;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            NotificationPermissionPrompt(
+                              permissionGranted: granted,
+                              permissionState: permissionState,
+                              onRequestPermission: () async {
+                                final NotificationPermissionState state = await ref
+                                    .read(settingsUiActionsProvider)
+                                    .requestNotificationPermissionDetailed();
+                                return state == NotificationPermissionState.granted;
+                              },
+                              onOpenSystemSettings: () async {
+                                final bool opened = await ref
+                                    .read(settingsUiActionsProvider)
+                                    .openSystemAppSettings();
+                                if (!context.mounted || opened) {
+                                  return;
+                                }
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Open your device app settings and enable notifications for ChronoSpark.',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            if (granted == false)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    context.push(
+                                      RoutePaths.notificationPermissionRecovery,
+                                    );
+                                  },
+                                  icon: const Icon(Icons.build_circle_outlined),
+                                  label: const Text('Open Notification Recovery'),
                                 ),
                               ),
-                            );
-                          },
+                          ],
                         );
                       },
                     ),
@@ -224,11 +252,15 @@ class SettingsScreen extends ConsumerWidget {
                         title: 'Delete Account',
                         subtitle: accountDeletionConfigured
                             ? 'Permanent deletion of account and synced data.'
-                            : 'Deletion endpoint unavailable in this build; request deletion via support.',
+                            : (allowDeletionSupportFallback
+                                ? 'Deletion endpoint unavailable in this build; request deletion via support.'
+                                : 'Deletion endpoint unavailable in this release build.'),
                         onTap: () => unawaited(
                           accountDeletionConfigured
                               ? _confirmDeleteAccount(context, ref)
-                              : _requestAccountDeletionSupport(context, ref),
+                              : (allowDeletionSupportFallback
+                                  ? _requestAccountDeletionSupport(context, ref)
+                                  : _showAccountDeletionUnavailable(context)),
                         ),
                       ),
                   ],
@@ -521,6 +553,9 @@ class SettingsScreen extends ConsumerWidget {
 
     try {
       await ref.read(authServiceProvider).deleteCurrentAccount(password: secret);
+      await _clearOnboardingLocalState();
+      ref.read(onboardingCompleteProvider.notifier).set(false);
+      ref.read(onboardingStatusProvider.notifier).set(OnboardingStatus.incomplete);
       if (!context.mounted) {
         return;
       }
@@ -542,6 +577,29 @@ class SettingsScreen extends ConsumerWidget {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Account purge failed. Retry.')));
+    }
+  }
+
+  Future<void> _clearOnboardingLocalState() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove(onboardingCompleteStorageKey);
+    await prefs.remove(onboardingContentVersionStorageKey);
+    await prefs.remove(onboardingStepStorageKey);
+
+    if (!Env.isSupabaseConfigured) {
+      return;
+    }
+
+    try {
+      final String? userId = sb.Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null || userId.trim().isEmpty) {
+        return;
+      }
+      await prefs.remove(onboardingCompleteStorageKeyForUser(userId));
+      await prefs.remove(onboardingContentVersionStorageKeyForUser(userId));
+      await prefs.remove(onboardingStepStorageKeyForUser(userId));
+    } on Object {
+      // Keep settings actions non-fatal when auth runtime is unavailable.
     }
   }
 
@@ -607,6 +665,19 @@ class SettingsScreen extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('No email app found. Account deletion email template copied to clipboard.'),
+      ),
+    );
+  }
+
+  Future<void> _showAccountDeletionUnavailable(BuildContext context) async {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Account deletion is temporarily unavailable in this release build. Contact support@chronospark.app.',
+        ),
       ),
     );
   }

@@ -1,0 +1,3 @@
+﻿class MarkGoalInProgressUsecase {
+  const MarkGoalInProgressUsecase();
+}

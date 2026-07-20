@@ -1,0 +1,3 @@
+﻿class UpdateGoalProgressUsecase {
+  const UpdateGoalProgressUsecase();
+}

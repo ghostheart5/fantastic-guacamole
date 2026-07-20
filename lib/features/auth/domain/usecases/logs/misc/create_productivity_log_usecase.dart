@@ -1,0 +1,3 @@
+﻿class CreateProductivityLogUsecase {
+  const CreateProductivityLogUsecase();
+}

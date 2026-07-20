@@ -1,0 +1,3 @@
+﻿class ExportTimelineUsecase {
+  const ExportTimelineUsecase();
+}

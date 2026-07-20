@@ -1,0 +1,3 @@
+﻿class SortLogsUsecase {
+  const SortLogsUsecase();
+}

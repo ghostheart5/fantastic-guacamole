@@ -1,0 +1,3 @@
+﻿class GenerateGoalBreakdownUsecase {
+  const GenerateGoalBreakdownUsecase();
+}

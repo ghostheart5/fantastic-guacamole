@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/network/retry_executor.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart';
 import 'package:fantastic_guacamole/data/services/ai/agents/ai_agent.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
@@ -100,20 +101,38 @@ class ChatAgent extends AiAgent {
         .toList(growable: false);
 
     try {
-      final http.Response response = await http
-          .post(
-            endpoint,
-            headers: <String, String>{
-              'Content-Type': 'application/json',
-              if (accessToken != null) 'Authorization': 'Bearer $accessToken',
-            },
-            body: jsonEncode(<String, dynamic>{
-              'prompt': prompt.trim(),
-              'history': minimizedHistory,
-              'system': _systemPrompt(personality, minimizedContext),
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
+      final http.Response response = await runWithRetry<http.Response>(
+        maxAttempts: 3,
+        action: () async {
+          final http.Response next = await http
+              .post(
+                endpoint,
+                headers: <String, String>{
+                  'Content-Type': 'application/json',
+                  if (accessToken != null)
+                    'Authorization': 'Bearer $accessToken',
+                },
+                body: jsonEncode(<String, dynamic>{
+                  'prompt': prompt.trim(),
+                  'history': minimizedHistory,
+                  'system': _systemPrompt(personality, minimizedContext),
+                }),
+              )
+              .timeout(const Duration(seconds: 15));
+          if (next.statusCode == 408 ||
+              next.statusCode == 429 ||
+              next.statusCode >= 500) {
+            throw http.ClientException(
+              'Transient AI proxy failure: ${next.statusCode}',
+              endpoint,
+            );
+          }
+          return next;
+        },
+        retryIf: (Object error) {
+          return error is TimeoutException || error is http.ClientException;
+        },
+      );
       if (response.statusCode != 200) {
         return null;
       }

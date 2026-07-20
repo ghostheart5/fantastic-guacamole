@@ -1,0 +1,3 @@
+﻿class CalculateMoodScoreUsecase {
+  const CalculateMoodScoreUsecase();
+}

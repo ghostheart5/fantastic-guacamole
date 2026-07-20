@@ -1,0 +1,3 @@
+﻿class AddMilestoneToTimelineUsecase {
+  const AddMilestoneToTimelineUsecase();
+}

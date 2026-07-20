@@ -1,0 +1,3 @@
+﻿class UnlinkTaskFromGoalUsecase {
+  const UnlinkTaskFromGoalUsecase();
+}

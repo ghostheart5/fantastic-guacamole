@@ -1,0 +1,3 @@
+﻿class DeleteFlowmapUsecase {
+  const DeleteFlowmapUsecase();
+}

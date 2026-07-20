@@ -1,0 +1,3 @@
+﻿class ImportFlowmapUsecase {
+  const ImportFlowmapUsecase();
+}

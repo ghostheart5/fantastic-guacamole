@@ -8,30 +8,51 @@ class SupabaseClientService {
   const SupabaseClientService();
 
   Future<String?> initialize({required bool isMockMode}) async {
-    if (isMockMode || !Env.isSupabaseConfigured) {
+    if (isMockMode) {
+      return null;
+    }
+    if (!Env.hasSupabaseCredentialsPresent) {
+      return null;
+    }
+    if (!Env.isSupabaseConfigured) {
+      return 'Supabase configuration is invalid. Auth will be unavailable.';
+    }
+
+    if (!Env.isSupabaseConfigured) {
       return null;
     }
 
-    try {
-      await sb.Supabase.initialize(
-        url: Env.supabaseUrl,
-        publishableKey: Env.supabaseAnonKey,
-      ).timeout(const Duration(seconds: 12));
-      return null;
-    } on TimeoutException {
-      Logger.errorCategory(
-        'Supabase Errors',
-        'Supabase initialization timed out',
-      );
-      return 'Supabase initialization timed out. Auth will be unavailable.';
-    } on Exception catch (error) {
-      Logger.errorCategory(
-        'Supabase Errors',
-        'Supabase initialization failed',
-        error,
-      );
-      return 'Supabase initialization failed: $error';
+    const int maxAttempts = 2;
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await sb.Supabase.initialize(
+          url: Env.supabaseUrl,
+          publishableKey: Env.supabaseAnonKey,
+        ).timeout(const Duration(seconds: 12));
+        return null;
+      } on TimeoutException {
+        Logger.errorCategory(
+          'Supabase Errors',
+          'Supabase initialization timed out (attempt $attempt/$maxAttempts)',
+        );
+        if (attempt >= maxAttempts) {
+          return 'Supabase initialization timed out. Auth will be unavailable.';
+        }
+      } on Exception catch (error) {
+        Logger.errorCategory(
+          'Supabase Errors',
+          'Supabase initialization failed (attempt $attempt/$maxAttempts)',
+          error,
+        );
+        if (attempt >= maxAttempts) {
+          return 'Supabase initialization failed: $error';
+        }
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 350));
     }
+
+    return 'Supabase initialization failed after retries.';
   }
 
   sb.SupabaseClient? get client {

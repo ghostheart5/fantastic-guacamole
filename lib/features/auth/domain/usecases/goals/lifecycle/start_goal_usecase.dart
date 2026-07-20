@@ -1,0 +1,3 @@
+﻿class StartGoalUsecase {
+  const StartGoalUsecase();
+}

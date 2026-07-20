@@ -1,0 +1,3 @@
+﻿class UnenrollMfaFactorUsecase {
+  const UnenrollMfaFactorUsecase();
+}

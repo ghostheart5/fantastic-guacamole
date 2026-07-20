@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 
 import 'package:fantastic_guacamole/app/app_root.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
@@ -10,19 +13,26 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/observers/riverpod_observer.dart';
 import 'package:fantastic_guacamole/data/services/supabase_client_service.dart';
+import 'package:fantastic_guacamole/data/network/secure_endpoint.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/sensitive_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/data/storage/storage_migration.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show
+    OnboardingStatus,
         onboardingCompleteProvider,
+    onboardingStatusProvider,
         onboardingCompleteStorageKey,
-        onboardingContentVersionStorageKey;
+    onboardingCompleteStorageKeyForUser,
+    onboardingContentVersionStorageKey,
+    onboardingContentVersionStorageKeyForUser;
 import 'package:fantastic_guacamole/state/core/state_bootstrap.dart'
     show stateBootstrapProvider;
 import 'package:fantastic_guacamole/state/providers/service_providers.dart'
     show identityServiceProvider;
+import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
+  show authUserProvider;
 import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_bootstrap.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
@@ -38,6 +48,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -178,7 +189,9 @@ class StartupBootstrapGate extends ConsumerStatefulWidget {
 
 class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
   bool _ready = false;
+  bool _startupBlocked = false;
   String? _startupError;
+  String? _lastAuthUserId;
 
   @override
   void initState() {
@@ -201,6 +214,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         );
         return const StartupBootstrapResult(
           hasOnboarded: false,
+          onboardingResolved: false,
           startupError:
               'Startup bootstrap timed out. App started in degraded mode.',
         );
@@ -215,15 +229,39 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       return;
     }
     ref.read(onboardingCompleteProvider.notifier).set(result.hasOnboarded);
+    final OnboardingStatus onboardingStatus =
+        (result.onboardingResolved)
+        ? (result.hasOnboarded
+              ? OnboardingStatus.complete
+              : OnboardingStatus.incomplete)
+        : OnboardingStatus.unknown;
+    ref.read(onboardingStatusProvider.notifier).set(onboardingStatus);
+    _lastAuthUserId = _currentSupabaseUserId();
+    final String normalizedStartupError = startupError?.trim() ?? '';
+    final bool startupBlocked = _isBlockingStartupIssue(normalizedStartupError);
     setState(() {
       _startupError = startupError;
+      _startupBlocked = startupBlocked;
       _ready = true;
     });
-    AppAnalytics.track('app_open');
+    if (!startupBlocked) {
+      AppAnalytics.track('app_open');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authUserProvider, (previous, next) {
+      final String? previousUserId = previous?.asData?.value?.id;
+      final String? nextUserId = next.asData?.value?.id;
+      if (!_ready || previousUserId == nextUserId || _lastAuthUserId == nextUserId) {
+        return;
+      }
+
+      _lastAuthUserId = nextUserId;
+      unawaited(_refreshOnboardingStateFromPrefs());
+    });
+
     if (!_ready) {
       return const MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -234,7 +272,56 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       );
     }
 
+    if (_startupBlocked) {
+      final String message = _stripBlockingStartupPrefix(_startupError ?? '');
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          backgroundColor: const Color(0xFF050D1A),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const Text(
+                    'Startup blocked',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return AppRoot(startupError: _startupError);
+  }
+
+  Future<void> _refreshOnboardingStateFromPrefs() async {
+    final PrefsLoadResult prefsResult = await _loadPrefsSafe();
+    if (!mounted) {
+      return;
+    }
+
+    ref.read(onboardingCompleteProvider.notifier).set(prefsResult.hasOnboarded);
+    final OnboardingStatus onboardingStatus = prefsResult.isResolved
+        ? (prefsResult.hasOnboarded
+              ? OnboardingStatus.complete
+              : OnboardingStatus.incomplete)
+        : OnboardingStatus.unknown;
+    ref.read(onboardingStatusProvider.notifier).set(onboardingStatus);
   }
 }
 
@@ -260,17 +347,24 @@ Future<String?> _runStateBootstrapSafe(WidgetRef ref) async {
 class StartupBootstrapResult {
   const StartupBootstrapResult({
     required this.hasOnboarded,
+    required this.onboardingResolved,
     required this.startupError,
   });
 
   final bool hasOnboarded;
+  final bool onboardingResolved;
   final String? startupError;
 }
 
 class PrefsLoadResult {
-  const PrefsLoadResult({required this.hasOnboarded, required this.issue});
+  const PrefsLoadResult({
+    required this.hasOnboarded,
+    required this.isResolved,
+    required this.issue,
+  });
 
   final bool hasOnboarded;
+  final bool isResolved;
   final String? issue;
 }
 
@@ -314,6 +408,14 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   );
   startupError = _appendStartupIssue(startupError, identityIssue ?? '');
 
+  final String? deleteEndpointIssue = await _measureIssueStage(
+    'account_delete_endpoint',
+    () => _validateAccountDeletionEndpointSafe(
+      enforce: intelligence.environment.isProduction,
+    ),
+  );
+  startupError = _appendStartupIssue(startupError, deleteEndpointIssue ?? '');
+
   final PrefsLoadResult prefsResult = await _measurePrefsStage(_loadPrefsSafe);
 
   unawaited(
@@ -342,6 +444,20 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
       startupError,
       'Production readiness configuration is incomplete:\n- ${readinessIssues.join('\n- ')}',
     );
+
+    if (kReleaseMode && intelligence.environment.isProduction) {
+      final List<String> blockingIssues = blockingProductionReadinessIssues(
+        readinessIssues,
+      );
+      if (blockingIssues.isNotEmpty) {
+        return StartupBootstrapResult(
+          hasOnboarded: hasOnboarded,
+          onboardingResolved: prefsResult.isResolved,
+          startupError:
+              '${_blockingStartupPrefix}Critical production startup configuration is missing:\n- ${blockingIssues.join('\n- ')}',
+        );
+      }
+    }
   }
 
   Logger.info(
@@ -372,20 +488,58 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
 
   return StartupBootstrapResult(
     hasOnboarded: hasOnboarded,
+    onboardingResolved: prefsResult.isResolved,
     startupError: startupError,
   );
 }
 
 Future<void> _configureLocalTimezone() async {
   try {
-    final String timezoneName = await FlutterTimezone.getLocalTimezone();
+    final String timezoneName = await FlutterTimezone.getLocalTimezone()
+        .timeout(const Duration(seconds: 4));
     final tz.Location location = tz.getLocation(timezoneName);
     tz.setLocalLocation(location);
     Logger.log('Startup', 'Timezone configured: $timezoneName');
     RuntimeDiagnostics.record('Timezone configured: $timezoneName');
+  } on TimeoutException {
+    Logger.warn('Local timezone configuration timed out.');
+    RuntimeDiagnostics.record('Local timezone configuration timed out.');
   } catch (error) {
     Logger.warn('Failed to configure local timezone: $error');
     RuntimeDiagnostics.record('Failed to configure local timezone: $error');
+  }
+}
+
+Future<String?> _validateAccountDeletionEndpointSafe({
+  required bool enforce,
+}) async {
+  final String endpoint = Env.accountDeleteEndpoint.trim();
+  if (endpoint.isEmpty) {
+    return enforce
+        ? 'Account deletion endpoint is not configured for production.'
+        : null;
+  }
+
+  final Uri? uri = parseSecureHttpsEndpoint(endpoint);
+  if (uri == null) {
+    return 'Account deletion endpoint is not a valid HTTPS URL.';
+  }
+
+  final http.Client client = http.Client();
+  try {
+    final http.Response response = await client
+        .head(uri)
+        .timeout(const Duration(seconds: 6));
+    if (response.statusCode >= 500) {
+      return 'Account deletion endpoint is unreachable (server error).';
+    }
+    return null;
+  } on TimeoutException {
+    return 'Account deletion endpoint health check timed out.';
+  } on Object catch (error) {
+    return 'Account deletion endpoint health check failed: $error';
+  } finally {
+    client.close();
   }
 }
 
@@ -393,13 +547,19 @@ Future<String?> _initStorageSafe() async {
   try {
     Logger.log('Startup', 'Initializing local storage...');
     RuntimeDiagnostics.record('Initializing local storage...');
-    await HiveService.init();
-    await SharedPrefsService.init();
-    await SensitivePrefsStore.instance.init();
-    await StorageMigration.run();
+    await (() async {
+      await HiveService.init();
+      await SharedPrefsService.init();
+      await SensitivePrefsStore.instance.init();
+      await StorageMigration.run();
+    })().timeout(const Duration(seconds: 10));
     Logger.log('Startup', 'Local storage initialized.');
     RuntimeDiagnostics.record('Local storage initialized.');
     return null;
+  } on TimeoutException {
+    Logger.warn('Local storage initialization timed out.');
+    RuntimeDiagnostics.record('Local storage initialization timed out.');
+    return 'Local storage initialization timed out.';
   } on Exception catch (error) {
     Logger.error('Local storage initialization failed.', error);
     RuntimeDiagnostics.record('Local storage initialization failed: $error');
@@ -648,47 +808,103 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
   try {
     Logger.log('Startup', 'Loading local preferences...');
     RuntimeDiagnostics.record('Loading local preferences...');
-    final prefs = await SharedPreferences.getInstance().timeout(
-      const Duration(seconds: 6),
-    );
-    final Object? rawOnboardingComplete = prefs.get(
-      onboardingCompleteStorageKey,
-    );
-    hasOnboarded = _coercePrefsBool(rawOnboardingComplete) ?? false;
-    if (rawOnboardingComplete is String) {
-      await prefs.setBool(onboardingCompleteStorageKey, hasOnboarded);
+    final SharedPreferences prefs = await SharedPreferences.getInstance()
+        .timeout(const Duration(seconds: 6));
+    final String? userId = _currentSupabaseUserId();
+    final String completeKey = userId == null
+        ? onboardingCompleteStorageKey
+        : onboardingCompleteStorageKeyForUser(userId);
+    final String versionKey = userId == null
+        ? onboardingContentVersionStorageKey
+        : onboardingContentVersionStorageKeyForUser(userId);
+    final String canonicalKey = _onboardingCanonicalStateKeyForUser(userId);
+
+    int? canonicalVersion;
+    final String? canonicalRaw = prefs.getString(canonicalKey);
+    if (canonicalRaw != null && canonicalRaw.trim().isNotEmpty) {
+      try {
+        final Object? decoded = jsonDecode(canonicalRaw);
+        if (decoded is Map<String, dynamic>) {
+          hasOnboarded = decoded['complete'] == true;
+          canonicalVersion = (decoded['version'] as num?)?.toInt();
+        }
+      } on Object catch (error) {
+        Logger.warn('Canonical onboarding state is unreadable: $error');
+      }
     }
 
-    final Object? rawOnboardingVersion = prefs.get(
-      onboardingContentVersionStorageKey,
-    );
+    if (canonicalVersion == null) {
+      final Object? rawOnboardingComplete =
+          prefs.get(completeKey) ?? prefs.get(onboardingCompleteStorageKey);
+      final bool? coercedOnboardingComplete = _coercePrefsBool(
+        rawOnboardingComplete,
+      );
+      final bool onboardingCompleteWasCorrupt =
+          rawOnboardingComplete != null && coercedOnboardingComplete == null;
+      hasOnboarded = coercedOnboardingComplete ?? false;
+      if (rawOnboardingComplete is String || onboardingCompleteWasCorrupt) {
+        await SharedPrefsService.saveBoolWithPrefs(
+          prefs,
+          completeKey,
+          hasOnboarded,
+        );
+      }
+    } else {
+      await SharedPrefsService.saveBoolWithPrefs(prefs, completeKey, hasOnboarded);
+    }
+
+    final Object? rawOnboardingVersion =
+        prefs.get(versionKey) ?? prefs.get(onboardingContentVersionStorageKey);
+    final int? coercedOnboardingVersion = _coercePrefsInt(rawOnboardingVersion);
+    final bool onboardingVersionWasCorrupt =
+        rawOnboardingVersion != null && coercedOnboardingVersion == null;
     final int storedOnboardingVersion =
-        _coercePrefsInt(rawOnboardingVersion) ?? 0;
-    if (rawOnboardingVersion is String) {
-      await prefs.setInt(
-        onboardingContentVersionStorageKey,
+        canonicalVersion ?? (coercedOnboardingVersion ?? 0);
+    if (rawOnboardingVersion is String || onboardingVersionWasCorrupt) {
+      await SharedPrefsService.saveIntWithPrefs(
+        prefs,
+        versionKey,
         storedOnboardingVersion,
       );
     }
-    final int currentOnboardingVersion = TutorialContent.contentVersion;
 
+    final int currentOnboardingVersion = TutorialContent.contentVersion;
     if (storedOnboardingVersion < currentOnboardingVersion) {
-      hasOnboarded = false;
-      await prefs.setBool(onboardingCompleteStorageKey, false);
-      await prefs.setInt(
-        onboardingContentVersionStorageKey,
+      final bool replayRequired = _requiresOnboardingReplay(
+        fromVersion: storedOnboardingVersion,
+        toVersion: currentOnboardingVersion,
+      );
+      if (replayRequired) {
+        hasOnboarded = false;
+        await SharedPrefsService.saveBoolWithPrefs(prefs, completeKey, false);
+      }
+      await SharedPrefsService.saveIntWithPrefs(
+        prefs,
+        versionKey,
         currentOnboardingVersion,
       );
+
+      final String replayState = replayRequired ? 'required' : 'not required';
       Logger.log(
         'Startup',
         'Onboarding content version updated '
-            '($storedOnboardingVersion -> $currentOnboardingVersion); replay required.',
+            '($storedOnboardingVersion -> $currentOnboardingVersion); replay $replayState.',
       );
       RuntimeDiagnostics.record(
         'Onboarding content version updated '
-        '($storedOnboardingVersion -> $currentOnboardingVersion); replay required.',
+        '($storedOnboardingVersion -> $currentOnboardingVersion); replay $replayState.',
       );
     }
+
+    await SharedPrefsService.saveStringWithPrefs(
+      prefs,
+      canonicalKey,
+      jsonEncode(<String, Object?>{
+        'complete': hasOnboarded,
+        'version': currentOnboardingVersion,
+        'updatedAt': DateTime.now().toIso8601String(),
+      }),
+    );
 
     Logger.log(
       'Startup',
@@ -697,24 +913,102 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
     RuntimeDiagnostics.record(
       'Local preferences loaded. onboardingComplete=$hasOnboarded',
     );
-    return PrefsLoadResult(hasOnboarded: hasOnboarded, issue: null);
+    return PrefsLoadResult(
+      hasOnboarded: hasOnboarded,
+      isResolved: true,
+      issue: null,
+    );
   } on TimeoutException {
     Logger.warn('Local preferences initialization timed out.');
     RuntimeDiagnostics.record('Local preferences initialization timed out.');
     return const PrefsLoadResult(
       hasOnboarded: false,
+      isResolved: false,
       issue: 'Local preferences initialization timed out.',
     );
   } on Object catch (error) {
     Logger.error('Local preferences initialization failed.', error);
-    RuntimeDiagnostics.record(
-      'Local preferences initialization failed: $error',
-    );
+    RuntimeDiagnostics.record('Local preferences initialization failed: $error');
     return PrefsLoadResult(
       hasOnboarded: false,
+      isResolved: false,
       issue: 'Local preferences initialization failed: $error',
     );
   }
+}
+
+const String _onboardingCanonicalStateKey = 'onboarding_state_v1';
+
+String _onboardingCanonicalStateKeyForUser(String? userId) {
+  if (userId == null || userId.trim().isEmpty) {
+    return _onboardingCanonicalStateKey;
+  }
+  return '${_onboardingCanonicalStateKey}_$userId';
+}
+
+const Set<int> _onboardingReplayRequiredVersions = <int>{};
+
+bool _requiresOnboardingReplay({
+  required int fromVersion,
+  required int toVersion,
+}) {
+  if (toVersion <= fromVersion) {
+    return false;
+  }
+
+  for (final int version in _onboardingReplayRequiredVersions) {
+    if (version > fromVersion && version <= toVersion) {
+      return true;
+    }
+  }
+  return false;
+}
+
+String? _currentSupabaseUserId() {
+  if (!Env.isSupabaseConfigured) {
+    return null;
+  }
+
+  try {
+    final String? userId = sb.Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null || userId.trim().isEmpty) {
+      return null;
+    }
+    return userId.trim();
+  } on Object {
+    return null;
+  }
+}
+
+const String _blockingStartupPrefix = '[BLOCKING_STARTUP] ';
+
+bool _isBlockingStartupIssue(String message) {
+  return message.startsWith(_blockingStartupPrefix);
+}
+
+String _stripBlockingStartupPrefix(String message) {
+  if (_isBlockingStartupIssue(message)) {
+    return message.substring(_blockingStartupPrefix.length).trim();
+  }
+  return message;
+}
+
+List<String> blockingProductionReadinessIssues(List<String> readinessIssues) {
+  bool isBlockingIssue(String issue) {
+    final String normalized = issue.trim().toLowerCase();
+    return normalized == 'supabase authentication is not configured.' ||
+        normalized.startsWith('account deletion endpoint') ||
+        normalized == 'mock login bypass is enabled.' ||
+        normalized == 'global mock mode is enabled.' ||
+        normalized == 'paywall-disabled development override is enabled.' ||
+        normalized == 'tester full-access override is enabled.' ||
+        normalized ==
+            'android app links sha-256 fingerprint is not configured.' ||
+        normalized ==
+            'ios associated domains team id is not configured.';
+  }
+
+  return readinessIssues.where(isBlockingIssue).toList(growable: false);
 }
 
 bool? _coercePrefsBool(Object? value) {

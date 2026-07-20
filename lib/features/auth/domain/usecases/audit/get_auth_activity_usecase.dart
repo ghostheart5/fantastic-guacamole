@@ -1,0 +1,3 @@
+﻿class GetAuthActivityUsecase {
+  const GetAuthActivityUsecase();
+}

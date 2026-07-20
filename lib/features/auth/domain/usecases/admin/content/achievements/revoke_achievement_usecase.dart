@@ -1,0 +1,3 @@
+﻿class RevokeAchievementUsecase {
+  const RevokeAchievementUsecase();
+}

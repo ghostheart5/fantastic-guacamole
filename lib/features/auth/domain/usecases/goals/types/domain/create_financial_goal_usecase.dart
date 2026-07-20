@@ -1,0 +1,3 @@
+﻿class CreateFinancialGoalUsecase {
+  const CreateFinancialGoalUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class CreateSoulNodeUsecase {
+  const CreateSoulNodeUsecase();
+}

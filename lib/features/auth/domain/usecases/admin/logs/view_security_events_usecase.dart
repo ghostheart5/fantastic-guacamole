@@ -1,0 +1,3 @@
+﻿class ViewSecurityEventsUsecase {
+  const ViewSecurityEventsUsecase();
+}

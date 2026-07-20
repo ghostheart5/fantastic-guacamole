@@ -1,0 +1,3 @@
+﻿class RefundPurchaseUsecase {
+  const RefundPurchaseUsecase();
+}

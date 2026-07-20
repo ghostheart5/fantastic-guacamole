@@ -1,0 +1,3 @@
+﻿class AnalyzeFocusPerformanceUsecase {
+  const AnalyzeFocusPerformanceUsecase();
+}

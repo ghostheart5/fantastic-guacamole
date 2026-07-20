@@ -1,0 +1,3 @@
+﻿class UpdateLogNoteUsecase {
+  const UpdateLogNoteUsecase();
+}

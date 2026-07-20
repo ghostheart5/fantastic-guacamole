@@ -1,0 +1,3 @@
+﻿class FilterGoalsUsecase {
+  const FilterGoalsUsecase();
+}

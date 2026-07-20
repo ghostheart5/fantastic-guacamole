@@ -1,0 +1,3 @@
+﻿class DownloadUserDataUsecase {
+  const DownloadUserDataUsecase();
+}

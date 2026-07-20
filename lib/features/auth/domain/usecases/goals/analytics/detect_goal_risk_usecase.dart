@@ -1,0 +1,3 @@
+﻿class DetectGoalRiskUsecase {
+  const DetectGoalRiskUsecase();
+}

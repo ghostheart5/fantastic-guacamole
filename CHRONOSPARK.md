@@ -779,7 +779,7 @@ Visual theme selection and interface personalization operations:
 - **Use dark theme** – Apply dark visual theme
 - **Use prism theme** – Apply prism visual theme
 - **Use futuristic theme** – Apply futuristic visual theme
-- **Use shadowfire theme** – Apply shadowfire visual theme
+- **Use ChronoSpark theme** – Apply ChronoSpark visual theme
 - **Customize accent color** – Set theme accent color
 - **Customize dashboard layout** – Adjust dashboard visual arrangement
 - **Customize widget visibility** – Show/hide dashboard widgets

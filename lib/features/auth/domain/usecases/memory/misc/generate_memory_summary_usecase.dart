@@ -1,0 +1,3 @@
+﻿class GenerateMemorySummaryUsecase {
+  const GenerateMemorySummaryUsecase();
+}

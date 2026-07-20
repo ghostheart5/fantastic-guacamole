@@ -1,0 +1,3 @@
+﻿class LinkJournalToNodeUsecase {
+  const LinkJournalToNodeUsecase();
+}

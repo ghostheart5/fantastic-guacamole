@@ -1,0 +1,3 @@
+﻿class CreateJournalLogUsecase {
+  const CreateJournalLogUsecase();
+}

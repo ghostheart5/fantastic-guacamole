@@ -1,0 +1,3 @@
+﻿class UnshareGoalUsecase {
+  const UnshareGoalUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class PredictHabitSuccessUsecase {
+  const PredictHabitSuccessUsecase();
+}

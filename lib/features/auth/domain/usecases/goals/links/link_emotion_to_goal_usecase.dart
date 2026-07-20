@@ -1,0 +1,3 @@
+﻿class LinkEmotionToGoalUsecase {
+  const LinkEmotionToGoalUsecase();
+}

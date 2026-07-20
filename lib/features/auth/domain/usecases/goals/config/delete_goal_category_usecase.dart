@@ -1,0 +1,3 @@
+﻿class DeleteGoalCategoryUsecase {
+  const DeleteGoalCategoryUsecase();
+}

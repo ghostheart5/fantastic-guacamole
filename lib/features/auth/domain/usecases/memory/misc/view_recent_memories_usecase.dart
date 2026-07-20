@@ -1,0 +1,3 @@
+﻿class ViewRecentMemoriesUsecase {
+  const ViewRecentMemoriesUsecase();
+}

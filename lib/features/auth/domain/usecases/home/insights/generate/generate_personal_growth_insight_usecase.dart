@@ -1,0 +1,3 @@
+﻿class GeneratePersonalGrowthInsightUsecase {
+  const GeneratePersonalGrowthInsightUsecase();
+}

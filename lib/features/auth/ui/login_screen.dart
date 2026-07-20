@@ -348,77 +348,70 @@ class _LandscapeLoginContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final double leftWidth = math.min(constraints.maxWidth * 0.42, 420);
-            final double rightWidth = constraints.maxWidth - leftWidth;
-            final double bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-
-            return AnimatedPadding(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              padding: EdgeInsets.only(bottom: bottomInset),
-              child: IgnorePointer(
-                ignoring: isSubmitting,
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(28, 20, 28, 20),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(
-                          width: leftWidth,
-                          child: _StaggeredEntrance(
-                            animation: brandAnimation,
-                            offsetY: 10,
-                            child: _LoginBrandPanel(pulse: pulse),
-                          ),
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: IgnorePointer(
+            ignoring: isSubmitting,
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(28, 20, 28, 20),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1100),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        flex: 42,
+                        child: _StaggeredEntrance(
+                          animation: brandAnimation,
+                          offsetY: 10,
+                          child: _LoginBrandPanel(pulse: pulse),
                         ),
-                        const SizedBox(width: 24),
-                        SizedBox(
-                          width: rightWidth,
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 460),
-                              child: _StaggeredEntrance(
-                                animation: formAnimation,
-                                offsetY: 18,
-                                child: _LoginFormCard(
-                                  startupMessage: startupMessage,
-                                  isSubmitting: isSubmitting,
-                                  isSignUpMode: isSignUpMode,
-                                  allowSignUp: allowSignUp,
-                                  emailController: emailController,
-                                  passwordController: passwordController,
-                                  obscurePassword: obscurePassword,
-                                  onPrimaryAction: onPrimaryAction,
-                                  onForgotPassword: onForgotPassword,
-                                  onGoogleSignIn: onGoogleSignIn,
-                                  onGitHubSignIn: onGitHubSignIn,
-                                  onMockLogin: onMockLogin,
-                                  onToggleMode: onToggleMode,
-                                  onTogglePassword: onTogglePassword,
-                                  showMockHint: showMockHint,
-                                  mockHint: mockHint,
-                                  compactSecondaryButtons: true,
-                                ),
+                      ),
+                      const SizedBox(width: 24),
+                      Flexible(
+                        flex: 58,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 460),
+                            child: _StaggeredEntrance(
+                              animation: formAnimation,
+                              offsetY: 18,
+                              child: _LoginFormCard(
+                                startupMessage: startupMessage,
+                                isSubmitting: isSubmitting,
+                                isSignUpMode: isSignUpMode,
+                                allowSignUp: allowSignUp,
+                                emailController: emailController,
+                                passwordController: passwordController,
+                                obscurePassword: obscurePassword,
+                                onPrimaryAction: onPrimaryAction,
+                                onForgotPassword: onForgotPassword,
+                                onGoogleSignIn: onGoogleSignIn,
+                                onGitHubSignIn: onGitHubSignIn,
+                                onMockLogin: onMockLogin,
+                                onToggleMode: onToggleMode,
+                                onTogglePassword: onTogglePassword,
+                                showMockHint: showMockHint,
+                                mockHint: mockHint,
+                                compactSecondaryButtons: true,
                               ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );

@@ -1,0 +1,3 @@
+﻿class RemoveFlowmapCollaboratorUsecase {
+  const RemoveFlowmapCollaboratorUsecase();
+}

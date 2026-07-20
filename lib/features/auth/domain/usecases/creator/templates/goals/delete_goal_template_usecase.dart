@@ -1,0 +1,3 @@
+﻿class DeleteGoalTemplateUsecase {
+  const DeleteGoalTemplateUsecase();
+}

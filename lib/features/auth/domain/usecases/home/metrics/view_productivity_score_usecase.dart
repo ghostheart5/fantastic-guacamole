@@ -1,0 +1,3 @@
+﻿class ViewProductivityScoreUsecase {
+  const ViewProductivityScoreUsecase();
+}

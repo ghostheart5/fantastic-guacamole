@@ -1,6 +1,6 @@
 $env:CHRONOSPARK_SUPABASE_URL = 'https://<project-ref>.supabase.co'
 $env:CHRONOSPARK_SUPABASE_ANON_KEY = '<anon-key>'
-$env:CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT = 'https://<your-domain>/verify-receipt'
+$env:CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT = 'https://<your-domain>/monetization-verify'
 $env:CHRONOSPARK_AI_PROXY_ENDPOINT = 'https://<your-domain>/ai-proxy'
 $env:CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT = 'https://<your-domain>/account-delete'
 $env:CHRONOSPARK_ANDROID_SHA256_CERT = '<release-cert-sha256>'

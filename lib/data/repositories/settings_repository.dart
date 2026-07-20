@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/settings_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_settings_repository.dart';
@@ -17,8 +18,15 @@ class SettingsRepository implements ISettingsRepository {
       return null;
     }
 
-    final Object? decoded = jsonDecode(raw);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException catch (error) {
+      Logger.warn('Settings payload is corrupted and will be ignored: $error');
+      return null;
+    }
     if (decoded is! Map<String, dynamic>) {
+      Logger.warn('Settings payload is not a JSON object and will be ignored.');
       return null;
     }
 

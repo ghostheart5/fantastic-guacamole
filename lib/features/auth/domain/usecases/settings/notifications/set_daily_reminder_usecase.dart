@@ -1,0 +1,3 @@
+﻿class SetDailyReminderUsecase {
+  const SetDailyReminderUsecase();
+}

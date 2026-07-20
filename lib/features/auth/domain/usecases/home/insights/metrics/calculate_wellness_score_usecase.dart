@@ -1,0 +1,3 @@
+﻿class CalculateWellnessScoreUsecase {
+  const CalculateWellnessScoreUsecase();
+}

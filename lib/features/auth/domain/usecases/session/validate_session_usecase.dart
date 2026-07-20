@@ -1,0 +1,3 @@
+﻿class ValidateSessionUsecase {
+  const ValidateSessionUsecase();
+}

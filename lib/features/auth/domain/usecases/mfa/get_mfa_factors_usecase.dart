@@ -1,0 +1,3 @@
+﻿class GetMfaFactorsUsecase {
+  const GetMfaFactorsUsecase();
+}

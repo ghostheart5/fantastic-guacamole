@@ -1,0 +1,3 @@
+﻿class UnlinkMemoryFromHabitUsecase {
+  const UnlinkMemoryFromHabitUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class DeleteBadgeUsecase {
+  const DeleteBadgeUsecase();
+}

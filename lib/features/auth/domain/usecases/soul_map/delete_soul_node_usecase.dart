@@ -1,0 +1,3 @@
+﻿class DeleteSoulNodeUsecase {
+  const DeleteSoulNodeUsecase();
+}

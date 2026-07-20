@@ -23,7 +23,10 @@ final secureStoreProvider = Provider<SecureStore>((Ref ref) {
 });
 
 final hiveStoreProvider = Provider<HiveStore>(
-  (Ref ref) => const HiveStoreAdapter(),
+  (Ref ref) {
+    HiveService.configureSecureStore(ref.read(secureStoreProvider));
+    return const HiveStoreAdapter();
+  },
 );
 
 final sharedPrefsStoreProvider = Provider<SharedPrefsStore>(

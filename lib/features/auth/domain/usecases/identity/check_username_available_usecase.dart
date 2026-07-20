@@ -1,0 +1,3 @@
+﻿class CheckUsernameAvailableUsecase {
+  const CheckUsernameAvailableUsecase();
+}

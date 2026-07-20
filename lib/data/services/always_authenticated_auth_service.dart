@@ -58,6 +58,19 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
   }
 
   @override
+  Future<AuthSessionSnapshot?> getCurrentSessionSnapshot({
+    bool forceRefresh = false,
+  }) async {
+    final DateTime issuedAt = DateTime.now();
+    return AuthSessionSnapshot(
+      accessToken: 'mock-always-auth-token',
+      refreshToken: 'mock-always-refresh-token',
+      expiresAt: issuedAt.add(const Duration(hours: 1)),
+      issuedAt: issuedAt,
+    );
+  }
+
+  @override
   Future<void> signOut() async {}
 
   @override

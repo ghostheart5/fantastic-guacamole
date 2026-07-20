@@ -1,0 +1,3 @@
+﻿class AssessFinancesUsecase {
+  const AssessFinancesUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class SendEmailVerificationUsecase {
+  const SendEmailVerificationUsecase();
+}

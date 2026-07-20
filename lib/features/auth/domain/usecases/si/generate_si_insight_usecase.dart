@@ -1,0 +1,3 @@
+﻿class GenerateSiInsightUsecase {
+  const GenerateSiInsightUsecase();
+}

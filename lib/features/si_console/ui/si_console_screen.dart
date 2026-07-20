@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -57,6 +58,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   final List<_Msg> _messages = [];
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  late final VoiceService _voiceService;
   bool _typing = false;
   late final AnimationController _typingAnim;
   StreamSubscription<GoalLifecycleEvent>? _goalEventSubscription;
@@ -82,6 +84,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   void initState() {
     super.initState();
     AppAnalytics.track('si_opened');
+    _voiceService = ref.read(voiceServiceProvider);
     _goalEventSubscription = ref.read(eventBusProvider).on<GoalLifecycleEvent>().listen((event) {
       if (!mounted) {
         return;
@@ -116,7 +119,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _typingAnim.dispose();
     _input.dispose();
     _scroll.dispose();
-    unawaited(ref.read(voiceServiceProvider).stop());
+    unawaited(_voiceService.stop());
     unawaited(_goalEventSubscription?.cancel());
     super.dispose();
   }

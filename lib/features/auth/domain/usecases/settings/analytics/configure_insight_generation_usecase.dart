@@ -1,0 +1,3 @@
+﻿class ConfigureInsightGenerationUsecase {
+  const ConfigureInsightGenerationUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class GeneratePersonalizedGreetingUsecase {
+  const GeneratePersonalizedGreetingUsecase();
+}

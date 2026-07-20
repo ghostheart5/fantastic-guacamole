@@ -1,0 +1,3 @@
+﻿class UnfavoriteMemoryUsecase {
+  const UnfavoriteMemoryUsecase();
+}

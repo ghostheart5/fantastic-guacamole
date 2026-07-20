@@ -1,0 +1,3 @@
+﻿class RunSiAnalysisUsecase {
+  const RunSiAnalysisUsecase();
+}

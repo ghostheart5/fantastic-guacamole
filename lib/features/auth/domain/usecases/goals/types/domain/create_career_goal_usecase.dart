@@ -1,0 +1,3 @@
+﻿class CreateCareerGoalUsecase {
+  const CreateCareerGoalUsecase();
+}

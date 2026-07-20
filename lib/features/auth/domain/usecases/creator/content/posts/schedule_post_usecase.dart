@@ -1,0 +1,3 @@
+﻿class SchedulePostUsecase {
+  const SchedulePostUsecase();
+}

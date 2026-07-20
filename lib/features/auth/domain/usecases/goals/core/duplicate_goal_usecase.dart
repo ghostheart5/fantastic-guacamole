@@ -1,0 +1,3 @@
+﻿class DuplicateGoalUsecase {
+  const DuplicateGoalUsecase();
+}

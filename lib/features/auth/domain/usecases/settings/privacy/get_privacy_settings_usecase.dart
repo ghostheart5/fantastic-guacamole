@@ -1,0 +1,3 @@
+﻿class GetPrivacySettingsUsecase {
+  const GetPrivacySettingsUsecase();
+}

@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
@@ -43,6 +45,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   bool _saved = false;
   bool _gettingCoaching = false;
   bool _sendingFollowUp = false;
+  bool _taskActionBusy = false;
 
   List<_Exchange> get _visibleFollowUps {
     const int maxVisibleFollowUps = 20;
@@ -218,6 +221,92 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
     }
   }
 
+  Future<void> _completeSuggestedTask(Task task) async {
+    if (_taskActionBusy) {
+      return;
+    }
+    setState(() => _taskActionBusy = true);
+    try {
+      await ref.read(taskActionsProvider).completeTask(task.id);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Completed: ${task.title}')),
+      );
+    } catch (error, stackTrace) {
+      if (!mounted) {
+        return;
+      }
+      ErrorBoundary.of(context)?.captureError(error, stackTrace);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not complete task. Try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _taskActionBusy = false);
+      }
+    }
+  }
+
+  Future<void> _skipSuggestedTask(Task task) async {
+    if (_taskActionBusy) {
+      return;
+    }
+    setState(() => _taskActionBusy = true);
+    try {
+      await ref.read(taskActionsProvider).skipTask(task.id);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Skipped: ${task.title}')),
+      );
+    } catch (error, stackTrace) {
+      if (!mounted) {
+        return;
+      }
+      ErrorBoundary.of(context)?.captureError(error, stackTrace);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not skip task. Try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _taskActionBusy = false);
+      }
+    }
+  }
+
+  Future<void> _delaySuggestedTask(Task task) async {
+    if (_taskActionBusy) {
+      return;
+    }
+    setState(() => _taskActionBusy = true);
+    try {
+      await ref
+          .read(taskActionsProvider)
+          .delayTask(task.id, by: const Duration(hours: 2));
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delayed 2h: ${task.title}')),
+      );
+    } catch (error, stackTrace) {
+      if (!mounted) {
+        return;
+      }
+      ErrorBoundary.of(context)?.captureError(error, stackTrace);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delay task. Try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _taskActionBusy = false);
+      }
+    }
+  }
+
   List<Map<String, String>> _conversationHistory() {
     final List<Map<String, String>> history = <Map<String, String>>[];
     final String initialPrompt = _coachingPrompt?.trim() ?? '';
@@ -245,14 +334,28 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   @override
   Widget build(BuildContext context) {
     ref.watch(extendedDomainBootstrapProvider);
-    final smartModel = ref.watch(smartCoachScreenModelProvider).asData?.value;
+    final AsyncValue<SmartCoachScreenModel> smartModelAsync = ref.watch(
+      smartCoachScreenModelProvider,
+    );
+    final smartModel = smartModelAsync.asData?.value;
+    final SISourceHealth? sourceHealth = smartModel?.aggregation.sourceHealth;
+    final bool sourceDegraded =
+        sourceHealth?.tasks == SISourceStatus.error ||
+        sourceHealth?.insights == SISourceStatus.error;
+    final bool siUnavailable = smartModelAsync.hasError || sourceDegraded;
     final String modelCoachMessage = smartModel?.decision.coachMessage ?? '';
+    final List<Task> suggestedTasks = smartModel?.aggregation.tasks ??
+        const <Task>[];
+    final Task? suggestedTask = suggestedTasks.isEmpty ? null : suggestedTasks.first;
+    final bool hasSuggestedTask = suggestedTask != null;
     final String effectiveCoachMessage =
         (_coachingMessage?.trim().isNotEmpty ?? false)
         ? _coachingMessage!
         : (modelCoachMessage.trim().isNotEmpty
               ? modelCoachMessage
-              : 'Stabilize scope and execute one focused action now.');
+              : siUnavailable
+              ? 'SI recommendation unavailable right now. Retry sync or create one task manually.'
+              : 'No active recommendation yet. Capture one task or tap GET INSIGHT.');
     final bool hasCoachMessage = effectiveCoachMessage.trim().isNotEmpty;
     final double keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return AnimatedSystemBackground(
@@ -280,12 +383,90 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     const _ProgressionBanner(),
                     const SizedBox(height: 12),
                     const _QuickNavRow(),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () =>
-                          ref.read(appFlowProvider.notifier).toCreator(),
-                      child: const Text('OPEN CREATOR TO MAKE TASK'),
+                    const SizedBox(height: 12),
+                    _CoachSyncStatus(
+                      modelAsync: smartModelAsync,
+                      sourceHealth: sourceHealth,
                     ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () =>
+                              ref.read(appFlowProvider.notifier).toCreator(),
+                          child: const Text('OPEN CREATOR TO MAKE TASK'),
+                        ),
+                        OutlinedButton(
+                          onPressed: () {
+                            ref.invalidate(tasksProvider);
+                            ref.invalidate(siStateAggregationProvider);
+                            ref.invalidate(siDecisionOutputProvider);
+                            ref.invalidate(smartCoachScreenModelProvider);
+                          },
+                          child: const Text('RETRY TASK SYNC'),
+                        ),
+                      ],
+                    ),
+                    if (!hasSuggestedTask) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'No active tasks detected. Use Creator for a quick capture, then return here for SI prioritization.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 12,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                    if (hasSuggestedTask) ...[
+                      const SizedBox(height: 14),
+                      _CoachPanel(
+                        label: 'RECOMMENDED TASK',
+                        accentColor: AppColors.memoryAmber,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              suggestedTask.title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                FilledButton(
+                                  onPressed: _taskActionBusy
+                                      ? null
+                                      : () => _completeSuggestedTask(
+                                            suggestedTask,
+                                          ),
+                                  child: const Text('COMPLETE'),
+                                ),
+                                OutlinedButton(
+                                  onPressed: _taskActionBusy
+                                      ? null
+                                      : () => _skipSuggestedTask(suggestedTask),
+                                  child: const Text('SKIP'),
+                                ),
+                                OutlinedButton(
+                                  onPressed: _taskActionBusy
+                                      ? null
+                                      : () => _delaySuggestedTask(suggestedTask),
+                                  child: const Text('DELAY +2H'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     _CoachPanel(
                       label: 'ENERGY',
@@ -475,10 +656,12 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   }
 
   Widget _bubble(String text, {required bool isUser}) {
+    final double screenWidth = MediaQuery.sizeOf(context).width;
+    final double maxWidth = (screenWidth * 0.78).clamp(220, 420).toDouble();
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 280),
+        constraints: BoxConstraints(maxWidth: maxWidth),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: isUser
@@ -1116,29 +1299,50 @@ class _QuickNavRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Row(
-      children: [
-        _QuickNavCard(
-          label: 'GOALS',
-          icon: Icons.flag_rounded,
-          color: AppColors.memoryAmber,
-          onTap: () => ref.read(appFlowProvider.notifier).toGoals(),
-        ),
-        const SizedBox(width: 8),
-        _QuickNavCard(
-          label: 'MEMORIES',
-          icon: Icons.auto_awesome_rounded,
-          color: AppColors.neonViolet,
-          onTap: () => ref.read(appFlowProvider.notifier).toMemories(),
-        ),
-        const SizedBox(width: 8),
-        _QuickNavCard(
-          label: 'SOUL MAP',
-          icon: Icons.hub_rounded,
-          color: AppColors.neonCyan,
-          onTap: () => ref.read(appFlowProvider.notifier).toSoulMap(),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double textScale = MediaQuery.textScalerOf(context).scale(1);
+        final bool compact = constraints.maxWidth < 360 || textScale > 1.1;
+        final List<Widget> cards = <Widget>[
+          _QuickNavCard(
+            label: 'GOALS',
+            icon: Icons.flag_rounded,
+            color: AppColors.memoryAmber,
+            onTap: () => ref.read(appFlowProvider.notifier).toGoals(),
+          ),
+          _QuickNavCard(
+            label: 'MEMORIES',
+            icon: Icons.auto_awesome_rounded,
+            color: AppColors.neonViolet,
+            onTap: () => ref.read(appFlowProvider.notifier).toMemories(),
+          ),
+          _QuickNavCard(
+            label: 'SOUL MAP',
+            icon: Icons.hub_rounded,
+            color: AppColors.neonCyan,
+            onTap: () => ref.read(appFlowProvider.notifier).toSoulMap(),
+          ),
+        ];
+        if (!compact) {
+          return Row(
+            children: [
+              Expanded(child: cards[0]),
+              const SizedBox(width: 8),
+              Expanded(child: cards[1]),
+              const SizedBox(width: 8),
+              Expanded(child: cards[2]),
+            ],
+          );
+        }
+        final double itemWidth = (constraints.maxWidth - 8) / 2;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: cards
+              .map((Widget card) => SizedBox(width: itemWidth, child: card))
+              .toList(growable: false),
+        );
+      },
     );
   }
 }
@@ -1157,33 +1361,93 @@ class _QuickNavCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 52,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.07),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 16),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ],
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 16),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoachSyncStatus extends StatelessWidget {
+  const _CoachSyncStatus({
+    required this.modelAsync,
+    required this.sourceHealth,
+  });
+
+  final AsyncValue<SmartCoachScreenModel> modelAsync;
+  final SISourceHealth? sourceHealth;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool hasTasksError = sourceHealth?.tasks == SISourceStatus.error;
+    final bool hasInsightsError = sourceHealth?.insights == SISourceStatus.error;
+    final String status = modelAsync.isLoading
+        ? 'SYNCING'
+        : modelAsync.hasError || hasTasksError || hasInsightsError
+        ? 'LIMITED'
+        : 'LIVE';
+    final Color accent = switch (status) {
+      'LIVE' => AppColors.neonCyan,
+      'SYNCING' => AppColors.memoryAmber,
+      _ => AppColors.recallRed,
+    };
+    final List<String> issues = <String>[
+      if (hasTasksError) 'tasks',
+      if (hasInsightsError) 'insights',
+      if (modelAsync.hasError) 'model',
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'COACH LINK: $status',
+            style: TextStyle(
+              color: accent,
+              fontSize: 10,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            issues.isEmpty ? 'all sources ready' : issues.join(', '),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

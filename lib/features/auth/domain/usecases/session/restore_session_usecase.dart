@@ -1,0 +1,3 @@
+﻿class RestoreSessionUsecase {
+  const RestoreSessionUsecase();
+}

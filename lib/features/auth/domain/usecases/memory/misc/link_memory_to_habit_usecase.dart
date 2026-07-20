@@ -1,0 +1,3 @@
+﻿class LinkMemoryToHabitUsecase {
+  const LinkMemoryToHabitUsecase();
+}

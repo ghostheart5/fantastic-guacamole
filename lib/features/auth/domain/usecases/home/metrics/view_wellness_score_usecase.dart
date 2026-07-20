@@ -1,0 +1,3 @@
+﻿class ViewWellnessScoreUsecase {
+  const ViewWellnessScoreUsecase();
+}

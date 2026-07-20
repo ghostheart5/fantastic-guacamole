@@ -1,0 +1,3 @@
+﻿class ViewGoalAnalyticsUsecase {
+  const ViewGoalAnalyticsUsecase();
+}

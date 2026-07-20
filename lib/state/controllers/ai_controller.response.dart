@@ -103,10 +103,6 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       final List<Task> tasks = await ref.read(tasksProvider.future);
       final siEngineService = ref.read(siEngineServiceProvider);
       final agentOrchestrator = ref.read(agentOrchestratorProvider);
-      final bool hasPremiumAccess = ref
-          .read(appAccessProvider)
-          .hasPremiumAccess;
-      final CreditService creditService = ref.read(creditServiceProvider);
 
       final si = ref.read(siStateProvider);
       final learning = ref.read(learningProvider);
@@ -116,12 +112,19 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           ref.read(aiPersonalityProvider) ??
           AIPersonality.coach;
       final input = inputOverride ?? ref.read(aiInputProvider);
+        final int inputLength = safeInputLength(input);
+      final int cost = _aiCreditCost(input: input, personality: personality);
 
-      final AiCreditSpendResult spend = await creditService.spend(
-        premium: hasPremiumAccess,
-        amount: _aiCreditCost(input: input, personality: personality),
+      final spend = await consumeCredits(
+        ref,
+        amount: cost,
+        reason: 'ai_query',
+        metadata: <String, dynamic>{
+          'personality': personality.name,
+          'input_length': inputLength,
+        },
       );
-      ref.invalidate(aiCreditWalletProvider);
+      ref.invalidate(walletProvider);
 
       if (!spend.allowed) {
         ref

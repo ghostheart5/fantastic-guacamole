@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/features/permissions/permission_denied_recovery.dart';
 import 'package:fantastic_guacamole/features/permissions/permission_explainer.dart';
 import 'package:fantastic_guacamole/features/permissions/permission_rationale_sheet.dart';
+import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 
@@ -8,12 +9,14 @@ class NotificationPermissionPrompt extends StatelessWidget {
   const NotificationPermissionPrompt({
     super.key,
     required this.permissionGranted,
+    this.permissionState = NotificationPermissionState.unknown,
     required this.onRequestPermission,
     required this.onOpenSystemSettings,
     this.title = 'Notifications',
   });
 
   final bool? permissionGranted;
+  final NotificationPermissionState permissionState;
   final Future<bool> Function() onRequestPermission;
   final Future<void> Function() onOpenSystemSettings;
   final String title;
@@ -22,6 +25,8 @@ class NotificationPermissionPrompt extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool granted = permissionGranted == true;
     final bool denied = permissionGranted == false;
+    final bool permanentlyDenied =
+      permissionState == NotificationPermissionState.permanentlyDenied;
 
     if (granted) {
       return const SizedBox.shrink();
@@ -56,28 +61,32 @@ class NotificationPermissionPrompt extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          FilledButton(
-            onPressed: () async {
-              await showPermissionRationaleSheet<void>(
-                context: context,
-                explainer: PermissionExplainers.notification,
-                onPrimary: () async {
-                  await onRequestPermission();
-                },
-              );
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.neonCyan,
-              foregroundColor: Colors.black,
+          if (!permanentlyDenied)
+            FilledButton(
+              onPressed: () async {
+                await showPermissionRationaleSheet<void>(
+                  context: context,
+                  explainer: PermissionExplainers.notification,
+                  onPrimary: () async {
+                    await onRequestPermission();
+                  },
+                );
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.neonCyan,
+                foregroundColor: Colors.black,
+              ),
+              child: const Text('Enable Notifications'),
             ),
-            child: const Text('Enable Notifications'),
-          ),
           if (denied) ...<Widget>[
             const SizedBox(height: 10),
             PermissionDeniedRecovery(
-              title: 'Permission Denied',
-              message:
-                  'Notifications are disabled at system level. Open settings to re-enable alerts.',
+              title: permanentlyDenied
+                  ? 'Permission Permanently Denied'
+                  : 'Permission Denied',
+              message: permanentlyDenied
+                  ? 'Notifications are blocked by system policy. Open app settings to re-enable alerts.'
+                  : 'Notifications are disabled at system level. Open settings to re-enable alerts.',
               onOpenSystemSettings: onOpenSystemSettings,
             ),
           ],

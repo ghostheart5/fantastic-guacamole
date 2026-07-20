@@ -1,0 +1,3 @@
+﻿class LinkHabitToGoalUsecase {
+  const LinkHabitToGoalUsecase();
+}

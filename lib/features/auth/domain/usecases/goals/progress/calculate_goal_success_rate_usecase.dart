@@ -1,0 +1,3 @@
+﻿class CalculateGoalSuccessRateUsecase {
+  const CalculateGoalSuccessRateUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class ManageEmergencyResourcesUsecase {
+  const ManageEmergencyResourcesUsecase();
+}

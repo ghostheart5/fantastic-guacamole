@@ -1,0 +1,3 @@
+﻿class ViewFlowmapHistoryUsecase {
+  const ViewFlowmapHistoryUsecase();
+}

@@ -176,7 +176,7 @@ class _StaticTimelineNotifier extends TimelineNotifier {
       type: TimelineEventType.goalComplete,
       title: 'Completed sprint review',
       detail: 'Closed the review loop for the weekly plan.',
-      timestamp: DateTime.utc(2026, 7, 7, 9, 30),
+      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
     ),
   ];
 }
@@ -296,6 +296,13 @@ final NexusScreenModel _nexusModel = NexusScreenModel(
       strongest: SoulMapDimension.purpose,
       weakest: SoulMapDimension.growthJourney,
       recommendations: <String>[],
+    ),
+    sourceHealth: const SISourceHealth(
+      tasks: SISourceStatus.ready,
+      goals: SISourceStatus.ready,
+      insights: SISourceStatus.ready,
+      flowmap: SISourceStatus.ready,
+      memories: SISourceStatus.ready,
     ),
   ),
   decision: const SIDecisionOutput(

@@ -1,0 +1,3 @@
+﻿class EnableDebugModeUsecase {
+  const EnableDebugModeUsecase();
+}

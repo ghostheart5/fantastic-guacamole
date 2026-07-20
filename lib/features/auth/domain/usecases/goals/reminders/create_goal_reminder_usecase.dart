@@ -1,0 +1,3 @@
+﻿class CreateGoalReminderUsecase {
+  const CreateGoalReminderUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class CreateLearningGoalUsecase {
+  const CreateLearningGoalUsecase();
+}

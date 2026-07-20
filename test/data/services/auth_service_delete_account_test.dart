@@ -2,14 +2,25 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
+import 'package:fantastic_guacamole/data/services/local_user_data_cleanup_service.dart';
 import 'package:fantastic_guacamole/data/services/auth_service.dart';
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   group('AuthService account deletion helpers', () {
     test('parseSecureHttpsEndpoint accepts valid https endpoint', () {
       final Uri? uri = AuthService.parseSecureHttpsEndpoint(
@@ -457,9 +468,11 @@ void main() {
         }
         return http.Response('{}', 200);
       });
+      final SecureStore store = SecureStore(backend: InMemorySecureStoreBackend());
       final AuthService service = AuthService(
         supabaseClient: _supabaseClient(client),
-        store: SecureStore(backend: InMemorySecureStoreBackend()),
+        store: store,
+        localUserDataCleanupService: _testCleanupService(store),
       );
 
       await service.signIn(
@@ -857,7 +870,7 @@ void main() {
       () async {
         final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
         final SecureStore store = SecureStore(backend: backend);
-        await store.writeString('session-cache', 'present');
+        await store.writeString('auth.cached_session', 'present');
         int deleteCalls = 0;
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
@@ -885,6 +898,7 @@ void main() {
           store: store,
           httpClient: client,
           accountDeleteEndpoint: 'https://api.chronospark.app/account/delete',
+          localUserDataCleanupService: _testCleanupService(store),
         );
 
         await service.signIn(
@@ -894,7 +908,7 @@ void main() {
         await service.deleteCurrentAccount(password: 'correct-pass');
 
         expect(deleteCalls, 1);
-        expect(await store.readString('session-cache'), isNull);
+        expect(await store.readString('auth.cached_session'), isNull);
         expect(service.currentUser, isNull);
       },
     );
@@ -904,7 +918,7 @@ void main() {
       () async {
         final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
         final SecureStore store = SecureStore(backend: backend);
-        await store.writeString('session-cache', 'present');
+        await store.writeString('auth.cached_session', 'present');
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
             return http.Response(
@@ -947,7 +961,7 @@ void main() {
           ),
         );
 
-        expect(await store.readString('session-cache'), 'present');
+        expect(await store.readString('auth.cached_session'), 'present');
         expect(service.currentUser, isNotNull);
       },
     );
@@ -990,6 +1004,40 @@ void main() {
       },
     );
   });
+}
+
+LocalUserDataCleanupService _testCleanupService(SecureStore store) {
+  return LocalUserDataCleanupService(
+    preferences: const SharedPrefsStoreAdapter(),
+    hive: const _NoopHiveStore(),
+    secureStore: store,
+  );
+}
+
+class _NoopHiveStore implements HiveStore {
+  const _NoopHiveStore();
+
+  @override
+  Box<T> box<T>(String key) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> clearBox(String key) async {}
+
+  @override
+  Future<void> closeBox(String key) async {}
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  bool isBoxOpen(String key) => false;
+
+  @override
+  Future<Box<T>> openBox<T>(String key) {
+    throw UnimplementedError();
+  }
 }
 
 sb.SupabaseClient _supabaseClient(http.Client client) {

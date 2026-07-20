@@ -1,0 +1,3 @@
+﻿class ViewArchivedGoalsUsecase {
+  const ViewArchivedGoalsUsecase();
+}

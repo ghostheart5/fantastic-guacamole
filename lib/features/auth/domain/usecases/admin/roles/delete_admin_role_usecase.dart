@@ -1,0 +1,3 @@
+﻿class DeleteAdminRoleUsecase {
+  const DeleteAdminRoleUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class ResetSiContextUsecase {
+  const ResetSiContextUsecase();
+}

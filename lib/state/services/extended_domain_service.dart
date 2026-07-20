@@ -242,17 +242,25 @@ class ExtendedDomainService implements IExtendedDomainRepository {
     if (encoded == null || encoded.isEmpty) {
       return <T>[];
     }
-    final List<dynamic> decoded = jsonDecode(encoded) as List<dynamic>;
-    return decoded
-        .whereType<Map<dynamic, dynamic>>()
-        .map(
-          (Map<dynamic, dynamic> item) => parser(
-            item.map<String, dynamic>(
-              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+    try {
+      final dynamic decodedAny = jsonDecode(encoded);
+      if (decodedAny is! List) {
+        return <T>[];
+      }
+      return decodedAny
+          .whereType<Map<dynamic, dynamic>>()
+          .map(
+            (Map<dynamic, dynamic> item) => parser(
+              item.map<String, dynamic>(
+                (dynamic key, dynamic value) =>
+                    MapEntry(key.toString(), value),
+              ),
             ),
-          ),
-        )
-        .toList(growable: false);
+          )
+          .toList(growable: false);
+    } on Object {
+      return <T>[];
+    }
   }
 
   Future<void> _persistList(

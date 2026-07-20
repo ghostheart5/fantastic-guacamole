@@ -1,0 +1,3 @@
+﻿class CalculateLogStatisticsUsecase {
+  const CalculateLogStatisticsUsecase();
+}

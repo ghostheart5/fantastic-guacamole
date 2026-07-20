@@ -1,0 +1,3 @@
+﻿class RestoreGoalsUsecase {
+  const RestoreGoalsUsecase();
+}

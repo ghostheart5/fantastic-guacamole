@@ -1,0 +1,3 @@
+﻿class ReplyToCommentUsecase {
+  const ReplyToCommentUsecase();
+}

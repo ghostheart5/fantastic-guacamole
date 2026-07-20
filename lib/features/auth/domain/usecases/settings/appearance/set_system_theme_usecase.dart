@@ -1,0 +1,3 @@
+﻿class SetSystemThemeUsecase {
+  const SetSystemThemeUsecase();
+}

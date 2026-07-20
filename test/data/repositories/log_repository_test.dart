@@ -114,16 +114,15 @@ void main() {
     expect(secondPage.nextCursor, isNull);
   });
 
-  test('returns empty logs when persisted storage is corrupt', () async {
+  test('surfaces an error when persisted storage is corrupt', () async {
     await SecureStore(
       backend: backend,
     ).writeString('chrono_log_entries_v2', '{not-json');
 
-    final List<LogEntryEntity> entries = await Logger.withMutedErrors(
-      () => repository.getLogs(),
+    await expectLater(
+      Logger.withMutedErrors(() => repository.getLogs()),
+      throwsA(isA<StateError>()),
     );
-
-    expect(entries, isEmpty);
   });
 
   test('skips malformed entries but keeps valid ones', () async {

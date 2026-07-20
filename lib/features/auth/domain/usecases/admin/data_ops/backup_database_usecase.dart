@@ -1,0 +1,3 @@
+﻿class BackupDatabaseUsecase {
+  const BackupDatabaseUsecase();
+}

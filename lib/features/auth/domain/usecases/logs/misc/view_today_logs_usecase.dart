@@ -1,0 +1,3 @@
+﻿class ViewTodayLogsUsecase {
+  const ViewTodayLogsUsecase();
+}

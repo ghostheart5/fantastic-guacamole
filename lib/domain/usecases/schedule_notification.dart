@@ -31,6 +31,20 @@ class ScheduleNotification {
     if (!NotificationPolicy.canSchedule(finalNotification)) {
       throw Exception('Notification cannot be scheduled');
     }
+
+    final DateTime now = DateTime.now();
+    final List<NotificationEntity> recentlySent = (await repository
+            .getNotifications())
+        .where((NotificationEntity item) => !item.scheduledAt.isAfter(now))
+        .toList(growable: false);
+    if (!NotificationPolicy.canDispatch(
+      finalNotification,
+      now: now,
+      recentlySent: recentlySent,
+    )) {
+      throw Exception('Notification dispatch blocked by policy');
+    }
+
     await repository.scheduleNotification(finalNotification);
   }
 }

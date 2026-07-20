@@ -128,21 +128,42 @@ void main() {
     test('receipt verification endpoint derives from configuration safely', () {
       expect(
         Env.resolveReceiptVerifyEndpoint(
-          'https://billing.chronospark.app/verify-receipt',
+          'https://billing.chronospark.app/monetization-verify',
           supabaseUrl: 'https://ignored.example.supabase.co',
         ),
-        'https://billing.chronospark.app/verify-receipt',
+        'https://billing.chronospark.app/monetization-verify',
       );
       expect(
         Env.resolveReceiptVerifyEndpoint(
           '',
           supabaseUrl: 'https://chronospark.supabase.co',
         ),
-        'https://chronospark.supabase.co/functions/v1/verify-receipt',
+        'https://chronospark.supabase.co/functions/v1/monetization-verify',
       );
       expect(
         Env.resolveReceiptVerifyEndpoint('', supabaseUrl: '   '),
-        'https://chronospark.app/verify-receipt',
+        'https://chronospark.app/monetization-verify',
+      );
+    });
+
+    test('account deletion endpoint derives from configuration safely', () {
+      expect(
+        Env.resolveAccountDeleteEndpoint(
+          'https://api.chronospark.app/account-delete',
+          supabaseUrl: 'https://ignored.example.supabase.co',
+        ),
+        'https://api.chronospark.app/account-delete',
+      );
+      expect(
+        Env.resolveAccountDeleteEndpoint(
+          '',
+          supabaseUrl: 'https://chronospark.supabase.co',
+        ),
+        'https://chronospark.supabase.co/functions/v1/account-delete',
+      );
+      expect(
+        Env.resolveAccountDeleteEndpoint('', supabaseUrl: '   '),
+        '',
       );
     });
 
@@ -160,6 +181,37 @@ void main() {
       expect(
         Env.resolveIsAiProxyConfigured(
           'https://chronospark.app/functions/v1/ai',
+        ),
+        isTrue,
+      );
+    });
+
+    test('Supabase configuration requires a valid HTTPS URL and non-empty key', () {
+      expect(
+        Env.resolveIsSupabaseConfigured(
+          supabaseUrl: '',
+          supabaseAnonKey: 'anon',
+        ),
+        isFalse,
+      );
+      expect(
+        Env.resolveIsSupabaseConfigured(
+          supabaseUrl: 'not-a-url',
+          supabaseAnonKey: 'anon',
+        ),
+        isFalse,
+      );
+      expect(
+        Env.resolveIsSupabaseConfigured(
+          supabaseUrl: 'http://chronospark.supabase.co',
+          supabaseAnonKey: 'anon',
+        ),
+        isFalse,
+      );
+      expect(
+        Env.resolveIsSupabaseConfigured(
+          supabaseUrl: 'https://chronospark.supabase.co',
+          supabaseAnonKey: 'anon',
         ),
         isTrue,
       );

@@ -1,5 +1,7 @@
 part of 'ai_controller.dart';
 
+int safeInputLength(String? input) => input?.length ?? 0;
+
 int _aiCreditCost({
   required String? input,
   required AIPersonality personality,

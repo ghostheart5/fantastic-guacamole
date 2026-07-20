@@ -1,0 +1,3 @@
+﻿class DeleteConnectionUsecase {
+  const DeleteConnectionUsecase();
+}

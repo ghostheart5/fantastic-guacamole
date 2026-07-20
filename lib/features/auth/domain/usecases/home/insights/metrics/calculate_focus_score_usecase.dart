@@ -1,0 +1,3 @@
+﻿class CalculateFocusScoreUsecase {
+  const CalculateFocusScoreUsecase();
+}

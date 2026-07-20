@@ -1,0 +1,3 @@
+﻿class VerifyEmailUsecase {
+  const VerifyEmailUsecase();
+}

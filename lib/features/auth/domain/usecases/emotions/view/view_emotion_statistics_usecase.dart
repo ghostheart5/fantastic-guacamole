@@ -1,0 +1,3 @@
+﻿class ViewEmotionStatisticsUsecase {
+  const ViewEmotionStatisticsUsecase();
+}

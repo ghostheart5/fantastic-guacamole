@@ -1,0 +1,3 @@
+﻿class AddNoteToNodeUsecase {
+  const AddNoteToNodeUsecase();
+}

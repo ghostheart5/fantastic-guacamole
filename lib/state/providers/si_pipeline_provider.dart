@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
+import 'package:fantastic_guacamole/state/models/insights_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
@@ -15,12 +16,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   Ref ref,
 ) async {
-  final List<Task> tasks = await _loadAllActiveTasks(ref);
+  SISourceStatus tasksStatus = SISourceStatus.ready;
+  String? tasksError;
+  List<Task> tasks = const <Task>[];
+  try {
+    tasks = await _loadAllActiveTasks(ref);
+    tasksStatus = tasks.isEmpty ? SISourceStatus.empty : SISourceStatus.ready;
+  } on Object catch (error) {
+    tasksStatus = SISourceStatus.error;
+    tasksError = error.toString();
+    tasks = const <Task>[];
+  }
+
   final goals = ref.watch(goalsProvider);
-  final insights = ref.watch(insightsBundleProvider);
+  final SISourceStatus goalsStatus = goals.isEmpty
+      ? SISourceStatus.empty
+      : SISourceStatus.ready;
+
+  final InsightsBundle insights = ref.watch(insightsBundleProvider);
+  final SISourceStatus insightsStatus = insights.items.isEmpty
+      ? SISourceStatus.empty
+      : SISourceStatus.ready;
   final logs = ref.watch(logsProvider).entries;
   final timeline = ref.watch(timelineProvider);
   final memories = ref.watch(memoriesProvider);
+  final SISourceStatus memoriesStatus = memories.isEmpty
+      ? SISourceStatus.empty
+      : SISourceStatus.ready;
   final notifications = ref.watch(notificationProvider);
   final profile = ref.watch(profileProvider);
   final siState = ref.watch(siStateProvider);
@@ -33,6 +55,16 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final List<FlowmapNode> flowmapNodes = flowmapAsync.maybeWhen(
     data: (List<FlowmapNode> nodes) => nodes,
     orElse: () => const <FlowmapNode>[],
+  );
+  final SISourceStatus flowmapStatus = flowmapAsync.when(
+    data: (List<FlowmapNode> nodes) => nodes.isEmpty
+        ? SISourceStatus.empty
+        : SISourceStatus.ready,
+    loading: () => SISourceStatus.loading,
+    error: (Object error, StackTrace stackTrace) => SISourceStatus.error,
+  );
+  final String? flowmapError = flowmapAsync.whenOrNull(
+    error: (Object error, StackTrace stackTrace) => error.toString(),
   );
 
   final List<String> planPreview = ref
@@ -95,6 +127,15 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     trajectory: trajectory,
     coreValues: coreValues,
     soulMap: soulMap,
+    sourceHealth: SISourceHealth(
+      tasks: tasksStatus,
+      goals: goalsStatus,
+      insights: insightsStatus,
+      flowmap: flowmapStatus,
+      memories: memoriesStatus,
+      tasksError: tasksError,
+      flowmapError: flowmapError,
+    ),
     signals: SISignalExtraction(
       friction: friction,
       overwhelm: overwhelm,

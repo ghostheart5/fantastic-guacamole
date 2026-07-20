@@ -34,7 +34,15 @@ class WebPageView extends StatelessWidget {
     if (assetPath != null) {
       return _AssetTextPage(title: title, assetPath: assetPath!);
     }
-    return _StaticPage(title: title, body: body!);
+    if (body != null) {
+      return _StaticPage(title: title, body: body!);
+    }
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: const SafeArea(
+        child: Center(child: Text('Content unavailable.')),
+      ),
+    );
   }
 }
 

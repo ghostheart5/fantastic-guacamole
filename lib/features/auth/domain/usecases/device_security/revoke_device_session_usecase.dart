@@ -1,0 +1,3 @@
+﻿class RevokeDeviceSessionUsecase {
+  const RevokeDeviceSessionUsecase();
+}

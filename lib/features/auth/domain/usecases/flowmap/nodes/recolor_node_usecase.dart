@@ -1,0 +1,3 @@
+﻿class RecolorNodeUsecase {
+  const RecolorNodeUsecase();
+}

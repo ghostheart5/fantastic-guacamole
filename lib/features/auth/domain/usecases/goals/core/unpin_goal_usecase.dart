@@ -1,0 +1,3 @@
+﻿class UnpinGoalUsecase {
+  const UnpinGoalUsecase();
+}

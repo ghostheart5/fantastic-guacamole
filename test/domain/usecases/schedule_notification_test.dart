@@ -80,6 +80,31 @@ void main() {
         throwsException,
       );
     });
+
+    test('blocks spammy repeated notifications via dispatch policy', () async {
+      final DateTime now = DateTime.now();
+      repository.scheduled.add(
+        NotificationEntity(
+          id: 'recent',
+          title: 'Focus',
+          message: 'Start now',
+          scheduledAt: now.subtract(const Duration(minutes: 5)),
+        ),
+      );
+
+      await expectLater(
+        () => ScheduleNotification(repository).call(
+          NotificationEntity(
+            id: 'notif-spam',
+            title: 'Focus',
+            message: 'Start now',
+            scheduledAt: now.add(const Duration(minutes: 2)),
+          ),
+        ),
+        throwsException,
+      );
+      expect(repository.scheduled.where((n) => n.id == 'notif-spam'), isEmpty);
+    });
   });
 }
 

@@ -1,0 +1,3 @@
+﻿class GetLinkedProvidersUsecase {
+  const GetLinkedProvidersUsecase();
+}

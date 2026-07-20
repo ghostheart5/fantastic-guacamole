@@ -1,0 +1,3 @@
+﻿class ActivateChallengeUsecase {
+  const ActivateChallengeUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class SetAiCompanionNameUsecase {
+  const SetAiCompanionNameUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class CreateTaskNodeUsecase {
+  const CreateTaskNodeUsecase();
+}

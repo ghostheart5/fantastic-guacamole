@@ -1,0 +1,3 @@
+﻿class ViewStreakStatisticsUsecase {
+  const ViewStreakStatisticsUsecase();
+}

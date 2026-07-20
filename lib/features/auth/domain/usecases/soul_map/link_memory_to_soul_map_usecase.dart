@@ -1,0 +1,3 @@
+﻿class LinkMemoryToSoulMapUsecase {
+  const LinkMemoryToSoulMapUsecase();
+}

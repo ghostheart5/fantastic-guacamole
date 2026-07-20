@@ -1,0 +1,3 @@
+﻿class ArchiveTaskUsecase {
+  const ArchiveTaskUsecase();
+}

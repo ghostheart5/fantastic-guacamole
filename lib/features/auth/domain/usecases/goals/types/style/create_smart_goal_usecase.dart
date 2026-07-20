@@ -1,0 +1,3 @@
+﻿class CreateSmartGoalUsecase {
+  const CreateSmartGoalUsecase();
+}

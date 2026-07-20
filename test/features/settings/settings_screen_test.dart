@@ -13,6 +13,7 @@ void main() {
     addTearDown(permissionListenable.dispose);
 
     final ProviderContainer container = ProviderContainer(
+      retry: (_, _) => null,
       overrides: [
         settingsUiActionsProvider.overrideWith(
           (Ref ref) => _FakeSettingsUiActions(ref),
@@ -62,6 +63,16 @@ class _FakeSettingsUiActions extends SettingsUiActions {
 
   @override
   Future<bool> requestNotificationPermission() async => true;
+
+  @override
+  Future<NotificationPermissionState> requestNotificationPermissionDetailed() async {
+    return NotificationPermissionState.granted;
+  }
+
+  @override
+  Future<NotificationPermissionState> refreshNotificationPermissionState() async {
+    return NotificationPermissionState.granted;
+  }
 
   @override
   Future<bool> requestVoicePermission() async => true;

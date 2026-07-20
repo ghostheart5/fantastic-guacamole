@@ -1,0 +1,3 @@
+﻿class RefreshHomeDashboardUsecase {
+  const RefreshHomeDashboardUsecase();
+}

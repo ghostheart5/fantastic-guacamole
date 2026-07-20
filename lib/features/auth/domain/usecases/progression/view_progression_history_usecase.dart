@@ -1,0 +1,3 @@
+﻿class ViewProgressionHistoryUsecase {
+  const ViewProgressionHistoryUsecase();
+}

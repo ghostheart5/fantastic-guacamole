@@ -1,0 +1,3 @@
+﻿class ImportNotesUsecase {
+  const ImportNotesUsecase();
+}

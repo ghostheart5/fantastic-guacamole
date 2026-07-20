@@ -14,4 +14,20 @@ class HiveBoxes {
   static const String notifications = 'notifications_box';
   static const String timeline = 'timeline_box';
   static const String cache = 'cache_box';
+
+  static const Set<String> encryptedBoxes = <String>{
+    tasks,
+    goals,
+    habits,
+    projects,
+    routines,
+    subtasks,
+    progression,
+    dailyPlans,
+    offlineQueue,
+    flowmap,
+    notifications,
+    timeline,
+    cache,
+  };
 }

@@ -1,0 +1,3 @@
+﻿class ViewWeeklyTimelineUsecase {
+  const ViewWeeklyTimelineUsecase();
+}

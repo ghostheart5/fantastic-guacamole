@@ -1,0 +1,3 @@
+﻿class SortMemoriesUsecase {
+  const SortMemoriesUsecase();
+}

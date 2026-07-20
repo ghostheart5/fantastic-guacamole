@@ -1,0 +1,3 @@
+﻿class RevokeSubscriptionUsecase {
+  const RevokeSubscriptionUsecase();
+}

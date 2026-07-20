@@ -1,0 +1,3 @@
+﻿class SetMessagePermissionsUsecase {
+  const SetMessagePermissionsUsecase();
+}

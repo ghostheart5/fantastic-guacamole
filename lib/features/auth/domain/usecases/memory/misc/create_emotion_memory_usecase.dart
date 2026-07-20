@@ -1,0 +1,3 @@
+﻿class CreateEmotionMemoryUsecase {
+  const CreateEmotionMemoryUsecase();
+}

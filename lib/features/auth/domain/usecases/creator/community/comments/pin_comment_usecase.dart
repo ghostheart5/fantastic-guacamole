@@ -1,0 +1,3 @@
+﻿class PinCommentUsecase {
+  const PinCommentUsecase();
+}

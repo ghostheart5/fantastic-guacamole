@@ -1,0 +1,3 @@
+﻿class UnsuspendUserUsecase {
+  const UnsuspendUserUsecase();
+}

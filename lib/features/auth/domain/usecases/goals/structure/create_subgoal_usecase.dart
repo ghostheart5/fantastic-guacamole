@@ -1,0 +1,3 @@
+﻿class CreateSubgoalUsecase {
+  const CreateSubgoalUsecase();
+}

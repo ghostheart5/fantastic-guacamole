@@ -1,0 +1,3 @@
+﻿class RemoveAttachmentFromNodeUsecase {
+  const RemoveAttachmentFromNodeUsecase();
+}

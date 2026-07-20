@@ -1,0 +1,3 @@
+﻿class RemoveMemoryImageUsecase {
+  const RemoveMemoryImageUsecase();
+}

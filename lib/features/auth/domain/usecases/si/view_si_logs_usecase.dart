@@ -1,0 +1,3 @@
+﻿class ViewSiLogsUsecase {
+  const ViewSiLogsUsecase();
+}
