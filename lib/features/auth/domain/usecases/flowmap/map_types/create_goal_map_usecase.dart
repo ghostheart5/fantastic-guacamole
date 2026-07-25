@@ -1,3 +1,0 @@
-﻿class CreateGoalMapUsecase {
-  const CreateGoalMapUsecase();
-}

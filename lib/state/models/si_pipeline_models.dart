@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
@@ -43,25 +42,21 @@ class SISourceHealth {
     required this.tasks,
     required this.goals,
     required this.insights,
-    required this.flowmap,
     required this.memories,
     this.tasksError,
     this.goalsError,
     this.insightsError,
-    this.flowmapError,
     this.memoriesError,
   });
 
   final SISourceStatus tasks;
   final SISourceStatus goals;
   final SISourceStatus insights;
-  final SISourceStatus flowmap;
   final SISourceStatus memories;
 
   final String? tasksError;
   final String? goalsError;
   final String? insightsError;
-  final String? flowmapError;
   final String? memoriesError;
 }
 
@@ -70,7 +65,6 @@ class SIStateAggregation {
     required this.tasks,
     required this.goals,
     required this.insights,
-    required this.flowmapNodes,
     required this.logs,
     required this.timeline,
     required this.memories,
@@ -88,7 +82,6 @@ class SIStateAggregation {
   final List<Task> tasks;
   final List<GoalEntity> goals;
   final InsightsBundle insights;
-  final List<FlowmapNode> flowmapNodes;
   final List<LogEntryEntity> logs;
   final List<TimelineEventEntity> timeline;
   final List<MemoryEntity> memories;

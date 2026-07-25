@@ -6,7 +6,6 @@ import 'package:fantastic_guacamole/state/models/insights_models.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
@@ -68,13 +67,6 @@ class InsightsActions {
             detail: summary,
             timestamp: now,
           ),
-        );
-    await _ref
-        .read(flowmapProvider.notifier)
-        .addNode(
-          title: topTitles.isEmpty ? 'Insight Signal' : topTitles.first,
-          description: summary,
-          tags: const <String>['insight', 'generated'],
         );
     await _ref.read(memoriesActionsProvider).saveMirroredMemory(memoryText);
     _ref.invalidate(soulStateProvider);

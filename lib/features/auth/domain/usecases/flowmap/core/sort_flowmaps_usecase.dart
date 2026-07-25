@@ -1,3 +1,0 @@
-﻿class SortFlowmapsUsecase {
-  const SortFlowmapsUsecase();
-}

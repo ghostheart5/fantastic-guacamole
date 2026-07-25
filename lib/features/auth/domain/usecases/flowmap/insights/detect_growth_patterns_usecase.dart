@@ -1,3 +1,0 @@
-﻿class DetectGrowthPatternsUsecase {
-  const DetectGrowthPatternsUsecase();
-}

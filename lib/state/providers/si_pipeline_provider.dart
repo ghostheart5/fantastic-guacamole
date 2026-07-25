@@ -1,5 +1,4 @@
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
-import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -75,24 +74,6 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final SoulMapAlignment soulMap = ref.watch(soulMapAlignmentProvider);
   final double energy = ref.watch(energyProvider);
 
-  final AsyncValue<List<FlowmapNode>> flowmapAsync = ref.watch(flowmapProvider);
-
-  final List<FlowmapNode> flowmapNodes = flowmapAsync.maybeWhen(
-    data: (List<FlowmapNode> nodes) => nodes,
-    orElse: () => const <FlowmapNode>[],
-  );
-
-  final SISourceStatus flowmapStatus = flowmapAsync.when(
-    data: (List<FlowmapNode> nodes) =>
-        nodes.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
-    loading: () => SISourceStatus.loading,
-    error: (Object error, StackTrace stackTrace) => SISourceStatus.error,
-  );
-
-  final String? flowmapError = flowmapAsync.whenOrNull(
-    error: (Object error, StackTrace stackTrace) => error.toString(),
-  );
-
   final List<String> planPreview = ref
       .read(calendarServiceProvider)
       .generateAdaptivePlan(tasks: tasks, energy: energy)
@@ -133,14 +114,6 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     patterns.add('overload_pattern');
   }
 
-  if (flowmapNodes.any((node) => node.tags.contains('insight'))) {
-    patterns.add('insight_linked_flow');
-  }
-
-  if (flowmapNodes.any((node) => node.tags.contains('goal'))) {
-    patterns.add('goal_pressure_pattern');
-  }
-
   if (emotionalStrain) {
     patterns.add('emotional_strain');
   }
@@ -153,7 +126,6 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     tasks: tasks,
     goals: goals,
     insights: insights,
-    flowmapNodes: flowmapNodes,
     logs: logs,
     timeline: timeline,
     memories: memories,
@@ -168,12 +140,10 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
       tasks: tasksStatus,
       goals: goalsStatus,
       insights: insightsStatus,
-      flowmap: flowmapStatus,
       memories: memoriesStatus,
       tasksError: tasksError,
       goalsError: goalsError,
       insightsError: insightsError,
-      flowmapError: flowmapError,
     ),
     signals: SISignalExtraction(
       friction: friction,

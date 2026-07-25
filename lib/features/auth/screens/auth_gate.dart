@@ -964,5 +964,3 @@ class _AuthStatusMessage extends StatelessWidget {
     );
   }
 }
-
-

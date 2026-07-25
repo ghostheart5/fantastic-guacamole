@@ -1,3 +1,0 @@
-﻿class DuplicateFlowmapUsecase {
-  const DuplicateFlowmapUsecase();
-}

@@ -1,3 +1,0 @@
-﻿class GenerateFlowmapSummaryUsecase {
-  const GenerateFlowmapSummaryUsecase();
-}

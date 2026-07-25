@@ -1,3 +1,0 @@
-﻿class LinkEmotionToNodeUsecase {
-  const LinkEmotionToNodeUsecase();
-}

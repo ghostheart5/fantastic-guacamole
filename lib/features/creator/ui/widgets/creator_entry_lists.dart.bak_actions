@@ -1,0 +1,320 @@
+import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class CreatorEntryLists extends ConsumerWidget {
+  const CreatorEntryLists({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tasksAsync = ref.watch(tasksProvider);
+
+    return tasksAsync.when(
+      loading: () => const _CreatorEntryShell(
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.neonCyan,
+            ),
+          ),
+        ),
+      ),
+      error: (_, _) => const _CreatorEntryShell(
+        child: Text(
+          'Creator entries could not be loaded.',
+          style: TextStyle(color: AppColors.recallRed, fontSize: 12),
+        ),
+      ),
+      data: (tasks) {
+        final List<TaskEntity> all = List<TaskEntity>.from(tasks);
+
+        final List<TaskEntity> taskEntries = all
+            .where((task) => !_isCreatorSpecialKind(task.kind))
+            .toList();
+
+        final List<TaskEntity> goals = all
+            .where((task) => (task.kind ?? '').trim().toLowerCase() == 'goal')
+            .toList();
+
+        final List<TaskEntity> milestones = all
+            .where(
+              (task) => (task.kind ?? '').trim().toLowerCase() == 'milestone',
+            )
+            .toList();
+
+        final List<TaskEntity> planItems = all
+            .where((task) => (task.kind ?? '').trim().toLowerCase() == 'plan')
+            .toList();
+
+        return _CreatorEntryShell(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _CreatorEntryHeader(),
+              const SizedBox(height: 12),
+              _CreatorEntryGroup(
+                label: 'Tasks',
+                accent: AppColors.neonCyan,
+                emptyMessage: 'No task entries yet.',
+                entries: taskEntries,
+              ),
+              const SizedBox(height: 10),
+              _CreatorEntryGroup(
+                label: 'Goals',
+                accent: AppColors.neonViolet,
+                emptyMessage: 'No goal entries yet.',
+                entries: goals,
+              ),
+              const SizedBox(height: 10),
+              _CreatorEntryGroup(
+                label: 'Milestones',
+                accent: AppColors.memoryAmber,
+                emptyMessage: 'No milestone entries yet.',
+                entries: milestones,
+              ),
+              const SizedBox(height: 10),
+              _CreatorEntryGroup(
+                label: 'Plan Items',
+                accent: Colors.greenAccent,
+                emptyMessage: 'No plan items yet.',
+                entries: planItems,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static bool _isCreatorSpecialKind(String? kind) {
+    final String normalized = (kind ?? '').trim().toLowerCase();
+    return normalized == 'goal' ||
+        normalized == 'milestone' ||
+        normalized == 'plan';
+  }
+}
+
+class _CreatorEntryShell extends StatelessWidget {
+  const _CreatorEntryShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF050D1A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonCyan.withValues(alpha: 0.08),
+            blurRadius: 18,
+            spreadRadius: -6,
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _CreatorEntryHeader extends StatelessWidget {
+  const _CreatorEntryHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'CREATOR ENTRIES',
+          style: TextStyle(
+            color: AppColors.neonCyan,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.6,
+          ),
+        ),
+        SizedBox(height: 5),
+        Text(
+          'Saved tasks, goals, milestones, and plan items now surface inside Creator.',
+          style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.35),
+        ),
+      ],
+    );
+  }
+}
+
+class _CreatorEntryGroup extends StatelessWidget {
+  const _CreatorEntryGroup({
+    required this.label,
+    required this.accent,
+    required this.emptyMessage,
+    required this.entries,
+  });
+
+  final String label;
+  final Color accent;
+  final String emptyMessage;
+  final List<TaskEntity> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<TaskEntity> visibleEntries = entries.take(4).toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.20),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.20)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.45),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label.toUpperCase(),
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+              Text(
+                entries.length.toString(),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (visibleEntries.isEmpty)
+            Text(
+              emptyMessage,
+              style: const TextStyle(
+                color: Colors.white38,
+                fontSize: 12,
+                height: 1.3,
+              ),
+            )
+          else
+            Column(
+              children: visibleEntries
+                  .map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _CreatorEntryTile(entry: entry, accent: accent),
+                    ),
+                  )
+                  .toList(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CreatorEntryTile extends StatelessWidget {
+  const _CreatorEntryTile({required this.entry, required this.accent});
+
+  final TaskEntity entry;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final String description = entry.description?.trim() ?? '';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            entry.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 11,
+                height: 1.25,
+              ),
+            ),
+          ],
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Text(
+                (entry.kind ?? 'task').toUpperCase(),
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'P',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

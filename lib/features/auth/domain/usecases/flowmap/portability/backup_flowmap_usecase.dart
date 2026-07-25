@@ -1,3 +1,0 @@
-﻿class BackupFlowmapUsecase {
-  const BackupFlowmapUsecase();
-}

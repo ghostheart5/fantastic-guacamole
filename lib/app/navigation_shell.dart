@@ -4,21 +4,15 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
-import 'package:fantastic_guacamole/features/flowmap/ui/flowmap_screen.dart';
-import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
+
 import 'package:fantastic_guacamole/features/home/ui/smart_coach_screen.dart';
-import 'package:fantastic_guacamole/features/insights/ui/insight_screen.dart';
-import 'package:fantastic_guacamole/features/logs/ui/logs_screen.dart';
-import 'package:fantastic_guacamole/features/memories/ui/memories_screen.dart';
-import 'package:fantastic_guacamole/features/milestones/ui/milestones_screen.dart';
+
+
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
-import 'package:fantastic_guacamole/features/plan/ui/plan_screen.dart';
 import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
 import 'package:fantastic_guacamole/features/progression/ui/progression_screen.dart';
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
-import 'package:fantastic_guacamole/features/soul_map/ui/soul_map_screen.dart';
-import 'package:fantastic_guacamole/features/tasks/ui/task_screen.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
@@ -163,9 +157,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       unawaited(_checkRecovery());
     });
   }
-
-  
-   
 
   @override
   void dispose() {
@@ -327,8 +318,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
   AppView _recoverableSessionView(AppView view) {
     return switch (view) {
-      AppView.tasks => AppView.tasks,
-      AppView.logs => AppView.logs,
+      AppView.creator => AppView.creator,
+      AppView.timeline => AppView.timeline,
       AppView.profile => AppView.profile,
       AppView.nexus || AppView.coach => AppView.nexus,
       _ => AppView.nexus,
@@ -338,14 +329,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   int _tabIndexForView(AppView view) {
     return switch (view) {
       AppView.coach || AppView.nexus => 0,
-      AppView.tasks => 1,
-      AppView.logs => 2,
+      AppView.creator => 1,
+      AppView.timeline => 2,
       AppView.profile => 3,
       _ => 0,
     };
   }
-
-  
 
   void _onTabSelected(int index) {
     if (!mounted || _disposed) {
@@ -361,9 +350,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       case 0:
         controller.toNexus();
       case 1:
-        controller.toTasks();
+        controller.toCreator();
       case 2:
-        controller.toLogs();
+        controller.toNexus();
       case 3:
         controller.toProfile();
     }
@@ -376,8 +365,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       }
 
       return switch (index) {
-        1 => const TaskScreen(),
-        2 => const LogsScreen(),
+        1 => const CreatorScreen(),
+        2 => const TimelineScreen(),
         3 => const ProfileScreen(),
         _ => const NexusScreen(),
       };
@@ -427,21 +416,14 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
               ),
               const Divider(),
               navItem('Nexus', 'Main command center', AppView.nexus),
-              navItem('Trajectory', 'Task execution lane', AppView.tasks),
-              navItem('Ledger', 'Logs and review trail', AppView.logs),
+              navItem('Creator', 'Planning, tasks, and goals', AppView.creator),
+              navItem('Timeline', 'Activity and events', AppView.timeline),
               navItem('Profile', 'Identity and progression', AppView.profile),
               const Divider(),
-              navItem('Plan', 'Adaptive schedule', AppView.plan),
-              navItem('Creator', 'Task and goal creation', AppView.creator),
               navItem(
                 'Milestones',
                 'Checkpoint planning and tracking',
-                AppView.milestones,
-              ),
-              navItem(
-                'Insights',
-                'Pattern and trend analysis',
-                AppView.insight,
+                AppView.progression,
               ),
               navItem('Settings', 'Preferences and controls', AppView.settings),
             ],
@@ -461,8 +443,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     final Widget body = switch (view) {
       AppView.coach ||
       AppView.nexus ||
-      AppView.tasks ||
-      AppView.logs ||
+      AppView.creator ||
+      AppView.timeline ||
       AppView.profile => Scaffold(
         floatingActionButton: FloatingActionButton.small(
           onPressed: _showNavigationMap,
@@ -480,25 +462,16 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           showUnselectedLabels: false,
           items: <BottomNavigationBarItem>[
             _navItem(AppAssets.iconNexus, 'Nexus', tabIndex == 0),
-            _navItem(AppAssets.iconTasks, 'Trajectory', tabIndex == 1),
-            _navItem(AppAssets.iconLogs, 'Ledger', tabIndex == 2),
+            _navItem(AppAssets.iconTasks, 'Creator', tabIndex == 1),
+            _navItem(AppAssets.iconLogs, 'Timeline', tabIndex == 2),
             _navItem(AppAssets.iconProfile, 'Profile', tabIndex == 3),
           ],
         ),
       ),
       AppView.smartCoach => const SmartCoachScreen(),
-      AppView.insight => const InsightScreen(),
       AppView.console => const SIConsoleScreen(),
       AppView.settings => const SettingsScreen(),
       AppView.progression => const ProgressionScreen(),
-      AppView.plan => const PlanScreen(),
-      AppView.creator => const CreatorScreen(),
-      AppView.flowmap => const FlowmapScreen(),
-      AppView.goals => const GoalsScreen(),
-      AppView.milestones => const MilestonesScreen(),
-      AppView.memories => const MemoriesScreen(),
-      AppView.soulMap => const SoulMapScreen(),
-      AppView.timeline => const TimelineScreen(),
     };
 
     return PopScope(
@@ -512,15 +485,15 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         final AppView current = ref.read(appFlowProvider);
 
         if (current != AppView.nexus &&
-            current != AppView.tasks &&
-            current != AppView.logs &&
+            current != AppView.creator &&
+            current != AppView.timeline &&
             current != AppView.profile) {
           controller.toNexus();
           return;
         }
 
-        if (current == AppView.tasks ||
-            current == AppView.logs ||
+        if (current == AppView.creator ||
+            current == AppView.timeline ||
             current == AppView.profile) {
           controller.toNexus();
           return;
@@ -533,6 +506,3 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     );
   }
 }
-
-
-

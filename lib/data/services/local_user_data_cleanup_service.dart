@@ -24,7 +24,6 @@ class LocalUserDataCleanupService {
     HiveBoxes.subtasks,
     HiveBoxes.progression,
     HiveBoxes.dailyPlans,
-    HiveBoxes.flowmap,
     HiveBoxes.timeline,
     HiveBoxes.offlineQueue,
     'profile_box',

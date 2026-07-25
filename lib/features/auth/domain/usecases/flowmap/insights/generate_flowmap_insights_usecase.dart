@@ -1,3 +1,0 @@
-﻿class GenerateFlowmapInsightsUsecase {
-  const GenerateFlowmapInsightsUsecase();
-}

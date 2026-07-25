@@ -1,3 +1,0 @@
-﻿class LinkTaskToNodeUsecase {
-  const LinkTaskToNodeUsecase();
-}

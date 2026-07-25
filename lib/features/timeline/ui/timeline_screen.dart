@@ -23,11 +23,14 @@ enum _TimelineWindow { today, week, month, year, all }
 
 enum _TimelineFocus {
   all,
+  current,
+  completed,
   overdue,
   upcoming,
   milestones,
   risks,
   recommendations,
+  history,
 }
 
 class TimelineScreen extends ConsumerStatefulWidget {
@@ -128,11 +131,18 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           }
           final bool inFocus = switch (_focus) {
             _TimelineFocus.all => true,
+            _TimelineFocus.current =>
+              event.isUpcoming ||
+                  (event.status != TimelineEventStatus.completed &&
+                      !event.isOverdue),
+            _TimelineFocus.completed =>
+              event.status == TimelineEventStatus.completed,
             _TimelineFocus.overdue => event.isOverdue,
             _TimelineFocus.upcoming => event.isUpcoming,
             _TimelineFocus.milestones => event.isMilestone,
             _TimelineFocus.risks => event.isRisk,
             _TimelineFocus.recommendations => event.isRecommendation,
+            _TimelineFocus.history => _eventMoment(event).isBefore(now),
           };
           if (!inFocus) {
             return false;
@@ -235,7 +245,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                             ),
                           ),
                           const Text(
-                            'EVENT CHRONOLOGY',
+                            'COMPLETE HISTORY · TASKS · GOALS · ACTIVITY',
                             style: TextStyle(
                               fontSize: 10,
                               letterSpacing: 2,
@@ -815,11 +825,14 @@ String _windowLabel(_TimelineWindow value) {
 String _focusLabel(_TimelineFocus value) {
   return switch (value) {
     _TimelineFocus.all => 'All',
+    _TimelineFocus.current => 'Current',
+    _TimelineFocus.completed => 'Completed',
     _TimelineFocus.overdue => 'Overdue',
     _TimelineFocus.upcoming => 'Upcoming',
     _TimelineFocus.milestones => 'Milestones',
     _TimelineFocus.risks => 'Risks',
     _TimelineFocus.recommendations => 'Recommendations',
+    _TimelineFocus.history => 'History',
   };
 }
 

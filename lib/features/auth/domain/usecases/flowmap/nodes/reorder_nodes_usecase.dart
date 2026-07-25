@@ -1,3 +1,0 @@
-﻿class ReorderNodesUsecase {
-  const ReorderNodesUsecase();
-}

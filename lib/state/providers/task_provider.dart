@@ -19,7 +19,6 @@ import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/session_score_view.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
@@ -326,6 +325,62 @@ class TaskActions {
     _ref.invalidate(domainSiDecisionProvider);
   }
 
+  Future<void> updateCreatorEntry({
+    required String id,
+    required String title,
+    String? description,
+    required int priority,
+  }) async {
+    final String trimmedTitle = title.trim();
+    if (id.trim().isEmpty || trimmedTitle.isEmpty) {
+      throw StateError('Creator entry is missing required fields.');
+    }
+
+    final TaskEntity? existing = await _ref
+        .read(domainTaskRepositoryProvider)
+        .getTaskById(id);
+
+    if (existing == null || existing.isCompleted || existing.isCanceled) {
+      throw StateError('Creator entry not found.');
+    }
+
+    final String? normalizedDescription =
+        description == null || description.trim().isEmpty
+        ? null
+        : description.trim();
+
+    final TaskEntity updated = existing.copyWith(
+      title: trimmedTitle,
+      description: normalizedDescription,
+      priority: priority.clamp(1, 5),
+    );
+
+    await _ref.read(updateTaskUseCaseProvider).call(updated);
+
+    await _bestEffort(
+      () => _ref
+          .read(logsActionsProvider)
+          .addMirroredEntry(
+            source: 'creator_entry_updated',
+            message: updated.title,
+          ),
+    );
+
+    _ref
+        .read(eventBusProvider)
+        .emit(
+          TaskLifecycleEvent(
+            taskId: updated.id,
+            title: updated.title,
+            action: 'updated',
+          ),
+        );
+
+    _ref.invalidate(tasksProvider);
+    _ref.invalidate(goalProgressProvider);
+    _ref.invalidate(domainSiDecisionProvider);
+  }
+
   Future<void> _refreshCoachDecision({required bool notify}) async {
     try {
       final decision = await _ref
@@ -407,15 +462,6 @@ class TaskActions {
             ),
           ),
     );
-    await _bestEffort(
-      () => _ref
-          .read(flowmapProvider.notifier)
-          .addNode(
-            title: task.title,
-            description: task.description,
-            tags: const <String>['task', 'created'],
-          ),
-    );
     await _refreshCoachDecision(notify: notify);
   }
 
@@ -484,6 +530,8 @@ Task _taskFromEntity(TaskEntity task) {
   return Task(
     id: task.id,
     title: task.title,
+    description: task.description,
+    kind: task.kind,
     priority: task.priority,
     difficulty: task.difficulty,
     energyRequired: task.energyRequired,

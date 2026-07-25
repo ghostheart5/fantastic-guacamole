@@ -1,3 +1,0 @@
-﻿class ResizeNodeUsecase {
-  const ResizeNodeUsecase();
-}

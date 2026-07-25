@@ -1,3 +1,0 @@
-﻿class SearchFlowmapsUsecase {
-  const SearchFlowmapsUsecase();
-}

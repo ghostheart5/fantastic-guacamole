@@ -1399,4 +1399,3 @@ String? _appendStartupIssue(String? current, String next) {
 
   return '$normalizedCurrent\n$normalizedNext';
 }
-

@@ -199,7 +199,6 @@ import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_extended_domain_repository.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_flowmap_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_identity_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_insight_repository.dart';
@@ -229,7 +228,6 @@ import 'package:fantastic_guacamole/domain/usecases/create_project.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_routine.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_subtask.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_task.dart';
-import 'package:fantastic_guacamole/domain/usecases/delete_flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_memory.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_project.dart';
@@ -243,7 +241,6 @@ import 'package:fantastic_guacamole/domain/usecases/get_analytics_metrics.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_coach_messages.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_current_theme.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_extended_app_settings.dart';
-import 'package:fantastic_guacamole/domain/usecases/get_flowmap_nodes.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_identity_profile.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_insights.dart';
@@ -276,7 +273,6 @@ import 'package:fantastic_guacamole/domain/usecases/save_theme.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/schedule_notification.dart';
 import 'package:fantastic_guacamole/domain/usecases/switch_theme.dart';
-import 'package:fantastic_guacamole/domain/usecases/update_flowmap_node.dart';
 import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/view/view_active_goals_usecase.dart';
 import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/view/view_archived_goals_usecase.dart';
 import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/view/view_completed_goals_usecase.dart';
@@ -400,10 +396,6 @@ final domainTimelineRepositoryProvider = Provider<ITimelineRepository>((ref) {
 
 final domainThemeRepositoryProvider = Provider<IThemeRepository>((ref) {
   return ref.read(themeRepositoryProvider);
-});
-
-final domainFlowmapRepositoryProvider = Provider<IFlowmapRepository>((ref) {
-  return ref.read(flowmapRepositoryProvider);
 });
 
 final domainIdentityRepositoryProvider = Provider<IIdentityRepository>((ref) {
@@ -879,18 +871,6 @@ final removeTimelineEventUseCaseProvider = Provider<RemoveTimelineEvent>((ref) {
 
 final saveTimelineEventsUseCaseProvider = Provider<SaveTimelineEvents>((ref) {
   return SaveTimelineEvents(ref.read(domainTimelineRepositoryProvider));
-});
-
-final getFlowmapUseCaseProvider = Provider<GetFlowmap>((ref) {
-  return GetFlowmap(ref.read(domainFlowmapRepositoryProvider));
-});
-
-final updateFlowmapNodeUseCaseProvider = Provider<UpdateFlowmapNode>((ref) {
-  return UpdateFlowmapNode(ref.read(domainFlowmapRepositoryProvider));
-});
-
-final deleteFlowmapNodeUseCaseProvider = Provider<DeleteFlowmapNode>((ref) {
-  return DeleteFlowmapNode(ref.read(domainFlowmapRepositoryProvider));
 });
 
 final createTaskUseCaseProvider = Provider<CreateTask>((ref) {

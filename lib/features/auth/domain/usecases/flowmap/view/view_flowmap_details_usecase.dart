@@ -1,3 +1,0 @@
-﻿class ViewFlowmapDetailsUsecase {
-  const ViewFlowmapDetailsUsecase();
-}

@@ -1,3 +1,0 @@
-﻿class ZoomFlowmapUsecase {
-  const ZoomFlowmapUsecase();
-}

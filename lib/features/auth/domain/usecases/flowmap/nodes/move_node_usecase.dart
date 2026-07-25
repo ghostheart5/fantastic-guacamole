@@ -1,3 +1,0 @@
-﻿class MoveNodeUsecase {
-  const MoveNodeUsecase();
-}

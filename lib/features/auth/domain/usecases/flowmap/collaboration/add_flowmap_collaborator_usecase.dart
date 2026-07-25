@@ -1,3 +1,0 @@
-﻿class AddFlowmapCollaboratorUsecase {
-  const AddFlowmapCollaboratorUsecase();
-}

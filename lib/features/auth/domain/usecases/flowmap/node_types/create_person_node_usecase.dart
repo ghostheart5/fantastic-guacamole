@@ -1,3 +1,0 @@
-﻿class CreatePersonNodeUsecase {
-  const CreatePersonNodeUsecase();
-}

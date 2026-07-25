@@ -1,3 +1,0 @@
-﻿class AnalyzeFlowmapPatternsUsecase {
-  const AnalyzeFlowmapPatternsUsecase();
-}

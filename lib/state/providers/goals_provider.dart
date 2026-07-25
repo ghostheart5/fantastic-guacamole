@@ -11,7 +11,6 @@ import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
@@ -1768,14 +1767,6 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
             ),
           );
     }
-
-    await ref
-        .read(flowmapProvider.notifier)
-        .addNode(
-          title: goal.title,
-          description: '$detailPrefix at ${now.toIso8601String()}',
-          tags: <String>['goal', actionName, 'goal:${goal.id}'],
-        );
 
     final int progressionXp = switch (action) {
       _GoalAction.created => 12,

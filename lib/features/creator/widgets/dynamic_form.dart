@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
+import 'package:fantastic_guacamole/features/creator/models/creator_workspace_mode.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/type_selector.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -6,9 +7,14 @@ import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 
 class DynamicForm extends StatefulWidget {
-  const DynamicForm({super.key, required this.onSubmit});
+  const DynamicForm({
+    super.key,
+    required this.onSubmit,
+    this.workspaceMode = CreatorWorkspaceMode.tasks,
+  });
 
   final Future<void> Function(CreatorFormData data) onSubmit;
+  final CreatorWorkspaceMode workspaceMode;
 
   @override
   State<DynamicForm> createState() => _DynamicFormState();
@@ -24,6 +30,27 @@ class _DynamicFormState extends State<DynamicForm> {
   bool _submitting = false;
   String? _errorMessage;
 
+  String get _entryType {
+    if (widget.workspaceMode == CreatorWorkspaceMode.tasks) {
+      return _selectedType;
+    }
+
+    return widget.workspaceMode.label;
+  }
+
+  String get _submitLabel {
+    switch (widget.workspaceMode) {
+      case CreatorWorkspaceMode.tasks:
+        return 'FORGE TASK';
+      case CreatorWorkspaceMode.goals:
+        return 'FORGE GOAL';
+      case CreatorWorkspaceMode.milestones:
+        return 'FORGE MILESTONE';
+      case CreatorWorkspaceMode.plan:
+        return 'FORGE PLAN ITEM';
+    }
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -35,7 +62,7 @@ class _DynamicFormState extends State<DynamicForm> {
     if (_submitting) return;
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      setState(() => _errorMessage = 'Add a title before creating the task.');
+      setState(() => _errorMessage = 'Add a title before creating the entry.');
       return;
     }
 
@@ -51,9 +78,10 @@ class _DynamicFormState extends State<DynamicForm> {
           description: _descController.text.trim().isEmpty
               ? null
               : _descController.text.trim(),
-          type: _selectedType,
+          type: _entryType,
           priority: _priority,
           scheduledFor: _scheduledFor,
+          creatorMode: widget.workspaceMode.name,
           recurrenceRule: _recurrenceRule,
         ),
       );
@@ -70,7 +98,7 @@ class _DynamicFormState extends State<DynamicForm> {
       if (!mounted) return;
       setState(() {
         _errorMessage =
-            'The task could not be saved. Your entry is still here—retry.';
+            'The task could not be saved. Your entry is still hereâ€”retry.';
       });
     } finally {
       if (mounted) {
@@ -173,10 +201,10 @@ class _DynamicFormState extends State<DynamicForm> {
                         ),
                       ),
                     )
-                  : const Text(
-                      'FORGE TASK',
+                  : Text(
+                      _submitLabel,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         letterSpacing: 2.5,
                         fontWeight: FontWeight.w800,

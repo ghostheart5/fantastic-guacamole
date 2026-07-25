@@ -1,3 +1,0 @@
-﻿class RemoveTagFromNodeUsecase {
-  const RemoveTagFromNodeUsecase();
-}

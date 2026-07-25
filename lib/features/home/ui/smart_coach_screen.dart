@@ -1235,19 +1235,14 @@ class _QuickNavRow extends ConsumerWidget {
             label: 'GOALS',
             icon: Icons.flag_rounded,
             color: AppColors.memoryAmber,
-            onTap: () => ref.read(appFlowProvider.notifier).toGoals(),
+            onTap: () => ref.read(appFlowProvider.notifier).toCreator(),
           ),
-          _QuickNavCard(
-            label: 'MEMORIES',
-            icon: Icons.auto_awesome_rounded,
-            color: AppColors.neonViolet,
-            onTap: () => ref.read(appFlowProvider.notifier).toMemories(),
-          ),
+
           _QuickNavCard(
             label: 'SOUL MAP',
             icon: Icons.hub_rounded,
             color: AppColors.neonCyan,
-            onTap: () => ref.read(appFlowProvider.notifier).toSoulMap(),
+            onTap: () => ref.read(appFlowProvider.notifier).toNexus(),
           ),
         ];
         if (!compact) {
@@ -1256,8 +1251,6 @@ class _QuickNavRow extends ConsumerWidget {
               Expanded(child: cards[0]),
               const SizedBox(width: 8),
               Expanded(child: cards[1]),
-              const SizedBox(width: 8),
-              Expanded(child: cards[2]),
             ],
           );
         }

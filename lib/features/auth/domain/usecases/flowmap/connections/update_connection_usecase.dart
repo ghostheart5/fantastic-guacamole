@@ -1,3 +1,0 @@
-﻿class UpdateConnectionUsecase {
-  const UpdateConnectionUsecase();
-}

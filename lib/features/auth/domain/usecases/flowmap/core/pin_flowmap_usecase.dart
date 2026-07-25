@@ -1,3 +1,0 @@
-﻿class PinFlowmapUsecase {
-  const PinFlowmapUsecase();
-}

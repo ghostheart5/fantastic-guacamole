@@ -1,3 +1,0 @@
-﻿class ExportFlowmapUsecase {
-  const ExportFlowmapUsecase();
-}

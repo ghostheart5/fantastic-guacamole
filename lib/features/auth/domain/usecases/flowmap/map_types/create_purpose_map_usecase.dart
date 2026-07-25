@@ -1,3 +1,0 @@
-﻿class CreatePurposeMapUsecase {
-  const CreatePurposeMapUsecase();
-}

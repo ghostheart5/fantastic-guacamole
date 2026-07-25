@@ -838,94 +838,10 @@ class _DependencyMesh extends ConsumerWidget {
     final SISourceStatus insightsStatus =
         sourceHealth?.insights ??
         (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
-    final SISourceStatus flowmapStatus =
-        sourceHealth?.flowmap ??
-        (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
     final SISourceStatus memoriesStatus =
         sourceHealth?.memories ??
         (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
-    final List<Task> tasks = aggregation?.tasks ?? const <Task>[];
-    final List<GoalEntity> goals = aggregation?.goals ?? const <GoalEntity>[];
-    final List<MemoryEntity> memories =
-        aggregation?.memories ?? const <MemoryEntity>[];
-    final List<FlowmapNode> flowNodesData =
-        aggregation?.flowmapNodes ?? const <FlowmapNode>[];
 
-    final int pendingTasks = tasks.length;
-    final String nextTaskTitle = switch (tasksStatus) {
-      SISourceStatus.loading => 'Loading task queue...',
-      SISourceStatus.error => 'Task queue unavailable',
-      SISourceStatus.empty => 'Queue clear',
-      SISourceStatus.ready => tasks.isEmpty ? 'Queue clear' : tasks.first.title,
-    };
-    final int linkedTasks = tasks
-        .where((Task task) => task.goalId != null && task.goalId!.isNotEmpty)
-        .length;
-
-    final List<String> goalTitles = goals
-        .map((GoalEntity goal) => goal.title.trim())
-        .where((String title) => title.isNotEmpty)
-        .toList(growable: false);
-    final String goalHeadline = switch (goalsStatus) {
-      SISourceStatus.loading => 'Loading goals...',
-      SISourceStatus.error => 'Goals unavailable',
-      SISourceStatus.empty => 'No active goals',
-      SISourceStatus.ready =>
-        goalTitles.isEmpty
-            ? 'No active goals'
-            : goalTitles.firstWhere(
-                (String title) =>
-                    title.toLowerCase() != nextTaskTitle.toLowerCase(),
-                orElse: () => 'Goal linked to "$nextTaskTitle"',
-              ),
-    };
-    final int goalsWithTarget = goals
-        .where((GoalEntity goal) => goal.targetDate != null)
-        .length;
-
-    final insights = aggregation?.insights;
-    final String insightsHeadline = switch (insightsStatus) {
-      SISourceStatus.loading => 'Computing insight bundle...',
-      SISourceStatus.error => 'Insight pipeline unavailable',
-      SISourceStatus.empty => 'No insight bundle published',
-      SISourceStatus.ready =>
-        (insights == null || insights.items.isEmpty)
-            ? 'No insight bundle published'
-            : insights.items.first.title,
-    };
-
-    final int recentMemories = memories
-        .where((MemoryEntity memory) => memory.isRecent)
-        .length;
-    final String memoryHeadline = switch (memoriesStatus) {
-      SISourceStatus.loading => 'Loading memory traces...',
-      SISourceStatus.error => 'Memory stream unavailable',
-      SISourceStatus.empty => 'No recent memory capture',
-      SISourceStatus.ready =>
-        memories.isEmpty ? 'No recent memory capture' : memories.first.text,
-    };
-
-    final int flowNodes = flowNodesData.length;
-    final int connectedNodes = flowNodesData
-        .where((FlowmapNode node) => node.connectedTo.isNotEmpty)
-        .length;
-    final List<String> flowTitles = flowNodesData
-        .map((FlowmapNode node) => node.title.trim())
-        .where((String title) => title.isNotEmpty)
-        .toList(growable: false);
-    final String flowHeadline = switch (flowmapStatus) {
-      SISourceStatus.loading => 'Loading mapped threads...',
-      SISourceStatus.error => 'Flowmap unavailable',
-      SISourceStatus.empty => 'No mapped threads',
-      SISourceStatus.ready =>
-        flowTitles.isEmpty
-            ? 'No mapped threads'
-            : flowTitles.firstWhere((String title) {
-                final String lowered = title.toLowerCase();
-                return lowered != nextTaskTitle.toLowerCase() &&
-                    lowered != goalHeadline.toLowerCase();
-              }, orElse: () => 'Flow linked to "$nextTaskTitle"'),
-    };
     final bool hasCriticalError =
         tasksStatus == SISourceStatus.error ||
         insightsStatus == SISourceStatus.error ||
@@ -933,7 +849,6 @@ class _DependencyMesh extends ConsumerWidget {
     final bool hasAnyError =
         hasCriticalError ||
         goalsStatus == SISourceStatus.error ||
-        flowmapStatus == SISourceStatus.error ||
         memoriesStatus == SISourceStatus.error;
     final String syncStatus = modelAsync.isLoading
         ? 'SYNCING'
@@ -949,7 +864,6 @@ class _DependencyMesh extends ConsumerWidget {
       if (tasksStatus == SISourceStatus.error) 'tasks',
       if (goalsStatus == SISourceStatus.error) 'goals',
       if (insightsStatus == SISourceStatus.error) 'insights',
-      if (flowmapStatus == SISourceStatus.error) 'flowmap',
       if (memoriesStatus == SISourceStatus.error) 'memories',
     ];
     final String? syncDetail = modelAsync.isLoading
@@ -1015,51 +929,6 @@ class _DependencyMesh extends ConsumerWidget {
               value: 'LVL ${progress.level}',
               headline: progress.levelTitle,
               detail: '${progress.xp} XP · ${progress.streak}d streak.',
-            ),
-            _DependencyCard(
-              label: 'Tasks',
-              accent: AppColors.memoryAmber,
-              value: '$pendingTasks queued',
-              headline: nextTaskTitle,
-              detail: tasksStatus == SISourceStatus.error
-                  ? 'Task source error: ${_errorSummary(sourceHealth?.tasksError)}'
-                  : '$linkedTasks linked to goals.',
-            ),
-            _DependencyCard(
-              label: 'Goals',
-              accent: const Color(0xFF7AF7C4),
-              value: '${goals.length} active',
-              headline: goalHeadline,
-              detail: goalsStatus == SISourceStatus.error
-                  ? 'Goals source unavailable. Check domain repository wiring.'
-                  : '$goalsWithTarget with target dates.',
-            ),
-            _DependencyCard(
-              label: 'Insights',
-              accent: AppColors.neonViolet,
-              value: '${insights?.items.length ?? 0} signals',
-              headline: insightsHeadline,
-              detail: insightsStatus == SISourceStatus.error
-                  ? 'Insight source error: ${_errorSummary(sourceHealth?.insightsError)}'
-                  : 'Health ${(((insights?.healthScore ?? 0) * 100).round())}%.',
-            ),
-            _DependencyCard(
-              label: 'Flowmap',
-              accent: const Color(0xFF4BE6B0),
-              value: '$flowNodes nodes',
-              headline: flowHeadline,
-              detail: flowmapStatus == SISourceStatus.error
-                  ? 'Flowmap source error: ${_errorSummary(sourceHealth?.flowmapError)}'
-                  : '$connectedNodes/$flowNodes connected decision nodes (node = a mapped task, goal, or idea link).',
-            ),
-            _DependencyCard(
-              label: 'Memories',
-              accent: const Color(0xFFFFB86B),
-              value: '${memories.length} stored',
-              headline: _truncate(memoryHeadline),
-              detail: memoriesStatus == SISourceStatus.error
-                  ? 'Memory source unavailable. Validate secure storage state.'
-                  : '$recentMemories recent memory traces.',
             ),
           ],
         ),
@@ -1328,14 +1197,6 @@ class _DependencyCard extends StatelessWidget {
   }
 }
 
-String _truncate(String text, {int max = 52}) {
-  final String normalized = text.trim();
-  if (normalized.length <= max) {
-    return normalized;
-  }
-  return '${normalized.substring(0, max - 1)}...';
-}
-
 // ---------------------------------------------------------------------------
 // Action grid
 // ---------------------------------------------------------------------------
@@ -1369,18 +1230,6 @@ class _ActionGrid extends ConsumerWidget {
           ],
         ),
         border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonCyan.withValues(alpha: 0.14),
-            blurRadius: 18,
-            spreadRadius: -2,
-          ),
-          BoxShadow(
-            color: AppColors.neonViolet.withValues(alpha: 0.10),
-            blurRadius: 24,
-            spreadRadius: -6,
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1397,52 +1246,37 @@ class _ActionGrid extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               const Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'NEXUS ACTION HUB',
-                    style: TextStyle(
-                      fontSize: 10,
-                      letterSpacing: 1.6,
-                      color: AppColors.neonCyan,
-                      fontWeight: FontWeight.w700,
-                    ),
+                child: Text(
+                  'NEXUS ACTION HUB',
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 1.6,
+                    color: AppColors.neonCyan,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
             ],
           ),
+
           SizedBox(height: ultraCompact ? 10 : 12),
+
           if (compact) ...[
             HoloButton(
               label: 'Smart Coach',
               onTap: () => ref.read(appFlowProvider.notifier).toSmartCoach(),
             ),
+
             const SizedBox(height: 10),
+
             HoloButton(
               label: 'Plan View',
               color: AppColors.memoryAmber,
-              onTap: () => ref.read(appFlowProvider.notifier).toPlan(),
-            ),
-            const SizedBox(height: 10),
-            HoloButton(
-              label: 'Create Task',
-              color: AppColors.memoryAmber,
               onTap: () => ref.read(appFlowProvider.notifier).toCreator(),
             ),
+
             const SizedBox(height: 10),
-            HoloButton(
-              label: 'Insights',
-              color: AppColors.neonViolet,
-              onTap: () => ref.read(appFlowProvider.notifier).toInsight(),
-            ),
-            const SizedBox(height: 10),
-            HoloButton(
-              label: 'Flowmap',
-              onTap: () => ref.read(appFlowProvider.notifier).toFlowmap(),
-            ),
-            const SizedBox(height: 10),
+
             HoloButton(
               label: 'SI Console',
               onTap: () => ref.read(appFlowProvider.notifier).toConsole(),
@@ -1462,41 +1296,16 @@ class _ActionGrid extends ConsumerWidget {
                   child: HoloButton(
                     label: 'Plan View',
                     color: AppColors.memoryAmber,
-                    onTap: () => ref.read(appFlowProvider.notifier).toPlan(),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: HoloButton(
-                    label: 'Create Task',
-                    color: AppColors.memoryAmber,
                     onTap: () => ref.read(appFlowProvider.notifier).toCreator(),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: HoloButton(
-                    label: 'Insights',
-                    color: AppColors.neonViolet,
-                    onTap: () => ref.read(appFlowProvider.notifier).toInsight(),
-                  ),
-                ),
               ],
             ),
+
             const SizedBox(height: 12),
+
             Row(
               children: [
-                Expanded(
-                  child: HoloButton(
-                    label: 'Flowmap',
-                    onTap: () => ref.read(appFlowProvider.notifier).toFlowmap(),
-                  ),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: HoloButton(
                     label: 'SI Console',

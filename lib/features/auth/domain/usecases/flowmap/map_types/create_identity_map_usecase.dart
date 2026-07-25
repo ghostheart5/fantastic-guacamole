@@ -1,3 +1,0 @@
-﻿class CreateIdentityMapUsecase {
-  const CreateIdentityMapUsecase();
-}

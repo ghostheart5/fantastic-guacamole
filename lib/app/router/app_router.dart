@@ -229,7 +229,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.plan,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.plan),
+            const NavigationShell(initialView: AppView.creator),
       ),
       GoRoute(
         path: RoutePaths.creator,
@@ -239,7 +239,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.insights,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.insight),
+            const NavigationShell(initialView: AppView.smartCoach),
       ),
       GoRoute(
         path: RoutePaths.settings,
@@ -261,12 +261,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.logs,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.logs),
+            const NavigationShell(initialView: AppView.nexus),
       ),
       GoRoute(
         path: RoutePaths.tasks,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.tasks),
+            const NavigationShell(initialView: AppView.creator),
       ),
       GoRoute(
         path: RoutePaths.profile,
@@ -320,8 +320,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final intelligence = ref.read(intelligenceStateProvider);
           final mockLoginConfig = ref.read(mockLoginConfigProvider);
           return AuthGate(
-            enableMockLogin:
-                intelligence.flags.mockLoginEnabled,
+            enableMockLogin: intelligence.flags.mockLoginEnabled,
             mockLoginEmail: mockLoginConfig.email,
             mockLoginPassword: mockLoginConfig.password,
             deepLinkMode: state.uri.queryParameters['mode'],
@@ -402,4 +401,3 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
-

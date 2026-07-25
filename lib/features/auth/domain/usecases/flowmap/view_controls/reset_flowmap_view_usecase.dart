@@ -1,3 +1,0 @@
-﻿class ResetFlowmapViewUsecase {
-  const ResetFlowmapViewUsecase();
-}

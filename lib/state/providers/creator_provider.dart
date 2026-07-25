@@ -13,33 +13,20 @@ class CreatorActions {
 
   final Ref ref;
 
-  Future<void> createTask(CreatorFormData data) async {
-    final String kind = data.type.trim().toLowerCase();
-    final RecurrenceRule recurrence = data.recurrenceRule != RecurrenceRule.none
-        ? data.recurrenceRule
-        : switch (kind) {
-            'routine' => RecurrenceRule.daily,
-            _ => RecurrenceRule.none,
-          };
+  Future<void> createTask(CreatorFormData data) {
+    return createEntry(data);
+  }
 
-    final int difficulty = switch (kind) {
-      'goal' || 'mission' => 5,
-      _ => 3,
-    };
+  Future<void> createEntry(CreatorFormData data) async {
+    final String mode = data.creatorMode.trim().toLowerCase();
+    final String kind = _kindFor(data, mode);
 
-    final int energyRequired = switch (kind) {
-      'goal' => 4,
-      'mission' => 3,
-      'routine' => 2,
-      'note' => 1,
-      _ => 3,
-    };
+    final RecurrenceRule recurrence = _recurrenceFor(
+      kind: kind,
+      requested: data.recurrenceRule,
+    );
 
-    final int priority = switch (kind) {
-      'goal' || 'mission' => data.priority < 4 ? 4 : data.priority,
-      'note' => 1,
-      _ => data.priority,
-    };
+    final int priority = _priorityFor(kind: kind, requested: data.priority);
 
     final entity = TaskEntity(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -48,11 +35,68 @@ class CreatorActions {
       description: data.description,
       createdAt: DateTime.now(),
       priority: priority,
-      difficulty: difficulty,
-      energyRequired: energyRequired,
+      difficulty: _difficultyFor(kind),
+      energyRequired: _energyRequiredFor(kind),
       scheduledFor: data.scheduledFor,
       recurrenceRule: recurrence,
     );
+
     await ref.read(taskActionsProvider).createTask(entity);
+  }
+
+  String _kindFor(CreatorFormData data, String mode) {
+    return switch (mode) {
+      'goals' => 'goal',
+      'milestones' => 'milestone',
+      'plan' => 'plan',
+      _ => data.type.trim().toLowerCase(),
+    };
+  }
+
+  RecurrenceRule _recurrenceFor({
+    required String kind,
+    required RecurrenceRule requested,
+  }) {
+    if (requested != RecurrenceRule.none) {
+      return requested;
+    }
+
+    return switch (kind) {
+      'routine' => RecurrenceRule.daily,
+      _ => RecurrenceRule.none,
+    };
+  }
+
+  int _difficultyFor(String kind) {
+    return switch (kind) {
+      'goal' => 5,
+      'mission' => 5,
+      'milestone' => 4,
+      'plan' => 3,
+      _ => 3,
+    };
+  }
+
+  int _energyRequiredFor(String kind) {
+    return switch (kind) {
+      'goal' => 4,
+      'mission' => 3,
+      'milestone' => 3,
+      'plan' => 2,
+      'routine' => 2,
+      'note' => 1,
+      _ => 3,
+    };
+  }
+
+  int _priorityFor({required String kind, required int requested}) {
+    return switch (kind) {
+      'goal' => requested < 4 ? 4 : requested,
+      'mission' => requested < 4 ? 4 : requested,
+      'milestone' => requested < 3 ? 3 : requested,
+      'plan' => requested < 2 ? 2 : requested,
+      'note' => 1,
+      _ => requested,
+    };
   }
 }

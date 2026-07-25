@@ -1,3 +1,0 @@
-﻿class RestoreFlowmapBackupUsecase {
-  const RestoreFlowmapBackupUsecase();
-}

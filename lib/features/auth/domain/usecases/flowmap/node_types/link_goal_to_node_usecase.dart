@@ -1,3 +1,0 @@
-﻿class LinkGoalToNodeUsecase {
-  const LinkGoalToNodeUsecase();
-}

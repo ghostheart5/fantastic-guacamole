@@ -1,3 +1,0 @@
-﻿class ArchiveFlowmapUsecase {
-  const ArchiveFlowmapUsecase();
-}

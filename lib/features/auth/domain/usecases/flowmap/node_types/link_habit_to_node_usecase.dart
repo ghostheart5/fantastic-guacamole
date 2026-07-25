@@ -1,3 +1,0 @@
-﻿class LinkHabitToNodeUsecase {
-  const LinkHabitToNodeUsecase();
-}

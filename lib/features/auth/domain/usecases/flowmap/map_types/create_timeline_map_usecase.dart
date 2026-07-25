@@ -1,3 +1,0 @@
-﻿class CreateTimelineMapUsecase {
-  const CreateTimelineMapUsecase();
-}

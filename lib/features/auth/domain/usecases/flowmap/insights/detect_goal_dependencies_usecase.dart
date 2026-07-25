@@ -1,3 +1,0 @@
-﻿class DetectGoalDependenciesUsecase {
-  const DetectGoalDependenciesUsecase();
-}

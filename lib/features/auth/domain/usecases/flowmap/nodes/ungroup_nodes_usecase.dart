@@ -1,3 +1,0 @@
-﻿class UngroupNodesUsecase {
-  const UngroupNodesUsecase();
-}

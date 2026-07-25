@@ -1,3 +1,0 @@
-﻿class UpdateNodeNoteUsecase {
-  const UpdateNodeNoteUsecase();
-}

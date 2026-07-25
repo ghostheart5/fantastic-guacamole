@@ -95,7 +95,6 @@ class HiveService {
       HiveBoxes.progression,
       HiveBoxes.dailyPlans,
       HiveBoxes.offlineQueue,
-      HiveBoxes.flowmap,
       HiveBoxes.notifications,
       HiveBoxes.timeline,
       HiveBoxes.cache,

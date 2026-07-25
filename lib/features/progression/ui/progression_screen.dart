@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/level_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/streak_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/weekly_summary_card.dart';
+import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
@@ -206,6 +207,8 @@ class ProgressionScreen extends ConsumerWidget {
                 StreakCard(progress: progress),
                 const SizedBox(height: 16),
                 const _ProgressSignalsCard(),
+                const SizedBox(height: 12),
+                const _MilestonesCard(),
                 const SizedBox(height: 12),
                 const _NarrativeCard(),
                 const SizedBox(height: 12),
@@ -609,5 +612,155 @@ class _XpLineChartPainter extends CustomPainter {
       }
     }
     return false;
+  }
+}
+
+class _MilestonesCard extends ConsumerWidget {
+  const _MilestonesCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final List<MilestoneEntity> milestones =
+        ref.watch(milestonesProvider).asData?.value ??
+        const <MilestoneEntity>[];
+    final List<MilestoneEntity> active = milestones
+        .where(
+          (MilestoneEntity m) =>
+              m.status != MilestoneStatus.completed &&
+              m.status != MilestoneStatus.archived,
+        )
+        .toList();
+    final int completedCount = milestones
+        .where((MilestoneEntity m) => m.status == MilestoneStatus.completed)
+        .length;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF050D1A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 2,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: AppColors.neonViolet,
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'MILESTONES',
+                style: TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 2.5,
+                  color: AppColors.neonViolet,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$completedCount completed',
+                style: const TextStyle(fontSize: 10, color: Colors.white38),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (active.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'No active milestones. Plan your next checkpoint.',
+                style: TextStyle(color: Colors.white38, fontSize: 12),
+              ),
+            )
+          else
+            ...active
+                .take(3)
+                .map(
+                  (MilestoneEntity m) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                m.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (m.description != null &&
+                                  m.description!.isNotEmpty)
+                                Text(
+                                  m.description!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: m.status == MilestoneStatus.overdue
+                                ? AppColors.recallRed.withValues(alpha: 0.1)
+                                : AppColors.neonViolet.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: m.status == MilestoneStatus.overdue
+                                  ? AppColors.recallRed
+                                  : AppColors.neonViolet,
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Text(
+                            m.status.toString().split('.').last.toUpperCase(),
+                            style: TextStyle(
+                              color: m.status == MilestoneStatus.overdue
+                                  ? AppColors.recallRed
+                                  : AppColors.neonViolet,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+          if (active.length > 3)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                '+ ${active.length - 3} more',
+                style: const TextStyle(color: Colors.white38, fontSize: 11),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

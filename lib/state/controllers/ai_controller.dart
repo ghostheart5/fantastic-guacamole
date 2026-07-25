@@ -44,7 +44,6 @@ import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
@@ -174,7 +173,6 @@ class AIController {
     final SoulMapFutureSelfComparison soulMapComparison = _ref.read(
       soulMapFutureSelfComparisonProvider,
     );
-    final flowmapAsync = _ref.read(flowmapProvider);
     final progression = _ref.read(progressionProvider).progress;
     final soulState = _ref.read(soulStateProvider);
     final trajectory = _ref.read(trajectorySummaryProvider);
@@ -196,10 +194,6 @@ class AIController {
       }
     }
 
-    final int flowmapNodeCount = flowmapAsync.maybeWhen(
-      data: (nodes) => nodes.length,
-      orElse: () => 0,
-    );
     final List<String> planPreview = _ref
         .read(calendarServiceProvider)
         .generateAdaptivePlan(tasks: tasks, energy: si.energy)
@@ -400,7 +394,6 @@ class AIController {
           'preview': planPreview,
           'generatedFromEnergy': si.energy,
         },
-        'flowmap': <String, dynamic>{'count': flowmapNodeCount},
         'emotions': <String, dynamic>{
           'current': emotion.name,
           'fatigue': si.fatigue,

@@ -1,3 +1,0 @@
-﻿class UnpinFlowmapUsecase {
-  const UnpinFlowmapUsecase();
-}

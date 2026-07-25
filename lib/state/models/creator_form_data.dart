@@ -8,6 +8,7 @@ class CreatorFormData {
     required this.priority,
     this.scheduledFor,
     this.recurrenceRule = RecurrenceRule.none,
+    this.creatorMode = 'tasks',
   });
 
   final String title;
@@ -16,4 +17,5 @@ class CreatorFormData {
   final int priority;
   final DateTime? scheduledFor;
   final RecurrenceRule recurrenceRule;
+  final String creatorMode;
 }

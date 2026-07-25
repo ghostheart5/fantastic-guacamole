@@ -1,3 +1,0 @@
-﻿class CreateEventNodeUsecase {
-  const CreateEventNodeUsecase();
-}

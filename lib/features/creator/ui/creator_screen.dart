@@ -1,7 +1,9 @@
-import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/features/creator/models/creator_workspace_mode.dart';
+import 'package:fantastic_guacamole/features/creator/ui/widgets/creator_unified_workbench.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
@@ -13,11 +15,18 @@ import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class CreatorScreen extends ConsumerWidget {
+class CreatorScreen extends ConsumerStatefulWidget {
   const CreatorScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CreatorScreen> createState() => _CreatorScreenState();
+}
+
+class _CreatorScreenState extends ConsumerState<CreatorScreen> {
+  CreatorWorkspaceMode _mode = CreatorWorkspaceMode.tasks;
+
+  @override
+  Widget build(BuildContext context) {
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/creator_bg.jpg',
       child: Scaffold(
@@ -89,7 +98,7 @@ class CreatorScreen extends ConsumerWidget {
                             ),
                           ),
                           const Text(
-                            'OPTIONAL ENTRY FORGE',
+                            'TASK - GOAL - MILESTONE - PLAN FORGE',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -108,9 +117,19 @@ class CreatorScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 const _CreatorPurposeCard(),
                 const SizedBox(height: 16),
+                CreatorUnifiedWorkbench(
+                  selectedMode: _mode,
+                  onModeChanged: (mode) {
+                    setState(() {
+                      _mode = mode;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
                 DynamicForm(
+                  workspaceMode: _mode,
                   onSubmit: (data) async {
-                    await ref.read(creatorActionsProvider).createTask(data);
+                    await ref.read(creatorActionsProvider).createEntry(data);
                     await ref
                         .read(localMetricsAccumulatorProvider)
                         .recordTaskCreated();
@@ -119,6 +138,7 @@ class CreatorScreen extends ConsumerWidget {
                     ref
                         .read(tutorialControllerProvider)
                         .updateState('has_created_task', true);
+
                     if (context.mounted) {
                       final ScaffoldMessengerState messenger =
                           ScaffoldMessenger.of(context);
@@ -126,12 +146,11 @@ class CreatorScreen extends ConsumerWidget {
                         ..hideCurrentSnackBar()
                         ..showSnackBar(
                           const SnackBar(
-                            content: Text('Entry created.'),
+                            content: Text(' entry saved.'),
                             duration: Duration(seconds: 2),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
-                      ref.read(appFlowProvider.notifier).toPlan();
                     }
                   },
                 ),
@@ -201,7 +220,7 @@ class _CreatorPurposeCard extends StatelessWidget {
         border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.14)),
       ),
       child: const Text(
-        'Creator is optional. Use Smart Coach, Day Plan, and Flowmap for guided workflows. Use Creator when you want direct, manual task forging.',
+        'Creator is the unified workbench for tasks, goals, milestones, and planning. Use it to forge new entries, connect them to goals, and shape your plan from one future-facing command surface.',
         style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.45),
       ),
     );

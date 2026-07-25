@@ -1,3 +1,0 @@
-﻿class CreateRelationshipMapUsecase {
-  const CreateRelationshipMapUsecase();
-}
