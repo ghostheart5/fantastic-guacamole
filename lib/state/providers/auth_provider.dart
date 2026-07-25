@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final authServiceProvider = Provider<AuthServiceContract>(
   (ref) => createAuthService(
-    store: ref.read(secureStoreProvider),
-    supabaseClient: ref.read(supabaseClientProvider),
-    intelligence: ref.read(intelligenceStateProvider),
+    store: ref.watch(secureStoreProvider),
+    supabaseClient: ref.watch(supabaseClientProvider),
+    intelligence: ref.watch(intelligenceStateProvider),
   ),
 );

@@ -47,9 +47,15 @@ class AuthSessionEntity {
     return AuthSessionEntity(
       accessToken: (map['accessToken'] ?? '').toString(),
       refreshToken: (map['refreshToken'] ?? '').toString(),
-      expiresAt: DateTime.tryParse((map['expiresAt'] ?? '').toString()) ?? DateTime.fromMillisecondsSinceEpoch(0),
-      issuedAt: DateTime.tryParse((map['issuedAt'] ?? '').toString()) ?? DateTime.fromMillisecondsSinceEpoch(0),
-      user: AuthUserEntity.fromMap(Map<String, dynamic>.from(map['user'] as Map? ?? <String, dynamic>{})),
+      expiresAt:
+          DateTime.tryParse((map['expiresAt'] ?? '').toString()) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      issuedAt:
+          DateTime.tryParse((map['issuedAt'] ?? '').toString()) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      user: AuthUserEntity.fromMap(
+        Map<String, dynamic>.from(map['user'] as Map? ?? <String, dynamic>{}),
+      ),
     );
   }
 
@@ -64,5 +70,6 @@ class AuthSessionEntity {
   }
 
   @override
-  int get hashCode => Object.hash(accessToken, refreshToken, expiresAt, user, issuedAt);
+  int get hashCode =>
+      Object.hash(accessToken, refreshToken, expiresAt, user, issuedAt);
 }

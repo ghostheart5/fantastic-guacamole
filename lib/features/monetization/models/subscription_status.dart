@@ -52,12 +52,13 @@ class SubscriptionStatus {
       isActive: isActive,
       isPremium: planId != 'free' && isActive,
       autoRenews: map['auto_renews'] == true,
-      periodCredits: (map['period_credits'] as num?)?.toInt() ??
+      periodCredits:
+          (map['period_credits'] as num?)?.toInt() ??
           (planId == 'premium_monthly'
               ? 250
               : planId == 'premium_yearly'
-                  ? 4000
-                  : 20),
+              ? 4000
+              : 20),
       startedAt: DateTime.tryParse(map['started_at']?.toString() ?? ''),
       expiresAt: DateTime.tryParse(map['expires_at']?.toString() ?? ''),
       updatedAt: DateTime.tryParse(map['updated_at']?.toString() ?? ''),

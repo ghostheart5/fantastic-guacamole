@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
+import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
@@ -17,6 +18,7 @@ class SoulMapScreen extends ConsumerWidget {
     final SoulMapFutureSelfComparison comparison = ref.watch(
       soulMapFutureSelfComparisonProvider,
     );
+    final soulState = ref.watch(soulStateProvider);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/progression_bg.jpg',
@@ -118,6 +120,42 @@ class SoulMapScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                _Panel(
+                  borderColor: AppColors.neonCyan.withValues(alpha: 0.25),
+                  title: 'SOUL ENGINE STATUS',
+                  titleColor: AppColors.neonCyan,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ScoreRow(
+                        label: 'Continuity',
+                        score: (soulState.continuity * 100).round(),
+                      ),
+                      _ScoreRow(
+                        label: 'Identity Strength',
+                        score: (soulState.identityStrength * 100).round(),
+                      ),
+                      _ScoreRow(
+                        label: 'Emotional Evolution',
+                        score: (soulState.emotionalEvolution * 100).round(),
+                      ),
+                      _ScoreRow(
+                        label: 'Personality Growth',
+                        score: (soulState.personalityGrowth * 100).round(),
+                      ),
+                      _ScoreRow(
+                        label: 'Narrative Presence',
+                        score: (soulState.narrativePresence * 100).round(),
+                      ),
+                      _ScoreRow(
+                        label: 'User Connection',
+                        score: (soulState.userConnection * 100).round(),
+                      ),
+                    ],
+                  ),
+                ),
+
                 const SizedBox(height: 16),
                 _Panel(
                   borderColor: AppColors.neonViolet.withValues(alpha: 0.25),

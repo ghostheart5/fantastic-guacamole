@@ -84,7 +84,8 @@ final syncToCloudProvider = FutureProvider<bool>((ref) async {
     },
   );
 
-  final bool success = await ref.read(syncServiceProvider)?.syncToCloud() ?? false;
+  final bool success =
+      await ref.read(syncServiceProvider)?.syncToCloud() ?? false;
   if (!success) {
     await queue?.enqueue(
       actionType: 'sync_to_cloud',
@@ -121,7 +122,8 @@ final offlineQueueCountProvider = FutureProvider<int>((ref) async {
 });
 
 final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
-  final bool restored = await ref.read(syncServiceProvider)?.restoreFromCloud() ?? false;
+  final bool restored =
+      await ref.read(syncServiceProvider)?.restoreFromCloud() ?? false;
   if (!restored) {
     ref
         .read(syncErrorMessageProvider.notifier)

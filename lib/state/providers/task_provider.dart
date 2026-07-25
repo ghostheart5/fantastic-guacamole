@@ -79,6 +79,7 @@ class TaskActions {
     );
 
     await _ref.read(createTaskUseCaseProvider).call(normalized);
+    await _ref.read(timelineActionsProvider).connectTask(normalized);
     AppAnalytics.track(
       'task_created',
       params: <String, Object?>{'task_id': normalized.id},

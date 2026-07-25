@@ -14,11 +14,15 @@ import 'package:fantastic_guacamole/features/auth/application/auth_controller.da
 import 'package:fantastic_guacamole/features/auth/application/auth_state.dart';
 
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((Ref ref) {
-  return SupabaseAuthRemoteDataSource(authService: ref.read(authServiceProvider));
+  return SupabaseAuthRemoteDataSource(
+    authService: ref.read(authServiceProvider),
+  );
 });
 
 final authLocalDataSourceProvider = Provider<AuthLocalDataSource>((Ref ref) {
-  return SecureStoreAuthLocalDataSource(secureStore: ref.read(secureStoreProvider));
+  return SecureStoreAuthLocalDataSource(
+    secureStore: ref.read(secureStoreProvider),
+  );
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((Ref ref) {

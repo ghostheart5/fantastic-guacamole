@@ -40,11 +40,9 @@ Future<monetization.CreditConsumeResult> consumeCredits(
   required String reason,
   Map<String, dynamic> metadata = const <String, dynamic>{},
 }) {
-  return ref.read(monetizationCreditServiceProvider).consume(
-    amount: amount,
-    reason: reason,
-    metadata: metadata,
-  );
+  return ref
+      .read(monetizationCreditServiceProvider)
+      .consume(amount: amount, reason: reason, metadata: metadata);
 }
 
 Future<SubscriptionStatus> checkSubscriptionStatus(Ref ref) {

@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
+import 'package:fantastic_guacamole/state/providers/feature_flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -62,6 +63,7 @@ class FlowmapController extends Notifier<AsyncValue<List<FlowmapNode>>> {
     );
     await ref.read(updateFlowmapNodeUseCaseProvider).call(node);
     state = AsyncValue.data([...state.asData?.value ?? <FlowmapNode>[], node]);
+    ref.invalidate(featureFlowmapGraphProvider);
 
     if (syncSoulMap) {
       ref.invalidate(soulStateProvider);
@@ -99,6 +101,7 @@ class FlowmapController extends Notifier<AsyncValue<List<FlowmapNode>>> {
         .where((n) => n.id != id)
         .toList();
     state = AsyncValue.data(updated);
+    ref.invalidate(featureFlowmapGraphProvider);
     ref
         .read(eventBusProvider)
         .emit(

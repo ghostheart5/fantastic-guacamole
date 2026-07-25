@@ -56,11 +56,13 @@ class FlowmapNode {
         id: id,
         title: title,
         description: decoded['description']?.toString(),
-        tags: (decoded['tags'] as List<dynamic>?)
+        tags:
+            (decoded['tags'] as List<dynamic>?)
                 ?.map((dynamic e) => e.toString())
                 .toList(growable: false) ??
             const <String>[],
-        connectedTo: (decoded['connectedTo'] as List<dynamic>?)
+        connectedTo:
+            (decoded['connectedTo'] as List<dynamic>?)
                 ?.map((dynamic e) => e.toString())
                 .toList(growable: false) ??
             const <String>[],

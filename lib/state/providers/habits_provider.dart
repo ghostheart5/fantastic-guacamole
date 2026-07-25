@@ -3,6 +3,8 @@ import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 
 final habitsProvider = AsyncNotifierProvider<HabitsNotifier, List<HabitRecord>>(
   HabitsNotifier.new,
@@ -34,15 +36,26 @@ class HabitsNotifier extends AsyncNotifier<List<HabitRecord>> {
       return;
     }
 
-    final List<HabitRecord> current = _currentHabits().toList(growable: true);
-    current.insert(
-      0,
-      HabitRecord(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        title: trimmed,
-      ),
+    final DateTime now = DateTime.now();
+    final HabitRecord habit = HabitRecord(
+      id: now.microsecondsSinceEpoch.toString(),
+      title: trimmed,
     );
+
+    final List<HabitRecord> current = _currentHabits().toList(growable: true);
+    current.insert(0, habit);
+
     await _repository.saveHabits(current);
+    await ref
+        .read(timelineActionsProvider)
+        .connectHabit(
+          HabitEntity(
+            id: habit.id,
+            title: habit.title,
+            createdAt: now,
+            status: habit.active ? HabitStatus.active : HabitStatus.paused,
+          ),
+        );
     await ref
         .read(reminderOrchestratorServiceProvider)
         .syncHabitReminders(current);

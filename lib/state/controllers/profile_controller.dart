@@ -240,6 +240,28 @@ class ProfileController extends Notifier<ProfileState> {
     unawaited(_refreshCoachDecision());
   }
 
+  Future<void> setProgressionSnapshot({
+    required int xp,
+    required int level,
+    required int streak,
+  }) async {
+    final int safeXp = xp < 0 ? 0 : xp;
+    final int safeLevel = level < 1 ? 1 : level;
+    final int safeStreak = streak < 0 ? 0 : streak;
+    final int nextLongest = safeStreak > state.longestStreak
+        ? safeStreak
+        : state.longestStreak;
+
+    state = state.copyWith(
+      xp: safeXp,
+      level: safeLevel,
+      streak: safeStreak,
+      longestStreak: nextLongest,
+    );
+    await _save();
+    unawaited(_refreshCoachDecision());
+  }
+
   Future<void> _refreshCoachDecision() async {
     try {
       await ref.read(generateSiDecisionUseCaseProvider).call();

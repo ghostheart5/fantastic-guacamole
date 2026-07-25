@@ -33,10 +33,10 @@ class ScheduleNotification {
     }
 
     final DateTime now = DateTime.now();
-    final List<NotificationEntity> recentlySent = (await repository
-            .getNotifications())
-        .where((NotificationEntity item) => !item.scheduledAt.isAfter(now))
-        .toList(growable: false);
+    final List<NotificationEntity> recentlySent =
+        (await repository.getNotifications())
+            .where((NotificationEntity item) => !item.scheduledAt.isAfter(now))
+            .toList(growable: false);
     if (!NotificationPolicy.canDispatch(
       finalNotification,
       now: now,

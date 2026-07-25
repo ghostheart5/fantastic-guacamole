@@ -2,8 +2,10 @@ import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
+import 'package:fantastic_guacamole/theme/widgets/prism_metric_pill.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -18,12 +20,25 @@ class GoalsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final goals = ref.watch(goalsProvider);
+    final goalAnalytics = ref.watch(goalAnalyticsProvider);
+    final goalRisk = ref.watch(goalRiskResultProvider);
+    final goalConflicts = ref.watch(goalConflictsProvider);
+    final goalStagnation = ref.watch(goalStagnationProvider);
+    final goalCompletionPredictions = ref.watch(
+      goalCompletionPredictionsProvider,
+    );
+    final goalSuccessPredictions = ref.watch(goalSuccessPredictionsProvider);
+    final goalInsights = ref.watch(goalInsightsProvider);
+    final topSuccessPrediction = goalSuccessPredictions.isEmpty
+        ? null
+        : goalSuccessPredictions.first;
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/settings_bg.jpg',
       child: Scaffold(
         backgroundColor: Colors.transparent,
         floatingActionButton: FloatingActionButton(
+          key: const Key('goals_add_button'),
           backgroundColor: AppColors.memoryAmber,
           foregroundColor: Colors.black,
           onPressed: () {
@@ -96,7 +111,174 @@ class GoalsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _GoalIntelPill(
+                        label: 'Goals',
+                        value: goalAnalytics.totalGoals.toString(),
+                        color: AppColors.memoryAmber,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _GoalIntelPill(
+                        label: 'Risk',
+                        value: '%',
+                        color: goalRisk.hasRisk
+                            ? AppColors.recallRed
+                            : AppColors.neonCyan,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _GoalIntelPill(
+                        label: 'Pred',
+                        value: goalCompletionPredictions.length.toString(),
+                        color: AppColors.neonCyan,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 20),
+              if (goals.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF050D1A),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.neonCyan.withValues(alpha: 0.24),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.auto_graph_rounded,
+                              color: goalRisk.hasRisk
+                                  ? AppColors.recallRed
+                                  : AppColors.neonCyan,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'GOAL INTELLIGENCE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.6,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _GoalIntelPill(
+                              label: 'Total',
+                              value: goalAnalytics.totalGoals.toString(),
+                              color: AppColors.memoryAmber,
+                            ),
+                            _GoalIntelPill(
+                              label: 'Risk',
+                              value: '${goalRisk.riskScore}%',
+                              color: goalRisk.hasRisk
+                                  ? AppColors.recallRed
+                                  : AppColors.neonCyan,
+                            ),
+                            _GoalIntelPill(
+                              label: 'Overdue',
+                              value: goalAnalytics.overdueGoals.toString(),
+                              color: AppColors.recallRed,
+                            ),
+                            _GoalIntelPill(
+                              label: 'Due Soon',
+                              value: goalAnalytics.dueSoonGoals.toString(),
+                              color: AppColors.neonCyan,
+                            ),
+                            _GoalIntelPill(
+                              label: 'Conflicts',
+                              value: goalConflicts.length.toString(),
+                              color: AppColors.memoryAmber,
+                            ),
+                            _GoalIntelPill(
+                              label: 'Stagnant',
+                              value: goalStagnation.stagnantGoals.length
+                                  .toString(),
+                              color: AppColors.recallRed,
+                            ),
+                            _GoalIntelPill(
+                              label: 'Predictions',
+                              value: goalCompletionPredictions.length
+                                  .toString(),
+                              color: AppColors.neonCyan,
+                            ),
+                          ],
+                        ),
+                        if (goalInsights.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          ...goalInsights
+                              .take(3)
+                              .map(
+                                (String insight) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        '� ',
+                                        style: TextStyle(
+                                          color: AppColors.neonCyan,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          insight,
+                                          style: const TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 11,
+                                            height: 1.35,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                        ],
+                        if (topSuccessPrediction != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            'Top signal: ${topSuccessPrediction.goal.title} - ${topSuccessPrediction.successScore}% success. ${topSuccessPrediction.reason}',
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
               Expanded(
                 child: goals.isEmpty
                     ? const Center(
@@ -158,9 +340,14 @@ class GoalsScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              _SheetField(controller: titleCtrl, hint: 'Goal title'),
+              _SheetField(
+                key: const Key('goal_title_input'),
+                controller: titleCtrl,
+                hint: 'Goal title',
+              ),
               const SizedBox(height: 10),
               _SheetField(
+                key: const Key('goal_description_input'),
                 controller: descCtrl,
                 hint: 'Description (optional)',
                 maxLines: 2,
@@ -219,6 +406,7 @@ class GoalsScreen extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
+                  key: const Key('goal_save_button'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.memoryAmber,
                     foregroundColor: Colors.black,
@@ -255,6 +443,23 @@ class GoalsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+class _GoalIntelPill extends StatelessWidget {
+  const _GoalIntelPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return PrismMetricPill(label: label, value: value, color: color);
   }
 }
 
@@ -503,6 +708,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
 
 class _SheetField extends StatelessWidget {
   const _SheetField({
+    super.key,
     required this.controller,
     required this.hint,
     this.maxLines = 1,

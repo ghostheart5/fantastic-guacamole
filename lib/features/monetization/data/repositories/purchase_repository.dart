@@ -41,8 +41,8 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
   @override
   Future<PurchaseResult> purchaseSubscription(SubscriptionPlan plan) async {
     AppAnalytics.track(MonetizationEvents.subscriptionPurchaseStarted);
-    final ProductDetailsResponse productResponse =
-        await _iap.queryProductDetails(<String>{plan.productId});
+    final ProductDetailsResponse productResponse = await _iap
+        .queryProductDetails(<String>{plan.productId});
     if (productResponse.productDetails.isEmpty) {
       return PurchaseResult(
         success: false,
@@ -51,8 +51,9 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
       );
     }
 
-    final PurchaseParam param =
-        PurchaseParam(productDetails: productResponse.productDetails.first);
+    final PurchaseParam param = PurchaseParam(
+      productDetails: productResponse.productDetails.first,
+    );
     final bool launched = await _iap.buyNonConsumable(purchaseParam: param);
     if (!launched) {
       AppAnalytics.track(MonetizationEvents.subscriptionPurchaseFailed);
@@ -69,8 +70,8 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
   @override
   Future<PurchaseResult> purchaseCredits(AiCreditPackage pack) async {
     AppAnalytics.track(MonetizationEvents.creditPurchaseStarted);
-    final ProductDetailsResponse productResponse =
-        await _iap.queryProductDetails(<String>{pack.productId});
+    final ProductDetailsResponse productResponse = await _iap
+        .queryProductDetails(<String>{pack.productId});
     if (productResponse.productDetails.isEmpty) {
       return PurchaseResult(
         success: false,
@@ -79,10 +80,13 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
       );
     }
 
-    final PurchaseParam param =
-        PurchaseParam(productDetails: productResponse.productDetails.first);
-    final bool launched =
-        await _iap.buyConsumable(purchaseParam: param, autoConsume: true);
+    final PurchaseParam param = PurchaseParam(
+      productDetails: productResponse.productDetails.first,
+    );
+    final bool launched = await _iap.buyConsumable(
+      purchaseParam: param,
+      autoConsume: true,
+    );
     if (!launched) {
       AppAnalytics.track(MonetizationEvents.creditPurchaseFailed);
       return PurchaseResult(
@@ -112,7 +116,9 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
     final Completer<PurchaseResult> completer = Completer<PurchaseResult>();
 
     late final StreamSubscription<List<PurchaseDetails>> subscription;
-    subscription = _iap.purchaseStream.listen((List<PurchaseDetails> updates) async {
+    subscription = _iap.purchaseStream.listen((
+      List<PurchaseDetails> updates,
+    ) async {
       for (final PurchaseDetails purchase in updates) {
         if (purchase.productID != expectedProductId) {
           continue;
@@ -125,45 +131,49 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
                 : MonetizationEvents.creditPurchaseFailed,
           );
           if (!completer.isCompleted) {
-            completer.complete(PurchaseResult(
-              success: false,
-              productId: purchase.productID,
-              message: purchase.error?.message ?? 'Purchase failed.',
-            ));
+            completer.complete(
+              PurchaseResult(
+                success: false,
+                productId: purchase.productID,
+                message: purchase.error?.message ?? 'Purchase failed.',
+              ),
+            );
           }
         }
 
         if (purchase.status == PurchaseStatus.purchased ||
             purchase.status == PurchaseStatus.restored) {
-          final PurchaseVerificationResult verify =
-              await _verificationService.verifyPurchase(
-            productId: purchase.productID,
-            purchaseToken: purchase.verificationData.serverVerificationData,
-            purchaseType: purchaseType,
-          );
+          final PurchaseVerificationResult verify = await _verificationService
+              .verifyPurchase(
+                productId: purchase.productID,
+                purchaseToken: purchase.verificationData.serverVerificationData,
+                purchaseType: purchaseType,
+              );
 
           if (purchase.pendingCompletePurchase) {
             await _iap.completePurchase(purchase);
           }
 
           if (!completer.isCompleted) {
-            completer.complete(PurchaseResult(
-              success: verify.valid,
-              productId: purchase.productID,
-              message: verify.error,
-              verifiedPlanId: verify.planId,
-              creditsGranted: verify.creditsGranted,
-            ));
+            completer.complete(
+              PurchaseResult(
+                success: verify.valid,
+                productId: purchase.productID,
+                message: verify.error,
+                verifiedPlanId: verify.planId,
+                creditsGranted: verify.creditsGranted,
+              ),
+            );
           }
 
           AppAnalytics.track(
             verify.valid
                 ? (purchaseType == 'subscription'
-                    ? MonetizationEvents.subscriptionPurchaseVerified
-                    : MonetizationEvents.creditPurchaseVerified)
+                      ? MonetizationEvents.subscriptionPurchaseVerified
+                      : MonetizationEvents.creditPurchaseVerified)
                 : (purchaseType == 'subscription'
-                    ? MonetizationEvents.subscriptionPurchaseFailed
-                    : MonetizationEvents.creditPurchaseFailed),
+                      ? MonetizationEvents.subscriptionPurchaseFailed
+                      : MonetizationEvents.creditPurchaseFailed),
           );
         }
       }

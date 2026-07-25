@@ -252,8 +252,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
           .map(
             (Map<dynamic, dynamic> item) => parser(
               item.map<String, dynamic>(
-                (dynamic key, dynamic value) =>
-                    MapEntry(key.toString(), value),
+                (dynamic key, dynamic value) => MapEntry(key.toString(), value),
               ),
             ),
           )

@@ -26,10 +26,7 @@ class PremiumFeatureLockWidget extends StatelessWidget {
             const SizedBox(height: 8),
             const Text('Upgrade to unlock this feature and premium SI tools.'),
             const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onUpgrade,
-              child: const Text('Upgrade'),
-            ),
+            FilledButton(onPressed: onUpgrade, child: const Text('Upgrade')),
           ],
         ),
       ),

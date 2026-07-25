@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/firebase_options.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -30,9 +32,18 @@ class FirebaseBootstrap {
           );
         }
 
-        await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
-          Env.enableAnalytics && kReleaseMode && Env.isProduction,
-        );
+        if (_supportsAnalytics) {
+          await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
+            Env.enableAnalytics && kReleaseMode && Env.isProduction,
+          );
+        } else {
+          Logger.warn(
+            'Firebase Analytics bootstrap skipped on unsupported platform: $defaultTargetPlatform',
+          );
+          RuntimeDiagnostics.record(
+            'Firebase Analytics bootstrap skipped on unsupported platform: $defaultTargetPlatform',
+          );
+        }
         return null;
       } on FirebaseException catch (error) {
         if (error.code == 'duplicate-app') {
@@ -62,5 +73,14 @@ class FirebaseBootstrap {
         (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS ||
             defaultTargetPlatform == TargetPlatform.macOS);
+  }
+
+  bool get _supportsAnalytics {
+    if (kIsWeb) {
+      return true;
+    }
+
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
   }
 }

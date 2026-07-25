@@ -12,11 +12,11 @@ import 'package:fantastic_guacamole/features/auth/domain/value_objects/password_
 import 'package:fantastic_guacamole/features/auth/application/auth_state.dart';
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController({
-    required this._repository,
-    required this._validator,
-  })  : super(AuthState.initial()) {
-    _sessionSubscription = _repository.watchSession().listen(_applySessionResult);
+  AuthController({required this._repository, required this._validator})
+    : super(AuthState.initial()) {
+    _sessionSubscription = _repository.watchSession().listen(
+      _applySessionResult,
+    );
     restoreSession();
   }
 
@@ -32,14 +32,25 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> restoreSession() async {
     state = state.copyWith(status: AuthStatus.loading, failure: null);
-    final Result<AuthSessionEntity?> result = await _repository.getCurrentSession();
+    final Result<AuthSessionEntity?> result = await _repository
+        .getCurrentSession();
     _applySessionResult(result);
   }
 
-  Future<void> signInWithEmail({required String email, required String password}) async {
-    final Result<void> validation = _validator.validateLogin(email: email, password: password);
+  Future<void> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    final Result<void> validation = _validator.validateLogin(
+      email: email,
+      password: password,
+    );
     if (validation.isFailure) {
-      state = state.copyWith(status: AuthStatus.error, failure: _normalizeFailure(validation.failure), lastUpdated: DateTime.now());
+      state = state.copyWith(
+        status: AuthStatus.error,
+        failure: _normalizeFailure(validation.failure),
+        lastUpdated: DateTime.now(),
+      );
       return;
     }
     state = state.copyWith(status: AuthStatus.loading, failure: null);
@@ -50,10 +61,20 @@ class AuthController extends StateNotifier<AuthState> {
     _applySessionResult(result);
   }
 
-  Future<void> signUpWithEmail({required String email, required String password}) async {
-    final Result<void> validation = _validator.validateSignUp(email: email, password: password);
+  Future<void> signUpWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    final Result<void> validation = _validator.validateSignUp(
+      email: email,
+      password: password,
+    );
     if (validation.isFailure) {
-      state = state.copyWith(status: AuthStatus.error, failure: _normalizeFailure(validation.failure), lastUpdated: DateTime.now());
+      state = state.copyWith(
+        status: AuthStatus.error,
+        failure: _normalizeFailure(validation.failure),
+        lastUpdated: DateTime.now(),
+      );
       return;
     }
     state = state.copyWith(status: AuthStatus.loading, failure: null);
@@ -86,13 +107,15 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> signInWithGoogle() async {
     state = state.copyWith(status: AuthStatus.loading, failure: null);
-    final Result<AuthSessionEntity?> result = await _repository.signInWithGoogle();
+    final Result<AuthSessionEntity?> result = await _repository
+        .signInWithGoogle();
     _applySessionResult(result);
   }
 
   Future<void> signInWithGitHub() async {
     state = state.copyWith(status: AuthStatus.loading, failure: null);
-    final Result<AuthSessionEntity?> result = await _repository.signInWithGitHub();
+    final Result<AuthSessionEntity?> result = await _repository
+        .signInWithGitHub();
     _applySessionResult(result);
   }
 
@@ -132,7 +155,9 @@ class AuthController extends StateNotifier<AuthState> {
       onSuccess: (AuthSessionEntity? session) {
         final bool authenticated = session != null && !session.isExpired;
         state = state.copyWith(
-          status: authenticated ? AuthStatus.authenticated : AuthStatus.unauthenticated,
+          status: authenticated
+              ? AuthStatus.authenticated
+              : AuthStatus.unauthenticated,
           session: authenticated ? session : null,
           user: authenticated ? session.user : null,
           failure: null,
@@ -155,7 +180,8 @@ class AuthController extends StateNotifier<AuthState> {
     }
     return AuthFailure(
       code: 'auth-unknown',
-      message: failure?.toString() ?? 'An unknown authentication error occurred.',
+      message:
+          failure?.toString() ?? 'An unknown authentication error occurred.',
       details: failure,
     );
   }

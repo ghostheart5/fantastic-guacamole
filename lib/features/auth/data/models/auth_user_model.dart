@@ -37,6 +37,5 @@ class AuthUserModel extends AuthUserEntity {
     );
   }
 
-
   AuthUserEntity toEntity() => AuthUserEntity.fromMap(toMap());
 }

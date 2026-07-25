@@ -39,9 +39,7 @@ class WebPageView extends StatelessWidget {
     }
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: const SafeArea(
-        child: Center(child: Text('Content unavailable.')),
-      ),
+      body: const SafeArea(child: Center(child: Text('Content unavailable.'))),
     );
   }
 }

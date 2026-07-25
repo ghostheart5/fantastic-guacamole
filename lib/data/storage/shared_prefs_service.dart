@@ -102,7 +102,9 @@ class SharedPrefsService {
           'SharedPrefsService save skipped due to initialization failure: $_initError',
         );
       }
-      throw StateError('SharedPrefsService storage is unavailable for save($key).');
+      throw StateError(
+        'SharedPrefsService storage is unavailable for save($key).',
+      );
     }
     await saveStringWithPrefs(prefs, key, value);
   }
@@ -111,7 +113,9 @@ class SharedPrefsService {
     await init();
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
-      throw StateError('SharedPrefsService storage is unavailable for saveBool($key).');
+      throw StateError(
+        'SharedPrefsService storage is unavailable for saveBool($key).',
+      );
     }
     await saveBoolWithPrefs(prefs, key, value);
   }
@@ -120,7 +124,9 @@ class SharedPrefsService {
     await init();
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
-      throw StateError('SharedPrefsService storage is unavailable for saveInt($key).');
+      throw StateError(
+        'SharedPrefsService storage is unavailable for saveInt($key).',
+      );
     }
     await saveIntWithPrefs(prefs, key, value);
   }
@@ -145,7 +151,9 @@ class SharedPrefsService {
           'SharedPrefsService delete skipped due to initialization failure: $_initError',
         );
       }
-      throw StateError('SharedPrefsService storage is unavailable for delete($key).');
+      throw StateError(
+        'SharedPrefsService storage is unavailable for delete($key).',
+      );
     }
     await deleteWithPrefs(prefs, key);
   }
@@ -159,7 +167,9 @@ class SharedPrefsService {
           'SharedPrefsService clear skipped due to initialization failure: $_initError',
         );
       }
-      throw StateError('SharedPrefsService storage is unavailable for clear().');
+      throw StateError(
+        'SharedPrefsService storage is unavailable for clear().',
+      );
     }
     await _ensureMutationSucceeded(() => prefs.clear(), 'clear()');
   }

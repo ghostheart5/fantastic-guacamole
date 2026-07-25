@@ -1,13 +1,13 @@
 // Package imports.
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/hive_adapters.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 abstract class HiveStore {
   Future<void> init();
@@ -101,7 +101,25 @@ class HiveService {
       HiveBoxes.cache,
     ]) {
       if (!Hive.isBoxOpen(box)) {
-        await openBox(box);
+        final Stopwatch boxStopwatch = Stopwatch()..start();
+        debugPrint('CHRONOSPARK_HIVE_BOX_OPEN_START: $box');
+
+        try {
+          await _openBoxInternal<dynamic>(
+            box,
+          ).timeout(const Duration(seconds: 6));
+
+          boxStopwatch.stop();
+          debugPrint(
+            'CHRONOSPARK_HIVE_BOX_OPEN_DONE: $box in ${boxStopwatch.elapsedMilliseconds}ms',
+          );
+        } on Object catch (error) {
+          boxStopwatch.stop();
+          debugPrint(
+            'CHRONOSPARK_HIVE_BOX_OPEN_FAILED: $box in ${boxStopwatch.elapsedMilliseconds}ms: $error',
+          );
+          rethrow;
+        }
       }
     }
 
@@ -141,8 +159,7 @@ class HiveService {
   }
 
   static Future<Box<T>> _openBoxInternal<T>(String key) async {
-    final HiveAesCipher? cipher =
-        _shouldEncryptBox(key) ? _cipher : null;
+    final HiveAesCipher? cipher = _shouldEncryptBox(key) ? _cipher : null;
     if (cipher == null) {
       return Hive.openBox<T>(key);
     }

@@ -118,12 +118,12 @@ class ReminderOrchestratorService {
 
     final NotificationScheduleResult result = await _scheduler
         .scheduleDailyAtWithStatus(
-      id: _habitReminderId,
-      title: 'Habit Reminder',
-      body: 'Stay consistent: ${activeHabit.title}',
-      hour: 20,
-      minute: 0,
-    );
+          id: _habitReminderId,
+          title: 'Habit Reminder',
+          body: 'Stay consistent: ${activeHabit.title}',
+          hour: 20,
+          minute: 0,
+        );
     if (result != NotificationScheduleResult.scheduled) {
       Logger.warn('Habit reminder scheduling skipped: $result');
     }
@@ -138,12 +138,12 @@ class ReminderOrchestratorService {
     final (int hour, int minute) = _dailyPlanningTime();
     final NotificationScheduleResult result = await _scheduler
         .scheduleDailyAtWithStatus(
-      id: _dailyPlanningReminderId,
-      title: 'Daily Planning Reminder',
-      body: 'Open Planner and set your top 3 execution targets.',
-      hour: hour,
-      minute: minute,
-    );
+          id: _dailyPlanningReminderId,
+          title: 'Daily Planning Reminder',
+          body: 'Open Planner and set your top 3 execution targets.',
+          hour: hour,
+          minute: minute,
+        );
     if (result != NotificationScheduleResult.scheduled) {
       Logger.warn('Daily planning reminder scheduling skipped: $result');
     }

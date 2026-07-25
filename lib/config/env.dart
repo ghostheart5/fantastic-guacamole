@@ -214,7 +214,7 @@ abstract final class Env {
   static bool get isProduction =>
       resolveIsProduction(appFlavor, isReleaseMode: kReleaseMode);
 
-    static bool get hasSupabaseCredentialsPresent =>
+  static bool get hasSupabaseCredentialsPresent =>
       supabaseUrl.trim().isNotEmpty && supabaseAnonKey.trim().isNotEmpty;
 
   static bool get isMockMode => resolveIsMockMode(
@@ -239,11 +239,10 @@ abstract final class Env {
     enableTesterFullAccess: enableTesterFullAccess,
   );
 
-  static bool get isSupabaseConfigured =>
-      resolveIsSupabaseConfigured(
-        supabaseUrl: supabaseUrl,
-        supabaseAnonKey: supabaseAnonKey,
-      );
+  static bool get isSupabaseConfigured => resolveIsSupabaseConfigured(
+    supabaseUrl: supabaseUrl,
+    supabaseAnonKey: supabaseAnonKey,
+  );
 
   static bool resolveIsSupabaseConfigured({
     required String supabaseUrl,
@@ -307,14 +306,19 @@ abstract final class Env {
     if (supabaseUri != null &&
         supabaseUri.hasAuthority &&
         supabaseUri.scheme == 'https') {
-      return supabaseUri.resolve('/functions/v1/monetization-verify').toString();
+      return supabaseUri
+          .resolve('/functions/v1/monetization-verify')
+          .toString();
     }
 
     return 'https://chronospark.app/monetization-verify';
   }
 
   static List<String> productionReadinessIssues({bool force = false}) {
-    if (!force && !enforceProductionReadiness && !isProduction && !kReleaseMode) {
+    if (!force &&
+        !enforceProductionReadiness &&
+        !isProduction &&
+        !kReleaseMode) {
       return const <String>[];
     }
 

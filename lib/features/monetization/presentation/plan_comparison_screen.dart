@@ -13,7 +13,8 @@ class PlanComparisonScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Plan Comparison')),
       body: paywallAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (Object error, StackTrace stackTrace) => Center(child: Text(error.toString())),
+        error: (Object error, StackTrace stackTrace) =>
+            Center(child: Text(error.toString())),
         data: (content) => Padding(
           padding: const EdgeInsets.all(16),
           child: FeatureComparisonTable(rows: content.comparisonRows),

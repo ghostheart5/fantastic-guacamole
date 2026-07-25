@@ -13,7 +13,7 @@ import 'package:fantastic_guacamole/features/notifications/ui/notification_scree
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_recovery_screen.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
-  show OnboardingStatus;
+    show OnboardingStatus;
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     hide authenticatedGuardProvider;
@@ -44,7 +44,10 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
       onboardingStatusGuardProvider,
       (_, _) => notifyListeners(),
     );
-    _ref.listen<bool>(profileCompleteGuardProvider, (_, _) => notifyListeners());
+    _ref.listen<bool>(
+      profileCompleteGuardProvider,
+      (_, _) => notifyListeners(),
+    );
     _ref.listen(intelligenceStateProvider, (_, _) => notifyListeners());
     _ref.listen(mockLoginConfigProvider, (_, _) => notifyListeners());
   }
@@ -53,7 +56,8 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
 
   bool get isAuthenticated => _ref.read(authenticatedGuardProvider);
   bool get onboardingComplete => _ref.read(onboardingCompleteGuardProvider);
-  OnboardingStatus get onboardingStatus => _ref.read(onboardingStatusGuardProvider);
+  OnboardingStatus get onboardingStatus =>
+      _ref.read(onboardingStatusGuardProvider);
   bool get hasValidProfile => _ref.read(profileCompleteGuardProvider);
 }
 
@@ -123,7 +127,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final bool onboardingComplete =
           onboardingStatus == OnboardingStatus.complete;
-        final bool hasValidProfile = ref.read(profileCompleteGuardProvider);
+      final bool hasValidProfile = ref.read(profileCompleteGuardProvider);
       final bool mockLoginEnabled = ref
           .read(intelligenceStateProvider)
           .flags
@@ -132,7 +136,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final bool hasAdminAccess = ref.read(adminAccessGuardProvider);
       final String location = state.matchedLocation;
       final bool qaSkipOnboarding =
-          !kReleaseMode && state.uri.queryParameters['qa_skip_onboarding'] == '1';
+          !kReleaseMode &&
+          state.uri.queryParameters['qa_skip_onboarding'] == '1';
       final String loginMode = (state.uri.queryParameters['mode'] ?? '')
           .trim()
           .toLowerCase();
@@ -160,7 +165,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (allowLoginDuringOnboarding) {
           return null;
         }
-        if (qaSkipOnboarding && mockLoginEnabled && location == RoutePaths.login) {
+        if (qaSkipOnboarding &&
+            mockLoginEnabled &&
+            location == RoutePaths.login) {
           return null;
         }
         return RoutePaths.onboarding;
@@ -314,8 +321,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final mockLoginConfig = ref.read(mockLoginConfigProvider);
           return AuthGate(
             enableMockLogin:
-                intelligence.flags.mockLoginEnabled ||
-                intelligence.flags.testerFullAccess,
+                intelligence.flags.mockLoginEnabled,
             mockLoginEmail: mockLoginConfig.email,
             mockLoginPassword: mockLoginConfig.password,
             deepLinkMode: state.uri.queryParameters['mode'],
@@ -396,3 +402,4 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+

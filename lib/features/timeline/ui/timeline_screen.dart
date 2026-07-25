@@ -1,3 +1,10 @@
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/detect_timeline_conflict_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/detect_timeline_risk_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/forecast_timeline_outcomes_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/show_timeline_on_track_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/suggest_timeline_adjustments_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/surface_timeline_warnings_usecase.dart';
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
@@ -6,6 +13,7 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/theme/widgets/prism_metric_pill.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +45,57 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   @override
   Widget build(BuildContext context) {
     final List<TimelineEventEntity> baseEvents = ref.watch(timelineProvider);
+    final TimelineRiskResult timelineRiskResult = ref.watch(
+      timelineRiskResultProvider,
+    );
+    final TimelineOnTrackResult onTrackResult = ref.watch(
+      timelineOnTrackResultProvider,
+    );
+    final List<TimelineConflict> timelineConflicts = ref.watch(
+      timelineConflictProvider,
+    );
+    final List<TimelineForecastResult> timelineForecasts = ref.watch(
+      timelineForecastProvider,
+    );
+    final List<TimelineWarning> timelineWarnings = ref.watch(
+      timelineWarningsProvider,
+    );
+    final List<TimelineAdjustment> timelineAdjustments = ref.watch(
+      timelineAdjustmentsProvider,
+    );
+    final List<TimelineEventEntity> dueNextEvents = ref.watch(
+      timelineDueNextProvider,
+    );
+    final List<TimelineEventEntity> fallingBehindEvents = ref.watch(
+      timelineFallingBehindProvider,
+    );
+    final List<TimelineEventEntity> timelineActivity = ref.watch(
+      timelineActivityProvider,
+    );
+    final List<TimelineEventEntity> timelineDeadlines = ref.watch(
+      timelineDeadlinesProvider,
+    );
+    final List<TimelineEventEntity> timelineCompletedEvents = ref.watch(
+      timelineCompletedEventsProvider,
+    );
+    final List<TimelineEventEntity> prioritizedTimelineItems = ref.watch(
+      timelinePrioritizedItemsProvider,
+    );
+    final List<TimelineEventEntity> todayTimelineEvents = ref.watch(
+      timelineTodayProvider,
+    );
+    final List<TimelineEventEntity> weekTimelineEvents = ref.watch(
+      timelineThisWeekProvider,
+    );
+    final List<TimelineEventEntity> monthTimelineEvents = ref.watch(
+      timelineThisMonthProvider,
+    );
+    final List<TimelineEventEntity> yearTimelineEvents = ref.watch(
+      timelineThisYearProvider,
+    );
+    final List<TimelineEventEntity> lifeJourneyTimelineEvents = ref.watch(
+      timelineLifeJourneyProvider,
+    );
     final List<GoalEntity> goals = ref.watch(goalsProvider);
     final List<Task> tasks =
         ref.watch(tasksProvider).asData?.value ?? const <Task>[];
@@ -134,7 +193,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                     children: [
                       SmartPressable(
                         onTap: () =>
-                            ref.read(appFlowProvider.notifier).toCoach(),
+                            ref.read(appFlowProvider.notifier).toNexus(),
                         child: Container(
                           width: 36,
                           height: 36,
@@ -166,7 +225,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                               ],
                             ).createShader(bounds),
                             child: const Text(
-                              'TIMELINE OPS',
+                              'TIMELINE COMMAND',
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
@@ -203,7 +262,25 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       milestoneCount: milestoneCount,
                       riskCount: riskCount,
                       recommendationCount: recommendationCount,
-                      nextDeadline: nextDeadline,
+                      nextDeadline: dueNextEvents.isNotEmpty
+                          ? dueNextEvents.first
+                          : nextDeadline,
+                      connectedRiskScore: timelineRiskResult.riskScore,
+                      conflictCount: timelineConflicts.length,
+                      forecastCount: timelineForecasts.length,
+                      warningCount: timelineWarnings.length,
+                      adjustmentCount: timelineAdjustments.length,
+                      fallingBehindCount: fallingBehindEvents.length,
+                      activityCount: timelineActivity.length,
+                      deadlineCount: timelineDeadlines.length,
+                      completedCount: timelineCompletedEvents.length,
+                      prioritizedCount: prioritizedTimelineItems.length,
+                      todayCount: todayTimelineEvents.length,
+                      weekCount: weekTimelineEvents.length,
+                      monthCount: monthTimelineEvents.length,
+                      yearCount: yearTimelineEvents.length,
+                      lifeJourneyCount: lifeJourneyTimelineEvents.length,
+                      isOnTrack: onTrackResult.isOnTrack,
                     ),
                   ),
                 ),
@@ -493,6 +570,22 @@ class _TimelineIntelligenceStrip extends StatelessWidget {
     required this.riskCount,
     required this.recommendationCount,
     required this.nextDeadline,
+    required this.connectedRiskScore,
+    required this.conflictCount,
+    required this.forecastCount,
+    required this.warningCount,
+    required this.adjustmentCount,
+    required this.fallingBehindCount,
+    required this.activityCount,
+    required this.deadlineCount,
+    required this.completedCount,
+    required this.prioritizedCount,
+    required this.todayCount,
+    required this.weekCount,
+    required this.monthCount,
+    required this.yearCount,
+    required this.lifeJourneyCount,
+    required this.isOnTrack,
   });
 
   final int healthScore;
@@ -503,6 +596,22 @@ class _TimelineIntelligenceStrip extends StatelessWidget {
   final int riskCount;
   final int recommendationCount;
   final TimelineEventEntity? nextDeadline;
+  final int connectedRiskScore;
+  final int conflictCount;
+  final int forecastCount;
+  final int warningCount;
+  final int adjustmentCount;
+  final int fallingBehindCount;
+  final int activityCount;
+  final int deadlineCount;
+  final int completedCount;
+  final int prioritizedCount;
+  final int todayCount;
+  final int weekCount;
+  final int monthCount;
+  final int yearCount;
+  final int lifeJourneyCount;
+  final bool isOnTrack;
 
   @override
   Widget build(BuildContext context) {
@@ -517,16 +626,23 @@ class _TimelineIntelligenceStrip extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               _StatPill(label: 'HEALTH', value: '$healthScore%'),
               _StatPill(label: 'RISK', value: '$riskScore%'),
               _StatPill(label: 'OVERDUE', value: '$overdueCount'),
               _StatPill(label: 'UPCOMING', value: '$upcomingCount'),
-              _StatPill(label: 'MILESTONES', value: '$milestoneCount'),
+              _StatPill(label: 'MILES', value: '$milestoneCount'),
               _StatPill(label: 'RISKS', value: '$riskCount'),
               _StatPill(label: 'RECS', value: '$recommendationCount'),
+              _StatPill(label: 'C-RISK', value: '$connectedRiskScore%'),
+              _StatPill(label: 'CONFLICTS', value: '$conflictCount'),
+              _StatPill(label: 'FCST', value: '$forecastCount'),
+              _StatPill(label: 'WARN', value: '$warningCount'),
+              _StatPill(label: 'ADJUST', value: '$adjustmentCount'),
+              _StatPill(label: 'BEHIND', value: '$fallingBehindCount'),
+              _StatPill(label: 'TRACK', value: isOnTrack ? 'YES' : 'NO'),
             ],
           ),
           if (nextDeadline != null) ...[
@@ -550,22 +666,10 @@ class _StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
-      child: Text(
-        '$label $value',
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.4,
-        ),
-      ),
+    return PrismMetricPill(
+      label: label,
+      value: value,
+      color: AppColors.neonCyan,
     );
   }
 }

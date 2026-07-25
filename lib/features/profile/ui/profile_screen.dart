@@ -184,10 +184,11 @@ class _IdentityCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
             children: [
               _ArchetypeBadge(label: archetype, color: AppColors.neonViolet),
-              const SizedBox(width: 10),
               _ArchetypeBadge(label: growthTitle, color: AppColors.neonCyan),
             ],
           ),

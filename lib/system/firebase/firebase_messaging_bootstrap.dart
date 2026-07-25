@@ -46,9 +46,9 @@ class FirebaseMessagingBootstrap {
           .requestPermission(alert: true, badge: true, sound: true)
           .timeout(const Duration(seconds: 5));
 
-      final String? token = await messaging
-          .getToken()
-          .timeout(const Duration(seconds: 10));
+      final String? token = await messaging.getToken().timeout(
+        const Duration(seconds: 10),
+      );
       if (token != null && token.trim().isNotEmpty) {
         _latestToken = token.trim();
         Logger.log('Push', 'FCM token acquired.');

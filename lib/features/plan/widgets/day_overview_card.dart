@@ -46,4 +46,3 @@ class DayOverviewCard extends StatelessWidget {
     );
   }
 }
-

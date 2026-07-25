@@ -32,7 +32,10 @@ class CreditService {
 
   Future<CreditBalanceCheck> checkBalance(int amount) async {
     final AiCreditWallet wallet = await _repository.getWallet();
-    return CreditBalanceCheck(allowed: wallet.balance >= amount, wallet: wallet);
+    return CreditBalanceCheck(
+      allowed: wallet.balance >= amount,
+      wallet: wallet,
+    );
   }
 
   Future<CreditConsumeResult> consume({

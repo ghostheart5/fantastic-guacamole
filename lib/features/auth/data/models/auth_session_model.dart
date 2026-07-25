@@ -24,12 +24,17 @@ class AuthSessionModel extends AuthSessionEntity {
     return AuthSessionModel(
       accessToken: (map['accessToken'] ?? '').toString(),
       refreshToken: (map['refreshToken'] ?? '').toString(),
-      expiresAt: DateTime.tryParse((map['expiresAt'] ?? '').toString()) ?? DateTime.fromMillisecondsSinceEpoch(0),
-      issuedAt: DateTime.tryParse((map['issuedAt'] ?? '').toString()) ?? DateTime.fromMillisecondsSinceEpoch(0),
-      user: AuthUserModel.fromMap(Map<String, dynamic>.from(map['user'] as Map? ?? <String, dynamic>{})),
+      expiresAt:
+          DateTime.tryParse((map['expiresAt'] ?? '').toString()) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      issuedAt:
+          DateTime.tryParse((map['issuedAt'] ?? '').toString()) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      user: AuthUserModel.fromMap(
+        Map<String, dynamic>.from(map['user'] as Map? ?? <String, dynamic>{}),
+      ),
     );
   }
-
 
   AuthSessionEntity toEntity() => AuthSessionEntity.fromMap(toMap());
 }

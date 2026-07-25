@@ -88,7 +88,9 @@ class MonetizationRemoteDataSource {
         .toList(growable: false);
   }
 
-  Future<List<EntitlementEvent>> fetchEntitlementEvents({int limit = 30}) async {
+  Future<List<EntitlementEvent>> fetchEntitlementEvents({
+    int limit = 30,
+  }) async {
     final sb.SupabaseClient? client = _client;
     final String? userId = currentUserId;
     if (client == null || userId == null) {

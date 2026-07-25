@@ -26,7 +26,8 @@ class AuthState {
   final AuthFailure? failure;
   final DateTime lastUpdated;
 
-  bool get isAuthenticated => status == AuthStatus.authenticated && user != null;
+  bool get isAuthenticated =>
+      status == AuthStatus.authenticated && user != null;
   bool get isBusy => status == AuthStatus.loading;
   bool get hasError => failure != null;
 

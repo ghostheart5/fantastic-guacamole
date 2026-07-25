@@ -19,7 +19,8 @@ class PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool active = currentStatus.planId == plan.id && currentStatus.isActive;
+    final bool active =
+        currentStatus.planId == plan.id && currentStatus.isActive;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -55,7 +56,10 @@ class PlanCard extends StatelessWidget {
               ),
               if (plan.isFeatured)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.neonViolet.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(999),
@@ -82,14 +86,21 @@ class PlanCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          Text(plan.billingLabel, style: const TextStyle(color: Colors.white60)),
+          Text(
+            plan.billingLabel,
+            style: const TextStyle(color: Colors.white60),
+          ),
           const SizedBox(height: 12),
           ...plan.featureIds.map(
             (String item) => Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: AppColors.neonCyan, size: 16),
+                  const Icon(
+                    Icons.check_circle,
+                    color: AppColors.neonCyan,
+                    size: 16,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -110,7 +121,13 @@ class PlanCard extends StatelessWidget {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(active ? 'Active' : plan.isLifetime ? 'Unlock Lifetime' : 'Subscribe'),
+                : Text(
+                    active
+                        ? 'Active'
+                        : plan.isLifetime
+                        ? 'Unlock Lifetime'
+                        : 'Subscribe',
+                  ),
           ),
         ],
       ),

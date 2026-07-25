@@ -30,10 +30,7 @@ class PurchaseVerificationResult {
 }
 
 class PurchaseVerificationService {
-  PurchaseVerificationService({
-    required this.httpClient,
-    required this.mode,
-  });
+  PurchaseVerificationService({required this.httpClient, required this.mode});
 
   final http.Client httpClient;
   final PurchaseVerificationMode mode;

@@ -34,7 +34,6 @@ import 'package:fantastic_guacamole/system/system_scheduler.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -50,13 +49,18 @@ class NavigationShell extends ConsumerStatefulWidget {
 class _NavigationShellState extends ConsumerState<NavigationShell>
     with WidgetsBindingObserver {
   final PreferenceService _preferenceService = PreferenceService();
+
   late final SystemScheduler _systemScheduler;
   late final DataHygieneScheduler _dataHygieneScheduler;
   late final ProviderSubscription<double> _energySubscription;
   late final ProviderSubscription<LearningState> _learningSubscription;
   late final ProviderSubscription<AppView> _viewSubscription;
   late final ProviderSubscription<bool> _networkOnlineSubscription;
+
   final Set<int> _initializedTabIndexes = <int>{0};
+
+  bool _disposed = false;
+
   bool get _isFlutterTestBinding {
     final String bindingType = WidgetsBinding.instance.runtimeType.toString();
     return bindingType.contains('TestWidgetsFlutterBinding');
@@ -65,87 +69,118 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addObserver(this);
+
     _systemScheduler = SystemScheduler()
       ..onSyncOfflineQueue = () {
-        if (!mounted || !Env.enableCloudSync) {
+        if (!mounted || _disposed || !Env.enableCloudSync) {
           return;
         }
+
         ref.invalidate(replayOfflineQueueProvider);
         ref.invalidate(syncToCloudProvider);
       }
       ..onPrecomputeAI = () {
-        if (mounted) {
-          ref.invalidate(aiDecisionProvider);
+        if (!mounted || _disposed) {
+          return;
         }
+
+        ref.invalidate(aiDecisionProvider);
       };
+
     if (!_isFlutterTestBinding) {
       _systemScheduler.resume();
     }
+
     _dataHygieneScheduler = ref.read(dataHygieneSchedulerProvider);
+
     if (!_isFlutterTestBinding) {
       _dataHygieneScheduler.start();
     }
+
     _energySubscription = ref.listenManual<double>(energyProvider, (_, _) {
+      if (!mounted || _disposed) {
+        return;
+      }
+
       ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
     });
+
     _learningSubscription = ref.listenManual<LearningState>(learningProvider, (
       _,
       _,
     ) {
+      if (!mounted || _disposed) {
+        return;
+      }
+
       ref.invalidate(aiDecisionProvider);
       ref.invalidate(aiResponseProvider);
     });
+
     _viewSubscription = ref.listenManual<AppView>(appFlowProvider, (
       _,
       AppView next,
     ) {
+      if (!mounted || _disposed) {
+        return;
+      }
+
       _initializedTabIndexes.add(_tabIndexForView(next));
-      unawaited(
-        ref.read(sessionRecoveryProvider).saveState(lastRoute: next.name),
-      );
+
+      final sessionRecovery = ref.read(sessionRecoveryProvider);
+      final AppView recoverableView = _recoverableSessionView(next);
+
+      unawaited(sessionRecovery.saveState(lastRoute: recoverableView.name));
     });
+
     _networkOnlineSubscription = ref.listenManual<bool>(isOnlineProvider, (
       bool? previous,
       bool next,
     ) {
+      if (!mounted || _disposed) {
+        return;
+      }
+
       final bool cameBackOnline =
           next && (previous == null || previous == false);
+
       if (!cameBackOnline) {
         return;
       }
+
       _triggerCloudSyncReplay();
     });
-    _restoreLastOpenedTab(widget.initialView);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _checkRecovery();
+      if (!mounted || _disposed) {
+        return;
+      }
+
+      ref.read(appFlowProvider.notifier).show(AppView.nexus);
+      unawaited(_checkRecovery());
     });
   }
 
-  void _restoreLastOpenedTab(AppView fallbackView) {
-    final int? restoredTab = _preferenceService.getLastOpenedTab();
-    if (!mounted) {
-      return;
-    }
-    if (restoredTab == null || restoredTab < 0 || restoredTab > 3) {
-      ref.read(appFlowProvider.notifier).show(fallbackView);
-      return;
-    }
-    _initializedTabIndexes.add(restoredTab);
-    ref.read(appFlowProvider.notifier).show(_viewForTabIndex(restoredTab));
-  }
+  
+   
 
   @override
   void dispose() {
+    _disposed = true;
+
     WidgetsBinding.instance.removeObserver(this);
+
     _systemScheduler.shutdown();
     _dataHygieneScheduler.shutdown();
+
     _energySubscription.close();
     _learningSubscription.close();
     _viewSubscription.close();
     _networkOnlineSubscription.close();
+
     super.dispose();
   }
 
@@ -155,9 +190,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
     if (oldWidget.initialView != widget.initialView) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
+        if (!mounted || _disposed) {
           return;
         }
+
         ref.read(appFlowProvider.notifier).show(widget.initialView);
       });
     }
@@ -165,12 +201,20 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_disposed) {
+      return;
+    }
+
     switch (state) {
       case AppLifecycleState.detached:
         _systemScheduler.shutdown();
         _dataHygieneScheduler.shutdown();
-        unawaited(_saveCurrentState());
+
+        if (mounted && !_disposed) {
+          unawaited(_saveCurrentState());
+        }
         break;
+
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
@@ -178,54 +222,85 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           _systemScheduler.pause();
           _dataHygieneScheduler.pause();
         }
-        unawaited(_saveCurrentState());
+
+        if (mounted && !_disposed) {
+          unawaited(_saveCurrentState());
+        }
         break;
+
       case AppLifecycleState.resumed:
         if (!_isFlutterTestBinding) {
           _systemScheduler.resume();
           _dataHygieneScheduler.start();
         }
-        unawaited(_checkRecovery());
+
+        if (mounted && !_disposed) {
+          unawaited(_checkRecovery());
+        }
         break;
     }
   }
 
   Future<void> _saveCurrentState() async {
-    if (!mounted) {
+    if (!mounted || _disposed) {
       return;
     }
+
     final AppView view = ref.read(appFlowProvider);
-    await ref.read(sessionRecoveryProvider).saveState(lastRoute: view.name);
+    final sessionRecovery = ref.read(sessionRecoveryProvider);
+
+    await sessionRecovery.saveState(lastRoute: view.name);
+
+    if (!mounted || _disposed) {
+      return;
+    }
+
     unawaited(_pushDailyMetrics());
   }
 
   Future<void> _pushDailyMetrics() async {
-    if (!mounted) {
+    if (!mounted || _disposed) {
       return;
     }
+
     final accumulator = ref.read(localMetricsAccumulatorProvider);
+    final aggregationService = ref.read(globalAggregationServiceProvider);
+
     final Map<String, dynamic> snapshot = await accumulator.snapshot();
-    await ref.read(globalAggregationServiceProvider).push(snapshot);
+
+    if (!mounted || _disposed) {
+      return;
+    }
+
+    await aggregationService.push(snapshot);
   }
 
   Future<void> _checkRecovery() async {
-    if (!mounted) {
+    if (!mounted || _disposed) {
       return;
     }
-    final recovery = await ref.read(sessionRecoveryProvider).loadState();
-    if (!mounted || recovery == null) {
+
+    final sessionRecovery = ref.read(sessionRecoveryProvider);
+    final recovery = await sessionRecovery.loadState();
+
+    if (!mounted || _disposed || recovery == null) {
       return;
     }
+
     final AppView? recoveredView = appViewFromName(recovery.lastRoute);
+
     if (recoveredView != null) {
-      ref.read(appFlowProvider.notifier).show(recoveredView);
+      ref
+          .read(appFlowProvider.notifier)
+          .show(_recoverableSessionView(recoveredView));
     }
   }
 
   void _triggerCloudSyncReplay() {
-    if (!mounted || !Env.enableCloudSync) {
+    if (!mounted || _disposed || !Env.enableCloudSync) {
       return;
     }
+
     ref.invalidate(replayOfflineQueueProvider);
     ref.invalidate(syncToCloudProvider);
     ref.invalidate(offlineQueueCountProvider);
@@ -250,6 +325,16 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     );
   }
 
+  AppView _recoverableSessionView(AppView view) {
+    return switch (view) {
+      AppView.tasks => AppView.tasks,
+      AppView.logs => AppView.logs,
+      AppView.profile => AppView.profile,
+      AppView.nexus || AppView.coach => AppView.nexus,
+      _ => AppView.nexus,
+    };
+  }
+
   int _tabIndexForView(AppView view) {
     return switch (view) {
       AppView.coach || AppView.nexus => 0,
@@ -260,19 +345,18 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     };
   }
 
-  AppView _viewForTabIndex(int index) {
-    return switch (index) {
-      1 => AppView.tasks,
-      2 => AppView.logs,
-      3 => AppView.profile,
-      _ => AppView.nexus,
-    };
-  }
+  
 
   void _onTabSelected(int index) {
+    if (!mounted || _disposed) {
+      return;
+    }
+
     _initializedTabIndexes.add(index);
     unawaited(_preferenceService.setLastOpenedTab(index));
+
     final AppFlowController controller = ref.read(appFlowProvider.notifier);
+
     switch (index) {
       case 0:
         controller.toNexus();
@@ -290,6 +374,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       if (!_initializedTabIndexes.contains(index)) {
         return const SizedBox.shrink();
       }
+
       return switch (index) {
         1 => const TaskScreen(),
         2 => const LogsScreen(),
@@ -305,6 +390,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   }
 
   void _showNavigationMap() {
+    if (!mounted || _disposed) {
+      return;
+    }
+
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -317,6 +406,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).pop();
+
+              if (!mounted || _disposed) {
+                return;
+              }
+
               ref.read(appFlowProvider.notifier).show(target);
             },
           );
@@ -326,7 +420,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           child: ListView(
             shrinkWrap: true,
             padding: const EdgeInsets.fromLTRB(10, 6, 10, 14),
-            children: [
+            children: <Widget>[
               const ListTile(
                 title: Text('Navigation Map'),
                 subtitle: Text('Core first, advanced when needed.'),
@@ -361,6 +455,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   Widget build(BuildContext context) {
     final AppView view = ref.watch(appFlowProvider);
     final int tabIndex = _tabIndexForView(view);
+
     _initializedTabIndexes.add(tabIndex);
 
     final Widget body = switch (view) {
@@ -407,11 +502,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     };
 
     return PopScope(
-      canPop: view == AppView.nexus,
+      canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic _) {
-        if (didPop) {
+        if (didPop || !mounted || _disposed) {
           return;
         }
+
         final AppFlowController controller = ref.read(appFlowProvider.notifier);
         final AppView current = ref.read(appFlowProvider);
 
@@ -430,9 +526,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           return;
         }
 
-        SystemNavigator.pop();
+        // Stay on Nexus instead of closing the Windows app.
+        controller.toNexus();
       },
       child: OfflineBanner(child: body),
     );
   }
 }
+
+

@@ -96,3 +96,20 @@ debug_log.txt
 lib_files.txt
 .claude/scheduled_tasks.lock
 *.code-workspace
+
+# Local audit and crash artifacts
+.archive/
+.audit/
+chronospark_auth_log.txt
+chronospark_login_crash.txt
+chronospark_runtime*.txt
+nexus_back_crash.txt
+recovery_corrupted_env_hive.diff
+audit_reports/chronospark_audit*.txt
+
+# Local backup files
+*.bak
+*.bak-*
+
+# Local Node lockfile (repo is Flutter-first)
+package-lock.json

@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/theme/widgets/prism_metric_pill.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,7 +48,7 @@ class FlowmapScreen extends ConsumerWidget {
         backgroundColor: const Color(0xFF0B111C),
         elevation: 0,
         leading: SmartPressable(
-          onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
+          onTap: () => ref.read(appFlowProvider.notifier).toNexus(),
           child: const Icon(
             Icons.arrow_back_ios_new,
             color: AppColors.neonCyan,
@@ -706,22 +707,10 @@ class _SummaryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
-      child: Text(
-        '$label $value',
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 10,
-          letterSpacing: 0.5,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+    return PrismMetricPill(
+      label: label,
+      value: value,
+      color: AppColors.neonCyan,
     );
   }
 }

@@ -12,8 +12,10 @@ class NotificationPermissionRecoveryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ValueListenable<NotificationPermissionState> permissionStateListenable =
-        ref.watch(notificationPermissionStateListenableProvider);
+    final ValueListenable<NotificationPermissionState>
+    permissionStateListenable = ref.watch(
+      notificationPermissionStateListenableProvider,
+    );
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/settings_bg.jpg',
       child: Scaffold(
@@ -65,7 +67,8 @@ class NotificationPermissionRecoveryScreen extends ConsumerWidget {
                 ValueListenableBuilder<NotificationPermissionState>(
                   valueListenable: permissionStateListenable,
                   builder: (context, state, _) {
-                    if (state == NotificationPermissionState.permanentlyDenied) {
+                    if (state ==
+                        NotificationPermissionState.permanentlyDenied) {
                       return const Text(
                         'Permission is permanently denied. Open system settings to re-enable notifications.',
                         style: TextStyle(color: Colors.white70, height: 1.4),

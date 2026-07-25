@@ -1,5 +1,8 @@
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/memory/misc/generate_memory_insights_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/memory/misc/generate_memory_summary_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/memory/misc/view_memory_analytics_usecase.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
@@ -69,6 +72,20 @@ final memorySummaryProvider = Provider<MemorySummary>((Ref ref) {
   );
 });
 
+final memoryAnalyticsProvider = Provider<MemoryAnalyticsResult>((Ref ref) {
+  final List<MemoryEntity> memories = ref.watch(memoriesProvider);
+  return const ViewMemoryAnalyticsUsecase().call(memories);
+});
+
+final generatedMemorySummaryProvider = Provider<MemorySummaryResult>((Ref ref) {
+  final List<MemoryEntity> memories = ref.watch(memoriesProvider);
+  return const GenerateMemorySummaryUsecase().call(memories);
+});
+
+final memoryInsightsProvider = Provider<List<String>>((Ref ref) {
+  final List<MemoryEntity> memories = ref.watch(memoriesProvider);
+  return const GenerateMemoryInsightsUsecase().call(memories);
+});
 final memorySearchProvider = Provider.family<List<MemoryEntity>, String>((
   Ref ref,
   String query,

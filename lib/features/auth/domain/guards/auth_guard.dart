@@ -7,9 +7,11 @@ class AuthGuard {
 
   bool canAccess(AuthUserEntity? user, AuthPermission permission) {
     if (user == null) {
-      return permission == AuthPermission.signIn || permission == AuthPermission.signUp;
+      return permission == AuthPermission.signIn ||
+          permission == AuthPermission.signUp;
     }
-    if (permission == AuthPermission.signIn || permission == AuthPermission.signUp) {
+    if (permission == AuthPermission.signIn ||
+        permission == AuthPermission.signUp) {
       return false;
     }
     return true;

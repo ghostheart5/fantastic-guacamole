@@ -59,9 +59,13 @@ class PreferenceService {
           (dynamic key, dynamic value) => MapEntry(key.toString(), value),
         );
       }
-      Logger.warn('User preferences payload is not a JSON object and will be ignored.');
+      Logger.warn(
+        'User preferences payload is not a JSON object and will be ignored.',
+      );
     } on FormatException catch (error) {
-      Logger.warn('User preferences payload is corrupted and will be ignored: $error');
+      Logger.warn(
+        'User preferences payload is corrupted and will be ignored: $error',
+      );
     }
     return <String, dynamic>{};
   }

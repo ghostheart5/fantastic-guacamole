@@ -1,3 +1,194 @@
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/archive_goal_usecase.dart'
+    as feature_goal_archive;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/favorite_goal_usecase.dart'
+    as feature_goal_favorite;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/pin_goal_usecase.dart'
+    as feature_goal_pin;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/restore_goal_usecase.dart'
+    as feature_goal_restore_metadata;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/unfavorite_goal_usecase.dart'
+    as feature_goal_unfavorite;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/unpin_goal_usecase.dart'
+    as feature_goal_unpin;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/links/link_emotion_to_goal_usecase.dart'
+    as feature_goal_link_emotion;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/links/link_focus_session_to_goal_usecase.dart'
+    as feature_goal_link_focus;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/links/link_habit_to_goal_usecase.dart'
+    as feature_goal_link_habit;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/links/link_journal_entry_to_goal_usecase.dart'
+    as feature_goal_link_journal;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/links/unlink_emotion_from_goal_usecase.dart'
+    as feature_goal_unlink_emotion;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/links/unlink_focus_session_from_goal_usecase.dart'
+    as feature_goal_unlink_focus;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/links/unlink_habit_from_goal_usecase.dart'
+    as feature_goal_unlink_habit;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/links/unlink_journal_entry_from_goal_usecase.dart'
+    as feature_goal_unlink_journal;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/portability/backup_goals_usecase.dart'
+    as feature_goal_backup;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/portability/export_goals_usecase.dart'
+    as feature_goal_export;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/portability/import_goals_usecase.dart'
+    as feature_goal_import;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/portability/restore_goals_usecase.dart'
+    as feature_goal_restore;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/config/create_goal_category_usecase.dart'
+    as feature_goal_category_create;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/config/delete_goal_category_usecase.dart'
+    as feature_goal_category_delete;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/config/set_goal_priority_usecase.dart'
+    as feature_goal_priority_set;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/config/update_goal_category_usecase.dart'
+    as feature_goal_category_update;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/config/update_goal_priority_usecase.dart'
+    as feature_goal_priority_update;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/templates/create_goal_from_template_usecase.dart'
+    as feature_goal_from_template;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/templates/save_goal_as_template_usecase.dart'
+    as feature_goal_save_template;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/templates/update_goal_template_usecase.dart'
+    as feature_goal_update_template;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/rewards/award_goal_achievement_usecase.dart'
+    as feature_goal_award;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/rewards/celebrate_goal_completion_usecase.dart'
+    as feature_goal_celebrate;
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/reminders/create_goal_reminder_usecase.dart'
+    as feature_goal_create_reminder;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/reminders/delete_goal_reminder_usecase.dart'
+    as feature_goal_delete_reminder;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/reminders/dismiss_goal_reminder_usecase.dart'
+    as feature_goal_dismiss_reminder;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/reminders/snooze_goal_reminder_usecase.dart'
+    as feature_goal_snooze_reminder;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/reminders/update_goal_reminder_usecase.dart'
+    as feature_goal_update_reminder;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/links/link_task_to_goal_usecase.dart'
+    as feature_goal_link_task;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/links/unlink_task_from_goal_usecase.dart'
+    as feature_goal_unlink_task;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/lifecycle/abandon_goal_usecase.dart'
+    as feature_goal_abandon;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/lifecycle/complete_goal_usecase.dart'
+    as feature_goal_lifecycle_complete;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/lifecycle/mark_goal_completed_usecase.dart'
+    as feature_goal_mark_completed;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/lifecycle/mark_goal_failed_usecase.dart'
+    as feature_goal_mark_failed;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/lifecycle/mark_goal_in_progress_usecase.dart'
+    as feature_goal_mark_in_progress;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/lifecycle/pause_goal_usecase.dart'
+    as feature_goal_pause;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/lifecycle/reopen_goal_usecase.dart'
+    as feature_goal_reopen;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/lifecycle/resume_goal_usecase.dart'
+    as feature_goal_resume;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/lifecycle/start_goal_usecase.dart'
+    as feature_goal_start;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/config/remove_goal_deadline_usecase.dart'
+    as feature_goal_remove_deadline;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/config/set_goal_deadline_usecase.dart'
+    as feature_goal_set_deadline;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/config/update_goal_deadline_usecase.dart'
+    as feature_goal_update_deadline;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/insights/generate_goal_breakdown_usecase.dart'
+    as feature_goal_breakdown;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/insights/generate_goal_insights_usecase.dart'
+    as feature_goal_insights;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/insights/generate_goal_plan_usecase.dart'
+    as feature_goal_plan;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/insights/generate_goal_recommendations_usecase.dart'
+    as feature_goal_recommendations;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/insights/generate_goal_summary_usecase.dart'
+    as feature_goal_summary;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/insights/recommend_goals_usecase.dart'
+    as feature_goal_recommend_goals;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/insights/recommend_next_action_usecase.dart'
+    as feature_goal_next_action;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/analytics/detect_goal_conflicts_usecase.dart'
+    as feature_goal_conflicts;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/analytics/detect_goal_risk_usecase.dart'
+    as feature_goal_risk;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/analytics/detect_goal_stagnation_usecase.dart'
+    as feature_goal_stagnation;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/analytics/predict_goal_completion_usecase.dart'
+    as feature_goal_completion_prediction;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/analytics/predict_goal_success_usecase.dart'
+    as feature_goal_success_prediction;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/analytics/view_goal_analytics_usecase.dart'
+    as feature_goal_analytics;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/analytics/view_goal_completion_rate_usecase.dart'
+    as feature_goal_completion_rate;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/analytics/view_goal_streaks_usecase.dart'
+    as feature_goal_streaks;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/analytics/view_goal_trends_usecase.dart'
+    as feature_goal_trends;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/structure/complete_subgoal_usecase.dart'
+    as feature_goal_complete_subgoal;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/structure/create_subgoal_usecase.dart'
+    as feature_goal_create_subgoal;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/structure/delete_subgoal_usecase.dart'
+    as feature_goal_delete_subgoal;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/structure/update_subgoal_usecase.dart'
+    as feature_goal_update_subgoal;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/structure/complete_milestone_usecase.dart'
+    as feature_goal_complete_milestone;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/structure/create_milestone_usecase.dart'
+    as feature_goal_create_milestone;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/structure/delete_milestone_usecase.dart'
+    as feature_goal_delete_milestone;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/structure/reopen_milestone_usecase.dart'
+    as feature_goal_reopen_milestone;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/structure/update_milestone_usecase.dart'
+    as feature_goal_update_milestone;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/progress/calculate_goal_score_usecase.dart'
+    as feature_goal_score;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/progress/calculate_goal_success_rate_usecase.dart'
+    as feature_goal_success_rate;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/progress/decrement_goal_progress_usecase.dart'
+    as feature_goal_progress_decrement;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/progress/increment_goal_progress_usecase.dart'
+    as feature_goal_progress_increment;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/progress/reset_goal_progress_usecase.dart'
+    as feature_goal_progress_reset;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/progress/update_goal_progress_usecase.dart'
+    as feature_goal_progress_update;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/domain/create_career_goal_usecase.dart'
+    as feature_goal_career;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/domain/create_financial_goal_usecase.dart'
+    as feature_goal_financial;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/domain/create_fitness_goal_usecase.dart'
+    as feature_goal_fitness;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/domain/create_health_goal_usecase.dart'
+    as feature_goal_health;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/domain/create_learning_goal_usecase.dart'
+    as feature_goal_learning;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/domain/create_personal_goal_usecase.dart'
+    as feature_goal_personal;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/domain/create_productivity_goal_usecase.dart'
+    as feature_goal_productivity;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/domain/create_relationship_goal_usecase.dart'
+    as feature_goal_relationship;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/domain/create_spiritual_goal_usecase.dart'
+    as feature_goal_spiritual;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/style/create_lifetime_goal_usecase.dart'
+    as feature_goal_lifetime;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/style/create_micro_goal_usecase.dart'
+    as feature_goal_micro;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/style/create_smart_goal_usecase.dart'
+    as feature_goal_smart;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/style/create_stretch_goal_usecase.dart'
+    as feature_goal_stretch;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/timeframe/create_daily_goal_usecase.dart'
+    as feature_goal_daily;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/timeframe/create_weekly_goal_usecase.dart'
+    as feature_goal_weekly;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/timeframe/create_monthly_goal_usecase.dart'
+    as feature_goal_monthly;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/timeframe/create_yearly_goal_usecase.dart'
+    as feature_goal_yearly;
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
@@ -18,6 +209,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_profile_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
+import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_project_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
@@ -85,6 +277,29 @@ import 'package:fantastic_guacamole/domain/usecases/save_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/schedule_notification.dart';
 import 'package:fantastic_guacamole/domain/usecases/switch_theme.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_flowmap_node.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/view/view_active_goals_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/view/view_archived_goals_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/view/view_completed_goals_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/view/view_goal_activity_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/view/view_goal_details_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/view/view_goal_history_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/view/view_goal_timeline_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/create_goal_usecase.dart'
+    as feature_goal_create;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/delete_goal_usecase.dart'
+    as feature_goal_delete;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/duplicate_goal_usecase.dart'
+    as feature_goal_duplicate;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/update_goal_usecase.dart'
+    as feature_goal_update;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/view/view_goal_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/view/view_overdue_goals_usecase.dart';
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/filter_goals_usecase.dart'
+    as feature_goal_filter;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/search_goals_usecase.dart'
+    as feature_goal_search;
+import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/core/sort_goals_usecase.dart'
+    as feature_goal_sort;
 import 'package:fantastic_guacamole/domain/usecases/update_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_level.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_plan.dart';
@@ -97,6 +312,7 @@ import 'package:fantastic_guacamole/domain/usecases/update_xp.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/services/extended_domain_service.dart';
+import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final domainTaskRepositoryProvider = Provider<ITaskRepository>((ref) {
@@ -137,10 +353,37 @@ final domainProfileRepositoryProvider = Provider<IProfileRepository>((ref) {
   return ref.read(profileRepositoryProvider);
 });
 
+class _ProfileBackedProgressionRepository implements IProgressionRepository {
+  const _ProfileBackedProgressionRepository(this._ref);
+
+  final Ref _ref;
+
+  @override
+  Future<ProgressionEntity?> getProgression() async {
+    final ProfileState profile = _ref.read(profileProvider);
+    return ProgressionEntity(
+      xp: profile.xp,
+      level: profile.level,
+      streak: profile.streak,
+    );
+  }
+
+  @override
+  Future<void> saveProgression(ProgressionEntity progression) {
+    return _ref
+        .read(profileProvider.notifier)
+        .setProgressionSnapshot(
+          xp: progression.xp,
+          level: progression.level,
+          streak: progression.streak,
+        );
+  }
+}
+
 final domainProgressionRepositoryProvider = Provider<IProgressionRepository>((
   ref,
 ) {
-  return ref.read(progressionRepositoryProvider);
+  return _ProfileBackedProgressionRepository(ref);
 });
 
 final domainRoutineRepositoryProvider = Provider<IRoutineRepository>((ref) {
@@ -424,6 +667,34 @@ final createGoalUseCaseProvider = Provider<CreateGoal>((ref) {
   return CreateGoal(ref.read(domainGoalRepositoryProvider));
 });
 
+final featureCreateGoalUseCaseProvider =
+    Provider<feature_goal_create.CreateGoalUsecase>((ref) {
+      return feature_goal_create.CreateGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureUpdateGoalUseCaseProvider =
+    Provider<feature_goal_update.UpdateGoalUsecase>((ref) {
+      return feature_goal_update.UpdateGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureDeleteGoalUseCaseProvider =
+    Provider<feature_goal_delete.DeleteGoalUsecase>((ref) {
+      return feature_goal_delete.DeleteGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureDuplicateGoalUseCaseProvider =
+    Provider<feature_goal_duplicate.DuplicateGoalUsecase>((ref) {
+      return feature_goal_duplicate.DuplicateGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
 final updateGoalUseCaseProvider = Provider<UpdateGoal>((ref) {
   return UpdateGoal(ref.read(domainGoalRepositoryProvider));
 });
@@ -438,6 +709,52 @@ final completeGoalUseCaseProvider = Provider<CompleteGoal>((ref) {
 
 final saveGoalsUseCaseProvider = Provider<SaveGoals>((ref) {
   return SaveGoals(ref.read(domainGoalRepositoryProvider));
+});
+
+final viewGoalUseCaseProvider = Provider<ViewGoalUsecase>((ref) {
+  return ViewGoalUsecase(ref.read(domainGoalRepositoryProvider));
+});
+
+final viewGoalDetailsUseCaseProvider = Provider<ViewGoalDetailsUsecase>((ref) {
+  return ViewGoalDetailsUsecase(ref.read(domainGoalRepositoryProvider));
+});
+
+final viewActiveGoalsUseCaseProvider = Provider<ViewActiveGoalsUsecase>((ref) {
+  return ViewActiveGoalsUsecase(ref.read(domainGoalRepositoryProvider));
+});
+
+final viewArchivedGoalsUseCaseProvider = Provider<ViewArchivedGoalsUsecase>((
+  ref,
+) {
+  return ViewArchivedGoalsUsecase(ref.read(domainGoalRepositoryProvider));
+});
+
+final viewCompletedGoalsUseCaseProvider = Provider<ViewCompletedGoalsUsecase>((
+  ref,
+) {
+  return ViewCompletedGoalsUsecase(ref.read(domainGoalRepositoryProvider));
+});
+
+final viewOverdueGoalsUseCaseProvider = Provider<ViewOverdueGoalsUsecase>((
+  ref,
+) {
+  return ViewOverdueGoalsUsecase(ref.read(domainGoalRepositoryProvider));
+});
+
+final viewGoalTimelineUseCaseProvider = Provider<ViewGoalTimelineUsecase>((
+  ref,
+) {
+  return ViewGoalTimelineUsecase(ref.read(domainTimelineRepositoryProvider));
+});
+
+final viewGoalHistoryUseCaseProvider = Provider<ViewGoalHistoryUsecase>((ref) {
+  return ViewGoalHistoryUsecase(ref.read(domainTimelineRepositoryProvider));
+});
+
+final viewGoalActivityUseCaseProvider = Provider<ViewGoalActivityUsecase>((
+  ref,
+) {
+  return ViewGoalActivityUsecase(ref.read(domainTimelineRepositoryProvider));
 });
 
 final getProjectsUseCaseProvider = Provider<GetProjects>((ref) {
@@ -724,3 +1041,735 @@ class _SiRepositoryAdapter implements ISiRepository {
         .replaceState(energy: state.energy, fatigue: state.fatigue);
   }
 }
+
+final featureSearchGoalsUseCaseProvider =
+    Provider<feature_goal_search.SearchGoalsUsecase>((ref) {
+      return feature_goal_search.SearchGoalsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureFilterGoalsUseCaseProvider =
+    Provider<feature_goal_filter.FilterGoalsUsecase>((ref) {
+      return feature_goal_filter.FilterGoalsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureSortGoalsUseCaseProvider =
+    Provider<feature_goal_sort.SortGoalsUsecase>((ref) {
+      return feature_goal_sort.SortGoalsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateDailyGoalUseCaseProvider =
+    Provider<feature_goal_daily.CreateDailyGoalUsecase>((ref) {
+      return feature_goal_daily.CreateDailyGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateWeeklyGoalUseCaseProvider =
+    Provider<feature_goal_weekly.CreateWeeklyGoalUsecase>((ref) {
+      return feature_goal_weekly.CreateWeeklyGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateMonthlyGoalUseCaseProvider =
+    Provider<feature_goal_monthly.CreateMonthlyGoalUsecase>((ref) {
+      return feature_goal_monthly.CreateMonthlyGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateYearlyGoalUseCaseProvider =
+    Provider<feature_goal_yearly.CreateYearlyGoalUsecase>((ref) {
+      return feature_goal_yearly.CreateYearlyGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateSmartGoalUseCaseProvider =
+    Provider<feature_goal_smart.CreateSmartGoalUsecase>((ref) {
+      return feature_goal_smart.CreateSmartGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateMicroGoalUseCaseProvider =
+    Provider<feature_goal_micro.CreateMicroGoalUsecase>((ref) {
+      return feature_goal_micro.CreateMicroGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateStretchGoalUseCaseProvider =
+    Provider<feature_goal_stretch.CreateStretchGoalUsecase>((ref) {
+      return feature_goal_stretch.CreateStretchGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateLifetimeGoalUseCaseProvider =
+    Provider<feature_goal_lifetime.CreateLifetimeGoalUsecase>((ref) {
+      return feature_goal_lifetime.CreateLifetimeGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateCareerGoalUseCaseProvider =
+    Provider<feature_goal_career.CreateCareerGoalUsecase>((ref) {
+      return feature_goal_career.CreateCareerGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateFinancialGoalUseCaseProvider =
+    Provider<feature_goal_financial.CreateFinancialGoalUsecase>((ref) {
+      return feature_goal_financial.CreateFinancialGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateFitnessGoalUseCaseProvider =
+    Provider<feature_goal_fitness.CreateFitnessGoalUsecase>((ref) {
+      return feature_goal_fitness.CreateFitnessGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateHealthGoalUseCaseProvider =
+    Provider<feature_goal_health.CreateHealthGoalUsecase>((ref) {
+      return feature_goal_health.CreateHealthGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateLearningGoalUseCaseProvider =
+    Provider<feature_goal_learning.CreateLearningGoalUsecase>((ref) {
+      return feature_goal_learning.CreateLearningGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreatePersonalGoalUseCaseProvider =
+    Provider<feature_goal_personal.CreatePersonalGoalUsecase>((ref) {
+      return feature_goal_personal.CreatePersonalGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateProductivityGoalUseCaseProvider =
+    Provider<feature_goal_productivity.CreateProductivityGoalUsecase>((ref) {
+      return feature_goal_productivity.CreateProductivityGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateRelationshipGoalUseCaseProvider =
+    Provider<feature_goal_relationship.CreateRelationshipGoalUsecase>((ref) {
+      return feature_goal_relationship.CreateRelationshipGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateSpiritualGoalUseCaseProvider =
+    Provider<feature_goal_spiritual.CreateSpiritualGoalUsecase>((ref) {
+      return feature_goal_spiritual.CreateSpiritualGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCalculateGoalScoreUseCaseProvider =
+    Provider<feature_goal_score.CalculateGoalScoreUsecase>((ref) {
+      return feature_goal_score.CalculateGoalScoreUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTaskRepositoryProvider),
+      );
+    });
+
+final featureCalculateGoalSuccessRateUseCaseProvider =
+    Provider<feature_goal_success_rate.CalculateGoalSuccessRateUsecase>((ref) {
+      return feature_goal_success_rate.CalculateGoalSuccessRateUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTaskRepositoryProvider),
+      );
+    });
+
+final featureIncrementGoalProgressUseCaseProvider =
+    Provider<feature_goal_progress_increment.IncrementGoalProgressUsecase>((
+      ref,
+    ) {
+      return feature_goal_progress_increment.IncrementGoalProgressUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTaskRepositoryProvider),
+      );
+    });
+
+final featureDecrementGoalProgressUseCaseProvider =
+    Provider<feature_goal_progress_decrement.DecrementGoalProgressUsecase>((
+      ref,
+    ) {
+      return feature_goal_progress_decrement.DecrementGoalProgressUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTaskRepositoryProvider),
+      );
+    });
+
+final featureResetGoalProgressUseCaseProvider =
+    Provider<feature_goal_progress_reset.ResetGoalProgressUsecase>((ref) {
+      return feature_goal_progress_reset.ResetGoalProgressUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTaskRepositoryProvider),
+      );
+    });
+
+final featureUpdateGoalProgressUseCaseProvider =
+    Provider<feature_goal_progress_update.UpdateGoalProgressUsecase>((ref) {
+      return feature_goal_progress_update.UpdateGoalProgressUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTaskRepositoryProvider),
+      );
+    });
+
+final featureCreateMilestoneUseCaseProvider =
+    Provider<feature_goal_create_milestone.CreateMilestoneUsecase>((ref) {
+      return feature_goal_create_milestone.CreateMilestoneUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureUpdateMilestoneUseCaseProvider =
+    Provider<feature_goal_update_milestone.UpdateMilestoneUsecase>((ref) {
+      return feature_goal_update_milestone.UpdateMilestoneUsecase(
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureDeleteMilestoneUseCaseProvider =
+    Provider<feature_goal_delete_milestone.DeleteMilestoneUsecase>((ref) {
+      return feature_goal_delete_milestone.DeleteMilestoneUsecase(
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureCompleteMilestoneUseCaseProvider =
+    Provider<feature_goal_complete_milestone.CompleteMilestoneUsecase>((ref) {
+      return feature_goal_complete_milestone.CompleteMilestoneUsecase(
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureReopenMilestoneUseCaseProvider =
+    Provider<feature_goal_reopen_milestone.ReopenMilestoneUsecase>((ref) {
+      return feature_goal_reopen_milestone.ReopenMilestoneUsecase(
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureCreateSubgoalUseCaseProvider =
+    Provider<feature_goal_create_subgoal.CreateSubgoalUsecase>((ref) {
+      return feature_goal_create_subgoal.CreateSubgoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureUpdateSubgoalUseCaseProvider =
+    Provider<feature_goal_update_subgoal.UpdateSubgoalUsecase>((ref) {
+      return feature_goal_update_subgoal.UpdateSubgoalUsecase(
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureDeleteSubgoalUseCaseProvider =
+    Provider<feature_goal_delete_subgoal.DeleteSubgoalUsecase>((ref) {
+      return feature_goal_delete_subgoal.DeleteSubgoalUsecase(
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureCompleteSubgoalUseCaseProvider =
+    Provider<feature_goal_complete_subgoal.CompleteSubgoalUsecase>((ref) {
+      return feature_goal_complete_subgoal.CompleteSubgoalUsecase(
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureDetectGoalConflictsUseCaseProvider =
+    Provider<feature_goal_conflicts.DetectGoalConflictsUsecase>((ref) {
+      return feature_goal_conflicts.DetectGoalConflictsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureDetectGoalRiskUseCaseProvider =
+    Provider<feature_goal_risk.DetectGoalRiskUsecase>((ref) {
+      return feature_goal_risk.DetectGoalRiskUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureDetectGoalStagnationUseCaseProvider =
+    Provider<feature_goal_stagnation.DetectGoalStagnationUsecase>((ref) {
+      return feature_goal_stagnation.DetectGoalStagnationUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featurePredictGoalCompletionUseCaseProvider =
+    Provider<feature_goal_completion_prediction.PredictGoalCompletionUsecase>((
+      ref,
+    ) {
+      return feature_goal_completion_prediction.PredictGoalCompletionUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featurePredictGoalSuccessUseCaseProvider =
+    Provider<feature_goal_success_prediction.PredictGoalSuccessUsecase>((ref) {
+      return feature_goal_success_prediction.PredictGoalSuccessUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureViewGoalAnalyticsUseCaseProvider =
+    Provider<feature_goal_analytics.ViewGoalAnalyticsUsecase>((ref) {
+      return feature_goal_analytics.ViewGoalAnalyticsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureViewGoalCompletionRateUseCaseProvider =
+    Provider<feature_goal_completion_rate.ViewGoalCompletionRateUsecase>((ref) {
+      return feature_goal_completion_rate.ViewGoalCompletionRateUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureViewGoalStreaksUseCaseProvider =
+    Provider<feature_goal_streaks.ViewGoalStreaksUsecase>((ref) {
+      return feature_goal_streaks.ViewGoalStreaksUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureViewGoalTrendsUseCaseProvider =
+    Provider<feature_goal_trends.ViewGoalTrendsUsecase>((ref) {
+      return feature_goal_trends.ViewGoalTrendsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureGenerateGoalBreakdownUseCaseProvider =
+    Provider<feature_goal_breakdown.GenerateGoalBreakdownUsecase>((ref) {
+      return feature_goal_breakdown.GenerateGoalBreakdownUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTaskRepositoryProvider),
+      );
+    });
+
+final featureGenerateGoalInsightsUseCaseProvider =
+    Provider<feature_goal_insights.GenerateGoalInsightsUsecase>((ref) {
+      return feature_goal_insights.GenerateGoalInsightsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureGenerateGoalPlanUseCaseProvider =
+    Provider<feature_goal_plan.GenerateGoalPlanUsecase>((ref) {
+      return feature_goal_plan.GenerateGoalPlanUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTaskRepositoryProvider),
+      );
+    });
+
+final featureGenerateGoalRecommendationsUseCaseProvider =
+    Provider<feature_goal_recommendations.GenerateGoalRecommendationsUsecase>((
+      ref,
+    ) {
+      return feature_goal_recommendations.GenerateGoalRecommendationsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureGenerateGoalSummaryUseCaseProvider =
+    Provider<feature_goal_summary.GenerateGoalSummaryUsecase>((ref) {
+      return feature_goal_summary.GenerateGoalSummaryUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureRecommendGoalsUseCaseProvider =
+    Provider<feature_goal_recommend_goals.RecommendGoalsUsecase>((ref) {
+      return feature_goal_recommend_goals.RecommendGoalsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureRecommendNextActionUseCaseProvider =
+    Provider<feature_goal_next_action.RecommendNextActionUsecase>((ref) {
+      return feature_goal_next_action.RecommendNextActionUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTaskRepositoryProvider),
+      );
+    });
+
+final featureSetGoalDeadlineUseCaseProvider =
+    Provider<feature_goal_set_deadline.SetGoalDeadlineUsecase>((ref) {
+      return feature_goal_set_deadline.SetGoalDeadlineUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureUpdateGoalDeadlineUseCaseProvider =
+    Provider<feature_goal_update_deadline.UpdateGoalDeadlineUsecase>((ref) {
+      return feature_goal_update_deadline.UpdateGoalDeadlineUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureRemoveGoalDeadlineUseCaseProvider =
+    Provider<feature_goal_remove_deadline.RemoveGoalDeadlineUsecase>((ref) {
+      return feature_goal_remove_deadline.RemoveGoalDeadlineUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureStartGoalUseCaseProvider =
+    Provider<feature_goal_start.StartGoalUsecase>((ref) {
+      return feature_goal_start.StartGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featurePauseGoalUseCaseProvider =
+    Provider<feature_goal_pause.PauseGoalUsecase>((ref) {
+      return feature_goal_pause.PauseGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureResumeGoalUseCaseProvider =
+    Provider<feature_goal_resume.ResumeGoalUsecase>((ref) {
+      return feature_goal_resume.ResumeGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureReopenGoalUseCaseProvider =
+    Provider<feature_goal_reopen.ReopenGoalUsecase>((ref) {
+      return feature_goal_reopen.ReopenGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureAbandonGoalUseCaseProvider =
+    Provider<feature_goal_abandon.AbandonGoalUsecase>((ref) {
+      return feature_goal_abandon.AbandonGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureLifecycleCompleteGoalUseCaseProvider =
+    Provider<feature_goal_lifecycle_complete.CompleteGoalUsecase>((ref) {
+      return feature_goal_lifecycle_complete.CompleteGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureMarkGoalCompletedUseCaseProvider =
+    Provider<feature_goal_mark_completed.MarkGoalCompletedUsecase>((ref) {
+      return feature_goal_mark_completed.MarkGoalCompletedUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureMarkGoalFailedUseCaseProvider =
+    Provider<feature_goal_mark_failed.MarkGoalFailedUsecase>((ref) {
+      return feature_goal_mark_failed.MarkGoalFailedUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureMarkGoalInProgressUseCaseProvider =
+    Provider<feature_goal_mark_in_progress.MarkGoalInProgressUsecase>((ref) {
+      return feature_goal_mark_in_progress.MarkGoalInProgressUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureLinkTaskToGoalUseCaseProvider =
+    Provider<feature_goal_link_task.LinkTaskToGoalUsecase>((ref) {
+      return feature_goal_link_task.LinkTaskToGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTaskRepositoryProvider),
+      );
+    });
+
+final featureUnlinkTaskFromGoalUseCaseProvider =
+    Provider<feature_goal_unlink_task.UnlinkTaskFromGoalUsecase>((ref) {
+      return feature_goal_unlink_task.UnlinkTaskFromGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTaskRepositoryProvider),
+      );
+    });
+
+final featureCreateGoalReminderUseCaseProvider =
+    Provider<feature_goal_create_reminder.CreateGoalReminderUsecase>((ref) {
+      return feature_goal_create_reminder.CreateGoalReminderUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(reminderOrchestratorServiceProvider),
+      );
+    });
+
+final featureUpdateGoalReminderUseCaseProvider =
+    Provider<feature_goal_update_reminder.UpdateGoalReminderUsecase>((ref) {
+      return feature_goal_update_reminder.UpdateGoalReminderUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(reminderOrchestratorServiceProvider),
+      );
+    });
+
+final featureDeleteGoalReminderUseCaseProvider =
+    Provider<feature_goal_delete_reminder.DeleteGoalReminderUsecase>((ref) {
+      return feature_goal_delete_reminder.DeleteGoalReminderUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(reminderOrchestratorServiceProvider),
+      );
+    });
+
+final featureDismissGoalReminderUseCaseProvider =
+    Provider<feature_goal_dismiss_reminder.DismissGoalReminderUsecase>((ref) {
+      return feature_goal_dismiss_reminder.DismissGoalReminderUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureSnoozeGoalReminderUseCaseProvider =
+    Provider<feature_goal_snooze_reminder.SnoozeGoalReminderUsecase>((ref) {
+      return feature_goal_snooze_reminder.SnoozeGoalReminderUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureAwardGoalAchievementUseCaseProvider =
+    Provider<feature_goal_award.AwardGoalAchievementUsecase>((ref) {
+      return feature_goal_award.AwardGoalAchievementUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCelebrateGoalCompletionUseCaseProvider =
+    Provider<feature_goal_celebrate.CelebrateGoalCompletionUsecase>((ref) {
+      return feature_goal_celebrate.CelebrateGoalCompletionUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureCreateGoalFromTemplateUseCaseProvider =
+    Provider<feature_goal_from_template.CreateGoalFromTemplateUsecase>((ref) {
+      return feature_goal_from_template.CreateGoalFromTemplateUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureSaveGoalAsTemplateUseCaseProvider =
+    Provider<feature_goal_save_template.SaveGoalAsTemplateUsecase>((ref) {
+      return feature_goal_save_template.SaveGoalAsTemplateUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureUpdateGoalTemplateUseCaseProvider =
+    Provider<feature_goal_update_template.UpdateGoalTemplateUsecase>((ref) {
+      return const feature_goal_update_template.UpdateGoalTemplateUsecase();
+    });
+
+final featureCreateGoalCategoryUseCaseProvider =
+    Provider<feature_goal_category_create.CreateGoalCategoryUsecase>((ref) {
+      return const feature_goal_category_create.CreateGoalCategoryUsecase();
+    });
+
+final featureUpdateGoalCategoryUseCaseProvider =
+    Provider<feature_goal_category_update.UpdateGoalCategoryUsecase>((ref) {
+      return const feature_goal_category_update.UpdateGoalCategoryUsecase();
+    });
+
+final featureDeleteGoalCategoryUseCaseProvider =
+    Provider<feature_goal_category_delete.DeleteGoalCategoryUsecase>((ref) {
+      return const feature_goal_category_delete.DeleteGoalCategoryUsecase();
+    });
+
+final featureSetGoalPriorityUseCaseProvider =
+    Provider<feature_goal_priority_set.SetGoalPriorityUsecase>((ref) {
+      return feature_goal_priority_set.SetGoalPriorityUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureUpdateGoalPriorityUseCaseProvider =
+    Provider<feature_goal_priority_update.UpdateGoalPriorityUsecase>((ref) {
+      return feature_goal_priority_update.UpdateGoalPriorityUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureBackupGoalsUseCaseProvider =
+    Provider<feature_goal_backup.BackupGoalsUsecase>((ref) {
+      return feature_goal_backup.BackupGoalsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureExportGoalsUseCaseProvider =
+    Provider<feature_goal_export.ExportGoalsUsecase>((ref) {
+      return feature_goal_export.ExportGoalsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureImportGoalsUseCaseProvider =
+    Provider<feature_goal_import.ImportGoalsUsecase>((ref) {
+      return feature_goal_import.ImportGoalsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureRestoreGoalsUseCaseProvider =
+    Provider<feature_goal_restore.RestoreGoalsUsecase>((ref) {
+      return feature_goal_restore.RestoreGoalsUsecase(
+        ref.read(domainGoalRepositoryProvider),
+      );
+    });
+
+final featureLinkEmotionToGoalUseCaseProvider =
+    Provider<feature_goal_link_emotion.LinkEmotionToGoalUsecase>((ref) {
+      return feature_goal_link_emotion.LinkEmotionToGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureUnlinkEmotionFromGoalUseCaseProvider =
+    Provider<feature_goal_unlink_emotion.UnlinkEmotionFromGoalUsecase>((ref) {
+      return feature_goal_unlink_emotion.UnlinkEmotionFromGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureLinkHabitToGoalUseCaseProvider =
+    Provider<feature_goal_link_habit.LinkHabitToGoalUsecase>((ref) {
+      return feature_goal_link_habit.LinkHabitToGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureUnlinkHabitFromGoalUseCaseProvider =
+    Provider<feature_goal_unlink_habit.UnlinkHabitFromGoalUsecase>((ref) {
+      return feature_goal_unlink_habit.UnlinkHabitFromGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureLinkJournalEntryToGoalUseCaseProvider =
+    Provider<feature_goal_link_journal.LinkJournalEntryToGoalUsecase>((ref) {
+      return feature_goal_link_journal.LinkJournalEntryToGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureUnlinkJournalEntryFromGoalUseCaseProvider =
+    Provider<feature_goal_unlink_journal.UnlinkJournalEntryFromGoalUsecase>((
+      ref,
+    ) {
+      return feature_goal_unlink_journal.UnlinkJournalEntryFromGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureLinkFocusSessionToGoalUseCaseProvider =
+    Provider<feature_goal_link_focus.LinkFocusSessionToGoalUsecase>((ref) {
+      return feature_goal_link_focus.LinkFocusSessionToGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureUnlinkFocusSessionFromGoalUseCaseProvider =
+    Provider<feature_goal_unlink_focus.UnlinkFocusSessionFromGoalUsecase>((
+      ref,
+    ) {
+      return feature_goal_unlink_focus.UnlinkFocusSessionFromGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureArchiveGoalUseCaseProvider =
+    Provider<feature_goal_archive.ArchiveGoalUsecase>((ref) {
+      return feature_goal_archive.ArchiveGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureRestoreGoalMetadataUseCaseProvider =
+    Provider<feature_goal_restore_metadata.RestoreGoalUsecase>((ref) {
+      return feature_goal_restore_metadata.RestoreGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureFavoriteGoalUseCaseProvider =
+    Provider<feature_goal_favorite.FavoriteGoalUsecase>((ref) {
+      return feature_goal_favorite.FavoriteGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featureUnfavoriteGoalUseCaseProvider =
+    Provider<feature_goal_unfavorite.UnfavoriteGoalUsecase>((ref) {
+      return feature_goal_unfavorite.UnfavoriteGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final featurePinGoalUseCaseProvider = Provider<feature_goal_pin.PinGoalUsecase>(
+  (ref) {
+    return feature_goal_pin.PinGoalUsecase(
+      ref.read(domainGoalRepositoryProvider),
+      ref.read(domainTimelineRepositoryProvider),
+    );
+  },
+);
+
+final featureUnpinGoalUseCaseProvider =
+    Provider<feature_goal_unpin.UnpinGoalUsecase>((ref) {
+      return feature_goal_unpin.UnpinGoalUsecase(
+        ref.read(domainGoalRepositoryProvider),
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });

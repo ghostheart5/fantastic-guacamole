@@ -36,12 +36,7 @@ class SISignalExtraction {
   final List<String> emotionalPatterns;
 }
 
-enum SISourceStatus {
-  loading,
-  ready,
-  empty,
-  error,
-}
+enum SISourceStatus { loading, ready, empty, error }
 
 class SISourceHealth {
   const SISourceHealth({

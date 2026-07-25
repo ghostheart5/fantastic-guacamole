@@ -19,7 +19,10 @@ class PremiumEntitlement {
 
   EntitlementTier get tier {
     final String normalizedPlan = planId.trim().toLowerCase();
-    if (!isPremium || !isActive || normalizedPlan.isEmpty || normalizedPlan == 'free') {
+    if (!isPremium ||
+        !isActive ||
+        normalizedPlan.isEmpty ||
+        normalizedPlan == 'free') {
       return EntitlementTier.free;
     }
     if (normalizedPlan == 'ultimate' || normalizedPlan == 'lifetime') {

@@ -638,7 +638,9 @@ class MilestonesNotifier extends AsyncNotifier<List<MilestoneEntity>> {
       );
     }
     if (decoded is! List<dynamic>) {
-      Logger.error('Milestones storage is corrupted: top-level payload is not a list.');
+      Logger.error(
+        'Milestones storage is corrupted: top-level payload is not a list.',
+      );
       throw StateError(
         'Milestones storage is corrupted. Refusing to treat it as empty.',
       );

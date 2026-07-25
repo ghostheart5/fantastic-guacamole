@@ -112,7 +112,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           ref.read(aiPersonalityProvider) ??
           AIPersonality.coach;
       final input = inputOverride ?? ref.read(aiInputProvider);
-        final int inputLength = safeInputLength(input);
+      final int inputLength = safeInputLength(input);
       final int cost = _aiCreditCost(input: input, personality: personality);
 
       final spend = await consumeCredits(

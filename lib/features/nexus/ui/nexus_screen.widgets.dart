@@ -18,7 +18,12 @@ class _NexusHeader extends ConsumerWidget {
         final bool compact = constraints.maxWidth < 390;
         final bool ultraCompact = constraints.maxWidth < 340;
         return Padding(
-          padding: EdgeInsets.fromLTRB(ultraCompact ? 12 : 20, 16, ultraCompact ? 12 : 20, 0),
+          padding: EdgeInsets.fromLTRB(
+            ultraCompact ? 12 : 20,
+            16,
+            ultraCompact ? 12 : 20,
+            0,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -44,7 +49,10 @@ class _NexusHeader extends ConsumerWidget {
                       AppAssets.iconNexus,
                       width: ultraCompact ? 18 : (compact ? 20 : 22),
                       height: ultraCompact ? 18 : (compact ? 20 : 22),
-                      colorFilter: const ColorFilter.mode(AppColors.neonCyan, BlendMode.srcIn),
+                      colorFilter: const ColorFilter.mode(
+                        AppColors.neonCyan,
+                        BlendMode.srcIn,
+                      ),
                     ),
                     SizedBox(height: ultraCompact ? 3 : 4),
                     FittedBox(
@@ -54,7 +62,9 @@ class _NexusHeader extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: ultraCompact ? 25 : (compact ? 29 : 32),
                           fontWeight: FontWeight.w900,
-                          letterSpacing: ultraCompact ? 3.2 : (compact ? 4.8 : 6),
+                          letterSpacing: ultraCompact
+                              ? 3.2
+                              : (compact ? 4.8 : 6),
                           color: Colors.white,
                         ),
                       ),
@@ -66,11 +76,17 @@ class _NexusHeader extends ConsumerWidget {
                         'ADAPTIVE LOGIC CORE',
                         style: TextStyle(
                           fontSize: ultraCompact ? 7 : (compact ? 8 : 9),
-                          letterSpacing: ultraCompact ? 1.3 : (compact ? 2.0 : 2.4),
+                          letterSpacing: ultraCompact
+                              ? 1.3
+                              : (compact ? 2.0 : 2.4),
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
                           shadows: const [
-                            Shadow(color: Colors.black87, blurRadius: 6, offset: Offset(0, 1)),
+                            Shadow(
+                              color: Colors.black87,
+                              blurRadius: 6,
+                              offset: Offset(0, 1),
+                            ),
                           ],
                         ),
                       ),
@@ -80,7 +96,9 @@ class _NexusHeader extends ConsumerWidget {
               ),
               SizedBox(width: ultraCompact ? 2 : (compact ? 4 : 8)),
               ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: ultraCompact ? 72 : (compact ? 86 : 102)),
+                constraints: BoxConstraints(
+                  maxWidth: ultraCompact ? 72 : (compact ? 86 : 102),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -93,7 +111,9 @@ class _NexusHeader extends ConsumerWidget {
                           'ONLINE',
                           style: TextStyle(
                             fontSize: ultraCompact ? 7 : (compact ? 8 : 9),
-                            letterSpacing: ultraCompact ? 0.8 : (compact ? 1.4 : 2),
+                            letterSpacing: ultraCompact
+                                ? 0.8
+                                : (compact ? 1.4 : 2),
                             color: Colors.greenAccent,
                             fontWeight: FontWeight.w600,
                           ),
@@ -102,7 +122,7 @@ class _NexusHeader extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'LVL ${profile.level}  ·  ${profile.streak}d',
+                      'LVL  � d � ONLINE',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -116,7 +136,9 @@ class _NexusHeader extends ConsumerWidget {
               ),
               SizedBox(width: ultraCompact ? 4 : (compact ? 6 : 8)),
               SmartPressable(
-                onTap: () => unawaited(_signOut(context, ref, hasMockSession: hasMockSession)),
+                onTap: () => unawaited(
+                  _signOut(context, ref, hasMockSession: hasMockSession),
+                ),
                 child: Tooltip(
                   message: hasMockSession ? 'Sign out mock session' : 'Log out',
                   child: Container(
@@ -124,7 +146,9 @@ class _NexusHeader extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: AppColors.neonViolet.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.38)),
+                      border: Border.all(
+                        color: AppColors.neonViolet.withValues(alpha: 0.38),
+                      ),
                     ),
                     child: Icon(
                       Icons.logout,
@@ -141,7 +165,11 @@ class _NexusHeader extends ConsumerWidget {
     );
   }
 
-  Future<void> _signOut(BuildContext context, WidgetRef ref, {required bool hasMockSession}) async {
+  Future<void> _signOut(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool hasMockSession,
+  }) async {
     final routes = ref.read(routeSurfaceProvider);
     try {
       if (hasMockSession) {
@@ -157,9 +185,9 @@ class _NexusHeader extends ConsumerWidget {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Could not log out. Please try again.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not log out. Please try again.')),
+      );
     }
   }
 }
@@ -172,14 +200,17 @@ class _PulseDot extends StatefulWidget {
   State<_PulseDot> createState() => _PulseDotState();
 }
 
-class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _c;
 
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
-      ..repeat(reverse: true);
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -215,7 +246,11 @@ class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixi
 // ---------------------------------------------------------------------------
 
 class _SystemRings extends StatelessWidget {
-  const _SystemRings({required this.energy, required this.fatigue, required this.pulse});
+  const _SystemRings({
+    required this.energy,
+    required this.fatigue,
+    required this.pulse,
+  });
 
   final double energy;
   final double fatigue;
@@ -266,7 +301,11 @@ class _SystemRings extends StatelessWidget {
               ),
               CustomPaint(
                 size: const Size(210, 210),
-                painter: _RingPainter(energy: energy, fatigue: fatigue, pulse: pulse),
+                painter: _RingPainter(
+                  energy: energy,
+                  fatigue: fatigue,
+                  pulse: pulse,
+                ),
               ),
               Container(
                 width: 88,
@@ -279,9 +318,14 @@ class _SystemRings extends StatelessWidget {
                       const Color(0xFF061624),
                     ],
                   ),
-                  border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.45)),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.45),
+                  ),
                   boxShadow: [
-                    BoxShadow(color: AppColors.neonCyan.withValues(alpha: 0.26), blurRadius: 16),
+                    BoxShadow(
+                      color: AppColors.neonCyan.withValues(alpha: 0.26),
+                      blurRadius: 16,
+                    ),
                     BoxShadow(
                       color: AppColors.neonViolet.withValues(alpha: 0.16),
                       blurRadius: 20,
@@ -322,7 +366,11 @@ class _SystemRings extends StatelessWidget {
 }
 
 class _RingPainter extends CustomPainter {
-  const _RingPainter({required this.energy, required this.fatigue, required this.pulse});
+  const _RingPainter({
+    required this.energy,
+    required this.fatigue,
+    required this.pulse,
+  });
 
   final double energy;
   final double fatigue;
@@ -338,8 +386,22 @@ class _RingPainter extends CustomPainter {
 
     _drawTicks(canvas, c);
     _drawAura(canvas, c);
-    _drawRing(canvas, c, _outerR, energy, const Color(0xFF00E5FF), reversed: false);
-    _drawRing(canvas, c, _innerR, 1 - fatigue, const Color(0xFF9B8AFB), reversed: false);
+    _drawRing(
+      canvas,
+      c,
+      _outerR,
+      energy,
+      const Color(0xFF00E5FF),
+      reversed: false,
+    );
+    _drawRing(
+      canvas,
+      c,
+      _innerR,
+      1 - fatigue,
+      const Color(0xFF9B8AFB),
+      reversed: false,
+    );
 
     // Center glow
     canvas.drawCircle(
@@ -507,16 +569,16 @@ class _NexusBridgeCard extends StatelessWidget {
     final bool ultraCompact = MediaQuery.sizeOf(context).width < 340;
     final bool profileReady = profile.hasValidProfile;
     final String displayName = profileReady
-      ? profile.name.trim().toUpperCase()
-      : 'OPERATOR';
+        ? profile.name.trim().toUpperCase()
+        : 'OPERATOR';
 
     final String greeting = !profileReady
-      ? 'Profile sync pending. Complete onboarding identity to unlock full personalization.'
-      : energy >= 0.65
-      ? 'High-capacity window active. Start one high-impact step now.'
-      : energy >= 0.4
-      ? 'Stable state online. Build momentum with one clear step.'
-      : 'Low reserve detected. Start with one light win to restore rhythm.';
+        ? 'Profile sync pending. Complete onboarding identity to unlock full personalization.'
+        : energy >= 0.65
+        ? 'High-capacity window active. Start one high-impact step now.'
+        : energy >= 0.4
+        ? 'Stable state online. Build momentum with one clear step.'
+        : 'Low reserve detected. Start with one light win to restore rhythm.';
 
     return Container(
       width: double.infinity,
@@ -548,7 +610,11 @@ class _NexusBridgeCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             greeting,
-            style: TextStyle(color: Colors.white70, fontSize: ultraCompact ? 11 : 12, height: 1.35),
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: ultraCompact ? 11 : 12,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -570,7 +636,11 @@ class _NexusBridgeCard extends StatelessWidget {
 }
 
 class _RingLabel extends StatelessWidget {
-  const _RingLabel({required this.label, required this.value, required this.color});
+  const _RingLabel({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
   final String label;
   final String value;
   final Color color;
@@ -586,7 +656,9 @@ class _RingLabel extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: color,
-            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 6)],
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 6),
+            ],
           ),
         ),
         const SizedBox(width: 8),
@@ -595,11 +667,19 @@ class _RingLabel extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(fontSize: 8, letterSpacing: 2, color: Colors.white38),
+              style: const TextStyle(
+                fontSize: 8,
+                letterSpacing: 2,
+                color: Colors.white38,
+              ),
             ),
             Text(
               value,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ],
         ),
@@ -667,14 +747,20 @@ class _CoreSignalsStrip extends StatelessWidget {
                 AppAssets.iconInsights,
                 width: 16,
                 height: 16,
-                colorFilter: const ColorFilter.mode(AppColors.neonViolet, BlendMode.srcIn),
+                colorFilter: const ColorFilter.mode(
+                  AppColors.neonViolet,
+                  BlendMode.srcIn,
+                ),
               ),
               const SizedBox(width: 6),
               SvgPicture.asset(
                 AppAssets.iconReflect,
                 width: 16,
                 height: 16,
-                colorFilter: const ColorFilter.mode(AppColors.neonCyan, BlendMode.srcIn),
+                colorFilter: const ColorFilter.mode(
+                  AppColors.neonCyan,
+                  BlendMode.srcIn,
+                ),
               ),
             ],
           ),
@@ -706,7 +792,11 @@ class _CoreSignalsStrip extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             narrativeSummary,
-            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.35),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -715,7 +805,10 @@ class _CoreSignalsStrip extends StatelessWidget {
             children: [
               _SignalPill(label: 'Consistency', value: consistencySignal),
               _SignalPill(label: 'Load', value: loadSignal),
-              _SignalPill(label: 'Soul Continuity', value: '$soulContinuityPct%'),
+              _SignalPill(
+                label: 'Soul Continuity',
+                value: '$soulContinuityPct%',
+              ),
               _SignalPill(label: 'Narrative', value: '$narrativePresencePct%'),
             ],
           ),
@@ -736,20 +829,27 @@ class _DependencyMesh extends ConsumerWidget {
     final aggregation = model?.aggregation;
     final decision = model?.decision;
     final SISourceHealth? sourceHealth = aggregation?.sourceHealth;
-    final SISourceStatus tasksStatus = sourceHealth?.tasks ??
-      (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
-    final SISourceStatus goalsStatus = sourceHealth?.goals ??
-      (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
-    final SISourceStatus insightsStatus = sourceHealth?.insights ??
-      (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
-    final SISourceStatus flowmapStatus = sourceHealth?.flowmap ??
-      (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
-    final SISourceStatus memoriesStatus = sourceHealth?.memories ??
-      (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
+    final SISourceStatus tasksStatus =
+        sourceHealth?.tasks ??
+        (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
+    final SISourceStatus goalsStatus =
+        sourceHealth?.goals ??
+        (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
+    final SISourceStatus insightsStatus =
+        sourceHealth?.insights ??
+        (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
+    final SISourceStatus flowmapStatus =
+        sourceHealth?.flowmap ??
+        (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
+    final SISourceStatus memoriesStatus =
+        sourceHealth?.memories ??
+        (modelAsync.isLoading ? SISourceStatus.loading : SISourceStatus.error);
     final List<Task> tasks = aggregation?.tasks ?? const <Task>[];
     final List<GoalEntity> goals = aggregation?.goals ?? const <GoalEntity>[];
-    final List<MemoryEntity> memories = aggregation?.memories ?? const <MemoryEntity>[];
-    final List<FlowmapNode> flowNodesData = aggregation?.flowmapNodes ?? const <FlowmapNode>[];
+    final List<MemoryEntity> memories =
+        aggregation?.memories ?? const <MemoryEntity>[];
+    final List<FlowmapNode> flowNodesData =
+        aggregation?.flowmapNodes ?? const <FlowmapNode>[];
 
     final int pendingTasks = tasks.length;
     final String nextTaskTitle = switch (tasksStatus) {
@@ -770,33 +870,39 @@ class _DependencyMesh extends ConsumerWidget {
       SISourceStatus.loading => 'Loading goals...',
       SISourceStatus.error => 'Goals unavailable',
       SISourceStatus.empty => 'No active goals',
-      SISourceStatus.ready => goalTitles.isEmpty
-          ? 'No active goals'
-          : goalTitles.firstWhere(
-              (String title) => title.toLowerCase() != nextTaskTitle.toLowerCase(),
-              orElse: () => 'Goal linked to "$nextTaskTitle"',
-            ),
+      SISourceStatus.ready =>
+        goalTitles.isEmpty
+            ? 'No active goals'
+            : goalTitles.firstWhere(
+                (String title) =>
+                    title.toLowerCase() != nextTaskTitle.toLowerCase(),
+                orElse: () => 'Goal linked to "$nextTaskTitle"',
+              ),
     };
-    final int goalsWithTarget = goals.where((GoalEntity goal) => goal.targetDate != null).length;
+    final int goalsWithTarget = goals
+        .where((GoalEntity goal) => goal.targetDate != null)
+        .length;
 
     final insights = aggregation?.insights;
     final String insightsHeadline = switch (insightsStatus) {
       SISourceStatus.loading => 'Computing insight bundle...',
       SISourceStatus.error => 'Insight pipeline unavailable',
       SISourceStatus.empty => 'No insight bundle published',
-      SISourceStatus.ready => (insights == null || insights.items.isEmpty)
-        ? 'No insight bundle published'
-        : insights.items.first.title,
+      SISourceStatus.ready =>
+        (insights == null || insights.items.isEmpty)
+            ? 'No insight bundle published'
+            : insights.items.first.title,
     };
 
-    final int recentMemories = memories.where((MemoryEntity memory) => memory.isRecent).length;
+    final int recentMemories = memories
+        .where((MemoryEntity memory) => memory.isRecent)
+        .length;
     final String memoryHeadline = switch (memoriesStatus) {
       SISourceStatus.loading => 'Loading memory traces...',
       SISourceStatus.error => 'Memory stream unavailable',
       SISourceStatus.empty => 'No recent memory capture',
-      SISourceStatus.ready => memories.isEmpty
-        ? 'No recent memory capture'
-        : memories.first.text,
+      SISourceStatus.ready =>
+        memories.isEmpty ? 'No recent memory capture' : memories.first.text,
     };
 
     final int flowNodes = flowNodesData.length;
@@ -811,30 +917,31 @@ class _DependencyMesh extends ConsumerWidget {
       SISourceStatus.loading => 'Loading mapped threads...',
       SISourceStatus.error => 'Flowmap unavailable',
       SISourceStatus.empty => 'No mapped threads',
-      SISourceStatus.ready => flowTitles.isEmpty
-          ? 'No mapped threads'
-          : flowTitles.firstWhere((String title) {
-              final String lowered = title.toLowerCase();
-              return lowered != nextTaskTitle.toLowerCase() &&
-                  lowered != goalHeadline.toLowerCase();
-            }, orElse: () => 'Flow linked to "$nextTaskTitle"'),
+      SISourceStatus.ready =>
+        flowTitles.isEmpty
+            ? 'No mapped threads'
+            : flowTitles.firstWhere((String title) {
+                final String lowered = title.toLowerCase();
+                return lowered != nextTaskTitle.toLowerCase() &&
+                    lowered != goalHeadline.toLowerCase();
+              }, orElse: () => 'Flow linked to "$nextTaskTitle"'),
     };
     final bool hasCriticalError =
-      tasksStatus == SISourceStatus.error ||
-      insightsStatus == SISourceStatus.error ||
-      modelAsync.hasError;
+        tasksStatus == SISourceStatus.error ||
+        insightsStatus == SISourceStatus.error ||
+        modelAsync.hasError;
     final bool hasAnyError =
-      hasCriticalError ||
-      goalsStatus == SISourceStatus.error ||
-      flowmapStatus == SISourceStatus.error ||
-      memoriesStatus == SISourceStatus.error;
+        hasCriticalError ||
+        goalsStatus == SISourceStatus.error ||
+        flowmapStatus == SISourceStatus.error ||
+        memoriesStatus == SISourceStatus.error;
     final String syncStatus = modelAsync.isLoading
-      ? 'SYNCING'
-      : hasCriticalError
-      ? 'DEGRADED'
-      : hasAnyError
-      ? 'LIMITED'
-      : 'LIVE';
+        ? 'SYNCING'
+        : hasCriticalError
+        ? 'DEGRADED'
+        : hasAnyError
+        ? 'LIMITED'
+        : 'LIVE';
     final String? modelErrorSummary = modelAsync.whenOrNull(
       error: (Object error, StackTrace stackTrace) => _errorSummary(error),
     );
@@ -861,7 +968,11 @@ class _DependencyMesh extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _NexusSyncStrip(status: syncStatus, timestamp: syncTime, detail: syncDetail),
+        _NexusSyncStrip(
+          status: syncStatus,
+          timestamp: syncTime,
+          detail: syncDetail,
+        ),
         const SizedBox(height: 10),
         const Padding(
           padding: EdgeInsets.only(bottom: 10),
@@ -885,15 +996,16 @@ class _DependencyMesh extends ConsumerWidget {
               emphasize: true,
               value: modelAsync.isLoading
                   ? 'Syncing'
-                : modelAsync.hasError
-                ? 'Unavailable'
+                  : modelAsync.hasError
+                  ? 'Unavailable'
                   : (decision?.coachMessage.trim().isNotEmpty ?? false)
                   ? 'Live'
                   : 'Idle',
-              headline: decision?.coachMessage ?? 'No active coaching advice yet.',
+              headline:
+                  decision?.coachMessage ?? 'No active coaching advice yet.',
               detail: modelAsync.hasError
-                ? 'Decision pipeline degraded. Verify upstream providers and repository health.'
-                : (decision?.nextAction.trim().isNotEmpty ?? false)
+                  ? 'Decision pipeline degraded. Verify upstream providers and repository health.'
+                  : (decision?.nextAction.trim().isNotEmpty ?? false)
                   ? 'Next action: ${decision!.nextAction}'
                   : 'SI engine advice routed into Nexus.',
             ),
@@ -938,8 +1050,7 @@ class _DependencyMesh extends ConsumerWidget {
               headline: flowHeadline,
               detail: flowmapStatus == SISourceStatus.error
                   ? 'Flowmap source error: ${_errorSummary(sourceHealth?.flowmapError)}'
-                  :
-                  '$connectedNodes/$flowNodes connected decision nodes (node = a mapped task, goal, or idea link).',
+                  : '$connectedNodes/$flowNodes connected decision nodes (node = a mapped task, goal, or idea link).',
             ),
             _DependencyCard(
               label: 'Memories',
@@ -972,9 +1083,28 @@ class _SignalPill extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.24),
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
-      child: Text(
-        '$label: $value',
-        style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1017,7 +1147,12 @@ class _NexusSyncStrip extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: accent,
                   shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 8)],
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.5),
+                      blurRadius: 8,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
@@ -1033,7 +1168,11 @@ class _NexusSyncStrip extends StatelessWidget {
               const Spacer(),
               Text(
                 timestamp,
-                style: const TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1),
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 10,
+                  letterSpacing: 1,
+                ),
               ),
             ],
           ),
@@ -1043,7 +1182,11 @@ class _NexusSyncStrip extends StatelessWidget {
               detail!,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.25),
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                height: 1.25,
+              ),
             ),
           ],
         ],
@@ -1106,7 +1249,9 @@ class _DependencyCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: Colors.black.withValues(alpha: emphasize ? 0.28 : 0.24),
-        border: Border.all(color: accent.withValues(alpha: emphasize ? 0.34 : 0.26)),
+        border: Border.all(
+          color: accent.withValues(alpha: emphasize ? 0.34 : 0.26),
+        ),
         boxShadow: [
           BoxShadow(
             color: accent.withValues(alpha: emphasize ? 0.14 : 0.10),
@@ -1126,7 +1271,12 @@ class _DependencyCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: accent,
-                  boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.45), blurRadius: 8)],
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.45),
+                      blurRadius: 8,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
@@ -1164,7 +1314,14 @@ class _DependencyCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(detail, style: const TextStyle(color: Colors.white60, fontSize: 11, height: 1.35)),
+          Text(
+            detail,
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
         ],
       ),
     );
@@ -1296,7 +1453,8 @@ class _ActionGrid extends ConsumerWidget {
                 Expanded(
                   child: HoloButton(
                     label: 'Smart Coach',
-                    onTap: () => ref.read(appFlowProvider.notifier).toSmartCoach(),
+                    onTap: () =>
+                        ref.read(appFlowProvider.notifier).toSmartCoach(),
                   ),
                 ),
                 const SizedBox(width: 12),

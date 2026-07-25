@@ -1,11 +1,7 @@
 enum ResultStatus { success, failure }
 
 class Result<T> {
-  const Result._({
-    required this.status,
-    this.value,
-    this.failure,
-  });
+  const Result._({required this.status, this.value, this.failure});
 
   const factory Result.success(T value) = SuccessResult<T>._;
   const factory Result.failure(Object failure) = FailureResult<T>._;
@@ -34,12 +30,12 @@ class Result<T> {
 
 class SuccessResult<T> extends Result<T> {
   const SuccessResult._(T value)
-      : super._(status: ResultStatus.success, value: value);
+    : super._(status: ResultStatus.success, value: value);
 }
 
 class FailureResult<T> extends Result<T> {
   const FailureResult._(Object failure)
-      : super._(status: ResultStatus.failure, failure: failure);
+    : super._(status: ResultStatus.failure, failure: failure);
 }
 
 extension ResultGuardX<T> on Result<T> {

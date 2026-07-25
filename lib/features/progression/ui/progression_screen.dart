@@ -123,7 +123,7 @@ class ProgressionScreen extends ConsumerWidget {
                 Row(
                   children: [
                     SmartPressable(
-                      onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
+                      onTap: () => ref.read(appFlowProvider.notifier).toNexus(),
                       child: Container(
                         width: 36,
                         height: 36,

@@ -50,10 +50,7 @@ class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
     required EmailAddress email,
     required PasswordValue password,
   }) async {
-    await _authService.signIn(
-      email: email.value,
-      password: password.value,
-    );
+    await _authService.signIn(email: email.value, password: password.value);
     return getCurrentSession();
   }
 
@@ -62,10 +59,7 @@ class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
     required EmailAddress email,
     required PasswordValue password,
   }) async {
-    await _authService.signUp(
-      email: email.value,
-      password: password.value,
-    );
+    await _authService.signUp(email: email.value, password: password.value);
     return getCurrentSession();
   }
 

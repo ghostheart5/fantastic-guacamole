@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/theme/widgets/prism_metric_pill.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
@@ -94,6 +95,17 @@ class _MilestonesScreenState extends ConsumerState<MilestonesScreen> {
       milestonesProvider,
     );
     final MilestoneSummary summary = ref.watch(milestoneSummaryProvider);
+    final Map<MilestoneCategory, List<MilestoneEntity>> milestonesByCategory =
+        ref.watch(milestonesByCategoryProvider);
+    final List<MilestoneEntity> searchedMilestones = ref.watch(
+      milestoneSearchProvider(_query),
+    );
+    final List<MilestoneForecast> milestoneForecasts = ref.watch(
+      milestoneForecastsProvider,
+    );
+    final List<MilestoneRisk> milestoneRisks = ref.watch(
+      milestoneRisksProvider,
+    );
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/progression_bg.jpg',
@@ -229,7 +241,168 @@ class _MilestonesScreenState extends ConsumerState<MilestonesScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                 child: _MilestoneSummaryStrip(summary: summary),
               ),
+              if (milestoneRisks.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF050D1A),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.recallRed.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.warning_amber_rounded,
+                              color: AppColors.recallRed,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'MILESTONE RISK SIGNALS',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${milestoneRisks.length}',
+                              style: const TextStyle(
+                                color: AppColors.recallRed,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ...milestoneRisks
+                            .take(2)
+                            .map(
+                              (MilestoneRisk risk) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      risk.milestone.title,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${risk.reason} ${risk.recommendation}',
+                                      style: const TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 11,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
+              if (milestoneForecasts.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF050D1A),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.neonCyan.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.timeline_rounded,
+                              color: AppColors.neonCyan,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'MILESTONE FORECASTS',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${milestoneForecasts.length}',
+                              style: const TextStyle(
+                                color: AppColors.neonCyan,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ...milestoneForecasts
+                            .take(2)
+                            .map(
+                              (MilestoneForecast forecast) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      forecast.milestone.title,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      'Predicted: ${DateTimeFormats.dateShort(forecast.predictedCompletionDate)} | Success ${forecast.successRate}% | Confidence ${forecast.confidence}% | Delay ${forecast.delayDays}d',
+                                      style: const TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 11,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                 child: TextField(
@@ -295,7 +468,8 @@ class _MilestonesScreenState extends ConsumerState<MilestonesScreen> {
                         (MilestoneCategory category) => Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: _FilterChip(
-                            label: _categoryLabel(category),
+                            label:
+                                '${_categoryLabel(category)} (${milestonesByCategory[category]?.length ?? 0})',
                             selected: _category == category,
                             onTap: () => setState(() => _category = category),
                           ),
@@ -308,28 +482,10 @@ class _MilestonesScreenState extends ConsumerState<MilestonesScreen> {
               const SizedBox(height: 10),
               Expanded(
                 child: milestonesAsync.when(
-                  data: (List<MilestoneEntity> milestones) {
+                  data: (_) {
                     final List<MilestoneEntity> filtered =
-                        milestones
+                        searchedMilestones
                             .where((MilestoneEntity item) {
-                              final String q = _query.trim().toLowerCase();
-                              if (q.isNotEmpty) {
-                                final bool matches =
-                                    item.title.toLowerCase().contains(q) ||
-                                    (item.description?.toLowerCase().contains(
-                                          q,
-                                        ) ??
-                                        false) ||
-                                    (item.note?.toLowerCase().contains(q) ??
-                                        false) ||
-                                    (item.reflection?.toLowerCase().contains(
-                                          q,
-                                        ) ??
-                                        false);
-                                if (!matches) {
-                                  return false;
-                                }
-                              }
                               if (_category != null &&
                                   item.category != _category) {
                                 return false;
@@ -456,21 +612,10 @@ class _StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Text(
-        '$label $value',
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-        ),
-      ),
+    return PrismMetricPill(
+      label: label,
+      value: value,
+      color: AppColors.neonCyan,
     );
   }
 }

@@ -52,16 +52,21 @@ class _CreditStoreScreenState extends ConsumerState<CreditStoreScreen> {
                           subtitle: Text(
                             'Credits: ${pack.totalCredits} • ${pack.currencyCode}',
                           ),
-                          trailing: controller.isBusy &&
+                          trailing:
+                              controller.isBusy &&
                                   controller.activeProductId == pack.productId
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : FilledButton(
                                   onPressed: () => ref
-                                      .read(creditStoreControllerProvider.notifier)
+                                      .read(
+                                        creditStoreControllerProvider.notifier,
+                                      )
                                       .purchasePack(pack),
                                   child: const Text('Buy'),
                                 ),
@@ -72,7 +77,8 @@ class _CreditStoreScreenState extends ConsumerState<CreditStoreScreen> {
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (Object error, StackTrace stackTrace) => Text(error.toString()),
+            error: (Object error, StackTrace stackTrace) =>
+                Text(error.toString()),
           ),
           if (controller.error != null)
             Text(controller.error!, style: const TextStyle(color: Colors.red)),

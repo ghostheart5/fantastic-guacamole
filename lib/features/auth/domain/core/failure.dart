@@ -1,9 +1,5 @@
 class AuthFailure implements Exception {
-  const AuthFailure({
-    required this.code,
-    required this.message,
-    this.details,
-  });
+  const AuthFailure({required this.code, required this.message, this.details});
 
   final String code;
   final String message;

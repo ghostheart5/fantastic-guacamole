@@ -4,7 +4,9 @@ class PasswordValue {
   factory PasswordValue(String value) {
     final String trimmed = value.trim();
     if (trimmed.length < 8) {
-      throw const FormatException('Password must be at least 8 characters long.');
+      throw const FormatException(
+        'Password must be at least 8 characters long.',
+      );
     }
     return PasswordValue._(trimmed);
   }
@@ -20,7 +22,8 @@ class PasswordValue {
   }
 
   @override
-  bool operator ==(Object other) => other is PasswordValue && other.value == value;
+  bool operator ==(Object other) =>
+      other is PasswordValue && other.value == value;
 
   @override
   int get hashCode => value.hashCode;

@@ -46,8 +46,9 @@ class CreditStoreController extends Notifier<CreditStoreControllerState> {
       lastSuccess: false,
     );
 
-    final PurchaseResult result =
-        await ref.read(purchaseRepositoryProvider).purchaseCredits(pack);
+    final PurchaseResult result = await ref
+        .read(purchaseRepositoryProvider)
+        .purchaseCredits(pack);
 
     state = state.copyWith(
       isBusy: false,
@@ -66,5 +67,5 @@ class CreditStoreController extends Notifier<CreditStoreControllerState> {
 
 final creditStoreControllerProvider =
     NotifierProvider<CreditStoreController, CreditStoreControllerState>(
-  CreditStoreController.new,
-);
+      CreditStoreController.new,
+    );

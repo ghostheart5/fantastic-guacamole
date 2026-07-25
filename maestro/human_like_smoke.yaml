@@ -1,0 +1,36 @@
+appId: com.keeganradetski.chronospark
+---
+- launchApp
+- assertVisible:
+    text: "Nexus"
+    optional: true
+
+# Open Smart Coach if present, then go back.
+- tapOn:
+    text: "Smart Coach"
+    optional: true
+- back
+
+# Add task happy-path placeholder; swap selectors with stable IDs/text from your build.
+- tapOn:
+    text: "Add"
+    optional: true
+- tapOn:
+    id: "task_title_input"
+    optional: true
+- inputText: "Smoke Task"
+- tapOn:
+    text: "Save"
+    optional: true
+
+# Settings persistence checkpoint placeholder.
+- tapOn:
+    text: "Settings"
+    optional: true
+- tapOn:
+    text: "Preferences"
+    optional: true
+- back
+
+# Notification permission denial scenario is device/OS dependent.
+# Add platform-specific steps here after confirming prompt text/ids.

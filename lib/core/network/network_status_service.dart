@@ -14,5 +14,5 @@ final networkStatusProvider = StreamProvider<bool>((ref) {
 final isOnlineProvider = Provider<bool>((ref) {
   return ref
       .watch(networkStatusProvider)
-  .when(data: (v) => v, loading: () => false, error: (_, _) => false);
+      .when(data: (v) => v, loading: () => false, error: (_, _) => false);
 });

@@ -3,9 +3,12 @@ import 'package:fantastic_guacamole/features/flowmap/application/add_flowmap_edg
 import 'package:fantastic_guacamole/features/flowmap/application/add_flowmap_node.dart';
 import 'package:fantastic_guacamole/features/flowmap/application/clear_flowmap.dart';
 import 'package:fantastic_guacamole/features/flowmap/application/get_flowmap.dart';
+import 'package:fantastic_guacamole/features/flowmap/domain/flowmap_edge_entity.dart';
 import 'package:fantastic_guacamole/features/flowmap/domain/flowmap_graph_entity.dart';
+import 'package:fantastic_guacamole/features/flowmap/domain/flowmap_node_entity.dart';
 import 'package:fantastic_guacamole/features/flowmap/domain/flowmap_repository.dart';
 import 'package:fantastic_guacamole/features/flowmap/infrastructure/flowmap_repository_impl.dart';
+import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final featureFlowmapRepositoryProvider = Provider<FlowmapRepository>((Ref ref) {
@@ -48,6 +51,24 @@ class FeatureFlowmapGraphController
 
   Future<void> refresh() {
     return _load();
+  }
+
+  Future<void> addNode(FlowmapNodeEntity node) async {
+    await ref.read(featureAddFlowmapNodeUseCaseProvider).call(node);
+    ref.invalidate(flowmapProvider);
+    await refresh();
+  }
+
+  Future<void> addEdge(FlowmapEdgeEntity edge) async {
+    await ref.read(featureAddFlowmapEdgeUseCaseProvider).call(edge);
+    ref.invalidate(flowmapProvider);
+    await refresh();
+  }
+
+  Future<void> clear() async {
+    await ref.read(featureClearFlowmapUseCaseProvider).call();
+    ref.invalidate(flowmapProvider);
+    await refresh();
   }
 
   Future<void> _load() async {

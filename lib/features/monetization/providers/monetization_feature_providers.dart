@@ -16,7 +16,9 @@ final _httpClientProvider = Provider<http.Client>((Ref ref) {
   return http.Client();
 });
 
-final subscriptionRepositoryProvider = Provider<SubscriptionRepository>((Ref ref) {
+final subscriptionRepositoryProvider = Provider<SubscriptionRepository>((
+  Ref ref,
+) {
   return SupabaseSubscriptionRepository(ref.watch(supabaseClientProvider));
 });
 
@@ -24,16 +26,19 @@ final aiCreditRepositoryProvider = Provider<AiCreditRepository>((Ref ref) {
   return SupabaseAiCreditRepository(ref.watch(supabaseClientProvider));
 });
 
-final entitlementRepositoryProvider = Provider<EntitlementRepository>((Ref ref) {
+final entitlementRepositoryProvider = Provider<EntitlementRepository>((
+  Ref ref,
+) {
   return SupabaseEntitlementRepository(ref.watch(supabaseClientProvider));
 });
 
-final purchaseVerificationServiceProvider = Provider<PurchaseVerificationService>((Ref ref) {
-  return PurchaseVerificationService(
-    httpClient: ref.watch(_httpClientProvider),
-    mode: resolvePurchaseVerificationMode(),
-  );
-});
+final purchaseVerificationServiceProvider =
+    Provider<PurchaseVerificationService>((Ref ref) {
+      return PurchaseVerificationService(
+        httpClient: ref.watch(_httpClientProvider),
+        mode: resolvePurchaseVerificationMode(),
+      );
+    });
 
 final purchaseRepositoryProvider = Provider<PurchaseRepository>((Ref ref) {
   return GooglePlayPurchaseRepository(
@@ -58,20 +63,28 @@ final paywallServiceProvider = Provider<PaywallService>((Ref ref) {
   );
 });
 
-final subscriptionPlansProvider = FutureProvider<List<SubscriptionPlan>>((Ref ref) {
+final subscriptionPlansProvider = FutureProvider<List<SubscriptionPlan>>((
+  Ref ref,
+) {
   return ref.watch(subscriptionRepositoryProvider).getSubscriptionPlans();
 });
 
-final currentSubscriptionProvider = FutureProvider<UserSubscription?>((Ref ref) {
+final currentSubscriptionProvider = FutureProvider<UserSubscription?>((
+  Ref ref,
+) {
   return ref.watch(subscriptionRepositoryProvider).getCurrentSubscription();
 });
 
-final premiumEntitlementProvider = FutureProvider<PremiumEntitlement>((Ref ref) {
+final premiumEntitlementProvider = FutureProvider<PremiumEntitlement>((
+  Ref ref,
+) {
   return ref.watch(entitlementRepositoryProvider).getPremiumEntitlement();
 });
 
 final entitlementTierProvider = Provider<EntitlementTier>((Ref ref) {
-  return ref.watch(premiumEntitlementProvider).maybeWhen(
+  return ref
+      .watch(premiumEntitlementProvider)
+      .maybeWhen(
         data: (PremiumEntitlement entitlement) => entitlement.tier,
         orElse: () => EntitlementTier.free,
       );
@@ -86,7 +99,9 @@ final hasUltimateTierAccessProvider = Provider<bool>((Ref ref) {
   return ref.watch(entitlementTierProvider) == EntitlementTier.ultimate;
 });
 
-final aiCreditPackagesProvider = FutureProvider<List<AiCreditPackage>>((Ref ref) {
+final aiCreditPackagesProvider = FutureProvider<List<AiCreditPackage>>((
+  Ref ref,
+) {
   return ref.watch(aiCreditRepositoryProvider).getCreditPackages();
 });
 
@@ -94,11 +109,15 @@ final aiCreditWalletProvider = FutureProvider<AiCreditWallet?>((Ref ref) {
   return ref.watch(aiCreditRepositoryProvider).getWallet();
 });
 
-final aiCreditTransactionsProvider = FutureProvider<List<AiCreditTransaction>>((Ref ref) {
+final aiCreditTransactionsProvider = FutureProvider<List<AiCreditTransaction>>((
+  Ref ref,
+) {
   return ref.watch(aiCreditRepositoryProvider).getTransactions();
 });
 
-final purchaseHistoryProvider = FutureProvider<List<AiCreditPurchase>>((Ref ref) {
+final purchaseHistoryProvider = FutureProvider<List<AiCreditPurchase>>((
+  Ref ref,
+) {
   return ref.watch(aiCreditRepositoryProvider).getPurchaseHistory();
 });
 

@@ -3,7 +3,9 @@ class EmailAddress {
 
   factory EmailAddress(String value) {
     final String normalized = value.trim().toLowerCase();
-    if (!normalized.contains('@') || normalized.startsWith('@') || normalized.endsWith('@')) {
+    if (!normalized.contains('@') ||
+        normalized.startsWith('@') ||
+        normalized.endsWith('@')) {
       throw const FormatException('A valid email address is required.');
     }
     if (normalized.split('@').length != 2) {
@@ -17,7 +19,8 @@ class EmailAddress {
   bool get isValid => value.isNotEmpty && value.contains('@');
 
   @override
-  bool operator ==(Object other) => other is EmailAddress && other.value == value;
+  bool operator ==(Object other) =>
+      other is EmailAddress && other.value == value;
 
   @override
   int get hashCode => value.hashCode;

@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/services/workspace_store_service.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/services/cache_cleanup_service.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
@@ -58,7 +59,7 @@ final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
     flowmap: ref.read(flowmapRepositoryProvider),
     logs: ref.read(logRepositoryProvider),
     timeline: ref.read(timelineRepositoryProvider),
-    progression: ref.read(progressionRepositoryProvider),
+    progression: ref.read(domainProgressionRepositoryProvider),
     memories: ref.read(memoryRepositoryProvider),
     plan: ref.read(planRepositoryProvider),
     notifications: ref.read(notificationsRepositoryProvider),

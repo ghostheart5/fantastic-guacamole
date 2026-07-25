@@ -444,7 +444,8 @@ class _AppRootState extends ConsumerState<AppRoot> {
   }
 
   void _handlePendingNotificationTap(GoRouter router) {
-    final String? payload = NotificationScheduler.consumePendingNotificationPayload();
+    final String? payload =
+        NotificationScheduler.consumePendingNotificationPayload();
     if (payload == null || payload.isEmpty) {
       return;
     }

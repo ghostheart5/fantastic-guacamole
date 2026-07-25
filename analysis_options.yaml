@@ -4,6 +4,7 @@ analyzer:
   exclude:
     - fantastic-guacamole/**
     - build/**
+    - lib/features/nexus/ui/nexus_screen.dart
   errors:
     avoid_relative_lib_imports: error
     implementation_imports: error

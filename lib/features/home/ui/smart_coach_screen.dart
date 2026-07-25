@@ -20,6 +20,9 @@ import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fantastic_guacamole/features/home/ui/widgets/smart_coach_hero.dart';
+import 'package:fantastic_guacamole/features/home/ui/models/smart_coach_exchange.dart';
+
+import 'package:fantastic_guacamole/features/home/ui/models/smart_coach_conversation_state.dart';
 
 class SmartCoachScreen extends ConsumerStatefulWidget {
   const SmartCoachScreen({super.key});
@@ -41,18 +44,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   String? _coachingPrompt;
   String? _lastSavedNotes;
   String? _followUpError;
-  final List<_Exchange> _followUps = [];
+  final List<SmartCoachExchange> _followUps = [];
   bool _saved = false;
   bool _gettingCoaching = false;
   bool _sendingFollowUp = false;
-
-  List<_Exchange> get _visibleFollowUps {
-    const int maxVisibleFollowUps = 20;
-    if (_followUps.length <= maxVisibleFollowUps) {
-      return _followUps;
-    }
-    return _followUps.sublist(_followUps.length - maxVisibleFollowUps);
-  }
 
   @override
   void initState() {
@@ -186,7 +181,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
           .timeout(const Duration(seconds: 25));
       if (!mounted) return;
       setState(() {
-        _followUps.add(_Exchange(question: text, answer: reply));
+        _followUps.add(SmartCoachExchange(question: text, answer: reply));
         _sendingFollowUp = false;
       });
       AppAnalytics.track(
@@ -221,27 +216,12 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   }
 
   List<Map<String, String>> _conversationHistory() {
-    final List<Map<String, String>> history = <Map<String, String>>[];
-    final String initialPrompt = _coachingPrompt?.trim() ?? '';
-    final String initialResponse = _coachingMessage?.trim() ?? '';
-    if (initialPrompt.isNotEmpty) {
-      history.add(<String, String>{'role': 'user', 'content': initialPrompt});
-    }
-    if (initialResponse.isNotEmpty) {
-      history.add(<String, String>{
-        'role': 'assistant',
-        'content': initialResponse,
-      });
-    }
-    for (final _Exchange exchange in _followUps) {
-      history
-        ..add(<String, String>{'role': 'user', 'content': exchange.question})
-        ..add(<String, String>{
-          'role': 'assistant',
-          'content': exchange.answer,
-        });
-    }
-    return history.length > 8 ? history.sublist(history.length - 8) : history;
+    return SmartCoachConversationState(
+      coachingMessage: _coachingMessage,
+      coachingPrompt: _coachingPrompt,
+      followUpError: _followUpError,
+      followUps: _followUps,
+    ).toHistory();
   }
 
   @override
@@ -565,7 +545,12 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      ..._visibleFollowUps.map(
+                      ...SmartCoachConversationState(
+                        coachingMessage: _coachingMessage,
+                        coachingPrompt: _coachingPrompt,
+                        followUpError: _followUpError,
+                        followUps: _followUps,
+                      ).visibleFollowUps().map(
                         (ex) => Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: Column(
@@ -638,12 +623,6 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       ),
     );
   }
-}
-
-class _Exchange {
-  const _Exchange({required this.question, required this.answer});
-  final String question;
-  final String answer;
 }
 
 class _InsightCheatSheet extends StatelessWidget {

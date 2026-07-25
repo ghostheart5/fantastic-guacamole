@@ -21,8 +21,8 @@ class PaywallService {
   final BillingService _billingService;
 
   Future<PaywallContent> build() async {
-    final SubscriptionStatus status =
-        await _subscriptionRepository.getSubscriptionStatus();
+    final SubscriptionStatus status = await _subscriptionRepository
+        .getSubscriptionStatus();
     final AiCreditWallet wallet = await _aiCreditRepository.getWallet();
 
     final bool billingAvailable = await _billingService.isAvailable();
@@ -32,10 +32,11 @@ class PaywallService {
       for (final AiCreditPackage pack in MonetizationCatalog.creditPackages)
         pack.productId,
     };
-    final ProductDetailsResponse response =
-        await _billingService.queryProductDetails(productIds);
+    final ProductDetailsResponse response = await _billingService
+        .queryProductDetails(productIds);
     final Map<String, ProductDetails> detailsById = <String, ProductDetails>{
-      for (final ProductDetails detail in response.productDetails) detail.id: detail,
+      for (final ProductDetails detail in response.productDetails)
+        detail.id: detail,
     };
 
     final List<SubscriptionPlan> plans = MonetizationCatalog.plans

@@ -571,7 +571,8 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       _state = SubscriptionState(
         isActive: isActive,
         status: status,
-        source: (map['source'] as String?) ??
+        source:
+            (map['source'] as String?) ??
             (status == 'pending_verification'
                 ? 'google_play_grace'
                 : 'google_play'),
@@ -600,7 +601,11 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
           return;
         }
         final SharedPreferences prefs = await _sharedPreferencesLoader();
-        await SharedPrefsService.saveStringWithPrefs(prefs, _kPrefsKey, encoded);
+        await SharedPrefsService.saveStringWithPrefs(
+          prefs,
+          _kPrefsKey,
+          encoded,
+        );
         return;
       }
       await _secureStore.writeString(_kPrefsKey, encoded);

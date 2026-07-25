@@ -121,7 +121,9 @@ class LogRepository implements ILogRepository {
       }
     }
     if (malformedCount > 1) {
-      Logger.warn('Skipped $malformedCount malformed log entries while reading storage.');
+      Logger.warn(
+        'Skipped $malformedCount malformed log entries while reading storage.',
+      );
     }
     return _LogsDecodeResult(entries: entries);
   }

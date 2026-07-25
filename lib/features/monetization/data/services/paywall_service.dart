@@ -29,12 +29,12 @@ class PaywallService {
   final EntitlementRepository _entitlementRepository;
 
   Future<PaywallContent> load() async {
-    final List<SubscriptionPlan> plans =
-        await _subscriptionRepository.getSubscriptionPlans();
-    final List<AiCreditPackage> packs =
-        await _aiCreditRepository.getCreditPackages();
-    final PremiumEntitlement entitlement =
-        await _entitlementRepository.getPremiumEntitlement();
+    final List<SubscriptionPlan> plans = await _subscriptionRepository
+        .getSubscriptionPlans();
+    final List<AiCreditPackage> packs = await _aiCreditRepository
+        .getCreditPackages();
+    final PremiumEntitlement entitlement = await _entitlementRepository
+        .getPremiumEntitlement();
     final AiCreditWallet? wallet = await _aiCreditRepository.getWallet();
 
     return PaywallContent(

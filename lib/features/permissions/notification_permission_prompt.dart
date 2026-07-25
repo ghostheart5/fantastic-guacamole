@@ -26,7 +26,7 @@ class NotificationPermissionPrompt extends StatelessWidget {
     final bool granted = permissionGranted == true;
     final bool denied = permissionGranted == false;
     final bool permanentlyDenied =
-      permissionState == NotificationPermissionState.permanentlyDenied;
+        permissionState == NotificationPermissionState.permanentlyDenied;
 
     if (granted) {
       return const SizedBox.shrink();

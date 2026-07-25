@@ -108,7 +108,7 @@ class _InsightScreenState extends ConsumerState<InsightScreen>
                           SmartPressable(
                             onTap: () {
                               ref.read(sessionScoreProvider.notifier).set(null);
-                              ref.read(appFlowProvider.notifier).toCoach();
+                              ref.read(appFlowProvider.notifier).toNexus();
                             },
                             child: Container(
                               width: 36,

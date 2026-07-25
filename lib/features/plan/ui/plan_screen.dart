@@ -138,7 +138,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
                     child: PlanHeader(
                       onBack: () =>
-                          ref.read(appFlowProvider.notifier).toCoach(),
+                          ref.read(appFlowProvider.notifier).toNexus(),
                     ),
                   ),
                   const SizedBox(height: 16),

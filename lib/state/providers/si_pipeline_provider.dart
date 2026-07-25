@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
@@ -12,6 +13,7 @@ import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 
 final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   Ref ref,
@@ -19,6 +21,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   SISourceStatus tasksStatus = SISourceStatus.ready;
   String? tasksError;
   List<Task> tasks = const <Task>[];
+
   try {
     tasks = await _loadAllActiveTasks(ref);
     tasksStatus = tasks.isEmpty ? SISourceStatus.empty : SISourceStatus.ready;
@@ -28,21 +31,41 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     tasks = const <Task>[];
   }
 
-  final goals = ref.watch(goalsProvider);
-  final SISourceStatus goalsStatus = goals.isEmpty
-      ? SISourceStatus.empty
-      : SISourceStatus.ready;
+  List<GoalEntity> goals = const <GoalEntity>[];
+  SISourceStatus goalsStatus = SISourceStatus.ready;
+  String? goalsError;
 
-  final InsightsBundle insights = ref.watch(insightsBundleProvider);
-  final SISourceStatus insightsStatus = insights.items.isEmpty
-      ? SISourceStatus.empty
-      : SISourceStatus.ready;
+  try {
+    goals = ref.watch(goalsProvider);
+    goalsStatus = goals.isEmpty ? SISourceStatus.empty : SISourceStatus.ready;
+  } on Object catch (error) {
+    goalsStatus = SISourceStatus.error;
+    goalsError = error.toString();
+    goals = const <GoalEntity>[];
+  }
+
+  InsightsBundle insights;
+  SISourceStatus insightsStatus = SISourceStatus.ready;
+  String? insightsError;
+
+  try {
+    insights = ref.watch(insightsBundleProvider);
+    insightsStatus = insights.items.isEmpty
+        ? SISourceStatus.empty
+        : SISourceStatus.ready;
+  } on Object catch (error) {
+    insightsStatus = SISourceStatus.error;
+    insightsError = error.toString();
+    insights = const InsightsBundle(items: [], summary: '', healthScore: 0);
+  }
+
   final logs = ref.watch(logsProvider).entries;
   final timeline = ref.watch(timelineProvider);
   final memories = ref.watch(memoriesProvider);
   final SISourceStatus memoriesStatus = memories.isEmpty
       ? SISourceStatus.empty
       : SISourceStatus.ready;
+
   final notifications = ref.watch(notificationProvider);
   final profile = ref.watch(profileProvider);
   final siState = ref.watch(siStateProvider);
@@ -51,18 +74,21 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final CoreValuesAlignment coreValues = ref.watch(coreValuesAlignmentProvider);
   final SoulMapAlignment soulMap = ref.watch(soulMapAlignmentProvider);
   final double energy = ref.watch(energyProvider);
+
   final AsyncValue<List<FlowmapNode>> flowmapAsync = ref.watch(flowmapProvider);
+
   final List<FlowmapNode> flowmapNodes = flowmapAsync.maybeWhen(
     data: (List<FlowmapNode> nodes) => nodes,
     orElse: () => const <FlowmapNode>[],
   );
+
   final SISourceStatus flowmapStatus = flowmapAsync.when(
-    data: (List<FlowmapNode> nodes) => nodes.isEmpty
-        ? SISourceStatus.empty
-        : SISourceStatus.ready,
+    data: (List<FlowmapNode> nodes) =>
+        nodes.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
     loading: () => SISourceStatus.loading,
     error: (Object error, StackTrace stackTrace) => SISourceStatus.error,
   );
+
   final String? flowmapError = flowmapAsync.whenOrNull(
     error: (Object error, StackTrace stackTrace) => error.toString(),
   );
@@ -77,37 +103,48 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final bool friction = trajectory.pressureIndex >= 60 || energy < 0.35;
   final bool overwhelm =
       trajectory.pressureIndex >= 75 || trajectory.behaviorDivergence >= 50;
+
   final String streakHealth = profile.streak >= 10
       ? 'strong'
       : profile.streak >= 3
       ? 'stable'
       : 'fragile';
+
   final bool goalDrift =
       goals.isNotEmpty && trajectory.behaviorDivergence >= 40;
+
   final bool taskAvoidance =
       logs.where((entry) => entry.source == 'task_skipped').length >= 2;
+
   final bool emotionalStrain =
       emotion == EmotionalState.anxious ||
       emotion == EmotionalState.scattered ||
       emotion == EmotionalState.negative ||
       emotion == EmotionalState.fatigued;
+
   final bool emotionalStability =
       emotion == EmotionalState.calm ||
       emotion == EmotionalState.focused ||
       emotion == EmotionalState.positive;
+
   final Set<String> patterns = <String>{};
+
   if (insights.summary.toLowerCase().contains('overload')) {
     patterns.add('overload_pattern');
   }
+
   if (flowmapNodes.any((node) => node.tags.contains('insight'))) {
     patterns.add('insight_linked_flow');
   }
+
   if (flowmapNodes.any((node) => node.tags.contains('goal'))) {
     patterns.add('goal_pressure_pattern');
   }
+
   if (emotionalStrain) {
     patterns.add('emotional_strain');
   }
+
   if (emotionalStability) {
     patterns.add('emotional_stability');
   }
@@ -134,6 +171,8 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
       flowmap: flowmapStatus,
       memories: memoriesStatus,
       tasksError: tasksError,
+      goalsError: goalsError,
+      insightsError: insightsError,
       flowmapError: flowmapError,
     ),
     signals: SISignalExtraction(
@@ -154,6 +193,7 @@ Future<List<Task>> _loadAllActiveTasks(Ref ref) async {
   final List<TaskEntity> entities = await ref
       .read(domainTaskRepositoryProvider)
       .getAllTasks();
+
   return entities
       .where((TaskEntity item) => !item.isCompleted && !item.isCanceled)
       .map(
@@ -178,7 +218,9 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
   final SIStateAggregation aggregation = await ref.watch(
     siStateAggregationProvider.future,
   );
+
   final Task? nextTask = await ref.watch(domainSiDecisionProvider.future);
+
   final int timelineHealthScore = ref.watch(timelineHealthScoreProvider);
   final int timelineRiskScore = ref.watch(timelineRiskScoreProvider);
   final int timelineOverdueCount = ref.watch(timelineOverdueProvider).length;
@@ -189,6 +231,7 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
   final int timelineRecommendationCount = ref
       .watch(timelineRecommendationsProvider)
       .length;
+
   final CoreValuesAlignment coreValues = ref.watch(coreValuesAlignmentProvider);
   final CoreValueType neglectedValue = coreValues.mostNeglected;
   final CoreValueType strongestValue = coreValues.strongest;
@@ -278,9 +321,11 @@ final smartCoachScreenModelProvider = FutureProvider<SmartCoachScreenModel>((
   final SIStateAggregation aggregation = await ref.watch(
     siStateAggregationProvider.future,
   );
+
   final SIDecisionOutput decision = await ref.watch(
     siDecisionOutputProvider.future,
   );
+
   return SmartCoachScreenModel(aggregation: aggregation, decision: decision);
 });
 
@@ -290,9 +335,11 @@ final nexusScreenModelProvider = FutureProvider<NexusScreenModel>((
   final SIStateAggregation aggregation = await ref.watch(
     siStateAggregationProvider.future,
   );
+
   final SIDecisionOutput decision = await ref.watch(
     siDecisionOutputProvider.future,
   );
+
   return NexusScreenModel(aggregation: aggregation, decision: decision);
 });
 
@@ -302,9 +349,11 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
   final SIStateAggregation aggregation = await ref.watch(
     siStateAggregationProvider.future,
   );
+
   final SIDecisionOutput decision = await ref.watch(
     siDecisionOutputProvider.future,
   );
+
   final CoreValuesAlignment coreValues = aggregation.coreValues;
   final SoulMapAlignment soulMap = aggregation.soulMap;
   final intelligence = ref.watch(intelligenceStateProvider);
@@ -327,6 +376,7 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
     final String confidence = state['confidence'] is num
         ? '${((state['confidence'] as num) * 100).round()}%'
         : '';
+
     chunks.addAll(<String>[
       if (personality.isNotEmpty) personality,
       if (emotion.isNotEmpty) emotion,
@@ -337,8 +387,10 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
   }
 
   final String engineSnapshot = chunks.join(' · ').toUpperCase();
+
   final String valuesSnapshot =
       'VALUES ${coreValues.overall}% · LOW ${coreValueTitle(coreValues.mostNeglected).toUpperCase()} ${coreValues.scores[coreValues.mostNeglected]?.score ?? 0}%';
+
   final String soulMapSnapshot =
       'SOULMAP ${soulMap.overall}% · LOW ${soulMapDimensionTitle(soulMap.weakest).toUpperCase()} ${soulMap.scores[soulMap.weakest]?.score ?? 0}%';
 
@@ -353,13 +405,17 @@ String _buildMemoryHint(List<MemoryEntity> memories) {
   if (memories.isEmpty) {
     return 'Memory context is still light, capture one preference or reflection today.';
   }
+
   final MemoryEntity first = memories.first;
   final String text = first.text.trim();
+
   if (text.isEmpty) {
     return 'Recent memory context is available for personalization.';
   }
+
   final String trimmed = text.length <= 80
       ? text
       : '${text.substring(0, 79)}...';
+
   return 'Recall: "$trimmed"';
 }

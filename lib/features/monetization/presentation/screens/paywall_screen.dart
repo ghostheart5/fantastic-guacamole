@@ -25,8 +25,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final AsyncValue<List<SubscriptionPlan>> plansAsync =
-        ref.watch(subscriptionPlansProvider);
+    final AsyncValue<List<SubscriptionPlan>> plansAsync = ref.watch(
+      subscriptionPlansProvider,
+    );
     final entitlementAsync = ref.watch(premiumEntitlementProvider);
     final walletAsync = ref.watch(aiCreditWalletProvider);
     final wallet = walletAsync.maybeWhen(
@@ -47,7 +48,8 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                   : 'Free plan',
             ),
             loading: () => const LinearProgressIndicator(),
-            error: (Object error, StackTrace stackTrace) => Text(error.toString()),
+            error: (Object error, StackTrace stackTrace) =>
+                Text(error.toString()),
           ),
           const SizedBox(height: 12),
           CreditBalanceWidget(wallet: wallet),
@@ -66,12 +68,15 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                           subtitle: Text(
                             '${plan.billingPeriod} • ${plan.currencyCode} • credits ${plan.creditsPerPeriod}',
                           ),
-                          trailing: controller.isBusy &&
+                          trailing:
+                              controller.isBusy &&
                                   controller.activeProductId == plan.productId
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : FilledButton(
                                   onPressed: () => ref
@@ -86,7 +91,8 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (Object error, StackTrace stackTrace) => Text(error.toString()),
+            error: (Object error, StackTrace stackTrace) =>
+                Text(error.toString()),
           ),
           const SizedBox(height: 12),
           if (controller.error != null)
@@ -104,7 +110,8 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                 child: const Text('Credit History'),
               ),
               OutlinedButton(
-                onPressed: () => context.push(RoutePaths.subscriptionManagement),
+                onPressed: () =>
+                    context.push(RoutePaths.subscriptionManagement),
                 child: const Text('Manage Subscription'),
               ),
             ],

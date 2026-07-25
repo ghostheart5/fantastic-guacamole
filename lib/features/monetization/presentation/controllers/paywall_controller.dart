@@ -46,8 +46,9 @@ class PaywallController extends Notifier<PaywallControllerState> {
       lastSuccess: false,
     );
 
-    final PurchaseResult result =
-        await ref.read(purchaseRepositoryProvider).purchaseSubscription(plan);
+    final PurchaseResult result = await ref
+        .read(purchaseRepositoryProvider)
+        .purchaseSubscription(plan);
 
     state = state.copyWith(
       isBusy: false,
@@ -67,5 +68,5 @@ class PaywallController extends Notifier<PaywallControllerState> {
 
 final paywallControllerProvider =
     NotifierProvider<PaywallController, PaywallControllerState>(
-  PaywallController.new,
-);
+      PaywallController.new,
+    );

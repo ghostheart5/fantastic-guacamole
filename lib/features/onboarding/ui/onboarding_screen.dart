@@ -12,7 +12,6 @@ import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
@@ -93,8 +92,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   Future<void> _restoreOnboardingProgress() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String stepKey = _resolveStepKey();
-    final int restoredStep = (prefs.getInt(stepKey) ?? prefs.getInt(onboardingStepStorageKey) ?? 0)
-        .clamp(0, _totalPages - 1);
+    final int restoredStep =
+        (prefs.getInt(stepKey) ?? prefs.getInt(onboardingStepStorageKey) ?? 0)
+            .clamp(0, _totalPages - 1);
     if (!mounted) {
       return;
     }
@@ -175,11 +175,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   Future<void> _handleBackNavigation() async {
     final bool allowExit = await _onWillPop();
-    if (allowExit && mounted) {
-      final bool popped = await Navigator.of(context).maybePop();
-      if (!popped) {
-        await SystemNavigator.pop();
-      }
+    if (!allowExit || !mounted) {
+      return;
+    }
+
+    final bool popped = await Navigator.of(context).maybePop();
+    if (!popped && mounted) {
+      // Do not close the desktop app from onboarding.
+      // Stay on the current screen and let router/profile guards resolve flow.
+      return;
     }
   }
 
@@ -193,7 +197,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           : _fallbackProfileName();
       final String? selectedGoalType = _selectedGoalType;
 
-      ref.read(profileProvider.notifier).ensureProfile(preferredName: resolvedName);
+      ref
+          .read(profileProvider.notifier)
+          .ensureProfile(preferredName: resolvedName);
       if (selectedGoalType != null && selectedGoalType.trim().isNotEmpty) {
         await SharedPrefsService.saveStringWithPrefs(
           prefs,
@@ -264,7 +270,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       if (!mounted) return;
 
       ref.read(onboardingCompleteProvider.notifier).set(true);
-      ref.read(onboardingStatusProvider.notifier).set(OnboardingStatus.complete);
+      ref
+          .read(onboardingStatusProvider.notifier)
+          .set(OnboardingStatus.complete);
       final bool isAuthenticated = ref
           .read(intelligenceStateProvider)
           .auth
@@ -350,53 +358,123 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         unawaited(_handleBackNavigation());
       },
       child: Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          // Starfield background
-          const Positioned.fill(child: _StarfieldBackground()),
+        backgroundColor: AppColors.background,
+        body: Stack(
+          children: [
+            // Starfield background
+            const Positioned.fill(child: _StarfieldBackground()),
 
-          // Page content
-          PageView.builder(
-            controller: _page,
-            onPageChanged: (i) {
-              setState(() => _current = i);
-              unawaited(_persistOnboardingProgress(i));
-            },
-            itemCount: _totalPages,
-            itemBuilder: (context, i) {
-              if (i < _slides.length) return _SlideView(slide: _slides[i]);
-              return _PersonalizationSlide(
-                nameCtrl: _nameCtrl,
-                selectedGoalType: _selectedGoalType,
-                onGoalTypeSelected: (v) =>
-                    setState(() => _selectedGoalType = v),
-              );
-            },
-          ),
+            // Page content
+            PageView.builder(
+              controller: _page,
+              onPageChanged: (i) {
+                setState(() => _current = i);
+                unawaited(_persistOnboardingProgress(i));
+              },
+              itemCount: _totalPages,
+              itemBuilder: (context, i) {
+                if (i < _slides.length) return _SlideView(slide: _slides[i]);
+                return _PersonalizationSlide(
+                  nameCtrl: _nameCtrl,
+                  selectedGoalType: _selectedGoalType,
+                  onGoalTypeSelected: (v) =>
+                      setState(() => _selectedGoalType = v),
+                );
+              },
+            ),
 
-          // Bottom controls
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(24, 0, 24, landscape ? 14 : 24),
-                child: landscape
-                    ? Row(
-                        children: [
-                          Expanded(
-                            child: Row(
+            // Bottom controls
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(24, 0, 24, landscape ? 14 : 24),
+                  child: landscape
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(_totalPages, (i) {
+                                  final bool active = i == _current;
+                                  return AnimatedContainer(
+                                    duration: const Duration(milliseconds: 250),
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 3,
+                                    ),
+                                    width: active ? 20 : 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: active
+                                          ? AppColors.neonCyan
+                                          : Colors.white.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(3),
+                                      boxShadow: active
+                                          ? [
+                                              BoxShadow(
+                                                color: AppColors.neonCyan
+                                                    .withValues(alpha: 0.6),
+                                                blurRadius: 8,
+                                              ),
+                                            ]
+                                          : null,
+                                    ),
+                                  );
+                                }),
+                              ),
+                            ),
+                            const SizedBox(width: 18),
+                            SizedBox(
+                              width: 180,
+                              child: _GradientButton(
+                                label: _current == _totalPages - 1
+                                    ? 'INITIALIZE'
+                                    : 'NEXT',
+                                onTap: _next,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            if (_current < _totalPages - 1)
+                              GestureDetector(
+                                onTap: () {
+                                  AppAnalytics.track(
+                                    'onboarding_skipped',
+                                    params: <String, Object?>{
+                                      'step_index': _current,
+                                    },
+                                  );
+                                  _complete();
+                                },
+                                child: const Text(
+                                  'SKIP',
+                                  style: TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 12,
+                                    letterSpacing: 2,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              )
+                            else
+                              const SizedBox(width: 40),
+                          ],
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Dot indicators
+                            Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: List.generate(_totalPages, (i) {
                                 final bool active = i == _current;
                                 return AnimatedContainer(
                                   duration: const Duration(milliseconds: 250),
                                   margin: const EdgeInsets.symmetric(
-                                    horizontal: 3,
+                                    horizontal: 4,
                                   ),
-                                  width: active ? 20 : 6,
+                                  width: active ? 22 : 6,
                                   height: 6,
                                   decoration: BoxDecoration(
                                     color: active
@@ -416,118 +494,48 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                 );
                               }),
                             ),
-                          ),
-                          const SizedBox(width: 18),
-                          SizedBox(
-                            width: 180,
-                            child: _GradientButton(
+                            const SizedBox(height: 20),
+
+                            // Primary action button
+                            _GradientButton(
                               label: _current == _totalPages - 1
-                                  ? 'INITIALIZE'
+                                  ? 'INITIALIZE SYSTEM'
                                   : 'NEXT',
                               onTap: _next,
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          if (_current < _totalPages - 1)
-                            GestureDetector(
-                              onTap: () {
-                                AppAnalytics.track(
-                                  'onboarding_skipped',
-                                  params: <String, Object?>{
-                                    'step_index': _current,
-                                  },
-                                );
-                                _complete();
-                              },
-                              child: const Text(
-                                'SKIP',
-                                style: TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 12,
-                                  letterSpacing: 2,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            )
-                          else
-                            const SizedBox(width: 40),
-                        ],
-                      )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Dot indicators
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(_totalPages, (i) {
-                              final bool active = i == _current;
-                              return AnimatedContainer(
-                                duration: const Duration(milliseconds: 250),
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                width: active ? 22 : 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: active
-                                      ? AppColors.neonCyan
-                                      : Colors.white.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(3),
-                                  boxShadow: active
-                                      ? [
-                                          BoxShadow(
-                                            color: AppColors.neonCyan
-                                                .withValues(alpha: 0.6),
-                                            blurRadius: 8,
-                                          ),
-                                        ]
-                                      : null,
-                                ),
-                              );
-                            }),
-                          ),
-                          const SizedBox(height: 20),
+                            const SizedBox(height: 14),
 
-                          // Primary action button
-                          _GradientButton(
-                            label: _current == _totalPages - 1
-                                ? 'INITIALIZE SYSTEM'
-                                : 'NEXT',
-                            onTap: _next,
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Skip link
-                          if (_current < _totalPages - 1)
-                            GestureDetector(
-                              onTap: () {
-                                AppAnalytics.track(
-                                  'onboarding_skipped',
-                                  params: <String, Object?>{
-                                    'step_index': _current,
-                                  },
-                                );
-                                _complete();
-                              },
-                              child: const Text(
-                                'SKIP',
-                                style: TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 12,
-                                  letterSpacing: 2,
-                                  fontWeight: FontWeight.w600,
+                            // Skip link
+                            if (_current < _totalPages - 1)
+                              GestureDetector(
+                                onTap: () {
+                                  AppAnalytics.track(
+                                    'onboarding_skipped',
+                                    params: <String, Object?>{
+                                      'step_index': _current,
+                                    },
+                                  );
+                                  _complete();
+                                },
+                                child: const Text(
+                                  'SKIP',
+                                  style: TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 12,
+                                    letterSpacing: 2,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
-                            )
-                          else
-                            const SizedBox(height: 17),
-                        ],
-                      ),
+                              )
+                            else
+                              const SizedBox(height: 17),
+                          ],
+                        ),
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }

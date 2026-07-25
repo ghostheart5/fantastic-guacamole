@@ -22,14 +22,18 @@ final monetizationRemoteDataSourceProvider =
       return MonetizationRemoteDataSource(ref.watch(supabaseClientProvider));
     });
 
-final subscriptionRepositoryProvider = Provider<SubscriptionRepository>((Ref ref) {
+final subscriptionRepositoryProvider = Provider<SubscriptionRepository>((
+  Ref ref,
+) {
   return SupabaseSubscriptionRepository(
     ref.watch(monetizationRemoteDataSourceProvider),
   );
 });
 
 final aiCreditRepositoryProvider = Provider<AiCreditRepository>((Ref ref) {
-  return SupabaseAiCreditRepository(ref.watch(monetizationRemoteDataSourceProvider));
+  return SupabaseAiCreditRepository(
+    ref.watch(monetizationRemoteDataSourceProvider),
+  );
 });
 
 final billingServiceProvider = Provider<BillingService>((Ref ref) {
@@ -50,7 +54,9 @@ final entitlementServiceProvider = Provider<EntitlementService>((Ref ref) {
   return EntitlementService(ref.watch(subscriptionRepositoryProvider));
 });
 
-final monetizationCreditServiceProvider = Provider<monetization.CreditService>((Ref ref) {
+final monetizationCreditServiceProvider = Provider<monetization.CreditService>((
+  Ref ref,
+) {
   return monetization.CreditService(ref.watch(aiCreditRepositoryProvider));
 });
 
@@ -118,7 +124,9 @@ final creditHistoryProvider =
       CreditHistoryController.new,
     );
 
-final entitlementEventsProvider = FutureProvider<List<EntitlementEvent>>((Ref ref) {
+final entitlementEventsProvider = FutureProvider<List<EntitlementEvent>>((
+  Ref ref,
+) {
   return ref.read(entitlementServiceProvider).loadEvents();
 });
 
@@ -127,10 +135,13 @@ final paywallProvider = FutureProvider<PaywallContent>((Ref ref) async {
 });
 
 final premiumAccessProvider = Provider<bool>((Ref ref) {
-  return ref.watch(subscriptionProvider).maybeWhen(
-    data: (SubscriptionStatus status) => status.isPremium && status.isActive,
-    orElse: () => false,
-  );
+  return ref
+      .watch(subscriptionProvider)
+      .maybeWhen(
+        data: (SubscriptionStatus status) =>
+            status.isPremium && status.isActive,
+        orElse: () => false,
+      );
 });
 
 class PurchaseControllerState {

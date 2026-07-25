@@ -32,7 +32,8 @@ class CreditHistoryScreen extends ConsumerWidget {
                   .toList(growable: false),
             ),
             loading: () => const LinearProgressIndicator(),
-            error: (Object error, StackTrace stackTrace) => Text(error.toString()),
+            error: (Object error, StackTrace stackTrace) =>
+                Text(error.toString()),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -45,14 +46,17 @@ class CreditHistoryScreen extends ConsumerWidget {
                   .map(
                     (purchase) => ListTile(
                       title: Text(purchase.productId),
-                      subtitle: Text('${purchase.purchaseType} • ${purchase.purchaseState}'),
+                      subtitle: Text(
+                        '${purchase.purchaseType} • ${purchase.purchaseState}',
+                      ),
                       trailing: Text('+${purchase.creditsGranted}'),
                     ),
                   )
                   .toList(growable: false),
             ),
             loading: () => const LinearProgressIndicator(),
-            error: (Object error, StackTrace stackTrace) => Text(error.toString()),
+            error: (Object error, StackTrace stackTrace) =>
+                Text(error.toString()),
           ),
         ],
       ),

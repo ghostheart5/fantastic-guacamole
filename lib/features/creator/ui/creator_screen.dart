@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
@@ -30,7 +31,7 @@ class CreatorScreen extends ConsumerWidget {
                 Row(
                   children: [
                     SmartPressable(
-                      onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
+                      onTap: () => ref.read(appFlowProvider.notifier).toNexus(),
                       child: Container(
                         width: 36,
                         height: 36,

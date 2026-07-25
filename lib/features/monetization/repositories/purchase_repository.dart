@@ -31,8 +31,7 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
     this._subscriptionRepository,
     this._aiCreditRepository, {
     http.Client? httpClient,
-  }) : 
-       _httpClient = httpClient ?? http.Client() {
+  }) : _httpClient = httpClient ?? http.Client() {
     _subscription = _billingService.purchaseStream.listen(
       _handlePurchaseUpdates,
       onError: (Object error, StackTrace stackTrace) {
@@ -106,13 +105,16 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
   Future<PurchaseOperationResult> startSubscriptionPurchase(
     SubscriptionPlan plan,
   ) async {
-    final String productId = plan.productId ??
+    final String productId =
+        plan.productId ??
         (throw ArgumentError('Plan ${plan.id} is not purchasable.'));
     final ProductDetails product = await _loadProductDetails(productId);
     final Completer<PurchaseOperationResult> completer =
         Completer<PurchaseOperationResult>();
     _pending[productId] = completer;
-    final bool launched = await _billingService.buyNonConsumable(product: product);
+    final bool launched = await _billingService.buyNonConsumable(
+      product: product,
+    );
     if (!launched) {
       _pending.remove(productId);
       return PurchaseOperationResult(
@@ -205,7 +207,8 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
       );
     }
 
-    final bool isSubscription = purchase.productID == 'chronospark_premium_monthly' ||
+    final bool isSubscription =
+        purchase.productID == 'chronospark_premium_monthly' ||
         purchase.productID == 'chronospark_premium_annual';
     final http.Response response = await _httpClient.post(
       endpoint,
@@ -255,8 +258,8 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
       );
     }
 
-    final SubscriptionStatus subscriptionStatus =
-        await _subscriptionRepository.getSubscriptionStatus();
+    final SubscriptionStatus subscriptionStatus = await _subscriptionRepository
+        .getSubscriptionStatus();
     final AiCreditWallet wallet = await _aiCreditRepository.getWallet();
 
     if (isSubscription) {

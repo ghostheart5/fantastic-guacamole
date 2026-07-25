@@ -24,7 +24,8 @@ class SubscriptionManagementScreen extends ConsumerWidget {
               ),
             ),
             loading: () => const LinearProgressIndicator(),
-            error: (Object error, StackTrace stackTrace) => Text(error.toString()),
+            error: (Object error, StackTrace stackTrace) =>
+                Text(error.toString()),
           ),
           const SizedBox(height: 16),
           subscriptionAsync.when(
@@ -50,7 +51,8 @@ class SubscriptionManagementScreen extends ConsumerWidget {
               );
             },
             loading: () => const LinearProgressIndicator(),
-            error: (Object error, StackTrace stackTrace) => Text(error.toString()),
+            error: (Object error, StackTrace stackTrace) =>
+                Text(error.toString()),
           ),
         ],
       ),

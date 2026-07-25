@@ -52,7 +52,7 @@ dependencies:
   just_audio: ^0.10.5
   audio_session: ^0.2.2
   audioplayers: ^6.8.1
-  flutter_tts: ^4.2.3
+
   vibration: ^3.2.0
   riverpod_annotation: ^4.0.3
   intl: ^0.20.0
@@ -212,3 +212,4 @@ flutter_launcher_icons:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+

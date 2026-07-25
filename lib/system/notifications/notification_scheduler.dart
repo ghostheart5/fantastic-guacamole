@@ -55,6 +55,20 @@ class NotificationScheduler {
   );
 
   Future<bool> init({bool requestPermissions = false}) async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      _initialized = true;
+      _permissionGranted = false;
+      permissionGrantedListenable.value = false;
+
+      Logger.warn(
+        'Local notifications skipped on Windows until Windows initialization settings are configured.',
+      );
+      RuntimeDiagnostics.record(
+        'Local notifications skipped on Windows until Windows initialization settings are configured.',
+      );
+
+      return false;
+    }
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const darwin = DarwinInitializationSettings(
       requestAlertPermission: false,

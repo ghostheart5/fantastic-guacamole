@@ -91,7 +91,8 @@ final supabaseBackendHealthProvider = FutureProvider<SupabaseBackendHealth>((
       storageReachable: false,
       realtimeConfigured: false,
       badge: SupabaseHealthBadge.sessionMissing,
-      message: 'Supabase is initialized, but no authenticated session is available.',
+      message:
+          'Supabase is initialized, but no authenticated session is available.',
     );
   }
 

@@ -19,7 +19,8 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Stream<Result<AuthSessionEntity?>> watchSession() async* {
-    await for (final AuthSessionEntity? session in _remoteDataSource.watchSession()) {
+    await for (final AuthSessionEntity? session
+        in _remoteDataSource.watchSession()) {
       try {
         if (session == null) {
           await _localDataSource.clearSession();
@@ -43,9 +44,11 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<AuthSessionEntity?>> getCurrentSession() async {
     try {
-      final AuthSessionEntity? session = await _remoteDataSource.getCurrentSession();
+      final AuthSessionEntity? session = await _remoteDataSource
+          .getCurrentSession();
       if (session == null) {
-        final AuthSessionEntity? cached = await _localDataSource.getCachedSession();
+        final AuthSessionEntity? cached = await _localDataSource
+            .getCachedSession();
         return Result<AuthSessionEntity?>.success(cached);
       }
       await _localDataSource.cacheSession(session);
@@ -78,19 +81,25 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Result<AuthSessionEntity?>> signInWithEmail({
     required EmailAddress email,
     required PasswordValue password,
-  }) => _wrapSession(() => _remoteDataSource.signInWithEmail(email: email, password: password));
+  }) => _wrapSession(
+    () => _remoteDataSource.signInWithEmail(email: email, password: password),
+  );
 
   @override
   Future<Result<AuthSessionEntity?>> signUpWithEmail({
     required EmailAddress email,
     required PasswordValue password,
-  }) => _wrapSession(() => _remoteDataSource.signUpWithEmail(email: email, password: password));
+  }) => _wrapSession(
+    () => _remoteDataSource.signUpWithEmail(email: email, password: password),
+  );
 
   @override
-  Future<Result<AuthSessionEntity?>> signInWithGoogle() => _wrapSession(_remoteDataSource.signInWithGoogle);
+  Future<Result<AuthSessionEntity?>> signInWithGoogle() =>
+      _wrapSession(_remoteDataSource.signInWithGoogle);
 
   @override
-  Future<Result<AuthSessionEntity?>> signInWithGitHub() => _wrapSession(_remoteDataSource.signInWithGitHub);
+  Future<Result<AuthSessionEntity?>> signInWithGitHub() =>
+      _wrapSession(_remoteDataSource.signInWithGitHub);
 
   @override
   Future<Result<void>> sendPasswordReset({required EmailAddress email}) {

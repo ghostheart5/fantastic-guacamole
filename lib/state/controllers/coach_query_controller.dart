@@ -120,11 +120,20 @@ class CoachQueryController implements SmartCoachInterface {
         .toList(growable: false);
 
     if (detectedTopic != _CoachTopic.generalChat) {
-      final String message = _buildStructuredResponse(
+      final Map<String, dynamic> moduleSnapshot = _coachModuleSnapshot(
+        energy: energy,
+        reflection: notes,
+      );
+      final String contextLock = _buildSmartCoachContextLock(moduleSnapshot);
+      final String structuredMessage = _buildStructuredResponse(
         topic: detectedTopic,
         energy: energy,
         input: prompt,
       );
+      final String message = contextLock.isEmpty
+          ? structuredMessage
+          : '$structuredMessage\n\n$contextLock';
+
       await _persistConversationTurn(
         role: 'user',
         channel: 'coach',
@@ -542,6 +551,57 @@ class CoachQueryController implements SmartCoachInterface {
         'soulmap': soulState.toJson(),
       },
     };
+  }
+
+  String _buildSmartCoachContextLock(Map<String, dynamic> moduleSnapshot) {
+    final Object? rawKnowledge = moduleSnapshot['knowledge'];
+    if (rawKnowledge is! Map<String, dynamic>) {
+      return '';
+    }
+
+    String describeSource(String key, String label) {
+      final Object? rawSource = rawKnowledge[key];
+      if (rawSource is! Map) {
+        return '';
+      }
+
+      final Object? rawCount = rawSource['count'];
+      final Object? rawItems =
+          rawSource['top'] ?? rawSource['recent'] ?? rawSource['preview'];
+
+      final List<String> items = rawItems is Iterable
+          ? rawItems
+                .map((Object? item) => item?.toString().trim() ?? '')
+                .where((String item) => item.isNotEmpty)
+                .take(2)
+                .toList(growable: false)
+          : const <String>[];
+
+      final String countText = rawCount?.toString().trim() ?? '';
+      if (countText.isEmpty && items.isEmpty) {
+        return '';
+      }
+
+      final String itemText = items.isEmpty ? '' : ' | ${items.join(' / ')}';
+      return '- $label: ${countText.isEmpty ? 'available' : countText}$itemText';
+    }
+
+    final List<String> lines = <String>[
+      'ChronoSpark context lock:',
+      describeSource('tasks', 'Tasks'),
+      describeSource('goals', 'Goals'),
+      describeSource('timeline', 'Timeline'),
+      describeSource('flowmap', 'Flowmap'),
+      describeSource('memories', 'Memories'),
+      describeSource('insights', 'Insights'),
+      describeSource('plan', 'Plan preview'),
+    ].where((String line) => line.trim().isNotEmpty).toList(growable: false);
+
+    if (lines.length <= 1) {
+      return '';
+    }
+
+    return lines.join('\n');
   }
 
   Future<AIRecommendation?> _safeCoachQuery({

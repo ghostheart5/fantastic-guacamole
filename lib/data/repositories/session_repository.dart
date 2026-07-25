@@ -87,7 +87,9 @@ class SessionRepository implements ISessionRepository {
       );
     }
     if (decoded is! List<dynamic>) {
-      Logger.error('Session storage is corrupted: top-level payload is not a list.');
+      Logger.error(
+        'Session storage is corrupted: top-level payload is not a list.',
+      );
       throw StateError(
         'Session storage is corrupted. Refusing to treat it as empty history.',
       );

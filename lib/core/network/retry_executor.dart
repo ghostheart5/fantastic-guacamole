@@ -22,8 +22,8 @@ Future<T> runWithRetry<T>({
     } on Object catch (error, stack) {
       lastError = error;
       lastStack = stack;
-      final bool shouldRetry = attempt < maxAttempts &&
-          (retryIf == null ? true : retryIf(error));
+      final bool shouldRetry =
+          attempt < maxAttempts && (retryIf == null ? true : retryIf(error));
       if (!shouldRetry) {
         rethrow;
       }
@@ -31,10 +31,7 @@ Future<T> runWithRetry<T>({
       final int jitterMs = jitter.nextInt(220);
       await Future<void>.delayed(delay + Duration(milliseconds: jitterMs));
       delay = Duration(
-        milliseconds: max(
-          100,
-          (delay.inMilliseconds * backoffFactor).round(),
-        ),
+        milliseconds: max(100, (delay.inMilliseconds * backoffFactor).round()),
       );
     }
   }

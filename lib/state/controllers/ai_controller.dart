@@ -1484,9 +1484,7 @@ class AIController {
         if (decoded is! List) {
           return <Map<String, dynamic>>[];
         }
-        return decoded
-            .whereType<Map<String, dynamic>>()
-            .toList(growable: true);
+        return decoded.whereType<Map<String, dynamic>>().toList(growable: true);
       } on Object {
         return <Map<String, dynamic>>[];
       }

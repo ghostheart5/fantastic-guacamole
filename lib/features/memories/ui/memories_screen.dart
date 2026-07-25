@@ -71,6 +71,11 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen> {
   @override
   Widget build(BuildContext context) {
     final MemorySummary summary = ref.watch(memorySummaryProvider);
+    final Map<MemoryCategory, List<MemoryEntity>> memoriesByCategory = ref
+        .watch(memoriesByCategoryProvider);
+    final memoryAnalytics = ref.watch(memoryAnalyticsProvider);
+    final generatedMemorySummary = ref.watch(generatedMemorySummaryProvider);
+    final List<String> memoryInsights = ref.watch(memoryInsightsProvider);
     final List<MemoryEntity> searchResults = ref.watch(
       memorySearchProvider(_query),
     );
@@ -187,6 +192,130 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                 child: _MemorySummaryStrip(summary: summary),
               ),
+              if (memoryAnalytics.total > 0 || memoryInsights.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF050D1A),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.neonViolet.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.memory_rounded,
+                              color: AppColors.neonViolet,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'MEMORY INTELLIGENCE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${memoryAnalytics.healthScore}%',
+                              style: const TextStyle(
+                                color: AppColors.neonCyan,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          generatedMemorySummary.headline,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          generatedMemorySummary.detail,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _MemoryIntelPill(
+                              label: 'Active',
+                              value: memoryAnalytics.active.toString(),
+                              color: AppColors.neonCyan,
+                            ),
+                            _MemoryIntelPill(
+                              label: 'Recent',
+                              value: memoryAnalytics.recent.toString(),
+                              color: AppColors.memoryAmber,
+                            ),
+                            _MemoryIntelPill(
+                              label: 'Starred',
+                              value: memoryAnalytics.starred.toString(),
+                              color: AppColors.neonViolet,
+                            ),
+                            _MemoryIntelPill(
+                              label: 'Linked',
+                              value: memoryAnalytics.linked.toString(),
+                              color: AppColors.neonCyan,
+                            ),
+                            _MemoryIntelPill(
+                              label: 'Important',
+                              value: memoryAnalytics.highImportance.toString(),
+                              color: AppColors.memoryAmber,
+                            ),
+                            _MemoryIntelPill(
+                              label: 'Archived',
+                              value: memoryAnalytics.archived.toString(),
+                              color: Colors.white54,
+                            ),
+                          ],
+                        ),
+                        if (memoryInsights.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          ...memoryInsights
+                              .take(3)
+                              .map(
+                                (String insight) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 5),
+                                  child: Text(
+                                    '- $insight',
+                                    style: const TextStyle(
+                                      color: Colors.white60,
+                                      fontSize: 11,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
@@ -240,7 +369,8 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen> {
                               (MemoryCategory category) => Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: _CategoryChip(
-                                  label: _categoryLabel(category),
+                                  label:
+                                      '${_categoryLabel(category)} (${memoriesByCategory[category]?.length ?? 0})',
                                   selected: _selectedCategory == category,
                                   onTap: () => setState(
                                     () => _selectedCategory = category,
@@ -765,6 +895,52 @@ class _MemoryEditorSheetState extends State<_MemoryEditorSheet> {
       }
     }
     return data;
+  }
+}
+
+class _MemoryIntelPill extends StatelessWidget {
+  const _MemoryIntelPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

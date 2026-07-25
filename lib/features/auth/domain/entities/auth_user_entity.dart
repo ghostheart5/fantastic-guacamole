@@ -77,14 +77,14 @@ class AuthUserEntity {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        email,
-        displayName,
-        emailVerified,
-        isAnonymous,
-        avatarUrl,
-        Object.hashAll(roles),
-      );
+    id,
+    email,
+    displayName,
+    emailVerified,
+    isAnonymous,
+    avatarUrl,
+    Object.hashAll(roles),
+  );
 
   static bool _listEquals(List<String> left, List<String> right) {
     if (left.length != right.length) {

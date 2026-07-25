@@ -31,7 +31,10 @@ class AuthInputValidator {
     }
   }
 
-  Result<void> validateLogin({required String email, required String password}) {
+  Result<void> validateLogin({
+    required String email,
+    required String password,
+  }) {
     final Result<void> emailResult = validateEmail(email);
     if (emailResult.isFailure) {
       return emailResult;
@@ -39,15 +42,23 @@ class AuthInputValidator {
     return validatePassword(password);
   }
 
-  Result<void> validateSignUp({required String email, required String password}) {
-    final Result<void> loginResult = validateLogin(email: email, password: password);
+  Result<void> validateSignUp({
+    required String email,
+    required String password,
+  }) {
+    final Result<void> loginResult = validateLogin(
+      email: email,
+      password: password,
+    );
     if (loginResult.isFailure) {
       return loginResult;
     }
     final PasswordValue value = PasswordValue(password);
     if (!value.isStrong) {
       return const Result<void>.failure(
-        FormatException('Password must contain upper-case, lower-case, and numeric characters.'),
+        FormatException(
+          'Password must contain upper-case, lower-case, and numeric characters.',
+        ),
       );
     }
     return const Result<void>.success(null);

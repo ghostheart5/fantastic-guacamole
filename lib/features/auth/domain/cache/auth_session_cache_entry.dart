@@ -22,8 +22,14 @@ class AuthSessionCacheEntry {
   factory AuthSessionCacheEntry.fromMap(Map<String, Object?> map) {
     return AuthSessionCacheEntry(
       key: (map['key'] ?? '').toString(),
-      cachedAt: DateTime.tryParse((map['cachedAt'] ?? '').toString()) ?? DateTime.fromMillisecondsSinceEpoch(0),
-      session: AuthSessionEntity.fromMap(Map<String, dynamic>.from(map['session'] as Map? ?? <String, dynamic>{})),
+      cachedAt:
+          DateTime.tryParse((map['cachedAt'] ?? '').toString()) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      session: AuthSessionEntity.fromMap(
+        Map<String, dynamic>.from(
+          map['session'] as Map? ?? <String, dynamic>{},
+        ),
+      ),
     );
   }
 }

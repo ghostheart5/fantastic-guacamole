@@ -47,16 +47,18 @@ class SettingsUiActions {
     return _notificationPermissionStateListenable;
   }
 
-  Future<NotificationPermissionState> requestNotificationPermissionDetailed() async {
-    final NotificationPermissionState state =
-        await _reminderService.requestNotificationPermissionDetailed();
+  Future<NotificationPermissionState>
+  requestNotificationPermissionDetailed() async {
+    final NotificationPermissionState state = await _reminderService
+        .requestNotificationPermissionDetailed();
     _notificationPermissionStateListenable.value = state;
     return state;
   }
 
-  Future<NotificationPermissionState> refreshNotificationPermissionState() async {
-    final NotificationPermissionState state =
-        await _reminderService.getNotificationPermissionState();
+  Future<NotificationPermissionState>
+  refreshNotificationPermissionState() async {
+    final NotificationPermissionState state = await _reminderService
+        .getNotificationPermissionState();
     _notificationPermissionStateListenable.value = state;
     return state;
   }

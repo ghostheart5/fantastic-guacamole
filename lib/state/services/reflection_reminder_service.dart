@@ -4,12 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-enum NotificationPermissionState {
-  granted,
-  denied,
-  permanentlyDenied,
-  unknown,
-}
+enum NotificationPermissionState { granted, denied, permanentlyDenied, unknown }
 
 @immutable
 class ReflectionReminderPrefs {
@@ -76,12 +71,13 @@ class ReflectionReminderService {
 
     final NotificationScheduleResult result = await _scheduler
         .scheduleDailyAtWithStatus(
-      id: notificationId,
-      title: 'Daily Reflection',
-      body: 'Take 3 minutes to review your day and set intent for tomorrow.',
-      hour: time.hour,
-      minute: time.minute,
-    );
+          id: notificationId,
+          title: 'Daily Reflection',
+          body:
+              'Take 3 minutes to review your day and set intent for tomorrow.',
+          hour: time.hour,
+          minute: time.minute,
+        );
     if (result != NotificationScheduleResult.scheduled) {
       await _preferences.save(enabledKey, 'false');
       await _scheduler.cancel(notificationId);
@@ -105,7 +101,8 @@ class ReflectionReminderService {
     return _scheduler.requestPermissions();
   }
 
-  Future<NotificationPermissionState> requestNotificationPermissionDetailed() async {
+  Future<NotificationPermissionState>
+  requestNotificationPermissionDetailed() async {
     await _scheduler.requestPermissions();
     return getNotificationPermissionState();
   }
@@ -127,8 +124,8 @@ class ReflectionReminderService {
       PermissionStatus.granted ||
       PermissionStatus.limited ||
       PermissionStatus.provisional => NotificationPermissionState.granted,
-      PermissionStatus.permanentlyDenied ||
-      PermissionStatus.restricted => NotificationPermissionState.permanentlyDenied,
+      PermissionStatus.permanentlyDenied || PermissionStatus.restricted =>
+        NotificationPermissionState.permanentlyDenied,
       PermissionStatus.denied => NotificationPermissionState.denied,
     };
   }
