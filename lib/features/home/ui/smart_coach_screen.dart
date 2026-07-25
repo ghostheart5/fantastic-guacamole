@@ -17,9 +17,9 @@ import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
-import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fantastic_guacamole/features/home/ui/widgets/smart_coach_hero.dart';
 
 class SmartCoachScreen extends ConsumerStatefulWidget {
   const SmartCoachScreen({super.key});
@@ -45,7 +45,6 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   bool _saved = false;
   bool _gettingCoaching = false;
   bool _sendingFollowUp = false;
-  bool _taskActionBusy = false;
 
   List<_Exchange> get _visibleFollowUps {
     const int maxVisibleFollowUps = 20;
@@ -221,92 +220,6 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
     }
   }
 
-  Future<void> _completeSuggestedTask(Task task) async {
-    if (_taskActionBusy) {
-      return;
-    }
-    setState(() => _taskActionBusy = true);
-    try {
-      await ref.read(taskActionsProvider).completeTask(task.id);
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Completed: ${task.title}')),
-      );
-    } catch (error, stackTrace) {
-      if (!mounted) {
-        return;
-      }
-      ErrorBoundary.of(context)?.captureError(error, stackTrace);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not complete task. Try again.')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _taskActionBusy = false);
-      }
-    }
-  }
-
-  Future<void> _skipSuggestedTask(Task task) async {
-    if (_taskActionBusy) {
-      return;
-    }
-    setState(() => _taskActionBusy = true);
-    try {
-      await ref.read(taskActionsProvider).skipTask(task.id);
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Skipped: ${task.title}')),
-      );
-    } catch (error, stackTrace) {
-      if (!mounted) {
-        return;
-      }
-      ErrorBoundary.of(context)?.captureError(error, stackTrace);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not skip task. Try again.')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _taskActionBusy = false);
-      }
-    }
-  }
-
-  Future<void> _delaySuggestedTask(Task task) async {
-    if (_taskActionBusy) {
-      return;
-    }
-    setState(() => _taskActionBusy = true);
-    try {
-      await ref
-          .read(taskActionsProvider)
-          .delayTask(task.id, by: const Duration(hours: 2));
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Delayed 2h: ${task.title}')),
-      );
-    } catch (error, stackTrace) {
-      if (!mounted) {
-        return;
-      }
-      ErrorBoundary.of(context)?.captureError(error, stackTrace);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not delay task. Try again.')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _taskActionBusy = false);
-      }
-    }
-  }
-
   List<Map<String, String>> _conversationHistory() {
     final List<Map<String, String>> history = <Map<String, String>>[];
     final String initialPrompt = _coachingPrompt?.trim() ?? '';
@@ -344,10 +257,17 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
         sourceHealth?.insights == SISourceStatus.error;
     final bool siUnavailable = smartModelAsync.hasError || sourceDegraded;
     final String modelCoachMessage = smartModel?.decision.coachMessage ?? '';
-    final List<Task> suggestedTasks = smartModel?.aggregation.tasks ??
-        const <Task>[];
-    final Task? suggestedTask = suggestedTasks.isEmpty ? null : suggestedTasks.first;
-    final bool hasSuggestedTask = suggestedTask != null;
+    final decision = smartModel?.decision;
+    final String modelNextAction = decision?.nextAction ?? '';
+    final String modelProgressionFeedback = decision?.progressionFeedback ?? '';
+    final List<String> modelWarnings = decision?.warnings ?? const <String>[];
+    final List<String> modelPlanAdjustments =
+        decision?.suggestedPlanAdjustments ?? const <String>[];
+    final List<String> modelInsightPrompts =
+        decision?.insightPrompts ?? const <String>[];
+    final List<Task> suggestedTasks =
+        smartModel?.aggregation.tasks ?? const <Task>[];
+
     final String effectiveCoachMessage =
         (_coachingMessage?.trim().isNotEmpty ?? false)
         ? _coachingMessage!
@@ -376,7 +296,13 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     hasCoachMessage ? 20 : 12,
                   ),
                   children: [
-                    _buildHeader(),
+                    SmartCoachHero(
+                      coachMessage: effectiveCoachMessage,
+                      nextAction: modelNextAction,
+                      progressionFeedback: modelProgressionFeedback,
+                      taskCount: suggestedTasks.length,
+                      coachOnline: !siUnavailable,
+                    ),
                     const SizedBox(height: 4),
                     const _DisclaimerText(),
                     const SizedBox(height: 12),
@@ -389,84 +315,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                       sourceHealth: sourceHealth,
                     ),
                     const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () =>
-                              ref.read(appFlowProvider.notifier).toCreator(),
-                          child: const Text('OPEN CREATOR TO MAKE TASK'),
-                        ),
-                        OutlinedButton(
-                          onPressed: () {
-                            ref.invalidate(tasksProvider);
-                            ref.invalidate(siStateAggregationProvider);
-                            ref.invalidate(siDecisionOutputProvider);
-                            ref.invalidate(smartCoachScreenModelProvider);
-                          },
-                          child: const Text('RETRY TASK SYNC'),
-                        ),
-                      ],
-                    ),
-                    if (!hasSuggestedTask) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        'No active tasks detected. Use Creator for a quick capture, then return here for SI prioritization.',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 12,
-                          height: 1.45,
-                        ),
-                      ),
-                    ],
-                    if (hasSuggestedTask) ...[
-                      const SizedBox(height: 14),
-                      _CoachPanel(
-                        label: 'RECOMMENDED TASK',
-                        accentColor: AppColors.memoryAmber,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              suggestedTask.title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                FilledButton(
-                                  onPressed: _taskActionBusy
-                                      ? null
-                                      : () => _completeSuggestedTask(
-                                            suggestedTask,
-                                          ),
-                                  child: const Text('COMPLETE'),
-                                ),
-                                OutlinedButton(
-                                  onPressed: _taskActionBusy
-                                      ? null
-                                      : () => _skipSuggestedTask(suggestedTask),
-                                  child: const Text('SKIP'),
-                                ),
-                                OutlinedButton(
-                                  onPressed: _taskActionBusy
-                                      ? null
-                                      : () => _delaySuggestedTask(suggestedTask),
-                                  child: const Text('DELAY +2H'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+
                     const SizedBox(height: 14),
                     _CoachPanel(
                       label: 'ENERGY',
@@ -539,6 +388,148 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                               },
                       ),
                     ),
+                    if (decision != null &&
+                        (modelNextAction.trim().isNotEmpty ||
+                            modelProgressionFeedback.trim().isNotEmpty ||
+                            modelWarnings.isNotEmpty ||
+                            modelPlanAdjustments.isNotEmpty ||
+                            modelInsightPrompts.isNotEmpty)) ...[
+                      const SizedBox(height: 20),
+                      _CoachPanel(
+                        label: 'SI DECISION OUTPUT',
+                        accentColor: AppColors.neonViolet,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (modelNextAction.trim().isNotEmpty) ...[
+                              const Text(
+                                'Next Action',
+                                style: TextStyle(
+                                  color: AppColors.neonCyan,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                modelNextAction,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  height: 1.45,
+                                ),
+                              ),
+                            ],
+                            if (modelProgressionFeedback.trim().isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Progression Feedback',
+                                style: TextStyle(
+                                  color: AppColors.memoryAmber,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                modelProgressionFeedback,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  height: 1.45,
+                                ),
+                              ),
+                            ],
+                            if (modelWarnings.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Warnings',
+                                style: TextStyle(
+                                  color: AppColors.recallRed,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              ...modelWarnings
+                                  .take(3)
+                                  .map(
+                                    (String warning) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Text(
+                                        warning,
+                                        style: const TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 11,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                            ],
+                            if (modelPlanAdjustments.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Plan Adjustments',
+                                style: TextStyle(
+                                  color: AppColors.neonCyan,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              ...modelPlanAdjustments
+                                  .take(3)
+                                  .map(
+                                    (String adjustment) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Text(
+                                        adjustment,
+                                        style: const TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 11,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                            ],
+                            if (modelInsightPrompts.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Insight Prompts',
+                                style: TextStyle(
+                                  color: AppColors.neonViolet,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              ...modelInsightPrompts
+                                  .take(3)
+                                  .map(
+                                    (String prompt) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Text(
+                                        prompt,
+                                        style: const TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 11,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                     if (hasCoachMessage) ...[
                       const SizedBox(height: 20),
                       _CoachPanel(
@@ -609,49 +600,6 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
               )
             : null,
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      children: [
-        SmartPressable(
-          onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
-          child: const Icon(
-            Icons.arrow_back_ios,
-            color: Colors.white54,
-            size: 18,
-          ),
-        ),
-        const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [AppColors.neonCyan, AppColors.neonViolet],
-              ).createShader(bounds),
-              child: const Text(
-                'SMART COACH',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 3,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const Text(
-              'ADAPTIVE LIFE LOGIC',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 2,
-                color: Colors.white38,
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
@@ -1222,9 +1170,9 @@ class _ProgressionBanner extends ConsumerWidget {
                 color: AppColors.memoryAmber.withValues(alpha: 0.4),
               ),
             ),
-            child: Text(
-              'LVL ${progress.level}',
-              style: const TextStyle(
+            child: const Text(
+              'LEVEL',
+              style: TextStyle(
                 color: AppColors.memoryAmber,
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
@@ -1403,7 +1351,8 @@ class _CoachSyncStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool hasTasksError = sourceHealth?.tasks == SISourceStatus.error;
-    final bool hasInsightsError = sourceHealth?.insights == SISourceStatus.error;
+    final bool hasInsightsError =
+        sourceHealth?.insights == SISourceStatus.error;
     final String status = modelAsync.isLoading
         ? 'SYNCING'
         : modelAsync.hasError || hasTasksError || hasInsightsError
