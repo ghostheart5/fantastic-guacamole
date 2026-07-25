@@ -17,7 +17,6 @@ class RoutePaths {
   static const notificationPermissionRecovery =
       '/settings/notifications/recovery';
   static const advancedRoot = '/settings/advanced';
-  static const timeline = '/settings/advanced/logs';
   static const logs = '$advancedRoot/logs';
   static const tasks = '$advancedRoot/tasks';
   static const profile = '$advancedRoot/profile';

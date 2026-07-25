@@ -259,7 +259,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             const NotificationPermissionRecoveryScreen(),
       ),
       GoRoute(
-        path: RoutePaths.timeline,
+        path: RoutePaths.logs,
         builder: (BuildContext context, GoRouterState state) =>
             const NavigationShell(initialView: AppView.nexus),
       ),
@@ -295,10 +295,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.legacyCoach,
         redirect: (_, _) => RoutePaths.home,
       ),
-      GoRoute(
-        path: RoutePaths.timeline,
-        redirect: (_, _) => RoutePaths.timeline,
-      ),
+      GoRoute(path: RoutePaths.timeline, redirect: (_, _) => RoutePaths.logs),
       GoRoute(
         path: RoutePaths.legacyNotifications,
         redirect: (_, _) => RoutePaths.notifications,

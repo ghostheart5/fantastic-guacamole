@@ -1,0 +1,3 @@
+﻿class ResumeLogSessionUsecase {
+  const ResumeLogSessionUsecase();
+}

@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 
 import 'package:fantastic_guacamole/features/home/ui/smart_coach_screen.dart';
 
+
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
 import 'package:fantastic_guacamole/features/progression/ui/progression_screen.dart';
@@ -462,7 +463,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           items: <BottomNavigationBarItem>[
             _navItem(AppAssets.iconNexus, 'Nexus', tabIndex == 0),
             _navItem(AppAssets.iconTasks, 'Creator', tabIndex == 1),
-            _navItem(AppAssets.iconTasks, 'Timeline', tabIndex == 2),
+            _navItem(AppAssets.iconLogs, 'Timeline', tabIndex == 2),
             _navItem(AppAssets.iconProfile, 'Profile', tabIndex == 3),
           ],
         ),

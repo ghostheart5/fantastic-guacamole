@@ -1,0 +1,3 @@
+﻿class ViewHabitLogsUsecase {
+  const ViewHabitLogsUsecase();
+}

@@ -462,7 +462,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           items: <BottomNavigationBarItem>[
             _navItem(AppAssets.iconNexus, 'Nexus', tabIndex == 0),
             _navItem(AppAssets.iconTasks, 'Creator', tabIndex == 1),
-            _navItem(AppAssets.iconTasks, 'Timeline', tabIndex == 2),
+            _navItem(AppAssets.iconTimeline, 'Timeline', tabIndex == 2),
             _navItem(AppAssets.iconProfile, 'Profile', tabIndex == 3),
           ],
         ),

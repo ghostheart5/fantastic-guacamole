@@ -17,7 +17,6 @@ class RoutePaths {
   static const notificationPermissionRecovery =
       '/settings/notifications/recovery';
   static const advancedRoot = '/settings/advanced';
-  static const timeline = '/settings/advanced/logs';
   static const logs = '$advancedRoot/logs';
   static const tasks = '$advancedRoot/tasks';
   static const profile = '$advancedRoot/profile';
@@ -39,8 +38,7 @@ class RoutePaths {
 
   // Legacy aliases for compatibility redirects.
   static const legacyCoach = '/coach';
-  static const legacyTimeline = '/logs';
-  static const legacyLogs = legacyTimeline;
+  static const legacyLogs = '/logs';
   static const legacyNotifications = '/notifications';
   static const legacyProgression = '/progression';
   static const legacySi = '/si';

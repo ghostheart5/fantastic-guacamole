@@ -1,0 +1,3 @@
+﻿class RefreshLogsUsecase {
+  const RefreshLogsUsecase();
+}

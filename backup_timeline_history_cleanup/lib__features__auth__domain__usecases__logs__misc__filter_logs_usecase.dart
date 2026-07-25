@@ -1,0 +1,3 @@
+﻿class FilterLogsUsecase {
+  const FilterLogsUsecase();
+}
