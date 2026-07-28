@@ -56,7 +56,7 @@ class _AuthShellScreenState extends ConsumerState<AuthShellScreen> {
         controller.sendPasswordReset(_emailController.text);
       },
       onGoogleSignIn: controller.signInWithGoogle,
-      onGitHubSignIn: controller.signInWithGitHub,
+      onPhoneSignIn: () {},
       onToggleMode: () {
         setState(() {
           _isSignUpMode = !_isSignUpMode;

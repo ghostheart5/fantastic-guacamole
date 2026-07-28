@@ -1,5 +1,8 @@
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:speech_to_text/speech_recognition_error.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class VoiceState {
   const VoiceState({
@@ -35,7 +38,7 @@ class VoiceState {
 }
 
 final voiceServiceProvider = Provider<VoiceService>((ref) {
-  return const VoiceService();
+  return VoiceService();
 });
 
 final voiceControllerProvider = NotifierProvider<VoiceController, VoiceState>(
@@ -43,25 +46,90 @@ final voiceControllerProvider = NotifierProvider<VoiceController, VoiceState>(
 );
 
 class VoiceController extends Notifier<VoiceState> {
-  static const String _unavailableMessage =
-      'Voice interactions are unavailable in this build.';
+  final stt.SpeechToText _speech = stt.SpeechToText();
 
   @override
   VoiceState build() => const VoiceState();
 
   Future<void> startListening() async {
+    if (state.isListening) {
+      return;
+    }
+
+    final bool available = await _speech.initialize(
+      onStatus: _handleStatus,
+      onError: _handleError,
+      debugLogging: false,
+    );
+
+    if (!available) {
+      state = state.copyWith(
+        isAvailable: false,
+        isListening: false,
+        error: 'Voice input is not available on this device.',
+      );
+      return;
+    }
+
     state = state.copyWith(
-      isAvailable: false,
-      isListening: false,
-      error: _unavailableMessage,
+      isAvailable: true,
+      isListening: true,
+      recognizedText: '',
+      lastResponse: '',
+      clearError: true,
+    );
+
+    await _speech.listen(
+      onResult: _handleResult,
+      listenOptions: stt.SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+        listenMode: stt.ListenMode.dictation,
+      ),
     );
   }
 
   Future<void> stopListening() async {
+    if (_speech.isListening) {
+      await _speech.stop();
+    }
+
     state = state.copyWith(isListening: false);
   }
 
   Future<void> stopSpeaking() async {
-    return;
+    await ref.read(voiceServiceProvider).stop();
+  }
+
+  void _handleResult(SpeechRecognitionResult result) {
+    final String words = result.recognizedWords.trim();
+    final bool finalResult = result.finalResult;
+
+    state = state.copyWith(
+      recognizedText: words,
+      lastResponse: finalResult ? words : state.lastResponse,
+      isListening: finalResult ? false : state.isListening,
+      clearError: true,
+    );
+  }
+
+  void _handleStatus(String status) {
+    final String normalized = status.toLowerCase();
+
+    if (normalized == 'done' ||
+        normalized == 'notlistening' ||
+        normalized == 'not_listening') {
+      state = state.copyWith(isListening: false);
+    }
+  }
+
+  void _handleError(SpeechRecognitionError error) {
+    final String message = error.errorMsg.toString();
+
+    state = state.copyWith(
+      isListening: false,
+      isAvailable: _speech.isAvailable,
+      error: message,
+    );
   }
 }

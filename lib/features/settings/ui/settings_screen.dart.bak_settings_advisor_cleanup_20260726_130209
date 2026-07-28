@@ -1,0 +1,1 @@
+ (?ms)\s*if \(kDebugMode\) \.\.\. \[\s*const SizedBox\(height: 16\),\s*_Section\(\s*label: 'PRODUCT ADVISOR'.*?\),\s*const _GlobalMetricsDebugSection\(\),\s*\], 

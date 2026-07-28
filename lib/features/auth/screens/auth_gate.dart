@@ -70,6 +70,14 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
       return backendMessage.isNotEmpty
           ? backendMessage
           : 'Password is required.';
+    case 'missing-phone':
+      return backendMessage.isNotEmpty
+          ? backendMessage
+          : 'Phone number is required.';
+    case 'missing-verification-code':
+      return backendMessage.isNotEmpty
+          ? backendMessage
+          : 'Verification code is required.';
     case 'missing-email':
       return backendMessage.isNotEmpty
           ? backendMessage
@@ -398,6 +406,8 @@ class _AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<_AuthScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _phoneOtpController = TextEditingController();
   final TextEditingController _recoveryPasswordController =
       TextEditingController();
   final TextEditingController _recoveryConfirmController =
@@ -406,6 +416,8 @@ class _AuthScreenState extends State<_AuthScreen> {
   bool _obscuredRecoveryPassword = true;
   bool _obscuredRecoveryConfirm = true;
   bool _signUpMode = false;
+  bool _phoneMode = false;
+  bool _phoneOtpSent = false;
   bool _submitting = false;
   bool _dismissRecoveryMode = false;
 
@@ -424,6 +436,8 @@ class _AuthScreenState extends State<_AuthScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _phoneController.dispose();
+    _phoneOtpController.dispose();
     _recoveryPasswordController.dispose();
     _recoveryConfirmController.dispose();
     super.dispose();
@@ -436,6 +450,10 @@ class _AuthScreenState extends State<_AuthScreen> {
         !_dismissRecoveryMode;
     if (inRecoveryMode) {
       return _buildRecoveryScreen(context);
+    }
+
+    if (_phoneMode) {
+      return _buildPhoneLoginScreen(context);
     }
 
     return LoginScreen(
@@ -459,7 +477,13 @@ class _AuthScreenState extends State<_AuthScreen> {
       onPrimaryAction: () => _runAuthAction(_handlePrimaryAction),
       onForgotPassword: () => _runAuthAction(_handleForgotPassword),
       onGoogleSignIn: () => _runAuthAction(_handleGoogleSignIn),
-      onGitHubSignIn: () => _runAuthAction(_handleGitHubSignIn),
+      onPhoneSignIn: () {
+        setState(() {
+          _phoneMode = true;
+          _phoneOtpSent = false;
+          _signUpMode = false;
+        });
+      },
       onMockLogin: null,
     );
   }
@@ -569,20 +593,66 @@ class _AuthScreenState extends State<_AuthScreen> {
     );
   }
 
-  Future<void> _handleGitHubSignIn() async {
-    if (widget.enableMockLogin) {
-      AppAnalytics.track(
-        'login_event',
-        params: <String, Object?>{'provider': 'mock', 'mode': 'tester_access'},
-      );
-      widget.onMockSignIn();
+  Future<void> _handleSendPhoneOtp() async {
+    final String phone = _phoneController.text.trim();
+
+    if (!_isValidPhoneNumber(phone)) {
+      _showMessage('Enter phone in international format, like +15555555555.');
       return;
     }
-    await widget.authService.signInWithGitHub();
+
+    await widget.authService.sendPhoneOtp(phone);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _phoneOtpSent = true;
+    });
+
     AppAnalytics.track(
       'login_event',
-      params: <String, Object?>{'provider': 'github', 'mode': 'signin'},
+      params: <String, Object?>{'provider': 'phone', 'mode': 'otp_sent'},
     );
+
+    _showMessage('Verification code sent.');
+  }
+
+  Future<void> _handleVerifyPhoneOtp() async {
+    final String phone = _phoneController.text.trim();
+    final String code = _phoneOtpController.text.trim();
+
+    if (!_isValidPhoneNumber(phone)) {
+      _showMessage('Enter phone in international format, like +15555555555.');
+      return;
+    }
+
+    if (code.isEmpty) {
+      _showMessage('Enter the verification code.');
+      return;
+    }
+
+    await widget.authService.verifyPhoneOtp(phone: phone, token: code);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _phoneMode = false;
+      _phoneOtpSent = false;
+      _phoneOtpController.clear();
+    });
+
+    AppAnalytics.track(
+      'login_event',
+      params: <String, Object?>{'provider': 'phone', 'mode': 'otp_verified'},
+    );
+  }
+
+  bool _isValidPhoneNumber(String value) {
+    return RegExp(r'^\+[1-9]\d{7,14}$').hasMatch(value.trim());
   }
 
   Future<void> _handleRecoveryUpdatePassword() async {
@@ -697,6 +767,103 @@ class _AuthScreenState extends State<_AuthScreen> {
     );
   }
 
+  Widget _buildPhoneLoginScreen(BuildContext context) {
+    final bool canVerify = _phoneOtpSent;
+
+    return Scaffold(
+      backgroundColor: _authBackgroundColor,
+      body: SafeArea(
+        child: IgnorePointer(
+          ignoring: _submitting,
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Card(
+                  color: const Color(0xFF111827),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'PHONE ACCESS',
+                          style: TextStyle(
+                            color: Colors.white38,
+                            fontSize: 10,
+                            letterSpacing: 3,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Enter your phone number, receive a code, then verify.',
+                          style: TextStyle(color: Colors.white70, height: 1.4),
+                        ),
+                        const SizedBox(height: 18),
+                        TextField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                            labelText: 'Phone number',
+                            hintText: '+15555555555',
+                            prefixIcon: Icon(Icons.phone_rounded),
+                          ),
+                        ),
+                        if (canVerify) ...[
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _phoneOtpController,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: const InputDecoration(
+                              labelText: 'Verification code',
+                              prefixIcon: Icon(Icons.password_rounded),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 18),
+                        FilledButton(
+                          onPressed: _submitting
+                              ? null
+                              : () => _runAuthAction(
+                                  canVerify
+                                      ? _handleVerifyPhoneOtp
+                                      : _handleSendPhoneOtp,
+                                ),
+                          child: Text(canVerify ? 'VERIFY CODE' : 'SEND CODE'),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton(
+                          onPressed: _submitting
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _phoneMode = false;
+                                    _phoneOtpSent = false;
+                                    _phoneOtpController.clear();
+                                  });
+                                },
+                          child: const Text('Use Email Login'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _runAuthAction(Future<void> Function() action) async {
     if (_submitting) {
       return;
@@ -795,7 +962,15 @@ class _UnavailableAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<UserCredential> signInWithGitHub() async {
+  Future<void> sendPhoneOtp(String phone) async {
+    throw _error();
+  }
+
+  @override
+  Future<UserCredential> verifyPhoneOtp({
+    required String phone,
+    required String token,
+  }) async {
     throw _error();
   }
 

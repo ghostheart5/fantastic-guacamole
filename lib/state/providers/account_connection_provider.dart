@@ -1,0 +1,54 @@
+import 'package:fantastic_guacamole/features/auth/domain/models/chronospark_identity.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+enum AccountConnectionStatus { disconnected, connected, pending }
+
+class AccountConnection {
+  const AccountConnection({
+    required this.provider,
+    required this.status,
+    required this.label,
+  });
+
+  final ChronoSparkAuthProvider provider;
+  final AccountConnectionStatus status;
+  final String label;
+}
+
+class AccountConnectionState {
+  const AccountConnectionState({required this.connections});
+
+  final List<AccountConnection> connections;
+}
+
+final accountConnectionProvider = Provider<AccountConnectionState>((ref) {
+  return const AccountConnectionState(
+    connections: <AccountConnection>[
+      AccountConnection(
+        provider: ChronoSparkAuthProvider.email,
+        status: AccountConnectionStatus.connected,
+        label: 'Primary Identity',
+      ),
+      AccountConnection(
+        provider: ChronoSparkAuthProvider.google,
+        status: AccountConnectionStatus.disconnected,
+        label: 'Google Account',
+      ),
+      AccountConnection(
+        provider: ChronoSparkAuthProvider.microsoft,
+        status: AccountConnectionStatus.disconnected,
+        label: 'Microsoft Account',
+      ),
+      AccountConnection(
+        provider: ChronoSparkAuthProvider.apple,
+        status: AccountConnectionStatus.disconnected,
+        label: 'Apple Account',
+      ),
+      AccountConnection(
+        provider: ChronoSparkAuthProvider.github,
+        status: AccountConnectionStatus.disconnected,
+        label: 'GitHub Account',
+      ),
+    ],
+  );
+});

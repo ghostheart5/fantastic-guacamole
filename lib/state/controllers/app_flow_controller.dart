@@ -9,6 +9,7 @@ enum AppView {
   console,
   settings,
   progression,
+  trajectoryEngine,
   timeline,
 }
 
@@ -42,5 +43,6 @@ class AppFlowController extends Notifier<AppView> {
   void toConsole() => state = AppView.console;
   void toSettings() => state = AppView.settings;
   void toProgression() => state = AppView.progression;
+  void toTrajectoryEngine() => state = AppView.trajectoryEngine;
   void show(AppView view) => state = view;
 }

@@ -7,11 +7,13 @@ class ProfileHeader extends StatelessWidget {
     super.key,
     required this.name,
     required this.level,
+    required this.onBack,
     required this.onOpenSettings,
   });
 
   final String name;
   final int level;
+  final VoidCallback onBack;
   final VoidCallback onOpenSettings;
 
   @override
@@ -32,6 +34,12 @@ class ProfileHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
+          _HeaderIconBtn(
+            icon: Icons.arrow_back_ios_new,
+            color: Colors.white70,
+            onTap: onBack,
+          ),
+          const SizedBox(width: 12),
           Container(
             width: 64,
             height: 64,

@@ -1,0 +1,724 @@
+import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/profile_provider.dart';
+import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
+import 'package:fantastic_guacamole/state/providers/identity_account_provider.dart';
+import 'package:fantastic_guacamole/state/providers/identity_account_actions_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_security_provider.dart';
+import 'package:fantastic_guacamole/features/profile/ui/widgets/profile_header.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class ProfileScreen extends ConsumerWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(profileViewStateProvider);
+    final data = state.profile;
+    final momentum = ref.watch(momentumEngineProvider);
+    final identityStatus = ref.watch(identityAccountStatusProvider);
+    final identityActionState = ref.watch(identityAccountActionsProvider);
+    final accountSecurity = ref.watch(accountSecurityProvider);
+
+    return AnimatedSystemBackground(
+      backgroundAssetPath: AppAssets.bgProfile,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              ProfileHeader(
+                name: data.name,
+                level: data.level,
+                onBack: () => ref.read(appFlowProvider.notifier).toNexus(),
+                onOpenSettings: () =>
+                    ref.read(appFlowProvider.notifier).toSettings(),
+              ),
+
+              const SizedBox(height: 16),
+
+              _IdentityAccountCard(status: identityStatus),
+              const SizedBox(height: 12),
+              _AccountSecurityCard(security: accountSecurity),
+              const SizedBox(height: 12),
+              _IdentityAccountActionsCard(
+                status: identityStatus,
+                isBusy: identityActionState.isLoading,
+                onInitialize: () => ref
+                    .read(identityAccountActionsProvider.notifier)
+                    .initializeLocalIdentity(
+                      displayName: data.name.trim().isEmpty
+                          ? 'Operator'
+                          : data.name.trim(),
+                    ),
+                onRestore: () => ref
+                    .read(identityAccountActionsProvider.notifier)
+                    .restoreLocalIdentity(),
+                onSignOut: () => ref
+                    .read(identityAccountActionsProvider.notifier)
+                    .signOutLocalIdentity(),
+              ),
+
+              const SizedBox(height: 16),
+
+              const Text(
+                'PROFILE',
+                style: TextStyle(
+                  color: AppColors.neonCyan,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _MetricCard(
+                    label: 'LEVEL',
+                    value: '${data.level}',
+                    color: AppColors.neonCyan,
+                  ),
+                  _MetricCard(
+                    label: 'XP',
+                    value: '${data.xp}',
+                    color: AppColors.memoryAmber,
+                  ),
+                  _MetricCard(
+                    label: 'STREAK',
+                    value: '${data.streak}d',
+                    color: AppColors.neonViolet,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              _OperatorStatusCard(
+                level: data.level,
+                xp: data.xp,
+                streak: data.streak,
+              ),
+
+              const SizedBox(height: 20),
+
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xEE07111F),
+                      AppColors.neonCyan.withValues(alpha: 0.10),
+                      AppColors.neonViolet.withValues(alpha: 0.08),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.25),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.neonCyan.withValues(alpha: 0.08),
+                      blurRadius: 18,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'MOMENTUM PROFILE',
+                      style: TextStyle(
+                        color: AppColors.neonCyan,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      momentum.trend,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      momentum.forecast,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Momentum ${momentum.score}%  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢  Energy ${momentum.energyPercent}%  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢  Pressure ${momentum.pressurePercent}%',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Recovery: ${momentum.recovery}',
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 104,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xAA07111F),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 10,
+              letterSpacing: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OperatorStatusCard extends StatelessWidget {
+  const _OperatorStatusCard({
+    required this.level,
+    required this.xp,
+    required this.streak,
+  });
+
+  final int level;
+  final int xp;
+  final int streak;
+
+  String get _status {
+    if (streak >= 21) {
+      return 'Elite rhythm established';
+    }
+    if (streak >= 7) {
+      return 'Momentum system online';
+    }
+    if (xp > 0) {
+      return 'Operator growth active';
+    }
+    return 'Profile system initializing';
+  }
+
+  String get _signal {
+    if (level >= 10) {
+      return 'Advanced operator tier detected.';
+    }
+    if (streak >= 7) {
+      return 'Consistency is building a stronger future path.';
+    }
+    return 'Complete actions to strengthen your operator signal.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            AppColors.neonCyan.withValues(alpha: 0.12),
+            AppColors.neonViolet.withValues(alpha: 0.10),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonCyan.withValues(alpha: 0.08),
+            blurRadius: 20,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.neonCyan.withValues(alpha: 0.10),
+              border: Border.all(
+                color: AppColors.neonCyan.withValues(alpha: 0.38),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.neonCyan.withValues(alpha: 0.18),
+                  blurRadius: 18,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.person_pin_circle_rounded,
+              color: AppColors.neonCyan,
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'OPERATOR STATUS',
+                  style: TextStyle(
+                    color: AppColors.neonCyan,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _status,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  _signal,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IdentityAccountCard extends StatelessWidget {
+  const _IdentityAccountCard({required this.status});
+
+  final IdentityAccountStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            AppColors.neonViolet.withValues(alpha: 0.10),
+            AppColors.neonCyan.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonViolet.withValues(alpha: 0.08),
+            blurRadius: 18,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'IDENTITY ACCOUNT',
+            style: TextStyle(
+              color: AppColors.neonViolet,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.2,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            status.displayName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            status.accountLabel,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Sync: ${status.syncLabel}',
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            status.emailLabel,
+            style: const TextStyle(
+              color: Colors.white38,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountSecurityCard extends StatelessWidget {
+  const _AccountSecurityCard({required this.security});
+
+  final AccountSecurityState security;
+
+  Color get _accent {
+    switch (security.level) {
+      case AccountSecurityLevel.trusted:
+        return AppColors.neonCyan;
+      case AccountSecurityLevel.verified:
+        return AppColors.neonViolet;
+      case AccountSecurityLevel.basic:
+        return AppColors.memoryAmber;
+      case AccountSecurityLevel.signedOut:
+        return AppColors.recallRed;
+    }
+  }
+
+  String get _label {
+    switch (security.level) {
+      case AccountSecurityLevel.trusted:
+        return 'TRUSTED';
+      case AccountSecurityLevel.verified:
+        return 'VERIFIED';
+      case AccountSecurityLevel.basic:
+        return 'BASIC';
+      case AccountSecurityLevel.signedOut:
+        return 'SIGNED OUT';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            _accent.withValues(alpha: 0.10),
+            AppColors.neonViolet.withValues(alpha: 0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _accent.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(color: _accent.withValues(alpha: 0.08), blurRadius: 18),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'SECURITY STATUS  â€¢  $_label',
+            style: TextStyle(
+              color: _accent,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.0,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            security.summary,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            security.recommendation,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _SecurityChip(
+                label: 'EMAIL',
+                value: security.emailVerified ? 'VERIFIED' : 'PENDING',
+                color: security.emailVerified
+                    ? AppColors.neonCyan
+                    : AppColors.memoryAmber,
+              ),
+              _SecurityChip(
+                label: 'SESSION',
+                value: security.sessionActive ? 'ACTIVE' : 'INACTIVE',
+                color: security.sessionActive
+                    ? AppColors.neonCyan
+                    : AppColors.recallRed,
+              ),
+              _SecurityChip(
+                label: 'DEVICE',
+                value: security.deviceTrusted ? 'TRUSTED' : 'LOCAL',
+                color: security.deviceTrusted
+                    ? AppColors.neonViolet
+                    : Colors.white38,
+              ),
+              _SecurityChip(
+                label: 'RESET',
+                value: security.passwordResetAvailable ? 'READY' : 'N/A',
+                color: security.passwordResetAvailable
+                    ? AppColors.memoryAmber
+                    : Colors.white38,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SecurityChip extends StatelessWidget {
+  const _SecurityChip({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Text(
+        '$label $value',
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.1,
+        ),
+      ),
+    );
+  }
+}
+
+class _IdentityAccountActionsCard extends StatelessWidget {
+  const _IdentityAccountActionsCard({
+    required this.status,
+    required this.isBusy,
+    required this.onInitialize,
+    required this.onRestore,
+    required this.onSignOut,
+  });
+
+  final IdentityAccountStatus status;
+  final bool isBusy;
+  final VoidCallback onInitialize;
+  final VoidCallback onRestore;
+  final VoidCallback onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    final String primaryLabel = status.hasIdentity
+        ? 'SIGN OUT LOCAL IDENTITY'
+        : 'INITIALIZE LOCAL IDENTITY';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            AppColors.memoryAmber.withValues(alpha: 0.10),
+            AppColors.neonCyan.withValues(alpha: 0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.memoryAmber.withValues(alpha: 0.28),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.memoryAmber.withValues(alpha: 0.08),
+            blurRadius: 18,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'ACCOUNT ACTIONS',
+            style: TextStyle(
+              color: AppColors.memoryAmber,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.2,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            isBusy
+                ? 'Processing identity action...'
+                : 'Local identity bridge ready.',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _IdentityActionButton(
+                label: primaryLabel,
+                color: status.hasIdentity
+                    ? AppColors.recallRed
+                    : AppColors.neonCyan,
+                onTap: isBusy
+                    ? () {}
+                    : (status.hasIdentity ? onSignOut : onInitialize),
+              ),
+              _IdentityActionButton(
+                label: 'RESTORE LOCAL',
+                color: AppColors.neonViolet,
+                onTap: isBusy ? () {} : onRestore,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IdentityActionButton extends StatelessWidget {
+  const _IdentityActionButton({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SmartPressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.30)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.1,
+          ),
+        ),
+      ),
+    );
+  }
+}

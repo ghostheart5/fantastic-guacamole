@@ -40,6 +40,86 @@ For the master release checklist, see [docs/FINAL_AUDIT_SCORECARD.md](docs/FINAL
 - `flutter test`
 - `flutter run -d windows`
 
+## Generate test coverage (PowerShell)
+
+Run this inside your project root (ChronoSpark):
+
+```powershell
+flutter test --coverage
+```
+
+This creates:
+
+```text
+coverage/lcov.info
+```
+
+That file contains line-by-line coverage for every Dart file.
+
+## 2. Convert coverage into an HTML report
+
+If you have `lcov` installed:
+
+```powershell
+genhtml coverage/lcov.info -o coverage/html
+```
+
+This produces:
+
+```text
+coverage/html/index.html
+```
+
+Open it in your browser and you'll see:
+
+- each folder
+- each file
+- percentage covered
+- which lines are tested
+- which lines are missed
+
+## 3. Open the coverage report directly from PowerShell
+
+```powershell
+Start-Process .\coverage\html\index.html
+```
+
+## 4. Coverage for a specific folder (example: domain)
+
+```powershell
+flutter test --coverage; genhtml coverage/lcov.info --ignore-errors source -o coverage/html --prefix lib/domain
+```
+
+## 5. See coverage numbers in the terminal
+
+```powershell
+lcov --summary coverage/lcov.info
+```
+
+This prints:
+
+```text
+lines......: 82.3% (1234 of 1498)
+functions..: 76.1%
+branches...: 68.4%
+```
+
+## 6. VS Code integration
+
+Install extension:
+
+```text
+Dart: Coverage
+```
+
+Then run:
+
+```powershell
+flutter test --coverage
+```
+
+VS Code will show green/red bars next to each file.
+
 ## Integration setup (Supabase, Firebase, Google, GitHub)
 
 - Supabase is required for auth/session in production-style runs:

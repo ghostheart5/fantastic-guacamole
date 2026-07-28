@@ -1,3 +1,6 @@
+import 'package:fantastic_guacamole/state/providers/goal_success_probability_provider.dart';
+import 'package:fantastic_guacamole/state/providers/predictive_risk_provider.dart';
+import 'package:fantastic_guacamole/state/providers/memory_intelligence_provider.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_commands.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_message.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_response_validator.dart';
@@ -16,9 +19,30 @@ import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
+import 'package:fantastic_guacamole/state/providers/daily_command_briefing_provider.dart';
+import 'package:fantastic_guacamole/state/providers/explainable_si_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
+import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_simulation_provider.dart';
+import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
+import 'package:fantastic_guacamole/state/providers/intelligence_fusion_provider.dart';
+import 'package:fantastic_guacamole/state/providers/cognitive_twin_provider.dart';
+import 'package:fantastic_guacamole/state/providers/future_self_simulator_provider.dart';
+import 'package:fantastic_guacamole/state/providers/identity_drift_provider.dart';
+import 'package:fantastic_guacamole/state/providers/future_decision_engine_provider.dart';
+import 'package:fantastic_guacamole/state/providers/future_timeline_provider.dart';
+import 'package:fantastic_guacamole/state/providers/alternative_life_paths_provider.dart';
+import 'package:fantastic_guacamole/state/providers/identity_evolution_provider.dart';
+import 'package:fantastic_guacamole/state/providers/life_os_provider.dart';
+import 'package:fantastic_guacamole/state/providers/memory_graph_provider.dart';
+import 'package:fantastic_guacamole/state/providers/autonomous_mission_control_provider.dart';
+import 'package:fantastic_guacamole/state/providers/autonomous_weekly_planner_provider.dart';
+import 'package:fantastic_guacamole/state/providers/autonomous_daily_planner_provider.dart';
+import 'package:fantastic_guacamole/state/providers/autonomous_focus_scheduler_provider.dart';
+import 'package:fantastic_guacamole/state/providers/autonomous_review_provider.dart';
+import 'package:fantastic_guacamole/state/providers/autonomous_life_optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
@@ -109,7 +133,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _addSI(
         'System online. Strategic Intelligence interface active.\n'
-        'I have access to tasks, progression, goals, memories, day plan, flowmap, emotions, soul map, milestones, and console history. '
+        'I have access to tasks, progression, goals, memories, day plan, flowmap, emotions, timeline, milestones, and console history. '
         'Ask me anything - or type "help" to see available commands.',
         emotion: 'confident',
       );
@@ -143,7 +167,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       'Type a prompt in the input field, then tap send.',
       'Use Summary to hear recent assistant responses.',
       'Use Speak on assistant bubbles to read aloud.',
-      'Use Back to return to Smart Coach.',
+      'Use Back to return to Smart Planner.',
     ];
     await showModalBottomSheet<void>(
       context: context,
@@ -191,7 +215,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
                 Text(
-                  '4. Back returns to Smart Coach',
+                  '4. Back returns to Smart Planner',
                   style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
@@ -246,8 +270,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _messages.add(
           const SIConsoleMessage(
             text:
-                'SI COMMAND GUIDE\n\n'
-                'Quick commands:\n'
+                'STRATEGIC INTELLIGENCE GUIDE\n\n'
+                'Signal channels:\n'
                 '- /tasks: inspect active tasks and next actions\n'
                 '- /goals: summarize goals and drift\n'
                 '- /milestones: summarize checkpoint health, risk, and next target\n'
@@ -256,18 +280,32 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- /soulmap compare: compare current self to future self\n'
                 '- /plan: summarize schedule and next blocks\n'
                 '- /timeline: summarize recent milestones/events\n'
-                '- /trajectory: summarize momentum, pressure, and prediction\n\n'
-                'Rules:\n'
+                '- /trajectory: summarize momentum, pressure, and prediction\n'
+                '- /momentum: show unified momentum score, trend, recovery, and forecast\n'
+                '- /briefing: show today\'s command briefing, warning, recovery, and coach action\n\n'
+                '- /timelinefuture: show the projected future timeline\n'
+                '- /lifeos: show the complete Life OS state\n'
+                '- /memorygraph: show connected memory patterns\n'
+                '- /paths: show alternative future paths\n'
+                '- /evolution: show identity evolution state\n'
+                '- /roadmap: show future checkpoints\n\n'
+                '- /mission: show autonomous mission control status\n'
+                '- /weekly: show autonomous weekly directives\n'
+                '- /daily: show autonomous daily directives\n'
+                '- /focus: show autonomous focus block recommendation\n'
+                '- /review: show autonomous review and tomorrow adjustment\n'
+                '- /optimize: show autonomous life optimization state\n\n'
+                'Operating rules:\n'
                 '- Task creation is Creator-only. Use Creator to create tasks/goals.\n'
                 '- SI Console is analysis + guidance, not data-entry.\n\n'
-                'High-signal prompts SI responds well to:\n'
-                '- "List my 3 newest tasks and what to do first."\n'
-                '- "Did I create a task just now? Show the latest task title."\n'
-                '- "Summarize trajectory pressure and one corrective action."\n'
-                '- "Show plan risks for today and 3 next actions."\n'
-                '- "Summarize goals at risk and what to do next."\n'
+                'High-impact strategic prompts:\n'
+                '- "What is my highest-leverage next move?"\n'
+                '- "Show the newest task and the smartest execution order."\n'
+                '- "Analyze trajectory pressure and give one corrective action."\n'
+                '- "Show today\'s biggest risk and three stabilizing moves."\n'
+                '- "Summarize goals drifting off course and the next correction."\n'
                 '- "Compare current self to future self."\n\n'
-                'Tip: use a command first, then add intent. Example: /tasks what should I execute now?',
+                'Tip: choose a signal channel, then ask for pressure, risk, prediction, or next move.',
             isUser: false,
             emotion: 'focused',
           ),
@@ -277,13 +315,152 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       return true;
     }
 
+    if (normalized == '/mission' ||
+        normalized == 'mission' ||
+        normalized == '/autonomy' ||
+        normalized == 'autonomy' ||
+        normalized == '/autonomous' ||
+        normalized == 'autonomous') {
+      final mission = ref.read(autonomousMissionControlProvider);
+
+      final String response =
+          'AUTONOMOUS MISSION CONTROL\n\n'
+          'Status: ${mission.status}\n\n'
+          'Primary Action:\n${mission.primaryAction}\n\n'
+          'Primary Risk:\n${mission.primaryRisk}\n\n'
+          'Primary Opportunity:\n${mission.primaryOpportunity}\n\n'
+          'Today Focus:\n${mission.todayFocus}\n\n'
+          'Tomorrow Adjustment:\n${mission.tomorrowAdjustment}';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+
+    if (normalized == '/weekly' || normalized == 'weekly') {
+      final weekly = ref.read(autonomousWeeklyPlannerProvider);
+
+      final String directives = weekly.directives
+          .map((d) => '- ${d.title}\n  ${d.reason}')
+          .join('\n\n');
+
+      final String response =
+          'AUTONOMOUS WEEKLY PLAN\n\n'
+          'Theme: ${weekly.theme}\n\n'
+          'Primary Directive:\n${weekly.primaryDirective}\n\n'
+          'Directives:\n$directives';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+
+    if (normalized == '/daily' || normalized == 'daily') {
+      final daily = ref.read(autonomousDailyPlannerProvider);
+
+      final String directives = daily.directives
+          .map((d) => '- [P${d.priority}] ${d.title}\n  ${d.reason}')
+          .join('\n\n');
+
+      final String response =
+          'AUTONOMOUS DAILY PLAN\n\n'
+          'Focus:\n${daily.focus}\n\n'
+          'Directives:\n$directives';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+
+    if (normalized == '/focus' || normalized == 'focus') {
+      final focusBlock = ref.read(autonomousFocusSchedulerProvider);
+
+      final String response =
+          'AUTONOMOUS FOCUS SCHEDULER\n\n'
+          'Block:\n${focusBlock.title}\n\n'
+          'Intensity: ${focusBlock.intensity.name}\n'
+          'Duration: ${focusBlock.durationMinutes} minutes\n\n'
+          'Reason:\n${focusBlock.reason}';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+
+    if (normalized == '/review' || normalized == 'review') {
+      final review = ref.read(autonomousReviewProvider);
+
+      final String response =
+          'AUTONOMOUS REVIEW\n\n'
+          'Score: ${review.score}%\n'
+          'Alignment: ${review.alignment}\n\n'
+          '${review.summary}\n\n'
+          'Tomorrow Adjustment:\n${review.tomorrowAdjustment}';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+
+    if (normalized == '/optimize' || normalized == 'optimize') {
+      final optimization = ref.read(autonomousLifeOptimizationProvider);
+
+      final String response =
+          'AUTONOMOUS LIFE OPTIMIZATION\n\n'
+          'Optimization Score: ${optimization.optimizationScore}%\n\n'
+          'Primary Adjustment:\n${optimization.primaryAdjustment}\n\n'
+          'Reason:\n${optimization.reason}\n\n'
+          'Next Directive:\n${optimization.nextDirective}';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+
     if (normalized == '/status' || normalized == 'status') {
+      final momentum = ref.read(momentumEngineProvider);
       final String status = (aggregation == null)
-          ? 'SI STATUS\n\n'
+          ? 'INTELLIGENCE STATUS\n\n'
                 'Model is still initializing. Retry /status in a second.\n'
                 'If this persists, use /tasks or /plan to warm providers.'
-          : 'SI STATUS\n\n'
-                'Connected surfaces:\n'
+          : 'INTELLIGENCE STATUS\n\n'
+                'Synchronized surfaces:\n'
                 '- tasks: ${aggregation.tasks.length}\n'
                 '- goals: ${aggregation.goals.length}\n'
                 '- logs: ${aggregation.logs.length}\n'
@@ -294,16 +471,502 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- core values overall: ${ref.read(coreValuesAlignmentProvider).overall}%\n'
                 '- soulmap overall: ${ref.read(soulMapAlignmentProvider).overall}%\n'
                 '- plan preview blocks: ${aggregation.planPreview.length}\n\n'
-                'Trajectory:\n'
+                'Future vector:\n'
                 '- pressure: ${aggregation.trajectory.pressureIndex}\n'
                 '- momentum: ${(aggregation.trajectory.momentum * 100).round()}%\n'
                 '- divergence: ${aggregation.trajectory.behaviorDivergence}%\n\n'
-                'Use /tasks, /goals, /milestones, /values, /soulmap, /soulmap compare, /plan, /timeline, /trajectory for module-specific responses.';
+                'Momentum Engine:\n'
+                '- score: ${momentum.score}%\n'
+                '- trend: ${momentum.trend}\n'
+                '- energy: ${momentum.energyPercent}%\n'
+                '- pressure: ${momentum.pressurePercent}%\n'
+                '- recovery: ${momentum.recovery}\n'
+                '- forecast: ${momentum.forecast}\n\n'
+                'Use /tasks, /goals, /milestones, /values, /soulmap, /soulmap compare, /plan, /timeline, /trajectory, /momentum, /briefing for module-specific responses.';
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
         _messages.add(
           SIConsoleMessage(text: status, isUser: false, emotion: 'focused'),
+        );
+      });
+      _scrollToBottom();
+      return true;
+    }
+
+    if (normalized == '/why' ||
+        normalized == 'why' ||
+        normalized == 'why this action') {
+      final explainable = ref.read(explainableSIProvider);
+      final String reasons = explainable.reasons
+          .map((reason) => '- ${reason.label}: ${reason.detail}')
+          .join('\n');
+
+      final String response =
+          'WHY THIS ACTION?\n\n'
+          '${explainable.primaryReason}\n\n'
+          'Signals:\n$reasons\n\n'
+          'Recommended Move:\n${explainable.recommendation}\n\n'
+          'Prompt: "give me the next move and explain the risk"';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+      _scrollToBottom();
+      return true;
+    }
+    if (normalized == '/simulate' ||
+        normalized == 'simulate' ||
+        normalized == '/futures' ||
+        normalized == 'futures' ||
+        normalized == 'what if') {
+      final simulations = ref.read(trajectorySimulationProvider);
+
+      final String futures = simulations
+          .map(
+            (result) =>
+                '- ${result.title}: momentum ${result.projectedMomentum}%, pressure ${result.projectedPressure}%, recovery ${result.projectedRecovery}\n  ${result.projectedOutcome}',
+          )
+          .join('\n\n');
+
+      final String response =
+          'TRAJECTORY SIMULATION\n\n'
+          'Alternate futures generated from current momentum, pressure, recovery, and trajectory signals.\n\n'
+          '$futures\n\n'
+          'Prompt: "which future should I choose and what is the next action?"';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+      _scrollToBottom();
+      return true;
+    }
+    if (normalized == '/success' || normalized == 'success') {
+      final forecast = ref.read(goalSuccessProbabilityProvider);
+
+      final response =
+          'GOAL SUCCESS FORECAST\n\n'
+          'Probability: ${forecast.probability}%\n\n'
+          '${forecast.summary}\n\n'
+          '${forecast.recommendation}';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+    if (normalized == '/risk' || normalized == 'risk') {
+      final riskState = ref.read(predictiveRiskProvider);
+
+      final risks = riskState.risks
+          .map(
+            (risk) =>
+                '- ${risk.title}\n'
+                '  ${risk.summary}\n'
+                '  Mitigation: ${risk.mitigation}',
+          )
+          .join('\n\n');
+
+      final response =
+          'PREDICTIVE RISK ENGINE\n\n'
+          '$risks';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+    if (normalized == '/lessons' ||
+        normalized == 'lessons' ||
+        normalized == '/patterns' ||
+        normalized == 'patterns') {
+      final memoryIntel = ref.read(memoryIntelligenceProvider);
+
+      final response =
+          'MEMORY INTELLIGENCE\n\n'
+          'Recurring Win:\n${memoryIntel.recurringWin}\n\n'
+          'Recurring Friction:\n${memoryIntel.recurringFriction}\n\n'
+          'Lesson:\n${memoryIntel.lesson}\n\n'
+          'Focus Suggestion:\n${memoryIntel.focusSuggestion}';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+    if (normalized == '/future' ||
+        normalized == 'future' ||
+        normalized == '/future self' ||
+        normalized == 'future self simulation') {
+      final simulations = ref.read(futureSelfSimulatorProvider);
+
+      final String paths = simulations
+          .map(
+            (path) =>
+                '- ${path.name} (${path.days} days)\n'
+                '  Outcome: ${path.outcome}\n'
+                '  Identity Shift: ${path.identityShift}\n'
+                '  ${path.description}',
+          )
+          .join('\n\n');
+
+      final String response =
+          'FUTURE SELF SIMULATION\n\n'
+          '$paths\n\n'
+          'Prompt: "which future path should I choose?"';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+
+    if (normalized == '/identity' ||
+        normalized == 'identity' ||
+        normalized == '/alignment' ||
+        normalized == 'alignment' ||
+        normalized == 'identity drift') {
+      final drift = ref.read(identityDriftProvider);
+
+      final String response =
+          'IDENTITY DRIFT\n\n'
+          'Alignment: ${drift.alignment.name}\n'
+          'Score: ${drift.score}%\n\n'
+          '${drift.summary}\n\n'
+          'Correction:\n${drift.correction}\n\n'
+          'Prompt: "how do I realign with my future self?"';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(
+            text: response,
+            isUser: false,
+            emotion: drift.score < 50 ? 'cautious' : 'focused',
+          ),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+
+    if (normalized == '/memorygraph' ||
+        normalized == 'memorygraph' ||
+        normalized == '/memory graph' ||
+        normalized == 'memory graph') {
+      final memoryGraph = ref.read(memoryGraphProvider);
+
+      final String nodes = memoryGraph.nodes.isEmpty
+          ? 'No memory graph nodes available.'
+          : memoryGraph.nodes
+                .map(
+                  (node) =>
+                      '- ${node.type.toUpperCase()}: ${node.title}\n'
+                      '  Connection: ${node.connection}',
+                )
+                .join('\n\n');
+
+      final String response =
+          'MEMORY GRAPH STATE\n\n'
+          '$nodes\n\n'
+          'Prompt: "what pattern matters most?"';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+    if (normalized == '/paths' ||
+        normalized == 'paths' ||
+        normalized == '/lifepaths' ||
+        normalized == 'lifepaths') {
+      final paths = ref.read(alternativeLifePathsProvider);
+
+      final response =
+          'ALTERNATIVE LIFE PATHS\n\n'
+          '${paths.map((p) => '${p.name}\n'
+              'Probability: ${p.probability}%\n'
+              '${p.description}\n'
+              'Tradeoff: ${p.tradeoff}').join('\n\n')}';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+
+    if (normalized == '/evolution' ||
+        normalized == 'evolution' ||
+        normalized == '/whoami' ||
+        normalized == 'whoami') {
+      final evolution = ref.read(identityEvolutionProvider);
+
+      final response =
+          'IDENTITY EVOLUTION\n\n'
+          'Stage: ${evolution.stage}\n\n'
+          'Trait: ${evolution.trait}\n\n'
+          '${evolution.summary}\n\n'
+          'Next Evolution:\n${evolution.nextEvolution}';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+    if (normalized == '/lifeos' ||
+        normalized == 'lifeos' ||
+        normalized == '/life os' ||
+        normalized == 'life os') {
+      final lifeOs = ref.read(lifeOSProvider);
+
+      final response =
+          'LIFE OS STATE\n\n'
+          'Mission:\n${lifeOs.mission}\n\n'
+          'Current Mode:\n${lifeOs.currentMode}\n\n'
+          'Primary Action:\n${lifeOs.primaryAction}\n\n'
+          'Next Milestone:\n${lifeOs.nextMilestone}\n\n'
+          'Identity Stage:\n${lifeOs.identityStage}';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+    if (normalized == '/timelinefuture' ||
+        normalized == 'timelinefuture' ||
+        normalized == '/roadmap' ||
+        normalized == 'roadmap' ||
+        normalized == '/futurepath' ||
+        normalized == 'futurepath') {
+      final timeline = ref.read(futureTimelineProvider);
+
+      final String checkpoints = timeline.checkpoints
+          .map(
+            (cp) =>
+                '- ${cp.label}\n'
+                '  ${cp.prediction}',
+          )
+          .join('\n\n');
+
+      final String response =
+          'FUTURE TIMELINE\n\n'
+          '$checkpoints\n\n'
+          'Prompt: "which checkpoint matters most right now?"';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+
+    if (normalized == '/decision' ||
+        normalized == 'decision' ||
+        normalized == '/future decision' ||
+        normalized == 'future decision' ||
+        normalized == 'best decision') {
+      final decision = ref.read(futureDecisionEngineProvider);
+
+      final String response =
+          'FUTURE DECISION ENGINE\n\n'
+          'Recommended Choice:\n${decision.recommendedChoice}\n\n'
+          'Alignment Score: ${decision.alignmentScore}%\n\n'
+          'Reason:\n${decision.reason}\n\n'
+          'Prompt: "turn this decision into my next action"';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+    if (normalized == '/twin' ||
+        normalized == 'twin' ||
+        normalized == '/future self' ||
+        normalized == 'future self' ||
+        normalized == 'best version') {
+      final twin = ref.read(cognitiveTwinProvider);
+
+      final response =
+          'COGNITIVE TWIN\n\n'
+          'Identity Statement:\n${twin.identityStatement}\n\n'
+          'Best Action:\n${twin.bestAction}\n\n'
+          'Warning:\n${twin.warning}\n\n'
+          'Coaching Message:\n${twin.coachingMessage}';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+    if (normalized == '/fusion' ||
+        normalized == 'fusion' ||
+        normalized == '/operator brain' ||
+        normalized == 'operator brain') {
+      final fusion = ref.read(intelligenceFusionProvider);
+
+      final response =
+          'INTELLIGENCE FUSION\n\n'
+          'Operating Mode:\n${fusion.operatingMode}\n\n'
+          'Next Action:\n${fusion.nextAction}\n\n'
+          'Rationale:\n${fusion.rationale}\n\n'
+          'Primary Threat:\n${fusion.primaryThreat}\n\n'
+          'Primary Opportunity:\n${fusion.primaryOpportunity}\n\n'
+          'Success Forecast:\n${fusion.successForecast}\n\n'
+          'Drift Status:\n${fusion.driftStatus}\n\n'
+          'Memory Lesson:\n${fusion.memoryLesson}\n\n'
+          'Adaptive Replan:\n${fusion.replanMove}';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+
+      _scrollToBottom();
+      return true;
+    }
+    if (normalized == '/replan' ||
+        normalized == 'replan' ||
+        normalized == '/replan day' ||
+        normalized == 'replan day' ||
+        normalized == 'replan my day' ||
+        normalized == 'missed morning' ||
+        normalized == 'overloaded day') {
+      final replans = ref.read(adaptiveReplanningProvider);
+
+      final String scenarios = replans.isEmpty
+          ? 'No adaptive replanning scenarios are available yet.'
+          : replans
+                .map(
+                  (scenario) =>
+                      '- ${scenario.title}\n'
+                      '  ${scenario.summary}\n'
+                      '  Immediate action: ${scenario.immediateAction}\n'
+                      '  Recovery move: ${scenario.recoveryMove}\n'
+                      '  Daily adjustment: ${scenario.dailyAdjustment}',
+                )
+                .join('\n\n');
+
+      final String response =
+          'ADAPTIVE REPLANNING\n\n'
+          '$scenarios\n\n'
+          'Prompt: "which replan should I use and what should I do first?"';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+      _scrollToBottom();
+      return true;
+    }
+    if (normalized == '/briefing' || normalized == 'briefing') {
+      final briefing = ref.read(dailyCommandBriefingProvider);
+      final String response =
+          'DAILY COMMAND BRIEFING\n\n'
+          'Focus:\n${briefing.focus}\n\n'
+          'Momentum:\n${briefing.momentum}\n\n'
+          'Trajectory:\n${briefing.trajectory}\n\n'
+          'Energy:\n${briefing.energy}\n\n'
+          'Warning:\n${briefing.warning}\n\n'
+          'Recovery:\n${briefing.recovery}\n\n'
+          'Coach Action:\n${briefing.coachAction}\n\n'
+          'Prompt: "explain the briefing and give me the next move"';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
+        );
+      });
+      _scrollToBottom();
+      return true;
+    }
+
+    if (normalized == '/momentum' || normalized == 'momentum') {
+      final momentum = ref.read(momentumEngineProvider);
+      final String response =
+          'MOMENTUM ENGINE STATUS\n\n'
+          'Score: ${momentum.score}%\n'
+          'Trend: ${momentum.trend}\n'
+          'Energy: ${momentum.energyPercent}%\n'
+          'Pressure: ${momentum.pressurePercent}%\n'
+          'Recovery: ${momentum.recovery}\n'
+          'Completed Today: ${momentum.completedToday}\n\n'
+          'Forecast:\n${momentum.forecast}\n\n'
+          'Prompt: "what should I do next based on momentum?"';
+
+      _safeSetState(() {
+        _messages.add(SIConsoleMessage(text: text, isUser: true));
+        _messages.add(
+          SIConsoleMessage(
+            text: response,
+            isUser: false,
+            emotion: momentum.isDeclining ? 'cautious' : 'focused',
+          ),
         );
       });
       _scrollToBottom();
@@ -353,7 +1016,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         final String topText = top.isEmpty
             ? 'No active tasks yet.'
             : top.map((t) => '- $t').join('\n');
-        return 'TASKS SNAPSHOT\n\nActive tasks: ${aggregation.tasks.length}\n\nTop tasks:\n$topText\n\nPrompt: "which one should I execute first and why?"';
+        return 'TASK SIGNAL\n\nActive tasks: ${aggregation.tasks.length}\n\nTop tasks:\n$topText\n\nPrompt: "which one should I execute first and why?"';
       case '/goals':
         final List<String> top = aggregation.goals
             .take(3)
@@ -362,12 +1025,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         final String topText = top.isEmpty
             ? 'No goals found.'
             : top.map((g) => '- $g').join('\n');
-        return 'GOALS SNAPSHOT\n\nGoals: ${aggregation.goals.length}\n\nTop goals:\n$topText\n\nPrompt: "which goal is drifting and what is the next corrective action?"';
+        return 'GOAL VECTOR\n\nGoals: ${aggregation.goals.length}\n\nTop goals:\n$topText\n\nPrompt: "which goal is drifting and what is the next corrective action?"';
       case '/plan':
         final String blocks = aggregation.planPreview.isEmpty
             ? 'No adaptive blocks generated yet.'
             : aggregation.planPreview.take(3).map((b) => '- $b').join('\n');
-        return 'PLAN SNAPSHOT\n\nPlan preview blocks: ${aggregation.planPreview.length}\n\nUpcoming blocks:\n$blocks\n\nPrompt: "what should I move or drop to reduce pressure today?"';
+        return 'PLAN PRESSURE\n\nPlan preview blocks: ${aggregation.planPreview.length}\n\nUpcoming blocks:\n$blocks\n\nPrompt: "what should I move or drop to reduce pressure today?"';
       case '/milestones':
         final MilestoneSummary summary = ref.read(milestoneSummaryProvider);
         final List<MilestoneEntity> overdue = ref.read(
@@ -389,7 +1052,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         final String topText = topMilestones.isEmpty
             ? 'No milestones created yet.'
             : topMilestones.map((String item) => '- $item').join('\n');
-        return 'MILESTONES SNAPSHOT\n\n'
+        return 'CHECKPOINT SIGNAL\n\n'
             'Total: ${summary.total}\n'
             'Active: ${summary.active}\n'
             'Completed: ${summary.completed}\n'
@@ -416,7 +1079,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   '${coreValueTitle(value)}: ${values.scores[value]?.score ?? 0}%',
             )
             .toList(growable: false);
-        return 'CORE VALUES ALIGNMENT\n\n'
+        return 'VALUES ALIGNMENT\n\n'
             '${rows.join('\n')}\n\n'
             'Strongest: ${coreValueTitle(values.strongest)}\n'
             'Most Neglected: ${coreValueTitle(values.mostNeglected)}\n'
@@ -442,7 +1105,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           orElse: () =>
               'Schedule one concrete action this week to strengthen $weakest.',
         );
-        return 'SOULMAP ANALYSIS\n\n'
+        return 'IDENTITY SIGNAL\n\n'
             'Purpose Alignment: $purpose%\n'
             'Identity Alignment: $identity%\n'
             'Values Alignment: $values%\n'
@@ -479,7 +1142,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         final String eventsText = events.isEmpty
             ? 'No timeline events yet.'
             : events.map((e) => '- $e').join('\n');
-        return 'TIMELINE SNAPSHOT\n\n'
+        return 'TEMPORAL SNAPSHOT\n\n'
             'Events: ${aggregation.timeline.length}\n'
             'Health: $healthScore%\n'
             'Risk: $riskScore%\n'
@@ -491,7 +1154,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             'Recent events:\n$eventsText\n\n'
             'Prompt: "what is overdue, what is next, and am I on track?"';
       case '/trajectory':
-        return 'TRAJECTORY SNAPSHOT\n\nPressure: ${aggregation.trajectory.pressureIndex}\nMomentum: ${(aggregation.trajectory.momentum * 100).round()}%\nDivergence: ${aggregation.trajectory.behaviorDivergence}%\nAlert: ${aggregation.trajectory.alert}\n\nPrompt: "give me one action to improve momentum today."';
+        return 'FUTURE VECTOR SNAPSHOT\n\nPressure: ${aggregation.trajectory.pressureIndex}\nMomentum: ${(aggregation.trajectory.momentum * 100).round()}%\nDivergence: ${aggregation.trajectory.behaviorDivergence}%\nAlert: ${aggregation.trajectory.alert}\n\nPrompt: "give me one action to improve momentum today."';
       default:
         return 'Module command not recognized.';
     }
@@ -505,7 +1168,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final SoulMapFutureSelfComparison compare = ref.read(
       soulMapFutureSelfComparisonProvider,
     );
-    return 'SOULMAP CURRENT VS FUTURE SELF\n\n'
+    return 'CURRENT SELF VS FUTURE SELF\n\n'
         'Current Self Alignment: ${compare.currentSelfAlignment}%\n'
         'Future Self Readiness: ${compare.futureSelfReadiness}%\n'
         'Gap: ${compare.gap}%\n'
@@ -527,7 +1190,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           _messages.add(
             const SIConsoleMessage(
               text:
-                  'No grounded response was generated. Ask with a specific feature and intent, for example: "show trajectory pressure", "summarize goals", or "plan next 3 tasks".',
+                  'No grounded intelligence response was generated. Ask with a specific signal and intent, for example: "show trajectory pressure", "summarize drifting goals", or "what should I execute next".',
               isUser: false,
               emotion: 'balanced',
             ),
@@ -554,7 +1217,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _messages.add(
           const SIConsoleMessage(
             text:
-                'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, flowmap, emotions, soul map, or milestones.',
+                'Full intelligence context lock failed for that request. Retry, or target a signal channel directly: tasks, goals, milestones, values, soulmap, plan, timeline, or trajectory.',
             isUser: false,
             emotion: 'cautious',
           ),
@@ -747,7 +1410,7 @@ class _Header extends StatelessWidget {
                   child: Text(
                     seededQueryCount > 0
                         ? 'SI CONSOLE QRY:$seededQueryCount'
-                        : 'SI CONSOLE',
+                        : 'STRATEGIC INTELLIGENCE',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -759,7 +1422,7 @@ class _Header extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                'ONLINE',
+                'SYNCED',
                 style: TextStyle(
                   fontSize: 9,
                   letterSpacing: 2,
@@ -810,7 +1473,7 @@ class _Header extends StatelessWidget {
                       ),
                       SizedBox(width: 4),
                       Text(
-                        'SUMMARY',
+                        'RECAP',
                         style: TextStyle(
                           fontSize: 8,
                           letterSpacing: 1,
@@ -844,7 +1507,7 @@ class _Header extends StatelessWidget {
                       ),
                       SizedBox(width: 4),
                       Text(
-                        'ACCESS',
+                        'A11Y',
                         style: TextStyle(
                           fontSize: 8,
                           letterSpacing: 1,
@@ -1202,7 +1865,7 @@ class _InputBar extends StatelessWidget {
               children: [
                 if (!effectiveCompact) ...[
                   const Text(
-                    'Quick commands',
+                    'Signal channels',
                     style: TextStyle(
                       color: Colors.white38,
                       fontSize: 10,
@@ -1271,7 +1934,7 @@ class _InputBar extends StatelessWidget {
                         cursorColor: AppColors.neonCyan,
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
-                          hintText: 'Query the system...',
+                          hintText: 'Ask about your future direction...',
                           hintStyle: const TextStyle(
                             color: Colors.white24,
                             fontSize: 13,

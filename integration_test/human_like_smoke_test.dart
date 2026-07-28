@@ -53,15 +53,15 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('open Smart Coach and back returns safely', (tester) async {
+    testWidgets('open Smart Planner and back returns safely', (tester) async {
       app.main();
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
       await tapFirstOrThrow(tester, <Finder>[
-        find.text('Smart Coach'),
+        find.text('Smart Planner'),
         find.text('Coach'),
-        find.byTooltip('Smart Coach'),
-      ], 'open smart coach');
+        find.byTooltip('Smart Planner'),
+      ], 'open smart planner');
 
       final Finder coachBackButton = find.byKey(
         const Key('smart_coach_back_button'),

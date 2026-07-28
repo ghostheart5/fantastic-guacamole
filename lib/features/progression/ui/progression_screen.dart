@@ -1,114 +1,25 @@
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/level_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/streak_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/weekly_summary_card.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
+import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
-import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 
 class ProgressionScreen extends ConsumerWidget {
   const ProgressionScreen({super.key});
 
-  Future<void> _shareProgressCard(BuildContext context, WidgetRef ref) async {
-    final profile = ref.read(profileProvider);
-    final trajectory = ref.read(trajectorySummaryProvider);
-    final String text =
-        'ChronoSpark Progress Snapshot\n'
-        'Level ${profile.level} • XP ${profile.xp} • Streak ${profile.streak}d\n'
-        'Momentum ${(trajectory.momentum * 100).round()}% • Completed tasks ${trajectory.completedTasks}\n'
-        'Building consistency with ChronoSpark: ${AppUrls.website}';
-
-    try {
-      await SharePlus.instance.share(
-        ShareParams(
-          text: text,
-          title: 'ChronoSpark Progress Snapshot',
-          subject: 'My ChronoSpark progression update',
-        ),
-      );
-      AppAnalytics.track(
-        'share_progress',
-        params: <String, Object?>{'method': 'share_sheet'},
-      );
-      return;
-    } catch (_) {
-      await Clipboard.setData(ClipboardData(text: text));
-      AppAnalytics.track(
-        'share_progress',
-        params: <String, Object?>{'method': 'clipboard_fallback'},
-      );
-    }
-    if (!context.mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Share sheet unavailable. Progress snapshot copied to clipboard.',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _shareAchievementCard(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    final profile = ref.read(profileProvider);
-    final trajectory = ref.read(trajectorySummaryProvider);
-    final String text =
-        'ChronoSpark Achievement Unlocked\n'
-        'Level ${profile.level} achieved\n'
-        'Current streak: ${profile.streak} days\n'
-        'Momentum ${(trajectory.momentum * 100).round()}%\n'
-        'Join me in ChronoSpark: ${AppUrls.website}';
-
-    try {
-      await SharePlus.instance.share(
-        ShareParams(
-          text: text,
-          title: 'ChronoSpark Achievement',
-          subject: 'I hit a new ChronoSpark milestone',
-        ),
-      );
-      AppAnalytics.track(
-        'share_achievement',
-        params: <String, Object?>{'method': 'share_sheet'},
-      );
-      return;
-    } catch (_) {
-      await Clipboard.setData(ClipboardData(text: text));
-      AppAnalytics.track(
-        'share_achievement',
-        params: <String, Object?>{'method': 'clipboard_fallback'},
-      );
-    }
-    if (!context.mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Share sheet unavailable. Achievement summary copied to clipboard.',
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final progression = ref.watch(progressionProvider);
+    final momentum = ref.watch(momentumEngineProvider);
     final progress = progression.progress;
 
     return AnimatedSystemBackground(
@@ -155,7 +66,7 @@ class ProgressionScreen extends ConsumerWidget {
                               ],
                             ).createShader(bounds),
                             child: const Text(
-                              'PROGRESSION',
+                              'ASCENSION CORE',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -167,7 +78,7 @@ class ProgressionScreen extends ConsumerWidget {
                             ),
                           ),
                           const Text(
-                            'MOMENTUM INTEL + HISTORY',
+                            'LEVELS · STREAKS · MOMENTUM',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -177,22 +88,6 @@ class ProgressionScreen extends ConsumerWidget {
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Share progress snapshot',
-                      onPressed: () => _shareProgressCard(context, ref),
-                      icon: const Icon(
-                        Icons.ios_share_rounded,
-                        color: AppColors.memoryAmber,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Share achievement',
-                      onPressed: () => _shareAchievementCard(context, ref),
-                      icon: const Icon(
-                        Icons.emoji_events_outlined,
-                        color: AppColors.neonCyan,
                       ),
                     ),
                   ],
@@ -208,14 +103,163 @@ class ProgressionScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 const _ProgressSignalsCard(),
                 const SizedBox(height: 12),
+                _MomentumEngineCard(momentum: momentum),
+                const SizedBox(height: 12),
                 const _MilestonesCard(),
                 const SizedBox(height: 12),
                 const _NarrativeCard(),
-                const SizedBox(height: 12),
-                const _AdvisorSummaryCard(),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MomentumEngineCard extends StatelessWidget {
+  const _MomentumEngineCard({required this.momentum});
+
+  final MomentumEngineState momentum;
+
+  Color get _accent {
+    if (momentum.trend == 'Rising') {
+      return AppColors.neonCyan;
+    }
+    if (momentum.trend == 'Stable') {
+      return AppColors.memoryAmber;
+    }
+    return AppColors.recallRed;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE050D1A),
+            _accent.withValues(alpha: 0.12),
+            AppColors.neonViolet.withValues(alpha: 0.07),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _accent.withValues(alpha: 0.26)),
+        boxShadow: [
+          BoxShadow(color: _accent.withValues(alpha: 0.08), blurRadius: 18),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'MOMENTUM ENGINE',
+            style: TextStyle(
+              fontSize: 10,
+              letterSpacing: 2.5,
+              color: AppColors.neonCyan,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${momentum.score}%',
+                style: TextStyle(
+                  color: _accent,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Text(
+                  momentum.trend.toUpperCase(),
+                  style: TextStyle(
+                    color: _accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.8,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            momentum.forecast,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MomentumChip(
+                label: 'ENERGY',
+                value: '${momentum.energyPercent}%',
+                color: AppColors.neonCyan,
+              ),
+              _MomentumChip(
+                label: 'PRESSURE',
+                value: '${momentum.pressurePercent}%',
+                color: AppColors.memoryAmber,
+              ),
+              _MomentumChip(
+                label: 'RECOVERY',
+                value: momentum.recovery,
+                color: _accent,
+              ),
+              _MomentumChip(
+                label: 'TODAY',
+                value: '${momentum.completedToday}',
+                color: AppColors.neonViolet,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MomentumChip extends StatelessWidget {
+  const _MomentumChip({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Text(
+        '$label $value',
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.1,
         ),
       ),
     );
@@ -233,9 +277,21 @@ class _ProgressSignalsCard extends ConsumerWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.15)),
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE050D1A),
+            AppColors.neonCyan.withValues(alpha: 0.10),
+            AppColors.neonViolet.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.24)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonCyan.withValues(alpha: 0.08),
+            blurRadius: 18,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,7 +308,7 @@ class _ProgressSignalsCard extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                'TACTICAL SIGNALS',
+                'MOMENTUM MATRIX',
                 style: TextStyle(
                   fontSize: 10,
                   letterSpacing: 2.5,
@@ -337,15 +393,27 @@ class _NarrativeCard extends ConsumerWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.2)),
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE050D1A),
+            AppColors.neonViolet.withValues(alpha: 0.12),
+            AppColors.memoryAmber.withValues(alpha: 0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.26)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonViolet.withValues(alpha: 0.08),
+            blurRadius: 18,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'TRAJECTORY NARRATIVE',
+            'EVOLUTION PATH',
             style: TextStyle(
               fontSize: 9,
               letterSpacing: 2.5,
@@ -370,57 +438,6 @@ class _NarrativeCard extends ConsumerWidget {
               color: Colors.white54,
               fontSize: 12,
               height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AdvisorSummaryCard extends ConsumerWidget {
-  const _AdvisorSummaryCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(weeklySummaryProvider);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'SYSTEM INTEL',
-            style: TextStyle(
-              fontSize: 9,
-              letterSpacing: 2.5,
-              color: AppColors.memoryAmber,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          summaryAsync.when(
-            data: (summary) => Text(
-              summary,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                height: 1.55,
-              ),
-            ),
-            loading: () => const Text(
-              'Scanning signal matrix...',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
-            ),
-            error: (_, _) => const Text(
-              'Insufficient signal data.',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
             ),
           ),
         ],
@@ -459,7 +476,7 @@ class _XpProgressChartCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'XP PROGRESSION',
+            'XP VECTOR',
             style: TextStyle(
               fontSize: 10,
               letterSpacing: 2.5,
@@ -469,7 +486,7 @@ class _XpProgressChartCard extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Last ${points.length} checkpoints • ${end - start >= 0 ? '+' : ''}${end - start} XP',
+            'Last ${points.length} checkpoints · ${end - start >= 0 ? '+' : ''}${end - start} XP',
             style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
           const SizedBox(height: 12),
@@ -657,7 +674,7 @@ class _MilestonesCard extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                'MILESTONES',
+                'CHECKPOINT VAULT',
                 style: TextStyle(
                   fontSize: 10,
                   letterSpacing: 2.5,

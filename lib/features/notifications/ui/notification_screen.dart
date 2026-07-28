@@ -92,7 +92,7 @@ class _Header extends StatelessWidget {
                     colors: [AppColors.neonCyan, AppColors.neonViolet],
                   ).createShader(bounds),
                   child: const Text(
-                    'NOTIFICATIONS',
+                    'SIGNAL CENTER',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -104,7 +104,7 @@ class _Header extends StatelessWidget {
                   ),
                 ),
                 const Text(
-                  'SYSTEM ALERTS',
+                  'CHRONOSPARK EVENT STREAM',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -259,7 +259,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const Text(
-            'NO ALERTS',
+            'ALL CLEAR',
             style: TextStyle(
               color: Colors.white38,
               fontSize: 11,
@@ -269,7 +269,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'All clear — no pending notifications',
+            'No pending system signals',
             style: TextStyle(color: Colors.white24, fontSize: 12),
           ),
         ],

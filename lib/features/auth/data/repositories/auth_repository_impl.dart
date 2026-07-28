@@ -98,10 +98,6 @@ class AuthRepositoryImpl implements AuthRepository {
       _wrapSession(_remoteDataSource.signInWithGoogle);
 
   @override
-  Future<Result<AuthSessionEntity?>> signInWithGitHub() =>
-      _wrapSession(_remoteDataSource.signInWithGitHub);
-
-  @override
   Future<Result<void>> sendPasswordReset({required EmailAddress email}) {
     return _wrapVoid(() => _remoteDataSource.sendPasswordReset(email: email));
   }

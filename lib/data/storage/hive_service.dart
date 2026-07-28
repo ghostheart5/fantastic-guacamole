@@ -88,39 +88,30 @@ class HiveService {
       _cipher = await _loadOrCreateCipher(store);
     }
 
-    for (final String box in <String>[
+    const List<String> criticalBoxes = <String>[
       HiveBoxes.tasks,
       HiveBoxes.goals,
       HiveBoxes.habits,
       HiveBoxes.progression,
+    ];
+
+    const List<String> secondaryBoxes = <String>[
       HiveBoxes.dailyPlans,
       HiveBoxes.offlineQueue,
       HiveBoxes.notifications,
       HiveBoxes.timeline,
       HiveBoxes.cache,
-    ]) {
-      if (!Hive.isBoxOpen(box)) {
-        final Stopwatch boxStopwatch = Stopwatch()..start();
-        debugPrint('CHRONOSPARK_HIVE_BOX_OPEN_START: $box');
+    ];
 
-        try {
-          await _openBoxInternal<dynamic>(
-            box,
-          ).timeout(const Duration(seconds: 6));
-
-          boxStopwatch.stop();
-          debugPrint(
-            'CHRONOSPARK_HIVE_BOX_OPEN_DONE: $box in ${boxStopwatch.elapsedMilliseconds}ms',
-          );
-        } on Object catch (error) {
-          boxStopwatch.stop();
-          debugPrint(
-            'CHRONOSPARK_HIVE_BOX_OPEN_FAILED: $box in ${boxStopwatch.elapsedMilliseconds}ms: $error',
-          );
-          rethrow;
-        }
-      }
+    for (final String box in criticalBoxes) {
+      await _openBoxWithTelemetry(box);
     }
+
+    // Open remaining boxes in parallel after critical boxes to reduce startup wall-time.
+    await Future.wait(
+      secondaryBoxes.map(_openBoxWithTelemetry),
+      eagerError: true,
+    );
 
     _initialized = true;
     Logger.log('HiveService', 'Initialized');
@@ -174,6 +165,30 @@ class HiveService {
 
   static bool _shouldEncryptBox(String key) {
     return HiveBoxes.encryptedBoxes.contains(key);
+  }
+
+  static Future<void> _openBoxWithTelemetry(String box) async {
+    if (Hive.isBoxOpen(box)) {
+      return;
+    }
+
+    final Stopwatch boxStopwatch = Stopwatch()..start();
+    debugPrint('CHRONOSPARK_HIVE_BOX_OPEN_START: $box');
+
+    try {
+      await _openBoxInternal<dynamic>(box).timeout(const Duration(seconds: 6));
+
+      boxStopwatch.stop();
+      debugPrint(
+        'CHRONOSPARK_HIVE_BOX_OPEN_DONE: $box in ${boxStopwatch.elapsedMilliseconds}ms',
+      );
+    } on Object catch (error) {
+      boxStopwatch.stop();
+      debugPrint(
+        'CHRONOSPARK_HIVE_BOX_OPEN_FAILED: $box in ${boxStopwatch.elapsedMilliseconds}ms: $error',
+      );
+      rethrow;
+    }
   }
 
   static Future<HiveAesCipher> _loadOrCreateCipher(SecureStore store) async {

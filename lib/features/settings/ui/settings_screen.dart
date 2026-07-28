@@ -1,25 +1,17 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
-import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
-import 'package:fantastic_guacamole/dev/test_data_generator.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart'
     as extended_domain;
-import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_reset_service.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
-import 'package:fantastic_guacamole/tutorial/widgets/micro_tutorial_card.dart';
-import 'package:fantastic_guacamole/tutorial/widgets/show_me_again_button.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -39,9 +31,6 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(extended_domain.extendedDomainBootstrapProvider);
-    final int extendedSettingsCount = ref
-        .watch(extended_domain.appSettingsProvider)
-        .length;
     final int legalPoliciesCount = ref
         .watch(extended_domain.privacyPoliciesProvider)
         .length;
@@ -51,14 +40,10 @@ class SettingsScreen extends ConsumerWidget {
     final bool isDarkMode = themeAsync.asData?.value.isDark ?? true;
     final access = ref.watch(appAccessProvider);
     final hasMockSession = ref.watch(mockAuthSessionProvider);
-    final intelligence = ref.watch(intelligenceStateProvider);
     final bool accountDeletionConfigured = _hasSecureHttpsEndpoint(
       Env.accountDeleteEndpoint,
     );
     final bool allowDeletionSupportFallback = !kReleaseMode;
-    final bool reflectionTutorialEnabled = ref.watch(
-      featureFlagEnabledProvider('daily_reflection_tutorial_enabled'),
-    );
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/settings_bg.jpg',
@@ -106,7 +91,7 @@ class SettingsScreen extends ConsumerWidget {
                             colors: [AppColors.neonCyan, AppColors.neonViolet],
                           ).createShader(bounds),
                           child: const Text(
-                            'SETTINGS',
+                            'SYSTEM CONSOLE',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -118,7 +103,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ),
                         const Text(
-                          'COMMAND MATRIX',
+                          'CHRONOSPARK CONTROL CENTER',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -134,8 +119,66 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 28),
 
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xEE07111F),
+                      AppColors.neonCyan.withValues(alpha: 0.10),
+                      AppColors.neonViolet.withValues(alpha: 0.08),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.25),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.neonCyan.withValues(alpha: 0.08),
+                      blurRadius: 18,
+                    ),
+                  ],
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SYSTEM STATUS',
+                      style: TextStyle(
+                        color: AppColors.neonCyan,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'ChronoSpark systems online',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 5),
+                    Text(
+                      'Core controls, account access, and support links are consolidated here.',
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               _Section(
-                label: 'SYSTEM TUNING',
+                label: 'SYSTEM CORE',
                 accentColor: AppColors.neonCyan,
                 child: Column(
                   children: [
@@ -235,19 +278,8 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
-              const _ReflectionReminderSection(),
-              const SizedBox(height: 16),
-              const _ReminderAutomationSection(),
-              if (reflectionTutorialEnabled) ...[
-                const SizedBox(height: 12),
-                const _DailyReflectionTutorialPanel(),
-              ],
-              const SizedBox(height: 16),
-              const _ChronoSparkAcademySection(),
-              const SizedBox(height: 16),
-
               _Section(
-                label: 'IDENTITY & ACCESS',
+                label: 'OPERATOR ACCOUNT',
                 accentColor: AppColors.neonViolet,
                 child: Column(
                   children: [
@@ -257,24 +289,12 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => context.push(routes.paywall),
                     ),
                     _NeonNavTile(
-                      title: hasMockSession
-                          ? 'Sign out Mock Session'
-                          : 'Log Out',
-                      subtitle: hasMockSession
-                          ? 'Return to login and disable the current tester mock auth session.'
-                          : 'End the current session and return to login.',
+                      title: 'Log Out',
+                      subtitle: 'End the current session.',
                       onTap: () => unawaited(
                         _signOut(context, ref, hasMockSession: hasMockSession),
                       ),
                     ),
-                    if (access.hasTesterFullAccess)
-                      _NeonNavTile(
-                        title: 'Reset Tester Data',
-                        subtitle:
-                            'Erase local test content and restart onboarding.',
-                        onTap: () =>
-                            unawaited(_confirmTesterReset(context, ref)),
-                      ),
                     if (!hasMockSession)
                       _NeonNavTile(
                         title: 'Delete Account',
@@ -300,45 +320,7 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               _Section(
-                label: 'RUNTIME FLAGS',
-                accentColor: AppColors.neonCyan,
-                child: Column(
-                  children: [
-                    _NeonStatusTile(
-                      title: 'Flavor',
-                      subtitle: intelligence.environment.appFlavor,
-                    ),
-                    _NeonStatusTile(
-                      title: 'Mock Mode',
-                      subtitle: intelligence.flags.mockMode
-                          ? 'Enabled (offline local mode)'
-                          : 'Disabled',
-                    ),
-                    _NeonStatusTile(
-                      title: 'Paywall Disabled',
-                      subtitle: intelligence.flags.paywallDisabled
-                          ? 'Enabled (dev-only bypass)'
-                          : 'Disabled',
-                    ),
-                    _NeonStatusTile(
-                      title: 'Mock Login',
-                      subtitle: intelligence.flags.mockLoginEnabled
-                          ? 'Enabled'
-                          : 'Disabled',
-                    ),
-                    _NeonStatusTile(
-                      title: 'Extended Settings',
-                      subtitle: '$extendedSettingsCount loaded',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              const _SupabaseBackendHealthSection(),
-              const SizedBox(height: 16),
-
-              _Section(
-                label: 'LEGAL PROTOCOLS',
+                label: 'NETWORK & SUPPORT',
                 accentColor: AppColors.memoryAmber,
                 child: Column(
                   children: [
@@ -382,62 +364,9 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(12, 0, 12, 10),
-                      child: Text(
-                        'Exported backups, diagnostics, and support templates may include sensitive tasks, notes, profile details, and device context. Review before sharing.',
-                      ),
-                    ),
-                    _NeonNavTile(
-                      title: 'Contact Support',
-                      subtitle: 'Send email with diagnostics context prefilled',
-                      onTap: () => unawaited(
-                        _contactSupportWithDiagnostics(context, ref),
-                      ),
-                    ),
-                    _NeonNavTile(
-                      title: 'Copy Support Email',
-                      subtitle:
-                          'Copy prefilled support email template to clipboard',
-                      onTap: () =>
-                          unawaited(_copySupportEmailTemplate(context)),
-                    ),
-                    _NeonNavTile(
-                      title: 'Copy Diagnostics',
-                      subtitle: 'Copy app and device context for support forms',
-                      onTap: () =>
-                          unawaited(_copyDiagnosticsToClipboard(context)),
-                    ),
                   ],
                 ),
               ),
-              if (kDebugMode) ...[
-                const SizedBox(height: 16),
-                _Section(
-                  label: 'DEV TOOLS',
-                  accentColor: AppColors.neonViolet,
-                  child: _NeonNavTile(
-                    title: 'Generate Test Data',
-                    subtitle: '20 tasks · XP 2400 · streak 14 · energy 75%',
-                    onTap: () =>
-                        unawaited(TestDataGenerator.generate(ref, context)),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _Section(
-                  label: 'PRODUCT ADVISOR',
-                  accentColor: AppColors.memoryAmber,
-                  child: _NeonNavTile(
-                    title: 'Open Advisor',
-                    subtitle: 'Insights, recommendations, and optimizer state',
-                    onTap: () => context.push(routes.advisor),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const _GlobalMetricsDebugSection(),
-                const SizedBox(height: 16),
-                const _TutorialLifecycleDebugSection(),
-              ],
             ],
           ),
         ),
@@ -468,59 +397,6 @@ class SettingsScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not log out. Please try again.')),
       );
-    }
-  }
-
-  Future<void> _confirmTesterReset(BuildContext context, WidgetRef ref) async {
-    final routes = ref.read(routeSurfaceProvider);
-    final bool confirmed =
-        await showDialog<bool>(
-          context: context,
-          builder: (BuildContext dialogContext) {
-            return AlertDialog(
-              title: const Text('Purge tester runtime data?'),
-              content: const Text(
-                'This permanently removes local tasks, goals, memories, '
-                'timeline history, profile progress, focus recovery, logs, '
-                'SI state, and tester settings on this device.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Abort'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('Purge Data'),
-                ),
-              ],
-            );
-          },
-        ) ??
-        false;
-    if (!confirmed || !context.mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Purging local tester runtime data...')),
-    );
-
-    try {
-      await ref.read(testerDataResetControllerProvider).reset();
-      if (context.mounted) {
-        context.go(routes.onboarding);
-      }
-    } on Exception {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Tester data purge did not complete. Restart and retry.',
-            ),
-          ),
-        );
-      }
     }
   }
 
@@ -759,128 +635,6 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _contactSupportWithDiagnostics(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    try {
-      final DiagnosticsContext diagnostics =
-          await DiagnosticsContextService.collect();
-      final String body = _buildSupportEmailBody(diagnostics);
-
-      final Uri mail = Uri(
-        scheme: 'mailto',
-        path: Env.supportEmail,
-        queryParameters: <String, String>{
-          'subject': 'ChronoSpark support request',
-          'body': body,
-        },
-      );
-
-      final bool opened = await ref.read(externalUrlServiceProvider).open(mail);
-      if (opened || !context.mounted) {
-        return;
-      }
-      await Clipboard.setData(
-        ClipboardData(
-          text:
-              'To: ${Env.supportEmail}\nSubject: ChronoSpark support request\n\n$body',
-        ),
-      );
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'No email app found. Support email template copied to clipboard.',
-          ),
-        ),
-      );
-    } catch (_) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to gather diagnostics for support.'),
-        ),
-      );
-    }
-  }
-
-  Future<void> _copyDiagnosticsToClipboard(BuildContext context) async {
-    try {
-      final DiagnosticsContext diagnostics =
-          await DiagnosticsContextService.collect();
-      final String payload = _buildDiagnosticsPayload(diagnostics);
-      await Clipboard.setData(ClipboardData(text: payload));
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Diagnostics copied to clipboard.')),
-      );
-    } catch (_) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not copy diagnostics. Try Contact Support instead.',
-          ),
-        ),
-      );
-    }
-  }
-
-  Future<void> _copySupportEmailTemplate(BuildContext context) async {
-    try {
-      final DiagnosticsContext diagnostics =
-          await DiagnosticsContextService.collect();
-      final String body = _buildSupportEmailBody(diagnostics);
-      final String payload =
-          'To: ${Env.supportEmail}\nSubject: ChronoSpark support request\n\n$body';
-      await Clipboard.setData(ClipboardData(text: payload));
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Support email template copied to clipboard.'),
-        ),
-      );
-    } catch (_) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not copy support email template.')),
-      );
-    }
-  }
-
-  String _buildSupportEmailBody(DiagnosticsContext diagnostics) {
-    return 'Issue summary:\n'
-        '- What happened:\n'
-        '- What I expected:\n'
-        '- Steps to reproduce:\n\n'
-        '${_buildDiagnosticsPayload(diagnostics)}';
-  }
-
-  String _buildDiagnosticsPayload(DiagnosticsContext diagnostics) {
-    return 'ChronoSpark diagnostics\n'
-        'App: ${diagnostics.appName}\n'
-        'Version: ${diagnostics.appVersionLabel}\n'
-        'Package: ${diagnostics.packageName}\n'
-        'Platform: ${diagnostics.platform}\n'
-        'OS: ${diagnostics.osVersion}\n'
-        'Device: ${diagnostics.model}\n'
-        'Physical device: ${diagnostics.isPhysicalDevice}\n'
-        'Device ID: ${diagnostics.deviceId}\n';
   }
 }
 

@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/features/auth/domain/models/chronospark_identity.dart';
+import 'package:fantastic_guacamole/features/auth/data/repositories/local_identity_repository.dart';
 import 'dart:async';
 
 import 'package:state_notifier/state_notifier.dart';
@@ -59,6 +61,10 @@ class AuthController extends StateNotifier<AuthState> {
       password: PasswordValue(password),
     );
     _applySessionResult(result);
+    await _persistChronoSparkIdentityFromResult(
+      result,
+      provider: ChronoSparkAuthProvider.email,
+    );
   }
 
   Future<void> signUpWithEmail({
@@ -83,11 +89,16 @@ class AuthController extends StateNotifier<AuthState> {
       password: PasswordValue(password),
     );
     _applySessionResult(result);
+    await _persistChronoSparkIdentityFromResult(
+      result,
+      provider: ChronoSparkAuthProvider.email,
+    );
   }
 
   Future<void> signOut() async {
     state = state.copyWith(status: AuthStatus.loading, failure: null);
     final Result<void> result = await _repository.signOut();
+    await _clearChronoSparkIdentityFromResult(result);
     result.fold(
       onSuccess: (_) {
         state = AuthState(
@@ -110,13 +121,10 @@ class AuthController extends StateNotifier<AuthState> {
     final Result<AuthSessionEntity?> result = await _repository
         .signInWithGoogle();
     _applySessionResult(result);
-  }
-
-  Future<void> signInWithGitHub() async {
-    state = state.copyWith(status: AuthStatus.loading, failure: null);
-    final Result<AuthSessionEntity?> result = await _repository
-        .signInWithGitHub();
-    _applySessionResult(result);
+    await _persistChronoSparkIdentityFromResult(
+      result,
+      provider: ChronoSparkAuthProvider.google,
+    );
   }
 
   Future<void> sendPasswordReset(String email) async {
@@ -148,6 +156,63 @@ class AuthController extends StateNotifier<AuthState> {
         );
       },
     );
+  }
+
+  Future<void> _persistChronoSparkIdentityFromResult(
+    Result<AuthSessionEntity?> result, {
+    required ChronoSparkAuthProvider provider,
+  }) async {
+    AuthSessionEntity? successfulSession;
+
+    result.fold(
+      onSuccess: (AuthSessionEntity? session) {
+        successfulSession = session;
+      },
+      onFailure: (Object _) {},
+    );
+
+    final AuthSessionEntity? session = successfulSession;
+
+    if (session == null || session.isExpired) {
+      return;
+    }
+
+    final DateTime now = DateTime.now();
+    final String email = session.user.email.trim();
+    final String displayName = session.user.displayName.trim().isEmpty
+        ? 'Operator'
+        : session.user.displayName.trim();
+
+    final ChronoSparkIdentity identity = ChronoSparkIdentity(
+      id: '${provider.name}-${now.millisecondsSinceEpoch}',
+      email: email,
+      displayName: displayName,
+      createdAt: now,
+      lastActiveAt: now,
+      accountTier: ChronoSparkAccountTier.free,
+      authProvider: provider,
+      syncStatus: ChronoSparkIdentitySyncStatus.localOnly,
+      emailVerified: session.user.emailVerified,
+    );
+
+    await LocalIdentityRepository().saveIdentity(identity);
+  }
+
+  Future<void> _clearChronoSparkIdentityFromResult(Result<void> result) async {
+    bool shouldClear = false;
+
+    result.fold(
+      onSuccess: (_) {
+        shouldClear = true;
+      },
+      onFailure: (Object _) {},
+    );
+
+    if (!shouldClear) {
+      return;
+    }
+
+    await LocalIdentityRepository().clearIdentity();
   }
 
   void _applySessionResult(Result<AuthSessionEntity?> result) {

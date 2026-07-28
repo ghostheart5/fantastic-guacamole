@@ -40,7 +40,15 @@ class UnavailableAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<UserCredential> signInWithGitHub() async {
+  Future<void> sendPhoneOtp(String phone) async {
+    throw _error();
+  }
+
+  @override
+  Future<UserCredential> verifyPhoneOtp({
+    required String phone,
+    required String token,
+  }) async {
     throw _error();
   }
 

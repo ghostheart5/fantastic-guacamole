@@ -1,0 +1,274 @@
+import 'package:fantastic_guacamole/state/providers/goal_success_probability_provider.dart';
+import 'package:fantastic_guacamole/state/providers/intelligence_fusion_provider.dart';
+import 'package:fantastic_guacamole/state/providers/predictive_risk_provider.dart';
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
+import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/daily_command_briefing_provider.dart';
+import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
+import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
+import 'package:fantastic_guacamole/theme/widgets/prism_metric_pill.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
+import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
+
+part 'nexus_screen.widgets.dart';
+
+class NexusScreen extends ConsumerStatefulWidget {
+  const NexusScreen({super.key});
+
+  @override
+  ConsumerState<NexusScreen> createState() => _NexusScreenState();
+}
+
+class _NexusScreenState extends ConsumerState<NexusScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ProfileState profile = ref.watch(profileProvider);
+    final briefing = ref.watch(dailyCommandBriefingProvider);
+    final predictiveRisk = ref.watch(predictiveRiskProvider);
+    final goalForecast = ref.watch(goalSuccessProbabilityProvider);
+    final fusion = ref.watch(intelligenceFusionProvider);
+    final siState = ref.watch(siStateProvider);
+    final double energy = siState.energy;
+    final double fatigue = siState.fatigue;
+    final int completedToday = siState.completedToday;
+    final trajectory = ref.watch(trajectorySummaryProvider);
+    final double trajectoryMomentum = trajectory.momentum;
+    final int completedTasks = trajectory.completedTasks;
+    final momentum = ref.watch(momentumEngineProvider);
+
+    final String consistencySignal = momentum.score >= 70
+        ? 'High'
+        : momentum.score >= 45
+        ? 'Medium'
+        : 'Low';
+    final String loadSignal = fatigue >= 0.75
+        ? 'Heavy'
+        : fatigue >= 0.45
+        ? 'Moderate'
+        : 'Light';
+    final String growthTitle = profile.streak >= 21
+        ? 'Compounding Momentum'
+        : profile.streak >= 7
+        ? 'Stable Growth Arc'
+        : completedTasks > 0
+        ? 'Early Growth Signal'
+        : 'Growth Engine Priming';
+    final String narrativeSummary = completedTasks > 0
+        ? 'Momentum is active. Keep the next action small and immediate.'
+        : 'No completed actions yet. Start with one clear task to establish narrative continuity.';
+    final int soulContinuityPct =
+        ((((1 - fatigue) * 0.55) + (trajectoryMomentum * 0.45)).clamp(
+                  0.0,
+                  1.0,
+                ) *
+                100)
+            .round();
+    final double narrativePresence =
+        ((completedTasks > 0 ? 0.5 : 0.28) +
+                (profile.streak.clamp(0, 14) / 14) * 0.5)
+            .clamp(0.0, 1.0);
+    final int narrativePresencePct = (narrativePresence * 100).round();
+
+    return AnimatedSystemBackground(
+      backgroundAssetPath: 'assets/backgrounds/nexus_bg.jpg',
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _NexusHeader(profile: profile)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: AnimatedBuilder(
+                    animation: _pulse,
+                    builder: (context, _) => _SystemRings(
+                      energy: energy,
+                      fatigue: fatigue,
+                      pulse: _pulse.value,
+                    ),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: _RingLabels(energy: energy, fatigue: fatigue),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  child: _NexusBridgeCard(
+                    profile: profile,
+                    energy: energy,
+                    completedToday: completedToday,
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Column(
+                    children: [
+                      _DailyCommandBriefingCard(briefing: briefing),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xEE07111F),
+                              AppColors.neonCyan.withValues(alpha: 0.10),
+                              AppColors.neonViolet.withValues(alpha: 0.08),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: AppColors.neonCyan.withValues(alpha: 0.26),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.neonCyan.withValues(alpha: 0.08),
+                              blurRadius: 18,
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'OPERATOR BRAIN',
+                              style: TextStyle(
+                                color: AppColors.neonCyan,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2.2,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              fusion.operatingMode,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 21,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Next: ${fusion.nextAction}',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                height: 1.4,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              fusion.rationale,
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 12,
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Threat: ${fusion.primaryThreat}',
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Opportunity: ${fusion.primaryOpportunity}',
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('MISSION RISKS'),
+                            const SizedBox(height: 6),
+                            Text(predictiveRisk.risks.first.title),
+                            Text(predictiveRisk.risks.first.summary),
+                            const SizedBox(height: 10),
+                            Text('SUCCESS CHANCE %'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _CoreSignalsStrip(
+                        growthTitle: growthTitle,
+                        narrativeSummary: narrativeSummary,
+                        consistencySignal: consistencySignal,
+                        loadSignal: loadSignal,
+                        soulContinuityPct: soulContinuityPct,
+                        narrativePresencePct: narrativePresencePct,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: _DependencyMesh(),
+                ),
+              ),
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, 10, 16, 24),
+                  child: _ActionGrid(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

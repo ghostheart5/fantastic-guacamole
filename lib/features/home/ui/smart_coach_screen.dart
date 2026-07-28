@@ -1,12 +1,29 @@
+import 'package:fantastic_guacamole/state/providers/goal_success_probability_provider.dart';
+import 'package:fantastic_guacamole/state/providers/predictive_risk_provider.dart';
+import 'package:fantastic_guacamole/state/providers/memory_intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/cognitive_twin_provider.dart';
+import 'package:fantastic_guacamole/state/providers/life_os_provider.dart';
+import 'package:fantastic_guacamole/state/providers/memory_graph_provider.dart';
 import 'dart:async';
-
+import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
+import 'package:fantastic_guacamole/state/providers/autonomous_daily_planner_provider.dart';
+import 'package:fantastic_guacamole/state/providers/autonomous_focus_scheduler_provider.dart';
+import 'package:fantastic_guacamole/state/providers/autonomous_goal_restructure_provider.dart';
+import 'package:fantastic_guacamole/state/providers/autonomous_life_optimization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/autonomous_mission_control_provider.dart';
+import 'package:fantastic_guacamole/state/providers/autonomous_review_provider.dart';
+import 'package:fantastic_guacamole/state/providers/daily_command_briefing_provider.dart';
+import 'package:fantastic_guacamole/state/providers/explainable_si_provider.dart';
+import 'package:fantastic_guacamole/state/providers/voice_command_provider.dart';
+import 'package:fantastic_guacamole/state/providers/voice_command_handoff_provider.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.dart';
-import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
+
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
@@ -48,6 +65,26 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   bool _saved = false;
   bool _gettingCoaching = false;
   bool _sendingFollowUp = false;
+
+  Future<void> _logEmotionCheckIn({
+    required EmotionalState emotion,
+    required double energy,
+    required String notes,
+  }) async {
+    final String energyLabel = '${(energy * 100).round()}%';
+    final String trimmedNotes = notes.trim();
+    final String detail = trimmedNotes.isEmpty
+        ? 'State: ${emotion.name}. Energy: $energyLabel.'
+        : 'State: ${emotion.name}. Energy: $energyLabel. Context: $trimmedNotes';
+
+    await ref
+        .read(timelineActionsProvider)
+        .addEmotion(
+          title: 'Smart Planner emotional check-in',
+          detail: detail,
+          relatedId: 'smart_coach',
+        );
+  }
 
   @override
   void initState() {
@@ -94,6 +131,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       await showCrisisDialog(context);
       return;
     }
+
+    unawaited(
+      _logEmotionCheckIn(emotion: _emotion, energy: _energy, notes: notes),
+    );
 
     setState(() => _gettingCoaching = true);
 
@@ -227,6 +268,21 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
   @override
   Widget build(BuildContext context) {
     ref.watch(extendedDomainBootstrapProvider);
+    final briefing = ref.watch(dailyCommandBriefingProvider);
+    final explainable = ref.watch(explainableSIProvider);
+    final adaptiveReplans = ref.watch(adaptiveReplanningProvider);
+    final memoryIntel = ref.watch(memoryIntelligenceProvider);
+    final twin = ref.watch(cognitiveTwinProvider);
+    final lifeOs = ref.watch(lifeOSProvider);
+    final memoryGraph = ref.watch(memoryGraphProvider);
+    final missionControl = ref.watch(autonomousMissionControlProvider);
+    final dailyPlan = ref.watch(autonomousDailyPlannerProvider);
+    final focusBlock = ref.watch(autonomousFocusSchedulerProvider);
+    final goalRestructure = ref.watch(autonomousGoalRestructureProvider);
+    final review = ref.watch(autonomousReviewProvider);
+    final optimization = ref.watch(autonomousLifeOptimizationProvider);
+    final predictiveRisk = ref.watch(predictiveRiskProvider);
+    final goalForecast = ref.watch(goalSuccessProbabilityProvider);
     final AsyncValue<SmartCoachScreenModel> smartModelAsync = ref.watch(
       smartCoachScreenModelProvider,
     );
@@ -237,14 +293,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
         sourceHealth?.insights == SISourceStatus.error;
     final bool siUnavailable = smartModelAsync.hasError || sourceDegraded;
     final String modelCoachMessage = smartModel?.decision.coachMessage ?? '';
-    final decision = smartModel?.decision;
-    final String modelNextAction = decision?.nextAction ?? '';
-    final String modelProgressionFeedback = decision?.progressionFeedback ?? '';
-    final List<String> modelWarnings = decision?.warnings ?? const <String>[];
-    final List<String> modelPlanAdjustments =
-        decision?.suggestedPlanAdjustments ?? const <String>[];
-    final List<String> modelInsightPrompts =
-        decision?.insightPrompts ?? const <String>[];
+    final String modelNextAction = smartModel?.decision.nextAction ?? '';
     final List<Task> suggestedTasks =
         smartModel?.aggregation.tasks ?? const <Task>[];
 
@@ -279,24 +328,21 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     SmartCoachHero(
                       coachMessage: effectiveCoachMessage,
                       nextAction: modelNextAction,
-                      progressionFeedback: modelProgressionFeedback,
                       taskCount: suggestedTasks.length,
                       coachOnline: !siUnavailable,
                     ),
                     const SizedBox(height: 4),
                     const _DisclaimerText(),
-                    const SizedBox(height: 12),
-                    const _ProgressionBanner(),
-                    const SizedBox(height: 12),
-                    const _QuickNavRow(),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
+
+                    const SizedBox(height: 8),
                     _CoachSyncStatus(
                       modelAsync: smartModelAsync,
                       sourceHealth: sourceHealth,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
                     _CoachPanel(
                       label: 'ENERGY',
                       accentColor: AppColors.neonCyan,
@@ -309,19 +355,25 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                         }),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
                     _CoachPanel(
                       label: 'EMOTIONAL STATE',
                       accentColor: AppColors.neonViolet,
                       child: EmotionSelector(
                         selected: _emotion,
-                        onSelect: (e) => setState(() {
-                          _emotion = e;
-                          _saved = false;
-                        }),
+                        onSelect: (e) {
+                          if (_emotion == e) {
+                            return;
+                          }
+                          setState(() {
+                            _emotion = e;
+                            _saved = false;
+                          });
+                          ref.read(emotionProvider.notifier).set(e);
+                        },
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
                     _CoachPanel(
                       label: 'FOCUS CONTEXT',
                       accentColor: AppColors.neonViolet,
@@ -350,6 +402,41 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     ),
                     const SizedBox(height: 10),
                     const _InsightCheatSheet(),
+                    const SizedBox(height: 10),
+                    _AdaptiveReplanningPanel(scenarios: adaptiveReplans),
+                    const SizedBox(height: 10),
+                    _MemoryPatternsPanel(memoryIntel: memoryIntel),
+                    const SizedBox(height: 10),
+                    _RiskForecastPanel(riskState: predictiveRisk),
+                    const SizedBox(height: 10),
+                    _CognitiveTwinPanel(twin: twin),
+                    const SizedBox(height: 10),
+                    _LifeOSPanel(lifeOs: lifeOs),
+                    const SizedBox(height: 10),
+                    _AutonomousExecutionBrief(
+                      missionControl: missionControl,
+                      dailyPlan: dailyPlan,
+                      focusBlock: focusBlock,
+                      goalRestructure: goalRestructure,
+                      review: review,
+                      optimization: optimization,
+                    ),
+                    const SizedBox(height: 10),
+                    _MemoryGraphPanel(memoryGraph: memoryGraph),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('GOAL SUCCESS FORECAST'),
+                          const SizedBox(height: 6),
+                          const Text('%'),
+                          Text(goalForecast.summary),
+                          Text(goalForecast.recommendation),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 20),
                     TutorialTarget(
                       id: 'home.start_focus_button',
@@ -368,183 +455,119 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                               },
                       ),
                     ),
-                    if (decision != null &&
-                        (modelNextAction.trim().isNotEmpty ||
-                            modelProgressionFeedback.trim().isNotEmpty ||
-                            modelWarnings.isNotEmpty ||
-                            modelPlanAdjustments.isNotEmpty ||
-                            modelInsightPrompts.isNotEmpty)) ...[
-                      const SizedBox(height: 20),
-                      _CoachPanel(
-                        label: 'SI DECISION OUTPUT',
-                        accentColor: AppColors.neonViolet,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (modelNextAction.trim().isNotEmpty) ...[
-                              const Text(
-                                'Next Action',
-                                style: TextStyle(
-                                  color: AppColors.neonCyan,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.1,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                modelNextAction,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                  height: 1.45,
-                                ),
-                              ),
-                            ],
-                            if (modelProgressionFeedback.trim().isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              const Text(
-                                'Progression Feedback',
-                                style: TextStyle(
-                                  color: AppColors.memoryAmber,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.1,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                modelProgressionFeedback,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                  height: 1.45,
-                                ),
-                              ),
-                            ],
-                            if (modelWarnings.isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              const Text(
-                                'Warnings',
-                                style: TextStyle(
-                                  color: AppColors.recallRed,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.1,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              ...modelWarnings
-                                  .take(3)
-                                  .map(
-                                    (String warning) => Padding(
-                                      padding: const EdgeInsets.only(bottom: 4),
-                                      child: Text(
-                                        warning,
-                                        style: const TextStyle(
-                                          color: Colors.white60,
-                                          fontSize: 11,
-                                          height: 1.35,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                            ],
-                            if (modelPlanAdjustments.isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              const Text(
-                                'Plan Adjustments',
-                                style: TextStyle(
-                                  color: AppColors.neonCyan,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.1,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              ...modelPlanAdjustments
-                                  .take(3)
-                                  .map(
-                                    (String adjustment) => Padding(
-                                      padding: const EdgeInsets.only(bottom: 4),
-                                      child: Text(
-                                        adjustment,
-                                        style: const TextStyle(
-                                          color: Colors.white60,
-                                          fontSize: 11,
-                                          height: 1.35,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                            ],
-                            if (modelInsightPrompts.isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              const Text(
-                                'Insight Prompts',
-                                style: TextStyle(
-                                  color: AppColors.neonViolet,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.1,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              ...modelInsightPrompts
-                                  .take(3)
-                                  .map(
-                                    (String prompt) => Padding(
-                                      padding: const EdgeInsets.only(bottom: 4),
-                                      child: Text(
-                                        prompt,
-                                        style: const TextStyle(
-                                          color: Colors.white60,
-                                          fontSize: 11,
-                                          height: 1.35,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
                     if (hasCoachMessage) ...[
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                       _CoachPanel(
                         label: 'SMART INSIGHT',
                         accentColor: AppColors.memoryAmber,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              effectiveCoachMessage,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                height: 1.7,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                _VoiceButton(message: effectiveCoachMessage),
-                                _VoiceSummaryButton(
-                                  headline: effectiveCoachMessage,
-                                  energy: _energy,
-                                  emotion: _emotion,
+                            // existing coach message
+                            Text(effectiveCoachMessage),
+
+                            // <-- INSERT HERE
+                            Container(
+                              margin: const EdgeInsets.only(top: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.neonCyan.withValues(
+                                  alpha: 0.06,
                                 ),
-                                const _VoiceAccessibilityButton(),
-                                const _MicButton(),
-                              ],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppColors.neonCyan.withValues(
+                                    alpha: 0.20,
+                                  ),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'WHY THIS ACTION?',
+                                    style: TextStyle(
+                                      color: AppColors.neonCyan,
+                                      fontSize: 10,
+                                      letterSpacing: 2,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    explainable.primaryReason,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ...explainable.reasons.map(
+                                    (reason) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 5),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${reason.label}: ',
+                                            style: const TextStyle(
+                                              color: AppColors.neonCyan,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              reason.detail,
+                                              style: const TextStyle(
+                                                color: Colors.white60,
+                                                fontSize: 12,
+                                                height: 1.35,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Recommended move: ${explainable.recommendation}',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      height: 1.4,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      _VoiceButton(
+                                        message: effectiveCoachMessage,
+                                      ),
+                                      _VoiceSummaryButton(
+                                        headline: effectiveCoachMessage,
+                                        energy: _energy,
+                                        emotion: _emotion,
+                                        briefing: briefing,
+                                      ),
+                                      const _VoiceAccessibilityButton(),
+                                      const _MicButton(),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       ...SmartCoachConversationState(
                         coachingMessage: _coachingMessage,
                         coachingPrompt: _coachingPrompt,
@@ -640,11 +663,219 @@ class _InsightCheatSheet extends StatelessWidget {
       ),
       child: const Text(
         'Get Insight cheat sheet:\n'
-        '• One topic: lose weight, tired, stressed, sleep, nutrition, exercise, productivity, goals\n'
-        '• One feeling: drained, anxious, stuck, unmotivated\n'
-        '• One detail: sleep, food, deadlines, workouts, or what keeps failing\n\n'
-        'Examples: “I’m tired”, “lose weight”, “stressed about work”, “what should I do next?”',
+        '- One topic: lose weight, tired, stressed, sleep, nutrition, exercise, productivity, goals\n'
+        '- One feeling: drained, anxious, stuck, unmotivated\n'
+        '- One detail: sleep, food, deadlines, workouts, or what keeps failing\n\n'
+        "Examples: \"I'm tired\", \"lose weight\", \"stressed about work\", \"what should I do next?\"",
         style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+      ),
+    );
+  }
+}
+
+class _AdaptiveReplanningPanel extends StatelessWidget {
+  const _AdaptiveReplanningPanel({required this.scenarios});
+
+  final List<AdaptiveReplanningScenario> scenarios;
+
+  @override
+  Widget build(BuildContext context) {
+    if (scenarios.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final AdaptiveReplanningScenario scenario = scenarios.first;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            AppColors.memoryAmber.withValues(alpha: 0.10),
+            AppColors.neonViolet.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.memoryAmber.withValues(alpha: 0.28),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.memoryAmber.withValues(alpha: 0.08),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'ADAPTIVE REPLAN',
+            style: TextStyle(
+              color: AppColors.memoryAmber,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            scenario.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            scenario.immediateAction,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...scenario.moves
+              .take(3)
+              .map(
+                (String move) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '- $move',
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AutonomousExecutionBrief extends StatelessWidget {
+  const _AutonomousExecutionBrief({
+    required this.missionControl,
+    required this.dailyPlan,
+    required this.focusBlock,
+    required this.goalRestructure,
+    required this.review,
+    required this.optimization,
+  });
+
+  final MissionControlState missionControl;
+  final AutonomousDailyPlan dailyPlan;
+  final AutonomousFocusBlock focusBlock;
+  final GoalRestructureRecommendation goalRestructure;
+  final AutonomousReviewState review;
+  final LifeOptimizationState optimization;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            AppColors.neonCyan.withValues(alpha: 0.10),
+            AppColors.memoryAmber.withValues(alpha: 0.07),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonCyan.withValues(alpha: 0.08),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'AUTONOMOUS EXECUTION BRIEF',
+            style: TextStyle(
+              color: AppColors.neonCyan,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            missionControl.status,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Do now: ${missionControl.primaryAction}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Today Focus: ${dailyPlan.focus}',
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Focus: ${focusBlock.title} • ${focusBlock.durationMinutes} min',
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Goal adjustment: ${goalRestructure.title}',
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Review ${review.score}% • ${review.tomorrowAdjustment}',
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Optimization ${optimization.optimizationScore}% • ${optimization.nextDirective}',
+            style: const TextStyle(
+              color: Colors.white38,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -914,11 +1145,13 @@ class _VoiceSummaryButton extends ConsumerWidget {
     required this.headline,
     required this.energy,
     required this.emotion,
+    required this.briefing,
   });
 
   final String headline;
   final double energy;
   final EmotionalState emotion;
+  final DailyCommandBriefing briefing;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -927,10 +1160,15 @@ class _VoiceSummaryButton extends ConsumerWidget {
         ref
             .read(voiceServiceProvider)
             .speakSummary(
-              title: 'Smart Coach voice summary',
+              title: 'Daily command briefing',
               points: <String>[
-                'Energy is ${(energy * 100).round()} percent',
-                'Emotion state is ${emotion.name}',
+                'Focus: ${briefing.focus}',
+                'Momentum: ${briefing.momentum}',
+                'Energy: ${briefing.energy}',
+                'Recovery: ${briefing.recovery}',
+                'Warning: ${briefing.warning}',
+                'Coach action: ${briefing.coachAction}',
+                'Current emotion state is ${emotion.name}',
                 headline,
               ],
             ),
@@ -948,7 +1186,7 @@ class _VoiceSummaryButton extends ConsumerWidget {
             Icon(Icons.summarize_rounded, color: AppColors.neonCyan, size: 15),
             SizedBox(width: 6),
             Text(
-              'SUMMARY',
+              'BRIEFING',
               style: TextStyle(
                 color: AppColors.neonCyan,
                 fontSize: 11,
@@ -1012,7 +1250,7 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
           ref
               .read(voiceServiceProvider)
               .speakAccessibilityHint(
-                surface: 'Smart Coach',
+                surface: 'Smart Planner',
                 controls: const <String>[
                   'Adjust energy slider to set intensity',
                   'Select emotional state to tune guidance',
@@ -1059,6 +1297,63 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
 class _MicButton extends ConsumerWidget {
   const _MicButton();
 
+  void _routeVoiceCommand(WidgetRef ref, String spokenText) {
+    final result = ref.read(voiceCommandParserProvider).parse(spokenText);
+
+    if (result.intent == VoiceCommandIntent.createTask ||
+        result.intent == VoiceCommandIntent.createGoal ||
+        result.intent == VoiceCommandIntent.recordMemory) {
+      ref.read(voiceCommandHandoffProvider.notifier).setFromResult(result);
+    }
+
+    unawaited(ref.read(voiceServiceProvider).speak(result.confirmation));
+
+    final flow = ref.read(appFlowProvider.notifier);
+
+    switch (result.intent) {
+      case VoiceCommandIntent.createTask:
+      case VoiceCommandIntent.createGoal:
+      case VoiceCommandIntent.recordMemory:
+      case VoiceCommandIntent.openCreator:
+        flow.toCreator();
+        return;
+      case VoiceCommandIntent.showTrajectory:
+        flow.toTrajectoryEngine();
+        return;
+      case VoiceCommandIntent.showBriefing:
+        flow.toNexus();
+        return;
+      case VoiceCommandIntent.nextMove:
+      case VoiceCommandIntent.replanDay:
+      case VoiceCommandIntent.startFocusSession:
+      case VoiceCommandIntent.openCoach:
+        flow.toSmartCoach();
+        return;
+      case VoiceCommandIntent.openTimeline:
+        flow.toTimeline();
+        return;
+      case VoiceCommandIntent.openProfile:
+        flow.toProfile();
+        return;
+      case VoiceCommandIntent.openProgression:
+        flow.toProgression();
+        return;
+      case VoiceCommandIntent.openSiConsole:
+        flow.toConsole();
+        return;
+      case VoiceCommandIntent.unknown:
+        return;
+    }
+  }
+
+  String _latestVoiceText(VoiceState voice) {
+    final String last = voice.lastResponse.trim();
+    if (last.isNotEmpty) {
+      return last;
+    }
+    return voice.recognizedText.trim();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final VoiceState voice = ref.watch(voiceControllerProvider);
@@ -1067,19 +1362,36 @@ class _MicButton extends ConsumerWidget {
       onTap: () async {
         if (listening) {
           await ref.read(voiceControllerProvider.notifier).stopListening();
-        } else {
-          await ref.read(settingsUiActionsProvider).requestVoicePermission();
-          await ref.read(voiceControllerProvider.notifier).startListening();
-          if (!context.mounted) {
-            return;
+          final VoiceState latest = ref.read(voiceControllerProvider);
+          final String spokenText = _latestVoiceText(latest);
+
+          if (spokenText.isNotEmpty) {
+            _routeVoiceCommand(ref, spokenText);
+          } else {
+            unawaited(
+              ref
+                  .read(voiceServiceProvider)
+                  .speak('No voice command was captured. Try again.'),
+            );
           }
-          final String message =
-              ref.read(voiceControllerProvider).error ??
-              'Voice input is not available in this build. First step: type your request in Focus Context and tap GET INSIGHT.';
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message)));
+          return;
         }
+
+        await ref.read(settingsUiActionsProvider).requestVoicePermission();
+        await ref.read(voiceControllerProvider.notifier).startListening();
+
+        if (!context.mounted) {
+          return;
+        }
+
+        final VoiceState latest = ref.read(voiceControllerProvider);
+        final String message =
+            latest.error ??
+            'Listening. Speak a command, then tap the mic again to route it.';
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1110,198 +1422,6 @@ class _MicButton extends ConsumerWidget {
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Progression banner ───────────────────────────────────────────────────────
-
-class _ProgressionBanner extends ConsumerWidget {
-  const _ProgressionBanner();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final progress = ref.watch(progressionProvider).progress;
-    final int pct = (progress.levelProgress * 100).round();
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.memoryAmber.withValues(alpha: 0.35),
-        ),
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.memoryAmber.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: AppColors.memoryAmber.withValues(alpha: 0.4),
-              ),
-            ),
-            child: const Text(
-              'LEVEL',
-              style: TextStyle(
-                color: AppColors.memoryAmber,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    Text(
-                      '$pct% to Level ${progress.level + 1}',
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 10,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    Text(
-                      '${progress.xpToNext} XP',
-                      style: const TextStyle(
-                        color: Colors.white24,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                ProgressBar(
-                  value: progress.levelProgress,
-                  color: AppColors.memoryAmber,
-                  height: 4,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const Icon(
-                Icons.local_fire_department,
-                color: Colors.deepOrangeAccent,
-                size: 14,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '${progress.streak}',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Quick nav row ───────────────────────────────────────────────────────────
-
-class _QuickNavRow extends ConsumerWidget {
-  const _QuickNavRow();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final double textScale = MediaQuery.textScalerOf(context).scale(1);
-        final bool compact = constraints.maxWidth < 360 || textScale > 1.1;
-        final List<Widget> cards = <Widget>[
-          _QuickNavCard(
-            label: 'GOALS',
-            icon: Icons.flag_rounded,
-            color: AppColors.memoryAmber,
-            onTap: () => ref.read(appFlowProvider.notifier).toCreator(),
-          ),
-
-          _QuickNavCard(
-            label: 'SOUL MAP',
-            icon: Icons.hub_rounded,
-            color: AppColors.neonCyan,
-            onTap: () => ref.read(appFlowProvider.notifier).toNexus(),
-          ),
-        ];
-        if (!compact) {
-          return Row(
-            children: [
-              Expanded(child: cards[0]),
-              const SizedBox(width: 8),
-              Expanded(child: cards[1]),
-            ],
-          );
-        }
-        final double itemWidth = (constraints.maxWidth - 8) / 2;
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: cards
-              .map((Widget card) => SizedBox(width: itemWidth, child: card))
-              .toList(growable: false),
-        );
-      },
-    );
-  }
-}
-
-class _QuickNavCard extends StatelessWidget {
-  const _QuickNavCard({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 52,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
               ),
             ),
           ],
@@ -1374,7 +1494,7 @@ class _CoachSyncStatus extends StatelessWidget {
   }
 }
 
-// ─── Disclaimer ───────────────────────────────────────────────────────────────
+// --- Disclaimer ------------------------------------------------------------
 
 class _DisclaimerText extends StatelessWidget {
   const _DisclaimerText();
@@ -1388,6 +1508,278 @@ class _DisclaimerText extends StatelessWidget {
         fontSize: 10,
         letterSpacing: 0.3,
         height: 1.4,
+      ),
+    );
+  }
+}
+
+class _MemoryPatternsPanel extends StatelessWidget {
+  const _MemoryPatternsPanel({required this.memoryIntel});
+
+  final MemoryIntelligenceState memoryIntel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('RECURRING PATTERNS'),
+          const SizedBox(height: 8),
+          Text('Win: ${memoryIntel.recurringWin}'),
+          const SizedBox(height: 4),
+          Text('Friction: ${memoryIntel.recurringFriction}'),
+          const SizedBox(height: 4),
+          Text('Lesson: ${memoryIntel.lesson}'),
+          const SizedBox(height: 4),
+          Text('Focus: ${memoryIntel.focusSuggestion}'),
+        ],
+      ),
+    );
+  }
+}
+
+class _RiskForecastPanel extends StatelessWidget {
+  const _RiskForecastPanel({required this.riskState});
+
+  final PredictiveRiskState riskState;
+
+  @override
+  Widget build(BuildContext context) {
+    final topRisk = riskState.risks.first;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('RISK FORECAST'),
+          const SizedBox(height: 8),
+          Text(topRisk.title),
+          const SizedBox(height: 4),
+          Text(topRisk.summary),
+          const SizedBox(height: 4),
+          Text('Mitigation: ${topRisk.mitigation}'),
+        ],
+      ),
+    );
+  }
+}
+
+class _CognitiveTwinPanel extends StatelessWidget {
+  const _CognitiveTwinPanel({required this.twin});
+
+  final CognitiveTwinState twin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            AppColors.neonViolet.withValues(alpha: 0.10),
+            AppColors.neonCyan.withValues(alpha: 0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonViolet.withValues(alpha: 0.08),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'COGNITIVE TWIN',
+            style: TextStyle(
+              color: AppColors.neonViolet,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            twin.identityStatement,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Best action: ${twin.bestAction}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            twin.warning,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LifeOSPanel extends StatelessWidget {
+  const _LifeOSPanel({required this.lifeOs});
+
+  final LifeOSState lifeOs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            AppColors.memoryAmber.withValues(alpha: 0.10),
+            AppColors.neonCyan.withValues(alpha: 0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.memoryAmber.withValues(alpha: 0.28),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.memoryAmber.withValues(alpha: 0.08),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'LIFE OS',
+            style: TextStyle(
+              color: AppColors.memoryAmber,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            lifeOs.mission,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Primary action: ${lifeOs.primaryAction}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Identity stage: ${lifeOs.identityStage}',
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MemoryGraphPanel extends StatelessWidget {
+  const _MemoryGraphPanel({required this.memoryGraph});
+
+  final MemoryGraphState memoryGraph;
+
+  @override
+  Widget build(BuildContext context) {
+    if (memoryGraph.nodes.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            AppColors.neonViolet.withValues(alpha: 0.10),
+            AppColors.memoryAmber.withValues(alpha: 0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonViolet.withValues(alpha: 0.08),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'MEMORY GRAPH',
+            style: TextStyle(
+              color: AppColors.neonViolet,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...memoryGraph.nodes
+              .take(4)
+              .map(
+                (node) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    '${node.type.toUpperCase()}: ${node.title} → ${node.connection}',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ),
+        ],
       ),
     );
   }

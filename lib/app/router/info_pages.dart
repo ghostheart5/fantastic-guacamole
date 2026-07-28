@@ -122,7 +122,7 @@ class AboutPage extends StatelessWidget {
           const _Section(
             title: 'Core Surfaces',
             body:
-                'Nexus for command, Trajectory for tasks, Ledger for logs, and Profile for identity and progression. Deeper features like Plan, Creator, Smart Coach, Flowmap, Goals, Memories, Soul Map, and Timeline expand capability when needed.',
+                'Nexus for command, Trajectory for tasks, Ledger for logs, and Profile for identity and progression. Deeper features like Plan, Creator, Smart Planner, Flowmap, Goals, Memories, Soul Map, and Timeline expand capability when needed.',
           ),
           const _Section(
             title: 'Guiding Principle',

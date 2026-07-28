@@ -11,24 +11,67 @@ class DynamicForm extends StatefulWidget {
     super.key,
     required this.onSubmit,
     this.workspaceMode = CreatorWorkspaceMode.tasks,
+    this.taskTitleController,
+    this.goalTitleController,
+    this.memoryController,
+    this.notesController,
   });
 
   final Future<void> Function(CreatorFormData data) onSubmit;
   final CreatorWorkspaceMode workspaceMode;
+  final TextEditingController? taskTitleController;
+  final TextEditingController? goalTitleController;
+  final TextEditingController? memoryController;
+  final TextEditingController? notesController;
 
   @override
   State<DynamicForm> createState() => _DynamicFormState();
 }
 
 class _DynamicFormState extends State<DynamicForm> {
-  final _titleController = TextEditingController();
-  final _descController = TextEditingController();
+  late final TextEditingController _taskTitleController;
+  late final TextEditingController _goalTitleController;
+  late final TextEditingController _memoryController;
+  late final TextEditingController _notesController;
+  late final bool _ownsTaskTitleController;
+  late final bool _ownsGoalTitleController;
+  late final bool _ownsMemoryController;
+  late final bool _ownsNotesController;
   String _selectedType = 'Task';
   int _priority = 3;
   DateTime? _scheduledFor;
   RecurrenceRule _recurrenceRule = RecurrenceRule.none;
   bool _submitting = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsTaskTitleController = widget.taskTitleController == null;
+    _ownsGoalTitleController = widget.goalTitleController == null;
+    _ownsMemoryController = widget.memoryController == null;
+    _ownsNotesController = widget.notesController == null;
+    _taskTitleController =
+        widget.taskTitleController ?? TextEditingController();
+    _goalTitleController =
+        widget.goalTitleController ?? TextEditingController();
+    _memoryController = widget.memoryController ?? TextEditingController();
+    _notesController = widget.notesController ?? TextEditingController();
+  }
+
+  TextEditingController get _titleController {
+    if (widget.workspaceMode == CreatorWorkspaceMode.goals) {
+      return _goalTitleController;
+    }
+    return _taskTitleController;
+  }
+
+  TextEditingController get _detailController {
+    if (_selectedType.trim().toLowerCase() == 'note') {
+      return _memoryController;
+    }
+    return _notesController;
+  }
 
   String get _entryType {
     if (widget.workspaceMode == CreatorWorkspaceMode.tasks) {
@@ -41,20 +84,30 @@ class _DynamicFormState extends State<DynamicForm> {
   String get _submitLabel {
     switch (widget.workspaceMode) {
       case CreatorWorkspaceMode.tasks:
-        return 'FORGE TASK';
+        return 'CREATE';
       case CreatorWorkspaceMode.goals:
-        return 'FORGE GOAL';
+        return 'CREATE';
       case CreatorWorkspaceMode.milestones:
         return 'FORGE MILESTONE';
       case CreatorWorkspaceMode.plan:
-        return 'FORGE PLAN ITEM';
+        return 'CREATE';
     }
   }
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _descController.dispose();
+    if (_ownsTaskTitleController) {
+      _taskTitleController.dispose();
+    }
+    if (_ownsGoalTitleController) {
+      _goalTitleController.dispose();
+    }
+    if (_ownsMemoryController) {
+      _memoryController.dispose();
+    }
+    if (_ownsNotesController) {
+      _notesController.dispose();
+    }
     super.dispose();
   }
 
@@ -75,9 +128,9 @@ class _DynamicFormState extends State<DynamicForm> {
       await widget.onSubmit(
         CreatorFormData(
           title: title,
-          description: _descController.text.trim().isEmpty
+          description: _detailController.text.trim().isEmpty
               ? null
-              : _descController.text.trim(),
+              : _detailController.text.trim(),
           type: _entryType,
           priority: _priority,
           scheduledFor: _scheduledFor,
@@ -87,7 +140,7 @@ class _DynamicFormState extends State<DynamicForm> {
       );
       if (!mounted) return;
       _titleController.clear();
-      _descController.clear();
+      _detailController.clear();
       setState(() {
         _selectedType = 'Task';
         _priority = 3;
@@ -98,7 +151,7 @@ class _DynamicFormState extends State<DynamicForm> {
       if (!mounted) return;
       setState(() {
         _errorMessage =
-            'The task could not be saved. Your entry is still hereâ€”retry.';
+            'The task could not be saved. Your entry is still here—retry.';
       });
     } finally {
       if (mounted) {
@@ -132,7 +185,7 @@ class _DynamicFormState extends State<DynamicForm> {
           _buildTextField(_titleController, 'Title *', maxLines: 1),
           const SizedBox(height: 10),
           _buildTextField(
-            _descController,
+            _detailController,
             _selectedType.toLowerCase() == 'note'
                 ? 'Notes (optional)'
                 : 'Description (optional)',

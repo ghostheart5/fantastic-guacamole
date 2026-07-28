@@ -1,0 +1,9 @@
+﻿START=2026-07-26T14:52:35.3470055-05:00
+PROFILE=single_ultra
+PACKAGE=com.ghostheart5.chronospark
+SEED=260726
+COUNT=1000000
+COMMAND=adb shell monkey -p com.ghostheart5.chronospark --throttle 30 --pct-touch 55 --pct-motion 20 --pct-nav 10 --pct-majornav 5 --pct-appswitch 3 --pct-syskeys 0 --pct-anyevent 0 --monitor-native-crashes --kill-process-after-error --bugreport -v -v -s 260726 1000000
+END=2026-07-26T14:58:17.3025650-05:00
+EXIT_CODE=5
+RESULT=FAILED

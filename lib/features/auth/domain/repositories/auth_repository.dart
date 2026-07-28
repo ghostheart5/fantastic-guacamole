@@ -17,7 +17,6 @@ abstract class AuthRepository {
     required PasswordValue password,
   });
   Future<Result<AuthSessionEntity?>> signInWithGoogle();
-  Future<Result<AuthSessionEntity?>> signInWithGitHub();
   Future<Result<void>> sendPasswordReset({required EmailAddress email});
   Future<Result<void>> sendEmailVerification();
   Future<Result<void>> refreshSession();

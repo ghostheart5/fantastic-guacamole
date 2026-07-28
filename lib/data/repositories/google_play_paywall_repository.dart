@@ -116,7 +116,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       title: 'Premium Monthly',
       priceLabel: 'from \$9.99 / month',
       description:
-          'Best for active users who want full smart coaching and recurring credits.',
+          'Best for active users who want full smart planning and recurring credits.',
       aiCreditsIncluded: 300,
       benefits: <String>[
         '300 smart guidance credits every month',

@@ -171,7 +171,7 @@ class MonetizationCatalog {
           lifetimeValue: 'Full',
         ),
         FeatureComparisonRow(
-          feature: 'Smart Coach',
+          feature: 'Smart Planner',
           freeValue: 'No',
           monthlyValue: 'Yes',
           yearlyValue: 'Yes',

@@ -52,13 +52,25 @@ class MockAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<UserCredential> signInWithGitHub() async {
-    _currentUser = const User(
-      id: 'mock-github-user',
-      email: 'mock@chronospark.app',
-      displayName: 'Tester',
+  Future<void> sendPhoneOtp(String phone) async {}
+
+  @override
+  Future<UserCredential> verifyPhoneOtp({
+    required String phone,
+    required String token,
+  }) async {
+    final String cleanPhone = phone.trim().replaceAll(RegExp(r'[^0-9+]'), '');
+    final String mockEmail = cleanPhone.isEmpty
+        ? 'mock-phone@chronospark.app'
+        : '$cleanPhone@phone.chronospark.app';
+
+    _currentUser = User(
+      id: 'mock-phone-user',
+      email: mockEmail,
+      displayName: 'Phone Tester',
       emailVerified: true,
     );
+
     return UserCredential(user: _currentUser);
   }
 

@@ -22,7 +22,6 @@ class AuthService implements AuthServiceContract {
     http.Client? httpClient,
     String? accountDeleteEndpoint,
     String? oauthGoogleRedirectUrl,
-    String? oauthGitHubRedirectUrl,
     LocalUserDataCleanupService? localUserDataCleanupService,
   }) : _auth = supabaseClient,
        _store = store,
@@ -30,8 +29,6 @@ class AuthService implements AuthServiceContract {
        _accountDeleteEndpoint =
            accountDeleteEndpoint ?? Env.accountDeleteEndpoint,
        _oauthGoogleRedirectUrl = oauthGoogleRedirectUrl ?? Env.oauthRedirectUrl,
-       _oauthGitHubRedirectUrl =
-           oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl,
        _localUserDataCleanupService =
            localUserDataCleanupService ??
            LocalUserDataCleanupService(
@@ -47,7 +44,6 @@ class AuthService implements AuthServiceContract {
   final http.Client _httpClient;
   final String _accountDeleteEndpoint;
   final String _oauthGoogleRedirectUrl;
-  final String _oauthGitHubRedirectUrl;
   final LocalUserDataCleanupService _localUserDataCleanupService;
   int _failedSignInAttempts = 0;
   DateTime? _signInBlockedUntil;
@@ -169,20 +165,67 @@ class AuthService implements AuthServiceContract {
   }
 
   @override
-  Future<UserCredential> signInWithGitHub() async {
-    try {
-      final String redirectTo = _oauthGitHubRedirectUrl.trim();
-      await _auth.auth.signInWithOAuth(
-        sb.OAuthProvider.github,
-        redirectTo: redirectTo.isEmpty ? null : redirectTo,
+  Future<void> sendPhoneOtp(String phone) async {
+    final String cleanPhone = phone.trim();
+
+    if (cleanPhone.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'missing-phone',
+        message: 'Phone number is required.',
       );
-      return UserCredential(user: currentUser);
+    }
+
+    try {
+      await _auth.auth.signInWithOtp(
+        phone: cleanPhone,
+        channel: sb.OtpChannel.sms,
+      );
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
     } on Object {
       throw FirebaseAuthException(
         code: 'auth-unavailable',
-        message: 'GitHub sign-in is currently unavailable.',
+        message: 'Phone verification is currently unavailable.',
+      );
+    }
+  }
+
+  @override
+  Future<UserCredential> verifyPhoneOtp({
+    required String phone,
+    required String token,
+  }) async {
+    final String cleanPhone = phone.trim();
+    final String cleanToken = token.trim();
+
+    if (cleanPhone.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'missing-phone',
+        message: 'Phone number is required.',
+      );
+    }
+
+    if (cleanToken.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'missing-verification-code',
+        message: 'Verification code is required.',
+      );
+    }
+
+    try {
+      final sb.AuthResponse response = await _auth.auth.verifyOTP(
+        phone: cleanPhone,
+        token: cleanToken,
+        type: sb.OtpType.sms,
+      );
+
+      return UserCredential(user: _mapUser(response.user));
+    } on sb.AuthException catch (error) {
+      throw _mapAuthException(error);
+    } on Object {
+      throw FirebaseAuthException(
+        code: 'auth-unavailable',
+        message: 'Phone verification is currently unavailable.',
       );
     }
   }

@@ -1,5 +1,4 @@
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
-import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +9,6 @@ class ProductAdvisorScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final insightsAsync = ref.watch(productInsightsProvider);
-    final configAsync = ref.watch(optimizationConfigProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF060D1B),
@@ -31,7 +29,7 @@ class ProductAdvisorScreen extends ConsumerWidget {
             colors: [AppColors.neonCyan, AppColors.neonViolet],
           ).createShader(bounds),
           child: const Text(
-            'PRODUCT ADVISOR',
+            'STRATEGIC ADVISOR',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
@@ -65,25 +63,10 @@ class ProductAdvisorScreen extends ConsumerWidget {
               ),
               error: (e, _) => _ErrorTile(message: e.toString()),
             ),
-            const SizedBox(height: 24),
-            const _SectionHeader(label: 'OPTIMIZATION STATE'),
-            const SizedBox(height: 8),
-            configAsync.when(
-              data: (config) => _OptimizerStateCard(
-                config: _OptimizationView(
-                  focusDurationMultiplier: config.focusDurationMultiplier,
-                  taskDifficultyScale: config.taskDifficultyScale,
-                  nextActionAggressiveness: config.nextActionAggressiveness,
-                ),
-              ),
-              loading: () => const SizedBox.shrink(),
-              error: (_, _) => const SizedBox.shrink(),
-            ),
             const SizedBox(height: 16),
             _RefreshButton(
               onRefresh: () {
                 ref.invalidate(productInsightsProvider);
-                ref.invalidate(optimizationConfigProvider);
               },
             ),
           ],
@@ -105,12 +88,12 @@ class _InsightsList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionHeader(label: 'TOP RECOMMENDATION'),
+        const _SectionHeader(label: 'PRIMARY SIGNAL'),
         const SizedBox(height: 8),
         _InsightCard(insight: insights.first, isTop: true),
         if (insights.length > 1) ...[
           const SizedBox(height: 20),
-          const _SectionHeader(label: 'ALL INSIGHTS'),
+          const _SectionHeader(label: 'SUPPORTING SIGNALS'),
           const SizedBox(height: 8),
           ...insights
               .skip(1)
@@ -177,9 +160,9 @@ class _InsightCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _Label(label: 'Cause', value: insight.cause),
+          _Label(label: 'Detected Cause', value: insight.cause),
           const SizedBox(height: 6),
-          _Label(label: 'Recommendation', value: insight.recommendation),
+          _Label(label: 'Recommended Move', value: insight.recommendation),
         ],
       ),
     );
@@ -214,68 +197,6 @@ class _Label extends StatelessWidget {
   }
 }
 
-class _OptimizerStateCard extends StatelessWidget {
-  const _OptimizerStateCard({required this.config});
-  final _OptimizationView config;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        children: [
-          _StatRow(
-            label: 'Focus Duration Multiplier',
-            value: config.focusDurationMultiplier.toStringAsFixed(2),
-          ),
-          const SizedBox(height: 8),
-          _StatRow(
-            label: 'Task Difficulty Scale',
-            value: config.taskDifficultyScale.toStringAsFixed(2),
-          ),
-          const SizedBox(height: 8),
-          _StatRow(
-            label: 'Next Action Aggressiveness',
-            value: config.nextActionAggressiveness.toStringAsFixed(2),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatRow extends StatelessWidget {
-  const _StatRow({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white54, fontSize: 12),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            color: AppColors.neonCyan,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.label});
   final String label;
@@ -303,7 +224,7 @@ class _EmptyState extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 40),
       child: Center(
         child: Text(
-          'Not enough data yet.\nKeep using the app to generate insights.',
+          'Signal matrix warming up.\nUse ChronoSpark to generate stronger strategic guidance.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.6),
         ),
@@ -340,18 +261,6 @@ class _InsightView {
   final String recommendation;
 }
 
-class _OptimizationView {
-  const _OptimizationView({
-    required this.focusDurationMultiplier,
-    required this.taskDifficultyScale,
-    required this.nextActionAggressiveness,
-  });
-
-  final double focusDurationMultiplier;
-  final double taskDifficultyScale;
-  final double nextActionAggressiveness;
-}
-
 class _RefreshButton extends StatelessWidget {
   const _RefreshButton({required this.onRefresh});
   final VoidCallback onRefresh;
@@ -375,7 +284,7 @@ class _RefreshButton extends StatelessWidget {
             Icon(Icons.refresh, color: AppColors.neonViolet, size: 16),
             SizedBox(width: 8),
             Text(
-              'Refresh Analysis',
+              'Rescan Signals',
               style: TextStyle(
                 color: AppColors.neonViolet,
                 fontSize: 13,

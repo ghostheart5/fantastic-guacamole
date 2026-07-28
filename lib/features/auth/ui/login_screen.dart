@@ -16,7 +16,7 @@ class LoginScreen extends StatefulWidget {
     required this.onPrimaryAction,
     required this.onForgotPassword,
     required this.onGoogleSignIn,
-    required this.onGitHubSignIn,
+    required this.onPhoneSignIn,
     this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -35,7 +35,7 @@ class LoginScreen extends StatefulWidget {
   final VoidCallback onPrimaryAction;
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
-  final VoidCallback onGitHubSignIn;
+  final VoidCallback onPhoneSignIn;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -138,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen>
               onPrimaryAction: widget.onPrimaryAction,
               onForgotPassword: widget.onForgotPassword,
               onGoogleSignIn: widget.onGoogleSignIn,
-              onGitHubSignIn: widget.onGitHubSignIn,
+              onPhoneSignIn: widget.onPhoneSignIn,
               onMockLogin: onMockLogin,
               onToggleMode: widget.onToggleMode,
               onTogglePassword: widget.onTogglePassword,
@@ -160,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen>
               onPrimaryAction: widget.onPrimaryAction,
               onForgotPassword: widget.onForgotPassword,
               onGoogleSignIn: widget.onGoogleSignIn,
-              onGitHubSignIn: widget.onGitHubSignIn,
+              onPhoneSignIn: widget.onPhoneSignIn,
               onMockLogin: onMockLogin,
               onToggleMode: widget.onToggleMode,
               onTogglePassword: widget.onTogglePassword,
@@ -206,7 +206,7 @@ class _PortraitLoginContent extends StatelessWidget {
     required this.onPrimaryAction,
     required this.onForgotPassword,
     required this.onGoogleSignIn,
-    required this.onGitHubSignIn,
+    required this.onPhoneSignIn,
     required this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -227,7 +227,7 @@ class _PortraitLoginContent extends StatelessWidget {
   final VoidCallback onPrimaryAction;
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
-  final VoidCallback onGitHubSignIn;
+  final VoidCallback onPhoneSignIn;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -282,7 +282,7 @@ class _PortraitLoginContent extends StatelessWidget {
                       onPrimaryAction: onPrimaryAction,
                       onForgotPassword: onForgotPassword,
                       onGoogleSignIn: onGoogleSignIn,
-                      onGitHubSignIn: onGitHubSignIn,
+                      onPhoneSignIn: onPhoneSignIn,
                       onMockLogin: onMockLogin,
                       onToggleMode: onToggleMode,
                       onTogglePassword: onTogglePassword,
@@ -314,7 +314,7 @@ class _LandscapeLoginContent extends StatelessWidget {
     required this.onPrimaryAction,
     required this.onForgotPassword,
     required this.onGoogleSignIn,
-    required this.onGitHubSignIn,
+    required this.onPhoneSignIn,
     required this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -335,7 +335,7 @@ class _LandscapeLoginContent extends StatelessWidget {
   final VoidCallback onPrimaryAction;
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
-  final VoidCallback onGitHubSignIn;
+  final VoidCallback onPhoneSignIn;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -394,7 +394,7 @@ class _LandscapeLoginContent extends StatelessWidget {
                                 onPrimaryAction: onPrimaryAction,
                                 onForgotPassword: onForgotPassword,
                                 onGoogleSignIn: onGoogleSignIn,
-                                onGitHubSignIn: onGitHubSignIn,
+                                onPhoneSignIn: onPhoneSignIn,
                                 onMockLogin: onMockLogin,
                                 onToggleMode: onToggleMode,
                                 onTogglePassword: onTogglePassword,
@@ -547,7 +547,7 @@ class _LoginFormCard extends StatelessWidget {
     required this.onPrimaryAction,
     required this.onForgotPassword,
     required this.onGoogleSignIn,
-    required this.onGitHubSignIn,
+    required this.onPhoneSignIn,
     required this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -566,7 +566,7 @@ class _LoginFormCard extends StatelessWidget {
   final VoidCallback onPrimaryAction;
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
-  final VoidCallback onGitHubSignIn;
+  final VoidCallback onPhoneSignIn;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -713,13 +713,12 @@ class _LoginFormCard extends StatelessWidget {
               leading: const _GoogleGlyph(size: 18),
               onTap: onGoogleSignIn,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: compact ? 8 : 10),
             _SecondaryButton(
-              label: 'Continue with GitHub',
-              icon: Icons.code_rounded,
-              color: Colors.white,
-              leading: const _GitHubGlyph(size: 16),
-              onTap: onGitHubSignIn,
+              label: 'Use Phone Login',
+              icon: Icons.phone_rounded,
+              color: AppColors.neonCyan,
+              onTap: onPhoneSignIn,
             ),
           ],
           SizedBox(height: compact ? 6 : 8),
@@ -1041,26 +1040,6 @@ class _GoogleGlyph extends StatelessWidget {
           height: 1,
           fontWeight: FontWeight.w900,
         ),
-      ),
-    );
-  }
-}
-
-class _GitHubGlyph extends StatelessWidget {
-  const _GitHubGlyph({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      'GH',
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: size * 0.7,
-        height: 1,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 0.2,
       ),
     );
   }

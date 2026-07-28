@@ -102,7 +102,7 @@ final supabaseBackendHealthProvider = FutureProvider<SupabaseBackendHealth>((
   bool storagePermissionDenied = false;
 
   try {
-    await client.rpc<dynamic>('get_global_metrics');
+    await client.from('user_daily_metrics').select().limit(1);
     databaseReachable = true;
   } catch (error) {
     databasePermissionDenied = _looksLikePermissionDenied(error);

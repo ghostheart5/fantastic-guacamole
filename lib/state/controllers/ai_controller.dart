@@ -52,7 +52,6 @@ import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
-import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';

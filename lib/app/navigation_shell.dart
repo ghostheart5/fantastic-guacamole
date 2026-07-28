@@ -15,6 +15,7 @@ import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dar
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
+import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
@@ -22,13 +23,10 @@ import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/session_recovery_provider.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
-import 'package:fantastic_guacamole/state/services/preference_service.dart';
 import 'package:fantastic_guacamole/system/system_scheduler.dart';
-import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 class NavigationShell extends ConsumerStatefulWidget {
   const NavigationShell({super.key, this.initialView = AppView.nexus});
@@ -41,8 +39,6 @@ class NavigationShell extends ConsumerStatefulWidget {
 
 class _NavigationShellState extends ConsumerState<NavigationShell>
     with WidgetsBindingObserver {
-  final PreferenceService _preferenceService = PreferenceService();
-
   late final SystemScheduler _systemScheduler;
   late final DataHygieneScheduler _dataHygieneScheduler;
   late final ProviderSubscription<double> _energySubscription;
@@ -296,32 +292,13 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     ref.invalidate(offlineQueueCountProvider);
   }
 
-  BottomNavigationBarItem _navItem(
-    String assetPath,
-    String label,
-    bool active,
-  ) {
-    return BottomNavigationBarItem(
-      label: label,
-      icon: SvgPicture.asset(
-        assetPath,
-        width: 24,
-        height: 24,
-        colorFilter: ColorFilter.mode(
-          active ? const Color(0xFF00E5FF) : Colors.white70,
-          BlendMode.srcIn,
-        ),
-      ),
-    );
-  }
-
   AppView _recoverableSessionView(AppView view) {
     return switch (view) {
       AppView.creator => AppView.creator,
       AppView.timeline => AppView.timeline,
       AppView.profile => AppView.profile,
-      AppView.nexus || AppView.coach => AppView.nexus,
-      _ => AppView.nexus,
+      AppView.nexus || AppView.coach => AppView.coach,
+      _ => AppView.coach,
     };
   }
 
@@ -333,28 +310,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView.profile => 3,
       _ => 0,
     };
-  }
-
-  void _onTabSelected(int index) {
-    if (!mounted || _disposed) {
-      return;
-    }
-
-    _initializedTabIndexes.add(index);
-    unawaited(_preferenceService.setLastOpenedTab(index));
-
-    final AppFlowController controller = ref.read(appFlowProvider.notifier);
-
-    switch (index) {
-      case 0:
-        controller.toNexus();
-      case 1:
-        controller.toCreator();
-      case 2:
-        controller.toNexus();
-      case 3:
-        controller.toProfile();
-    }
   }
 
   Widget _buildTabbedBody(int tabIndex) {
@@ -420,8 +375,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
               navItem('Profile', 'Identity and progression', AppView.profile),
               const Divider(),
               navItem(
-                'Milestones',
-                'Checkpoint planning and tracking',
+                'Progression',
+                'Levels, streaks, and progression',
                 AppView.progression,
               ),
               navItem('Settings', 'Preferences and controls', AppView.settings),
@@ -450,26 +405,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           child: const Icon(Icons.map_outlined),
         ),
         body: _buildTabbedBody(tabIndex),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: tabIndex,
-          onTap: _onTabSelected,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: const Color(0xD90B111C),
-          selectedItemColor: const Color(0xFF00E5FF),
-          unselectedItemColor: Colors.white70,
-          showSelectedLabels: false,
-          showUnselectedLabels: false,
-          items: <BottomNavigationBarItem>[
-            _navItem(AppAssets.iconNexus, 'Nexus', tabIndex == 0),
-            _navItem(AppAssets.iconTasks, 'Creator', tabIndex == 1),
-            _navItem(AppAssets.iconTasks, 'Timeline', tabIndex == 2),
-            _navItem(AppAssets.iconProfile, 'Profile', tabIndex == 3),
-          ],
-        ),
       ),
+
       AppView.smartCoach => const SmartCoachScreen(),
       AppView.console => const SIConsoleScreen(),
       AppView.settings => const SettingsScreen(),
+      AppView.trajectoryEngine => const TrajectoryEngineScreen(),
       AppView.progression => const ProgressionScreen(),
     };
 
@@ -498,7 +439,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           return;
         }
 
-        // Stay on Nexus instead of closing the Windows app.
         controller.toNexus();
       },
       child: OfflineBanner(child: body),

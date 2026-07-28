@@ -1,0 +1,29 @@
+import 'package:fantastic_guacamole/app/app_root.dart';
+import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('App boot widget behavior', () {
+    testWidgets('app root can be pumped inside ProviderScope', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: AppRoot(),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(BottomNavigationBar), findsNothing);
+    });
+
+    test('Nexus entry screen widget is constructible for home surface contract', () {
+      const Widget home = NexusScreen();
+      expect(home, isA<NexusScreen>());
+    });
+  });
+}

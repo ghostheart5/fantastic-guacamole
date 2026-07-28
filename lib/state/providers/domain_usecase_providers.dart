@@ -470,7 +470,7 @@ final extendedDomainBootstrapProvider = FutureProvider<void>((ref) async {
         .call(
           const CoachMessage(
             id: 'bootstrap.coach.welcome',
-            label: 'Welcome to Smart Coach',
+            label: 'Welcome to Smart Planner',
           ),
         );
   }

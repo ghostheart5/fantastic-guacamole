@@ -1,21 +1,18 @@
-import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
-import 'package:fantastic_guacamole/features/profile/ui/widgets/profile_header.dart';
-import 'package:fantastic_guacamole/features/profile/ui/widgets/stats_card.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/models/core_values_models.dart';
-import 'package:fantastic_guacamole/state/models/profile_view_state.dart';
-import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:fantastic_guacamole/state/providers/profile_provider.dart';
-import 'package:fantastic_guacamole/state/providers/profile_values_provider.dart';
+import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
+import 'package:fantastic_guacamole/state/providers/identity_account_provider.dart';
+import 'package:fantastic_guacamole/state/providers/identity_account_actions_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_security_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_connection_provider.dart';
+import 'package:fantastic_guacamole/features/auth/domain/models/chronospark_identity.dart';
+import 'package:fantastic_guacamole/features/profile/ui/widgets/profile_header.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
-import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -23,627 +20,852 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(profileViewStateProvider);
+    final data = state.profile;
+    final momentum = ref.watch(momentumEngineProvider);
+    final identityStatus = ref.watch(identityAccountStatusProvider);
+    final identityActionState = ref.watch(identityAccountActionsProvider);
+    final accountSecurity = ref.watch(accountSecurityProvider);
+    final accountConnections = ref.watch(accountConnectionProvider);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgProfile,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: SafeArea(child: _ProfileBody(state: state)),
-      ),
-    );
-  }
-}
-
-class _ProfileBody extends ConsumerWidget {
-  const _ProfileBody({required this.state});
-  final ProfileViewState state;
-
-  Future<void> _inviteFriends(
-    BuildContext context,
-    ProfileViewState state,
-  ) async {
-    final String text =
-        'I am using ChronoSpark to run my goals, progression, and focus system.\n'
-        'Join me: ${AppUrls.website}\n'
-        'Current streak: ${state.profile.streak}d | Level ${state.profile.level}';
-    try {
-      await SharePlus.instance.share(
-        ShareParams(
-          text: text,
-          title: 'Join me on ChronoSpark',
-          subject: 'Invite to ChronoSpark',
-        ),
-      );
-      AppAnalytics.track(
-        'invite_friends_shared',
-        params: <String, Object?>{'method': 'share_sheet'},
-      );
-      return;
-    } catch (_) {
-      await Clipboard.setData(ClipboardData(text: text));
-      AppAnalytics.track(
-        'invite_friends_shared',
-        params: <String, Object?>{'method': 'clipboard_fallback'},
-      );
-    }
-    if (!context.mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Share sheet unavailable. Invite copied to clipboard.'),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final actions = ref.watch(profileActionsProvider);
-    final data = state.profile;
-
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        ProfileHeader(
-          name: data.name,
-          level: data.level,
-          onOpenSettings: actions.openSettings,
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            SizedBox(
-              width: 104,
-              child: StatsCard(
-                label: 'LEVEL',
-                value: '${data.level}',
-                color: AppColors.neonCyan,
-                icon: Icons.bolt,
-              ),
-            ),
-            SizedBox(
-              width: 104,
-              child: StatsCard(
-                label: 'XP',
-                value: '${data.xp}',
-                color: AppColors.memoryAmber,
-                icon: Icons.star_outline,
-              ),
-            ),
-            SizedBox(
-              width: 104,
-              child: StatsCard(
-                label: 'STREAK',
-                value: '${data.streak}d',
-                color: AppColors.neonViolet,
-                icon: Icons.local_fire_department,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _NameEditor(initialName: data.name, onSave: actions.updateName),
-        const SizedBox(height: 16),
-        const _IdentityCard(),
-        const SizedBox(height: 16),
-        const _ValuesCard(),
-        const SizedBox(height: 16),
-        _NavButtons(
-          onTimeline: () => ref.read(appFlowProvider.notifier).toTimeline(),
-          onProgression: actions.openProgression,
-          onInviteFriends: () => _inviteFriends(context, state),
-        ),
-      ],
-    );
-  }
-}
-
-class _IdentityCard extends ConsumerWidget {
-  const _IdentityCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final identity = ref.watch(identityStateProvider);
-    final notifier = ref.watch(identityStateProvider.notifier);
-    final growthTitle = ref.watch(userGrowthTitleProvider);
-    final archetype = notifier.archetype;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(20),
             children: [
-              Container(
-                width: 2,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: AppColors.neonViolet,
-                  borderRadius: BorderRadius.circular(1),
-                ),
+              ProfileHeader(
+                name: data.name,
+                level: data.level,
+                onBack: () => ref.read(appFlowProvider.notifier).toNexus(),
+                onOpenSettings: () =>
+                    ref.read(appFlowProvider.notifier).toSettings(),
               ),
-              const SizedBox(width: 8),
+
+              const SizedBox(height: 16),
+
+              _IdentityAccountCard(status: identityStatus),
+              const SizedBox(height: 12),
+              _AccountSecurityCard(security: accountSecurity),
+              const SizedBox(height: 12),
+              _ConnectedAccountsCard(connections: accountConnections),
+              const SizedBox(height: 12),
+              _IdentityAccountActionsCard(
+                status: identityStatus,
+                isBusy: identityActionState.isLoading,
+                onInitialize: () => ref
+                    .read(identityAccountActionsProvider.notifier)
+                    .initializeLocalIdentity(
+                      displayName: data.name.trim().isEmpty
+                          ? 'Operator'
+                          : data.name.trim(),
+                    ),
+                onRestore: () => ref
+                    .read(identityAccountActionsProvider.notifier)
+                    .restoreLocalIdentity(),
+                onSignOut: () => ref
+                    .read(identityAccountActionsProvider.notifier)
+                    .signOutLocalIdentity(),
+              ),
+
+              const SizedBox(height: 16),
+
               const Text(
-                'ARCHETYPE',
+                'PROFILE',
                 style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2.5,
-                  color: AppColors.neonViolet,
-                  fontWeight: FontWeight.w700,
+                  color: AppColors.neonCyan,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _MetricCard(
+                    label: 'LEVEL',
+                    value: '${data.level}',
+                    color: AppColors.neonCyan,
+                  ),
+                  _MetricCard(
+                    label: 'XP',
+                    value: '${data.xp}',
+                    color: AppColors.memoryAmber,
+                  ),
+                  _MetricCard(
+                    label: 'STREAK',
+                    value: '${data.streak}d',
+                    color: AppColors.neonViolet,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              _OperatorStatusCard(
+                level: data.level,
+                xp: data.xp,
+                streak: data.streak,
+              ),
+
+              const SizedBox(height: 20),
+
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xEE07111F),
+                      AppColors.neonCyan.withValues(alpha: 0.10),
+                      AppColors.neonViolet.withValues(alpha: 0.08),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.25),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.neonCyan.withValues(alpha: 0.08),
+                      blurRadius: 18,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'MOMENTUM PROFILE',
+                      style: TextStyle(
+                        color: AppColors.neonCyan,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      momentum.trend,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      momentum.forecast,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Momentum ${momentum.score}%  ·  Energy ${momentum.energyPercent}%  ·  Pressure ${momentum.pressurePercent}%',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Recovery: ${momentum.recovery}',
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _ArchetypeBadge(label: archetype, color: AppColors.neonViolet),
-              _ArchetypeBadge(label: growthTitle, color: AppColors.neonCyan),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _IdentityBar(
-            label: 'Discipline',
-            value: identity.disciplineIdentity,
-            color: AppColors.memoryAmber,
-          ),
-          const SizedBox(height: 8),
-          _IdentityBar(
-            label: 'Focus',
-            value: identity.focusIdentity,
-            color: AppColors.neonCyan,
-          ),
-          const SizedBox(height: 8),
-          _IdentityBar(
-            label: 'Growth',
-            value: identity.growthIdentity,
-            color: AppColors.neonViolet,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ArchetypeBadge extends StatelessWidget {
-  const _ArchetypeBadge({required this.label, required this.color});
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );
   }
 }
 
-class _IdentityBar extends StatelessWidget {
-  const _IdentityBar({
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
     required this.label,
     required this.value,
     required this.color,
   });
+
   final String label;
-  final double value;
+  final String value;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 70,
-          child: Text(
-            label,
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
-          ),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: value,
-              backgroundColor: Colors.white10,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 4,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '${(value * 100).round()}%',
-          style: TextStyle(
-            color: color,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ValuesCard extends ConsumerWidget {
-  const _ValuesCard();
-
-  Future<void> _toggle(WidgetRef ref, String value) {
-    return ref.read(profileValuesProvider.notifier).toggle(value);
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final Set<String> selected = ref.watch(profileValuesProvider);
-    final CoreValuesAlignment alignment = ref.watch(
-      coreValuesAlignmentProvider,
-    );
-
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      width: 104,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
+        color: const Color(0xAA07111F),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 2,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: AppColors.neonCyan,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'CORE VALUES',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2.5,
-                  color: AppColors.neonCyan,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
           Text(
-            'Alignment ${alignment.overall}% · Strongest ${coreValueTitle(alignment.strongest)} · Needs focus ${coreValueTitle(alignment.mostNeglected)}',
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 11,
-              height: 1.4,
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: CoreValueType.values.map((CoreValueType value) {
-              final String title = coreValueTitle(value);
-              final bool sel = selected.contains(title);
-              final int score = alignment.scores[value]?.score ?? 0;
-              return GestureDetector(
-                onTap: () => _toggle(ref, title),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: sel
-                        ? AppColors.neonCyan.withValues(alpha: 0.15)
-                        : Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: sel
-                          ? AppColors.neonCyan.withValues(alpha: 0.7)
-                          : Colors.white.withValues(alpha: 0.1),
-                    ),
-                  ),
-                  child: Text(
-                    '$title $score%',
-                    style: TextStyle(
-                      color: sel ? AppColors.neonCyan : Colors.white54,
-                      fontSize: 12,
-                      fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 10,
+              letterSpacing: 1.5,
+            ),
           ),
-          const SizedBox(height: 12),
-          ...CoreValueType.values
-              .where((CoreValueType value) {
-                return selected.contains(coreValueTitle(value));
-              })
-              .map((CoreValueType value) {
-                final CoreValueDefinition definition =
-                    coreValueDefinitions[value]!;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.03),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          definition.title,
-                          style: const TextStyle(
-                            color: AppColors.neonCyan,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          definition.definition,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Guiding question: ${definition.guidingQuestion}',
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
         ],
       ),
     );
   }
 }
 
-class _NavButtons extends StatelessWidget {
-  const _NavButtons({
-    required this.onTimeline,
-    required this.onProgression,
-    required this.onInviteFriends,
+class _OperatorStatusCard extends StatelessWidget {
+  const _OperatorStatusCard({
+    required this.level,
+    required this.xp,
+    required this.streak,
   });
-  final VoidCallback onTimeline;
-  final VoidCallback onProgression;
-  final VoidCallback onInviteFriends;
+
+  final int level;
+  final int xp;
+  final int streak;
+
+  String get _status {
+    if (streak >= 21) {
+      return 'Elite rhythm established';
+    }
+    if (streak >= 7) {
+      return 'Momentum system online';
+    }
+    if (xp > 0) {
+      return 'Operator growth active';
+    }
+    return 'Profile system initializing';
+  }
+
+  String get _signal {
+    if (level >= 10) {
+      return 'Advanced operator tier detected.';
+    }
+    if (streak >= 7) {
+      return 'Consistency is building a stronger future path.';
+    }
+    return 'Complete actions to strengthen your operator signal.';
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _NavBtn(
-                label: 'TIMELINE OPS',
-                icon: Icons.timeline_rounded,
-                color: AppColors.neonViolet,
-                onTap: onTimeline,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _NavBtn(
-                label: 'PROGRESSION INTEL',
-                icon: Icons.bolt,
-                color: AppColors.memoryAmber,
-                onTap: onProgression,
-              ),
-            ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            AppColors.neonCyan.withValues(alpha: 0.12),
+            AppColors.neonViolet.withValues(alpha: 0.10),
           ],
         ),
-        const SizedBox(height: 10),
-        _NavBtn(
-          label: 'INVITE FRIENDS',
-          icon: Icons.group_add_rounded,
-          color: AppColors.neonCyan,
-          onTap: onInviteFriends,
-        ),
-      ],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonCyan.withValues(alpha: 0.08),
+            blurRadius: 20,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.neonCyan.withValues(alpha: 0.10),
+              border: Border.all(
+                color: AppColors.neonCyan.withValues(alpha: 0.38),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.neonCyan.withValues(alpha: 0.18),
+                  blurRadius: 18,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.person_pin_circle_rounded,
+              color: AppColors.neonCyan,
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'OPERATOR STATUS',
+                  style: TextStyle(
+                    color: AppColors.neonCyan,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _status,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  _signal,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _NavBtn extends StatelessWidget {
-  const _NavBtn({
+class _IdentityAccountCard extends StatelessWidget {
+  const _IdentityAccountCard({required this.status});
+
+  final IdentityAccountStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            AppColors.neonViolet.withValues(alpha: 0.10),
+            AppColors.neonCyan.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonViolet.withValues(alpha: 0.08),
+            blurRadius: 18,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'IDENTITY ACCOUNT',
+            style: TextStyle(
+              color: AppColors.neonViolet,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.2,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            status.displayName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            status.accountLabel,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Sync: ${status.syncLabel}',
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            status.emailLabel,
+            style: const TextStyle(
+              color: Colors.white38,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountSecurityCard extends StatelessWidget {
+  const _AccountSecurityCard({required this.security});
+
+  final AccountSecurityState security;
+
+  Color get _accent {
+    switch (security.level) {
+      case AccountSecurityLevel.trusted:
+        return AppColors.neonCyan;
+      case AccountSecurityLevel.verified:
+        return AppColors.neonViolet;
+      case AccountSecurityLevel.basic:
+        return AppColors.memoryAmber;
+      case AccountSecurityLevel.signedOut:
+        return AppColors.recallRed;
+    }
+  }
+
+  String get _label {
+    switch (security.level) {
+      case AccountSecurityLevel.trusted:
+        return 'TRUSTED';
+      case AccountSecurityLevel.verified:
+        return 'VERIFIED';
+      case AccountSecurityLevel.basic:
+        return 'BASIC';
+      case AccountSecurityLevel.signedOut:
+        return 'SIGNED OUT';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            _accent.withValues(alpha: 0.10),
+            AppColors.neonViolet.withValues(alpha: 0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _accent.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(color: _accent.withValues(alpha: 0.08), blurRadius: 18),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'SECURITY STATUS  ·  $_label',
+            style: TextStyle(
+              color: _accent,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.0,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            security.summary,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            security.recommendation,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _SecurityChip(
+                label: 'EMAIL',
+                value: security.emailVerified ? 'VERIFIED' : 'PENDING',
+                color: security.emailVerified
+                    ? AppColors.neonCyan
+                    : AppColors.memoryAmber,
+              ),
+              _SecurityChip(
+                label: 'SESSION',
+                value: security.sessionActive ? 'ACTIVE' : 'INACTIVE',
+                color: security.sessionActive
+                    ? AppColors.neonCyan
+                    : AppColors.recallRed,
+              ),
+              _SecurityChip(
+                label: 'DEVICE',
+                value: security.deviceTrusted ? 'TRUSTED' : 'LOCAL',
+                color: security.deviceTrusted
+                    ? AppColors.neonViolet
+                    : Colors.white38,
+              ),
+              _SecurityChip(
+                label: 'RESET',
+                value: security.passwordResetAvailable ? 'READY' : 'N/A',
+                color: security.passwordResetAvailable
+                    ? AppColors.memoryAmber
+                    : Colors.white38,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SecurityChip extends StatelessWidget {
+  const _SecurityChip({
     required this.label,
-    required this.icon,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Text(
+        '$label $value',
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.1,
+        ),
+      ),
+    );
+  }
+}
+
+class _IdentityAccountActionsCard extends StatelessWidget {
+  const _IdentityAccountActionsCard({
+    required this.status,
+    required this.isBusy,
+    required this.onInitialize,
+    required this.onRestore,
+    required this.onSignOut,
+  });
+
+  final IdentityAccountStatus status;
+  final bool isBusy;
+  final VoidCallback onInitialize;
+  final VoidCallback onRestore;
+  final VoidCallback onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    final String primaryLabel = status.hasIdentity
+        ? 'SIGN OUT LOCAL IDENTITY'
+        : 'INITIALIZE LOCAL IDENTITY';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            AppColors.memoryAmber.withValues(alpha: 0.10),
+            AppColors.neonCyan.withValues(alpha: 0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.memoryAmber.withValues(alpha: 0.28),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.memoryAmber.withValues(alpha: 0.08),
+            blurRadius: 18,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'ACCOUNT ACTIONS',
+            style: TextStyle(
+              color: AppColors.memoryAmber,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.2,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            isBusy
+                ? 'Processing identity action...'
+                : 'Local identity bridge ready.',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _IdentityActionButton(
+                label: primaryLabel,
+                color: status.hasIdentity
+                    ? AppColors.recallRed
+                    : AppColors.neonCyan,
+                onTap: isBusy
+                    ? () {}
+                    : (status.hasIdentity ? onSignOut : onInitialize),
+              ),
+              _IdentityActionButton(
+                label: 'RESTORE LOCAL',
+                color: AppColors.neonViolet,
+                onTap: isBusy ? () {} : onRestore,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IdentityActionButton extends StatelessWidget {
+  const _IdentityActionButton({
+    required this.label,
     required this.color,
     required this.onTap,
   });
+
   final String label;
-  final IconData icon;
   final Color color;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return SmartPressable(
       onTap: onTap,
       child: Container(
-        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.30)),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ],
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.1,
+          ),
         ),
       ),
     );
   }
 }
 
-class _NameEditor extends StatefulWidget {
-  const _NameEditor({required this.initialName, required this.onSave});
+class _ConnectedAccountsCard extends StatelessWidget {
+  const _ConnectedAccountsCard({required this.connections});
 
-  final String initialName;
-  final ValueChanged<String> onSave;
+  final AccountConnectionState connections;
 
-  @override
-  State<_NameEditor> createState() => _NameEditorState();
-}
-
-class _NameEditorState extends State<_NameEditor> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialName);
+  Color _colorFor(AccountConnectionStatus status) {
+    switch (status) {
+      case AccountConnectionStatus.connected:
+        return AppColors.neonCyan;
+      case AccountConnectionStatus.pending:
+        return AppColors.memoryAmber;
+      case AccountConnectionStatus.disconnected:
+        return Colors.white38;
+    }
   }
 
-  @override
-  void didUpdateWidget(covariant _NameEditor oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialName != widget.initialName &&
-        _controller.text != widget.initialName) {
-      _controller.text = widget.initialName;
+  String _statusLabel(AccountConnectionStatus status) {
+    switch (status) {
+      case AccountConnectionStatus.connected:
+        return 'CONNECTED';
+      case AccountConnectionStatus.pending:
+        return 'PENDING';
+      case AccountConnectionStatus.disconnected:
+        return 'NOT LINKED';
+    }
+  }
+
+  String _providerLabel(ChronoSparkAuthProvider provider) {
+    switch (provider) {
+      case ChronoSparkAuthProvider.email:
+        return 'EMAIL';
+      case ChronoSparkAuthProvider.google:
+        return 'GOOGLE';
+      case ChronoSparkAuthProvider.github:
+        return 'GITHUB';
+      case ChronoSparkAuthProvider.apple:
+        return 'APPLE';
+      case ChronoSparkAuthProvider.microsoft:
+        return 'MICROSOFT';
+      case ChronoSparkAuthProvider.anonymous:
+        return 'ANONYMOUS';
     }
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final int connectedCount = connections.connections
+        .where(
+          (AccountConnection connection) =>
+              connection.status == AccountConnectionStatus.connected,
+        )
+        .length;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.2)),
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xEE07111F),
+            AppColors.neonCyan.withValues(alpha: 0.08),
+            AppColors.neonViolet.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.24)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.neonViolet.withValues(alpha: 0.06),
-            blurRadius: 20,
-            spreadRadius: -2,
+            color: AppColors.neonCyan.withValues(alpha: 0.07),
+            blurRadius: 18,
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 2,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: AppColors.neonViolet,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'IDENTITY',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2.5,
-                  color: AppColors.neonViolet,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _controller,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Enter identity callsign',
-              hintStyle: const TextStyle(color: Colors.white30),
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.03),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(
-                  color: AppColors.neonViolet.withValues(alpha: 0.2),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(
-                  color: AppColors.neonViolet.withValues(alpha: 0.2),
-                ),
-              ),
+          const Text(
+            'CONNECTED ACCOUNTS',
+            style: TextStyle(
+              color: AppColors.neonCyan,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.2,
             ),
           ),
           const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: () {
-                final String nextName = _controller.text.trim();
-                if (nextName.isEmpty) return;
-                widget.onSave(nextName);
-              },
-              child: const Text('Update Identity'),
+          Text(
+            '$connectedCount connected identity ${connectedCount == 1 ? 'source' : 'sources'}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
             ),
           ),
+          const SizedBox(height: 12),
+          ...connections.connections.map((AccountConnection connection) {
+            final Color accent = _colorFor(connection.status);
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: accent.withValues(alpha: 0.22)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _providerLabel(connection.provider),
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      _statusLabel(connection.status),
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );

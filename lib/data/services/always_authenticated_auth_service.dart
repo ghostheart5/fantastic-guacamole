@@ -34,7 +34,13 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<UserCredential> signInWithGitHub() async {
+  Future<void> sendPhoneOtp(String phone) async {}
+
+  @override
+  Future<UserCredential> verifyPhoneOtp({
+    required String phone,
+    required String token,
+  }) async {
     return UserCredential(user: _user);
   }
 

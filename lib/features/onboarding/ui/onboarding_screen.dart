@@ -47,11 +47,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     _Slide(
       icon: Icons.psychology_rounded,
       iconColor: Color(0xFF9B8AFB),
-      tag: 'SMART COACH',
+      tag: 'SMART PLANNER',
       title: 'LIFE GUIDANCE',
       subtitle: 'Adaptive personal coaching',
       body:
-          'Smart Coach reads your emotional state, energy signature, and behavior patterns to generate practical guidance. This is not a checklist bot. It is your strategy layer.',
+          'Smart Planner reads your emotional state, energy signature, and behavior patterns to generate practical guidance. This is not a checklist bot. It is your strategy layer.',
     ),
     _Slide(
       icon: Icons.timer_rounded,
@@ -65,8 +65,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     _Slide(
       icon: Icons.trending_up_rounded,
       iconColor: Color(0xFF00E5FF),
-      tag: 'ACTIVITY LEDGER',
-      title: 'VERIFIED HISTORY',
+      tag: 'TIMELINE',
+      title: 'PAST • PRESENT • FUTURE',
       subtitle: 'Review what actually happened',
       body:
           'Activity Ledger records completed actions and milestones in one trusted timeline so you can audit execution and upgrade your system.',
@@ -74,11 +74,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     _Slide(
       icon: Icons.touch_app_rounded,
       iconColor: Color(0xFF00E5FF),
-      tag: 'PAGE GUIDE',
-      title: 'WHAT TO CLICK',
+      tag: 'CONTROL MAP',
+      title: 'CORE SYSTEMS',
       subtitle: 'Quick control map',
       body:
-          'Nexus: scan signals, choose one next move.\nTrajectory: read prediction, then open Flowmap for branches.\nCreator: forge manual tasks only when needed.\nActivity Ledger: audit completed actions and patterns.',
+          'Nexus: choose your next move.\nSmart Planner: receive guidance and execution support.\nCreator: create tasks, goals, and milestones.\nTimeline: review history and progress.\nTrajectory: see future direction and predictions.',
     ),
   ];
 

@@ -1,0 +1,6 @@
+﻿START=2026-07-26T14:52:22.6501455-05:00
+PROFILE=multi_seed
+PACKAGE=com.ghostheart5.chronospark
+SEED=260801
+COUNT=300000
+COMMAND=adb shell monkey -p com.ghostheart5.chronospark  -s 260801 300000

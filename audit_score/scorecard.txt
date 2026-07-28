@@ -1,0 +1,16 @@
+
+APP AUDIT SCORECARD
+=====================
+
+Findings:
+
+Scores:
+Placeholders Score: 0 / 10
+AssetConnections Score: 0 / 15
+AI_SI Score: 0 / 15
+Wiring Score: 0 / 25
+NullFiles Score: 0 / 10
+CorruptedFiles Score: 15 / 15
+AudioVoice Score: 0 / 10
+
+TOTAL SCORE: 15 / 100

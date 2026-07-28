@@ -53,7 +53,7 @@ class TutorialContent {
     ),
     TutorialStepContent(
       id: 'coach_quick_prompt',
-      title: 'SMART COACH',
+      title: 'SMART PLANNER',
       description:
           'Send one focused prompt to get immediate guidance when momentum drops.',
       ctaLabel: 'Try Prompt',
@@ -123,21 +123,21 @@ class TutorialContent {
     ),
     TutorialStepContent(
       id: 'goals_overview',
-      title: 'GOALS WORKSPACE',
+      title: 'CREATOR WORKSPACE',
       description:
           'Keep goals precise, measurable, and aligned with your current energy state.',
-      ctaLabel: 'ALIGN GOALS',
+      ctaLabel: 'OPEN CREATOR',
     ),
     TutorialStepContent(
       id: 'memories_overview',
       title: 'MEMORIES',
       description:
-          'Capture high-signal memory notes so Smart Coach can reason with real context.',
+          'Capture high-signal memory notes so Smart Planner can reason with real context.',
       ctaLabel: 'Save Memory',
     ),
     TutorialStepContent(
       id: 'soul_map_overview',
-      title: 'SOUL MAP',
+      title: 'TIMELINE',
       description:
           'Read emotional and identity vectors that influence clarity, resilience, and decision quality.',
       ctaLabel: 'SCAN MAP',
@@ -155,7 +155,7 @@ class TutorialContent {
     AcademyTrack(
       title: 'Getting Started',
       lessons: <AcademyLesson>[
-        AcademyLesson(title: 'Creating Goals'),
+        AcademyLesson(title: 'Creating Outcomes'),
         AcademyLesson(title: 'Planning Days'),
         AcademyLesson(title: 'Habits'),
         AcademyLesson(title: 'Streaks'),
@@ -173,7 +173,7 @@ class TutorialContent {
     AcademyTrack(
       title: 'Intelligence',
       lessons: <AcademyLesson>[
-        AcademyLesson(title: 'Smart Coach'),
+        AcademyLesson(title: 'Smart Planner'),
         AcademyLesson(title: 'Recommendations'),
         AcademyLesson(title: 'Analytics'),
       ],
@@ -271,9 +271,9 @@ class TutorialContent {
         'Store high-signal memories with enough detail for stronger future coaching context.',
 
     'soul_map':
-        'Use Soul Map regularly to detect drift between values and daily execution patterns.',
+        'Use Timeline regularly to review history, detect drift, and course-correct execution.',
     'soul_map_overview':
-        'Use Soul Map regularly to detect drift between values and daily execution patterns.',
+        'Use Timeline regularly to review history, detect drift, and course-correct execution.',
 
     'timeline':
         'Scan timeline causality before changing direction so course correction is intentional.',

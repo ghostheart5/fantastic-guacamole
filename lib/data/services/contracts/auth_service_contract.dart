@@ -13,7 +13,11 @@ abstract class AuthServiceContract {
     required String password,
   });
   Future<UserCredential> signInWithGoogle();
-  Future<UserCredential> signInWithGitHub();
+  Future<void> sendPhoneOtp(String phone);
+  Future<UserCredential> verifyPhoneOtp({
+    required String phone,
+    required String token,
+  });
   Future<void> sendPasswordReset(String email);
   Future<void> updatePassword({required String newPassword});
   Future<void> sendEmailVerification();
@@ -53,14 +57,6 @@ extension AuthServiceContractResultX on AuthServiceContract {
     return AppResult.guard<UserCredential>(
       signInWithGoogle,
       messageFor: (Object error) => 'Google sign-in failed: $error',
-      errorCodeFor: _authErrorCodeFor,
-    );
-  }
-
-  Future<AppResult<UserCredential>> signInWithGitHubResult() {
-    return AppResult.guard<UserCredential>(
-      signInWithGitHub,
-      messageFor: (Object error) => 'GitHub sign-in failed: $error',
       errorCodeFor: _authErrorCodeFor,
     );
   }

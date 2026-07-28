@@ -9,14 +9,12 @@ class SmartCoachHero extends ConsumerWidget {
     super.key,
     required this.coachMessage,
     required this.nextAction,
-    required this.progressionFeedback,
     required this.taskCount,
     required this.coachOnline,
   });
 
   final String coachMessage;
   final String nextAction;
-  final String progressionFeedback;
   final int taskCount;
   final bool coachOnline;
 
@@ -49,7 +47,7 @@ class SmartCoachHero extends ConsumerWidget {
                 ),
               ),
               const Text(
-                'SMART COACH',
+                'SMART PLANNER',
                 style: TextStyle(
                   color: AppColors.neonCyan,
                   fontSize: 12,
@@ -59,7 +57,7 @@ class SmartCoachHero extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           const Text(
             'TODAY\'S FOCUS SIGNAL',
             style: TextStyle(
@@ -68,7 +66,7 @@ class SmartCoachHero extends ConsumerWidget {
               letterSpacing: 2,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 5),
           Row(
             children: [
               Expanded(
@@ -98,18 +96,18 @@ class SmartCoachHero extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 8),
           Text(
             coachMessage,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 20,
-              height: 1.3,
+              fontSize: 16,
+              height: 1.15,
               fontWeight: FontWeight.w700,
             ),
           ),
           if (actionReady) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: 8),
             const Text(
               'NEXT ACTION',
               style: TextStyle(
@@ -121,23 +119,6 @@ class SmartCoachHero extends ConsumerWidget {
             ),
             const SizedBox(height: 6),
             Text(nextAction, style: const TextStyle(color: Colors.white)),
-          ],
-          if (progressionFeedback.trim().isNotEmpty) ...[
-            const SizedBox(height: 18),
-            const Text(
-              'PROGRESSION SIGNAL',
-              style: TextStyle(
-                color: AppColors.memoryAmber,
-                fontSize: 11,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              progressionFeedback,
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
           ],
         ],
       ),

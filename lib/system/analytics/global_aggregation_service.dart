@@ -10,11 +10,16 @@ class GlobalAggregationService {
   GlobalAggregationService({
     required sb.SupabaseClient? client,
     required Future<String> Function() ensureIdentity,
+    Future<List<Map<String, dynamic>>> Function(sb.SupabaseClient? client)?
+    metricsRowsLoader,
   }) : _client = client, // ignore: prefer_initializing_formals
-       _ensureIdentity = ensureIdentity; // ignore: prefer_initializing_formals
+       _ensureIdentity = ensureIdentity, // ignore: prefer_initializing_formals
+       _metricsRowsLoader = metricsRowsLoader ?? _defaultMetricsRowsLoader;
 
   final sb.SupabaseClient? _client;
   final Future<String> Function() _ensureIdentity;
+  final Future<List<Map<String, dynamic>>> Function(sb.SupabaseClient? client)
+  _metricsRowsLoader;
 
   static const _kCacheKey = 'global_metrics_cache';
   static const _kCacheTsKey = 'global_metrics_cache_ts';
@@ -46,22 +51,16 @@ class GlobalAggregationService {
     final cached = _loadCache();
     if (cached != null) return cached;
     final sb.SupabaseClient? client = _client;
-    if (!Env.isSupabaseConfigured ||
-        client == null ||
-        client.auth.currentUser == null) {
+    if (!Env.isSupabaseConfigured && client != null) {
       return GlobalMetrics.empty();
     }
     try {
-      final dynamic data = await client.rpc<dynamic>('get_global_metrics');
-      final Map<String, dynamic>? payload = _coerceMetricsPayload(data);
-      if (payload == null) {
-        throw const FormatException('Invalid global metrics payload.');
+      if (client != null && client.auth.currentUser == null) {
+        return GlobalMetrics.empty();
       }
-      final metrics = GlobalMetrics(
-        avgTaskCompletionRate:
-            (payload['avgTaskCompletionRate'] as num?)?.toDouble() ?? 0,
-        avgMomentumPeak: (payload['avgMomentumPeak'] as num?)?.toDouble() ?? 0,
-      );
+
+      final rows = await _metricsRowsLoader(client);
+      final metrics = GlobalMetrics.fromRows(rows);
       await _saveCache(metrics);
       return metrics;
     } catch (e) {
@@ -92,32 +91,43 @@ class GlobalAggregationService {
   }
 
   Future<void> _saveCache(GlobalMetrics metrics) async {
-    final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    await SharedPrefsService.save(_kCacheTsKey, ts.toString());
-    await SharedPrefsService.save(
-      _kCacheKey,
-      jsonEncode({
-        'avgTaskCompletionRate': metrics.avgTaskCompletionRate,
-        'avgMomentumPeak': metrics.avgMomentumPeak,
-      }),
-    );
+    try {
+      final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      await SharedPrefsService.save(_kCacheTsKey, ts.toString());
+      await SharedPrefsService.save(
+        _kCacheKey,
+        jsonEncode({
+          'avgTaskCompletionRate': metrics.avgTaskCompletionRate,
+          'avgMomentumPeak': metrics.avgMomentumPeak,
+        }),
+      );
+    } catch (_) {
+      // Shared preferences may be unavailable in tests or offline contexts.
+    }
   }
 
-  Map<String, dynamic>? _coerceMetricsPayload(dynamic data) {
-    if (data is Map<String, dynamic>) {
-      return data;
+  static Future<List<Map<String, dynamic>>> _defaultMetricsRowsLoader(
+    sb.SupabaseClient? client,
+  ) async {
+    if (client == null || client.auth.currentUser == null) {
+      return const <Map<String, dynamic>>[];
     }
-    if (data is Map) {
-      return data.map(
-        (dynamic key, dynamic value) => MapEntry(key.toString(), value),
-      );
+
+    try {
+      final response = await client
+          .from(_kTable)
+          .select()
+          .eq('user_id', client.auth.currentUser!.id);
+      return response
+          .whereType<Map<dynamic, dynamic>>()
+          .map(
+            (row) => row.map<String, dynamic>(
+              (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+            ),
+          )
+          .toList(growable: false);
+    } catch (_) {
+      return const <Map<String, dynamic>>[];
     }
-    if (data is List && data.isNotEmpty && data.first is Map) {
-      final Map<dynamic, dynamic> first = data.first as Map<dynamic, dynamic>;
-      return first.map(
-        (dynamic key, dynamic value) => MapEntry(key.toString(), value),
-      );
-    }
-    return null;
   }
 }

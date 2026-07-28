@@ -14,7 +14,6 @@ abstract class AuthRemoteDataSource {
     required PasswordValue password,
   });
   Future<AuthSessionModel?> signInWithGoogle();
-  Future<AuthSessionModel?> signInWithGitHub();
   Future<void> sendPasswordReset({required EmailAddress email});
   Future<void> sendEmailVerification();
   Future<void> refreshSession();

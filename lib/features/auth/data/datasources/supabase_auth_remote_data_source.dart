@@ -70,12 +70,6 @@ class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
   }
 
   @override
-  Future<AuthSessionModel?> signInWithGitHub() async {
-    await _authService.signInWithGitHub();
-    return getCurrentSession();
-  }
-
-  @override
   Future<void> sendEmailVerification() {
     return _authService.sendEmailVerification();
   }

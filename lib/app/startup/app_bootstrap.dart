@@ -212,6 +212,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
   bool _startupBlocked = false;
   String? _startupError;
   String? _lastAuthUserId;
+  bool _firstInteractiveFrameLogged = false;
 
   @override
   void initState() {
@@ -248,6 +249,10 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
 
     debugPrint('CHRONOSPARK_INITIALIZE_STARTUP_DONE');
 
+    if (!mounted) {
+      return;
+    }
+
     ref.invalidate(supabaseClientProvider);
     ref.invalidate(authServiceProvider);
     ref.invalidate(authUserProvider);
@@ -261,14 +266,14 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
 
     final String? stateBootstrapIssue = await _runStateBootstrapSafe(ref);
 
+    if (!mounted) {
+      return;
+    }
+
     final String? startupError = _appendStartupIssue(
       result.startupError,
       stateBootstrapIssue ?? '',
     );
-
-    if (!mounted) {
-      return;
-    }
 
     ref.read(onboardingCompleteProvider.notifier).set(result.hasOnboarded);
 
@@ -292,6 +297,9 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       _startupBlocked = startupBlocked;
       _ready = true;
     });
+
+    // Keep first-paint path minimal, then complete non-critical startup work.
+    unawaited(_runDeferredStartupStages());
 
     if (!startupBlocked) {
       AppAnalytics.track('app_open');
@@ -361,6 +369,18 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       );
     }
 
+    if (!_firstInteractiveFrameLogged) {
+      _firstInteractiveFrameLogged = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+
+        debugPrint('CHRONOSPARK_FIRST_INTERACTIVE_FRAME');
+        RuntimeDiagnostics.record('First interactive frame rendered.');
+      });
+    }
+
     return AppRoot(startupError: _startupError);
   }
 
@@ -380,6 +400,56 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         : OnboardingStatus.unknown;
 
     ref.read(onboardingStatusProvider.notifier).set(onboardingStatus);
+  }
+
+  Future<void> _runDeferredStartupStages() async {
+    final intelligence = const IntelligenceService().environmentOnly();
+
+    final List<
+      ({String stage, Future<String?> Function() action, Duration timeout})
+    >
+    deferredStages =
+        <({String stage, Future<String?> Function() action, Duration timeout})>[
+          (
+            stage: 'push_notifications_deferred',
+            action: () =>
+                _initMessagingSafe(isMockMode: intelligence.flags.mockMode),
+            timeout: const Duration(seconds: 12),
+          ),
+          (
+            stage: 'account_delete_endpoint_deferred',
+            action: () => _validateAccountDeletionEndpointSafe(
+              enforce: intelligence.environment.isProduction,
+            ),
+            timeout: const Duration(seconds: 8),
+          ),
+          (
+            stage: 'notifications_deferred',
+            action: () => _initNotificationSchedulerSafe(
+              isMockMode: intelligence.flags.mockMode,
+            ),
+            timeout: const Duration(seconds: 10),
+          ),
+          (
+            stage: 'deep_links_deferred',
+            action: _initDeepLinksSafe,
+            timeout: const Duration(seconds: 8),
+          ),
+        ];
+
+    for (final stage in deferredStages) {
+      // Yield to keep UI event handling responsive under stress tests.
+      await Future<void>.delayed(Duration.zero);
+      final String? issue = await _measureIssueStage(
+        stage.stage,
+        stage.action,
+        timeout: stage.timeout,
+      );
+
+      if (issue != null && issue.trim().isNotEmpty) {
+        RuntimeDiagnostics.record('Deferred startup stage issue: $issue');
+      }
+    }
   }
 }
 
@@ -455,13 +525,6 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   );
   startupError = _appendStartupIssue(startupError, firebaseIssue ?? '');
 
-  final String? messagingIssue = await _measureIssueStage(
-    'push_notifications',
-    () => _initMessagingSafe(isMockMode: intelligence.flags.mockMode),
-    timeout: const Duration(seconds: 12),
-  );
-  startupError = _appendStartupIssue(startupError, messagingIssue ?? '');
-
   final String? supabaseIssue = await _measureIssueStage(
     'supabase',
     () => _initSupabaseSafe(isMockMode: intelligence.flags.mockMode),
@@ -476,35 +539,8 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   );
   startupError = _appendStartupIssue(startupError, identityIssue ?? '');
 
-  final String? deleteEndpointIssue = await _measureIssueStage(
-    'account_delete_endpoint',
-    () => _validateAccountDeletionEndpointSafe(
-      enforce: intelligence.environment.isProduction,
-    ),
-    timeout: const Duration(seconds: 8),
-  );
-  startupError = _appendStartupIssue(startupError, deleteEndpointIssue ?? '');
-
   final PrefsLoadResult prefsResult = await _measurePrefsStage(_loadPrefsSafe);
   startupError = _appendStartupIssue(startupError, prefsResult.issue ?? '');
-
-  unawaited(
-    _measureIssueStage(
-      'notifications',
-      () => _initNotificationSchedulerSafe(
-        isMockMode: intelligence.flags.mockMode,
-      ),
-      timeout: const Duration(seconds: 10),
-    ),
-  );
-
-  unawaited(
-    _measureIssueStage(
-      'deep_links',
-      _initDeepLinksSafe,
-      timeout: const Duration(seconds: 8),
-    ),
-  );
 
   final bool hasOnboarded = prefsResult.hasOnboarded;
 
