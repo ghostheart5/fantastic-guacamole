@@ -1,14 +1,13 @@
 # Test audit commands
 
-Run these from the repository root:
+Run these from the repository root (PowerShell):
 
-- flutter analyze
-- flutter test --coverage
+- flutter test test/behavior/secrets_guard_test.dart
+- flutter test test/coverage_expansion
 - flutter test test/release_guards
-- flutter test test/features/auth
-- flutter test test/data/storage
-- flutter test test/providers
-- flutter test integration_test
-- adb logcat -d | grep -iE 'flutter|fatal|crash|chronospark'
-- flutter run --verbose --debug --no-sound-null-safety
-- flutter test lab --project <project-id> <test-arg>
+- flutter test --coverage
+- dart run tool/test_audit/lib_coverage_targets.dart
+- dart run tool/test_audit/coverage_gate.dart --min=20
+- dart run tool/test_audit/coverage_gate.dart --min=40
+- dart run tool/test_audit/coverage_gate.dart --min=60
+- dart run tool/test_audit/coverage_gate.dart --min=80

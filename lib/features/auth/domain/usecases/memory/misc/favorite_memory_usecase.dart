@@ -1,3 +1,3 @@
-﻿class FavoriteMemoryUsecase {
+class FavoriteMemoryUsecase {
   const FavoriteMemoryUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class SetDarkModeUsecase {
+class SetDarkModeUsecase {
   const SetDarkModeUsecase();
 }

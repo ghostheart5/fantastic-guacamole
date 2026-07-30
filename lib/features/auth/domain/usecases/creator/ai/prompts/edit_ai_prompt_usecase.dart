@@ -1,3 +1,3 @@
-﻿class EditAiPromptUsecase {
+class EditAiPromptUsecase {
   const EditAiPromptUsecase();
 }

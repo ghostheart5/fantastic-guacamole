@@ -1,3 +1,3 @@
-﻿class RecordEmotionQuickActionUsecase {
+class RecordEmotionQuickActionUsecase {
   const RecordEmotionQuickActionUsecase();
 }

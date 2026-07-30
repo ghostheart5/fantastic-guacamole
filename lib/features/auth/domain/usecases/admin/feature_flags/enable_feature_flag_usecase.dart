@@ -1,3 +1,3 @@
-﻿class EnableFeatureFlagUsecase {
+class EnableFeatureFlagUsecase {
   const EnableFeatureFlagUsecase();
 }

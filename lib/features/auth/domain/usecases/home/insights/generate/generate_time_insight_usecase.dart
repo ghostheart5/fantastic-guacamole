@@ -1,3 +1,3 @@
-﻿class GenerateTimeInsightUsecase {
+class GenerateTimeInsightUsecase {
   const GenerateTimeInsightUsecase();
 }

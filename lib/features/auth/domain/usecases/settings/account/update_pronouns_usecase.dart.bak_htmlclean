@@ -1,0 +1,3 @@
+﻿class UpdatePronounsUsecase {
+  const UpdatePronounsUsecase();
+}

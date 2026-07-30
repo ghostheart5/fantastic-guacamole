@@ -1,3 +1,3 @@
-﻿class RemoveFileFromLogUsecase {
+class RemoveFileFromLogUsecase {
   const RemoveFileFromLogUsecase();
 }

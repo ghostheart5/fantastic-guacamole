@@ -1,0 +1,3 @@
+﻿class CompareDailyPerformanceUsecase {
+  const CompareDailyPerformanceUsecase();
+}

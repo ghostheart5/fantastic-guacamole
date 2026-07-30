@@ -1,0 +1,3 @@
+﻿class PublishPostUsecase {
+  const PublishPostUsecase();
+}

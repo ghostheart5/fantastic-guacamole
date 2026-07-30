@@ -1,3 +1,3 @@
-﻿class ViewSubscriptionPlansUsecase {
+class ViewSubscriptionPlansUsecase {
   const ViewSubscriptionPlansUsecase();
 }

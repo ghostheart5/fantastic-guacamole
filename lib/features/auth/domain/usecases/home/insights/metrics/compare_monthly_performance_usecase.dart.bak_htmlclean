@@ -1,0 +1,3 @@
+﻿class CompareMonthlyPerformanceUsecase {
+  const CompareMonthlyPerformanceUsecase();
+}

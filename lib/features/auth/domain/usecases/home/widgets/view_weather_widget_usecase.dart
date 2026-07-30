@@ -1,3 +1,3 @@
-﻿class ViewWeatherWidgetUsecase {
+class ViewWeatherWidgetUsecase {
   const ViewWeatherWidgetUsecase();
 }

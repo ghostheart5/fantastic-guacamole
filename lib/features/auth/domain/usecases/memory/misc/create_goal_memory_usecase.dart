@@ -1,3 +1,3 @@
-﻿class CreateGoalMemoryUsecase {
+class CreateGoalMemoryUsecase {
   const CreateGoalMemoryUsecase();
 }

@@ -11,12 +11,18 @@ class SmartCoachHero extends ConsumerWidget {
     required this.nextAction,
     required this.taskCount,
     required this.coachOnline,
+    required this.executionCompletedToday,
+    required this.executionDeferralsToday,
+    required this.executionStabilityPercent,
   });
 
   final String coachMessage;
   final String nextAction;
   final int taskCount;
   final bool coachOnline;
+  final int executionCompletedToday;
+  final int executionDeferralsToday;
+  final int executionStabilityPercent;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,7 +35,7 @@ class SmartCoachHero extends ConsumerWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.panelBorder, width: 1.2),
         boxShadow: const [
-          BoxShadow(color: AppColors.glowCyan, blurRadius: 20, spreadRadius: 1),
+          BoxShadow(color: AppColors.glowCyan, blurRadius: 14, spreadRadius: 0),
         ],
       ),
       child: Column(
@@ -47,11 +53,11 @@ class SmartCoachHero extends ConsumerWidget {
                 ),
               ),
               const Text(
-                'SMART PLANNER',
+                'Smart Planner',
                 style: TextStyle(
                   color: AppColors.neonCyan,
                   fontSize: 12,
-                  letterSpacing: 3,
+                  letterSpacing: 1,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -59,11 +65,11 @@ class SmartCoachHero extends ConsumerWidget {
           ),
           const SizedBox(height: 5),
           const Text(
-            'TODAY\'S FOCUS SIGNAL',
+            'Today\'s focus',
             style: TextStyle(
               color: AppColors.textMuted,
               fontSize: 11,
-              letterSpacing: 2,
+              letterSpacing: 0.5,
             ),
           ),
           const SizedBox(height: 5),
@@ -71,7 +77,7 @@ class SmartCoachHero extends ConsumerWidget {
             children: [
               Expanded(
                 child: _MetricTile(
-                  label: 'TASKS',
+                  label: 'Tasks',
                   value: taskCount.toString(),
                   color: AppColors.neonCyan,
                 ),
@@ -79,20 +85,42 @@ class SmartCoachHero extends ConsumerWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _MetricTile(
-                  label: 'STATUS',
-                  value: coachOnline ? 'ONLINE' : 'OFFLINE',
+                  label: 'Status',
+                  value: coachOnline ? 'Ready' : 'Offline',
                   color: coachOnline
-                      ? AppColors.memoryAmber
+                      ? AppColors.neonCyan
                       : AppColors.recallRed,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _MetricTile(
-                  label: 'ACTION',
-                  value: actionReady ? 'READY' : 'WAIT',
+                  label: 'Action',
+                  value: actionReady ? 'Ready' : 'Waiting',
                   color: AppColors.neonViolet,
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _HeaderPill(
+                label: 'Done',
+                value: '$executionCompletedToday',
+                color: const Color(0xFF7AF7C4),
+              ),
+              _HeaderPill(
+                label: 'Defers',
+                value: '$executionDeferralsToday',
+                color: const Color(0xFFFFB86B),
+              ),
+              _HeaderPill(
+                label: 'Stability',
+                value: '$executionStabilityPercent%',
+                color: AppColors.neonViolet,
               ),
             ],
           ),
@@ -109,11 +137,11 @@ class SmartCoachHero extends ConsumerWidget {
           if (actionReady) ...[
             const SizedBox(height: 8),
             const Text(
-              'NEXT ACTION',
+              'Next action',
               style: TextStyle(
                 color: AppColors.neonViolet,
                 fontSize: 11,
-                letterSpacing: 2,
+                letterSpacing: 0.6,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -121,6 +149,39 @@ class SmartCoachHero extends ConsumerWidget {
             Text(nextAction, style: const TextStyle(color: Colors.white)),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _HeaderPill extends StatelessWidget {
+  const _HeaderPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        '$label $value',
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
       ),
     );
   }

@@ -1,3 +1,3 @@
-﻿class ShareContentUsecase {
+class ShareContentUsecase {
   const ShareContentUsecase();
 }

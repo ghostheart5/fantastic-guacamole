@@ -84,13 +84,13 @@ class _DynamicFormState extends State<DynamicForm> {
   String get _submitLabel {
     switch (widget.workspaceMode) {
       case CreatorWorkspaceMode.tasks:
-        return 'CREATE';
+        return 'Create';
       case CreatorWorkspaceMode.goals:
-        return 'CREATE';
+        return 'Create';
       case CreatorWorkspaceMode.milestones:
-        return 'FORGE MILESTONE';
+        return 'Forge milestone';
       case CreatorWorkspaceMode.plan:
-        return 'CREATE';
+        return 'Create';
     }
   }
 
@@ -151,7 +151,7 @@ class _DynamicFormState extends State<DynamicForm> {
       if (!mounted) return;
       setState(() {
         _errorMessage =
-            'The task could not be saved. Your entry is still here—retry.';
+        'The task could not be saved. Your entry is still here-retry.';
       });
     } finally {
       if (mounted) {
@@ -259,7 +259,7 @@ class _DynamicFormState extends State<DynamicForm> {
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 12,
-                        letterSpacing: 2.5,
+                          letterSpacing: 0.8,
                         fontWeight: FontWeight.w800,
                         color: AppColors.memoryAmber,
                       ),
@@ -327,7 +327,7 @@ class _DynamicFormState extends State<DynamicForm> {
           text,
           style: TextStyle(
             fontSize: 10,
-            letterSpacing: 2.5,
+            letterSpacing: 0.8,
             color: color,
             fontWeight: FontWeight.w700,
           ),

@@ -1,3 +1,3 @@
-﻿class UnlinkMemoryFromEmotionUsecase {
+class UnlinkMemoryFromEmotionUsecase {
   const UnlinkMemoryFromEmotionUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class ViewTimeInsightsUsecase {
+class ViewTimeInsightsUsecase {
   const ViewTimeInsightsUsecase();
 }

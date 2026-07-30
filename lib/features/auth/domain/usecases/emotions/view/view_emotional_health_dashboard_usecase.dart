@@ -1,3 +1,3 @@
-﻿class ViewEmotionalHealthDashboardUsecase {
+class ViewEmotionalHealthDashboardUsecase {
   const ViewEmotionalHealthDashboardUsecase();
 }

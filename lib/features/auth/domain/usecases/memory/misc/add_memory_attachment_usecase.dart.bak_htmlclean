@@ -1,0 +1,3 @@
+﻿class AddMemoryAttachmentUsecase {
+  const AddMemoryAttachmentUsecase();
+}

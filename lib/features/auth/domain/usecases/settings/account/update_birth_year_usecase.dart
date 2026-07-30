@@ -1,3 +1,3 @@
-﻿class UpdateBirthYearUsecase {
+class UpdateBirthYearUsecase {
   const UpdateBirthYearUsecase();
 }

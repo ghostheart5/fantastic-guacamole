@@ -1,0 +1,3 @@
+﻿class GetTrustedDevicesUsecase {
+  const GetTrustedDevicesUsecase();
+}

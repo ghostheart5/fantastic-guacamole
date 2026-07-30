@@ -1,3 +1,3 @@
-﻿class ViewFavoriteMemoriesUsecase {
+class ViewFavoriteMemoriesUsecase {
   const ViewFavoriteMemoriesUsecase();
 }

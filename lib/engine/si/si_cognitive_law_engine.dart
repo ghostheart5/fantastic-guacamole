@@ -114,7 +114,7 @@ class SICognitiveLawEngine {
     required InstinctGuidance instinct,
   }) {
     if (blocked) {
-      return 'Let’s take a safer, more supportive path. Choose one small next step.';
+      return 'Letâ€™s take a safer, more supportive path. Choose one small next step.';
     }
 
     String output = siClean(

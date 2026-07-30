@@ -1,3 +1,3 @@
-﻿class EnableAnalyticsUsecase {
+class EnableAnalyticsUsecase {
   const EnableAnalyticsUsecase();
 }

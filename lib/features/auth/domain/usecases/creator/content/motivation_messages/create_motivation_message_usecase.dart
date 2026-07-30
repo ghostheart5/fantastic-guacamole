@@ -1,3 +1,3 @@
-﻿class CreateMotivationMessageUsecase {
+class CreateMotivationMessageUsecase {
   const CreateMotivationMessageUsecase();
 }

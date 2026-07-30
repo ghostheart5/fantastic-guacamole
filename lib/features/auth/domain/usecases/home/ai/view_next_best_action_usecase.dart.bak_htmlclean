@@ -1,0 +1,3 @@
+﻿class ViewNextBestActionUsecase {
+  const ViewNextBestActionUsecase();
+}

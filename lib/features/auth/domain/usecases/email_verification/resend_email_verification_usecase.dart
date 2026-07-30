@@ -1,3 +1,3 @@
-﻿class ResendEmailVerificationUsecase {
+class ResendEmailVerificationUsecase {
   const ResendEmailVerificationUsecase();
 }

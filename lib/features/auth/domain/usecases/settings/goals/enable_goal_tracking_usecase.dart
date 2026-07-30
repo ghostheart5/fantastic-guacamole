@@ -1,3 +1,3 @@
-﻿class EnableGoalTrackingUsecase {
+class EnableGoalTrackingUsecase {
   const EnableGoalTrackingUsecase();
 }

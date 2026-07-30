@@ -69,10 +69,10 @@ class _OfflineBannerBar extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 syncError != null
-                    ? 'Offline Mode — $syncError'
+                    ? 'Offline Mode - $syncError'
                     : pendingSyncCount > 0
-                    ? 'Offline Mode — $pendingSyncCount queued, syncing later'
-                    : 'Offline Mode — actions will sync later',
+                    ? 'Offline Mode - $pendingSyncCount queued, syncing later'
+                    : 'Offline Mode - actions will sync later',
                 style: const TextStyle(
                   color: AppColors.memoryAmber,
                   fontSize: 11,

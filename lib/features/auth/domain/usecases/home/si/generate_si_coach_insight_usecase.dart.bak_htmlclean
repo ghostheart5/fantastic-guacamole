@@ -1,0 +1,3 @@
+﻿class GenerateSiCoachInsightUsecase {
+  const GenerateSiCoachInsightUsecase();
+}

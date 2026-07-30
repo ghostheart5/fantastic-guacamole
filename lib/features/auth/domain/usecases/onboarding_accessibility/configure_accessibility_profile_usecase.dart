@@ -1,3 +1,3 @@
-﻿class ConfigureAccessibilityProfileUsecase {
+class ConfigureAccessibilityProfileUsecase {
   const ConfigureAccessibilityProfileUsecase();
 }

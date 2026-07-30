@@ -1,3 +1,3 @@
-﻿class CreateGratitudeMemoryUsecase {
+class CreateGratitudeMemoryUsecase {
   const CreateGratitudeMemoryUsecase();
 }

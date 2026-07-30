@@ -1,0 +1,3 @@
+﻿class ViewHabitProgressUsecase {
+  const ViewHabitProgressUsecase();
+}

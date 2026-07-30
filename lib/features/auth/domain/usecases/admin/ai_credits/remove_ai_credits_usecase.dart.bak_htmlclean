@@ -1,0 +1,3 @@
+﻿class RemoveAiCreditsUsecase {
+  const RemoveAiCreditsUsecase();
+}

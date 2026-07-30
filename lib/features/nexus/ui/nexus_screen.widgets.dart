@@ -73,7 +73,7 @@ class _NexusHeader extends ConsumerWidget {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        'MISSION CONTROL CORE',
+                        'Planning overview',
                         style: TextStyle(
                           fontSize: ultraCompact ? 6 : (compact ? 7 : 8),
                           letterSpacing: ultraCompact
@@ -105,16 +105,16 @@ class _NexusHeader extends ConsumerWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const _PulseDot(color: Colors.greenAccent),
+                        const _PulseDot(color: AppColors.neonCyan),
                         SizedBox(width: ultraCompact ? 4 : 6),
                         Text(
-                          'ONLINE',
+                          'Ready',
                           style: TextStyle(
                             fontSize: ultraCompact ? 6 : (compact ? 7 : 8),
                             letterSpacing: ultraCompact
                                 ? 0.8
                                 : (compact ? 1.4 : 2),
-                            color: Colors.greenAccent,
+                            color: AppColors.neonCyan,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -122,7 +122,7 @@ class _NexusHeader extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'LVL  |  d  |  ONLINE',
+                      'Level | streak | status',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -175,7 +175,7 @@ class _NexusHeader extends ConsumerWidget {
       if (hasMockSession) {
         ref.read(mockAuthSessionProvider.notifier).set(false);
       } else {
-        await ref.read(authServiceProvider).signOut();
+        await ref.read(authControllerProvider.notifier).signOut();
       }
       if (!context.mounted) {
         return;
@@ -690,147 +690,6 @@ class _RingLabel extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Dependency mesh
-// ---------------------------------------------------------------------------
-
-class _DailyCommandBriefingCard extends StatelessWidget {
-  const _DailyCommandBriefingCard({required this.briefing});
-
-  final DailyCommandBriefing briefing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xEE07111F),
-            AppColors.neonCyan.withValues(alpha: 0.10),
-            AppColors.neonViolet.withValues(alpha: 0.08),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonCyan.withValues(alpha: 0.08),
-            blurRadius: 20,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'DAILY COMMAND BRIEFING',
-            style: TextStyle(
-              color: AppColors.neonCyan,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2.2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            briefing.focus,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              height: 1.1,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            briefing.coachAction,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _BriefingChip(
-                label: 'MOMENTUM',
-                value: briefing.momentum,
-                color: AppColors.neonCyan,
-              ),
-              _BriefingChip(
-                label: 'ENERGY',
-                value: briefing.energy,
-                color: AppColors.memoryAmber,
-              ),
-              _BriefingChip(
-                label: 'RECOVERY',
-                value: briefing.recovery,
-                color: AppColors.neonViolet,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            briefing.warning,
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 12,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            briefing.trajectory,
-            style: const TextStyle(
-              color: Colors.white38,
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BriefingChip extends StatelessWidget {
-  const _BriefingChip({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
-      ),
-      child: Text(
-        '$label $value',
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.1,
-        ),
-      ),
     );
   }
 }
@@ -1453,3 +1312,4 @@ class _ActionGrid extends ConsumerWidget {
     );
   }
 }
+

@@ -1,0 +1,3 @@
+﻿class ViewHomeWidgetsUsecase {
+  const ViewHomeWidgetsUsecase();
+}

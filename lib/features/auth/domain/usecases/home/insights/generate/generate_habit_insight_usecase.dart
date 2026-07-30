@@ -1,3 +1,3 @@
-﻿class GenerateHabitInsightUsecase {
+class GenerateHabitInsightUsecase {
   const GenerateHabitInsightUsecase();
 }

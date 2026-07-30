@@ -1,3 +1,3 @@
-﻿class SetTextScalingUsecase {
+class SetTextScalingUsecase {
   const SetTextScalingUsecase();
 }

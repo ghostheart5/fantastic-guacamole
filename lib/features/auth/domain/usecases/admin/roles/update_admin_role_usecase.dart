@@ -1,3 +1,3 @@
-﻿class UpdateAdminRoleUsecase {
+class UpdateAdminRoleUsecase {
   const UpdateAdminRoleUsecase();
 }

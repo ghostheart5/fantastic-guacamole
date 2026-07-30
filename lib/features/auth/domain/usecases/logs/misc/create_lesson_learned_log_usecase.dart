@@ -1,3 +1,3 @@
-﻿class CreateLessonLearnedLogUsecase {
+class CreateLessonLearnedLogUsecase {
   const CreateLessonLearnedLogUsecase();
 }

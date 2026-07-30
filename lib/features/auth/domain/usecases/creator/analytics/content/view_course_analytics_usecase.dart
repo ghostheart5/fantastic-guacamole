@@ -1,3 +1,3 @@
-﻿class ViewCourseAnalyticsUsecase {
+class ViewCourseAnalyticsUsecase {
   const ViewCourseAnalyticsUsecase();
 }

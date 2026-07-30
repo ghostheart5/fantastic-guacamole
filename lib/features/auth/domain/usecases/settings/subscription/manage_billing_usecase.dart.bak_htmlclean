@@ -1,0 +1,3 @@
+﻿class ManageBillingUsecase {
+  const ManageBillingUsecase();
+}

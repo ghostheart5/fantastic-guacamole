@@ -1,3 +1,3 @@
-﻿class DeleteMemoryTemplateUsecase {
+class DeleteMemoryTemplateUsecase {
   const DeleteMemoryTemplateUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class DownloadUserDataUsecase {
+class DownloadUserDataUsecase {
   const DownloadUserDataUsecase();
 }

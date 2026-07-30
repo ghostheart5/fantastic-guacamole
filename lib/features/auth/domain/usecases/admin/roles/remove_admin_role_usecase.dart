@@ -1,3 +1,3 @@
-﻿class RemoveAdminRoleUsecase {
+class RemoveAdminRoleUsecase {
   const RemoveAdminRoleUsecase();
 }

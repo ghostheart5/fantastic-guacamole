@@ -1,0 +1,3 @@
+﻿class SignInWithMagicLinkUsecase {
+  const SignInWithMagicLinkUsecase();
+}

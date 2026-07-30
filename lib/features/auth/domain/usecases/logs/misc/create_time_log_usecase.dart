@@ -1,3 +1,3 @@
-﻿class CreateTimeLogUsecase {
+class CreateTimeLogUsecase {
   const CreateTimeLogUsecase();
 }

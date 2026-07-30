@@ -1,3 +1,3 @@
-﻿class ViewMoodSummaryUsecase {
+class ViewMoodSummaryUsecase {
   const ViewMoodSummaryUsecase();
 }

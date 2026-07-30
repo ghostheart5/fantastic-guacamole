@@ -1,3 +1,3 @@
-﻿class SetAccentColorUsecase {
+class SetAccentColorUsecase {
   const SetAccentColorUsecase();
 }

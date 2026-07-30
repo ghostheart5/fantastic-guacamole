@@ -1,3 +1,3 @@
-﻿class ForceLogoutUserUsecase {
+class ForceLogoutUserUsecase {
   const ForceLogoutUserUsecase();
 }

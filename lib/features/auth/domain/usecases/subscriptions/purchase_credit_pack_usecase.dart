@@ -1,3 +1,3 @@
-﻿class PurchaseCreditPackUsecase {
+class PurchaseCreditPackUsecase {
   const PurchaseCreditPackUsecase();
 }

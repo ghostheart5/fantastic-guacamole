@@ -1,0 +1,3 @@
+﻿class SetContentWarningPreferencesUsecase {
+  const SetContentWarningPreferencesUsecase();
+}

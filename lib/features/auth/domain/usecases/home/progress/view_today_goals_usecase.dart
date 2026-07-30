@@ -1,3 +1,3 @@
-﻿class ViewTodayGoalsUsecase {
+class ViewTodayGoalsUsecase {
   const ViewTodayGoalsUsecase();
 }

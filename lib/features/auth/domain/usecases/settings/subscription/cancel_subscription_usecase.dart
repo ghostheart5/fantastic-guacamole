@@ -1,3 +1,3 @@
-﻿class CancelSubscriptionUsecase {
+class CancelSubscriptionUsecase {
   const CancelSubscriptionUsecase();
 }

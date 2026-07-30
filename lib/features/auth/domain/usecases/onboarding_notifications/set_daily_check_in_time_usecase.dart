@@ -1,3 +1,3 @@
-﻿class SetDailyCheckInTimeUsecase {
+class SetDailyCheckInTimeUsecase {
   const SetDailyCheckInTimeUsecase();
 }

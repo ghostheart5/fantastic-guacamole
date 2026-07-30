@@ -12,7 +12,9 @@ class CreatorEntryLists extends ConsumerWidget {
     final tasksAsync = ref.watch(tasksProvider);
 
     Future<void> completeEntry(Task entry) async {
-      await ref.read(taskActionsProvider).completeTask(entry.id);
+      await ref
+          .read(taskActionsProvider)
+          .completeTask(entry.id, actionSource: 'creator_lists');
       if (!context.mounted) {
         return;
       }
@@ -28,7 +30,9 @@ class CreatorEntryLists extends ConsumerWidget {
     }
 
     Future<void> delayEntry(Task entry) async {
-      await ref.read(taskActionsProvider).delayTask(entry.id);
+      await ref
+          .read(taskActionsProvider)
+          .delayTask(entry.id, actionSource: 'creator_lists');
       if (!context.mounted) {
         return;
       }
@@ -44,7 +48,9 @@ class CreatorEntryLists extends ConsumerWidget {
     }
 
     Future<void> skipEntry(Task entry) async {
-      await ref.read(taskActionsProvider).skipTask(entry.id);
+      await ref
+          .read(taskActionsProvider)
+          .skipTask(entry.id, actionSource: 'creator_lists');
       if (!context.mounted) {
         return;
       }

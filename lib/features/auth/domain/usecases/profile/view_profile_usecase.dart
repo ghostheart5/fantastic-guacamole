@@ -1,3 +1,3 @@
-﻿class ViewProfileUsecase {
+class ViewProfileUsecase {
   const ViewProfileUsecase();
 }

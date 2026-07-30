@@ -1,3 +1,3 @@
-﻿class GenerateAchievementSummaryUsecase {
+class GenerateAchievementSummaryUsecase {
   const GenerateAchievementSummaryUsecase();
 }

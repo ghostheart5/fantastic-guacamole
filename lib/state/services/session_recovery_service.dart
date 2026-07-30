@@ -38,7 +38,7 @@ class SessionRecoveryService {
         await SharedPrefsService.save(_kDraftTitle, draftTaskTitle);
       }
     } catch (_) {
-      // Non-fatal — recovery state is best-effort
+      // Non-fatal â€” recovery state is best-effort
     }
   }
 

@@ -1,3 +1,3 @@
-﻿class ViewLogTimelineUsecase {
+class ViewLogTimelineUsecase {
   const ViewLogTimelineUsecase();
 }

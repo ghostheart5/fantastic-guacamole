@@ -1,0 +1,3 @@
+﻿class ConfigureGoalNotificationsUsecase {
+  const ConfigureGoalNotificationsUsecase();
+}

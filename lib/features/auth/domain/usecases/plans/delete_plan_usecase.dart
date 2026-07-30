@@ -1,3 +1,3 @@
-﻿class DeletePlanUsecase {
+class DeletePlanUsecase {
   const DeletePlanUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class OptimizePlanUsecase {
+  const OptimizePlanUsecase();
+}

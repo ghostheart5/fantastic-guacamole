@@ -98,11 +98,11 @@ class ProfileHeader extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'OPERATIVE L$level',
+                      'Level $level',
                       style: const TextStyle(
                         fontSize: 9,
                         color: AppColors.neonCyan,
-                        letterSpacing: 1.5,
+                        letterSpacing: 0.8,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

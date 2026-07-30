@@ -1,3 +1,3 @@
-﻿class RemoveUnusedAssetsUsecase {
+class RemoveUnusedAssetsUsecase {
   const RemoveUnusedAssetsUsecase();
 }

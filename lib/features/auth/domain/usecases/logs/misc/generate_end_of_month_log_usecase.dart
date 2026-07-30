@@ -1,3 +1,3 @@
-﻿class GenerateEndOfMonthLogUsecase {
+class GenerateEndOfMonthLogUsecase {
   const GenerateEndOfMonthLogUsecase();
 }

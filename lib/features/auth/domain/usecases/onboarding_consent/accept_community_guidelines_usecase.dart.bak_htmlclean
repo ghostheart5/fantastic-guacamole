@@ -1,0 +1,3 @@
+﻿class AcceptCommunityGuidelinesUsecase {
+  const AcceptCommunityGuidelinesUsecase();
+}

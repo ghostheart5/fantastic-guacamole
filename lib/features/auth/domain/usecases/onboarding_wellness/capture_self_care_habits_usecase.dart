@@ -1,3 +1,3 @@
-﻿class CaptureSelfCareHabitsUsecase {
+class CaptureSelfCareHabitsUsecase {
   const CaptureSelfCareHabitsUsecase();
 }

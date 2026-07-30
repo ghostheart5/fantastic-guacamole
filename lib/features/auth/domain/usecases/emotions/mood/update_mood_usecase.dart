@@ -1,3 +1,3 @@
-﻿class UpdateMoodUsecase {
+class UpdateMoodUsecase {
   const UpdateMoodUsecase();
 }

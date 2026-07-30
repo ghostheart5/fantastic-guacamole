@@ -1,3 +1,3 @@
-﻿class ViewCreatorRewardsUsecase {
+class ViewCreatorRewardsUsecase {
   const ViewCreatorRewardsUsecase();
 }

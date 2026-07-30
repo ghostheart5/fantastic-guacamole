@@ -1,0 +1,3 @@
+﻿class TrackOnboardingAbandonmentUsecase {
+  const TrackOnboardingAbandonmentUsecase();
+}

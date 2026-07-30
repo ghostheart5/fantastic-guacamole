@@ -1,0 +1,3 @@
+﻿class SearchEmotionsUsecase {
+  const SearchEmotionsUsecase();
+}

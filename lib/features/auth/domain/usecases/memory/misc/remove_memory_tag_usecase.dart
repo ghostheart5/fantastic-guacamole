@@ -1,3 +1,3 @@
-﻿class RemoveMemoryTagUsecase {
+class RemoveMemoryTagUsecase {
   const RemoveMemoryTagUsecase();
 }

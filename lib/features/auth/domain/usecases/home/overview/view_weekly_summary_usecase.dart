@@ -1,3 +1,3 @@
-﻿class ViewWeeklySummaryUsecase {
+class ViewWeeklySummaryUsecase {
   const ViewWeeklySummaryUsecase();
 }

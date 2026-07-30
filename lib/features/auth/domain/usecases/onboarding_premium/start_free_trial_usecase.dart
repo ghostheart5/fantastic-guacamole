@@ -1,3 +1,3 @@
-﻿class StartFreeTrialUsecase {
+class StartFreeTrialUsecase {
   const StartFreeTrialUsecase();
 }

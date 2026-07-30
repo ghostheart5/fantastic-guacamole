@@ -1,3 +1,3 @@
-﻿class DismissInsightUsecase {
+class DismissInsightUsecase {
   const DismissInsightUsecase();
 }

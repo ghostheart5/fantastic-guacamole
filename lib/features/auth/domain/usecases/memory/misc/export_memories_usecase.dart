@@ -1,3 +1,3 @@
-﻿class ExportMemoriesUsecase {
+class ExportMemoriesUsecase {
   const ExportMemoriesUsecase();
 }

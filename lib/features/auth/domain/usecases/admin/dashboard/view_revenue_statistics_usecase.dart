@@ -1,3 +1,3 @@
-﻿class ViewRevenueStatisticsUsecase {
+class ViewRevenueStatisticsUsecase {
   const ViewRevenueStatisticsUsecase();
 }

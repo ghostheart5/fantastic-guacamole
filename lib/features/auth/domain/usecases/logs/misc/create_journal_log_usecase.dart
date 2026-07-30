@@ -1,3 +1,3 @@
-﻿class CreateJournalLogUsecase {
+class CreateJournalLogUsecase {
   const CreateJournalLogUsecase();
 }

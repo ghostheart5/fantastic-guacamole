@@ -804,22 +804,22 @@ class UserNarrativeEngine {
     }
 
     if (narrative.archetype == 'builder') {
-      return 'Narrative frame: builder mode — turn intention into one concrete action.';
+      return 'Narrative frame: builder mode â€” turn intention into one concrete action.';
     }
 
     if (narrative.archetype == 'restorer') {
-      return 'Narrative frame: restorer mode — lower the load and rebuild rhythm.';
+      return 'Narrative frame: restorer mode â€” lower the load and rebuild rhythm.';
     }
 
     if (narrative.archetype == 'seeker') {
-      return 'Narrative frame: seeker mode — reflect without judgment and extract one lesson.';
+      return 'Narrative frame: seeker mode â€” reflect without judgment and extract one lesson.';
     }
 
     if (narrative.archetype == 'analyst') {
-      return 'Narrative frame: analyst mode — name one pattern and connect it to the next step.';
+      return 'Narrative frame: analyst mode â€” name one pattern and connect it to the next step.';
     }
 
-    return 'Narrative frame: guide mode — make the next step clear and non-overwhelming.';
+    return 'Narrative frame: guide mode â€” make the next step clear and non-overwhelming.';
   }
 
   String _truncate(String text, int maxChars) {

@@ -68,6 +68,8 @@ class LocalUserDataCleanupService {
       () => preferences.delete(onboardingCompleteStorageKey),
       () => preferences.delete(onboardingContentVersionStorageKey),
       () => preferences.delete(onboardingStepStorageKey),
+      () => preferences.delete(creatorFirstItemCreatedStorageKey),
+      () => preferences.delete(timelineFirstActionCompletedStorageKey),
       () => preferences.delete('onboarding_state_v1'),
     ];
 
@@ -78,6 +80,10 @@ class LocalUserDataCleanupService {
           onboardingContentVersionStorageKeyForUser(userId),
         ),
         () => preferences.delete(onboardingStepStorageKeyForUser(userId)),
+        () => preferences.delete(creatorFirstItemCreatedStorageKeyForUser(userId)),
+        () => preferences.delete(
+          timelineFirstActionCompletedStorageKeyForUser(userId),
+        ),
         () => preferences.delete('onboarding_state_v1_$userId'),
       ]);
     }

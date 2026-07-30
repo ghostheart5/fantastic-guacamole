@@ -1,0 +1,3 @@
+﻿class ViewDashboardUsecase {
+  const ViewDashboardUsecase();
+}

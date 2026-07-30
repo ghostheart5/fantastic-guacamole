@@ -1,0 +1,3 @@
+﻿class GetNotificationSettingsUsecase {
+  const GetNotificationSettingsUsecase();
+}

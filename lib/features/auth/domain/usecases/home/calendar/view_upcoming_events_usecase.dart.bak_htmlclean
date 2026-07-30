@@ -1,0 +1,3 @@
+﻿class ViewUpcomingEventsUsecase {
+  const ViewUpcomingEventsUsecase();
+}

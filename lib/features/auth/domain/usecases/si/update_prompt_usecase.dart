@@ -1,3 +1,3 @@
-﻿class UpdatePromptUsecase {
+class UpdatePromptUsecase {
   const UpdatePromptUsecase();
 }

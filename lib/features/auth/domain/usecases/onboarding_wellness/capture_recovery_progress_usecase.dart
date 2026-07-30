@@ -1,3 +1,3 @@
-﻿class CaptureRecoveryProgressUsecase {
+class CaptureRecoveryProgressUsecase {
   const CaptureRecoveryProgressUsecase();
 }

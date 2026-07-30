@@ -1,0 +1,3 @@
+﻿class ViewTaskInsightsUsecase {
+  const ViewTaskInsightsUsecase();
+}

@@ -1,0 +1,40 @@
+import 'package:fantastic_guacamole/tutorial/mission/mission_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class MissionEventBridge {
+  const MissionEventBridge(this._ref);
+
+  final Ref _ref;
+
+  Future<void> reportGoalCreated() {
+    return _ref.read(missionStateProvider.notifier).reportGoalCreated();
+  }
+
+  Future<void> reportCreatorOpened() {
+    return _ref.read(missionStateProvider.notifier).reportCreatorOpened();
+  }
+
+  Future<void> reportSmartPlannerQuestionAsked() {
+    return _ref
+        .read(missionStateProvider.notifier)
+        .reportSmartPlannerQuestionAsked();
+  }
+
+  Future<void> reportSmartCoachQuestionAsked() {
+    return _ref
+        .read(missionStateProvider.notifier)
+        .reportSmartCoachQuestionAsked();
+  }
+
+  Future<void> reportTimelineOpened() {
+    return _ref.read(missionStateProvider.notifier).reportTimelineOpened();
+  }
+
+  Future<void> dismissCompletionBanner() {
+    return _ref.read(missionStateProvider.notifier).dismissCompletionBanner();
+  }
+}
+
+final missionEventBridgeProvider = Provider<MissionEventBridge>((Ref ref) {
+  return MissionEventBridge(ref);
+});

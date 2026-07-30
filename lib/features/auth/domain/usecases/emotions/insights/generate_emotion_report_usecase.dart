@@ -1,3 +1,3 @@
-﻿class GenerateEmotionReportUsecase {
+class GenerateEmotionReportUsecase {
   const GenerateEmotionReportUsecase();
 }

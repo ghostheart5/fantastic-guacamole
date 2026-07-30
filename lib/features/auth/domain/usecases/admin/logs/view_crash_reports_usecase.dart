@@ -1,3 +1,3 @@
-﻿class ViewCrashReportsUsecase {
+class ViewCrashReportsUsecase {
   const ViewCrashReportsUsecase();
 }

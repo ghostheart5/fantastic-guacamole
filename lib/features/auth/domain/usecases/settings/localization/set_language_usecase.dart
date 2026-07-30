@@ -1,3 +1,3 @@
-﻿class SetLanguageUsecase {
+class SetLanguageUsecase {
   const SetLanguageUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class DeleteCoachPersonalityUsecase {
+  const DeleteCoachPersonalityUsecase();
+}

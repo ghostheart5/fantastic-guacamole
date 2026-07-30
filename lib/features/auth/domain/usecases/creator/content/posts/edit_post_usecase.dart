@@ -1,3 +1,3 @@
-﻿class EditPostUsecase {
+class EditPostUsecase {
   const EditPostUsecase();
 }

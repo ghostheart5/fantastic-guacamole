@@ -1,3 +1,3 @@
-﻿class RestoreDatabaseUsecase {
+class RestoreDatabaseUsecase {
   const RestoreDatabaseUsecase();
 }

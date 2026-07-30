@@ -1,0 +1,3 @@
+﻿class ImportEmotionDataUsecase {
+  const ImportEmotionDataUsecase();
+}

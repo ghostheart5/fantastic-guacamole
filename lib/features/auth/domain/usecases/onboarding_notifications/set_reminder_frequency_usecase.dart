@@ -1,3 +1,3 @@
-﻿class SetReminderFrequencyUsecase {
+class SetReminderFrequencyUsecase {
   const SetReminderFrequencyUsecase();
 }

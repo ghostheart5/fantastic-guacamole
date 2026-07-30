@@ -1,3 +1,3 @@
-﻿class DisableUsageTrackingUsecase {
+class DisableUsageTrackingUsecase {
   const DisableUsageTrackingUsecase();
 }

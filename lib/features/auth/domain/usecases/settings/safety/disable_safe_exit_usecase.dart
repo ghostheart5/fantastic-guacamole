@@ -1,3 +1,3 @@
-﻿class DisableSafeExitUsecase {
+class DisableSafeExitUsecase {
   const DisableSafeExitUsecase();
 }

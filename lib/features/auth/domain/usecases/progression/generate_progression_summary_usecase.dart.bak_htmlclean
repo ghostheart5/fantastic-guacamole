@@ -1,0 +1,3 @@
+﻿class GenerateProgressionSummaryUsecase {
+  const GenerateProgressionSummaryUsecase();
+}

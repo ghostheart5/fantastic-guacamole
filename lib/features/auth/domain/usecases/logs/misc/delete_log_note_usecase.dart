@@ -1,3 +1,3 @@
-﻿class DeleteLogNoteUsecase {
+class DeleteLogNoteUsecase {
   const DeleteLogNoteUsecase();
 }

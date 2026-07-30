@@ -1,3 +1,3 @@
-﻿class ShareLogUsecase {
+class ShareLogUsecase {
   const ShareLogUsecase();
 }

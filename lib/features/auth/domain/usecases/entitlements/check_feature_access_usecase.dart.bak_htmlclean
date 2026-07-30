@@ -1,0 +1,3 @@
+﻿class CheckFeatureAccessUsecase {
+  const CheckFeatureAccessUsecase();
+}

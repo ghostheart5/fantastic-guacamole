@@ -1,3 +1,3 @@
-﻿class RemoveMemoryVideoUsecase {
+class RemoveMemoryVideoUsecase {
   const RemoveMemoryVideoUsecase();
 }

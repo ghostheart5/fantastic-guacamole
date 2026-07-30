@@ -1,0 +1,3 @@
+﻿class DeleteSubtaskUsecase {
+  const DeleteSubtaskUsecase();
+}

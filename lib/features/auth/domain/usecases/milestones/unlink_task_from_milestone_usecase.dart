@@ -1,3 +1,3 @@
-﻿class UnlinkTaskFromMilestoneUsecase {
+class UnlinkTaskFromMilestoneUsecase {
   const UnlinkTaskFromMilestoneUsecase();
 }

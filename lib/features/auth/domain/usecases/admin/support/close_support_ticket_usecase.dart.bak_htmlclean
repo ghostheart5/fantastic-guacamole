@@ -1,0 +1,3 @@
+﻿class CloseSupportTicketUsecase {
+  const CloseSupportTicketUsecase();
+}

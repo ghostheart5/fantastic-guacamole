@@ -1,0 +1,3 @@
+﻿class CompareLogsUsecase {
+  const CompareLogsUsecase();
+}

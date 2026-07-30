@@ -1,0 +1,3 @@
+﻿class ViewLicensesUsecase {
+  const ViewLicensesUsecase();
+}

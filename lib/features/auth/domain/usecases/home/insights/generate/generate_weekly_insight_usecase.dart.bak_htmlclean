@@ -1,0 +1,3 @@
+﻿class GenerateWeeklyInsightUsecase {
+  const GenerateWeeklyInsightUsecase();
+}

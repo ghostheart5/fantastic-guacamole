@@ -1,3 +1,3 @@
-﻿class DeleteCompanionUsecase {
+class DeleteCompanionUsecase {
   const DeleteCompanionUsecase();
 }

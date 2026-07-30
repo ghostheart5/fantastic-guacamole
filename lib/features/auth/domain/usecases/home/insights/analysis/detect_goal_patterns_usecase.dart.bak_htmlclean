@@ -1,0 +1,3 @@
+﻿class DetectGoalPatternsUsecase {
+  const DetectGoalPatternsUsecase();
+}

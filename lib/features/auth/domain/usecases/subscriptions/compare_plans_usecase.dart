@@ -1,3 +1,3 @@
-﻿class ComparePlansUsecase {
+class ComparePlansUsecase {
   const ComparePlansUsecase();
 }

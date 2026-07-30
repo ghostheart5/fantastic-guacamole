@@ -1,0 +1,3 @@
+﻿class AnalyzeLogPatternsUsecase {
+  const AnalyzeLogPatternsUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class ViewPlanProgressUsecase {
+class ViewPlanProgressUsecase {
   const ViewPlanProgressUsecase();
 }

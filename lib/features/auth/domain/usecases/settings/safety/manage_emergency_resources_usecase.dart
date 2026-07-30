@@ -1,3 +1,3 @@
-﻿class ManageEmergencyResourcesUsecase {
+class ManageEmergencyResourcesUsecase {
   const ManageEmergencyResourcesUsecase();
 }

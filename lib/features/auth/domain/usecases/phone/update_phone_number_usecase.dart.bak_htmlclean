@@ -1,0 +1,3 @@
+﻿class UpdatePhoneNumberUsecase {
+  const UpdatePhoneNumberUsecase();
+}

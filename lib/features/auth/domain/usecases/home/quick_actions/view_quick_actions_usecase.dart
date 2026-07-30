@@ -1,3 +1,3 @@
-﻿class ViewQuickActionsUsecase {
+class ViewQuickActionsUsecase {
   const ViewQuickActionsUsecase();
 }

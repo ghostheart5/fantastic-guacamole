@@ -1,3 +1,3 @@
-﻿class GenerateTaskRecommendationsUsecase {
+class GenerateTaskRecommendationsUsecase {
   const GenerateTaskRecommendationsUsecase();
 }

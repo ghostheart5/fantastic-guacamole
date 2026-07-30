@@ -1,3 +1,3 @@
-﻿class RenameAiCompanionUsecase {
+class RenameAiCompanionUsecase {
   const RenameAiCompanionUsecase();
 }

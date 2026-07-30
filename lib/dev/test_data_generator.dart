@@ -67,7 +67,7 @@ class TestDataGenerator {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Test data generated: 20 tasks · XP +2400 · energy 75%',
+              'Test data generated: 20 tasks | XP +2400 | energy 75%',
             ),
             duration: Duration(seconds: 3),
           ),

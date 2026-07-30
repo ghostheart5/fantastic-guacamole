@@ -1,0 +1,3 @@
+﻿class AddHabitToPlanUsecase {
+  const AddHabitToPlanUsecase();
+}

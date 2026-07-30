@@ -1,3 +1,3 @@
-﻿class TriggerSafeExitUsecase {
+class TriggerSafeExitUsecase {
   const TriggerSafeExitUsecase();
 }

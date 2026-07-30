@@ -1,3 +1,3 @@
-﻿class GenerateSiInsightUsecase {
+class GenerateSiInsightUsecase {
   const GenerateSiInsightUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class ViewCreatorDashboardUsecase {
+class ViewCreatorDashboardUsecase {
   const ViewCreatorDashboardUsecase();
 }

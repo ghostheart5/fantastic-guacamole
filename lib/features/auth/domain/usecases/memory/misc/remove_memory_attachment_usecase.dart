@@ -1,3 +1,3 @@
-﻿class RemoveMemoryAttachmentUsecase {
+class RemoveMemoryAttachmentUsecase {
   const RemoveMemoryAttachmentUsecase();
 }

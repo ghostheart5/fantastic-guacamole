@@ -1,3 +1,3 @@
-﻿class CaptureStressLevelUsecase {
+class CaptureStressLevelUsecase {
   const CaptureStressLevelUsecase();
 }

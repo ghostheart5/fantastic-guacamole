@@ -1,3 +1,3 @@
-﻿class UploadProfileAvatarUsecase {
+class UploadProfileAvatarUsecase {
   const UploadProfileAvatarUsecase();
 }

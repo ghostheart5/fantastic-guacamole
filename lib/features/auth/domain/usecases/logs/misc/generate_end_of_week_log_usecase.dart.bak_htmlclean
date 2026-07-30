@@ -1,0 +1,3 @@
+﻿class GenerateEndOfWeekLogUsecase {
+  const GenerateEndOfWeekLogUsecase();
+}

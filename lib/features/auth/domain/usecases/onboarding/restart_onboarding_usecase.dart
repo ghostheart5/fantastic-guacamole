@@ -1,3 +1,3 @@
-﻿class RestartOnboardingUsecase {
+class RestartOnboardingUsecase {
   const RestartOnboardingUsecase();
 }

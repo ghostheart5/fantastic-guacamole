@@ -1,0 +1,3 @@
+﻿class DeleteFeatureFlagUsecase {
+  const DeleteFeatureFlagUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class CreateMilestoneMemoryUsecase {
+class CreateMilestoneMemoryUsecase {
   const CreateMilestoneMemoryUsecase();
 }

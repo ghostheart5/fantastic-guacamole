@@ -1,3 +1,3 @@
-﻿class CalculateMomentumScoreUsecase {
+class CalculateMomentumScoreUsecase {
   const CalculateMomentumScoreUsecase();
 }

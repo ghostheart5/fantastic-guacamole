@@ -1,0 +1,3 @@
+﻿class CancelNotificationUsecase {
+  const CancelNotificationUsecase();
+}

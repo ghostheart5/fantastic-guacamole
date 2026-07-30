@@ -1,3 +1,3 @@
-﻿class ViewActiveChallengesUsecase {
+class ViewActiveChallengesUsecase {
   const ViewActiveChallengesUsecase();
 }

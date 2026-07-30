@@ -1,3 +1,3 @@
-﻿class PublishAffirmationUsecase {
+class PublishAffirmationUsecase {
   const PublishAffirmationUsecase();
 }

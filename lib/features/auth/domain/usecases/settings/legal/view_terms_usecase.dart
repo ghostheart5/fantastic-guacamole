@@ -1,3 +1,3 @@
-﻿class ViewTermsUsecase {
+class ViewTermsUsecase {
   const ViewTermsUsecase();
 }

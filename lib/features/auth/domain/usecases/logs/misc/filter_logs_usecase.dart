@@ -1,3 +1,3 @@
-﻿class FilterLogsUsecase {
+class FilterLogsUsecase {
   const FilterLogsUsecase();
 }

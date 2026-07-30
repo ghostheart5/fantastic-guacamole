@@ -31,12 +31,12 @@ class CreatorSectionCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label.toUpperCase(),
+            label,
             style: TextStyle(
               color: accent,
               fontSize: 10,
               fontWeight: FontWeight.w800,
-              letterSpacing: 1.5,
+              letterSpacing: 0.8,
             ),
           ),
           const SizedBox(height: 6),

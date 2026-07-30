@@ -1,3 +1,3 @@
-﻿class ChangeAiPersonalityUsecase {
+class ChangeAiPersonalityUsecase {
   const ChangeAiPersonalityUsecase();
 }

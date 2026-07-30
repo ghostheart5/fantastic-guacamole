@@ -7,12 +7,14 @@ import 'package:fantastic_guacamole/state/providers/account_security_provider.da
 import 'package:fantastic_guacamole/state/providers/account_connection_provider.dart';
 import 'package:fantastic_guacamole/features/auth/domain/models/chronospark_identity.dart';
 import 'package:fantastic_guacamole/features/profile/ui/widgets/profile_header.dart';
+import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -69,15 +71,73 @@ class ProfileScreen extends ConsumerWidget {
                     .signOutLocalIdentity(),
               ),
 
+              const SizedBox(height: 12),
+
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xAA07111F),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColors.neonViolet.withValues(alpha: 0.24),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Account center',
+                      style: TextStyle(
+                        color: AppColors.neonViolet,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Find account controls, settings, and billing in one path.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () =>
+                                ref.read(appFlowProvider.notifier).toSettings(),
+                            icon: const Icon(Icons.settings_outlined, size: 18),
+                            label: const Text('Settings'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () =>
+                                context.push(RoutePaths.subscriptionManagement),
+                            icon: const Icon(Icons.credit_card, size: 18),
+                            label: const Text('Billing Center'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 16),
 
               const Text(
-                'PROFILE',
+                'Profile',
                 style: TextStyle(
                   color: AppColors.neonCyan,
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 2,
+                  letterSpacing: 0.8,
                 ),
               ),
 
@@ -140,12 +200,12 @@ class ProfileScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'MOMENTUM PROFILE',
+                      'Momentum profile',
                       style: TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 2,
+                        letterSpacing: 0.8,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -170,8 +230,8 @@ class ProfileScreen extends ConsumerWidget {
                     Text(
                       'Momentum ${momentum.score}%  ·  Energy ${momentum.energyPercent}%  ·  Pressure ${momentum.pressurePercent}%',
                       style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 11,
+                        color: Colors.white60,
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -179,8 +239,8 @@ class ProfileScreen extends ConsumerWidget {
                     Text(
                       'Recovery: ${momentum.recovery}',
                       style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 11,
+                        color: Colors.white54,
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -761,20 +821,22 @@ class _ConnectedAccountsCard extends StatelessWidget {
         return 'EMAIL';
       case ChronoSparkAuthProvider.google:
         return 'GOOGLE';
-      case ChronoSparkAuthProvider.github:
-        return 'GITHUB';
-      case ChronoSparkAuthProvider.apple:
-        return 'APPLE';
-      case ChronoSparkAuthProvider.microsoft:
-        return 'MICROSOFT';
-      case ChronoSparkAuthProvider.anonymous:
-        return 'ANONYMOUS';
+      default:
+        return 'UNAVAILABLE';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final int connectedCount = connections.connections
+    final List<AccountConnection> visibleConnections = connections.connections
+        .where(
+          (AccountConnection connection) =>
+              connection.provider == ChronoSparkAuthProvider.email ||
+              connection.provider == ChronoSparkAuthProvider.google,
+        )
+        .toList(growable: false);
+
+    final int connectedCount = visibleConnections
         .where(
           (AccountConnection connection) =>
               connection.status == AccountConnectionStatus.connected,
@@ -824,7 +886,7 @@ class _ConnectedAccountsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          ...connections.connections.map((AccountConnection connection) {
+          ...visibleConnections.map((AccountConnection connection) {
             final Color accent = _colorFor(connection.status);
 
             return Padding(

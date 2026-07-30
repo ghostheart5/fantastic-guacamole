@@ -1,3 +1,3 @@
-﻿class ConvertGuestToAccountUsecase {
+class ConvertGuestToAccountUsecase {
   const ConvertGuestToAccountUsecase();
 }

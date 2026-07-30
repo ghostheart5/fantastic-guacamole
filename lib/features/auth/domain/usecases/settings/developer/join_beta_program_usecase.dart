@@ -1,3 +1,3 @@
-﻿class JoinBetaProgramUsecase {
+class JoinBetaProgramUsecase {
   const JoinBetaProgramUsecase();
 }

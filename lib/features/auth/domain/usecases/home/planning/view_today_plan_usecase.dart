@@ -1,3 +1,3 @@
-﻿class ViewTodayPlanUsecase {
+class ViewTodayPlanUsecase {
   const ViewTodayPlanUsecase();
 }

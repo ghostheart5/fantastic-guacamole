@@ -1,3 +1,3 @@
-﻿class PublishCoachPersonalityUsecase {
+class PublishCoachPersonalityUsecase {
   const PublishCoachPersonalityUsecase();
 }

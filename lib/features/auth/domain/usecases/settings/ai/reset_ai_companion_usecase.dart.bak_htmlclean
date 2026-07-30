@@ -1,0 +1,3 @@
+﻿class ResetAiCompanionUsecase {
+  const ResetAiCompanionUsecase();
+}

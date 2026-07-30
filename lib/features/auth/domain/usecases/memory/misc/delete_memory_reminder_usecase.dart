@@ -1,3 +1,3 @@
-﻿class DeleteMemoryReminderUsecase {
+class DeleteMemoryReminderUsecase {
   const DeleteMemoryReminderUsecase();
 }

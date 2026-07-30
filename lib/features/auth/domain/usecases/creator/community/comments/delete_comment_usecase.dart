@@ -1,3 +1,3 @@
-﻿class DeleteCommentUsecase {
+class DeleteCommentUsecase {
   const DeleteCommentUsecase();
 }

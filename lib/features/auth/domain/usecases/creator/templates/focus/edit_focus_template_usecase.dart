@@ -1,3 +1,3 @@
-﻿class EditFocusTemplateUsecase {
+class EditFocusTemplateUsecase {
   const EditFocusTemplateUsecase();
 }

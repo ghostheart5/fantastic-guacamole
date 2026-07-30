@@ -1,3 +1,3 @@
-﻿class GetStorageUsageUsecase {
+class GetStorageUsageUsecase {
   const GetStorageUsageUsecase();
 }

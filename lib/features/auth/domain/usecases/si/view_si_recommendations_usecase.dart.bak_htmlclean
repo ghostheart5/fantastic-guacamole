@@ -1,0 +1,3 @@
+﻿class ViewSiRecommendationsUsecase {
+  const ViewSiRecommendationsUsecase();
+}

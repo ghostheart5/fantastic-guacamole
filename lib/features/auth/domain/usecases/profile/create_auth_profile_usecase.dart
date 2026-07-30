@@ -1,3 +1,3 @@
-﻿class CreateAuthProfileUsecase {
+class CreateAuthProfileUsecase {
   const CreateAuthProfileUsecase();
 }

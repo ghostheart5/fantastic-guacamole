@@ -1,3 +1,3 @@
-﻿class GetLinkedProvidersUsecase {
+class GetLinkedProvidersUsecase {
   const GetLinkedProvidersUsecase();
 }

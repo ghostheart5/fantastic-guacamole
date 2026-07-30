@@ -1,3 +1,3 @@
-﻿class RefreshInsightsUsecase {
+class RefreshInsightsUsecase {
   const RefreshInsightsUsecase();
 }

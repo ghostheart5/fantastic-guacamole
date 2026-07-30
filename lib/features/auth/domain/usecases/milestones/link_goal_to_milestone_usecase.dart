@@ -1,3 +1,3 @@
-﻿class LinkGoalToMilestoneUsecase {
+class LinkGoalToMilestoneUsecase {
   const LinkGoalToMilestoneUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class GetUserEntitlementsUsecase {
+class GetUserEntitlementsUsecase {
   const GetUserEntitlementsUsecase();
 }

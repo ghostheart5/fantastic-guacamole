@@ -1,3 +1,3 @@
-﻿class ViewConsistencyInsightsUsecase {
+class ViewConsistencyInsightsUsecase {
   const ViewConsistencyInsightsUsecase();
 }

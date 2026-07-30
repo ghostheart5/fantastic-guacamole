@@ -1,0 +1,3 @@
+﻿class AssessFamilyLifeUsecase {
+  const AssessFamilyLifeUsecase();
+}

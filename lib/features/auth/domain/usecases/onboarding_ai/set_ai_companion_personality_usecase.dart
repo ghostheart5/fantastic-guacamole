@@ -1,3 +1,3 @@
-﻿class SetAiCompanionPersonalityUsecase {
+class SetAiCompanionPersonalityUsecase {
   const SetAiCompanionPersonalityUsecase();
 }

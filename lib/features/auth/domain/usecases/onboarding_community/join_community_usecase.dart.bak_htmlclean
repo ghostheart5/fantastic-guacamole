@@ -1,0 +1,3 @@
+﻿class JoinCommunityUsecase {
+  const JoinCommunityUsecase();
+}

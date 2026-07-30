@@ -1,3 +1,3 @@
-﻿class CalculateMoodScoreUsecase {
+class CalculateMoodScoreUsecase {
   const CalculateMoodScoreUsecase();
 }

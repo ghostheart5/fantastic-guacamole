@@ -1,3 +1,3 @@
-﻿class DeleteVideoUsecase {
+class DeleteVideoUsecase {
   const DeleteVideoUsecase();
 }

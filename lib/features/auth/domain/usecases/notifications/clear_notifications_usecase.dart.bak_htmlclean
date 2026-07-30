@@ -1,0 +1,3 @@
+﻿class ClearNotificationsUsecase {
+  const ClearNotificationsUsecase();
+}

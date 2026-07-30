@@ -1,0 +1,3 @@
+﻿class EditJournalTemplateUsecase {
+  const EditJournalTemplateUsecase();
+}

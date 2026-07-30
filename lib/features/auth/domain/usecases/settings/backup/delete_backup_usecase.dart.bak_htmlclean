@@ -1,0 +1,3 @@
+﻿class DeleteBackupUsecase {
+  const DeleteBackupUsecase();
+}

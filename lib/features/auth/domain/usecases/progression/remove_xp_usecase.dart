@@ -1,3 +1,3 @@
-﻿class RemoveXpUsecase {
+class RemoveXpUsecase {
   const RemoveXpUsecase();
 }

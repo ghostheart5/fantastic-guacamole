@@ -1,3 +1,3 @@
-﻿class UpdateAiSettingsUsecase {
+class UpdateAiSettingsUsecase {
   const UpdateAiSettingsUsecase();
 }

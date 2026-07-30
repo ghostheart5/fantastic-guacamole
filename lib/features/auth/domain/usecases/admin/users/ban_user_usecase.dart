@@ -1,3 +1,3 @@
-﻿class BanUserUsecase {
+class BanUserUsecase {
   const BanUserUsecase();
 }

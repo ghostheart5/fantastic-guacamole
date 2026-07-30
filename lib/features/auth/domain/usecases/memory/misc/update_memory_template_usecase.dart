@@ -1,3 +1,3 @@
-﻿class UpdateMemoryTemplateUsecase {
+class UpdateMemoryTemplateUsecase {
   const UpdateMemoryTemplateUsecase();
 }

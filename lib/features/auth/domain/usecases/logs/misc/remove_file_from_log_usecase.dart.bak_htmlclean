@@ -1,0 +1,3 @@
+﻿class RemoveFileFromLogUsecase {
+  const RemoveFileFromLogUsecase();
+}

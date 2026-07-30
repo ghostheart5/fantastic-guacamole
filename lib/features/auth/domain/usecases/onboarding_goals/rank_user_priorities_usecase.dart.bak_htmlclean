@@ -1,0 +1,3 @@
+﻿class RankUserPrioritiesUsecase {
+  const RankUserPrioritiesUsecase();
+}

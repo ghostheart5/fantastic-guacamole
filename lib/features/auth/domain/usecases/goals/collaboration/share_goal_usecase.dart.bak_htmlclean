@@ -1,0 +1,3 @@
+﻿class ShareGoalUsecase {
+  const ShareGoalUsecase();
+}

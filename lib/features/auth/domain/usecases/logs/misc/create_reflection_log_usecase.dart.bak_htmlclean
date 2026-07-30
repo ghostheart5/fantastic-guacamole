@@ -1,0 +1,3 @@
+﻿class CreateReflectionLogUsecase {
+  const CreateReflectionLogUsecase();
+}

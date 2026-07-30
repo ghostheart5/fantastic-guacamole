@@ -1,0 +1,3 @@
+﻿class ReopenSupportTicketUsecase {
+  const ReopenSupportTicketUsecase();
+}

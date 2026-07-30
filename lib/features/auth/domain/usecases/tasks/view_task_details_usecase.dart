@@ -1,3 +1,3 @@
-﻿class ViewTaskDetailsUsecase {
+class ViewTaskDetailsUsecase {
   const ViewTaskDetailsUsecase();
 }

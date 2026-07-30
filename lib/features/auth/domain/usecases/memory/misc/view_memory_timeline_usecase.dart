@@ -1,3 +1,3 @@
-﻿class ViewMemoryTimelineUsecase {
+class ViewMemoryTimelineUsecase {
   const ViewMemoryTimelineUsecase();
 }

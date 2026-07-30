@@ -1,0 +1,3 @@
+﻿class SubmitForReviewUsecase {
+  const SubmitForReviewUsecase();
+}

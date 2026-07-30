@@ -1,0 +1,293 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/local/hive_storage.dart';
+import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/state/models/streak.dart';
+import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/state/services/streak_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class ProfileState {
+  final int xp;
+  final int level;
+  final int streak;
+  final int longestStreak;
+  final bool leveledUp;
+  final String name;
+  final bool soundEnabled;
+  final DateTime? lastActiveDate;
+  final bool profileReady;
+
+  ProfileState({
+    this.xp = 0,
+    this.level = 1,
+    this.streak = 0,
+    this.longestStreak = 0,
+    this.leveledUp = false,
+    this.name = 'Operative',
+    this.soundEnabled = true,
+    this.lastActiveDate,
+    this.profileReady = false,
+  });
+
+  bool get hasValidProfile => profileReady && name.trim().isNotEmpty;
+
+  ProfileState copyWith({
+    int? xp,
+    int? level,
+    int? streak,
+    int? longestStreak,
+    bool? leveledUp,
+    String? name,
+    bool? soundEnabled,
+    DateTime? lastActiveDate,
+    bool? profileReady,
+    bool clearLastActiveDate = false,
+  }) {
+    return ProfileState(
+      xp: xp ?? this.xp,
+      level: level ?? this.level,
+      streak: streak ?? this.streak,
+      longestStreak: longestStreak ?? this.longestStreak,
+      leveledUp: leveledUp ?? this.leveledUp,
+      name: name ?? this.name,
+      soundEnabled: soundEnabled ?? this.soundEnabled,
+      lastActiveDate: clearLastActiveDate
+          ? null
+          : (lastActiveDate ?? this.lastActiveDate),
+      profileReady: profileReady ?? this.profileReady,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'xp': xp,
+    'level': level,
+    'streak': streak,
+    'longestStreak': longestStreak,
+    'name': name,
+    'soundEnabled': soundEnabled,
+    'lastActiveDate': lastActiveDate?.toIso8601String(),
+    'profileReady': profileReady,
+  };
+
+  factory ProfileState.fromJson(Map<String, dynamic> json) => ProfileState(
+    xp: (json['xp'] as num?)?.toInt() ?? 0,
+    level: (json['level'] as num?)?.toInt() ?? 1,
+    streak: (json['streak'] as num?)?.toInt() ?? 0,
+    longestStreak: (json['longestStreak'] as num?)?.toInt() ?? 0,
+    name: json['name'] as String? ?? 'Operative',
+    soundEnabled: json['soundEnabled'] as bool? ?? true,
+    lastActiveDate: json['lastActiveDate'] != null
+        ? DateTime.tryParse(json['lastActiveDate'] as String)
+        : null,
+    profileReady: json['profileReady'] as bool? ?? false,
+  );
+}
+
+final profileProvider = NotifierProvider<ProfileController, ProfileState>(
+  ProfileController.new,
+);
+
+class ProfileController extends Notifier<ProfileState> {
+  bool _initScheduled = false;
+
+  @override
+  ProfileState build() {
+    if (!_initScheduled) {
+      _initScheduled = true;
+      Future<void>.microtask(_init);
+    }
+    return ProfileState();
+  }
+
+  static const _boxKey = 'profile_box';
+  static const _stateKey = 'profile_state';
+  static const _secureStateKey = 'profile_state_v2';
+  final HiveStorage<String> _storage = HiveStorage<String>(
+    _boxKey,
+    hive: const HiveStoreAdapter(),
+  );
+  static const _streakLogic = StreakService();
+  static const String _streakBreakNotificationIdPrefix =
+      'streak_break_recovery_';
+
+  SecureStore get _secureStore => ref.read(secureStoreProvider);
+
+  Future<void> _init() async {
+    String? raw = await _secureStore.readString(_secureStateKey);
+    if (raw == null) {
+      await _storage.open();
+      raw = _storage.get(_stateKey);
+      if (raw != null) {
+        await _secureStore.writeString(_secureStateKey, raw);
+        await _storage.delete(_stateKey);
+      }
+    }
+    if (raw == null) return;
+    try {
+      state = ProfileState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {}
+  }
+
+  Future<void> _save() async {
+    await _secureStore.writeString(_secureStateKey, jsonEncode(state.toJson()));
+  }
+
+  void addXP(int amount) {
+    final DateTime now = DateTime.now();
+    final bool streakBroke = _streakLogic.didBreak(
+      Streak(
+        current: state.streak,
+        longest: state.longestStreak,
+        lastActiveDate: state.lastActiveDate,
+      ),
+      now,
+    );
+    final int newXP = state.xp + amount;
+    final int newLevel = (newXP ~/ 50) + 1;
+    final bool didLevelUp = newLevel > state.level;
+    final updated = _streakLogic.update(
+      Streak(
+        current: state.streak,
+        longest: state.longestStreak,
+        lastActiveDate: state.lastActiveDate,
+      ),
+      now,
+    );
+
+    state = state.copyWith(
+      xp: newXP,
+      level: newLevel,
+      leveledUp: didLevelUp,
+      streak: updated.current,
+      longestStreak: updated.longest,
+      lastActiveDate: updated.lastActiveDate,
+    );
+    _save();
+    if (streakBroke) {
+      unawaited(_scheduleStreakBreakNotification(now: now));
+    }
+    unawaited(_refreshCoachDecision());
+  }
+
+  void clearLeveledUp() {
+    state = state.copyWith(leveledUp: false);
+  }
+
+  void updateName(String name) {
+    final String normalizedName = name.trim();
+    if (normalizedName.isEmpty) {
+      return;
+    }
+    state = state.copyWith(name: normalizedName, profileReady: true);
+    _save();
+  }
+
+  void ensureProfile({String? preferredName}) {
+    final String normalizedPreferred = preferredName?.trim() ?? '';
+    final String fallbackName = state.name.trim().isEmpty
+        ? 'Operator'
+        : state.name.trim();
+    state = state.copyWith(
+      name: normalizedPreferred.isNotEmpty ? normalizedPreferred : fallbackName,
+      profileReady: true,
+    );
+    _save();
+  }
+
+  void toggleSound(bool value) {
+    state = state.copyWith(soundEnabled: value);
+    _save();
+  }
+
+  void incrementStreak() {
+    final DateTime now = DateTime.now();
+    final bool streakBroke = _streakLogic.didBreak(
+      Streak(
+        current: state.streak,
+        longest: state.longestStreak,
+        lastActiveDate: state.lastActiveDate,
+      ),
+      now,
+    );
+    final updated = _streakLogic.update(
+      Streak(
+        current: state.streak,
+        longest: state.longestStreak,
+        lastActiveDate: state.lastActiveDate,
+      ),
+      now,
+    );
+    state = state.copyWith(
+      streak: updated.current,
+      longestStreak: updated.longest,
+      lastActiveDate: updated.lastActiveDate,
+    );
+    _save();
+    if (streakBroke) {
+      unawaited(_scheduleStreakBreakNotification(now: now));
+    }
+    unawaited(_refreshCoachDecision());
+  }
+
+  void resetStreak() {
+    state = state.copyWith(streak: 0, clearLastActiveDate: true);
+    _save();
+    unawaited(_refreshCoachDecision());
+  }
+
+  Future<void> setProgressionSnapshot({
+    required int xp,
+    required int level,
+    required int streak,
+  }) async {
+    final int safeXp = xp < 0 ? 0 : xp;
+    final int safeLevel = level < 1 ? 1 : level;
+    final int safeStreak = streak < 0 ? 0 : streak;
+    final int nextLongest = safeStreak > state.longestStreak
+        ? safeStreak
+        : state.longestStreak;
+
+    state = state.copyWith(
+      xp: safeXp,
+      level: safeLevel,
+      streak: safeStreak,
+      longestStreak: nextLongest,
+    );
+    await _save();
+    unawaited(_refreshCoachDecision());
+  }
+
+  Future<void> _refreshCoachDecision() async {
+    try {
+      await ref.read(generateSiDecisionUseCaseProvider).call();
+      ref.invalidate(domainSiDecisionProvider);
+    } catch (_) {
+      // Avoid blocking progression updates if coach refresh fails.
+    }
+  }
+
+  Future<void> _scheduleStreakBreakNotification({required DateTime now}) async {
+    final DateTime reminderAt = now.add(const Duration(hours: 2));
+    final DateTime day = DateTime(now.year, now.month, now.day);
+    final String id =
+        '$_streakBreakNotificationIdPrefix${day.toIso8601String().split('T').first}';
+    try {
+      await ref
+          .read(notificationsServiceProvider)
+          .schedule(
+            id: id,
+            title: 'Rebuild your streak today',
+            body:
+                'Your streak chain broke. Complete one focused action now to restart momentum.',
+            at: reminderAt,
+          );
+    } catch (_) {
+      // Do not block progression updates if notifications are unavailable.
+    }
+  }
+}

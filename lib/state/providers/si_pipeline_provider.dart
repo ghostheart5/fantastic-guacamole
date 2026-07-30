@@ -8,11 +8,37 @@ import 'package:fantastic_guacamole/state/models/insights_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
+import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+
+final nexusStartupSummaryProvider = Provider<NexusStartupSummary>((Ref ref) {
+  final ProfileState profile = ref.watch(profileProvider);
+  final siState = ref.watch(siStateProvider);
+  final EmotionalState emotion = ref.watch(emotionProvider);
+
+  final String startupDirective = switch (emotion) {
+    EmotionalState.focused || EmotionalState.positive =>
+      'Prime objective locked. Execute one decisive action now.',
+    EmotionalState.calm =>
+      'Signal is stable. Start with one high-value task block.',
+    EmotionalState.fatigued || EmotionalState.scattered =>
+      'Stabilize first. Take one lightweight win to recover momentum.',
+    _ => 'Systems warming. Choose one concrete action to anchor momentum.',
+  };
+
+  return NexusStartupSummary(
+    profile: profile,
+    energy: siState.energy,
+    fatigue: siState.fatigue,
+    completedToday: siState.completedToday,
+    emotionLabel: emotion.name,
+    startupDirective: startupDirective,
+  );
+});
 
 final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   Ref ref,
@@ -72,6 +98,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final trajectory = ref.watch(trajectorySummaryProvider);
   final CoreValuesAlignment coreValues = ref.watch(coreValuesAlignmentProvider);
   final SoulMapAlignment soulMap = ref.watch(soulMapAlignmentProvider);
+  final execution = ref.watch(executionSignalsProvider);
   final double energy = ref.watch(energyProvider);
 
   final List<String> planPreview = ref
@@ -94,8 +121,9 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final bool goalDrift =
       goals.isNotEmpty && trajectory.behaviorDivergence >= 40;
 
-  final bool taskAvoidance =
-      logs.where((entry) => entry.source == 'task_skipped').length >= 2;
+    final bool taskAvoidance =
+      execution.skippedToday >= 2 ||
+      (execution.skippedToday + execution.delayedToday) >= 3;
 
   final bool emotionalStrain =
       emotion == EmotionalState.anxious ||
@@ -151,6 +179,10 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
       streakHealth: streakHealth,
       goalDrift: goalDrift,
       taskAvoidance: taskAvoidance,
+      executionCompletedToday: execution.completedToday,
+      executionSkippedToday: execution.skippedToday,
+      executionDelayedToday: execution.delayedToday,
+      executionStability7d: execution.completionStability7d,
       emotion: emotion.name,
       emotionalStrain: emotionalStrain,
       emotionalStability: emotionalStability,
@@ -212,6 +244,8 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
     if (aggregation.signals.goalDrift)
       'Goal drift detected in recent trajectory.',
     if (aggregation.signals.taskAvoidance) 'Task avoidance pattern detected.',
+    if (aggregation.signals.taskAvoidance)
+      'Execution friction: ${aggregation.signals.executionSummary}.',
     if (aggregation.signals.emotionalStrain)
       'Emotional strain detected (${aggregation.signals.emotion}).',
     if (timelineOverdueCount > 0)
@@ -241,6 +275,8 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
       'Resolve one overdue timeline item before adding new commitments.',
     if (timelineUpcomingCount >= 5)
       'Pre-plan upcoming deadlines now to prevent rollover pressure.',
+    if (aggregation.signals.taskAvoidance)
+      'Recover one skipped/delayed task before adding a new commitment.',
     'Schedule one action that strengthens ${coreValueTitle(neglectedValue)}.',
   ];
 
@@ -356,18 +392,18 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
     ]);
   }
 
-  final String engineSnapshot = chunks.join(' · ').toUpperCase();
+  final String engineSnapshot = chunks.join(' Â· ').toUpperCase();
 
   final String valuesSnapshot =
-      'VALUES ${coreValues.overall}% · LOW ${coreValueTitle(coreValues.mostNeglected).toUpperCase()} ${coreValues.scores[coreValues.mostNeglected]?.score ?? 0}%';
+      'VALUES ${coreValues.overall}% Â· LOW ${coreValueTitle(coreValues.mostNeglected).toUpperCase()} ${coreValues.scores[coreValues.mostNeglected]?.score ?? 0}%';
 
   final String soulMapSnapshot =
-      'SOULMAP ${soulMap.overall}% · LOW ${soulMapDimensionTitle(soulMap.weakest).toUpperCase()} ${soulMap.scores[soulMap.weakest]?.score ?? 0}%';
+      'SOULMAP ${soulMap.overall}% Â· LOW ${soulMapDimensionTitle(soulMap.weakest).toUpperCase()} ${soulMap.scores[soulMap.weakest]?.score ?? 0}%';
 
   return SIConsoleScreenModel(
     aggregation: aggregation,
     decision: decision,
-    engineSnapshot: '$engineSnapshot · $valuesSnapshot · $soulMapSnapshot',
+    engineSnapshot: '$engineSnapshot Â· $valuesSnapshot Â· $soulMapSnapshot',
   );
 });
 

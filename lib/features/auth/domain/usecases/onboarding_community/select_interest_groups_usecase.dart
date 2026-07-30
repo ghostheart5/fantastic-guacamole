@@ -1,3 +1,3 @@
-﻿class SelectInterestGroupsUsecase {
+class SelectInterestGroupsUsecase {
   const SelectInterestGroupsUsecase();
 }

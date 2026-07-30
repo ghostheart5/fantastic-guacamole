@@ -1,0 +1,3 @@
+﻿class CreatePlanUsecase {
+  const CreatePlanUsecase();
+}

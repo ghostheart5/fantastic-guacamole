@@ -1,3 +1,3 @@
-﻿class UpdateLogTemplateUsecase {
+class UpdateLogTemplateUsecase {
   const UpdateLogTemplateUsecase();
 }

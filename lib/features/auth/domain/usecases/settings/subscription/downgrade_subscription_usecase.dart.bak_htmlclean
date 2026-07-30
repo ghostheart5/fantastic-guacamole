@@ -1,0 +1,3 @@
+﻿class DowngradeSubscriptionUsecase {
+  const DowngradeSubscriptionUsecase();
+}

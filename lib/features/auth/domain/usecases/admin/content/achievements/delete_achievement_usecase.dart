@@ -1,3 +1,3 @@
-﻿class DeleteAchievementUsecase {
+class DeleteAchievementUsecase {
   const DeleteAchievementUsecase();
 }

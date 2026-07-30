@@ -1,0 +1,3 @@
+﻿class RefreshHomeDataUsecase {
+  const RefreshHomeDataUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class SetAppLockPinUsecase {
+class SetAppLockPinUsecase {
   const SetAppLockPinUsecase();
 }

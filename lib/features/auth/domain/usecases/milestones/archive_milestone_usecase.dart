@@ -1,3 +1,3 @@
-﻿class ArchiveMilestoneUsecase {
+class ArchiveMilestoneUsecase {
   const ArchiveMilestoneUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class RegisterDeviceUsecase {
+class RegisterDeviceUsecase {
   const RegisterDeviceUsecase();
 }

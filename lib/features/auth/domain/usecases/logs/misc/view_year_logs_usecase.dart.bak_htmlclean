@@ -1,0 +1,3 @@
+﻿class ViewYearLogsUsecase {
+  const ViewYearLogsUsecase();
+}

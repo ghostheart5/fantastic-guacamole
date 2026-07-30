@@ -1,0 +1,3 @@
+﻿class CreateWinLogUsecase {
+  const CreateWinLogUsecase();
+}

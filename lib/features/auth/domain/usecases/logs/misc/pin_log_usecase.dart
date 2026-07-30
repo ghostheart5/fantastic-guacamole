@@ -1,3 +1,3 @@
-﻿class PinLogUsecase {
+class PinLogUsecase {
   const PinLogUsecase();
 }

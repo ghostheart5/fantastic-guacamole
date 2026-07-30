@@ -1,0 +1,3 @@
+﻿class RemoveEmotionTriggerUsecase {
+  const RemoveEmotionTriggerUsecase();
+}

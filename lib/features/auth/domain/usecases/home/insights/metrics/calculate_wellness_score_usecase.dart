@@ -1,3 +1,3 @@
-﻿class CalculateWellnessScoreUsecase {
+class CalculateWellnessScoreUsecase {
   const CalculateWellnessScoreUsecase();
 }

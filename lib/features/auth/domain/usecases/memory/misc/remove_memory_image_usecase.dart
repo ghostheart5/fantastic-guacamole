@@ -1,3 +1,3 @@
-﻿class RemoveMemoryImageUsecase {
+class RemoveMemoryImageUsecase {
   const RemoveMemoryImageUsecase();
 }

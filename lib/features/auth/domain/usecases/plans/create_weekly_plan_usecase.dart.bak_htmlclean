@@ -1,0 +1,3 @@
+﻿class CreateWeeklyPlanUsecase {
+  const CreateWeeklyPlanUsecase();
+}

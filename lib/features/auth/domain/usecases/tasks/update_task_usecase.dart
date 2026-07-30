@@ -1,3 +1,3 @@
-﻿class UpdateTaskUsecase {
+class UpdateTaskUsecase {
   const UpdateTaskUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class DeleteAffirmationUsecase {
+  const DeleteAffirmationUsecase();
+}

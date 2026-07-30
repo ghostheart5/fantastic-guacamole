@@ -1,3 +1,3 @@
-﻿class CreateHabitTemplateUsecase {
+class CreateHabitTemplateUsecase {
   const CreateHabitTemplateUsecase();
 }

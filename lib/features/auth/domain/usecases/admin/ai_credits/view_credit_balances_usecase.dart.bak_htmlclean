@@ -1,0 +1,3 @@
+﻿class ViewCreditBalancesUsecase {
+  const ViewCreditBalancesUsecase();
+}

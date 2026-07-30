@@ -1,0 +1,3 @@
+﻿class StartOnboardingUsecase {
+  const StartOnboardingUsecase();
+}

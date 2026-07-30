@@ -1,3 +1,3 @@
-﻿class RemoveMemoryFromCollectionUsecase {
+class RemoveMemoryFromCollectionUsecase {
   const RemoveMemoryFromCollectionUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class CompareMemoriesUsecase {
+  const CompareMemoriesUsecase();
+}

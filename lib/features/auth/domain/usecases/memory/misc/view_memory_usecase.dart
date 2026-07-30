@@ -1,3 +1,3 @@
-﻿class ViewMemoryUsecase {
+class ViewMemoryUsecase {
   const ViewMemoryUsecase();
 }

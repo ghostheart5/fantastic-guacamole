@@ -11,7 +11,7 @@ class SubscriptionManagementScreen extends ConsumerWidget {
     final entitlementAsync = ref.watch(premiumEntitlementProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Subscription Management')),
+      appBar: AppBar(title: const Text('Billing Center')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

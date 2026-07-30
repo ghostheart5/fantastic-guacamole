@@ -1,3 +1,3 @@
-﻿class CreateFailureMemoryUsecase {
+class CreateFailureMemoryUsecase {
   const CreateFailureMemoryUsecase();
 }

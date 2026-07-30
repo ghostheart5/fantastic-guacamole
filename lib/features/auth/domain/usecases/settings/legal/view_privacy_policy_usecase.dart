@@ -1,3 +1,3 @@
-﻿class ViewPrivacyPolicyUsecase {
+class ViewPrivacyPolicyUsecase {
   const ViewPrivacyPolicyUsecase();
 }

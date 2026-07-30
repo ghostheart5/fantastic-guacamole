@@ -1,3 +1,3 @@
-﻿class CreateCompanionUsecase {
+class CreateCompanionUsecase {
   const CreateCompanionUsecase();
 }

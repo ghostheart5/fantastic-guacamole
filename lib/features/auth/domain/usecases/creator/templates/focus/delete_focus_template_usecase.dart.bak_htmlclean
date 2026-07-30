@@ -1,0 +1,3 @@
+﻿class DeleteFocusTemplateUsecase {
+  const DeleteFocusTemplateUsecase();
+}

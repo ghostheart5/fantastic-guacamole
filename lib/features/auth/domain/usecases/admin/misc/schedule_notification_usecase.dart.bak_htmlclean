@@ -1,0 +1,3 @@
+﻿class ScheduleNotificationUsecase {
+  const ScheduleNotificationUsecase();
+}

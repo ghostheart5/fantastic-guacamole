@@ -1,3 +1,3 @@
-﻿class ViewFocusAnalyticsUsecase {
+class ViewFocusAnalyticsUsecase {
   const ViewFocusAnalyticsUsecase();
 }

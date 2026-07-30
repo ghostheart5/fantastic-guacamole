@@ -1,0 +1,3 @@
+﻿class SelectEmotionUsecase {
+  const SelectEmotionUsecase();
+}

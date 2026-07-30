@@ -1,0 +1,3 @@
+﻿class SetCommentPermissionsUsecase {
+  const SetCommentPermissionsUsecase();
+}

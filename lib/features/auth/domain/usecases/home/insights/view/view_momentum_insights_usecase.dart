@@ -1,3 +1,3 @@
-﻿class ViewMomentumInsightsUsecase {
+class ViewMomentumInsightsUsecase {
   const ViewMomentumInsightsUsecase();
 }

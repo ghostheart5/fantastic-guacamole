@@ -1,0 +1,3 @@
+﻿class CreateNotificationUsecase {
+  const CreateNotificationUsecase();
+}

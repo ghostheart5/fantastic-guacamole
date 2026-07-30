@@ -1,0 +1,3 @@
+﻿class ViewImportantRemindersUsecase {
+  const ViewImportantRemindersUsecase();
+}

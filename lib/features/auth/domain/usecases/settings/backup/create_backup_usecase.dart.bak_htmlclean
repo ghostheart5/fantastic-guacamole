@@ -1,0 +1,3 @@
+﻿class CreateBackupUsecase {
+  const CreateBackupUsecase();
+}

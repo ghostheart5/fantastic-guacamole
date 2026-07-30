@@ -1,3 +1,3 @@
-﻿class MuteUserUsecase {
+class MuteUserUsecase {
   const MuteUserUsecase();
 }

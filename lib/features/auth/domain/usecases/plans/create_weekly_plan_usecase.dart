@@ -1,3 +1,3 @@
-﻿class CreateWeeklyPlanUsecase {
+class CreateWeeklyPlanUsecase {
   const CreateWeeklyPlanUsecase();
 }

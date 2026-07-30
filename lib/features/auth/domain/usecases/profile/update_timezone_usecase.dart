@@ -1,3 +1,3 @@
-﻿class UpdateTimezoneUsecase {
+class UpdateTimezoneUsecase {
   const UpdateTimezoneUsecase();
 }

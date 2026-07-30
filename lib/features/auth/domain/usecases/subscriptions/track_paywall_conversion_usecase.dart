@@ -1,3 +1,3 @@
-﻿class TrackPaywallConversionUsecase {
+class TrackPaywallConversionUsecase {
   const TrackPaywallConversionUsecase();
 }

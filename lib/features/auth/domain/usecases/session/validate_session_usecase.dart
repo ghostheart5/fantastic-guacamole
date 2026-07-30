@@ -1,3 +1,3 @@
-﻿class ValidateSessionUsecase {
+class ValidateSessionUsecase {
   const ValidateSessionUsecase();
 }

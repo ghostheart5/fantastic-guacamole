@@ -6,9 +6,8 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
@@ -27,61 +26,13 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     with TickerProviderStateMixin {
+  static const int _onboardingContentVersion = 6;
   final PageController _page = PageController();
   int _current = 0;
-  final _nameCtrl = TextEditingController();
-  String? _selectedGoalType;
 
-  static const _totalPages = 6; // 5 info slides + 1 personalization
+  static const _totalPages = 1; // setup gate only
 
-  static const _slides = [
-    _Slide(
-      icon: Icons.bolt_rounded,
-      iconColor: Color(0xFF00E5FF),
-      tag: 'WELCOME',
-      title: 'CHRONOSPARK',
-      subtitle: 'Temporal Intelligence System',
-      body:
-          'Your personal intelligence core. ChronoSpark reads your energy, tracks your evolution, and helps you execute at your highest level every day.',
-    ),
-    _Slide(
-      icon: Icons.psychology_rounded,
-      iconColor: Color(0xFF9B8AFB),
-      tag: 'SMART PLANNER',
-      title: 'LIFE GUIDANCE',
-      subtitle: 'Adaptive personal coaching',
-      body:
-          'Smart Planner reads your emotional state, energy signature, and behavior patterns to generate practical guidance. This is not a checklist bot. It is your strategy layer.',
-    ),
-    _Slide(
-      icon: Icons.timer_rounded,
-      iconColor: Color(0xFF00E5FF),
-      tag: 'TRAJECTORY ENGINE',
-      title: 'PREDICTIONS & ACTIONS',
-      subtitle: 'Own your next move',
-      body:
-          'Trajectory Engine converts behavior signals into forward predictions and tactical actions so you can move with clarity and force.',
-    ),
-    _Slide(
-      icon: Icons.trending_up_rounded,
-      iconColor: Color(0xFF00E5FF),
-      tag: 'TIMELINE',
-      title: 'PAST • PRESENT • FUTURE',
-      subtitle: 'Review what actually happened',
-      body:
-          'Activity Ledger records completed actions and milestones in one trusted timeline so you can audit execution and upgrade your system.',
-    ),
-    _Slide(
-      icon: Icons.touch_app_rounded,
-      iconColor: Color(0xFF00E5FF),
-      tag: 'CONTROL MAP',
-      title: 'CORE SYSTEMS',
-      subtitle: 'Quick control map',
-      body:
-          'Nexus: choose your next move.\nSmart Planner: receive guidance and execution support.\nCreator: create tasks, goals, and milestones.\nTimeline: review history and progress.\nTrajectory: see future direction and predictions.',
-    ),
-  ];
-
+  static const List<_Slide> _slides = <_Slide>[];
   @override
   void initState() {
     super.initState();
@@ -151,18 +102,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           context: context,
           builder: (BuildContext dialogContext) {
             return AlertDialog(
-              title: const Text('Exit onboarding?'),
+              title: const Text('Leave setup?'),
               content: const Text(
-                'You can continue onboarding later, but setup will stay incomplete.',
+                'You can continue this setup later. Your progress will stay saved.',
               ),
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Stay'),
+                  child: const Text('Continue setup'),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('Exit'),
+                  child: const Text('Leave'),
                 ),
               ],
             );
@@ -187,52 +138,56 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     }
   }
 
-  Future<void> _complete() async {
+  Future<void> _beginMissionZero() async {
     try {
-      final PreferenceService preferenceService = PreferenceService();
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String name = _nameCtrl.text.trim();
-      final String resolvedName = name.isNotEmpty
-          ? name
-          : _fallbackProfileName();
-      final String? selectedGoalType = _selectedGoalType;
+      final String resolvedName = _fallbackProfileName();
 
       ref
           .read(profileProvider.notifier)
           .ensureProfile(preferredName: resolvedName);
-      if (selectedGoalType != null && selectedGoalType.trim().isNotEmpty) {
-        await SharedPrefsService.saveStringWithPrefs(
-          prefs,
-          'primary_goal_type',
-          selectedGoalType,
-        );
-        await preferenceService.setUserPreference(
-          'primary_goal_type',
-          selectedGoalType,
-        );
-      }
 
       await SharedPrefsService.saveBoolWithPrefs(
         prefs,
         onboardingCompleteStorageKey,
-        true,
+        false,
+      );
+      await SharedPrefsService.saveBoolWithPrefs(
+        prefs,
+        creatorFirstItemCreatedStorageKey,
+        false,
+      );
+      await SharedPrefsService.saveBoolWithPrefs(
+        prefs,
+        timelineFirstActionCompletedStorageKey,
+        false,
       );
       await SharedPrefsService.saveIntWithPrefs(
         prefs,
         onboardingContentVersionStorageKey,
-        TutorialContent.contentVersion,
+        _onboardingContentVersion,
       );
       final String? userId = _currentSupabaseUserId();
       if (userId != null) {
         await SharedPrefsService.saveBoolWithPrefs(
           prefs,
           onboardingCompleteStorageKeyForUser(userId),
-          true,
+          false,
+        );
+        await SharedPrefsService.saveBoolWithPrefs(
+          prefs,
+          creatorFirstItemCreatedStorageKeyForUser(userId),
+          false,
+        );
+        await SharedPrefsService.saveBoolWithPrefs(
+          prefs,
+          timelineFirstActionCompletedStorageKeyForUser(userId),
+          false,
         );
         await SharedPrefsService.saveIntWithPrefs(
           prefs,
           onboardingContentVersionStorageKeyForUser(userId),
-          TutorialContent.contentVersion,
+          _onboardingContentVersion,
         );
         await SharedPrefsService.saveIntWithPrefs(
           prefs,
@@ -243,8 +198,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           prefs,
           'onboarding_state_v1_$userId',
           jsonEncode(<String, Object?>{
-            'complete': true,
-            'version': TutorialContent.contentVersion,
+            'complete': false,
+            'version': _onboardingContentVersion,
             'updatedAt': DateTime.now().toIso8601String(),
           }),
         );
@@ -253,8 +208,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         prefs,
         'onboarding_state_v1',
         jsonEncode(<String, Object?>{
-          'complete': true,
-          'version': TutorialContent.contentVersion,
+          'complete': false,
+          'version': _onboardingContentVersion,
           'updatedAt': DateTime.now().toIso8601String(),
         }),
       );
@@ -264,23 +219,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         0,
       );
       AppAnalytics.track(
-        'onboarding_completed',
-        params: <String, Object?>{'selected_goal_type': selectedGoalType ?? ''},
+        'mission_zero_activation_started',
+        params: <String, Object?>{'entry_surface': 'setup_start'},
       );
       if (!mounted) return;
 
-      ref.read(onboardingCompleteProvider.notifier).set(true);
+      ref.read(onboardingCompleteProvider.notifier).set(false);
+        ref.read(creatorFirstItemCreatedProvider.notifier).set(false);
+        ref.read(timelineFirstActionCompletedProvider.notifier).set(false);
       ref
           .read(onboardingStatusProvider.notifier)
-          .set(OnboardingStatus.complete);
+          .set(OnboardingStatus.incomplete);
       final bool isAuthenticated = ref
           .read(intelligenceStateProvider)
           .auth
           .isAuthenticated;
-      final routes = ref.read(routeSurfaceProvider);
       final GoRouter? router = GoRouter.maybeOf(context);
       if (router != null) {
-        context.go(isAuthenticated ? '/' : routes.login);
+        context.go(isAuthenticated ? RoutePaths.creator : RoutePaths.login);
       }
     } on Object catch (error, stackTrace) {
       Logger.errorCategory(
@@ -290,7 +246,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         stackTrace,
       );
       AppAnalytics.track(
-        'onboarding_complete_failed',
+        'mission_zero_activation_start_failed',
         params: <String, Object?>{'error': error.toString()},
       );
       if (!mounted) {
@@ -298,7 +254,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Unable to finish onboarding. Please try again.'),
+          content: Text('Unable to start setup. Please try again.'),
         ),
       );
     }
@@ -307,19 +263,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   String _fallbackProfileName() {
     try {
       if (!Env.isSupabaseConfigured) {
-        return 'Operator';
+        return 'Creator';
       }
       final String? email = sb.Supabase.instance.client.auth.currentUser?.email;
       if (email == null || email.trim().isEmpty) {
-        return 'Operator';
+        return 'Creator';
       }
       final String localPart = email.split('@').first.trim();
       if (localPart.isEmpty) {
-        return 'Operator';
+        return 'Creator';
       }
       return localPart;
     } on Object {
-      return 'Operator';
+      return 'Creator';
     }
   }
 
@@ -334,14 +290,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         curve: Curves.easeInOut,
       );
     } else {
-      _complete();
+      _beginMissionZero();
     }
   }
 
   @override
   void dispose() {
     _page.dispose();
-    _nameCtrl.dispose();
     super.dispose();
   }
 
@@ -363,6 +318,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           children: [
             // Starfield background
             const Positioned.fill(child: _StarfieldBackground()),
+            const Positioned.fill(child: _HudPulseOverlay()),
 
             // Page content
             PageView.builder(
@@ -374,12 +330,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               itemCount: _totalPages,
               itemBuilder: (context, i) {
                 if (i < _slides.length) return _SlideView(slide: _slides[i]);
-                return _PersonalizationSlide(
-                  nameCtrl: _nameCtrl,
-                  selectedGoalType: _selectedGoalType,
-                  onGoalTypeSelected: (v) =>
-                      setState(() => _selectedGoalType = v),
-                );
+                return const _PersonalizationSlide();
               },
             ),
 
@@ -394,44 +345,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                   child: landscape
                       ? Row(
                           children: [
-                            Expanded(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: List.generate(_totalPages, (i) {
-                                  final bool active = i == _current;
-                                  return AnimatedContainer(
-                                    duration: const Duration(milliseconds: 250),
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 3,
-                                    ),
-                                    width: active ? 20 : 6,
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      color: active
-                                          ? AppColors.neonCyan
-                                          : Colors.white.withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(3),
-                                      boxShadow: active
-                                          ? [
-                                              BoxShadow(
-                                                color: AppColors.neonCyan
-                                                    .withValues(alpha: 0.6),
-                                                blurRadius: 8,
-                                              ),
-                                            ]
-                                          : null,
-                                    ),
-                                  );
-                                }),
-                              ),
-                            ),
+                            Expanded(child: _PhaseIndicator(current: _current)),
                             const SizedBox(width: 18),
                             SizedBox(
-                              width: 180,
+                              width: 220,
                               child: _GradientButton(
-                                label: _current == _totalPages - 1
-                                    ? 'INITIALIZE'
-                                    : 'NEXT',
+                                label: 'START PLANNING',
                                 onTap: _next,
                               ),
                             ),
@@ -445,7 +364,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                       'step_index': _current,
                                     },
                                   );
-                                  _complete();
+                                  _beginMissionZero();
                                 },
                                 child: const Text(
                                   'SKIP',
@@ -464,43 +383,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       : Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Dot indicators
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: List.generate(_totalPages, (i) {
-                                final bool active = i == _current;
-                                return AnimatedContainer(
-                                  duration: const Duration(milliseconds: 250),
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                  width: active ? 22 : 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: active
-                                        ? AppColors.neonCyan
-                                        : Colors.white.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(3),
-                                    boxShadow: active
-                                        ? [
-                                            BoxShadow(
-                                              color: AppColors.neonCyan
-                                                  .withValues(alpha: 0.6),
-                                              blurRadius: 8,
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                );
-                              }),
-                            ),
+                            _PhaseIndicator(current: _current),
                             const SizedBox(height: 20),
 
                             // Primary action button
                             _GradientButton(
-                              label: _current == _totalPages - 1
-                                  ? 'INITIALIZE SYSTEM'
-                                  : 'NEXT',
+                              label: 'START PLANNING',
                               onTap: _next,
                             ),
                             const SizedBox(height: 14),
@@ -515,7 +403,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                       'step_index': _current,
                                     },
                                   );
-                                  _complete();
+                                  _beginMissionZero();
                                 },
                                 child: const Text(
                                   'SKIP',
@@ -549,6 +437,7 @@ class _Slide {
     required this.title,
     required this.subtitle,
     required this.body,
+    required this.statusLine,
   });
 
   final IconData icon;
@@ -557,6 +446,7 @@ class _Slide {
   final String title;
   final String subtitle;
   final String body;
+  final String statusLine;
 }
 
 class _SlideView extends StatelessWidget {
@@ -606,58 +496,69 @@ class _SlideView extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          width: 92,
-                          height: 92,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: slide.iconColor.withValues(alpha: 0.08),
-                            border: Border.all(
-                              color: slide.iconColor.withValues(alpha: 0.35),
-                              width: 1.5,
+                        _SignalReveal(
+                          delay: const Duration(milliseconds: 20),
+                          child: Container(
+                            width: 92,
+                            height: 92,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: slide.iconColor.withValues(alpha: 0.08),
+                              border: Border.all(
+                                color: slide.iconColor.withValues(alpha: 0.35),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: slide.iconColor.withValues(alpha: 0.3),
+                                  blurRadius: 28,
+                                  spreadRadius: 2,
+                                ),
+                              ],
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: slide.iconColor.withValues(alpha: 0.3),
-                                blurRadius: 28,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              _buildPulseAura(width: 86, height: 86),
-                              Icon(
-                                slide.icon,
-                                color: slide.iconColor,
-                                size: 36,
-                              ),
-                            ],
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                _buildPulseAura(width: 86, height: 86),
+                                Icon(
+                                  slide.icon,
+                                  color: slide.iconColor,
+                                  size: 36,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: slide.iconColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: slide.iconColor.withValues(alpha: 0.3),
+                        _SignalReveal(
+                          delay: const Duration(milliseconds: 120),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: slide.iconColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: slide.iconColor.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Text(
+                              slide.tag,
+                              style: TextStyle(
+                                color: slide.iconColor,
+                                fontSize: 10,
+                                letterSpacing: 2.5,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                          child: Text(
-                            slide.tag,
-                            style: TextStyle(
-                              color: slide.iconColor,
-                              fontSize: 10,
-                              letterSpacing: 2.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _SignalReveal(
+                          delay: const Duration(milliseconds: 240),
+                          child: _StatusLine(text: slide.statusLine),
                         ),
                       ],
                     ),
@@ -668,51 +569,63 @@ class _SlideView extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        ShaderMask(
-                          shaderCallback: (bounds) => LinearGradient(
-                            colors: [
-                              Colors.white,
-                              slide.iconColor.withValues(alpha: 0.8),
-                            ],
-                          ).createShader(bounds),
-                          child: Text(
-                            slide.title,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 40,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5,
-                              height: 1.0,
+                        _SignalReveal(
+                          delay: const Duration(milliseconds: 140),
+                          child: ShaderMask(
+                            shaderCallback: (bounds) => LinearGradient(
+                              colors: [
+                                Colors.white,
+                                slide.iconColor.withValues(alpha: 0.8),
+                              ],
+                            ).createShader(bounds),
+                            child: Text(
+                              slide.title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 46,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.9,
+                                height: 1.0,
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          slide.subtitle,
-                          style: TextStyle(
-                            color: slide.iconColor.withValues(alpha: 0.75),
-                            fontSize: 15,
-                            letterSpacing: 0.5,
-                            fontWeight: FontWeight.w500,
+                        _SignalReveal(
+                          delay: const Duration(milliseconds: 240),
+                          child: Text(
+                            slide.subtitle,
+                            style: TextStyle(
+                              color: slide.iconColor.withValues(alpha: 0.75),
+                              fontSize: 16,
+                              letterSpacing: 0.5,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 22),
-                        Container(
-                          width: 48,
-                          height: 2,
-                          decoration: BoxDecoration(
-                            color: slide.iconColor.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(1),
+                        _SignalReveal(
+                          delay: const Duration(milliseconds: 360),
+                          child: Container(
+                            width: 48,
+                            height: 2,
+                            decoration: BoxDecoration(
+                              color: slide.iconColor.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(1),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 18),
-                        Text(
-                          slide.body,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 17,
-                            height: 1.75,
-                            fontWeight: FontWeight.w400,
+                        _SignalReveal(
+                          delay: const Duration(milliseconds: 460),
+                          child: Text(
+                            slide.body,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 17,
+                              height: 1.8,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
                         ),
                       ],
@@ -726,101 +639,127 @@ class _SlideView extends StatelessWidget {
           content = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: slide.iconColor.withValues(alpha: 0.08),
-                  border: Border.all(
-                    color: slide.iconColor.withValues(alpha: 0.35),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: slide.iconColor.withValues(alpha: 0.3),
-                      blurRadius: 24,
-                      spreadRadius: 2,
+              _SignalReveal(
+                delay: const Duration(milliseconds: 20),
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: slide.iconColor.withValues(alpha: 0.08),
+                    border: Border.all(
+                      color: slide.iconColor.withValues(alpha: 0.35),
+                      width: 1.5,
                     ),
-                  ],
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    _buildPulseAura(width: 66, height: 66),
-                    Icon(slide.icon, color: slide.iconColor, size: 32),
-                  ],
+                    boxShadow: [
+                      BoxShadow(
+                        color: slide.iconColor.withValues(alpha: 0.3),
+                        blurRadius: 24,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      _buildPulseAura(width: 66, height: 66),
+                      Icon(slide.icon, color: slide.iconColor, size: 32),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: slide.iconColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: slide.iconColor.withValues(alpha: 0.3),
+              _SignalReveal(
+                delay: const Duration(milliseconds: 120),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
                   ),
-                ),
-                child: Text(
-                  slide.tag,
-                  style: TextStyle(
-                    color: slide.iconColor,
-                    fontSize: 10,
-                    letterSpacing: 2.5,
-                    fontWeight: FontWeight.w700,
+                  decoration: BoxDecoration(
+                    color: slide.iconColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: slide.iconColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    slide.tag,
+                    style: TextStyle(
+                      color: slide.iconColor,
+                      fontSize: 10,
+                      letterSpacing: 2.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 12),
-              ShaderMask(
-                shaderCallback: (bounds) => LinearGradient(
-                  colors: [
-                    Colors.white,
-                    slide.iconColor.withValues(alpha: 0.8),
-                  ],
-                ).createShader(bounds),
-                child: Text(
-                  slide.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.5,
-                    height: 1.0,
+              _SignalReveal(
+                delay: const Duration(milliseconds: 240),
+                child: _StatusLine(text: slide.statusLine),
+              ),
+              const SizedBox(height: 12),
+              _SignalReveal(
+                delay: const Duration(milliseconds: 180),
+                child: ShaderMask(
+                  shaderCallback: (bounds) => LinearGradient(
+                    colors: [
+                      Colors.white,
+                      slide.iconColor.withValues(alpha: 0.8),
+                    ],
+                  ).createShader(bounds),
+                  child: Text(
+                    slide.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 40,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.8,
+                      height: 1.0,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
-                slide.subtitle,
-                style: TextStyle(
-                  color: slide.iconColor.withValues(alpha: 0.75),
-                  fontSize: 13,
-                  letterSpacing: 0.5,
-                  fontWeight: FontWeight.w500,
+              _SignalReveal(
+                delay: const Duration(milliseconds: 280),
+                child: Text(
+                  slide.subtitle,
+                  style: TextStyle(
+                    color: slide.iconColor.withValues(alpha: 0.75),
+                    fontSize: 14,
+                    letterSpacing: 0.5,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               const SizedBox(height: 22),
-              Container(
-                width: 40,
-                height: 2,
-                decoration: BoxDecoration(
-                  color: slide.iconColor.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(1),
+              _SignalReveal(
+                delay: const Duration(milliseconds: 360),
+                child: Container(
+                  width: 40,
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: slide.iconColor.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(1),
+                  ),
                 ),
               ),
               const SizedBox(height: 18),
-              Text(
-                slide.body,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 15,
-                  height: 1.65,
-                  fontWeight: FontWeight.w400,
+              _SignalReveal(
+                delay: const Duration(milliseconds: 460),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Text(
+                    slide.body,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 15,
+                      height: 1.75,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -836,22 +775,7 @@ class _SlideView extends StatelessWidget {
 }
 
 class _PersonalizationSlide extends StatelessWidget {
-  const _PersonalizationSlide({
-    required this.nameCtrl,
-    required this.selectedGoalType,
-    required this.onGoalTypeSelected,
-  });
-
-  final TextEditingController nameCtrl;
-  final String? selectedGoalType;
-  final ValueChanged<String> onGoalTypeSelected;
-
-  static const _goalTypes = [
-    ('Focus & Productivity', Icons.bolt_rounded, Color(0xFF00E5FF)),
-    ('Personal Growth', Icons.trending_up_rounded, Color(0xFF9B8AFB)),
-    ('Mental Wellness', Icons.self_improvement_rounded, Color(0xFF00E5FF)),
-    ('Just exploring', Icons.explore_rounded, Color(0xFFFFC857)),
-  ];
+  const _PersonalizationSlide();
 
   @override
   Widget build(BuildContext context) {
@@ -866,12 +790,8 @@ class _PersonalizationSlide extends StatelessWidget {
           wideLayout ? (landscapeCompact ? 40 : 56) : 28,
           wideLayout ? (landscapeCompact ? 150 : 188) : 160,
         );
-        final int goalColumns = constraints.maxWidth >= 980
-            ? 4
-            : (landscapeCompact ? 3 : 2);
-
-        final Widget formCard = Container(
-          width: wideLayout ? (landscapeCompact ? 440 : 460) : double.infinity,
+        final Widget missionCard = Container(
+          width: wideLayout ? (landscapeCompact ? 520 : 560) : double.infinity,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(18),
@@ -885,12 +805,12 @@ class _PersonalizationSlide extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'WHAT SHOULD I CALL YOU?',
+                'YOUR FIRST SETUP',
                 style: TextStyle(
-                  color: Colors.white38,
+                  color: AppColors.neonCyan,
                   fontSize: 10,
                   letterSpacing: 2,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 10),
@@ -902,87 +822,33 @@ class _PersonalizationSlide extends StatelessWidget {
                     color: AppColors.neonCyan.withValues(alpha: 0.25),
                   ),
                 ),
-                child: TextField(
-                  controller: nameCtrl,
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    hintText: 'Enter your name...',
-                    hintStyle: TextStyle(color: Colors.white24),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    border: InputBorder.none,
+                padding: const EdgeInsets.all(14),
+                child: const Text(
+                  'Create your first item, choose when it happens, and then review it on your timeline. Smart Planner, Future Vector, Ascension, SI Console, and Profile are available to explore after setup.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.5,
                   ),
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'PRIMARY GOAL',
-                style: TextStyle(
-                  color: Colors.white38,
-                  fontSize: 10,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.w600,
-                ),
+              const _MissionCheckpointRow(
+                index: '01',
+                title: 'Create Something',
+                detail: 'Start with a task, routine, note, or goal.',
               ),
               const SizedBox(height: 10),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: goalColumns,
-                childAspectRatio: goalColumns >= 4
-                    ? 2.1
-                    : (landscapeCompact ? 3.0 : 2.6),
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                children: _goalTypes.map((entry) {
-                  final (label, icon, color) = entry;
-                  final selected = selectedGoalType == label;
-                  return GestureDetector(
-                    onTap: () => onGoalTypeSelected(label),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? color.withValues(alpha: 0.15)
-                            : Colors.white.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: selected
-                              ? color.withValues(alpha: 0.7)
-                              : Colors.white.withValues(alpha: 0.1),
-                          width: selected ? 1.5 : 1,
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Row(
-                        children: [
-                          Icon(
-                            icon,
-                            color: selected ? color : Colors.white38,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              label,
-                              style: TextStyle(
-                                color: selected ? color : Colors.white54,
-                                fontSize: 11,
-                                fontWeight: selected
-                                    ? FontWeight.w700
-                                    : FontWeight.w400,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
+              const _MissionCheckpointRow(
+                index: '02',
+                title: 'Choose When It Happens',
+                detail: 'Set it as one time, daily, or weekly.',
+              ),
+              const SizedBox(height: 10),
+              const _MissionCheckpointRow(
+                index: '03',
+                title: 'View Your Timeline',
+                detail: 'See your plan in a calendar-style view.',
               ),
             ],
           ),
@@ -1005,7 +871,7 @@ class _PersonalizationSlide extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Text(
-                                'PERSONALIZE',
+                                'GET STARTED',
                                 style: TextStyle(
                                   color: AppColors.neonCyan,
                                   fontSize: 10,
@@ -1014,33 +880,39 @@ class _PersonalizationSlide extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              ShaderMask(
-                                shaderCallback: (bounds) =>
-                                    const LinearGradient(
-                                      colors: [
-                                        Colors.white,
-                                        AppColors.neonCyan,
-                                      ],
-                                    ).createShader(bounds),
-                                child: const Text(
-                                  'YOUR MISSION',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 42,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.5,
-                                    height: 1.0,
+                              _SignalReveal(
+                                delay: const Duration(milliseconds: 120),
+                                child: ShaderMask(
+                                  shaderCallback: (bounds) =>
+                                      const LinearGradient(
+                                        colors: [
+                                          Colors.white,
+                                          AppColors.neonCyan,
+                                        ],
+                                      ).createShader(bounds),
+                                  child: const Text(
+                                    'BUILD YOUR FIRST PLAN',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 44,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.8,
+                                      height: 1.0,
+                                    ),
                                   ),
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              const Text(
-                                'Help us calibrate your experience',
-                                style: TextStyle(
-                                  color: AppColors.neonCyan,
-                                  fontSize: 14,
-                                  letterSpacing: 0.5,
-                                  fontWeight: FontWeight.w500,
+                              const _SignalReveal(
+                                delay: Duration(milliseconds: 220),
+                                child: Text(
+                                  'Create your first item, choose when it happens, and see it on your timeline.',
+                                  style: TextStyle(
+                                    color: AppColors.neonCyan,
+                                    fontSize: 15,
+                                    letterSpacing: 0.5,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 22),
@@ -1052,20 +924,30 @@ class _PersonalizationSlide extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              const Text(
-                                'A clean profile makes the first setup feel anchored. Pick a name and goal, then we tune the rest.',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 16,
-                                  height: 1.7,
-                                  fontWeight: FontWeight.w400,
+                              const _SignalReveal(
+                                delay: Duration(milliseconds: 320),
+                                child: Text(
+                                  'ChronoSpark starts with one simple step: create a task, routine, note, or goal. After that, your timeline helps you see what is planned.',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 16,
+                                    height: 1.7,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              const _SignalReveal(
+                                delay: Duration(milliseconds: 420),
+                                child: _StatusLine(
+                                  text: 'READY TO START',
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ),
-                      formCard,
+                      missionCard,
                     ],
                   ),
                 ),
@@ -1086,7 +968,7 @@ class _PersonalizationSlide extends StatelessWidget {
                       ),
                     ),
                     child: const Text(
-                      'PERSONALIZE',
+                      'GET STARTED',
                       style: TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: 10,
@@ -1096,29 +978,35 @@ class _PersonalizationSlide extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [Colors.white, AppColors.neonCyan],
-                    ).createShader(bounds),
-                    child: const Text(
-                      'YOUR MISSION',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
-                        height: 1.0,
+                  _SignalReveal(
+                    delay: const Duration(milliseconds: 120),
+                    child: ShaderMask(
+                      shaderCallback: (bounds) => const LinearGradient(
+                        colors: [Colors.white, AppColors.neonCyan],
+                      ).createShader(bounds),
+                      child: const Text(
+                        'BUILD YOUR FIRST PLAN',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 39,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.8,
+                          height: 1.0,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Help us calibrate your experience',
-                    style: TextStyle(
-                      color: AppColors.neonCyan,
-                      fontSize: 13,
-                      letterSpacing: 0.5,
-                      fontWeight: FontWeight.w500,
+                  const _SignalReveal(
+                    delay: Duration(milliseconds: 220),
+                    child: Text(
+                      'Create your first item, choose when it happens, and see it on your timeline.',
+                      style: TextStyle(
+                        color: AppColors.neonCyan,
+                        fontSize: 14,
+                        letterSpacing: 0.5,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 28),
@@ -1131,17 +1019,22 @@ class _PersonalizationSlide extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'This takes under a minute. The goal is just to make the first launch feel like it already knows your shape.',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 15,
-                      height: 1.65,
-                      fontWeight: FontWeight.w400,
+                  const _SignalReveal(
+                    delay: Duration(milliseconds: 320),
+                    child: Text(
+                      'ChronoSpark starts with one simple step: create a task, routine, note, or goal. After that, your timeline helps you see what is planned.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 15,
+                        height: 1.75,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  const _StatusLine(text: 'READY TO START'),
                   const SizedBox(height: 18),
-                  formCard,
+                  missionCard,
                 ],
               );
 
@@ -1149,6 +1042,82 @@ class _PersonalizationSlide extends StatelessWidget {
           child: SingleChildScrollView(padding: padding, child: content),
         );
       },
+    );
+  }
+}
+
+class _MissionCheckpointRow extends StatelessWidget {
+  const _MissionCheckpointRow({
+    required this.index,
+    required this.title,
+    required this.detail,
+  });
+
+  final String index;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.neonCyan.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(
+                color: AppColors.neonCyan.withValues(alpha: 0.40),
+              ),
+            ),
+            child: Text(
+              index,
+              style: const TextStyle(
+                color: AppColors.neonCyan,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  detail,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1183,11 +1152,220 @@ class _GradientButton extends StatelessWidget {
           label,
           style: const TextStyle(
             color: Colors.black,
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: FontWeight.w900,
-            letterSpacing: 2.5,
+            letterSpacing: 2.2,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PhaseIndicator extends StatelessWidget {
+  const _PhaseIndicator({required this.current});
+
+  final int current;
+
+  @override
+  Widget build(BuildContext context) {
+    const List<String> labels = <String>['GET STARTED'];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List<Widget>.generate(labels.length, (int i) {
+          final bool active = i == current;
+          return Padding(
+            padding: EdgeInsets.only(right: i == labels.length - 1 ? 0 : 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  '01',
+                  style: TextStyle(
+                    color: active
+                        ? AppColors.neonCyan
+                        : Colors.white.withValues(alpha: 0.35),
+                    fontSize: 11,
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  labels[i],
+                  style: TextStyle(
+                    color: active ? Colors.white : Colors.white54,
+                    fontSize: 10,
+                    letterSpacing: 1.6,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          width: 8,
+          height: 8,
+          decoration: const BoxDecoration(
+            color: AppColors.neonCyan,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: const TextStyle(
+            color: AppColors.neonCyan,
+            fontSize: 10,
+            letterSpacing: 1.8,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SignalReveal extends StatefulWidget {
+  const _SignalReveal({required this.child, this.delay = Duration.zero});
+
+  final Widget child;
+  final Duration delay;
+
+  @override
+  State<_SignalReveal> createState() => _SignalRevealState();
+}
+
+class _SignalRevealState extends State<_SignalReveal> {
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(widget.delay, () {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _visible = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 520),
+      curve: Curves.easeOutCubic,
+      offset: _visible ? Offset.zero : const Offset(0, 0.08),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 520),
+        curve: Curves.easeOut,
+        opacity: _visible ? 1 : 0,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _HudPulseOverlay extends StatefulWidget {
+  const _HudPulseOverlay();
+
+  @override
+  State<_HudPulseOverlay> createState() => _HudPulseOverlayState();
+}
+
+class _HudPulseOverlayState extends State<_HudPulseOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (BuildContext context, Widget? child) {
+          final double t = _controller.value;
+          return LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final double scanY = constraints.maxHeight * (0.2 + (0.65 * t));
+              return Stack(
+                children: <Widget>[
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: const Alignment(0, -0.35),
+                          radius: 1.0,
+                          colors: <Color>[
+                            AppColors.neonCyan.withValues(alpha: 0.08),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 24,
+                    right: 24,
+                    top: scanY,
+                    child: Opacity(
+                      opacity: 0.12,
+                      child: Container(
+                        height: 1.5,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: <Color>[
+                              Colors.transparent,
+                              AppColors.neonCyan,
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }

@@ -1,3 +1,3 @@
-﻿class RestoreUserUsecase {
+class RestoreUserUsecase {
   const RestoreUserUsecase();
 }

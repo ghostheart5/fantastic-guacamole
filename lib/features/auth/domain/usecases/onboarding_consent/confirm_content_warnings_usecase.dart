@@ -1,3 +1,3 @@
-﻿class ConfirmContentWarningsUsecase {
+class ConfirmContentWarningsUsecase {
   const ConfirmContentWarningsUsecase();
 }

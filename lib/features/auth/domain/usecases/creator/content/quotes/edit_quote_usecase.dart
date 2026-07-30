@@ -1,3 +1,3 @@
-﻿class EditQuoteUsecase {
+class EditQuoteUsecase {
   const EditQuoteUsecase();
 }

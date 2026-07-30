@@ -1,3 +1,3 @@
-﻿class ConfigureSafeExitUsecase {
+class ConfigureSafeExitUsecase {
   const ConfigureSafeExitUsecase();
 }

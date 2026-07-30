@@ -1,3 +1,3 @@
-﻿class UnlinkOauthProviderUsecase {
+class UnlinkOauthProviderUsecase {
   const UnlinkOauthProviderUsecase();
 }

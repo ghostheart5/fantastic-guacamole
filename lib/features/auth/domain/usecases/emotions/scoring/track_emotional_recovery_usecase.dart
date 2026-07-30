@@ -1,3 +1,3 @@
-﻿class TrackEmotionalRecoveryUsecase {
+class TrackEmotionalRecoveryUsecase {
   const TrackEmotionalRecoveryUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class ResetAiCreditsUsecase {
+  const ResetAiCreditsUsecase();
+}

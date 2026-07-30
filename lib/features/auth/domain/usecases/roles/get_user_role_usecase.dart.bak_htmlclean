@@ -1,0 +1,3 @@
+﻿class GetUserRoleUsecase {
+  const GetUserRoleUsecase();
+}

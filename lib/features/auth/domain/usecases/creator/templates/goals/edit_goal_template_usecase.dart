@@ -1,3 +1,3 @@
-﻿class EditGoalTemplateUsecase {
+class EditGoalTemplateUsecase {
   const EditGoalTemplateUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class GenerateMemoryStoryUsecase {
+  const GenerateMemoryStoryUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class SetAiResponseToneUsecase {
+class SetAiResponseToneUsecase {
   const SetAiResponseToneUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class SetAppLockPinUsecase {
+  const SetAppLockPinUsecase();
+}

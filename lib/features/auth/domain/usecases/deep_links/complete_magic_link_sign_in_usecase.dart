@@ -1,3 +1,3 @@
-﻿class CompleteMagicLinkSignInUsecase {
+class CompleteMagicLinkSignInUsecase {
   const CompleteMagicLinkSignInUsecase();
 }

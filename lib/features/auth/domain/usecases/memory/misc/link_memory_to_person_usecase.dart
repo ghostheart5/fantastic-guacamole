@@ -1,3 +1,3 @@
-﻿class LinkMemoryToPersonUsecase {
+class LinkMemoryToPersonUsecase {
   const LinkMemoryToPersonUsecase();
 }

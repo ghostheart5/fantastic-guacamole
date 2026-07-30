@@ -1,3 +1,3 @@
-﻿class ViewCurrentStreakUsecase {
+class ViewCurrentStreakUsecase {
   const ViewCurrentStreakUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class UpdateSiPromptUsecase {
+  const UpdateSiPromptUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class IsAdminUsecase {
+class IsAdminUsecase {
   const IsAdminUsecase();
 }

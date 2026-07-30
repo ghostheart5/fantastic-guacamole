@@ -1,3 +1,3 @@
-﻿class ImportMoodHistoryUsecase {
+class ImportMoodHistoryUsecase {
   const ImportMoodHistoryUsecase();
 }

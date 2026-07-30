@@ -1,3 +1,3 @@
-﻿class CreateGoalLogUsecase {
+class CreateGoalLogUsecase {
   const CreateGoalLogUsecase();
 }

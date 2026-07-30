@@ -1,3 +1,3 @@
-﻿class CreateGoalTemplateUsecase {
+class CreateGoalTemplateUsecase {
   const CreateGoalTemplateUsecase();
 }

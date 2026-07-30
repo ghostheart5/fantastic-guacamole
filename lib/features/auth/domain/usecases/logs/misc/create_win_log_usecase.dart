@@ -1,3 +1,3 @@
-﻿class CreateWinLogUsecase {
+class CreateWinLogUsecase {
   const CreateWinLogUsecase();
 }

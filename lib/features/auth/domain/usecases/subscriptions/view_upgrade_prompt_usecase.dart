@@ -1,3 +1,3 @@
-﻿class ViewUpgradePromptUsecase {
+class ViewUpgradePromptUsecase {
   const ViewUpgradePromptUsecase();
 }

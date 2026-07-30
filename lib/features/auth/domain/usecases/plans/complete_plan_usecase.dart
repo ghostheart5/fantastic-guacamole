@@ -1,3 +1,3 @@
-﻿class CompletePlanUsecase {
+class CompletePlanUsecase {
   const CompletePlanUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class DetectFocusPatternsUsecase {
+class DetectFocusPatternsUsecase {
   const DetectFocusPatternsUsecase();
 }

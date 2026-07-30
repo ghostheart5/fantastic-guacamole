@@ -1,3 +1,3 @@
-﻿class SetFontFamilyUsecase {
+class SetFontFamilyUsecase {
   const SetFontFamilyUsecase();
 }

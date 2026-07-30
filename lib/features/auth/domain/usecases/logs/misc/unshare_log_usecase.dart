@@ -1,3 +1,3 @@
-﻿class UnshareLogUsecase {
+class UnshareLogUsecase {
   const UnshareLogUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class SuspendUserUsecase {
+class SuspendUserUsecase {
   const SuspendUserUsecase();
 }

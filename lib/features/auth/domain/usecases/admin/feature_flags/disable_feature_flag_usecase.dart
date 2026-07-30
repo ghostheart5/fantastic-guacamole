@@ -1,3 +1,3 @@
-﻿class DisableFeatureFlagUsecase {
+class DisableFeatureFlagUsecase {
   const DisableFeatureFlagUsecase();
 }

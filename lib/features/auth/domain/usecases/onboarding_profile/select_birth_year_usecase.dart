@@ -1,3 +1,3 @@
-﻿class SelectBirthYearUsecase {
+class SelectBirthYearUsecase {
   const SelectBirthYearUsecase();
 }

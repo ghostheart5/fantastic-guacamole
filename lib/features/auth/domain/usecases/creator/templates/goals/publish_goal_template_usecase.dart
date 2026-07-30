@@ -1,3 +1,3 @@
-﻿class PublishGoalTemplateUsecase {
+class PublishGoalTemplateUsecase {
   const PublishGoalTemplateUsecase();
 }

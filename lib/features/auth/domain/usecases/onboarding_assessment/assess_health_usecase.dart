@@ -1,3 +1,3 @@
-﻿class AssessHealthUsecase {
+class AssessHealthUsecase {
   const AssessHealthUsecase();
 }

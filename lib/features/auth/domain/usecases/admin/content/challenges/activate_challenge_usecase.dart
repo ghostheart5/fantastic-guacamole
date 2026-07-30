@@ -1,3 +1,3 @@
-﻿class ActivateChallengeUsecase {
+class ActivateChallengeUsecase {
   const ActivateChallengeUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class UnlinkMemoryFromEventUsecase {
+  const UnlinkMemoryFromEventUsecase();
+}

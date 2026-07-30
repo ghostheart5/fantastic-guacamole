@@ -1,0 +1,3 @@
+﻿class GetCurrentUserUsecase {
+  const GetCurrentUserUsecase();
+}

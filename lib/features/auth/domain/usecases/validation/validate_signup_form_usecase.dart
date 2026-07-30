@@ -1,3 +1,3 @@
-﻿class ValidateSignupFormUsecase {
+class ValidateSignupFormUsecase {
   const ValidateSignupFormUsecase();
 }

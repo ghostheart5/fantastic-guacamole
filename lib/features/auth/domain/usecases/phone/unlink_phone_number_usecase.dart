@@ -1,3 +1,3 @@
-﻿class UnlinkPhoneNumberUsecase {
+class UnlinkPhoneNumberUsecase {
   const UnlinkPhoneNumberUsecase();
 }

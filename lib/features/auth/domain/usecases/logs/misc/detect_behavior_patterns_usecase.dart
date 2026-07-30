@@ -1,3 +1,3 @@
-﻿class DetectBehaviorPatternsUsecase {
+class DetectBehaviorPatternsUsecase {
   const DetectBehaviorPatternsUsecase();
 }

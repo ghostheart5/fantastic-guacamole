@@ -51,7 +51,7 @@ class SIMultiverseBridge {
           SIMultiversePath(
             name: 'safety',
             action: 'respond_conversationally',
-            message: 'Let’s keep this simple: choose one small next step.',
+            message: 'Letâ€™s keep this simple: choose one small next step.',
             score: instinct.safetyFirst ? .94 : .35,
             reason: 'Safety path.',
           ),

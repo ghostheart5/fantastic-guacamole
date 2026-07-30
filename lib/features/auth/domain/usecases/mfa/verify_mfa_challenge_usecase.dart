@@ -1,3 +1,3 @@
-﻿class VerifyMfaChallengeUsecase {
+class VerifyMfaChallengeUsecase {
   const VerifyMfaChallengeUsecase();
 }

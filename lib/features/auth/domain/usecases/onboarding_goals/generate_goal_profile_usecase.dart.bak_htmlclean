@@ -1,0 +1,3 @@
+﻿class GenerateGoalProfileUsecase {
+  const GenerateGoalProfileUsecase();
+}

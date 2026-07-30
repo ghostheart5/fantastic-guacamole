@@ -1,3 +1,3 @@
-﻿class FilterUsersUsecase {
+class FilterUsersUsecase {
   const FilterUsersUsecase();
 }

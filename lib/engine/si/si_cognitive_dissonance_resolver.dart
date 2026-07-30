@@ -163,7 +163,7 @@ class SICognitiveDissonanceResolver {
     required bool safeFallback,
   }) {
     if (safeFallback) {
-      return 'Let’s take a safer route. I’ll keep this simple: choose one small next step.';
+      return 'Letâ€™s take a safer route. Iâ€™ll keep this simple: choose one small next step.';
     }
 
     String output = siClean(

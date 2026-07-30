@@ -1,0 +1,3 @@
+﻿class RefreshSiContextUsecase {
+  const RefreshSiContextUsecase();
+}

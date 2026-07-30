@@ -1,0 +1,3 @@
+﻿class CreateQuoteUsecase {
+  const CreateQuoteUsecase();
+}

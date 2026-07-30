@@ -1,3 +1,3 @@
-﻿class EnableAiCompanionUsecase {
+class EnableAiCompanionUsecase {
   const EnableAiCompanionUsecase();
 }

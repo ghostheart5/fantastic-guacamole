@@ -1,3 +1,3 @@
-﻿class GenerateGoalProfileUsecase {
+class GenerateGoalProfileUsecase {
   const GenerateGoalProfileUsecase();
 }

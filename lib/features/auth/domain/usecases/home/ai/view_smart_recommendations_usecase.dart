@@ -1,3 +1,3 @@
-﻿class ViewSmartRecommendationsUsecase {
+class ViewSmartRecommendationsUsecase {
   const ViewSmartRecommendationsUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class ViewPromptLibraryUsecase {
+class ViewPromptLibraryUsecase {
   const ViewPromptLibraryUsecase();
 }

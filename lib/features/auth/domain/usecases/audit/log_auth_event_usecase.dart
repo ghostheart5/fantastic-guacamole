@@ -1,3 +1,3 @@
-﻿class LogAuthEventUsecase {
+class LogAuthEventUsecase {
   const LogAuthEventUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class VerifyUserUsecase {
+  const VerifyUserUsecase();
+}

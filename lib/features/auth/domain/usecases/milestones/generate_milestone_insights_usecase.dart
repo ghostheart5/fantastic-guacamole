@@ -1,3 +1,3 @@
-﻿class GenerateMilestoneInsightsUsecase {
+class GenerateMilestoneInsightsUsecase {
   const GenerateMilestoneInsightsUsecase();
 }

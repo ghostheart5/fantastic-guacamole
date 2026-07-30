@@ -1,3 +1,3 @@
-﻿class SetRegionUsecase {
+class SetRegionUsecase {
   const SetRegionUsecase();
 }

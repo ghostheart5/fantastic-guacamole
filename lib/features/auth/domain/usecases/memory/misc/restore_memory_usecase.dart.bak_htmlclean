@@ -1,0 +1,3 @@
+﻿class RestoreMemoryUsecase {
+  const RestoreMemoryUsecase();
+}

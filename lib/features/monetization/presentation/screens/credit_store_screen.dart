@@ -50,7 +50,7 @@ class _CreditStoreScreenState extends ConsumerState<CreditStoreScreen> {
                         child: ListTile(
                           title: Text(pack.name),
                           subtitle: Text(
-                            'Credits: ${pack.totalCredits} • ${pack.currencyCode}',
+                            'Credits: ${pack.totalCredits} | ${pack.currencyCode}',
                           ),
                           trailing:
                               controller.isBusy &&

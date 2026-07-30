@@ -1,3 +1,3 @@
-﻿class RestoreSubscriptionUsecase {
+class RestoreSubscriptionUsecase {
   const RestoreSubscriptionUsecase();
 }

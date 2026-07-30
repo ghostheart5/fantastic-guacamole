@@ -1,3 +1,3 @@
-﻿class DeleteImageUsecase {
+class DeleteImageUsecase {
   const DeleteImageUsecase();
 }

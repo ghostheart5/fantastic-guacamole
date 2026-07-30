@@ -1,3 +1,3 @@
-﻿class SendMagicLinkUsecase {
+class SendMagicLinkUsecase {
   const SendMagicLinkUsecase();
 }

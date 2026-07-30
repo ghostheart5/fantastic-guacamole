@@ -1,3 +1,3 @@
-﻿class RemoveDeviceUsecase {
+class RemoveDeviceUsecase {
   const RemoveDeviceUsecase();
 }

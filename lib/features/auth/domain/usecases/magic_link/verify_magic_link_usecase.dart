@@ -1,3 +1,3 @@
-﻿class VerifyMagicLinkUsecase {
+class VerifyMagicLinkUsecase {
   const VerifyMagicLinkUsecase();
 }

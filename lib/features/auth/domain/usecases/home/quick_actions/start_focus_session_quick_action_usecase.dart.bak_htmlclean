@@ -1,0 +1,3 @@
+﻿class StartFocusSessionQuickActionUsecase {
+  const StartFocusSessionQuickActionUsecase();
+}

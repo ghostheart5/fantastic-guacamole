@@ -1,0 +1,3 @@
+﻿class ViewMilestoneDetailsUsecase {
+  const ViewMilestoneDetailsUsecase();
+}

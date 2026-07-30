@@ -1,3 +1,3 @@
-﻿class CreateAchievementUsecase {
+class CreateAchievementUsecase {
   const CreateAchievementUsecase();
 }

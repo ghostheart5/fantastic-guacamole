@@ -1,3 +1,3 @@
-﻿class ClearCacheUsecase {
+class ClearCacheUsecase {
   const ClearCacheUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class LogMoodUsecase {
+class LogMoodUsecase {
   const LogMoodUsecase();
 }

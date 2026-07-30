@@ -1,3 +1,3 @@
-﻿class TrackOnboardingAbandonmentUsecase {
+class TrackOnboardingAbandonmentUsecase {
   const TrackOnboardingAbandonmentUsecase();
 }

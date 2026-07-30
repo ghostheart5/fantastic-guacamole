@@ -1,3 +1,3 @@
-﻿class SearchEmotionsUsecase {
+class SearchEmotionsUsecase {
   const SearchEmotionsUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class AcceptTermsUsecase {
+  const AcceptTermsUsecase();
+}

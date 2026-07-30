@@ -1,0 +1,3 @@
+﻿class IdentifyRisksUsecase {
+  const IdentifyRisksUsecase();
+}

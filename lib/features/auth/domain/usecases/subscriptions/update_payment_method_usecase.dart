@@ -1,3 +1,3 @@
-﻿class UpdatePaymentMethodUsecase {
+class UpdatePaymentMethodUsecase {
   const UpdatePaymentMethodUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class UnlockFeatureUsecase {
+class UnlockFeatureUsecase {
   const UnlockFeatureUsecase();
 }

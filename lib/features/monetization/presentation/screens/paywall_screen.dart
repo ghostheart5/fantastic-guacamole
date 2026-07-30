@@ -44,7 +44,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         paywallTestingMode || !appAccess.paywallEnabled;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Paywall')),
+      appBar: AppBar(title: const Text('Billing Center')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -122,7 +122,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                         child: ListTile(
                           title: Text(plan.name),
                           subtitle: Text(
-                            '${plan.billingPeriod} • ${plan.currencyCode} • credits ${plan.creditsPerPeriod}',
+                            '${plan.billingPeriod} | ${plan.currencyCode} | credits ${plan.creditsPerPeriod}',
                           ),
                           trailing:
                               controller.isBusy &&
@@ -164,7 +164,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
             children: [
               OutlinedButton(
                 onPressed: () => context.push(RoutePaths.creditStore),
-                child: const Text('Credit Store'),
+                child: const Text('Buy Credits'),
               ),
               OutlinedButton(
                 onPressed: () => context.push(RoutePaths.creditHistory),
@@ -173,7 +173,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               OutlinedButton(
                 onPressed: () =>
                     context.push(RoutePaths.subscriptionManagement),
-                child: const Text('Manage Subscription'),
+                child: const Text('Subscription Details'),
               ),
             ],
           ),

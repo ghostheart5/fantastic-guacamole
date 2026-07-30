@@ -1,3 +1,3 @@
-﻿class UnlinkMemoryFromGoalUsecase {
+class UnlinkMemoryFromGoalUsecase {
   const UnlinkMemoryFromGoalUsecase();
 }

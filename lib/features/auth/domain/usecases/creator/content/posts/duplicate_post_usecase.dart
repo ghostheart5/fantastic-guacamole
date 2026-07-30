@@ -1,3 +1,3 @@
-﻿class DuplicatePostUsecase {
+class DuplicatePostUsecase {
   const DuplicatePostUsecase();
 }

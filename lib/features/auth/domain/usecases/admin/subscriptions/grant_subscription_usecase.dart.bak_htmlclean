@@ -1,0 +1,3 @@
+﻿class GrantSubscriptionUsecase {
+  const GrantSubscriptionUsecase();
+}

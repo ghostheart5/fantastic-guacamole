@@ -1,3 +1,3 @@
-﻿class DeleteBadgeUsecase {
+class DeleteBadgeUsecase {
   const DeleteBadgeUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class SortMemoriesUsecase {
+class SortMemoriesUsecase {
   const SortMemoriesUsecase();
 }

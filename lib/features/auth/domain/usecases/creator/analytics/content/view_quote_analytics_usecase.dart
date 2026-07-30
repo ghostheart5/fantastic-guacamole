@@ -1,3 +1,3 @@
-﻿class ViewQuoteAnalyticsUsecase {
+class ViewQuoteAnalyticsUsecase {
   const ViewQuoteAnalyticsUsecase();
 }

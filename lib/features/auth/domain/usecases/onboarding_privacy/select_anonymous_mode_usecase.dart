@@ -1,3 +1,3 @@
-﻿class SelectAnonymousModeUsecase {
+class SelectAnonymousModeUsecase {
   const SelectAnonymousModeUsecase();
 }

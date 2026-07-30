@@ -1,3 +1,3 @@
-﻿class GenerateMonthlyLogSummaryUsecase {
+class GenerateMonthlyLogSummaryUsecase {
   const GenerateMonthlyLogSummaryUsecase();
 }

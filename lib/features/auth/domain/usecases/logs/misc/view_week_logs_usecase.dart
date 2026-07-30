@@ -1,3 +1,3 @@
-﻿class ViewWeekLogsUsecase {
+class ViewWeekLogsUsecase {
   const ViewWeekLogsUsecase();
 }

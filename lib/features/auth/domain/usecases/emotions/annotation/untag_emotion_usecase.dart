@@ -1,3 +1,3 @@
-﻿class UntagEmotionUsecase {
+class UntagEmotionUsecase {
   const UntagEmotionUsecase();
 }

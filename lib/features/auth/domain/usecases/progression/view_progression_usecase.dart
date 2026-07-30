@@ -1,3 +1,3 @@
-﻿class ViewProgressionUsecase {
+class ViewProgressionUsecase {
   const ViewProgressionUsecase();
 }

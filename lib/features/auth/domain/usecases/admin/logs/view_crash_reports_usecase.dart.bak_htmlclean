@@ -1,0 +1,3 @@
+﻿class ViewCrashReportsUsecase {
+  const ViewCrashReportsUsecase();
+}

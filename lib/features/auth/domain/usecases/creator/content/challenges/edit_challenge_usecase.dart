@@ -1,3 +1,3 @@
-﻿class EditChallengeUsecase {
+class EditChallengeUsecase {
   const EditChallengeUsecase();
 }

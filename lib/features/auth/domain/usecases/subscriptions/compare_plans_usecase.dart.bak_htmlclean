@@ -1,0 +1,3 @@
+﻿class ComparePlansUsecase {
+  const ComparePlansUsecase();
+}

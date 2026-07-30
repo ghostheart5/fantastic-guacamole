@@ -1,3 +1,3 @@
-﻿class ViewEmotionSummaryUsecase {
+class ViewEmotionSummaryUsecase {
   const ViewEmotionSummaryUsecase();
 }

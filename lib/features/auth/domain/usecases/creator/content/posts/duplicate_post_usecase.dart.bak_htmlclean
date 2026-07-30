@@ -1,0 +1,3 @@
+﻿class DuplicatePostUsecase {
+  const DuplicatePostUsecase();
+}

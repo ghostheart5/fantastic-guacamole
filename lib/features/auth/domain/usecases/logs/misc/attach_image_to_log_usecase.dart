@@ -1,3 +1,3 @@
-﻿class AttachImageToLogUsecase {
+class AttachImageToLogUsecase {
   const AttachImageToLogUsecase();
 }

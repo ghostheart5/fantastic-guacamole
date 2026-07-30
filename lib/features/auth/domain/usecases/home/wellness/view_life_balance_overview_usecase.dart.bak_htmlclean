@@ -1,0 +1,3 @@
+﻿class ViewLifeBalanceOverviewUsecase {
+  const ViewLifeBalanceOverviewUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class ViewFollowerStatisticsUsecase {
+class ViewFollowerStatisticsUsecase {
   const ViewFollowerStatisticsUsecase();
 }

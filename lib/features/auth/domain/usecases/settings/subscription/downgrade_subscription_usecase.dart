@@ -1,3 +1,3 @@
-﻿class DowngradeSubscriptionUsecase {
+class DowngradeSubscriptionUsecase {
   const DowngradeSubscriptionUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class GenerateCoachingSummaryUsecase {
+  const GenerateCoachingSummaryUsecase();
+}

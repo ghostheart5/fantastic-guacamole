@@ -1,3 +1,3 @@
-﻿class RateAppUsecase {
+class RateAppUsecase {
   const RateAppUsecase();
 }

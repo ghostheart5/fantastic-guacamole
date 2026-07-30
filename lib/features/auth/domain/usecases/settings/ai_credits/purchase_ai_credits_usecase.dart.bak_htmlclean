@@ -1,0 +1,3 @@
+﻿class PurchaseAiCreditsUsecase {
+  const PurchaseAiCreditsUsecase();
+}

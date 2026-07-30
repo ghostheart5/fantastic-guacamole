@@ -1,3 +1,3 @@
-﻿class ViewSystemHealthUsecase {
+class ViewSystemHealthUsecase {
   const ViewSystemHealthUsecase();
 }

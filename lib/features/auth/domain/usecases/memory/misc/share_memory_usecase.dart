@@ -1,3 +1,3 @@
-﻿class ShareMemoryUsecase {
+class ShareMemoryUsecase {
   const ShareMemoryUsecase();
 }

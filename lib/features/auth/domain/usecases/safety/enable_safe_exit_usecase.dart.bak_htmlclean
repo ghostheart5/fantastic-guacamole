@@ -1,0 +1,3 @@
+﻿class EnableSafeExitUsecase {
+  const EnableSafeExitUsecase();
+}

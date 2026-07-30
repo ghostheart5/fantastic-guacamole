@@ -1,3 +1,3 @@
-﻿class CaptureEmotionalStateUsecase {
+class CaptureEmotionalStateUsecase {
   const CaptureEmotionalStateUsecase();
 }

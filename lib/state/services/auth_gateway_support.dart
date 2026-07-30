@@ -20,9 +20,7 @@ AuthServiceContract createAuthService({
   final bool mockModeEnabled = intelligence.flags.mockMode || Env.isMockMode;
 
   final bool mockLoginEnabled =
-      intelligence.flags.mockLoginEnabled ||
-      Env.isMockLoginEnabled ||
-      Env.hasTesterFullAccess;
+      intelligence.flags.mockLoginEnabled || Env.isMockLoginEnabled;
 
   final bool supabaseConfigured =
       intelligence.environment.isSupabaseConfigured || Env.isSupabaseConfigured;

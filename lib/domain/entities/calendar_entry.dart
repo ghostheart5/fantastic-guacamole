@@ -21,15 +21,15 @@ class CalendarEntry {
     this.isCompleted = false,
   });
 
-  // ✅ Duration helper
+  // âœ… Duration helper
   Duration get duration => end.difference(start);
 
-  // ✅ Completion update
+  // âœ… Completion update
   CalendarEntry markComplete() {
     return copyWith(isCompleted: true);
   }
 
-  // ✅ Copy for updates
+  // âœ… Copy for updates
   CalendarEntry copyWith({
     String? id,
     String? title,
@@ -50,7 +50,7 @@ class CalendarEntry {
     );
   }
 
-  // ✅ JSON for storage / Supabase
+  // âœ… JSON for storage / Supabase
   Map<String, dynamic> toJson() {
     return {
       "id": id,

@@ -1,3 +1,3 @@
-﻿class UploadAudioUsecase {
+class UploadAudioUsecase {
   const UploadAudioUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class EditBadgeUsecase {
+class EditBadgeUsecase {
   const EditBadgeUsecase();
 }

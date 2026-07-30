@@ -1,0 +1,3 @@
+﻿class ViewLogHistoryUsecase {
+  const ViewLogHistoryUsecase();
+}

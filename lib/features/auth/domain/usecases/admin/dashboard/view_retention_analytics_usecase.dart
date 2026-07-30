@@ -1,3 +1,3 @@
-﻿class ViewRetentionAnalyticsUsecase {
+class ViewRetentionAnalyticsUsecase {
   const ViewRetentionAnalyticsUsecase();
 }

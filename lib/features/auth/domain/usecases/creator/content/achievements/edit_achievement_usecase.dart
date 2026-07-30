@@ -1,3 +1,3 @@
-﻿class EditAchievementUsecase {
+class EditAchievementUsecase {
   const EditAchievementUsecase();
 }

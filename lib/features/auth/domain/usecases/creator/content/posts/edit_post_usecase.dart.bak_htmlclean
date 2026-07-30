@@ -1,0 +1,3 @@
+﻿class EditPostUsecase {
+  const EditPostUsecase();
+}

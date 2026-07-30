@@ -1,3 +1,3 @@
-﻿class ViewAiModelsUsecase {
+class ViewAiModelsUsecase {
   const ViewAiModelsUsecase();
 }

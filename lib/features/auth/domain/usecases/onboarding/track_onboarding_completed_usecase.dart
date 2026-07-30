@@ -1,3 +1,3 @@
-﻿class TrackOnboardingCompletedUsecase {
+class TrackOnboardingCompletedUsecase {
   const TrackOnboardingCompletedUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class DetectJournalPatternsUsecase {
+  const DetectJournalPatternsUsecase();
+}

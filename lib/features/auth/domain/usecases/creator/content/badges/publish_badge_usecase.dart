@@ -1,3 +1,3 @@
-﻿class PublishBadgeUsecase {
+class PublishBadgeUsecase {
   const PublishBadgeUsecase();
 }

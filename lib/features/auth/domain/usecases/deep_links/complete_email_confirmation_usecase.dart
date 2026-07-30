@@ -1,3 +1,3 @@
-﻿class CompleteEmailConfirmationUsecase {
+class CompleteEmailConfirmationUsecase {
   const CompleteEmailConfirmationUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class ViewDailyProgressUsecase {
+class ViewDailyProgressUsecase {
   const ViewDailyProgressUsecase();
 }

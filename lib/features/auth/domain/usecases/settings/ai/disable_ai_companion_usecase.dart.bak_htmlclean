@@ -1,0 +1,3 @@
+﻿class DisableAiCompanionUsecase {
+  const DisableAiCompanionUsecase();
+}

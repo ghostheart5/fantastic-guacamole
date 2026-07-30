@@ -1,3 +1,3 @@
-﻿class ViewEmotionTimelineUsecase {
+class ViewEmotionTimelineUsecase {
   const ViewEmotionTimelineUsecase();
 }

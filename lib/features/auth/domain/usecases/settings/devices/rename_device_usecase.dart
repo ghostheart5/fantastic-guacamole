@@ -1,3 +1,3 @@
-﻿class RenameDeviceUsecase {
+class RenameDeviceUsecase {
   const RenameDeviceUsecase();
 }

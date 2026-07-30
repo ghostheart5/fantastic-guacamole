@@ -1,3 +1,3 @@
-﻿class IdentifyOpportunitiesUsecase {
+class IdentifyOpportunitiesUsecase {
   const IdentifyOpportunitiesUsecase();
 }

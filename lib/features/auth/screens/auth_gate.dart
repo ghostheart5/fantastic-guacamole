@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
+import 'package:fantastic_guacamole/features/auth/application/auth_providers.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
@@ -118,7 +119,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   Future<void>? _authReadyFuture;
   AuthServiceContract? _authService;
   String? _authInitError;
-  bool _mockSessionActive = false;
   bool _authReadyTimedOut = false;
 
   @override
@@ -149,13 +149,14 @@ class _AuthGateState extends ConsumerState<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
+    final bool mockSessionActive = ref.watch(mockAuthSessionProvider);
     final bool allowMockAccess =
         widget.enableMockLogin || (!kReleaseMode && _authInitError != null);
     final String? startupMessage = _effectiveStartupError;
     final AuthServiceContract fallbackAuthService =
         _authService ?? const _UnavailableAuthService();
 
-    if (_mockSessionActive) {
+    if (mockSessionActive) {
       return widget.child;
     }
 
@@ -172,6 +173,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               mockLoginEmail: widget.mockLoginEmail,
               mockLoginPassword: widget.mockLoginPassword,
               onMockSignIn: _activateMockSession,
+              onOAuthCallback: _handleOAuthCallback,
             );
           }
           return const Scaffold(
@@ -201,6 +203,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               mockLoginEmail: widget.mockLoginEmail,
               mockLoginPassword: widget.mockLoginPassword,
               onMockSignIn: _activateMockSession,
+              onOAuthCallback: _handleOAuthCallback,
             );
           }
           return _AuthStatusMessage(
@@ -222,6 +225,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             mockLoginEmail: widget.mockLoginEmail,
             mockLoginPassword: widget.mockLoginPassword,
             onMockSignIn: _activateMockSession,
+            onOAuthCallback: _handleOAuthCallback,
           );
         }
 
@@ -234,10 +238,11 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                   authService: authService,
                   startupError: startupMessage,
                   deepLinkMode: widget.deepLinkMode,
-                  enableMockLogin: true,
+                  enableMockLogin: false,
                   mockLoginEmail: widget.mockLoginEmail,
                   mockLoginPassword: widget.mockLoginPassword,
                   onMockSignIn: _activateMockSession,
+                  onOAuthCallback: _handleOAuthCallback,
                 );
               }
               return const Scaffold(
@@ -265,6 +270,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 mockLoginEmail: widget.mockLoginEmail,
                 mockLoginPassword: widget.mockLoginPassword,
                 onMockSignIn: _activateMockSession,
+                onOAuthCallback: _handleOAuthCallback,
               );
             }
             if (user == null) {
@@ -276,6 +282,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 mockLoginEmail: widget.mockLoginEmail,
                 mockLoginPassword: widget.mockLoginPassword,
                 onMockSignIn: _activateMockSession,
+                onOAuthCallback: _handleOAuthCallback,
               );
             }
             if (!user.emailVerified) {
@@ -372,11 +379,18 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   }
 
   void _activateMockSession() {
-    if (_mockSessionActive || !mounted) {
+    if (!mounted) {
       return;
     }
     ref.read(mockAuthSessionProvider.notifier).set(true);
-    setState(() => _mockSessionActive = true);
+  }
+
+  Future<void> _handleOAuthCallback() async {
+    try {
+      await ref.read(authControllerProvider.notifier).completeOAuthCallback();
+    } catch (_) {
+      await ref.read(authControllerProvider.notifier).restoreSession();
+    }
   }
 }
 
@@ -389,6 +403,7 @@ class _AuthScreen extends StatefulWidget {
     required this.mockLoginEmail,
     required this.mockLoginPassword,
     required this.onMockSignIn,
+    required this.onOAuthCallback,
   });
 
   final AuthServiceContract authService;
@@ -398,6 +413,7 @@ class _AuthScreen extends StatefulWidget {
   final String mockLoginEmail;
   final String mockLoginPassword;
   final VoidCallback onMockSignIn;
+  final Future<void> Function() onOAuthCallback;
 
   @override
   State<_AuthScreen> createState() => _AuthScreenState();
@@ -406,8 +422,6 @@ class _AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<_AuthScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _phoneOtpController = TextEditingController();
   final TextEditingController _recoveryPasswordController =
       TextEditingController();
   final TextEditingController _recoveryConfirmController =
@@ -416,8 +430,6 @@ class _AuthScreenState extends State<_AuthScreen> {
   bool _obscuredRecoveryPassword = true;
   bool _obscuredRecoveryConfirm = true;
   bool _signUpMode = false;
-  bool _phoneMode = false;
-  bool _phoneOtpSent = false;
   bool _submitting = false;
   bool _dismissRecoveryMode = false;
 
@@ -436,8 +448,6 @@ class _AuthScreenState extends State<_AuthScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _phoneController.dispose();
-    _phoneOtpController.dispose();
     _recoveryPasswordController.dispose();
     _recoveryConfirmController.dispose();
     super.dispose();
@@ -450,10 +460,6 @@ class _AuthScreenState extends State<_AuthScreen> {
         !_dismissRecoveryMode;
     if (inRecoveryMode) {
       return _buildRecoveryScreen(context);
-    }
-
-    if (_phoneMode) {
-      return _buildPhoneLoginScreen(context);
     }
 
     return LoginScreen(
@@ -477,13 +483,6 @@ class _AuthScreenState extends State<_AuthScreen> {
       onPrimaryAction: () => _runAuthAction(_handlePrimaryAction),
       onForgotPassword: () => _runAuthAction(_handleForgotPassword),
       onGoogleSignIn: () => _runAuthAction(_handleGoogleSignIn),
-      onPhoneSignIn: () {
-        setState(() {
-          _phoneMode = true;
-          _phoneOtpSent = false;
-          _signUpMode = false;
-        });
-      },
       onMockLogin: null,
     );
   }
@@ -514,9 +513,8 @@ class _AuthScreenState extends State<_AuthScreen> {
     }
 
     if (mode == 'auth-callback') {
-      _showMessage(
-        'Authentication callback received. Continuing sign-in flow.',
-      );
+      _showMessage('Authentication callback received');
+      await widget.onOAuthCallback();
     }
   }
 
@@ -591,68 +589,6 @@ class _AuthScreenState extends State<_AuthScreen> {
       'login_event',
       params: <String, Object?>{'provider': 'google', 'mode': 'signin'},
     );
-  }
-
-  Future<void> _handleSendPhoneOtp() async {
-    final String phone = _phoneController.text.trim();
-
-    if (!_isValidPhoneNumber(phone)) {
-      _showMessage('Enter phone in international format, like +15555555555.');
-      return;
-    }
-
-    await widget.authService.sendPhoneOtp(phone);
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _phoneOtpSent = true;
-    });
-
-    AppAnalytics.track(
-      'login_event',
-      params: <String, Object?>{'provider': 'phone', 'mode': 'otp_sent'},
-    );
-
-    _showMessage('Verification code sent.');
-  }
-
-  Future<void> _handleVerifyPhoneOtp() async {
-    final String phone = _phoneController.text.trim();
-    final String code = _phoneOtpController.text.trim();
-
-    if (!_isValidPhoneNumber(phone)) {
-      _showMessage('Enter phone in international format, like +15555555555.');
-      return;
-    }
-
-    if (code.isEmpty) {
-      _showMessage('Enter the verification code.');
-      return;
-    }
-
-    await widget.authService.verifyPhoneOtp(phone: phone, token: code);
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _phoneMode = false;
-      _phoneOtpSent = false;
-      _phoneOtpController.clear();
-    });
-
-    AppAnalytics.track(
-      'login_event',
-      params: <String, Object?>{'provider': 'phone', 'mode': 'otp_verified'},
-    );
-  }
-
-  bool _isValidPhoneNumber(String value) {
-    return RegExp(r'^\+[1-9]\d{7,14}$').hasMatch(value.trim());
   }
 
   Future<void> _handleRecoveryUpdatePassword() async {
@@ -760,103 +696,6 @@ class _AuthScreenState extends State<_AuthScreen> {
                   child: const Text('Back to Sign In'),
                 ),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPhoneLoginScreen(BuildContext context) {
-    final bool canVerify = _phoneOtpSent;
-
-    return Scaffold(
-      backgroundColor: _authBackgroundColor,
-      body: SafeArea(
-        child: IgnorePointer(
-          ignoring: _submitting,
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: Card(
-                  color: const Color(0xFF111827),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          'PHONE ACCESS',
-                          style: TextStyle(
-                            color: Colors.white38,
-                            fontSize: 10,
-                            letterSpacing: 3,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Enter your phone number, receive a code, then verify.',
-                          style: TextStyle(color: Colors.white70, height: 1.4),
-                        ),
-                        const SizedBox(height: 18),
-                        TextField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(
-                            labelText: 'Phone number',
-                            hintText: '+15555555555',
-                            prefixIcon: Icon(Icons.phone_rounded),
-                          ),
-                        ),
-                        if (canVerify) ...[
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _phoneOtpController,
-                            keyboardType: TextInputType.number,
-                            style: const TextStyle(color: Colors.white),
-                            decoration: const InputDecoration(
-                              labelText: 'Verification code',
-                              prefixIcon: Icon(Icons.password_rounded),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 18),
-                        FilledButton(
-                          onPressed: _submitting
-                              ? null
-                              : () => _runAuthAction(
-                                  canVerify
-                                      ? _handleVerifyPhoneOtp
-                                      : _handleSendPhoneOtp,
-                                ),
-                          child: Text(canVerify ? 'VERIFY CODE' : 'SEND CODE'),
-                        ),
-                        const SizedBox(height: 10),
-                        OutlinedButton(
-                          onPressed: _submitting
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _phoneMode = false;
-                                    _phoneOtpSent = false;
-                                    _phoneOtpController.clear();
-                                  });
-                                },
-                          child: const Text('Use Email Login'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
             ),
           ),
         ),
@@ -1031,7 +870,7 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: _busy ? null : _refreshVerification,
-                  child: const Text('Verified · Continue'),
+                  child: const Text('Verified | Continue'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton(

@@ -1,3 +1,3 @@
-﻿class ShowProfileUsecase {
+class ShowProfileUsecase {
   const ShowProfileUsecase();
 }

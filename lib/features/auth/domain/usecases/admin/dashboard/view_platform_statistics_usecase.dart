@@ -1,3 +1,3 @@
-﻿class ViewPlatformStatisticsUsecase {
+class ViewPlatformStatisticsUsecase {
   const ViewPlatformStatisticsUsecase();
 }

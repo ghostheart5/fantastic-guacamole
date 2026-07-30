@@ -1,3 +1,3 @@
-﻿class CreateNotificationUsecase {
+class CreateNotificationUsecase {
   const CreateNotificationUsecase();
 }

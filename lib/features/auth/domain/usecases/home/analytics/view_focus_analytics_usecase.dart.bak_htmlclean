@@ -1,0 +1,3 @@
+﻿class ViewFocusAnalyticsUsecase {
+  const ViewFocusAnalyticsUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class AssessPurposeUsecase {
+class AssessPurposeUsecase {
   const AssessPurposeUsecase();
 }

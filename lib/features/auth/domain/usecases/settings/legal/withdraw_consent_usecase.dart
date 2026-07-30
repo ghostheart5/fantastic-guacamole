@@ -1,3 +1,3 @@
-﻿class WithdrawConsentUsecase {
+class WithdrawConsentUsecase {
   const WithdrawConsentUsecase();
 }

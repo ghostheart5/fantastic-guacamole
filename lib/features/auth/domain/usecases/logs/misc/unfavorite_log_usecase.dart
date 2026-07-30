@@ -1,3 +1,3 @@
-﻿class UnfavoriteLogUsecase {
+class UnfavoriteLogUsecase {
   const UnfavoriteLogUsecase();
 }

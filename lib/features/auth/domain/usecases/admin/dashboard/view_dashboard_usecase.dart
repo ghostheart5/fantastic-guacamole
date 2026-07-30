@@ -1,3 +1,3 @@
-﻿class ViewDashboardUsecase {
+class ViewDashboardUsecase {
   const ViewDashboardUsecase();
 }

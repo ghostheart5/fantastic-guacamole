@@ -1,3 +1,3 @@
-﻿class SetEmailPreferencesUsecase {
+class SetEmailPreferencesUsecase {
   const SetEmailPreferencesUsecase();
 }

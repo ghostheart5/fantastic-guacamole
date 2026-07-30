@@ -1,3 +1,3 @@
-﻿class ViewGoalHighlightsUsecase {
+class ViewGoalHighlightsUsecase {
   const ViewGoalHighlightsUsecase();
 }

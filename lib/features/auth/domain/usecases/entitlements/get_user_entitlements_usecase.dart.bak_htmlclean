@@ -1,0 +1,3 @@
+﻿class GetUserEntitlementsUsecase {
+  const GetUserEntitlementsUsecase();
+}

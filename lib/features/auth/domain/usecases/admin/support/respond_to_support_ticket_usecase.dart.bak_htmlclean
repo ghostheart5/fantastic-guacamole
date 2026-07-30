@@ -1,0 +1,3 @@
+﻿class RespondToSupportTicketUsecase {
+  const RespondToSupportTicketUsecase();
+}

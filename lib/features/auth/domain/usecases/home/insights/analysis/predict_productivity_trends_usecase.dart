@@ -1,3 +1,3 @@
-﻿class PredictProductivityTrendsUsecase {
+class PredictProductivityTrendsUsecase {
   const PredictProductivityTrendsUsecase();
 }

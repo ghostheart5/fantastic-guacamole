@@ -1,3 +1,3 @@
-﻿class SetUsernameUsecase {
+class SetUsernameUsecase {
   const SetUsernameUsecase();
 }

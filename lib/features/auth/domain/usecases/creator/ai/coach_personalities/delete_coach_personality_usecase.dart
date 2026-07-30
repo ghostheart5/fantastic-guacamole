@@ -1,3 +1,3 @@
-﻿class DeleteCoachPersonalityUsecase {
+class DeleteCoachPersonalityUsecase {
   const DeleteCoachPersonalityUsecase();
 }

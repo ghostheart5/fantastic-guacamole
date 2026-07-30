@@ -17,6 +17,14 @@ final onboardingResolvedGuardProvider = Provider<bool>((ref) {
   return ref.watch(onboardingStatusGuardProvider) != OnboardingStatus.unknown;
 });
 
+final creatorFirstItemCreatedGuardProvider = Provider<bool>((ref) {
+  return ref.watch(creatorFirstItemCreatedProvider);
+});
+
+final timelineFirstActionCompletedGuardProvider = Provider<bool>((ref) {
+  return ref.watch(timelineFirstActionCompletedProvider);
+});
+
 final authenticatedGuardProvider = Provider<bool>((ref) {
   final intelligence = ref.watch(intelligenceStateProvider);
   return intelligence.auth.isAuthenticated;

@@ -6,18 +6,21 @@ import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/theme/theme.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_overlay.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
+import 'package:fantastic_guacamole/tutorial/mission/mission_overlay.dart';
+import 'package:fantastic_guacamole/tutorial/mission/mission_provider.dart';
+import 'package:fantastic_guacamole/tutorial/mission/mission_state.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppRoot extends ConsumerStatefulWidget {
   const AppRoot({super.key, this.startupError});
@@ -29,77 +32,19 @@ class AppRoot extends ConsumerStatefulWidget {
 }
 
 class _AppRootState extends ConsumerState<AppRoot> {
-  static const List<String> _tutorialAssets = <String>[
-    'assets/tutorials/home.json',
-    'assets/tutorials/tasks.json',
-  ];
+  static const int _onboardingContentVersion = 6;
 
   GoRouter? _router;
-  VoidCallback? _routerListener;
-  bool _tutorialAssetsLoaded = false;
+  bool _activationFinalizationInFlight = false;
   final Set<String> _handledDeepLinks = <String>{};
   final Set<String> _handledNotificationPayloads = <String>{};
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      unawaited(_loadTutorialAssetsIfNeeded());
-    });
-  }
-
-  Future<void> _loadTutorialAssetsIfNeeded() async {
-    if (_tutorialAssetsLoaded) {
-      return;
-    }
-    final controller = ref.read(tutorialControllerProvider);
-    await controller.loadAssets(_tutorialAssets);
-    if (!mounted) {
-      return;
-    }
-    _tutorialAssetsLoaded = true;
-  }
-
   void _attachRouterListener(GoRouter router) {
-    if (identical(_router, router)) {
-      return;
-    }
-    final GoRouter? previousRouter = _router;
-    final VoidCallback? previousListener = _routerListener;
-    if (previousRouter != null && previousListener != null) {
-      previousRouter.routerDelegate.removeListener(previousListener);
-    }
     _router = router;
-    _routerListener = () {
-      final GoRouter? activeRouter = _router;
-      if (!mounted || activeRouter == null) {
-        return;
-      }
-      final controller = ref.read(tutorialControllerProvider);
-      final String route = activeRouter.routeInformationProvider.value.uri
-          .toString();
-      controller.updateRoute(route);
-    };
-    final VoidCallback? listener = _routerListener;
-    if (listener == null) {
-      return;
-    }
-    router.routerDelegate.addListener(listener);
-    listener();
   }
 
   @override
-  void dispose() {
-    final GoRouter? router = _router;
-    final VoidCallback? listener = _routerListener;
-    if (router != null && listener != null) {
-      router.routerDelegate.removeListener(listener);
-    }
-    super.dispose();
-  }
+  void dispose() => super.dispose();
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +64,6 @@ class _AppRootState extends ConsumerState<AppRoot> {
       showQaDiagnostics: showQaDiagnostics,
     );
     final GoRouter router = ref.watch(appRouterProvider);
-    final tutorialController = ref.watch(tutorialControllerProvider);
 
     ref.listen<AsyncValue<DeepLinkState>>(deepLinkStateProvider, (
       AsyncValue<DeepLinkState>? _,
@@ -132,6 +76,17 @@ class _AppRootState extends ConsumerState<AppRoot> {
       _handleDeepLink(uri, router);
     });
 
+    ref.listen<AsyncValue<MissionState>>(missionStateProvider, (
+      AsyncValue<MissionState>? _,
+      AsyncValue<MissionState> next,
+    ) {
+      final MissionState? missionState = next.asData?.value;
+      if (missionState == null || !missionState.finished) {
+        return;
+      }
+      unawaited(_finalizeMissionZeroActivation());
+    });
+
     _attachRouterListener(router);
     _handlePendingNotificationTap(router);
 
@@ -142,9 +97,11 @@ class _AppRootState extends ConsumerState<AppRoot> {
       routerConfig: router,
       builder: (context, child) {
         final Widget appChild = ErrorBoundary(
-          child: TutorialHost(
-            controller: tutorialController,
-            child: child ?? const SizedBox.shrink(),
+          child: Stack(
+            children: <Widget>[
+              child ?? const SizedBox.shrink(),
+              const MissionOverlay(),
+            ],
           ),
         );
 
@@ -255,6 +212,53 @@ class _AppRootState extends ConsumerState<AppRoot> {
     );
   }
 
+  Future<void> _finalizeMissionZeroActivation() async {
+    if (_activationFinalizationInFlight) {
+      return;
+    }
+
+    final OnboardingStatus onboardingStatus = ref.read(
+      onboardingStatusProvider,
+    );
+    if (onboardingStatus == OnboardingStatus.complete) {
+      return;
+    }
+
+    _activationFinalizationInFlight = true;
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(onboardingCompleteStorageKey, true);
+      await prefs.setInt(
+        onboardingContentVersionStorageKey,
+        _onboardingContentVersion,
+      );
+      await prefs.setInt(onboardingStepStorageKey, 0);
+      await prefs.setString(
+        'onboarding_state_v1',
+        jsonEncode(<String, Object?>{
+          'complete': true,
+          'version': _onboardingContentVersion,
+          'updatedAt': DateTime.now().toIso8601String(),
+        }),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ref.read(onboardingCompleteProvider.notifier).set(true);
+      ref
+          .read(onboardingStatusProvider.notifier)
+          .set(OnboardingStatus.complete);
+
+      if (GoRouter.maybeOf(context) != null) {
+        context.go(RoutePaths.creator);
+      }
+    } finally {
+      _activationFinalizationInFlight = false;
+    }
+  }
+
   bool _showRemoteAnnouncement(RemoteAnnouncement? announcement) {
     if (announcement == null) {
       return false;
@@ -296,6 +300,19 @@ class _AppRootState extends ConsumerState<AppRoot> {
   }
 
   String _resolveDeepLinkLocation(Uri uri) {
+    // Mobile OAuth callbacks may return through the custom scheme target.
+    // HTTPS app links remain supported via /app/auth/callback.
+    if (_isCustomSchemeAuthCallback(uri)) {
+      final Map<String, String> params = _allLinkParams(uri);
+      final String type = (params['type'] ?? '').toLowerCase();
+      final String mode = switch (type) {
+        'recovery' => 'recovery',
+        'signup' || 'email_change' || 'invite' => 'verify-email',
+        _ => 'auth-callback',
+      };
+      return '${RoutePaths.login}?mode=$mode';
+    }
+
     final String appPath = _normalizeAppPath(uri.path);
     if (appPath.isEmpty) {
       return '';
@@ -330,6 +347,14 @@ class _AppRootState extends ConsumerState<AppRoot> {
       'terms' => RoutePaths.terms,
       _ => RoutePaths.home,
     };
+  }
+
+  bool _isCustomSchemeAuthCallback(Uri uri) {
+    if (uri.scheme != 'chronospark') {
+      return false;
+    }
+    return uri.host.toLowerCase() == 'auth-callback' &&
+        (uri.path.isEmpty || uri.path == '/');
   }
 
   String _normalizeAppPath(String path) {

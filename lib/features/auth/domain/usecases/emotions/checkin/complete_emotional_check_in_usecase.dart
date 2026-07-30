@@ -1,3 +1,3 @@
-﻿class CompleteEmotionalCheckInUsecase {
+class CompleteEmotionalCheckInUsecase {
   const CompleteEmotionalCheckInUsecase();
 }

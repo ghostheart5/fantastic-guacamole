@@ -1,3 +1,3 @@
-﻿class CalculateEmotionalBalanceUsecase {
+class CalculateEmotionalBalanceUsecase {
   const CalculateEmotionalBalanceUsecase();
 }

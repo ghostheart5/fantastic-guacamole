@@ -1,3 +1,3 @@
-﻿class ViewEngagementStatisticsUsecase {
+class ViewEngagementStatisticsUsecase {
   const ViewEngagementStatisticsUsecase();
 }

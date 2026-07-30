@@ -1,3 +1,3 @@
-﻿class StartFocusSessionQuickActionUsecase {
+class StartFocusSessionQuickActionUsecase {
   const StartFocusSessionQuickActionUsecase();
 }

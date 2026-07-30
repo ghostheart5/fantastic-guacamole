@@ -1,0 +1,3 @@
+﻿class SetDailyCheckInTimeUsecase {
+  const SetDailyCheckInTimeUsecase();
+}

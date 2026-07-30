@@ -1,3 +1,3 @@
-﻿class BackupDatabaseUsecase {
+class BackupDatabaseUsecase {
   const BackupDatabaseUsecase();
 }

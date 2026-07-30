@@ -1,3 +1,3 @@
-﻿class IdentifyRisksUsecase {
+class IdentifyRisksUsecase {
   const IdentifyRisksUsecase();
 }

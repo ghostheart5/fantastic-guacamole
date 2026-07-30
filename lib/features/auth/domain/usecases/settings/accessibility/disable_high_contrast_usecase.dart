@@ -1,3 +1,3 @@
-﻿class DisableHighContrastUsecase {
+class DisableHighContrastUsecase {
   const DisableHighContrastUsecase();
 }

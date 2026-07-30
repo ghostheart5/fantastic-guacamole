@@ -1,3 +1,3 @@
-﻿class EnableMaintenanceModeUsecase {
+class EnableMaintenanceModeUsecase {
   const EnableMaintenanceModeUsecase();
 }

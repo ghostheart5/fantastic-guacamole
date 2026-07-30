@@ -1,0 +1,3 @@
+﻿class UpdateAdminRoleUsecase {
+  const UpdateAdminRoleUsecase();
+}

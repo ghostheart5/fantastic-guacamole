@@ -1,3 +1,3 @@
-﻿class ViewProductivityInsightsUsecase {
+class ViewProductivityInsightsUsecase {
   const ViewProductivityInsightsUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class SetGoalReminderUsecase {
+class SetGoalReminderUsecase {
   const SetGoalReminderUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class CelebrateMilestoneUsecase {
+class CelebrateMilestoneUsecase {
   const CelebrateMilestoneUsecase();
 }

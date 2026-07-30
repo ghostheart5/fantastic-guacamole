@@ -1,3 +1,3 @@
-﻿class SetQuietHoursUsecase {
+class SetQuietHoursUsecase {
   const SetQuietHoursUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class ViewGrowthTrendsUsecase {
+class ViewGrowthTrendsUsecase {
   const ViewGrowthTrendsUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class RestoreInsightUsecase {
+class RestoreInsightUsecase {
   const RestoreInsightUsecase();
 }

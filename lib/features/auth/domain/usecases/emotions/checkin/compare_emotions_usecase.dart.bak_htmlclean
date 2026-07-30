@@ -1,0 +1,3 @@
+﻿class CompareEmotionsUsecase {
+  const CompareEmotionsUsecase();
+}

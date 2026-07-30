@@ -1,3 +1,3 @@
-﻿class ShowPremiumFeaturesUsecase {
+class ShowPremiumFeaturesUsecase {
   const ShowPremiumFeaturesUsecase();
 }

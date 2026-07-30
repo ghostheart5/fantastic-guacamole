@@ -1,3 +1,3 @@
-﻿class ViewPurchaseHistoryUsecase {
+class ViewPurchaseHistoryUsecase {
   const ViewPurchaseHistoryUsecase();
 }

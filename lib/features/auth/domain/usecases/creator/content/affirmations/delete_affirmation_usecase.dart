@@ -1,3 +1,3 @@
-﻿class DeleteAffirmationUsecase {
+class DeleteAffirmationUsecase {
   const DeleteAffirmationUsecase();
 }

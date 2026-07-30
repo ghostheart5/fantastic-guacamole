@@ -1,3 +1,3 @@
-﻿class PublishCompanionUsecase {
+class PublishCompanionUsecase {
   const PublishCompanionUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class ViewAchievementsUsecase {
+class ViewAchievementsUsecase {
   const ViewAchievementsUsecase();
 }

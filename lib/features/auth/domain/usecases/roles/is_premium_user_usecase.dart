@@ -1,3 +1,3 @@
-﻿class IsPremiumUserUsecase {
+class IsPremiumUserUsecase {
   const IsPremiumUserUsecase();
 }

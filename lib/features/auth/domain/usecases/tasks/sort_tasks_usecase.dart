@@ -1,3 +1,3 @@
-﻿class SortTasksUsecase {
+class SortTasksUsecase {
   const SortTasksUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class ClearAiMemoryUsecase {
+class ClearAiMemoryUsecase {
   const ClearAiMemoryUsecase();
 }

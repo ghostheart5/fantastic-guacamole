@@ -1,0 +1,3 @@
+﻿class AddMemoryAudioUsecase {
+  const AddMemoryAudioUsecase();
+}

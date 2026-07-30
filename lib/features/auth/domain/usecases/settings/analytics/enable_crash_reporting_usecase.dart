@@ -1,3 +1,3 @@
-﻿class EnableCrashReportingUsecase {
+class EnableCrashReportingUsecase {
   const EnableCrashReportingUsecase();
 }

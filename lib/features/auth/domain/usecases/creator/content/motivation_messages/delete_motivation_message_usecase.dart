@@ -1,3 +1,3 @@
-﻿class DeleteMotivationMessageUsecase {
+class DeleteMotivationMessageUsecase {
   const DeleteMotivationMessageUsecase();
 }

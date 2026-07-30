@@ -1,0 +1,3 @@
+﻿class DeleteAccountUsecase {
+  const DeleteAccountUsecase();
+}

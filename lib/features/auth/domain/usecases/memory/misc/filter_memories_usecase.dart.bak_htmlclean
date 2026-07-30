@@ -1,0 +1,3 @@
+﻿class FilterMemoriesUsecase {
+  const FilterMemoriesUsecase();
+}

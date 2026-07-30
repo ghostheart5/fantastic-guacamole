@@ -1,3 +1,3 @@
-﻿class UpdatePhoneNumberUsecase {
+class UpdatePhoneNumberUsecase {
   const UpdatePhoneNumberUsecase();
 }

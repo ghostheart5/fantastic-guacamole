@@ -1,0 +1,3 @@
+﻿class ShowActivityUsecase {
+  const ShowActivityUsecase();
+}

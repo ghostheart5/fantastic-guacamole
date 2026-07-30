@@ -1,0 +1,3 @@
+﻿class ViewLogDetailsUsecase {
+  const ViewLogDetailsUsecase();
+}

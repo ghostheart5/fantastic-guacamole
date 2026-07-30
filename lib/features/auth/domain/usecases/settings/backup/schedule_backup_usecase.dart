@@ -1,3 +1,3 @@
-﻿class ScheduleBackupUsecase {
+class ScheduleBackupUsecase {
   const ScheduleBackupUsecase();
 }

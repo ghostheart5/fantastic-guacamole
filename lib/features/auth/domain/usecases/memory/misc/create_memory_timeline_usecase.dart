@@ -1,3 +1,3 @@
-﻿class CreateMemoryTimelineUsecase {
+class CreateMemoryTimelineUsecase {
   const CreateMemoryTimelineUsecase();
 }

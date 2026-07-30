@@ -1,0 +1,3 @@
+﻿class GenerateIdentitySummaryUsecase {
+  const GenerateIdentitySummaryUsecase();
+}

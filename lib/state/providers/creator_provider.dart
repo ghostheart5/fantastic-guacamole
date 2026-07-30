@@ -1,8 +1,11 @@
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 final creatorActionsProvider = Provider<CreatorActions>(
   (ref) => CreatorActions(ref: ref),
@@ -41,7 +44,26 @@ class CreatorActions {
       recurrenceRule: recurrence,
     );
 
-    await ref.read(taskActionsProvider).createTask(entity);
+    await ref
+      .read(taskActionsProvider)
+      .createTask(entity, actionSource: 'creator');
+    await _markFirstItemCreated();
+  }
+
+  Future<void> _markFirstItemCreated() async {
+    ref.read(creatorFirstItemCreatedProvider.notifier).set(true);
+
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? userId = sb.Supabase.instance.client.auth.currentUser?.id;
+      final String key =
+          (userId == null || userId.trim().isEmpty)
+          ? creatorFirstItemCreatedStorageKey
+          : creatorFirstItemCreatedStorageKeyForUser(userId.trim());
+      await prefs.setBool(key, true);
+    } on Object {
+      // Keep creation success non-blocking even if local persistence is unavailable.
+    }
   }
 
   String _kindFor(CreatorFormData data, String mode) {

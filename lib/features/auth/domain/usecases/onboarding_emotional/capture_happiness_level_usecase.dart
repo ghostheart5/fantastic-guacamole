@@ -1,3 +1,3 @@
-﻿class CaptureHappinessLevelUsecase {
+class CaptureHappinessLevelUsecase {
   const CaptureHappinessLevelUsecase();
 }

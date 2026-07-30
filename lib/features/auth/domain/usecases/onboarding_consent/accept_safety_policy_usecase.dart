@@ -1,3 +1,3 @@
-﻿class AcceptSafetyPolicyUsecase {
+class AcceptSafetyPolicyUsecase {
   const AcceptSafetyPolicyUsecase();
 }

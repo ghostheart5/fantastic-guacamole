@@ -1,3 +1,3 @@
-﻿class GenerateMilestoneSummaryUsecase {
+class GenerateMilestoneSummaryUsecase {
   const GenerateMilestoneSummaryUsecase();
 }

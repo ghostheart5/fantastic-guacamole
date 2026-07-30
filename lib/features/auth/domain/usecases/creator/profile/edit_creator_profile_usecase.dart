@@ -1,3 +1,3 @@
-﻿class EditCreatorProfileUsecase {
+class EditCreatorProfileUsecase {
   const EditCreatorProfileUsecase();
 }

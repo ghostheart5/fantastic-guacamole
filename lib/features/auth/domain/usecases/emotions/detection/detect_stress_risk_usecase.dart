@@ -1,3 +1,3 @@
-﻿class DetectStressRiskUsecase {
+class DetectStressRiskUsecase {
   const DetectStressRiskUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class ConfigureDataVisibilityUsecase {
+class ConfigureDataVisibilityUsecase {
   const ConfigureDataVisibilityUsecase();
 }

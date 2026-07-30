@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/state/providers/future_decision_engine_provider.dart';
 import 'package:fantastic_guacamole/state/providers/identity_drift_provider.dart';
+import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class FutureTimelineCheckpoint {
@@ -23,20 +24,23 @@ class FutureTimelineState {
 final futureTimelineProvider = Provider<FutureTimelineState>((ref) {
   final decision = ref.watch(futureDecisionEngineProvider);
   final drift = ref.watch(identityDriftProvider);
+  final execution = ref.watch(executionSignalsProvider);
+  final int stabilityPercent = (execution.completionStability7d * 100).round();
 
   final checkpoints = <FutureTimelineCheckpoint>[
     FutureTimelineCheckpoint(
       label: '7 DAYS',
       days: 7,
-      prediction:
-          'Consistent execution of "${decision.recommendedChoice}" increases stability.',
+      prediction: execution.hasDeferralPressure
+          ? 'Recent deferrals are elevated. Complete delayed items before adding new commitments.'
+          : 'Consistent execution of "${decision.recommendedChoice}" increases stability.',
     ),
     FutureTimelineCheckpoint(
       label: '30 DAYS',
       days: 30,
       prediction: drift.score >= 70
-          ? 'Identity alignment strengthens and momentum compounds.'
-          : 'Corrections will be required to maintain future alignment.',
+          ? 'Identity alignment strengthens and momentum compounds (stability $stabilityPercent%).'
+          : 'Corrections will be required to maintain future alignment (stability $stabilityPercent%).',
     ),
     const FutureTimelineCheckpoint(
       label: '90 DAYS',

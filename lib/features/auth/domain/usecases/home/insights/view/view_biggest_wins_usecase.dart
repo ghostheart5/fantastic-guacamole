@@ -1,3 +1,3 @@
-﻿class ViewBiggestWinsUsecase {
+class ViewBiggestWinsUsecase {
   const ViewBiggestWinsUsecase();
 }

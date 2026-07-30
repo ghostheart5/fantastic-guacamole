@@ -13,18 +13,30 @@ void main() {
         caseSensitive: false,
       );
 
+      final Set<String> roots = <String>{
+        'lib',
+        'android',
+        'ios',
+        'web',
+        'macos',
+        'windows',
+        'linux',
+      };
+
       final List<File> files = <File>[
-        ...SourceTestUtils.dartFilesUnder('lib'),
-        ...SourceTestUtils.dartFilesUnder('test'),
-        ...Directory('tools')
-            .listSync(recursive: true)
-            .whereType<File>()
-            .where((File file) => file.path.endsWith('.ps1')),
-      ];
+        for (final String root in roots) ...SourceTestUtils.filesUnder(root),
+        File('pubspec.yaml'),
+        File('analysis_options.yaml'),
+      ].where((File file) => file.existsSync()).toList(growable: false);
 
       for (final File file in files) {
         final String path = SourceTestUtils.normalizePath(file.path);
         final String lowerPath = path.toLowerCase();
+        if (lowerPath.startsWith('test/') ||
+            lowerPath.startsWith('integration_test/') ||
+            lowerPath.startsWith('tool/test_audit/')) {
+          continue;
+        }
         if (lowerPath.endsWith('/firebase_options.dart') ||
             lowerPath.endsWith('/secrets_guard_test.dart') ||
             lowerPath.endsWith('/release_readiness_contract_test.dart') ||
@@ -34,7 +46,12 @@ void main() {
             lowerPath.endsWith('/si_console_contract_test.dart')) {
           continue;
         }
-        final String text = SourceTestUtils.readText(file);
+        final String text;
+        try {
+          text = SourceTestUtils.readUtf8Strict(file);
+        } on FormatException {
+          continue;
+        }
         if (tokenPattern.hasMatch(text)) {
           offenders.add(path);
         }

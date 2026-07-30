@@ -1,3 +1,3 @@
-﻿class ViewUsersUsecase {
+class ViewUsersUsecase {
   const ViewUsersUsecase();
 }

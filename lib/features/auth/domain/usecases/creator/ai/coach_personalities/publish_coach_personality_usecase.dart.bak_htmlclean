@@ -1,0 +1,3 @@
+﻿class PublishCoachPersonalityUsecase {
+  const PublishCoachPersonalityUsecase();
+}

@@ -126,9 +126,9 @@ class SIEmotionEngine {
   String _modifier(EmotionalSignal s) {
     switch (s.mood) {
       case 'stressed':
-        return 'No pressure — one small move.';
+        return 'No pressure â€” one small move.';
       case 'confused':
-        return 'I’ll keep it step-by-step.';
+        return 'Iâ€™ll keep it step-by-step.';
       case 'tired':
         return 'Keep the scope light.';
       case 'excited':

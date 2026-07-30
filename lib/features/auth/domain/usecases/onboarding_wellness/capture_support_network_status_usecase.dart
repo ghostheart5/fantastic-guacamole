@@ -1,3 +1,3 @@
-﻿class CaptureSupportNetworkStatusUsecase {
+class CaptureSupportNetworkStatusUsecase {
   const CaptureSupportNetworkStatusUsecase();
 }

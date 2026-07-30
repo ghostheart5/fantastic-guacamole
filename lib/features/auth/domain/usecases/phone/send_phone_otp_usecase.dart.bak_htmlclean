@@ -1,0 +1,3 @@
+﻿class SendPhoneOtpUsecase {
+  const SendPhoneOtpUsecase();
+}

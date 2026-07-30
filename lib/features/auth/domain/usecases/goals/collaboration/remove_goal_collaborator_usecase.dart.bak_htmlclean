@@ -1,0 +1,3 @@
+﻿class RemoveGoalCollaboratorUsecase {
+  const RemoveGoalCollaboratorUsecase();
+}

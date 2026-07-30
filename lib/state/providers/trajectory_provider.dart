@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/engine/si/prediction.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
 import 'package:fantastic_guacamole/state/models/session_score_view.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,7 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final learningMetrics = ref.watch(learningMetricsProvider);
   final sessionScore = ref.watch(sessionScoreProvider);
   final siState = ref.watch(siStateProvider);
+  final execution = ref.watch(executionSignalsProvider);
 
   final int pendingTasks = tasksAsync.maybeWhen(
     data: (tasks) => tasks.length,
@@ -24,22 +26,25 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final int lastSessionXp = lastScore?.xp ?? 0;
   final double lastSessionQuality = lastScore?.quality ?? 0.0;
 
-  final int pressureIndex =
+    final int deferralsToday = execution.skippedToday + execution.delayedToday;
+    final int pressureIndex =
       ((pendingTasks * 16) +
-              ((1 - energy) * 32) +
-              ((1 - learningMetrics.momentum) * 18))
+          ((1 - energy) * 32) +
+          ((1 - learningMetrics.momentum) * 18) +
+          (deferralsToday * 6))
           .clamp(0.0, 100.0)
           .round();
 
-  final int behaviorDivergence =
-      ((learningMetrics.completionRate - learningMetrics.momentum).abs() * 100)
+    final int behaviorDivergence =
+      ((learningMetrics.completionRate - learningMetrics.momentum).abs() * 100 +
+          ((1 - execution.completionStability7d) * 20))
           .clamp(0.0, 100.0)
           .round();
 
-  final String alert = pressureIndex >= 70
-      ? 'SI ALERT: load is high, reduce task density.'
+    final String alert = pressureIndex >= 70
+      ? 'SI ALERT: load is high, reduce task density and clear deferrals.'
       : pressureIndex >= 40
-      ? 'SI ALERT: trajectory is stable but watch drift.'
+      ? 'SI ALERT: trajectory is stable but watch drift and delayed items.'
       : 'SI ALERT: trajectory is calm.';
 
   final String? predictionTitle = tasksAsync.maybeWhen(

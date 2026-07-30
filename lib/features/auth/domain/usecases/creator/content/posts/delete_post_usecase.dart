@@ -1,3 +1,3 @@
-﻿class DeletePostUsecase {
+class DeletePostUsecase {
   const DeletePostUsecase();
 }

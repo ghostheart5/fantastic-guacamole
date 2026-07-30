@@ -1,3 +1,3 @@
-﻿class CreateRelationshipMemoryUsecase {
+class CreateRelationshipMemoryUsecase {
   const CreateRelationshipMemoryUsecase();
 }

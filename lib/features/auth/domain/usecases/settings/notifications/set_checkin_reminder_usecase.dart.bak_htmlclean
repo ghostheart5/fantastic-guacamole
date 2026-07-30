@@ -1,0 +1,3 @@
+﻿class SetCheckinReminderUsecase {
+  const SetCheckinReminderUsecase();
+}

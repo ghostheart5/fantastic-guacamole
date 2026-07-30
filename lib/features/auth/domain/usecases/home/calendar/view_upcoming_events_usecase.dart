@@ -1,3 +1,3 @@
-﻿class ViewUpcomingEventsUsecase {
+class ViewUpcomingEventsUsecase {
   const ViewUpcomingEventsUsecase();
 }

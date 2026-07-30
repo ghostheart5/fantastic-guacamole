@@ -1,0 +1,3 @@
+﻿class ViewMilestoneTimelineUsecase {
+  const ViewMilestoneTimelineUsecase();
+}

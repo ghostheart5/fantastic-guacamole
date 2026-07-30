@@ -1,3 +1,3 @@
-﻿class UpdateMemoryCollectionUsecase {
+class UpdateMemoryCollectionUsecase {
   const UpdateMemoryCollectionUsecase();
 }

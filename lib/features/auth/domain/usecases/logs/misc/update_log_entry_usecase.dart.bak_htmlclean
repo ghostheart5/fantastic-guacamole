@@ -1,0 +1,3 @@
+﻿class UpdateLogEntryUsecase {
+  const UpdateLogEntryUsecase();
+}

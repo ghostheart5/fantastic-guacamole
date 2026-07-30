@@ -1,0 +1,3 @@
+﻿class CreateCoachPersonalityUsecase {
+  const CreateCoachPersonalityUsecase();
+}

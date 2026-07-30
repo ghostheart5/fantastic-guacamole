@@ -1,0 +1,3 @@
+﻿class ViewEmotionalSnapshotUsecase {
+  const ViewEmotionalSnapshotUsecase();
+}

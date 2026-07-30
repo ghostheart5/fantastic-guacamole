@@ -1,3 +1,3 @@
-﻿class AssessSelfEsteemUsecase {
+class AssessSelfEsteemUsecase {
   const AssessSelfEsteemUsecase();
 }

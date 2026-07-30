@@ -1,3 +1,3 @@
-﻿class DeleteAiPromptUsecase {
+class DeleteAiPromptUsecase {
   const DeleteAiPromptUsecase();
 }

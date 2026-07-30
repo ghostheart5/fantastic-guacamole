@@ -1,0 +1,3 @@
+﻿class DeleteUserUsecase {
+  const DeleteUserUsecase();
+}

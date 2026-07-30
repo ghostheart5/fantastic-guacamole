@@ -16,7 +16,6 @@ class LoginScreen extends StatefulWidget {
     required this.onPrimaryAction,
     required this.onForgotPassword,
     required this.onGoogleSignIn,
-    required this.onPhoneSignIn,
     this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -35,7 +34,6 @@ class LoginScreen extends StatefulWidget {
   final VoidCallback onPrimaryAction;
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
-  final VoidCallback onPhoneSignIn;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -106,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          // Heavy dark overlay — bottom heavier for form readability
+          // Heavy dark overlay â€” bottom heavier for form readability
           const Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -138,7 +136,6 @@ class _LoginScreenState extends State<LoginScreen>
               onPrimaryAction: widget.onPrimaryAction,
               onForgotPassword: widget.onForgotPassword,
               onGoogleSignIn: widget.onGoogleSignIn,
-              onPhoneSignIn: widget.onPhoneSignIn,
               onMockLogin: onMockLogin,
               onToggleMode: widget.onToggleMode,
               onTogglePassword: widget.onTogglePassword,
@@ -160,7 +157,6 @@ class _LoginScreenState extends State<LoginScreen>
               onPrimaryAction: widget.onPrimaryAction,
               onForgotPassword: widget.onForgotPassword,
               onGoogleSignIn: widget.onGoogleSignIn,
-              onPhoneSignIn: widget.onPhoneSignIn,
               onMockLogin: onMockLogin,
               onToggleMode: widget.onToggleMode,
               onTogglePassword: widget.onTogglePassword,
@@ -206,7 +202,6 @@ class _PortraitLoginContent extends StatelessWidget {
     required this.onPrimaryAction,
     required this.onForgotPassword,
     required this.onGoogleSignIn,
-    required this.onPhoneSignIn,
     required this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -227,7 +222,6 @@ class _PortraitLoginContent extends StatelessWidget {
   final VoidCallback onPrimaryAction;
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
-  final VoidCallback onPhoneSignIn;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -282,7 +276,6 @@ class _PortraitLoginContent extends StatelessWidget {
                       onPrimaryAction: onPrimaryAction,
                       onForgotPassword: onForgotPassword,
                       onGoogleSignIn: onGoogleSignIn,
-                      onPhoneSignIn: onPhoneSignIn,
                       onMockLogin: onMockLogin,
                       onToggleMode: onToggleMode,
                       onTogglePassword: onTogglePassword,
@@ -314,7 +307,6 @@ class _LandscapeLoginContent extends StatelessWidget {
     required this.onPrimaryAction,
     required this.onForgotPassword,
     required this.onGoogleSignIn,
-    required this.onPhoneSignIn,
     required this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -335,7 +327,6 @@ class _LandscapeLoginContent extends StatelessWidget {
   final VoidCallback onPrimaryAction;
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
-  final VoidCallback onPhoneSignIn;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -394,7 +385,6 @@ class _LandscapeLoginContent extends StatelessWidget {
                                 onPrimaryAction: onPrimaryAction,
                                 onForgotPassword: onForgotPassword,
                                 onGoogleSignIn: onGoogleSignIn,
-                                onPhoneSignIn: onPhoneSignIn,
                                 onMockLogin: onMockLogin,
                                 onToggleMode: onToggleMode,
                                 onTogglePassword: onTogglePassword,
@@ -547,7 +537,6 @@ class _LoginFormCard extends StatelessWidget {
     required this.onPrimaryAction,
     required this.onForgotPassword,
     required this.onGoogleSignIn,
-    required this.onPhoneSignIn,
     required this.onMockLogin,
     required this.onToggleMode,
     required this.onTogglePassword,
@@ -566,7 +555,6 @@ class _LoginFormCard extends StatelessWidget {
   final VoidCallback onPrimaryAction;
   final VoidCallback onForgotPassword;
   final VoidCallback onGoogleSignIn;
-  final VoidCallback onPhoneSignIn;
   final VoidCallback? onMockLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onTogglePassword;
@@ -713,13 +701,6 @@ class _LoginFormCard extends StatelessWidget {
               leading: const _GoogleGlyph(size: 18),
               onTap: onGoogleSignIn,
             ),
-            SizedBox(height: compact ? 8 : 10),
-            _SecondaryButton(
-              label: 'Use Phone Login',
-              icon: Icons.phone_rounded,
-              color: AppColors.neonCyan,
-              onTap: onPhoneSignIn,
-            ),
           ],
           SizedBox(height: compact ? 6 : 8),
           if (compactSecondaryButtons)
@@ -783,7 +764,7 @@ class _LoginFormCard extends StatelessWidget {
                     SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'TESTER ACCESS  ·  COMMAND LOGIN',
+                        'TESTER ACCESS | COMMAND LOGIN',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,

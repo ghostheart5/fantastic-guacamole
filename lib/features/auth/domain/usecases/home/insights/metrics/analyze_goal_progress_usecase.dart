@@ -1,3 +1,3 @@
-﻿class AnalyzeGoalProgressUsecase {
+class AnalyzeGoalProgressUsecase {
   const AnalyzeGoalProgressUsecase();
 }

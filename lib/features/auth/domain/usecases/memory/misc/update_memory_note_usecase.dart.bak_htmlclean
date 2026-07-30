@@ -1,0 +1,3 @@
+﻿class UpdateMemoryNoteUsecase {
+  const UpdateMemoryNoteUsecase();
+}

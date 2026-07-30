@@ -1,3 +1,3 @@
-﻿class GetRecommendedHabitForEmotionUsecase {
+class GetRecommendedHabitForEmotionUsecase {
   const GetRecommendedHabitForEmotionUsecase();
 }

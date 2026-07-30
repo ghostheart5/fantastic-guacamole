@@ -1,0 +1,3 @@
+﻿class AcceptPrivacyPolicyUsecase {
+  const AcceptPrivacyPolicyUsecase();
+}

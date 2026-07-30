@@ -1,3 +1,3 @@
-﻿class ClearLocalSessionUsecase {
+class ClearLocalSessionUsecase {
   const ClearLocalSessionUsecase();
 }

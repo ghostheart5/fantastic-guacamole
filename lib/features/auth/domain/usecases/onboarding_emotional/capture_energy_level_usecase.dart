@@ -1,3 +1,3 @@
-﻿class CaptureEnergyLevelUsecase {
+class CaptureEnergyLevelUsecase {
   const CaptureEnergyLevelUsecase();
 }

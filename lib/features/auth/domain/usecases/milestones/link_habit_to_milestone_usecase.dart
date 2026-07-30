@@ -1,3 +1,3 @@
-﻿class LinkHabitToMilestoneUsecase {
+class LinkHabitToMilestoneUsecase {
   const LinkHabitToMilestoneUsecase();
 }

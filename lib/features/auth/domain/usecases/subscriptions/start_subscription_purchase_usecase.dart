@@ -1,3 +1,3 @@
-﻿class StartSubscriptionPurchaseUsecase {
+class StartSubscriptionPurchaseUsecase {
   const StartSubscriptionPurchaseUsecase();
 }

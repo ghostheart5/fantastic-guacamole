@@ -1,3 +1,3 @@
-﻿class RemoveEmotionResponseUsecase {
+class RemoveEmotionResponseUsecase {
   const RemoveEmotionResponseUsecase();
 }

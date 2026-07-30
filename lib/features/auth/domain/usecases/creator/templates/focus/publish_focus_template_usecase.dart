@@ -1,3 +1,3 @@
-﻿class PublishFocusTemplateUsecase {
+class PublishFocusTemplateUsecase {
   const PublishFocusTemplateUsecase();
 }

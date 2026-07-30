@@ -1,3 +1,3 @@
-﻿class DisableAiCompanionUsecase {
+class DisableAiCompanionUsecase {
   const DisableAiCompanionUsecase();
 }

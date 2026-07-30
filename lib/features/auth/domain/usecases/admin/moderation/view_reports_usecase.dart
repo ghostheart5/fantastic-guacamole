@@ -1,3 +1,3 @@
-﻿class ViewReportsUsecase {
+class ViewReportsUsecase {
   const ViewReportsUsecase();
 }

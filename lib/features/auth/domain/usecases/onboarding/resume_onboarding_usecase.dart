@@ -1,3 +1,3 @@
-﻿class ResumeOnboardingUsecase {
+class ResumeOnboardingUsecase {
   const ResumeOnboardingUsecase();
 }

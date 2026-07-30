@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
+import 'package:fantastic_guacamole/features/auth/application/auth_providers.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
@@ -11,7 +12,6 @@ import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -91,24 +91,24 @@ class SettingsScreen extends ConsumerWidget {
                             colors: [AppColors.neonCyan, AppColors.neonViolet],
                           ).createShader(bounds),
                           child: const Text(
-                            'SYSTEM CONSOLE',
+                            'Settings',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: 3,
+                              letterSpacing: 1.2,
                               color: Colors.white,
                             ),
                           ),
                         ),
                         const Text(
-                          'CHRONOSPARK CONTROL CENTER',
+                          'Preferences, account, and support',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 10,
-                            letterSpacing: 2,
+                            letterSpacing: 0.8,
                             color: Colors.white38,
                           ),
                         ),
@@ -145,12 +145,12 @@ class SettingsScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'SYSTEM STATUS',
+                      'Status',
                       style: TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 2,
+                        letterSpacing: 1,
                       ),
                     ),
                     SizedBox(height: 8),
@@ -284,8 +284,24 @@ class SettingsScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     _NeonNavTile(
-                      title: 'Subscription & Paywall',
-                      subtitle: access.subscriptionStatusDetail,
+                      title: 'Profile & Identity',
+                      subtitle: 'Name, progression, and identity controls.',
+                      onTap: () => context.push(RoutePaths.profile),
+                    ),
+                    _NeonNavTile(
+                      title: 'Billing Center',
+                      subtitle: 'Manage active plan and renewal status.',
+                      onTap: () => context.push(RoutePaths.subscriptionManagement),
+                    ),
+                    _NeonNavTile(
+                      title: 'Credit History',
+                      subtitle: 'Review credit purchases and usage records.',
+                      onTap: () => context.push(RoutePaths.creditHistory),
+                    ),
+                    _NeonNavTile(
+                      title: 'Explore Plans',
+                      subtitle:
+                          '${access.subscriptionStatusDetail} · compare available tiers.',
                       onTap: () => context.push(routes.paywall),
                     ),
                     _NeonNavTile(
@@ -327,7 +343,7 @@ class SettingsScreen extends ConsumerWidget {
                     _NeonNavTile(
                       title: 'Privacy Policy',
                       subtitle: legalPoliciesCount > 0
-                          ? 'Live: ${AppUrls.privacy} · local cache:$legalPoliciesCount'
+                          ? 'Live: ${AppUrls.privacy} | local cache:$legalPoliciesCount'
                           : AppUrls.privacy,
                       onTap: () => unawaited(
                         _openExternalWithFallback(
@@ -384,7 +400,7 @@ class SettingsScreen extends ConsumerWidget {
       if (hasMockSession) {
         ref.read(mockAuthSessionProvider.notifier).set(false);
       } else {
-        await ref.read(authServiceProvider).signOut();
+        await ref.read(authControllerProvider.notifier).signOut();
       }
       if (!context.mounted) {
         return;
@@ -530,6 +546,8 @@ class SettingsScreen extends ConsumerWidget {
     await prefs.remove(onboardingCompleteStorageKey);
     await prefs.remove(onboardingContentVersionStorageKey);
     await prefs.remove(onboardingStepStorageKey);
+    await prefs.remove(creatorFirstItemCreatedStorageKey);
+    await prefs.remove(timelineFirstActionCompletedStorageKey);
 
     if (!Env.isSupabaseConfigured) {
       return;
@@ -543,6 +561,10 @@ class SettingsScreen extends ConsumerWidget {
       await prefs.remove(onboardingCompleteStorageKeyForUser(userId));
       await prefs.remove(onboardingContentVersionStorageKeyForUser(userId));
       await prefs.remove(onboardingStepStorageKeyForUser(userId));
+      await prefs.remove(creatorFirstItemCreatedStorageKeyForUser(userId));
+      await prefs.remove(
+        timelineFirstActionCompletedStorageKeyForUser(userId),
+      );
     } on Object {
       // Keep settings actions non-fatal when auth runtime is unavailable.
     }

@@ -1,3 +1,3 @@
-﻿class FilterEmotionsUsecase {
+class FilterEmotionsUsecase {
   const FilterEmotionsUsecase();
 }

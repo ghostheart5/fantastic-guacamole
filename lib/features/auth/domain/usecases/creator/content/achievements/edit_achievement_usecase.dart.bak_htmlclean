@@ -1,0 +1,3 @@
+﻿class EditAchievementUsecase {
+  const EditAchievementUsecase();
+}

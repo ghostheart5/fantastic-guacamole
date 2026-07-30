@@ -1,3 +1,3 @@
-﻿class ViewReleaseNotesUsecase {
+class ViewReleaseNotesUsecase {
   const ViewReleaseNotesUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class CompletePasswordRecoveryLinkUsecase {
+class CompletePasswordRecoveryLinkUsecase {
   const CompletePasswordRecoveryLinkUsecase();
 }

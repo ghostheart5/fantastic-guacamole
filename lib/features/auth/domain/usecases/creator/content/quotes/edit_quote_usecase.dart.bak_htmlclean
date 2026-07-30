@@ -1,0 +1,3 @@
+﻿class EditQuoteUsecase {
+  const EditQuoteUsecase();
+}

@@ -16,6 +16,11 @@ import 'package:fantastic_guacamole/engine/tasks/task_ranker.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart'
+  show
+    timelineFirstActionCompletedProvider,
+    timelineFirstActionCompletedStorageKey,
+    timelineFirstActionCompletedStorageKeyForUser;
 import 'package:fantastic_guacamole/state/models/session_score_view.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
@@ -27,6 +32,8 @@ import 'package:fantastic_guacamole/state/providers/session_score_provider.dart'
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
   final List<TaskEntity> tasks = await ref.read(getTasksUseCaseProvider).call();
@@ -65,7 +72,11 @@ class TaskActions {
   final Ref _ref;
   static final SessionScoringEngine _scoringEngine = SessionScoringEngine();
 
-  Future<void> createTask(TaskEntity entity, {bool notify = false}) async {
+  Future<void> createTask(
+    TaskEntity entity, {
+    bool notify = false,
+    String actionSource = 'unknown',
+  }) async {
     final String trimmed = entity.title.trim();
     if (trimmed.isEmpty) {
       return;
@@ -81,7 +92,10 @@ class TaskActions {
     await _ref.read(timelineActionsProvider).connectTask(normalized);
     AppAnalytics.track(
       'task_created',
-      params: <String, Object?>{'task_id': normalized.id},
+      params: <String, Object?>{
+        'task_id': normalized.id,
+        'action_source': actionSource,
+      },
     );
     unawaited(
       _recordCreationSideEffects(
@@ -98,6 +112,7 @@ class TaskActions {
             taskId: normalized.id,
             title: trimmed,
             action: 'created',
+            actionSource: actionSource,
           ),
         );
 
@@ -119,10 +134,14 @@ class TaskActions {
       difficulty: 3,
       energyRequired: 3,
     );
-    await createTask(entity, notify: notify);
+    await createTask(entity, notify: notify, actionSource: 'quick_create');
   }
 
-  Future<void> completeTask(String id, {bool notify = true}) async {
+  Future<void> completeTask(
+    String id, {
+    bool notify = true,
+    String actionSource = 'unknown',
+  }) async {
     Task? selectedTask = _taskFromCachedTasks(id);
     final Future<Task?> selectedTaskFuture = selectedTask != null
         ? Future<Task?>.value(selectedTask)
@@ -169,10 +188,17 @@ class TaskActions {
       unawaited(_refreshCoachDecision(notify: notify));
     }
 
+    if (actionSource == 'timeline') {
+      unawaited(_markTimelineFirstActionCompleted());
+    }
+
     if (selectedTask != null) {
       AppAnalytics.track(
         'task_completed',
-        params: <String, Object?>{'task_id': selectedTask.id},
+        params: <String, Object?>{
+          'task_id': selectedTask.id,
+          'action_source': actionSource,
+        },
       );
       _ref
           .read(eventBusProvider)
@@ -181,6 +207,7 @@ class TaskActions {
               taskId: selectedTask.id,
               title: selectedTask.title,
               action: 'completed',
+              actionSource: actionSource,
             ),
           );
     }
@@ -219,7 +246,11 @@ class TaskActions {
     return null;
   }
 
-  Future<void> skipTask(String id, {bool notify = true}) async {
+  Future<void> skipTask(
+    String id, {
+    bool notify = true,
+    String actionSource = 'unknown',
+  }) async {
     final List<Task> tasks = await _ref.read(tasksProvider.future);
     Task? selectedTask;
     for (final Task task in tasks) {
@@ -258,6 +289,10 @@ class TaskActions {
     }
     await _refreshCoachDecision(notify: notify);
 
+    if (actionSource == 'timeline') {
+      unawaited(_markTimelineFirstActionCompleted());
+    }
+
     _ref
         .read(eventBusProvider)
         .emit(
@@ -265,6 +300,7 @@ class TaskActions {
             taskId: selectedTask.id,
             title: selectedTask.title,
             action: 'skipped',
+            actionSource: actionSource,
           ),
         );
 
@@ -276,6 +312,7 @@ class TaskActions {
     String id, {
     Duration by = const Duration(hours: 2),
     bool notify = true,
+    String actionSource = 'unknown',
   }) async {
     if (id.trim().isEmpty) {
       throw StateError('Task not found');
@@ -311,6 +348,10 @@ class TaskActions {
     if (notify) {
       await _refreshCoachDecision(notify: true);
     }
+
+    if (actionSource == 'timeline') {
+      unawaited(_markTimelineFirstActionCompleted());
+    }
     _ref
         .read(eventBusProvider)
         .emit(
@@ -318,6 +359,7 @@ class TaskActions {
             taskId: delayed.id,
             title: delayed.title,
             action: 'delayed',
+            actionSource: actionSource,
           ),
         );
     _ref.invalidate(tasksProvider);
@@ -522,6 +564,22 @@ class TaskActions {
     } catch (_) {
       // The task mutation already succeeded. Supporting telemetry and learning
       // must not turn a successful completion into a false failure for users.
+    }
+  }
+
+  Future<void> _markTimelineFirstActionCompleted() async {
+    _ref.read(timelineFirstActionCompletedProvider.notifier).set(true);
+
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? userId = sb.Supabase.instance.client.auth.currentUser?.id;
+      final String key =
+          (userId == null || userId.trim().isEmpty)
+          ? timelineFirstActionCompletedStorageKey
+          : timelineFirstActionCompletedStorageKeyForUser(userId.trim());
+      await prefs.setBool(key, true);
+    } on Object {
+      // Do not block task actions if this local onboarding flag fails to write.
     }
   }
 }

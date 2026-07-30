@@ -1,3 +1,3 @@
-﻿class VerifyPhoneOtpUsecase {
+class VerifyPhoneOtpUsecase {
   const VerifyPhoneOtpUsecase();
 }

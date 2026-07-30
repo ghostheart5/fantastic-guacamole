@@ -1,3 +1,3 @@
-﻿class UpdateEmotionNoteUsecase {
+class UpdateEmotionNoteUsecase {
   const UpdateEmotionNoteUsecase();
 }

@@ -1,24 +1,13 @@
-import 'package:fantastic_guacamole/state/providers/goal_success_probability_provider.dart';
-import 'package:fantastic_guacamole/state/providers/intelligence_fusion_provider.dart';
-import 'package:fantastic_guacamole/state/providers/cognitive_twin_provider.dart';
-import 'package:fantastic_guacamole/state/providers/life_os_provider.dart';
-import 'package:fantastic_guacamole/state/providers/memory_graph_provider.dart';
-import 'package:fantastic_guacamole/state/providers/predictive_risk_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_mission_control_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_weekly_planner_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_daily_planner_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_focus_scheduler_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_life_optimization_provider.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/features/auth/application/auth_providers.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
-import 'package:fantastic_guacamole/state/providers/daily_command_briefing_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -44,6 +33,7 @@ class NexusScreen extends ConsumerStatefulWidget {
 class _NexusScreenState extends ConsumerState<NexusScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
+  bool _showDeferredIntel = false;
 
   @override
   void initState() {
@@ -52,6 +42,16 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
+
+    // Keep first paint fast by mounting heavyweight SI sections after frame one.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _showDeferredIntel = true;
+      });
+    });
   }
 
   @override
@@ -62,60 +62,11 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
 
   @override
   Widget build(BuildContext context) {
-    final ProfileState profile = ref.watch(profileProvider);
-    final briefing = ref.watch(dailyCommandBriefingProvider);
-    final predictiveRisk = ref.watch(predictiveRiskProvider);
-    final goalForecast = ref.watch(goalSuccessProbabilityProvider);
-    final fusion = ref.watch(intelligenceFusionProvider);
-    final twin = ref.watch(cognitiveTwinProvider);
-    final lifeOs = ref.watch(lifeOSProvider);
-    final memoryGraph = ref.watch(memoryGraphProvider);
-    final missionControl = ref.watch(autonomousMissionControlProvider);
-    final weeklyPlan = ref.watch(autonomousWeeklyPlannerProvider);
-    final dailyPlan = ref.watch(autonomousDailyPlannerProvider);
-    final focusBlock = ref.watch(autonomousFocusSchedulerProvider);
-    final optimization = ref.watch(autonomousLifeOptimizationProvider);
-    final siState = ref.watch(siStateProvider);
-    final double energy = siState.energy;
-    final double fatigue = siState.fatigue;
-    final int completedToday = siState.completedToday;
-    final trajectory = ref.watch(trajectorySummaryProvider);
-    final double trajectoryMomentum = trajectory.momentum;
-    final int completedTasks = trajectory.completedTasks;
-    final momentum = ref.watch(momentumEngineProvider);
-
-    final String consistencySignal = momentum.score >= 70
-        ? 'High'
-        : momentum.score >= 45
-        ? 'Medium'
-        : 'Low';
-    final String loadSignal = fatigue >= 0.75
-        ? 'Heavy'
-        : fatigue >= 0.45
-        ? 'Moderate'
-        : 'Light';
-    final String growthTitle = profile.streak >= 21
-        ? 'Compounding Momentum'
-        : profile.streak >= 7
-        ? 'Stable Growth Arc'
-        : completedTasks > 0
-        ? 'Early Growth Signal'
-        : 'Growth Engine Priming';
-    final String narrativeSummary = completedTasks > 0
-        ? 'Momentum is active. Keep the next action small and immediate.'
-        : 'No completed actions yet. Start with one clear task to establish narrative continuity.';
-    final int soulContinuityPct =
-        ((((1 - fatigue) * 0.55) + (trajectoryMomentum * 0.45)).clamp(
-                  0.0,
-                  1.0,
-                ) *
-                100)
-            .round();
-    final double narrativePresence =
-        ((completedTasks > 0 ? 0.5 : 0.28) +
-                (profile.streak.clamp(0, 14) / 14) * 0.5)
-            .clamp(0.0, 1.0);
-    final int narrativePresencePct = (narrativePresence * 100).round();
+    final NexusStartupSummary startup = ref.watch(nexusStartupSummaryProvider);
+    final ProfileState profile = startup.profile;
+    final double energy = startup.energy;
+    final double fatigue = startup.fatigue;
+    final int completedToday = startup.completedToday;
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/nexus_bg.jpg',
@@ -154,340 +105,25 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Column(
-                    children: [
-                      _DailyCommandBriefingCard(briefing: briefing),
-                      const SizedBox(height: 12),
-                      _AutonomousMissionControlCard(
-                        missionControl: missionControl,
-                        weeklyPlan: weeklyPlan,
-                        dailyPlan: dailyPlan,
-                        focusBlock: focusBlock,
-                        optimization: optimization,
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xEE07111F),
-                              AppColors.neonViolet.withValues(alpha: 0.10),
-                              AppColors.memoryAmber.withValues(alpha: 0.07),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: AppColors.neonViolet.withValues(alpha: 0.26),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.neonViolet.withValues(
-                                alpha: 0.08,
-                              ),
-                              blurRadius: 18,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'MEMORY GRAPH',
-                              style: TextStyle(
-                                color: AppColors.neonViolet,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 2.2,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            ...memoryGraph.nodes
-                                .take(3)
-                                .map(
-                                  (node) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Text(
-                                      '${node.type.toUpperCase()}: ${node.title} → ${node.connection}',
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                        height: 1.35,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xEE07111F),
-                              AppColors.memoryAmber.withValues(alpha: 0.10),
-                              AppColors.neonCyan.withValues(alpha: 0.08),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: AppColors.memoryAmber.withValues(
-                              alpha: 0.28,
-                            ),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.memoryAmber.withValues(
-                                alpha: 0.08,
-                              ),
-                              blurRadius: 18,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'LIFE OS',
-                              style: TextStyle(
-                                color: AppColors.memoryAmber,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 2.2,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              lifeOs.mission,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                height: 1.35,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Mode: ${lifeOs.currentMode}',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Primary Action: ${lifeOs.primaryAction}',
-                              style: const TextStyle(
-                                color: Colors.white60,
-                                fontSize: 12,
-                                height: 1.35,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Identity Stage: ${lifeOs.identityStage}',
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 11,
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xEE07111F),
-                              AppColors.neonViolet.withValues(alpha: 0.10),
-                              AppColors.neonCyan.withValues(alpha: 0.08),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: AppColors.neonViolet.withValues(alpha: 0.28),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.neonViolet.withValues(
-                                alpha: 0.08,
-                              ),
-                              blurRadius: 18,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'FUTURE SELF SIGNAL',
-                              style: TextStyle(
-                                color: AppColors.neonViolet,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 2.2,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              twin.identityStatement,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                height: 1.35,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Best action: ${twin.bestAction}',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                                height: 1.4,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              twin.coachingMessage,
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 12,
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xEE07111F),
-                              AppColors.neonCyan.withValues(alpha: 0.10),
-                              AppColors.neonViolet.withValues(alpha: 0.08),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: AppColors.neonCyan.withValues(alpha: 0.26),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.neonCyan.withValues(alpha: 0.08),
-                              blurRadius: 18,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'OPERATOR BRAIN',
-                              style: TextStyle(
-                                color: AppColors.neonCyan,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 2.2,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              fusion.operatingMode,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 21,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Next: ${fusion.nextAction}',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                                height: 1.4,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              fusion.rationale,
-                              style: const TextStyle(
-                                color: Colors.white60,
-                                fontSize: 12,
-                                height: 1.35,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'Threat: ${fusion.primaryThreat}',
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 11,
-                                height: 1.35,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Opportunity: ${fusion.primaryOpportunity}',
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 11,
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('MISSION RISKS'),
-                            const SizedBox(height: 6),
-                            Text(predictiveRisk.risks.first.title),
-                            Text(predictiveRisk.risks.first.summary),
-                            const SizedBox(height: 10),
-                            Text('SUCCESS CHANCE %'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _CoreSignalsStrip(
-                        growthTitle: growthTitle,
-                        narrativeSummary: narrativeSummary,
-                        consistencySignal: consistencySignal,
-                        loadSignal: loadSignal,
-                        soulContinuityPct: soulContinuityPct,
-                        narrativePresencePct: narrativePresencePct,
-                      ),
-                    ],
+                  child: _showDeferredIntel
+                      ? const _DeferredIntelligenceSection()
+                      : _DeferredIntelligenceBootCard(startup: startup),
+                ),
+              ),
+              if (_showDeferredIntel)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _DependencyMesh(),
+                  ),
+                )
+              else
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _DeferredDependencyBootCard(),
                   ),
                 ),
-              ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: _DependencyMesh(),
-                ),
-              ),
               const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(16, 10, 16, 24),
@@ -502,20 +138,10 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
   }
 }
 
-class _AutonomousMissionControlCard extends StatelessWidget {
-  const _AutonomousMissionControlCard({
-    required this.missionControl,
-    required this.weeklyPlan,
-    required this.dailyPlan,
-    required this.focusBlock,
-    required this.optimization,
-  });
+class _DeferredIntelligenceBootCard extends StatelessWidget {
+  const _DeferredIntelligenceBootCard({required this.startup});
 
-  final MissionControlState missionControl;
-  final AutonomousWeeklyPlan weeklyPlan;
-  final AutonomousDailyPlan dailyPlan;
-  final AutonomousFocusBlock focusBlock;
-  final LifeOptimizationState optimization;
+  final NexusStartupSummary startup;
 
   @override
   Widget build(BuildContext context) {
@@ -527,23 +153,17 @@ class _AutonomousMissionControlCard extends StatelessWidget {
           colors: [
             const Color(0xEE07111F),
             AppColors.neonCyan.withValues(alpha: 0.10),
-            AppColors.memoryAmber.withValues(alpha: 0.08),
+            AppColors.neonViolet.withValues(alpha: 0.08),
           ],
         ),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonCyan.withValues(alpha: 0.08),
-            blurRadius: 20,
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.26)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'AUTONOMOUS MISSION CONTROL',
+            'STRATEGIC INTELLIGENCE',
             style: TextStyle(
               color: AppColors.neonCyan,
               fontSize: 10,
@@ -553,70 +173,108 @@ class _AutonomousMissionControlCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            missionControl.status,
+            startup.startupDirective,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Primary Action: ${missionControl.primaryAction}',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              height: 1.4,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
+              height: 1.35,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Today: ${dailyPlan.focus}',
+            'Emotional signal: ${startup.emotionLabel.toUpperCase()}  |  Energy ${(startup.energy * 100).round()}%',
             style: const TextStyle(
               color: Colors.white60,
-              fontSize: 12,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Focus Block: ${focusBlock.title} • ${focusBlock.durationMinutes} min',
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 12,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Weekly Theme: ${weeklyPlan.theme}',
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Optimization ${optimization.optimizationScore}% • ${optimization.primaryAdjustment}',
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tomorrow: ${missionControl.tomorrowAdjustment}',
-            style: const TextStyle(
-              color: Colors.white38,
               fontSize: 11,
               height: 1.35,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DeferredDependencyBootCard extends StatelessWidget {
+  const _DeferredDependencyBootCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        color: Colors.black.withValues(alpha: 0.22),
+      ),
+      child: const Text(
+        'Core systems are linking in the background.',
+        style: TextStyle(color: Colors.white60, fontSize: 11),
+      ),
+    );
+  }
+}
+
+class _DeferredIntelligenceSection extends ConsumerWidget {
+  const _DeferredIntelligenceSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(profileProvider);
+    final siState = ref.watch(siStateProvider);
+    final trajectory = ref.watch(trajectorySummaryProvider);
+    final momentum = ref.watch(momentumEngineProvider);
+
+    final double fatigue = siState.fatigue;
+    final double trajectoryMomentum = trajectory.momentum;
+    final int completedTasks = trajectory.completedTasks;
+
+    final String consistencySignal = momentum.score >= 70
+        ? 'High'
+        : momentum.score >= 45
+        ? 'Medium'
+        : 'Low';
+    final String loadSignal = fatigue >= 0.75
+        ? 'Heavy'
+        : fatigue >= 0.45
+        ? 'Moderate'
+        : 'Light';
+    final String growthTitle = profile.streak >= 21
+        ? 'Compounding Momentum'
+        : profile.streak >= 7
+        ? 'Stable Growth Arc'
+        : completedTasks > 0
+        ? 'Early Growth Signal'
+        : 'Growth Engine Priming';
+    final String narrativeSummary = completedTasks > 0
+        ? 'Momentum is active. Keep the next action small and immediate.'
+        : 'No completed actions yet. Start with one clear task to establish narrative continuity.';
+    final int soulContinuityPct =
+        ((((1 - fatigue) * 0.55) + (trajectoryMomentum * 0.45)).clamp(
+                  0.0,
+                  1.0,
+                ) *
+                100)
+            .round();
+    final double narrativePresence =
+        ((completedTasks > 0 ? 0.5 : 0.28) +
+                (profile.streak.clamp(0, 14) / 14) * 0.5)
+            .clamp(0.0, 1.0);
+    final int narrativePresencePct = (narrativePresence * 100).round();
+
+    return Column(
+      children: [
+        _CoreSignalsStrip(
+          growthTitle: growthTitle,
+          narrativeSummary: narrativeSummary,
+          consistencySignal: consistencySignal,
+          loadSignal: loadSignal,
+          soulContinuityPct: soulContinuityPct,
+          narrativePresencePct: narrativePresencePct,
+        ),
+      ],
     );
   }
 }

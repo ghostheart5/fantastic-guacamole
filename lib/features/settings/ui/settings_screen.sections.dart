@@ -222,13 +222,10 @@ class _ReminderAutomationSectionState
             title: 'Goal Reminder Rule',
             subtitle: 'Schedules around target date (prefers 1 day before).',
           ),
-          TutorialTarget(
-            id: 'settings.habit_toggle',
-            child: _NeonToggleTile(
-              title: 'Habit Reminders',
-              value: _habitEnabled,
-              onChanged: _toggleHabit,
-            ),
+          _NeonToggleTile(
+            title: 'Habit Reminders',
+            value: _habitEnabled,
+            onChanged: _toggleHabit,
           ),
           const _NeonStatusTile(
             title: 'Habit Reminder Rule',
@@ -300,6 +297,19 @@ class _Section extends StatelessWidget {
   final Widget child;
   final Color accentColor;
 
+  String _formatLabel(String raw) {
+    final String normalized = raw.trim().toLowerCase();
+    final List<String> words = normalized
+        .split(RegExp(r'\s+'))
+        .where((String word) => word.isNotEmpty)
+        .toList(growable: false);
+    return words
+        .map(
+          (String word) => '${word[0].toUpperCase()}${word.substring(1)}',
+        )
+        .join(' ');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -311,7 +321,7 @@ class _Section extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: accentColor.withValues(alpha: 0.06),
-            blurRadius: 16,
+            blurRadius: 10,
             spreadRadius: -2,
           ),
         ],
@@ -333,10 +343,10 @@ class _Section extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  label,
+                  _formatLabel(label),
                   style: TextStyle(
                     fontSize: 10,
-                    letterSpacing: 2.5,
+                    letterSpacing: 0.8,
                     color: accentColor,
                     fontWeight: FontWeight.w700,
                   ),

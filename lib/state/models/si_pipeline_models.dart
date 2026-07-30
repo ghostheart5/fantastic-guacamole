@@ -18,6 +18,10 @@ class SISignalExtraction {
     required this.streakHealth,
     required this.goalDrift,
     required this.taskAvoidance,
+    required this.executionCompletedToday,
+    required this.executionSkippedToday,
+    required this.executionDelayedToday,
+    required this.executionStability7d,
     required this.emotion,
     required this.emotionalStrain,
     required this.emotionalStability,
@@ -29,10 +33,19 @@ class SISignalExtraction {
   final String streakHealth;
   final bool goalDrift;
   final bool taskAvoidance;
+  final int executionCompletedToday;
+  final int executionSkippedToday;
+  final int executionDelayedToday;
+  final double executionStability7d;
   final String emotion;
   final bool emotionalStrain;
   final bool emotionalStability;
   final List<String> emotionalPatterns;
+
+  String get executionSummary {
+    final int stabilityPercent = (executionStability7d * 100).round();
+    return 'completed $executionCompletedToday, skipped $executionSkippedToday, delayed $executionDelayedToday today ($stabilityPercent% weekly stability)';
+  }
 }
 
 enum SISourceStatus { loading, ready, empty, error }
@@ -129,6 +142,24 @@ class NexusScreenModel {
 
   final SIStateAggregation aggregation;
   final SIDecisionOutput decision;
+}
+
+class NexusStartupSummary {
+  const NexusStartupSummary({
+    required this.profile,
+    required this.energy,
+    required this.fatigue,
+    required this.completedToday,
+    required this.emotionLabel,
+    required this.startupDirective,
+  });
+
+  final ProfileState profile;
+  final double energy;
+  final double fatigue;
+  final int completedToday;
+  final String emotionLabel;
+  final String startupDirective;
 }
 
 class SIConsoleScreenModel {

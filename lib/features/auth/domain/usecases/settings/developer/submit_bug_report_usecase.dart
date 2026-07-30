@@ -1,3 +1,3 @@
-﻿class SubmitBugReportUsecase {
+class SubmitBugReportUsecase {
   const SubmitBugReportUsecase();
 }

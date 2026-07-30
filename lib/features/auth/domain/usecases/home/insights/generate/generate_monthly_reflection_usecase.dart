@@ -1,3 +1,3 @@
-﻿class GenerateMonthlyReflectionUsecase {
+class GenerateMonthlyReflectionUsecase {
   const GenerateMonthlyReflectionUsecase();
 }

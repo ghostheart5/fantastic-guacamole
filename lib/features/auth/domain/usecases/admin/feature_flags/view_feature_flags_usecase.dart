@@ -1,3 +1,3 @@
-﻿class ViewFeatureFlagsUsecase {
+class ViewFeatureFlagsUsecase {
   const ViewFeatureFlagsUsecase();
 }

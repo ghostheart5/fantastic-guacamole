@@ -1,3 +1,3 @@
-﻿class EndLogSessionUsecase {
+class EndLogSessionUsecase {
   const EndLogSessionUsecase();
 }

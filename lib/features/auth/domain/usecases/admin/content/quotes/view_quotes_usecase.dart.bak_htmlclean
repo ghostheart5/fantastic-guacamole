@@ -1,0 +1,3 @@
+﻿class ViewQuotesUsecase {
+  const ViewQuotesUsecase();
+}

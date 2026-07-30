@@ -1,3 +1,3 @@
-﻿class TrackEmotionalResilienceUsecase {
+class TrackEmotionalResilienceUsecase {
   const TrackEmotionalResilienceUsecase();
 }

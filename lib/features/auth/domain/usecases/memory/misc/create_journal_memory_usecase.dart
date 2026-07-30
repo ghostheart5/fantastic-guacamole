@@ -1,3 +1,3 @@
-﻿class CreateJournalMemoryUsecase {
+class CreateJournalMemoryUsecase {
   const CreateJournalMemoryUsecase();
 }

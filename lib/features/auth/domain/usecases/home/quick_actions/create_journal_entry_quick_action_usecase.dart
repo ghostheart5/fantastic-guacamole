@@ -1,3 +1,3 @@
-﻿class CreateJournalEntryQuickActionUsecase {
+class CreateJournalEntryQuickActionUsecase {
   const CreateJournalEntryQuickActionUsecase();
 }

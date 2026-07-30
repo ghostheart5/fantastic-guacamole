@@ -1,0 +1,3 @@
+﻿class CreateAdminRoleUsecase {
+  const CreateAdminRoleUsecase();
+}

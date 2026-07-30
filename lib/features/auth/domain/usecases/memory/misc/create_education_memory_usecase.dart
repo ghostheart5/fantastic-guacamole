@@ -1,3 +1,3 @@
-﻿class CreateEducationMemoryUsecase {
+class CreateEducationMemoryUsecase {
   const CreateEducationMemoryUsecase();
 }

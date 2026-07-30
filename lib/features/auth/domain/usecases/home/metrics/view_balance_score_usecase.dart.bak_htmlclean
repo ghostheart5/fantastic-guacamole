@@ -1,0 +1,3 @@
+﻿class ViewBalanceScoreUsecase {
+  const ViewBalanceScoreUsecase();
+}

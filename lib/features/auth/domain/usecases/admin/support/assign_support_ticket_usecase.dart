@@ -1,3 +1,3 @@
-﻿class AssignSupportTicketUsecase {
+class AssignSupportTicketUsecase {
   const AssignSupportTicketUsecase();
 }

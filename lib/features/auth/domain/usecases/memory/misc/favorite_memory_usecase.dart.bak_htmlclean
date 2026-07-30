@@ -1,0 +1,3 @@
+﻿class FavoriteMemoryUsecase {
+  const FavoriteMemoryUsecase();
+}

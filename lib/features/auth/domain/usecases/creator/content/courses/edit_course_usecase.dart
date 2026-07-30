@@ -1,3 +1,3 @@
-﻿class EditCourseUsecase {
+class EditCourseUsecase {
   const EditCourseUsecase();
 }

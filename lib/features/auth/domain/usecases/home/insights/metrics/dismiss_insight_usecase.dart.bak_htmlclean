@@ -1,0 +1,3 @@
+﻿class DismissInsightUsecase {
+  const DismissInsightUsecase();
+}

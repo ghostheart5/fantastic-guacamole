@@ -1,3 +1,3 @@
-﻿class SaveConsentPreferencesUsecase {
+class SaveConsentPreferencesUsecase {
   const SaveConsentPreferencesUsecase();
 }

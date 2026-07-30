@@ -1,3 +1,3 @@
-﻿class PublishChallengeUsecase {
+class PublishChallengeUsecase {
   const PublishChallengeUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class LinkPhoneNumberUsecase {
+class LinkPhoneNumberUsecase {
   const LinkPhoneNumberUsecase();
 }

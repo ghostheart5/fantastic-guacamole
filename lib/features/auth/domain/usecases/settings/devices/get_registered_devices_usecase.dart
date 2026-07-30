@@ -1,3 +1,3 @@
-﻿class GetRegisteredDevicesUsecase {
+class GetRegisteredDevicesUsecase {
   const GetRegisteredDevicesUsecase();
 }

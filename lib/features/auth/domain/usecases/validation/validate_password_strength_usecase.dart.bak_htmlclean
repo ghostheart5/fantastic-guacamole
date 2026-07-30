@@ -1,0 +1,3 @@
+﻿class ValidatePasswordStrengthUsecase {
+  const ValidatePasswordStrengthUsecase();
+}

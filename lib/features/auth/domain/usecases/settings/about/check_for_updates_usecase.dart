@@ -1,3 +1,3 @@
-﻿class CheckForUpdatesUsecase {
+class CheckForUpdatesUsecase {
   const CheckForUpdatesUsecase();
 }

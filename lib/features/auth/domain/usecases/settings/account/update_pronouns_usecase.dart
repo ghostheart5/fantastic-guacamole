@@ -1,3 +1,3 @@
-﻿class UpdatePronounsUsecase {
+class UpdatePronounsUsecase {
   const UpdatePronounsUsecase();
 }

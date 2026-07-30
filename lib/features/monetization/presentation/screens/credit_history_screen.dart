@@ -25,7 +25,7 @@ class CreditHistoryScreen extends ConsumerWidget {
                   .map(
                     (tx) => ListTile(
                       title: Text(tx.description),
-                      subtitle: Text('${tx.type} • ${tx.source}'),
+                      subtitle: Text('${tx.type} | ${tx.source}'),
                       trailing: Text('${tx.amount}'),
                     ),
                   )
@@ -47,7 +47,7 @@ class CreditHistoryScreen extends ConsumerWidget {
                     (purchase) => ListTile(
                       title: Text(purchase.productId),
                       subtitle: Text(
-                        '${purchase.purchaseType} • ${purchase.purchaseState}',
+                        '${purchase.purchaseType} | ${purchase.purchaseState}',
                       ),
                       trailing: Text('+${purchase.creditsGranted}'),
                     ),

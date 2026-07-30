@@ -1,3 +1,3 @@
-﻿class DeleteBackupUsecase {
+class DeleteBackupUsecase {
   const DeleteBackupUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class SyncAiCreditBalanceUsecase {
+class SyncAiCreditBalanceUsecase {
   const SyncAiCreditBalanceUsecase();
 }

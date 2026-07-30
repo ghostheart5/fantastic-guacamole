@@ -39,7 +39,7 @@ class AiCreditBalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Allowance ${wallet.allowanceRemaining}  •  Bonus ${wallet.bonusBalance}',
+            'Allowance ${wallet.allowanceRemaining} | Bonus ${wallet.bonusBalance}',
             style: const TextStyle(color: Colors.white70),
           ),
           if (wallet.periodEndsAt != null) ...[

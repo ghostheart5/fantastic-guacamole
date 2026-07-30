@@ -1,0 +1,3 @@
+﻿class GenerateTaskPlanUsecase {
+  const GenerateTaskPlanUsecase();
+}

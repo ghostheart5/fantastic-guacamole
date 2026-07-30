@@ -1,3 +1,3 @@
-﻿class DisableAnonymousModeUsecase {
+class DisableAnonymousModeUsecase {
   const DisableAnonymousModeUsecase();
 }

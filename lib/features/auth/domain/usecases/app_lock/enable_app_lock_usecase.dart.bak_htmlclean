@@ -1,0 +1,3 @@
+﻿class EnableAppLockUsecase {
+  const EnableAppLockUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class ViewFocusScoreUsecase {
+class ViewFocusScoreUsecase {
   const ViewFocusScoreUsecase();
 }

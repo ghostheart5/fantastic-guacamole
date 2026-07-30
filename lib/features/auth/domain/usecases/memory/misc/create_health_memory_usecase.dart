@@ -1,3 +1,3 @@
-﻿class CreateHealthMemoryUsecase {
+class CreateHealthMemoryUsecase {
   const CreateHealthMemoryUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class ImportLogsUsecase {
+class ImportLogsUsecase {
   const ImportLogsUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class LinkMemoryToGoalUsecase {
+class LinkMemoryToGoalUsecase {
   const LinkMemoryToGoalUsecase();
 }

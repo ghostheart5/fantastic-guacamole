@@ -1,3 +1,3 @@
-﻿class ViewAppLogsUsecase {
+class ViewAppLogsUsecase {
   const ViewAppLogsUsecase();
 }

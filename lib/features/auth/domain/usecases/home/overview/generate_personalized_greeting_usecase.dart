@@ -1,3 +1,3 @@
-﻿class GeneratePersonalizedGreetingUsecase {
+class GeneratePersonalizedGreetingUsecase {
   const GeneratePersonalizedGreetingUsecase();
 }

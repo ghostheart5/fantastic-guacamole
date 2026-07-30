@@ -1,3 +1,3 @@
-﻿class ArchiveTaskUsecase {
+class ArchiveTaskUsecase {
   const ArchiveTaskUsecase();
 }

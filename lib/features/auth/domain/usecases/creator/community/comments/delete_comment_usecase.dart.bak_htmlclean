@@ -1,0 +1,3 @@
+﻿class DeleteCommentUsecase {
+  const DeleteCommentUsecase();
+}

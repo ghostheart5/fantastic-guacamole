@@ -1,0 +1,3 @@
+﻿class RemoveGoalFromPlanUsecase {
+  const RemoveGoalFromPlanUsecase();
+}

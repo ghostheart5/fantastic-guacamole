@@ -1,3 +1,3 @@
-﻿class ExportUserDataUsecase {
+class ExportUserDataUsecase {
   const ExportUserDataUsecase();
 }

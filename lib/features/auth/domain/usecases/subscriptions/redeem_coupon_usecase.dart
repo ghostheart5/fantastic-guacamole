@@ -1,3 +1,3 @@
-﻿class RedeemCouponUsecase {
+class RedeemCouponUsecase {
   const RedeemCouponUsecase();
 }

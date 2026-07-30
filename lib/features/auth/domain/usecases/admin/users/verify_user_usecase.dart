@@ -1,3 +1,3 @@
-﻿class VerifyUserUsecase {
+class VerifyUserUsecase {
   const VerifyUserUsecase();
 }

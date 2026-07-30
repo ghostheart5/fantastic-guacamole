@@ -1,3 +1,3 @@
-﻿class RemoveMemoryAudioUsecase {
+class RemoveMemoryAudioUsecase {
   const RemoveMemoryAudioUsecase();
 }

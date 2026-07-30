@@ -1,0 +1,3 @@
+﻿class GenerateWeeklyReflectionUsecase {
+  const GenerateWeeklyReflectionUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class GenerateDailyInsightUsecase {
+class GenerateDailyInsightUsecase {
   const GenerateDailyInsightUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class SortLogsUsecase {
+class SortLogsUsecase {
   const SortLogsUsecase();
 }

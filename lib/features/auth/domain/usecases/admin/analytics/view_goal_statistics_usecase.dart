@@ -1,3 +1,3 @@
-﻿class ViewGoalStatisticsUsecase {
+class ViewGoalStatisticsUsecase {
   const ViewGoalStatisticsUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class ViewPostAnalyticsUsecase {
+class ViewPostAnalyticsUsecase {
   const ViewPostAnalyticsUsecase();
 }

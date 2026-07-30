@@ -1,3 +1,3 @@
-﻿class CalculateLevelUsecase {
+class CalculateLevelUsecase {
   const CalculateLevelUsecase();
 }

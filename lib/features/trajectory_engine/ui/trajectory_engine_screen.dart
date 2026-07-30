@@ -34,13 +34,13 @@ class TrajectoryEngineScreen extends ConsumerWidget {
             ref.read(appFlowProvider.notifier).toNexus();
           },
         ),
-        title: const Text('FUTURE VECTOR'),
+        title: const Text('Forecast'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           _Panel(
-            title: 'PROJECTED TIMELINE',
+            title: 'Forecast',
             child: Text(
               trajectory.predictionOutcome ?? 'Future path is stabilizing.',
               style: const TextStyle(
@@ -60,7 +60,7 @@ class TrajectoryEngineScreen extends ConsumerWidget {
           const SizedBox(height: 12),
 
           _Panel(
-            title: 'FUTURE HORIZON',
+            title: 'Outlook',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const <Widget>[
@@ -88,7 +88,7 @@ class TrajectoryEngineScreen extends ConsumerWidget {
           const SizedBox(height: 12),
 
           _Panel(
-            title: 'MOMENTUM INTELLIGENCE',
+            title: 'Momentum',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
@@ -111,7 +111,7 @@ class TrajectoryEngineScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Momentum ${momentum.score}%  ·  Energy ${momentum.energyPercent}%  ·  Pressure ${momentum.pressurePercent}%',
+                  'Momentum ${momentum.score}% | Energy ${momentum.energyPercent}% | Pressure ${momentum.pressurePercent}%',
                   style: const TextStyle(
                     color: Color(0xFF7F91C8),
                     fontSize: 11,
@@ -141,12 +141,24 @@ class TrajectoryEngineScreen extends ConsumerWidget {
             decision: futureDecision,
           ),
           const SizedBox(height: 12),
-          _Panel(title: 'SUCCESS FORECAST', child: Text('% · ')),
+          _Panel(
+            title: 'Success forecast',
+            child: Text(
+              trajectory.alert.contains('risk')
+                  ? 'Some risk signals are active. Focus on one clear next step today.'
+                  : 'Your current pace supports a positive outcome. Keep your next action small and consistent.',
+              style: const TextStyle(
+                color: Color(0xFFB8C7FF),
+                fontSize: 14,
+                height: 1.35,
+              ),
+            ),
+          ),
 
           const SizedBox(height: 12),
 
           _Panel(
-            title: 'COURSE CORRECTION',
+            title: 'Adjustments',
             child: Text(
               trajectory.alert,
               style: const TextStyle(

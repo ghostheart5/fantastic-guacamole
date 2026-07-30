@@ -1,3 +1,3 @@
-﻿class PublishMotivationMessageUsecase {
+class PublishMotivationMessageUsecase {
   const PublishMotivationMessageUsecase();
 }

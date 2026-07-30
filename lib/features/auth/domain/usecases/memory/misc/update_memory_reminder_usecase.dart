@@ -1,3 +1,3 @@
-﻿class UpdateMemoryReminderUsecase {
+class UpdateMemoryReminderUsecase {
   const UpdateMemoryReminderUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class DeleteSubtaskUsecase {
+class DeleteSubtaskUsecase {
   const DeleteSubtaskUsecase();
 }

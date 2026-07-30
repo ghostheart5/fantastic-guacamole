@@ -1,3 +1,3 @@
-﻿class ParseAuthCallbackUsecase {
+class ParseAuthCallbackUsecase {
   const ParseAuthCallbackUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class DuplicateTaskUsecase {
+class DuplicateTaskUsecase {
   const DuplicateTaskUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class SubmitForReviewUsecase {
+class SubmitForReviewUsecase {
   const SubmitForReviewUsecase();
 }

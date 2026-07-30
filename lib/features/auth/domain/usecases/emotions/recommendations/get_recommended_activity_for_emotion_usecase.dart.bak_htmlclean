@@ -1,0 +1,3 @@
+﻿class GetRecommendedActivityForEmotionUsecase {
+  const GetRecommendedActivityForEmotionUsecase();
+}

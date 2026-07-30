@@ -1,0 +1,3 @@
+﻿class SyncAiCreditBalanceUsecase {
+  const SyncAiCreditBalanceUsecase();
+}

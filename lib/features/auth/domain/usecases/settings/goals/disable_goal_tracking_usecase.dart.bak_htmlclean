@@ -1,0 +1,3 @@
+﻿class DisableGoalTrackingUsecase {
+  const DisableGoalTrackingUsecase();
+}

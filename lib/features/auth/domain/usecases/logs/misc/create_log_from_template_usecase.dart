@@ -1,3 +1,3 @@
-﻿class CreateLogFromTemplateUsecase {
+class CreateLogFromTemplateUsecase {
   const CreateLogFromTemplateUsecase();
 }

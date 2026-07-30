@@ -1,3 +1,3 @@
-﻿class ExportSiReportUsecase {
+class ExportSiReportUsecase {
   const ExportSiReportUsecase();
 }

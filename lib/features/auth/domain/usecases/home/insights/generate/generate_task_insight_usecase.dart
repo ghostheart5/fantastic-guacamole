@@ -1,3 +1,3 @@
-﻿class GenerateTaskInsightUsecase {
+class GenerateTaskInsightUsecase {
   const GenerateTaskInsightUsecase();
 }

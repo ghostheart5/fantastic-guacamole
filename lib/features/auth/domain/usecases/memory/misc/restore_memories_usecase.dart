@@ -1,3 +1,3 @@
-﻿class RestoreMemoriesUsecase {
+class RestoreMemoriesUsecase {
   const RestoreMemoriesUsecase();
 }

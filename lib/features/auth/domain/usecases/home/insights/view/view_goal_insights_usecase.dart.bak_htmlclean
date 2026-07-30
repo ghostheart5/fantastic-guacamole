@@ -1,0 +1,3 @@
+﻿class ViewGoalInsightsUsecase {
+  const ViewGoalInsightsUsecase();
+}

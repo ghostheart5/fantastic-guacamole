@@ -1,0 +1,3 @@
+﻿class AddMemoryVideoUsecase {
+  const AddMemoryVideoUsecase();
+}

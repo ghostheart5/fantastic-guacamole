@@ -1,0 +1,3 @@
+﻿class CompleteTaskUsecase {
+  const CompleteTaskUsecase();
+}

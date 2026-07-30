@@ -1,0 +1,3 @@
+﻿class RemoveHabitFromPlanUsecase {
+  const RemoveHabitFromPlanUsecase();
+}

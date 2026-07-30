@@ -1,0 +1,3 @@
+﻿class CreateDailyLogUsecase {
+  const CreateDailyLogUsecase();
+}

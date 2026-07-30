@@ -1,3 +1,3 @@
-﻿class RestrictUserUsecase {
+class RestrictUserUsecase {
   const RestrictUserUsecase();
 }

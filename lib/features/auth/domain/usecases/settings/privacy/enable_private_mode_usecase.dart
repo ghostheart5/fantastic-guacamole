@@ -1,3 +1,3 @@
-﻿class EnablePrivateModeUsecase {
+class EnablePrivateModeUsecase {
   const EnablePrivateModeUsecase();
 }

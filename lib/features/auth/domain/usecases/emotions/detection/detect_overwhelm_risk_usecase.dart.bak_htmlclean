@@ -1,0 +1,3 @@
+﻿class DetectOverwhelmRiskUsecase {
+  const DetectOverwhelmRiskUsecase();
+}

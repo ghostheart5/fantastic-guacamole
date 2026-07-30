@@ -1,3 +1,3 @@
-﻿class RemoveLogTagUsecase {
+class RemoveLogTagUsecase {
   const RemoveLogTagUsecase();
 }

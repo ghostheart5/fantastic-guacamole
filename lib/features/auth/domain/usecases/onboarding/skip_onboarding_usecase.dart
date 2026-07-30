@@ -1,3 +1,3 @@
-﻿class SkipOnboardingUsecase {
+class SkipOnboardingUsecase {
   const SkipOnboardingUsecase();
 }

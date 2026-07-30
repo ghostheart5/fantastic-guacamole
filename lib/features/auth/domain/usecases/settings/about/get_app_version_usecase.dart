@@ -1,3 +1,3 @@
-﻿class GetAppVersionUsecase {
+class GetAppVersionUsecase {
   const GetAppVersionUsecase();
 }

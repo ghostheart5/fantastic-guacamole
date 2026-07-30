@@ -1,3 +1,3 @@
-﻿class ImportMemoriesUsecase {
+class ImportMemoriesUsecase {
   const ImportMemoriesUsecase();
 }

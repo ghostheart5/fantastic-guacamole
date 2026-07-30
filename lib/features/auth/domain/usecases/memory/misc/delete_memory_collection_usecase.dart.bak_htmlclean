@@ -1,0 +1,3 @@
+﻿class DeleteMemoryCollectionUsecase {
+  const DeleteMemoryCollectionUsecase();
+}

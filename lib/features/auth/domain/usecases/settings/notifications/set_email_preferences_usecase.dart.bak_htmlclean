@@ -1,0 +1,3 @@
+﻿class SetEmailPreferencesUsecase {
+  const SetEmailPreferencesUsecase();
+}

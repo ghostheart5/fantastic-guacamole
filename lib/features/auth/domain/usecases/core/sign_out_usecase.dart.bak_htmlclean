@@ -1,0 +1,3 @@
+﻿class SignOutUsecase {
+  const SignOutUsecase();
+}

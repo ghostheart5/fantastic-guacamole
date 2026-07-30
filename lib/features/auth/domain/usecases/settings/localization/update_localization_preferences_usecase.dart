@@ -1,3 +1,3 @@
-﻿class UpdateLocalizationPreferencesUsecase {
+class UpdateLocalizationPreferencesUsecase {
   const UpdateLocalizationPreferencesUsecase();
 }

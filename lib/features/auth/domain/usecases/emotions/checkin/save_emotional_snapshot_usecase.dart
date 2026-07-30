@@ -1,3 +1,3 @@
-﻿class SaveEmotionalSnapshotUsecase {
+class SaveEmotionalSnapshotUsecase {
   const SaveEmotionalSnapshotUsecase();
 }

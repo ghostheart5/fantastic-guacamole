@@ -1,0 +1,3 @@
+﻿class CreateTaskUsecase {
+  const CreateTaskUsecase();
+}

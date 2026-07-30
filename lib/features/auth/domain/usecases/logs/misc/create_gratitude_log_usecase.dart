@@ -1,3 +1,3 @@
-﻿class CreateGratitudeLogUsecase {
+class CreateGratitudeLogUsecase {
   const CreateGratitudeLogUsecase();
 }

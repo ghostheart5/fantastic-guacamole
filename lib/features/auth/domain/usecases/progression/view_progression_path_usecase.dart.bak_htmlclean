@@ -1,0 +1,3 @@
+﻿class ViewProgressionPathUsecase {
+  const ViewProgressionPathUsecase();
+}

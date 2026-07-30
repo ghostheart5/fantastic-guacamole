@@ -1,3 +1,3 @@
-﻿class GetSessionExpiryUsecase {
+class GetSessionExpiryUsecase {
   const GetSessionExpiryUsecase();
 }

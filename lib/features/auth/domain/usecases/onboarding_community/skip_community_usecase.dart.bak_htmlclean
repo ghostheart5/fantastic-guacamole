@@ -1,0 +1,3 @@
+﻿class SkipCommunityUsecase {
+  const SkipCommunityUsecase();
+}

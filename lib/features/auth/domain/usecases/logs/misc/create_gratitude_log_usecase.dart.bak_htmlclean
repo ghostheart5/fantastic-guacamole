@@ -1,0 +1,3 @@
+﻿class CreateGratitudeLogUsecase {
+  const CreateGratitudeLogUsecase();
+}

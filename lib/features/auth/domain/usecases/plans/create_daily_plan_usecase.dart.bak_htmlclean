@@ -1,0 +1,3 @@
+﻿class CreateDailyPlanUsecase {
+  const CreateDailyPlanUsecase();
+}

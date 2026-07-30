@@ -1,0 +1,3 @@
+﻿class ViewEnergyScoreUsecase {
+  const ViewEnergyScoreUsecase();
+}

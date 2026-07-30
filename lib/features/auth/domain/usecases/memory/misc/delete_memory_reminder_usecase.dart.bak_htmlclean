@@ -1,0 +1,3 @@
+﻿class DeleteMemoryReminderUsecase {
+  const DeleteMemoryReminderUsecase();
+}

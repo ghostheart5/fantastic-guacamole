@@ -1,0 +1,3 @@
+﻿class ExportContentUsecase {
+  const ExportContentUsecase();
+}

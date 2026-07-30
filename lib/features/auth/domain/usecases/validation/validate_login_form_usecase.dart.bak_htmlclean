@@ -1,0 +1,3 @@
+﻿class ValidateLoginFormUsecase {
+  const ValidateLoginFormUsecase();
+}

@@ -1,0 +1,91 @@
+Onboarding Language Cleanup Report
+Date: 2026-07-29
+Scope: targeted onboarding language cleanup only
+
+1. Files changed
+- lib/features/onboarding/ui/onboarding_screen.dart
+- lib/tutorial/mission/mission_overlay.dart
+- lib/tutorial/mission/mission_state.dart
+- lib/app/navigation_shell.dart
+
+2. Removed phrases
+- MISSION ZERO
+- MISSION ZERO PROTOCOL
+- TACTICAL ACTIVATION
+- Mission Zero is a mandatory activation corridor.
+- Your system unlocks only after proving capability across goal creation, strategic query, and timeline validation.
+- ACTIVATION CORRIDOR ARMED
+- Forge First Goal
+- Interrogate Smart Coach
+- Validate Timeline Command
+- Request tactical intelligence and receive a live response.
+- Open Timeline to complete activation verification.
+- DEPLOY MISSION ZERO
+- Unable to start Mission Zero. Please try again.
+- MISSION COMPLETE
+- CURRENT MISSION
+- MISSION ZERO LOCK: Proceed to the ...
+- creator command deck / Smart Coach command deck / timeline command deck / Nexus command deck
+- Locked during Mission Zero
+- Main command center
+
+3. New replacement phrases
+- GET STARTED
+- BUILD YOUR FIRST PLAN
+- Create your first item, choose when it happens, and see it on your timeline.
+- ChronoSpark starts with one simple step: create a task, routine, note, or goal. After that, your timeline helps you see what is planned.
+- READY TO START
+- YOUR FIRST SETUP
+- Create Something
+- Start with a task, routine, note, or goal.
+- Choose When It Happens
+- Set it as one time, daily, or weekly.
+- View Your Timeline
+- See your plan in a calendar-style view.
+- START SETUP
+- Unable to start setup. Please try again.
+- FIRST SETUP
+- SETUP COMPLETE
+- Finish your first setup to continue. Next: ...
+- Finish your first setup to continue.
+- Main home view
+
+4. Remaining occurrences of required terms
+- Mission Zero: no remaining occurrences found in lib/**/*.dart.
+- Tactical: no remaining occurrences found in lib/**/*.dart.
+- Activation: remains in code identifiers and events (for example _finalizeMissionZeroActivation, mission_zero_activation_started), and one legacy paywall UI string outside onboarding scope.
+- Protocol: no remaining occurrences found in lib/**/*.dart.
+- Command: remains widely in code identifiers and in non-onboarding UI text (voice command features, SI Console command help, timeline/login/creator labels).
+- Armed: no remaining occurrences found in lib/**/*.dart.
+- Interrogate: no remaining occurrences found in lib/**/*.dart.
+- Verification: remains widely in auth and monetization verification flows and related UI messages.
+
+5. Remaining occurrence classification
+- Code identifiers / internal logic:
+  - Activation-related method/variable names in app lifecycle and mission flow.
+  - Command-related class/provider names for voice command and SI Console.
+  - Verification-related methods/providers for auth and purchase verification.
+- Visible user-facing text still present (outside onboarding cleanup scope):
+  - command wording in some non-onboarding screens (for example timeline/login/creator/SI Console).
+  - verification wording in auth and purchase flows.
+
+6. Confirmation: auth/Supabase/router redirects
+- Auth logic unchanged.
+- Supabase logic unchanged.
+- Router redirects unchanged.
+
+7. Confirmation: identifiers and architecture constraints
+- Mission ids were not renamed.
+- Storage keys were not renamed.
+- Providers were not renamed.
+- Classes were not renamed.
+- Routes were not renamed.
+
+8. Manual review still recommended
+- Non-onboarding screens still contain command-themed copy (Timeline header, SI Console command help, some login/creator labels).
+- Verification language remains intentionally in auth and purchase domains.
+- If desired, a separate global product-tone pass can soften non-onboarding copy without touching logic.
+
+Analyzer
+- Command run: flutter analyze
+- Result: No issues found.

@@ -1,3 +1,3 @@
-﻿class CreateAffirmationUsecase {
+class CreateAffirmationUsecase {
   const CreateAffirmationUsecase();
 }

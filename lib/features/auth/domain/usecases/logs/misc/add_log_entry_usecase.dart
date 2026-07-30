@@ -1,3 +1,3 @@
-﻿class AddLogEntryUsecase {
+class AddLogEntryUsecase {
   const AddLogEntryUsecase();
 }

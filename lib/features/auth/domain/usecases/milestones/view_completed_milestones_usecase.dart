@@ -1,3 +1,3 @@
-﻿class ViewCompletedMilestonesUsecase {
+class ViewCompletedMilestonesUsecase {
   const ViewCompletedMilestonesUsecase();
 }

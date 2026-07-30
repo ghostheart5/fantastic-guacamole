@@ -1,3 +1,3 @@
-﻿class ResetSettingsUsecase {
+class ResetSettingsUsecase {
   const ResetSettingsUsecase();
 }

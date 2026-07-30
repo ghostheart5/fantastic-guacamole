@@ -1,3 +1,3 @@
-﻿class ViewRecoveryProgressUsecase {
+class ViewRecoveryProgressUsecase {
   const ViewRecoveryProgressUsecase();
 }

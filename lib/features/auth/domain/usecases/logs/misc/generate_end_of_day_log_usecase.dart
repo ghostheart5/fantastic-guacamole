@@ -1,3 +1,3 @@
-﻿class GenerateEndOfDayLogUsecase {
+class GenerateEndOfDayLogUsecase {
   const GenerateEndOfDayLogUsecase();
 }

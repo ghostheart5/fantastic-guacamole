@@ -1,3 +1,3 @@
-﻿class ViewDailyAffirmationUsecase {
+class ViewDailyAffirmationUsecase {
   const ViewDailyAffirmationUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class DetectBurnoutRiskUsecase {
+class DetectBurnoutRiskUsecase {
   const DetectBurnoutRiskUsecase();
 }

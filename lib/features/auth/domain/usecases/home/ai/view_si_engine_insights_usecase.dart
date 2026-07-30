@@ -1,3 +1,3 @@
-﻿class ViewSiEngineInsightsUsecase {
+class ViewSiEngineInsightsUsecase {
   const ViewSiEngineInsightsUsecase();
 }

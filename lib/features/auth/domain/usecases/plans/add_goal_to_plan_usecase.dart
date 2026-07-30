@@ -1,3 +1,3 @@
-﻿class AddGoalToPlanUsecase {
+class AddGoalToPlanUsecase {
   const AddGoalToPlanUsecase();
 }

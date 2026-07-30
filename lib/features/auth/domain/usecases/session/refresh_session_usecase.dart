@@ -1,3 +1,3 @@
-﻿class RefreshSessionUsecase {
+class RefreshSessionUsecase {
   const RefreshSessionUsecase();
 }

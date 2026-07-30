@@ -1,3 +1,3 @@
-﻿class SetTaskPriorityUsecase {
+class SetTaskPriorityUsecase {
   const SetTaskPriorityUsecase();
 }

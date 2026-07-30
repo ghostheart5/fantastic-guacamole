@@ -1,0 +1,3 @@
+﻿class FinishOnboardingUsecase {
+  const FinishOnboardingUsecase();
+}

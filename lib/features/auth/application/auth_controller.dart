@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/features/auth/domain/models/chronospark_identity.dart';
 import 'package:fantastic_guacamole/features/auth/data/repositories/local_identity_repository.dart';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 import 'package:state_notifier/state_notifier.dart';
 
@@ -120,11 +121,65 @@ class AuthController extends StateNotifier<AuthState> {
     state = state.copyWith(status: AuthStatus.loading, failure: null);
     final Result<AuthSessionEntity?> result = await _repository
         .signInWithGoogle();
+
+    bool successWithoutSession = false;
+    bool hasValidSession = false;
+    result.fold(
+      onSuccess: (AuthSessionEntity? session) {
+        final bool authenticated = session != null && !session.isExpired;
+        hasValidSession = authenticated;
+        successWithoutSession = !authenticated;
+      },
+      onFailure: (Object _) {},
+    );
+
+    if (successWithoutSession) {
+      // Browser OAuth may return before callback session is available.
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        session: null,
+        user: null,
+        failure: null,
+        lastUpdated: DateTime.now(),
+      );
+      return;
+    }
+
+    _applySessionResult(result);
+    if (hasValidSession) {
+      await _persistChronoSparkIdentityFromResult(
+        result,
+        provider: ChronoSparkAuthProvider.google,
+      );
+    }
+  }
+
+  Future<void> completeOAuthCallback() async {
+    debugPrint('Authentication callback received');
+    state = state.copyWith(status: AuthStatus.loading, failure: null);
+
+    final Result<AuthSessionEntity?> result = await _repository
+        .getCurrentSession();
+
     _applySessionResult(result);
     await _persistChronoSparkIdentityFromResult(
       result,
       provider: ChronoSparkAuthProvider.google,
     );
+
+    bool hasValidSession = false;
+    result.fold(
+      onSuccess: (AuthSessionEntity? session) {
+        hasValidSession = session != null && !session.isExpired;
+      },
+      onFailure: (Object _) {},
+    );
+
+    if (hasValidSession) {
+      debugPrint('OAuth callback session refresh completed');
+    } else {
+      debugPrint('OAuth callback session missing');
+    }
   }
 
   Future<void> sendPasswordReset(String email) async {

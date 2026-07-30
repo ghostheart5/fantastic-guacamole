@@ -1,3 +1,3 @@
-﻿class DeleteQuoteUsecase {
+class DeleteQuoteUsecase {
   const DeleteQuoteUsecase();
 }

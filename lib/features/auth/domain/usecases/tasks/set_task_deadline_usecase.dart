@@ -1,3 +1,3 @@
-﻿class SetTaskDeadlineUsecase {
+class SetTaskDeadlineUsecase {
   const SetTaskDeadlineUsecase();
 }

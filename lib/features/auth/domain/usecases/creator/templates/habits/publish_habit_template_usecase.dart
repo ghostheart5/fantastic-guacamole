@@ -1,3 +1,3 @@
-﻿class PublishHabitTemplateUsecase {
+class PublishHabitTemplateUsecase {
   const PublishHabitTemplateUsecase();
 }

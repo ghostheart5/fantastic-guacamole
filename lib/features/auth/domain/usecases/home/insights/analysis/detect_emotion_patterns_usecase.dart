@@ -1,3 +1,3 @@
-﻿class DetectEmotionPatternsUsecase {
+class DetectEmotionPatternsUsecase {
   const DetectEmotionPatternsUsecase();
 }

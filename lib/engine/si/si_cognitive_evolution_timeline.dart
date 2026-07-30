@@ -178,6 +178,6 @@ class SICognitiveEvolutionTimelineEngine implements AssistantTimelineEngine {
     return timeline.events
         .take(3)
         .map((EvolutionEvent e) => e.label)
-        .join(' · ');
+        .join(' Â· ');
   }
 }

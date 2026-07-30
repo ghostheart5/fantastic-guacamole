@@ -1,3 +1,3 @@
-﻿class DeleteJournalTemplateUsecase {
+class DeleteJournalTemplateUsecase {
   const DeleteJournalTemplateUsecase();
 }

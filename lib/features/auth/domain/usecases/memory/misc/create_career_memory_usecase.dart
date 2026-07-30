@@ -1,3 +1,3 @@
-﻿class CreateCareerMemoryUsecase {
+class CreateCareerMemoryUsecase {
   const CreateCareerMemoryUsecase();
 }

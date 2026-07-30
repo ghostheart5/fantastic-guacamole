@@ -1,14 +1,12 @@
 import 'package:fantastic_guacamole/features/creator/models/creator_workspace_mode.dart';
-import 'package:fantastic_guacamole/features/creator/ui/widgets/creator_unified_workbench.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
-import 'package:fantastic_guacamole/tutorial/widgets/micro_tutorial_card.dart';
-import 'package:fantastic_guacamole/tutorial/widgets/show_me_again_button.dart';
+import 'package:fantastic_guacamole/tutorial/mission/mission_event_bridge.dart';
+import 'package:fantastic_guacamole/tutorial/mission/mission_provider.dart';
+import 'package:fantastic_guacamole/tutorial/mission/mission_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
@@ -30,6 +28,19 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
   final TextEditingController _memoryController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   DateTime? _lastAppliedHandoffAt;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      if (ref.read(missionTutorialEnabledProvider)) {
+        ref.read(missionEventBridgeProvider).reportCreatorOpened();
+      }
+    });
+  }
 
   TextEditingController get _titleController {
     if (_mode == CreatorWorkspaceMode.goals) {
@@ -87,6 +98,9 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
   @override
   Widget build(BuildContext context) {
     final voiceHandoff = ref.watch(voiceCommandHandoffProvider);
+    final bool missionTutorialEnabled = ref.watch(
+      missionTutorialEnabledProvider,
+    );
     if (voiceHandoff != null) {
       _applyVoiceHandoff(voiceHandoff);
     }
@@ -158,24 +172,24 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                               ],
                             ).createShader(bounds),
                             child: const Text(
-                              'CREATOR',
+                              'Creator',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
-                                letterSpacing: 3,
+                                letterSpacing: 1,
                                 color: Colors.white,
                               ),
                             ),
                           ),
                           const Text(
-                            'TASK - GOAL - MILESTONE - PLAN FORGE',
+                            'Tasks, routines, goals, and notes',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 10,
-                              letterSpacing: 2,
+                              letterSpacing: 0.5,
                               color: Colors.white38,
                             ),
                           ),
@@ -185,10 +199,10 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                const _CreatorTutorialPanel(),
-                const SizedBox(height: 16),
-                const _CreatorPurposeCard(),
-                const SizedBox(height: 16),
+                if (missionTutorialEnabled) ...[
+                  const _CreatorMissionPanel(),
+                  const SizedBox(height: 16),
+                ],
                 DynamicForm(
                   workspaceMode: _mode,
                   taskTitleController: _taskTitleController,
@@ -196,15 +210,19 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                   memoryController: _memoryController,
                   notesController: _notesController,
                   onSubmit: (data) async {
+                    final bool shouldAutoOpenTimeline =
+                        !ref.read(creatorFirstItemCreatedProvider);
                     await ref.read(creatorActionsProvider).createEntry(data);
+                    if (missionTutorialEnabled) {
+                      await ref
+                          .read(missionEventBridgeProvider)
+                          .reportGoalCreated();
+                    }
                     await ref
                         .read(localMetricsAccumulatorProvider)
                         .recordTaskCreated();
                     ref.invalidate(tasksProvider);
                     ref.invalidate(goalProgressProvider);
-                    ref
-                        .read(tutorialControllerProvider)
-                        .updateState('has_created_task', true);
 
                     if (context.mounted) {
                       final ScaffoldMessengerState messenger =
@@ -212,22 +230,32 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                       messenger
                         ..hideCurrentSnackBar()
                         ..showSnackBar(
-                          const SnackBar(
-                            content: Text(' entry saved.'),
-                            duration: Duration(seconds: 2),
+                          SnackBar(
+                            content: Text(
+                              shouldAutoOpenTimeline
+                                  ? 'First item created. Reviewing it on your timeline...'
+                                  : 'Item saved.',
+                            ),
+                            duration: const Duration(seconds: 2),
                             behavior: SnackBarBehavior.floating,
+                            action: SnackBarAction(
+                              label: 'VIEW TIMELINE',
+                              onPressed: () {
+                                if (!context.mounted) {
+                                  return;
+                                }
+                                ref.read(appFlowProvider.notifier).toTimeline();
+                              },
+                            ),
                           ),
                         );
+
+                      if (shouldAutoOpenTimeline) {
+                        // First successful create should immediately reinforce
+                        // the Create -> Timeline review loop.
+                        ref.read(appFlowProvider.notifier).toTimeline();
+                      }
                     }
-                  },
-                ),
-                const SizedBox(height: 16),
-                CreatorUnifiedWorkbench(
-                  selectedMode: _mode,
-                  onModeChanged: (mode) {
-                    setState(() {
-                      _mode = mode;
-                    });
                   },
                 ),
               ],
@@ -239,66 +267,69 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
   }
 }
 
-class _CreatorTutorialPanel extends ConsumerWidget {
-  const _CreatorTutorialPanel();
+class _CreatorMissionPanel extends ConsumerWidget {
+  const _CreatorMissionPanel();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final progressAsync = ref.watch(tutorialProgressProvider);
-    final TutorialStepContent step = TutorialContent.steps.firstWhere(
-      (TutorialStepContent content) => content.id == 'creator_workbench',
-      orElse: () => TutorialContent.steps.first,
+    final AsyncValue<MissionState> missionAsync = ref.watch(
+      missionStateProvider,
     );
-
-    return progressAsync.when(
+    return missionAsync.when(
       loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
-      data: (progress) {
-        if (progress.isStepCompleted(step.id)) {
+      data: (MissionState missionState) {
+        final MissionId? activeMissionId = missionState.activeMissionId;
+        String? badge;
+        String? title;
+
+        if (activeMissionId == MissionId.createFirstGoal) {
+          badge = 'STEP 1';
+          title = 'Create your first item.';
+        } else if (activeMissionId == MissionId.configureFirstItem) {
+          badge = 'STEP 2';
+          title = 'Add timing details and save it.';
+        }
+
+        if (badge == null || title == null) {
           return const SizedBox.shrink();
         }
 
-        if (progress.isStepDismissed(step.id)) {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: ShowMeAgainButton(
-              stepId: step.id,
-              label: 'Show Creator Tutorial Again',
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF050D1A),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.neonCyan.withValues(alpha: 0.22),
             ),
-          );
-        }
-
-        return MicroTutorialCard(
-          step: step,
-          onComplete: () {
-            ref.read(tutorialProgressProvider.notifier).markIntroSeen();
-          },
-          onDismiss: () {
-            ref.read(tutorialProgressProvider.notifier).markIntroSeen();
-          },
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                badge,
+                style: const TextStyle(
+                  color: AppColors.neonCyan,
+                  fontSize: 10,
+                  letterSpacing: 1.8,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         );
       },
-    );
-  }
-}
-
-class _CreatorPurposeCard extends StatelessWidget {
-  const _CreatorPurposeCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.14)),
-      ),
-      child: const Text(
-        'Creator is the unified workbench for tasks, goals, milestones, and planning. Use it to forge new entries, connect them to goals, and shape your plan from one future-facing command surface.',
-        style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.45),
-      ),
     );
   }
 }

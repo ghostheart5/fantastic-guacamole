@@ -1,3 +1,3 @@
-﻿class ViewUserDetailsUsecase {
+class ViewUserDetailsUsecase {
   const ViewUserDetailsUsecase();
 }

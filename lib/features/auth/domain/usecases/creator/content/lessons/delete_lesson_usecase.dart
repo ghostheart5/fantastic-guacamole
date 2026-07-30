@@ -1,3 +1,3 @@
-﻿class DeleteLessonUsecase {
+class DeleteLessonUsecase {
   const DeleteLessonUsecase();
 }

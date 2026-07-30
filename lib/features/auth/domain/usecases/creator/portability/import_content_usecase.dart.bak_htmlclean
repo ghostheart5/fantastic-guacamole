@@ -1,0 +1,3 @@
+﻿class ImportContentUsecase {
+  const ImportContentUsecase();
+}

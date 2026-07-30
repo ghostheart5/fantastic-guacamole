@@ -1,0 +1,3 @@
+﻿class DismissPaywallUsecase {
+  const DismissPaywallUsecase();
+}

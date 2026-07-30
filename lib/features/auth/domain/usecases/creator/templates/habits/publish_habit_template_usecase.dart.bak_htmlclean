@@ -1,0 +1,3 @@
+﻿class PublishHabitTemplateUsecase {
+  const PublishHabitTemplateUsecase();
+}

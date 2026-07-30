@@ -1,3 +1,3 @@
-﻿class GenerateNextStepRecommendationsUsecase {
+class GenerateNextStepRecommendationsUsecase {
   const GenerateNextStepRecommendationsUsecase();
 }

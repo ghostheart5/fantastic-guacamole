@@ -1,3 +1,3 @@
-﻿class ManageBillingUsecase {
+class ManageBillingUsecase {
   const ManageBillingUsecase();
 }

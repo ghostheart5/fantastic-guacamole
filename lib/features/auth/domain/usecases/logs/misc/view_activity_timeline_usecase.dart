@@ -1,3 +1,3 @@
-﻿class ViewActivityTimelineUsecase {
+class ViewActivityTimelineUsecase {
   const ViewActivityTimelineUsecase();
 }

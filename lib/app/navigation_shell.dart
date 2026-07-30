@@ -17,11 +17,10 @@ import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
-import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/session_recovery_provider.dart';
-import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/system/system_scheduler.dart';
 import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
@@ -49,6 +48,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   final Set<int> _initializedTabIndexes = <int>{0};
 
   bool _disposed = false;
+  DateTime? _lastActivationLockNoticeAt;
 
   bool get _isFlutterTestBinding {
     final String bindingType = WidgetsBinding.instance.runtimeType.toString();
@@ -117,10 +117,15 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         return;
       }
 
-      _initializedTabIndexes.add(_tabIndexForView(next));
+      final AppView effectiveView = _enforceActivationView(
+        next,
+        announceIfLocked: false,
+      );
+
+      _initializedTabIndexes.add(_tabIndexForView(effectiveView));
 
       final sessionRecovery = ref.read(sessionRecoveryProvider);
-      final AppView recoverableView = _recoverableSessionView(next);
+      final AppView recoverableView = _recoverableSessionView(effectiveView);
 
       unawaited(sessionRecovery.saveState(lastRoute: recoverableView.name));
     });
@@ -148,7 +153,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         return;
       }
 
-      ref.read(appFlowProvider.notifier).show(AppView.nexus);
+      ref
+          .read(appFlowProvider.notifier)
+          .show(_enforceActivationView(AppView.nexus, announceIfLocked: false));
       unawaited(_checkRecovery());
     });
   }
@@ -276,10 +283,68 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     final AppView? recoveredView = appViewFromName(recovery.lastRoute);
 
     if (recoveredView != null) {
-      ref
-          .read(appFlowProvider.notifier)
-          .show(_recoverableSessionView(recoveredView));
+      final AppView target = _enforceActivationView(
+        _recoverableSessionView(recoveredView),
+        announceIfLocked: false,
+      );
+      ref.read(appFlowProvider.notifier).show(target);
+      return;
     }
+
+    final AppView? requiredActivationView = _requiredActivationView();
+    if (requiredActivationView != null) {
+      ref.read(appFlowProvider.notifier).show(requiredActivationView);
+    }
+  }
+
+  AppView? _requiredActivationView() {
+    return null;
+  }
+
+  AppView _enforceActivationView(
+    AppView requested, {
+    required bool announceIfLocked,
+  }) {
+    final AppView? required = _requiredActivationView();
+    if (required == null || requested == required) {
+      return requested;
+    }
+    if (announceIfLocked) {
+      _showActivationLockNotice(required);
+    }
+    return required;
+  }
+
+  void _showActivationLockNotice(AppView requiredView) {
+    final DateTime now = DateTime.now();
+    final DateTime? previous = _lastActivationLockNoticeAt;
+    if (previous != null && now.difference(previous).inMilliseconds < 900) {
+      return;
+    }
+    _lastActivationLockNoticeAt = now;
+
+    if (!mounted || _disposed) {
+      return;
+    }
+
+    final String directive = switch (requiredView) {
+      AppView.creator => 'create your first item',
+      AppView.smartCoach => 'review Smart Planner',
+      AppView.timeline => 'review your timeline',
+      AppView.nexus => 'continue setup',
+      _ => 'continue setup',
+    };
+
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Finish your first setup to continue. Next: $directive.'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
   }
 
   void _triggerCloudSyncReplay() {
@@ -342,11 +407,18 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       showDragHandle: true,
       builder: (BuildContext context) {
         Widget navItem(String title, String subtitle, AppView target) {
+          final AppView resolvedTarget = _enforceActivationView(
+            target,
+            announceIfLocked: false,
+          );
+          final bool locked = resolvedTarget != target;
           return ListTile(
             dense: true,
             title: Text(title),
-            subtitle: Text(subtitle),
-            trailing: const Icon(Icons.chevron_right),
+            subtitle: Text(
+              locked ? 'Finish your first setup to continue.' : subtitle,
+            ),
+            trailing: Icon(locked ? Icons.lock_outline : Icons.chevron_right),
             onTap: () {
               Navigator.of(context).pop();
 
@@ -354,7 +426,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
                 return;
               }
 
-              ref.read(appFlowProvider.notifier).show(target);
+              final AppView next = _enforceActivationView(
+                target,
+                announceIfLocked: true,
+              );
+              ref.read(appFlowProvider.notifier).show(next);
             },
           );
         }
@@ -369,7 +445,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
                 subtitle: Text('Core first, advanced when needed.'),
               ),
               const Divider(),
-              navItem('Nexus', 'Main command center', AppView.nexus),
+              navItem('Nexus', 'Main home view', AppView.nexus),
               navItem('Creator', 'Planning, tasks, and goals', AppView.creator),
               navItem('Timeline', 'Activity and events', AppView.timeline),
               navItem('Profile', 'Identity and progression', AppView.profile),
@@ -390,11 +466,24 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   @override
   Widget build(BuildContext context) {
     final AppView view = ref.watch(appFlowProvider);
-    final int tabIndex = _tabIndexForView(view);
+    final AppView enforcedView = _enforceActivationView(
+      view,
+      announceIfLocked: false,
+    );
+    if (enforcedView != view) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _disposed) {
+          return;
+        }
+        ref.read(appFlowProvider.notifier).show(enforcedView);
+      });
+    }
+
+    final int tabIndex = _tabIndexForView(enforcedView);
 
     _initializedTabIndexes.add(tabIndex);
 
-    final Widget body = switch (view) {
+    final Widget body = switch (enforcedView) {
       AppView.coach ||
       AppView.nexus ||
       AppView.creator ||
@@ -422,7 +511,17 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         }
 
         final AppFlowController controller = ref.read(appFlowProvider.notifier);
-        final AppView current = ref.read(appFlowProvider);
+        final AppView current = _enforceActivationView(
+          ref.read(appFlowProvider),
+          announceIfLocked: false,
+        );
+
+        final AppView? requiredActivationView = _requiredActivationView();
+        if (requiredActivationView != null &&
+            current != requiredActivationView) {
+          controller.show(requiredActivationView);
+          return;
+        }
 
         if (current != AppView.nexus &&
             current != AppView.creator &&

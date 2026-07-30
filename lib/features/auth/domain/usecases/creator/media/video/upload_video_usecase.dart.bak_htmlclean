@@ -1,0 +1,3 @@
+﻿class UploadVideoUsecase {
+  const UploadVideoUsecase();
+}

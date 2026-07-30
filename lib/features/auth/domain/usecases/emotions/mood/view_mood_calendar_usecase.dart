@@ -1,3 +1,3 @@
-﻿class ViewMoodCalendarUsecase {
+class ViewMoodCalendarUsecase {
   const ViewMoodCalendarUsecase();
 }

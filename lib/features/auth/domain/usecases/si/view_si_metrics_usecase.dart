@@ -1,3 +1,3 @@
-﻿class ViewSiMetricsUsecase {
+class ViewSiMetricsUsecase {
   const ViewSiMetricsUsecase();
 }

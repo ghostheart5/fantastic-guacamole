@@ -1,3 +1,3 @@
-﻿class CompleteTaskUsecase {
+class CompleteTaskUsecase {
   const CompleteTaskUsecase();
 }

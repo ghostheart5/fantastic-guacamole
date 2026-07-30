@@ -1,0 +1,3 @@
+﻿class CreateCourseUsecase {
+  const CreateCourseUsecase();
+}

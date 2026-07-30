@@ -1,3 +1,3 @@
-﻿class AcknowledgeCrisisResourcesUsecase {
+class AcknowledgeCrisisResourcesUsecase {
   const AcknowledgeCrisisResourcesUsecase();
 }

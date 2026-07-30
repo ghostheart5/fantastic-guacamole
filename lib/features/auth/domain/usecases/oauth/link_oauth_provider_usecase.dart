@@ -1,3 +1,3 @@
-﻿class LinkOauthProviderUsecase {
+class LinkOauthProviderUsecase {
   const LinkOauthProviderUsecase();
 }

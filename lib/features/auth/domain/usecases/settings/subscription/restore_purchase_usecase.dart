@@ -1,3 +1,3 @@
-﻿class RestorePurchaseUsecase {
+class RestorePurchaseUsecase {
   const RestorePurchaseUsecase();
 }

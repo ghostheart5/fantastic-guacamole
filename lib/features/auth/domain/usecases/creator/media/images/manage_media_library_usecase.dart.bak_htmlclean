@@ -1,0 +1,3 @@
+﻿class ManageMediaLibraryUsecase {
+  const ManageMediaLibraryUsecase();
+}

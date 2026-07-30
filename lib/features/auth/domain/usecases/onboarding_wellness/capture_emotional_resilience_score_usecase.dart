@@ -1,3 +1,3 @@
-﻿class CaptureEmotionalResilienceScoreUsecase {
+class CaptureEmotionalResilienceScoreUsecase {
   const CaptureEmotionalResilienceScoreUsecase();
 }

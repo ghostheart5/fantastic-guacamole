@@ -1,3 +1,3 @@
-﻿class ClearSensitiveAuthCacheUsecase {
+class ClearSensitiveAuthCacheUsecase {
   const ClearSensitiveAuthCacheUsecase();
 }

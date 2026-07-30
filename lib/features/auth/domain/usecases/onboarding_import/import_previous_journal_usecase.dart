@@ -1,3 +1,3 @@
-﻿class ImportPreviousJournalUsecase {
+class ImportPreviousJournalUsecase {
   const ImportPreviousJournalUsecase();
 }

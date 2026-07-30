@@ -1,0 +1,3 @@
+﻿class ViewCalendarOverviewUsecase {
+  const ViewCalendarOverviewUsecase();
+}

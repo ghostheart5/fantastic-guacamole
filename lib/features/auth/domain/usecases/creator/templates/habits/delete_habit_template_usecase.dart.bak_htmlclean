@@ -1,0 +1,3 @@
+﻿class DeleteHabitTemplateUsecase {
+  const DeleteHabitTemplateUsecase();
+}

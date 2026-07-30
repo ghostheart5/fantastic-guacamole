@@ -1,3 +1,3 @@
-﻿class GenerateWeeklyLogSummaryUsecase {
+class GenerateWeeklyLogSummaryUsecase {
   const GenerateWeeklyLogSummaryUsecase();
 }

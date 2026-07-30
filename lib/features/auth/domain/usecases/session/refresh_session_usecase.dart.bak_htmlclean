@@ -1,0 +1,3 @@
+﻿class RefreshSessionUsecase {
+  const RefreshSessionUsecase();
+}

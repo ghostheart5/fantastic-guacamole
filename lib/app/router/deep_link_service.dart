@@ -56,6 +56,14 @@ class DeepLinkService {
   Stream<Uri> get links => _controller.stream;
 
   bool _isTrusted(Uri uri) {
+    // Mobile OAuth callbacks can return using the custom app scheme.
+    // Restrict this to the exact callback target only.
+    if (uri.scheme == 'chronospark') {
+      final String host = uri.host.toLowerCase();
+      return host == 'auth-callback' && (uri.path.isEmpty || uri.path == '/');
+    }
+
+    // Verified app links continue to use HTTPS hosts only.
     if (uri.scheme != 'https') return false;
     const Set<String> hosts = <String>{
       'chronospark.app',

@@ -1,3 +1,3 @@
-﻿class FavoriteEmotionUsecase {
+class FavoriteEmotionUsecase {
   const FavoriteEmotionUsecase();
 }

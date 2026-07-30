@@ -1,3 +1,3 @@
-﻿class ViewFocusTrendsUsecase {
+class ViewFocusTrendsUsecase {
   const ViewFocusTrendsUsecase();
 }

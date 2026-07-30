@@ -1,3 +1,3 @@
-﻿class ExportInsightsUsecase {
+class ExportInsightsUsecase {
   const ExportInsightsUsecase();
 }

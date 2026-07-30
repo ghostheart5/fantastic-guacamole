@@ -1,3 +1,3 @@
-﻿class CaptureLifeSatisfactionUsecase {
+class CaptureLifeSatisfactionUsecase {
   const CaptureLifeSatisfactionUsecase();
 }

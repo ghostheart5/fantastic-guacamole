@@ -1,3 +1,3 @@
-﻿class LoadSettingsUsecase {
+class LoadSettingsUsecase {
   const LoadSettingsUsecase();
 }

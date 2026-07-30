@@ -1,3 +1,3 @@
-﻿class AssessFinancesUsecase {
+class AssessFinancesUsecase {
   const AssessFinancesUsecase();
 }

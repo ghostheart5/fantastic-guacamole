@@ -1,3 +1,3 @@
-﻿class RefreshSettingsUsecase {
+class RefreshSettingsUsecase {
   const RefreshSettingsUsecase();
 }

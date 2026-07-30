@@ -1,3 +1,3 @@
-﻿class ViewCompletedTasksUsecase {
+class ViewCompletedTasksUsecase {
   const ViewCompletedTasksUsecase();
 }

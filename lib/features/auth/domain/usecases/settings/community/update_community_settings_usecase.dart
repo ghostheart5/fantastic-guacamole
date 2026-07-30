@@ -1,3 +1,3 @@
-﻿class UpdateCommunitySettingsUsecase {
+class UpdateCommunitySettingsUsecase {
   const UpdateCommunitySettingsUsecase();
 }

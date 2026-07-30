@@ -1,0 +1,3 @@
+﻿class EditCoachPersonalityUsecase {
+  const EditCoachPersonalityUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class ViewCreditHistoryUsecase {
+class ViewCreditHistoryUsecase {
   const ViewCreditHistoryUsecase();
 }

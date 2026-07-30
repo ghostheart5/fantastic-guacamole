@@ -1,0 +1,3 @@
+﻿class RestrictUserUsecase {
+  const RestrictUserUsecase();
+}

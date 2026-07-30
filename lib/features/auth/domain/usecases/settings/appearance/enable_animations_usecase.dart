@@ -1,3 +1,3 @@
-﻿class EnableAnimationsUsecase {
+class EnableAnimationsUsecase {
   const EnableAnimationsUsecase();
 }

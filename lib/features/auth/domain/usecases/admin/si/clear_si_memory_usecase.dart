@@ -1,3 +1,3 @@
-﻿class ClearSiMemoryUsecase {
+class ClearSiMemoryUsecase {
   const ClearSiMemoryUsecase();
 }

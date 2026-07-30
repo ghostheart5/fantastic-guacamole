@@ -1,0 +1,3 @@
+﻿class LinkMemoryToEmotionUsecase {
+  const LinkMemoryToEmotionUsecase();
+}

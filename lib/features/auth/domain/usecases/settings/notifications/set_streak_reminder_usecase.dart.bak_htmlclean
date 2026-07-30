@@ -1,0 +1,3 @@
+﻿class SetStreakReminderUsecase {
+  const SetStreakReminderUsecase();
+}

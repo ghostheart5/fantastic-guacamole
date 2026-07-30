@@ -1,3 +1,3 @@
-﻿class GenerateEmotionSummaryUsecase {
+class GenerateEmotionSummaryUsecase {
   const GenerateEmotionSummaryUsecase();
 }

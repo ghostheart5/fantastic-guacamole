@@ -1,3 +1,3 @@
-﻿class GrantAiCreditsUsecase {
+class GrantAiCreditsUsecase {
   const GrantAiCreditsUsecase();
 }

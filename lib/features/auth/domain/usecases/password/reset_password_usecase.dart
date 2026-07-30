@@ -1,3 +1,3 @@
-﻿class ResetPasswordUsecase {
+class ResetPasswordUsecase {
   const ResetPasswordUsecase();
 }

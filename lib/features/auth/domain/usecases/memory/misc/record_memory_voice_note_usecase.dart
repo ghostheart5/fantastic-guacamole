@@ -1,3 +1,3 @@
-﻿class RecordMemoryVoiceNoteUsecase {
+class RecordMemoryVoiceNoteUsecase {
   const RecordMemoryVoiceNoteUsecase();
 }

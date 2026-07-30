@@ -1,3 +1,3 @@
-﻿class ResolveReportUsecase {
+class ResolveReportUsecase {
   const ResolveReportUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class AddTaskToPlanUsecase {
+class AddTaskToPlanUsecase {
   const AddTaskToPlanUsecase();
 }

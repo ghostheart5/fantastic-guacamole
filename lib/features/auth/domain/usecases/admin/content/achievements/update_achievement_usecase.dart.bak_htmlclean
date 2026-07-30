@@ -1,0 +1,3 @@
+﻿class UpdateAchievementUsecase {
+  const UpdateAchievementUsecase();
+}

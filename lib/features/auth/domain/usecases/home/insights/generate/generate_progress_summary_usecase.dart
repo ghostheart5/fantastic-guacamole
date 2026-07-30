@@ -1,3 +1,3 @@
-﻿class GenerateProgressSummaryUsecase {
+class GenerateProgressSummaryUsecase {
   const GenerateProgressSummaryUsecase();
 }

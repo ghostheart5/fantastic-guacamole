@@ -1,0 +1,3 @@
+﻿class ViewCommentsUsecase {
+  const ViewCommentsUsecase();
+}

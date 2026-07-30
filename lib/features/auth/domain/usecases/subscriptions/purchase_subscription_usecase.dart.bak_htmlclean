@@ -1,0 +1,3 @@
+﻿class PurchaseSubscriptionUsecase {
+  const PurchaseSubscriptionUsecase();
+}

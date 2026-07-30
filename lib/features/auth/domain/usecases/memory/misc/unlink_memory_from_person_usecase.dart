@@ -1,3 +1,3 @@
-﻿class UnlinkMemoryFromPersonUsecase {
+class UnlinkMemoryFromPersonUsecase {
   const UnlinkMemoryFromPersonUsecase();
 }

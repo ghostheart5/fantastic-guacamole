@@ -1,3 +1,3 @@
-﻿class ManageBlockedUsersUsecase {
+class ManageBlockedUsersUsecase {
   const ManageBlockedUsersUsecase();
 }

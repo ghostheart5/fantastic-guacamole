@@ -1,3 +1,3 @@
-﻿class EscalateSupportTicketUsecase {
+class EscalateSupportTicketUsecase {
   const EscalateSupportTicketUsecase();
 }

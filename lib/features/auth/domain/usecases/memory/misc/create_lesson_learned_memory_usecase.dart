@@ -1,3 +1,3 @@
-﻿class CreateLessonLearnedMemoryUsecase {
+class CreateLessonLearnedMemoryUsecase {
   const CreateLessonLearnedMemoryUsecase();
 }

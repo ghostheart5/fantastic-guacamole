@@ -1,3 +1,3 @@
-﻿class SetCrisisPreferencesUsecase {
+class SetCrisisPreferencesUsecase {
   const SetCrisisPreferencesUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class ViewAdminRolesUsecase {
+class ViewAdminRolesUsecase {
   const ViewAdminRolesUsecase();
 }

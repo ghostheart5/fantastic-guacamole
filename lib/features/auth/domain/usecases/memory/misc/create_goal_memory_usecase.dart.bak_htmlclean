@@ -1,0 +1,3 @@
+﻿class CreateGoalMemoryUsecase {
+  const CreateGoalMemoryUsecase();
+}

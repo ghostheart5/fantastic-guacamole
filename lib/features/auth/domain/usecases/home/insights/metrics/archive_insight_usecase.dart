@@ -1,3 +1,3 @@
-﻿class ArchiveInsightUsecase {
+class ArchiveInsightUsecase {
   const ArchiveInsightUsecase();
 }

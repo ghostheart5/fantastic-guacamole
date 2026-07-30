@@ -1,0 +1,3 @@
+﻿class GenerateEmotionalProfileUsecase {
+  const GenerateEmotionalProfileUsecase();
+}

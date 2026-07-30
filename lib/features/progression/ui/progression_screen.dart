@@ -66,24 +66,24 @@ class ProgressionScreen extends ConsumerWidget {
                               ],
                             ).createShader(bounds),
                             child: const Text(
-                              'ASCENSION CORE',
+                              'Progress',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
-                                letterSpacing: 3,
+                                letterSpacing: 1,
                                 color: Colors.white,
                               ),
                             ),
                           ),
                           const Text(
-                            'LEVELS · STREAKS · MOMENTUM',
+                            'Levels, streaks, and momentum',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 10,
-                              letterSpacing: 2,
+                              letterSpacing: 0.6,
                               color: Colors.white38,
                             ),
                           ),
@@ -486,7 +486,7 @@ class _XpProgressChartCard extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Last ${points.length} checkpoints · ${end - start >= 0 ? '+' : ''}${end - start} XP',
+            'Last ${points.length} checkpoints | ${end - start >= 0 ? '+' : ''}${end - start} XP',
             style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
           const SizedBox(height: 12),

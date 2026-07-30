@@ -26,7 +26,7 @@ class SISyntheticParadoxResolver {
     final t = now ?? DateTime.now();
     final action = paradox.detected ? 'respond_conversationally' : 'continue';
     final msg = paradox.code == 'safety_vs_action'
-        ? 'Let’s pause and choose one safe next step.'
+        ? 'Letâ€™s pause and choose one safe next step.'
         : paradox.code == 'uncertainty_vs_action'
         ? 'I need one detail before acting.'
         : 'No paradox adjustment needed.';

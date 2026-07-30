@@ -1,3 +1,3 @@
-﻿class GetSettingsUsecase {
+class GetSettingsUsecase {
   const GetSettingsUsecase();
 }

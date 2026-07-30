@@ -1,0 +1,3 @@
+﻿class ExportEmotionDataUsecase {
+  const ExportEmotionDataUsecase();
+}

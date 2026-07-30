@@ -1,3 +1,3 @@
-﻿class CreateProductivityLogUsecase {
+class CreateProductivityLogUsecase {
   const CreateProductivityLogUsecase();
 }

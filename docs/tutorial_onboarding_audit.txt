@@ -1,0 +1,823 @@
+ChronoSpark Onboarding + Tutorial Audit
+Date: 2026-07-29
+Scope: AUDIT ONLY (no code changes)
+
+1. EXECUTIVE SUMMARY
+
+ChronoSpark currently has multiple overlapping onboarding/tutorial systems, not a single source of truth.
+
+Observed systems:
+- Mission-based onboarding gate: lib/features/onboarding/ui/onboarding_screen.dart + lib/tutorial/mission/* + app-level mission lock in lib/app/navigation_shell.dart.
+- Overlay-based tutorial engine: lib/tutorial/tutorial_controller.dart + lib/tutorial/tutorial_overlay.dart + assets/tutorials/*.json.
+- Card/hint-based micro tutorial: lib/tutorial/widgets/micro_tutorial_card.dart + lib/tutorial/widgets/show_me_again_button.dart + lib/tutorial/tutorial_provider.dart.
+- Screen-navigation-based gating: lib/app/router/app_router.dart redirect logic and initial location resolution.
+- Legacy/unused onboarding state machine: lib/onboarding/controllers/onboarding_controller.dart + lib/onboarding/state/onboarding_state.dart.
+
+Current onboarding style classification:
+- slide-based: Minimal/legacy presentation shell only (slides list is empty; total pages set to 1).
+- mission-based: Yes, strong and mandatory via mission lock + mission progression.
+- overlay-based: Implemented but mostly dormant in current runtime flow.
+- card/hint-based: Active (Creator micro tutorial card).
+- screen-navigation-based: Active (router redirects and mission lock enforcement).
+- mixed/conflicting: Yes.
+
+Verdict: MERGE
+
+2. FILE INVENTORY
+
+Legend:
+- Active: appears referenced by runtime app surfaces/providers.
+- Unused: no project references found outside file itself.
+
+2.1 Core onboarding and routing files
+
+File: lib/features/onboarding/ui/onboarding_screen.dart
+- Purpose: Mission Zero launch gate UI; writes onboarding state and kicks user to home/login.
+- Active/unused: Active.
+- Imports it: lib/app/router/app_router.dart.
+- Imports: state/app_state.dart, tutorial/tutorial_content.dart, route_paths.dart, shared_prefs, profile/intelligence providers, analytics.
+- Recommendation: REDESIGN (contains mission launch responsibilities but still named/structured as onboarding screen; no real slide progression).
+
+File: lib/app/router/app_router.dart
+- Purpose: Initial route + redirect policy for auth/onboarding/profile access.
+- Active/unused: Active.
+- Imports it: lib/app/app_root.dart (via appRouterProvider usage).
+- Imports: onboarding screen, auth gate, route guards, route paths, shell.
+- Recommendation: KEEP (critical gate), but align language and route intents.
+
+File: lib/app/app_root.dart
+- Purpose: Global app shell, tutorial host mount, mission overlay mount, mission-complete finalization to onboarding complete.
+- Active/unused: Active.
+- Imports it: app bootstrap/root startup.
+- Imports: tutorial providers, tutorial host, mission overlay/provider, router, deep link service.
+- Recommendation: KEEP (core orchestration), but MERGE lifecycle triggers with one onboarding authority.
+
+File: lib/app/navigation_shell.dart
+- Purpose: Main tab/surface host and Mission Zero lock enforcement.
+- Active/unused: Active.
+- Imports it: app router routes using NavigationShell.
+- Imports: mission provider/state, app flow provider, feature screens.
+- Recommendation: KEEP (mission lock works), but simplify lock messages/step naming.
+
+File: lib/app/startup/app_bootstrap.dart
+- Purpose: Startup resolution of onboarding complete/version state and canonical onboarding state keys.
+- Active/unused: Active.
+- Imports it: main app startup path.
+- Imports: TutorialContent version, onboarding providers/keys.
+- Recommendation: KEEP, but MERGE with mission completion semantics so one progression model owns onboarding state.
+
+File: lib/app/router/route_paths.dart
+- Purpose: Route constants.
+- Active/unused: Active.
+- Imports it: app router + route surface provider.
+- Imports: none (constants file).
+- Recommendation: KEEP.
+
+File: lib/app/router/route_guards.dart
+- Purpose: Guard providers for auth/onboarding/profile.
+- Active/unused: Active.
+- Imports it: app router.
+- Imports: onboarding/auth/profile/access providers.
+- Recommendation: KEEP.
+
+File: lib/state/core/app_providers.dart
+- Purpose: Onboarding status providers + onboarding storage key constants.
+- Active/unused: Active.
+- Imports it: app router, app root, onboarding screen, settings, startup.
+- Imports: Riverpod only + exports.
+- Recommendation: KEEP, but MERGE with mission/tutorial progress authority.
+
+File: lib/state/providers/route_paths_provider.dart
+- Purpose: Route surface injection for UI.
+- Active/unused: Active.
+- Imports it: auth gate/settings/nexus widgets and others.
+- Imports: route_paths.dart.
+- Recommendation: KEEP.
+
+2.2 Tutorial core files
+
+File: lib/tutorial/tutorial_provider.dart
+- Purpose: Tutorial progress controller/provider API (start, complete, skip, replay, reset).
+- Active/unused: Active.
+- Imports it: creator micro tutorial widgets/service layer.
+- Imports: tutorial_content, tutorial_controller, tutorial_repository, tutorial_progress_store, onboarding providers.
+- Recommendation: KEEP but MERGE with mission onboarding plan.
+
+File: lib/tutorial/tutorial_repository.dart
+- Purpose: Persistence adapter for tutorial_progress_v1.
+- Active/unused: Active.
+- Imports it: tutorial_provider.dart.
+- Imports: shared prefs service, tutorial_progress_store.
+- Recommendation: KEEP.
+
+File: lib/tutorial/tutorial_progress_store.dart
+- Purpose: TutorialProgress model and operations (completed/dismissed/skipForever).
+- Active/unused: Active.
+- Imports it: tutorial_provider.dart, tutorial_repository.dart.
+- Imports: flutter/foundation.dart.
+- Recommendation: KEEP.
+
+File: lib/tutorial/tutorial_content.dart
+- Purpose: Static tutorial content catalog + contentVersion + contextual hints.
+- Active/unused: Active.
+- Imports it: onboarding screen, tutorial provider, creator micro tutorial card, startup/app root.
+- Imports: foundation only.
+- Recommendation: REDESIGN (content mismatches current first-user workflow and naming consistency).
+
+File: lib/tutorial/tutorial_controller.dart
+- Purpose: Overlay tutorial runtime state machine for asset-defined tutorial flows.
+- Active/unused: Partially active (initialized and route-updated, but no start() call found in app flow).
+- Imports it: tutorial_provider.dart, tutorial_overlay.dart.
+- Imports: tutorial_asset_loader, tutorial_models.
+- Recommendation: MERGE or DELETE if not adopted as primary system.
+
+File: lib/tutorial/tutorial_overlay.dart
+- Purpose: Overlay renderer bound to TutorialController active step.
+- Active/unused: Mounted globally, but mostly dormant because tutorial controller start not observed.
+- Imports it: app_root.dart.
+- Imports: tutorial_controller, tutorial_models, target_registry.
+- Recommendation: REDESIGN or MERGE under post-onboarding advanced tips.
+
+File: lib/tutorial/tutorial_target_registry.dart
+- Purpose: Target registration + TutorialTarget wrapper.
+- Active/unused: Active where wrapped targets exist.
+- Imports it: smart_coach_screen.dart, timeline_screen.dart, settings_screen.dart, tutorial_overlay.dart.
+- Imports: Flutter widgets.
+- Recommendation: KEEP if overlay tutorials remain.
+
+File: lib/tutorial/tutorial_models.dart
+- Purpose: Asset tutorial models (trigger types/blocking/branching).
+- Active/unused: Active via loader/controller/overlay.
+- Imports it: tutorial_asset_loader.dart, tutorial_controller.dart, tutorial_overlay.dart.
+- Imports: dart:convert.
+- Recommendation: KEEP (if overlay system kept).
+
+File: lib/tutorial/tutorial_asset_loader.dart
+- Purpose: Load tutorial JSON assets.
+- Active/unused: Active (called in AppRoot asset preload).
+- Imports it: tutorial_controller.dart.
+- Imports: tutorial_models.dart, rootBundle.
+- Recommendation: KEEP if overlay flow remains.
+
+File: lib/tutorial/tutorial_analytics.dart
+- Purpose: Tutorial analytics events.
+- Active/unused: Active via tutorial_provider and micro card.
+- Imports it: tutorial_provider.dart, micro_tutorial_card.dart.
+- Imports: app_analytics.
+- Recommendation: KEEP.
+
+File: lib/tutorial/tutorial_reset_service.dart
+- Purpose: convenience wrapper around tutorial progress controller actions.
+- Active/unused: Likely unused (no consumers found outside definition).
+- Imports it: no runtime callers found.
+- Imports: tutorial_provider.dart.
+- Recommendation: DELETE or MERGE into direct notifier usage.
+
+2.3 Mission tutorial files
+
+File: lib/tutorial/mission/mission_state.dart
+- Purpose: Mission model, step catalog, progression logic.
+- Active/unused: Active.
+- Imports it: mission_repository/provider/controller/overlay/navigation shell.
+- Imports: foundation.
+- Recommendation: KEEP.
+
+File: lib/tutorial/mission/mission_repository.dart
+- Purpose: persist mission_tutorial_progress_v1.
+- Active/unused: Active.
+- Imports it: mission_controller.dart, mission_provider.dart.
+- Imports: shared prefs store, mission_state.
+- Recommendation: KEEP.
+
+File: lib/tutorial/mission/mission_controller.dart
+- Purpose: mission transition methods (goal/action hub/coach/timeline/complete).
+- Active/unused: Active.
+- Imports it: mission_provider.dart.
+- Imports: mission_repository/state.
+- Recommendation: KEEP.
+
+File: lib/tutorial/mission/mission_provider.dart
+- Purpose: mission enabled flag + mission state async notifier.
+- Active/unused: Active.
+- Imports it: mission_event_bridge.dart, mission_overlay.dart, navigation shell, creator/home.
+- Imports: mission controller/repository/state.
+- Recommendation: KEEP.
+
+File: lib/tutorial/mission/mission_event_bridge.dart
+- Purpose: app-facing bridge for reporting mission events.
+- Active/unused: Active.
+- Imports it: creator/home/timeline/mission_overlay.
+- Imports: mission_provider.dart.
+- Recommendation: KEEP.
+
+File: lib/tutorial/mission/mission_overlay.dart
+- Purpose: bottom mission status/completion banner UI.
+- Active/unused: Active.
+- Imports it: app_root.dart.
+- Imports: mission provider/event bridge/state.
+- Recommendation: KEEP.
+
+2.4 Tutorial widget files
+
+File: lib/tutorial/widgets/micro_tutorial_card.dart
+- Purpose: card-based inline tutorial UI with complete/skip/skip-forever.
+- Active/unused: Active (Creator).
+- Imports it: creator_screen.dart.
+- Imports: tutorial_content/provider, colors.
+- Recommendation: KEEP (but scope to post-onboarding or feature tips).
+
+File: lib/tutorial/widgets/show_me_again_button.dart
+- Purpose: re-enable dismissed tip step.
+- Active/unused: Active (Creator).
+- Imports it: creator_screen.dart.
+- Imports: tutorial_provider, colors.
+- Recommendation: KEEP.
+
+2.5 Additional onboarding-related legacy files
+
+File: lib/onboarding/controllers/onboarding_controller.dart
+- Purpose: old step-based onboarding state machine (4 steps).
+- Active/unused: Unused (no external references found).
+- Imports it: none found.
+- Imports: lib/onboarding/state/onboarding_state.dart.
+- Recommendation: DELETE (after review).
+
+File: lib/onboarding/state/onboarding_state.dart
+- Purpose: old onboarding state classes.
+- Active/unused: Unused except by legacy controller above.
+- Imports it: lib/onboarding/controllers/onboarding_controller.dart only.
+- Imports: foundation.
+- Recommendation: DELETE (with controller).
+
+3. FLOW MAP
+
+3.1 Fresh install
+- Start: main() -> AppBootstrapper run.
+- Startup state: app_bootstrap loads prefs and canonical onboarding_state_v1, resolves OnboardingStatus.
+- Route decision:
+  - unknown -> /onboarding
+  - incomplete + unauthenticated -> /onboarding
+  - incomplete + authenticated -> /home (mission surfaces allowed)
+- Flags/keys:
+  - onboarding_complete / onboarding_content_version / onboarding_step_index
+  - per-user variants *_<userId>
+  - onboarding_state_v1 and onboarding_state_v1_<userId>
+- Completion condition: not complete until mission finished and finalized in AppRoot.
+
+3.2 First login
+- Start: /login via AuthGate if onboarding complete and unauthenticated, or callback exceptions while onboarding incomplete.
+- Next: router redirect sends authenticated user with complete onboarding to /home; incomplete onboarding may still route /onboarding, but special mission activation surfaces are allowed.
+- Route calls: context.go in auth flows/router redirect.
+- Flags: authenticatedGuardProvider, onboardingStatusProvider, profileCompleteGuardProvider.
+
+3.3 Onboarding start
+- Start screen: /onboarding (OnboardingScreen).
+- Action: DEPLOY MISSION ZERO button -> _beginMissionZero().
+- State writes:
+  - onboarding complete false
+  - onboarding content version set to TutorialContent.contentVersion
+  - onboarding step index set 0
+  - onboarding_state_v1 JSON persisted (complete:false)
+  - provider states set onboardingComplete=false and OnboardingStatus.incomplete.
+- Next screen: /home if authenticated, else /login.
+
+3.4 Onboarding finish
+- Not completed in onboarding_screen.dart.
+- Mission complete path sets MissionState.finished=true when completion banner dismissed.
+- AppRoot listener on missionStateProvider triggers _finalizeMissionZeroActivation().
+- Writes on finalize:
+  - onboarding_complete true
+  - onboarding_content_version current
+  - onboarding_step_index 0
+  - onboarding_state_v1 JSON complete:true
+  - providers set onboarding complete/complete status
+- Next: context.go(RoutePaths.home).
+
+3.5 Tutorial start
+- Card tutorial start:
+  - MicroTutorialCard init calls tutorialProgressProvider.startTutorial().
+  - currently observed in Creator tutorial panel only.
+- Overlay tutorial start:
+  - TutorialController.start(tutorialId) exists but no runtime call found.
+
+3.6 Tutorial reset
+- API exists: tutorialProgressProvider.reset()/resetAll().
+- Persistence behavior: resetToVersion(contentVersion) in tutorial_repository.
+- UI trigger found: none in settings/main surfaces.
+
+3.7 Tutorial replay
+- API exists: tutorialProgressProvider.replayOnboarding().
+- Behavior: sets onboarding_complete false + onboarding_content_version 0, then tutorial reset.
+- UI trigger found: none.
+
+3.8 Mission Zero start
+- Trigger: onboarding DEPLOY MISSION ZERO.
+- Mission state source: mission_repository.load() default MissionState.initial() (active createFirstGoal).
+- App lock: NavigationShell _requiredActivationView() forces required view while onboarding incomplete and mission unfinished.
+
+3.9 Mission Zero complete
+- Step progression:
+  1) reportGoalCreated -> complete createFirstGoal
+  2) reportActionHubOpened -> complete openActionHub
+  3) reportSmartCoachQuestionAsked -> complete askSmartPlannerQuestion
+  4) reportTimelineOpened -> complete openTimeline and activate completion step
+  5) MissionOverlay auto-dismisses completion banner in 3s (or manual dismiss) -> finished=true
+  6) AppRoot detects finished and marks onboarding complete true
+
+4. ONBOARDING_SCREEN AUDIT (lib/features/onboarding/ui/onboarding_screen.dart)
+
+4.1 Slides
+- _totalPages = 1
+- _slides = empty list
+- Render path uses _PersonalizationSlide as only page.
+- Practical conclusion: not a real multi-slide onboarding anymore.
+
+4.2 Buttons/controls
+- Primary: DEPLOY MISSION ZERO (calls _next -> _beginMissionZero on last page).
+- Optional SKIP link exists in code but _current < _totalPages - 1 is false with totalPages=1, so skip path is effectively unreachable.
+- Back handling: custom back/exit confirmation via _onWillPop and _handleBackNavigation.
+
+4.3 Navigation calls
+- context.go(isAuthenticated ? /home : /login) in _beginMissionZero.
+- no direct tutorial start navigation.
+
+4.4 State writes
+- SharedPreferences writes for onboarding keys and canonical state JSON.
+- Provider writes:
+  - onboardingCompleteProvider -> false
+  - onboardingStatusProvider -> incomplete
+- Profile ensureProfile(preferredName).
+
+4.5 TutorialContent references
+- Uses TutorialContent.contentVersion in onboarding persisted state.
+
+4.6 Mission Zero references
+- UI text and analytics are Mission Zero focused.
+- Mission Zero is described as mandatory activation corridor.
+
+4.7 Onboarding marked complete?
+- Not here. This file sets onboarding incomplete and launches mission path.
+- Completion is finalized later in AppRoot after mission finished.
+
+4.8 Destination after onboarding button
+- Authenticated: RoutePaths.home
+- Unauthenticated: RoutePaths.login
+
+4.9 Verdict for this file
+- This is no longer just visual onboarding.
+- It is an activation launcher for mission-gated onboarding, with persistence side effects.
+
+5. TUTORIAL_CONTENT AUDIT (lib/tutorial/tutorial_content.dart)
+
+contentVersion: 6
+Total steps: 15
+
+Step inventory:
+1) id=nexus_overview
+- title: NEXUS OVERVIEW
+- ctaLabel: Open Nexus
+- Teaches: Nexus snapshot behavior.
+- Level: beginner/intermediate.
+- Vocabulary match: mostly current.
+
+2) id=coach_quick_prompt
+- title: SMART PLANNER
+- ctaLabel: Try Prompt
+- Teaches: coach prompt usage.
+- Level: beginner/intermediate.
+- Vocabulary mismatch risk: app screen/class uses SmartCoachScreen while text says Smart Planner.
+
+3) id=daily_reflection
+- title: DAILY REFLECTION
+- ctaLabel: Set Reminder
+- Teaches: reflection reminder.
+- Level: beginner.
+
+4) id=planner_priority
+- title: PLAN PRIORITIES
+- ctaLabel: Set Priority
+- Teaches: prioritization guidance.
+- Level: beginner.
+
+5) id=trajectory_overview
+- title: TRAJECTORY
+- ctaLabel: Open Trajectory
+- Teaches: trajectory + Flowmap branching.
+- Level: advanced for first-time users.
+
+6) id=creator_workbench
+- title: CREATOR
+- ctaLabel: Create Task
+- Teaches: manual task creation in Creator.
+- Level: beginner.
+
+7) id=logs_overview
+- title: ACTIVITY LOGS
+- ctaLabel: Open Logs
+- Teaches: log review.
+- Level: intermediate.
+
+8) id=insight_overview
+- title: INSIGHTS
+- ctaLabel: View Insight
+- Teaches: insight-to-action.
+- Level: intermediate.
+
+9) id=console_overview
+- title: SI CONSOLE
+- ctaLabel: ENTER CONSOLE
+- Teaches: deep SI console.
+- Level: advanced.
+
+10) id=progression_overview
+- title: PROGRESSION TRACKER
+- ctaLabel: CHECK CLIMB
+- Teaches: progression trends.
+- Level: intermediate.
+
+11) id=flowmap_overview
+- title: FLOWMAP
+- ctaLabel: Open Flowmap
+- Teaches: branching planning.
+- Level: advanced.
+
+12) id=goals_overview
+- title: CREATOR WORKSPACE
+- ctaLabel: OPEN CREATOR
+- Teaches: goal hygiene via creator workspace.
+- Level: beginner/intermediate.
+- Vocabulary mismatch risk: goals tutorial step title points to Creator workspace, not a dedicated goals surface.
+
+13) id=memories_overview
+- title: MEMORIES
+- ctaLabel: Save Memory
+- Teaches: memory capture context.
+- Level: intermediate.
+
+14) id=soul_map_overview
+- title: TIMELINE
+- ctaLabel: SCAN MAP
+- Teaches: emotional/identity vectors but labeled Timeline.
+- Level: advanced.
+- Vocabulary mismatch: soul map semantics mixed with timeline label.
+
+15) id=timeline_overview
+- title: TIMELINE REVIEW
+- ctaLabel: OPEN TIMELINE
+- Teaches: timeline causality review.
+- Level: intermediate.
+
+Specific wording mismatch flags:
+- Action Hub: mission step uses Action Hub, but runtime surface is Creator screen.
+- Smart Planner vs Smart Coach: both names used for likely same conversational surface.
+- Creator vs Creator Workspace: mixed.
+- Soul Map vs Timeline: step id/name semantic mismatch.
+- Flowmap/Trajectory/SI Console are advanced but included in same tutorial list as first-user guidance.
+
+Determination:
+- This file teaches mostly broad/advanced feature tips, not a strict first-user workflow.
+
+6. MISSION TUTORIAL AUDIT (lib/tutorial/mission/*)
+
+6.1 Mission steps (MissionCatalog)
+- createFirstGoal
+- openActionHub
+- askSmartPlannerQuestion
+- openTimeline
+- complete (banner step)
+
+6.2 Completion events and where fired
+- reportGoalCreated:
+  - lib/features/creator/ui/creator_screen.dart when DynamicForm submit mode/type indicates goal.
+- reportActionHubOpened:
+  - lib/features/creator/ui/creator_screen.dart initState post-frame (screen visit based).
+- reportSmartCoachQuestionAsked:
+  - lib/features/home/ui/smart_coach_screen.dart after successful coaching response and follow-up response.
+- reportTimelineOpened:
+  - lib/features/timeline/ui/timeline_screen.dart initState post-frame (screen visit based).
+- dismissCompletionBanner:
+  - mission overlay auto-dismiss timer (3s) and manual dismiss button.
+
+6.3 Real action vs screen visit
+- createFirstGoal: real action (goal create submit path check).
+- openActionHub: screen visit only.
+- askSmartPlannerQuestion: real action (successful coach/follow-up completion path).
+- openTimeline: screen visit only.
+- completion: banner dismissal, not an explicit business event.
+
+6.4 Storage and enablement
+- Storage key: mission_tutorial_progress_v1.
+- missionTutorialEnabledProvider: returns true always.
+
+6.5 Blocking behavior
+- MissionOverlay itself is non-blocking bottom banner.
+- Actual blocking comes from NavigationShell view lock while onboarding incomplete and mission unfinished.
+
+6.6 Connection quality to required actions
+- Goal creation: connected.
+- Task creation: NOT explicitly required by mission progression.
+- Coach usage: connected.
+- Timeline usage: connected by opening timeline, not by scheduling task.
+
+7. TUTORIAL OVERLAY AUDIT
+
+Audited files:
+- lib/tutorial/tutorial_controller.dart
+- lib/tutorial/tutorial_overlay.dart
+- lib/tutorial/tutorial_target_registry.dart
+- lib/tutorial/tutorial_models.dart
+
+7.1 Target registration
+- TutorialTarget widget registers id -> GlobalKey in TutorialTargetRegistry.
+- Registry resolves rect by current RenderBox in global coordinates.
+
+7.2 Overlay display
+- TutorialHost mounted globally in AppRoot builder.
+- Overlay shown only if controller.running && activeStep != null.
+
+7.3 Active step selection
+- TutorialController.start(tutorialId) sets first step.
+- next() uses branch, nextStepId, or step order.
+
+7.4 Step completion logic
+- trigger tap/longPress: controller.reportEvent('tap:<targetId>') from overlay detector.
+- route trigger: compares current route from AppRoot listener updateRoute(route).
+- state trigger: updateState key/value comparison.
+- input trigger: updateInput key/value comparison.
+- delay/autoAdvance: timer.
+- manual trigger: requires explicit next() user action in tooltip.
+
+7.5 Route/tap/state/input trigger viability
+- Route triggers: infrastructure exists (AppRoot router listener updates route).
+- Tap triggers: works where target exists and overlay running.
+- State triggers: limited (only observed updateState('has_created_task', true) in Creator).
+- Input triggers: no updateInput call sites found.
+- Manual triggers: require explicit start() + user Next in overlay.
+
+7.6 Asset-defined vs registered target mismatch
+- assets/tutorials/home.json references goals.add_button (no matching TutorialTarget id found).
+- assets/tutorials/tasks.json references tasks.add_button and tasks.title_input (no matching TutorialTarget ids found).
+- Existing TutorialTarget ids:
+  - home.start_focus_button (smart_coach_screen)
+  - settings.habit_toggle (settings_screen.sections)
+  - timeline.intelligence_strip (timeline_screen)
+
+7.7 Overlay blocking mode
+- blockAll and allowTarget/nonBlocking supported in model.
+- overlay uses IgnorePointer(ignoring: nonBlocking).
+- allowTarget mode still intercepts full-screen gestures and reports only inside target region.
+
+8. PROGRESS AND PERSISTENCE AUDIT
+
+8.1 Tutorial progress storage
+- Key: tutorial_progress_v1 (tutorial_repository.dart).
+- Fields (TutorialProgress):
+  - completedStepIds
+  - dismissedStepIds
+  - skippedForeverStepIds
+  - started
+  - hasSeenIntro (introSeen in JSON)
+  - contentVersion
+- Methods:
+  - markCompleted
+  - skipStep
+  - skipForever
+  - revealStep/showAgain
+  - markIntroSeen
+  - reset
+  - applyContentVersion
+
+8.2 Mission progress storage
+- Key: mission_tutorial_progress_v1.
+- Fields: statuses map, activeMissionId, started, finished.
+
+8.3 Onboarding persistence
+- Keys:
+  - onboarding_complete
+  - onboarding_content_version
+  - onboarding_step_index
+  - per-user variants with suffix _<userId>
+  - onboarding_state_v1 and onboarding_state_v1_<userId>
+
+8.4 Version behavior
+- app_bootstrap compares stored onboarding content version with TutorialContent.contentVersion.
+- replay-required version set is currently empty, so version bump alone does not force replay.
+
+8.5 Reset/replay behavior
+- Tutorial reset/replay APIs exist in tutorial provider/service.
+- Mission reset API exists in mission provider.
+- No clear user-facing settings control found that invokes these reset/replay APIs.
+
+8.6 Risk of skipped/stuck/inconsistent states
+- High risk of inconsistency due multiple stores:
+  - onboarding keys + canonical onboarding_state_v1
+  - mission_tutorial_progress_v1
+  - tutorial_progress_v1
+- Mission completion depends on overlay completion-banner dismissal timer/click, which can delay or block onboarding finalization if banner flow is disrupted.
+- Overlay tutorial assets reference non-registered targets, making portions of overlay flow non-actionable.
+
+9. SETTINGS AND RESET AUDIT
+
+Audited:
+- lib/features/settings/ui/settings_screen.dart
+- lib/features/settings/ui/settings_screen.sections.dart
+
+Findings:
+- No visible tutorial reset button found.
+- No replay onboarding button found.
+- No mission reset button found.
+- No global tutorial toggle found.
+- Show-me-again control exists only in Creator via ShowMeAgainButton, not in Settings.
+
+What settings currently affects:
+- Full onboarding: indirectly, only during account deletion flow where onboarding keys are cleared and status set incomplete.
+- Tutorial cards: not controlled in settings.
+- Mission tutorial: no settings control observed.
+- Overlay tutorial: no settings control observed.
+
+10. NAVIGATION AND ROUTE AUDIT
+
+10.1 Routing from onboarding
+- Onboarding route path: /onboarding.
+- App router can force onboarding for incomplete users.
+- Onboarding button sends user to /home (authenticated) or /login (unauthenticated).
+
+10.2 Main app route
+- RoutePaths.home -> NavigationShell.
+- RoutePaths.shell redirects to /home.
+
+10.3 Auth and callback routing nuance
+- During incomplete onboarding, login route is allowed for mode=recovery, verify-email, auth-callback.
+- This can bypass strict onboarding route temporarily for callback handling.
+
+10.4 Bypass potential
+- Incomplete but authenticated users can access mission activation surfaces (home/shell) by design.
+- This is intentional for mission flow launch but means onboarding screen is not always the active surface during incomplete state.
+
+10.5 Tutorial route names vs actual routes
+- Tutorial content and assets use conceptual names/targets; not all correspond to existing route names or target ids.
+- Example mismatch: goals.add_button target id has no observed registered target.
+
+11. CONFLICTS AND DUPLICATES
+
+Conflict A: Multiple onboarding/tutorial systems
+- Mission progression, overlay tutorial engine, and micro tutorial cards all exist with different progression semantics.
+
+Conflict B: Onboarding screen vs mission completion ownership
+- onboarding_screen sets incomplete and launches mission.
+- app_root completes onboarding later based on mission finished.
+- completion is not tied to onboarding screen final action.
+
+Conflict C: Overlay engine loaded but not truly started
+- TutorialHost + assets loaded globally.
+- No start(tutorialId) call observed, so overlay flow likely dormant.
+
+Conflict D: Tutorial asset target mismatch
+- home.json/tasks.json target IDs (goals.add_button, tasks.add_button, tasks.title_input) not found as registered TutorialTarget ids.
+
+Conflict E: Vocabulary drift
+- Smart Planner vs Smart Coach.
+- Action Hub vs Creator.
+- Soul Map semantics under Timeline labels.
+- Creator Workspace vs Goals terminology overlap.
+
+Conflict F: Mission requirements vs first-user workflow claim
+- Mission currently requires goal creation, coach query, timeline open.
+- It does not require task/action creation explicitly.
+- Timeline completion is screen visit, not schedule proof.
+
+Conflict G: Legacy onboarding system still in repo
+- lib/onboarding/* state machine appears unused and overlaps conceptually with feature onboarding.
+
+12. DELETE / KEEP / REDESIGN RECOMMENDATION
+
+KEEP:
+- lib/tutorial/mission/mission_state.dart
+- lib/tutorial/mission/mission_controller.dart
+- lib/tutorial/mission/mission_provider.dart
+- lib/tutorial/mission/mission_event_bridge.dart
+- lib/tutorial/mission/mission_repository.dart
+- lib/app/navigation_shell.dart (mission lock mechanism)
+- lib/app/router/app_router.dart (guard framework)
+- lib/tutorial/tutorial_progress_store.dart
+- lib/tutorial/tutorial_repository.dart
+
+DELETE:
+- lib/onboarding/controllers/onboarding_controller.dart (appears unused)
+- lib/onboarding/state/onboarding_state.dart (appears unused)
+- lib/tutorial/tutorial_reset_service.dart (appears unused wrapper) [or merge]
+
+MERGE:
+- Mission progression + onboarding completion keys/state + tutorial progress should converge to one authority.
+- Card tutorial and overlay tutorial should share explicit ownership/entry strategy.
+
+REDESIGN:
+- lib/features/onboarding/ui/onboarding_screen.dart (name/flow mismatch with true completion semantics)
+- lib/tutorial/tutorial_content.dart wording and sequence
+- assets/tutorials/home.json and assets/tutorials/tasks.json target IDs and step assumptions
+
+UNKNOWN (needs runtime verification):
+- Whether any hidden/tester controls call tutorialController.start() in non-audited debug tooling.
+- Whether tutorial reset/replay is exposed by remote flags or non-scanned UI paths.
+
+13. PROPOSED CLEAN ARCHITECTURE
+
+Primary system recommendation: Mission Zero as single mandatory onboarding authority.
+
+Target first-user workflow:
+1) Welcome to ChronoSpark
+2) Create first goal
+3) Create first task/action
+4) Schedule it on Timeline
+5) Review today's plan
+6) Unlock normal app
+7) Advanced tips later (Nexus/Flowmap/Trajectory/SI Console/Insights/Logs)
+
+Ownership proposal:
+- Mission Zero state: lib/tutorial/mission/mission_state.dart + mission_provider.dart
+- Mission Zero UI: onboarding launcher in onboarding_screen + mission overlay + locked navigation shell surfaces
+- Post-onboarding advanced tips: micro cards + optional overlay (separate from mandatory mission)
+- Overlays/highlights: tutorial_controller + tutorial_overlay + tutorial_target_registry (optional advanced mode)
+- Progress persistence:
+  - Mission progress: mission_tutorial_progress_v1
+  - Advanced tips: tutorial_progress_v1
+  - Onboarding completion key should be derived from mission completion state transitions (single write path)
+- Reset/replay:
+  - One explicit settings section with:
+    - Reset Mission Zero
+    - Replay onboarding
+    - Reset advanced tips
+
+14. RUNTIME TEST PLAN
+
+A. Fresh install
+1) Uninstall app and clear data.
+2) Launch app.
+3) Verify initial route lands on onboarding or mission launch flow.
+4) Verify onboarding status keys are initialized as incomplete.
+
+B. First login
+1) Complete auth flow from onboarding-incomplete state.
+2) Verify router allows required callback modes.
+3) Verify user lands in mission-locked surfaces (not fully unlocked app).
+
+C. Mission Zero progression
+1) Open Creator and verify Action Hub/open step behavior.
+2) Create first goal and verify mission advances.
+3) Open Smart Coach and submit a real question; verify mission advances.
+4) Open Timeline and verify mission completion step activates.
+5) Wait for completion banner auto-dismiss (or dismiss manually).
+6) Verify onboarding_complete flips to true and app unlocks.
+
+D. Tutorial card behavior
+1) In Creator, confirm MicroTutorialCard displays if step not completed/dismissed.
+2) Tap Not Now -> step dismissed.
+3) Tap Show Creator Tutorial Again -> step revealed.
+4) Tap CTA -> step completed.
+
+E. Overlay tutorial behavior
+1) Verify TutorialHost is mounted.
+2) Attempt to trigger overlay flow.
+3) Confirm whether any start() entry exists; if none, mark overlay flow as dormant.
+4) If manually triggered, verify target ids resolve.
+
+F. Reset/replay behavior
+1) Search app UI for replay/reset controls (settings and elsewhere).
+2) If no controls, verify APIs exist only code-side.
+
+G. Existing user behavior
+1) Launch with existing onboarding_state_v1 complete:true.
+2) Verify initial route bypasses onboarding to home.
+3) Ensure mission lock is not re-applied unless explicitly reset.
+
+H. Navigation wording checks
+1) Validate if Action Hub wording maps to Creator behavior.
+2) Validate Smart Coach vs Smart Planner naming consistency in visible UI.
+3) Validate Timeline completion criteria reflects true scheduling action or only open-screen proof.
+
+15. FINAL VERDICT
+
+FINAL VERDICT:
+- Current system count: 4 practical systems (mission onboarding, overlay tutorial engine, micro tutorial cards, legacy onboarding state machine).
+- Primary problem: overlapping onboarding/tutorial responsibilities with mismatched terminology and partially dormant overlay flow.
+- Root cause: onboarding completion, mission progression, and tutorial tips are persisted and triggered by separate mechanisms without one canonical orchestration owner.
+- Safest thing to delete: lib/onboarding/controllers/onboarding_controller.dart and lib/onboarding/state/onboarding_state.dart (unused legacy).
+- Safest thing to keep: mission progression core (lib/tutorial/mission/*) + navigation lock in lib/app/navigation_shell.dart.
+- First redesign target: lib/features/onboarding/ui/onboarding_screen.dart + content alignment in lib/tutorial/tutorial_content.dart.
+- Files to inspect before editing:
+  - lib/features/onboarding/ui/onboarding_screen.dart
+  - lib/app/app_root.dart
+  - lib/app/navigation_shell.dart
+  - lib/app/router/app_router.dart
+  - lib/tutorial/mission/mission_state.dart
+  - lib/tutorial/mission/mission_provider.dart
+  - lib/tutorial/tutorial_provider.dart
+  - lib/tutorial/tutorial_content.dart
+  - assets/tutorials/home.json
+  - assets/tutorials/tasks.json
+- Files that must not be touched without review:
+  - lib/app/router/app_router.dart (global redirect behavior)
+  - lib/app/startup/app_bootstrap.dart (startup onboarding resolution)
+  - lib/tutorial/mission/mission_repository.dart (progress persistence key)
+  - lib/state/core/app_providers.dart (shared onboarding keys/providers)
+  - lib/features/auth/screens/auth_gate.dart and auth controller paths (auth callback routing side effects)

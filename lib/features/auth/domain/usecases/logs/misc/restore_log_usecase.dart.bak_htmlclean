@@ -1,0 +1,3 @@
+﻿class RestoreLogUsecase {
+  const RestoreLogUsecase();
+}

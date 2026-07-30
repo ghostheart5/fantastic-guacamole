@@ -1,0 +1,3 @@
+﻿class ShareContentUsecase {
+  const ShareContentUsecase();
+}

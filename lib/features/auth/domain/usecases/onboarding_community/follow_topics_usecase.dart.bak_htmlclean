@@ -1,0 +1,3 @@
+﻿class FollowTopicsUsecase {
+  const FollowTopicsUsecase();
+}

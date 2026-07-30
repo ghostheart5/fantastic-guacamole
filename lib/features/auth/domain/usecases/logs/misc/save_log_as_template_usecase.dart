@@ -1,3 +1,3 @@
-﻿class SaveLogAsTemplateUsecase {
+class SaveLogAsTemplateUsecase {
   const SaveLogAsTemplateUsecase();
 }

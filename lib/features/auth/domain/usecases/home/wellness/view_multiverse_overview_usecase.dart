@@ -1,3 +1,3 @@
-﻿class ViewMultiverseOverviewUsecase {
+class ViewMultiverseOverviewUsecase {
   const ViewMultiverseOverviewUsecase();
 }

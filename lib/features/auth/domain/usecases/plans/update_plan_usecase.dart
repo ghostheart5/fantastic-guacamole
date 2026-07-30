@@ -1,3 +1,3 @@
-﻿class UpdatePlanUsecase {
+class UpdatePlanUsecase {
   const UpdatePlanUsecase();
 }

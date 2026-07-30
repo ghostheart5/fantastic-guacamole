@@ -1,3 +1,3 @@
-﻿class DetectOverwhelmRiskUsecase {
+class DetectOverwhelmRiskUsecase {
   const DetectOverwhelmRiskUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class PredictEmotionalRiskUsecase {
+  const PredictEmotionalRiskUsecase();
+}

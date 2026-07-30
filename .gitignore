@@ -87,6 +87,9 @@ bugreport-*
 
 # Secrets
 .env
+key.properties
+*.jks
+*.keystore
 
 ~$*.docx
 

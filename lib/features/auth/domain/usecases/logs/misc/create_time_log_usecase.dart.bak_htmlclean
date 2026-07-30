@@ -1,0 +1,3 @@
+﻿class CreateTimeLogUsecase {
+  const CreateTimeLogUsecase();
+}

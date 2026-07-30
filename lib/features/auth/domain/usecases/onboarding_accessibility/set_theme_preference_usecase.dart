@@ -1,3 +1,3 @@
-﻿class SetThemePreferenceUsecase {
+class SetThemePreferenceUsecase {
   const SetThemePreferenceUsecase();
 }

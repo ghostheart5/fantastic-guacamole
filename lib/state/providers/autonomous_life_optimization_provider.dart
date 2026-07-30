@@ -33,6 +33,6 @@ final autonomousLifeOptimizationProvider = Provider<LifeOptimizationState>((
     primaryAdjustment: restructure.title,
     reason: restructure.reason,
     nextDirective:
-        '${lifeOs.primaryAction} • ${focus.durationMinutes} minute focus block',
+        '${lifeOs.primaryAction} â€¢ ${focus.durationMinutes} minute focus block',
   );
 });

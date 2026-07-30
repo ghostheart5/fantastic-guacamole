@@ -1,3 +1,3 @@
-﻿class ArchivePostUsecase {
+class ArchivePostUsecase {
   const ArchivePostUsecase();
 }

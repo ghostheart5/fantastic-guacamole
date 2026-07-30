@@ -1,3 +1,3 @@
-﻿class ShareGoalUsecase {
+class ShareGoalUsecase {
   const ShareGoalUsecase();
 }

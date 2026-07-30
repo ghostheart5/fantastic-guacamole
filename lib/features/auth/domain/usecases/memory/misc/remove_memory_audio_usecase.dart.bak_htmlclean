@@ -1,0 +1,3 @@
+﻿class RemoveMemoryAudioUsecase {
+  const RemoveMemoryAudioUsecase();
+}

@@ -24,7 +24,7 @@ class WeeklyAdvisor {
       if (insight.issue.contains("don't start")) {
         parts.add('users are seeing next steps but not acting on them');
       } else if (insight.issue.contains('Low momentum')) {
-        parts.add('momentum chains are short — actions are not flowing');
+        parts.add('momentum chains are short â€” actions are not flowing');
       } else if (insight.issue.contains('not completed')) {
         parts.add('tasks are being started but not finished');
       }

@@ -1,0 +1,3 @@
+﻿class ContactSupportUsecase {
+  const ContactSupportUsecase();
+}

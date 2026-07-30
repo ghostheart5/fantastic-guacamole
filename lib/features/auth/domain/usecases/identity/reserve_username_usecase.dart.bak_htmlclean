@@ -1,0 +1,3 @@
+﻿class ReserveUsernameUsecase {
+  const ReserveUsernameUsecase();
+}

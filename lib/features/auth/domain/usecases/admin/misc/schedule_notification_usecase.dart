@@ -1,3 +1,3 @@
-﻿class ScheduleNotificationUsecase {
+class ScheduleNotificationUsecase {
   const ScheduleNotificationUsecase();
 }

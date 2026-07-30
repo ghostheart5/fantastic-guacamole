@@ -41,7 +41,7 @@ class _FeatureGateState extends State<FeatureGate> {
     return PremiumFeatureGate(
       featureName: widget.featureName,
       onGoToSettings: widget.onOpenPaywall,
-      subtitle: 'Open the paywall to manage access for this feature.',
+      subtitle: 'Open Billing Center to manage access for this feature.',
     );
   }
 }

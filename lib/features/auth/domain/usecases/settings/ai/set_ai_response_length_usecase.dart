@@ -1,3 +1,3 @@
-﻿class SetAiResponseLengthUsecase {
+class SetAiResponseLengthUsecase {
   const SetAiResponseLengthUsecase();
 }

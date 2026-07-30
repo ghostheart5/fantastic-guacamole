@@ -1,0 +1,3 @@
+﻿class TestNotificationUsecase {
+  const TestNotificationUsecase();
+}

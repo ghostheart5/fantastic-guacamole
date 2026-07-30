@@ -1,3 +1,3 @@
-﻿class UpdateAuthProfileUsecase {
+class UpdateAuthProfileUsecase {
   const UpdateAuthProfileUsecase();
 }

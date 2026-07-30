@@ -1,3 +1,3 @@
-﻿class VerifyEmailUsecase {
+class VerifyEmailUsecase {
   const VerifyEmailUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class CheckOnboardingStatusUsecase {
+class CheckOnboardingStatusUsecase {
   const CheckOnboardingStatusUsecase();
 }

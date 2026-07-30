@@ -1,3 +1,3 @@
-﻿class DeleteFocusTemplateUsecase {
+class DeleteFocusTemplateUsecase {
   const DeleteFocusTemplateUsecase();
 }

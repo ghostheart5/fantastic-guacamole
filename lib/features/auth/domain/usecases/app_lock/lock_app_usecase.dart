@@ -1,3 +1,3 @@
-﻿class LockAppUsecase {
+class LockAppUsecase {
   const LockAppUsecase();
 }

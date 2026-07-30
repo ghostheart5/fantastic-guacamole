@@ -1,0 +1,3 @@
+﻿class LinkOauthProviderUsecase {
+  const LinkOauthProviderUsecase();
+}

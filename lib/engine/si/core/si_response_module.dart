@@ -179,12 +179,12 @@ class SIResponseModule {
   ) {
     final String task = siClean(decision.task?.title);
     if (!decision.safe) {
-      return 'Let’s take a safer route. Pause, reset, and choose one small next step.';
+      return 'Letâ€™s take a safer route. Pause, reset, and choose one small next step.';
     }
     if (instinct.safetyFirst) {
       return task.isNotEmpty
-          ? 'Let’s slow this down. Focus on "$task" for one short block.'
-          : 'Let’s slow this down. Pick one small step, finish it, then reassess.';
+          ? 'Letâ€™s slow this down. Focus on "$task" for one short block.'
+          : 'Letâ€™s slow this down. Pick one small step, finish it, then reassess.';
     }
 
     switch (decision.action) {
@@ -218,9 +218,9 @@ class SIResponseModule {
     if (instinct.avoidOverwhelm) return '$message\n\nOne step only.';
     switch (signal.mood) {
       case 'confused':
-        return '$message\n\nI’ll keep it step-by-step.';
+        return '$message\n\nIâ€™ll keep it step-by-step.';
       case 'stressed':
-        return '$message\n\nNo pressure — just the next small move.';
+        return '$message\n\nNo pressure â€” just the next small move.';
       case 'excited':
         return '$message\n\nUse the momentum, but keep the scope clear.';
       default:

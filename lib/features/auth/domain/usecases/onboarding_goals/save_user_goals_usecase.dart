@@ -1,3 +1,3 @@
-﻿class SaveUserGoalsUsecase {
+class SaveUserGoalsUsecase {
   const SaveUserGoalsUsecase();
 }

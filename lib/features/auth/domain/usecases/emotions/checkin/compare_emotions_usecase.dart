@@ -1,3 +1,3 @@
-﻿class CompareEmotionsUsecase {
+class CompareEmotionsUsecase {
   const CompareEmotionsUsecase();
 }

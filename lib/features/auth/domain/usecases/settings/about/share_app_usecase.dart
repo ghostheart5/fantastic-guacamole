@@ -1,3 +1,3 @@
-﻿class ShareAppUsecase {
+class ShareAppUsecase {
   const ShareAppUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class ArchiveMemoryUsecase {
+  const ArchiveMemoryUsecase();
+}

@@ -1,0 +1,3 @@
+﻿class DetectLifePatternsUsecase {
+  const DetectLifePatternsUsecase();
+}

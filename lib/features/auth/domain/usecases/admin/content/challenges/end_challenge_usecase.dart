@@ -1,3 +1,3 @@
-﻿class EndChallengeUsecase {
+class EndChallengeUsecase {
   const EndChallengeUsecase();
 }

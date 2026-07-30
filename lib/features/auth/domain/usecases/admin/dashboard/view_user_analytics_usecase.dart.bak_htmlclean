@@ -1,0 +1,3 @@
+﻿class ViewUserAnalyticsUsecase {
+  const ViewUserAnalyticsUsecase();
+}

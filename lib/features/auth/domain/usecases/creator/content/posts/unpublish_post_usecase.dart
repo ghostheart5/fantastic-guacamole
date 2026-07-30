@@ -1,3 +1,3 @@
-﻿class UnpublishPostUsecase {
+class UnpublishPostUsecase {
   const UnpublishPostUsecase();
 }

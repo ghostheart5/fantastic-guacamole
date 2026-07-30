@@ -1,3 +1,3 @@
-﻿class RecordEmotionUsecase {
+class RecordEmotionUsecase {
   const RecordEmotionUsecase();
 }

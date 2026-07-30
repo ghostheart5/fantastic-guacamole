@@ -1,0 +1,3 @@
+﻿class ArchiveLogUsecase {
+  const ArchiveLogUsecase();
+}

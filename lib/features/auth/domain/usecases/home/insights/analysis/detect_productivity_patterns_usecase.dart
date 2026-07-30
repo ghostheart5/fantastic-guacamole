@@ -1,3 +1,3 @@
-﻿class DetectProductivityPatternsUsecase {
+class DetectProductivityPatternsUsecase {
   const DetectProductivityPatternsUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class PurchaseCreditPackUsecase {
+  const PurchaseCreditPackUsecase();
+}

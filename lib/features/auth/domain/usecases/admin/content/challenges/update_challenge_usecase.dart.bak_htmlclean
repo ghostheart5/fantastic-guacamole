@@ -1,0 +1,3 @@
+﻿class UpdateChallengeUsecase {
+  const UpdateChallengeUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class CalculateLifeWheelUsecase {
+class CalculateLifeWheelUsecase {
   const CalculateLifeWheelUsecase();
 }

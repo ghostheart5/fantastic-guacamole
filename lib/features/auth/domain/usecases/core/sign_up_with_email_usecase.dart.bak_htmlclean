@@ -1,0 +1,3 @@
+﻿class SignUpWithEmailUsecase {
+  const SignUpWithEmailUsecase();
+}

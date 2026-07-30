@@ -1,3 +1,3 @@
-﻿class ExportSettingsUsecase {
+class ExportSettingsUsecase {
   const ExportSettingsUsecase();
 }

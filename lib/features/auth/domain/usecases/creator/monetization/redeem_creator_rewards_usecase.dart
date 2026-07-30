@@ -1,3 +1,3 @@
-﻿class RedeemCreatorRewardsUsecase {
+class RedeemCreatorRewardsUsecase {
   const RedeemCreatorRewardsUsecase();
 }

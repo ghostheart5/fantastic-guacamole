@@ -1,3 +1,3 @@
-﻿class AnalyzeLogPatternsUsecase {
+class AnalyzeLogPatternsUsecase {
   const AnalyzeLogPatternsUsecase();
 }

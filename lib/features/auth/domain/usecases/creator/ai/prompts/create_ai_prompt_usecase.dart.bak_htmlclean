@@ -1,0 +1,3 @@
+﻿class CreateAiPromptUsecase {
+  const CreateAiPromptUsecase();
+}

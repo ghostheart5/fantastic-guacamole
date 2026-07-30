@@ -1,3 +1,3 @@
-﻿class ViewSecurityEventsUsecase {
+class ViewSecurityEventsUsecase {
   const ViewSecurityEventsUsecase();
 }

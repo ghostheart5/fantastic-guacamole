@@ -1,0 +1,3 @@
+﻿class ViewTaskUsecase {
+  const ViewTaskUsecase();
+}

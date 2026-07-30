@@ -1,0 +1,3 @@
+﻿class CreateFriendshipMemoryUsecase {
+  const CreateFriendshipMemoryUsecase();
+}

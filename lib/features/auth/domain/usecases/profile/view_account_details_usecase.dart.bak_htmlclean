@@ -1,0 +1,3 @@
+﻿class ViewAccountDetailsUsecase {
+  const ViewAccountDetailsUsecase();
+}

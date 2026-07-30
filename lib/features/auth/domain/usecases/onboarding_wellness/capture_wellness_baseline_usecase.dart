@@ -1,3 +1,3 @@
-﻿class CaptureWellnessBaselineUsecase {
+class CaptureWellnessBaselineUsecase {
   const CaptureWellnessBaselineUsecase();
 }

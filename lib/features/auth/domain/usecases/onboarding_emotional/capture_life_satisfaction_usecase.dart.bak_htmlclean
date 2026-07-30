@@ -1,0 +1,3 @@
+﻿class CaptureLifeSatisfactionUsecase {
+  const CaptureLifeSatisfactionUsecase();
+}

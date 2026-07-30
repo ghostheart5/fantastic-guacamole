@@ -1,3 +1,3 @@
-﻿class EditDailyPromptUsecase {
+class EditDailyPromptUsecase {
   const EditDailyPromptUsecase();
 }

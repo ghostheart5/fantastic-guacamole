@@ -1,3 +1,3 @@
-﻿class RefreshHomeDashboardUsecase {
+class RefreshHomeDashboardUsecase {
   const RefreshHomeDashboardUsecase();
 }

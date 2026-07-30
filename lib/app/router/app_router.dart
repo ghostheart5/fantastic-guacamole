@@ -48,6 +48,14 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
       profileCompleteGuardProvider,
       (_, _) => notifyListeners(),
     );
+    _ref.listen<bool>(
+      creatorFirstItemCreatedGuardProvider,
+      (_, _) => notifyListeners(),
+    );
+    _ref.listen<bool>(
+      timelineFirstActionCompletedGuardProvider,
+      (_, _) => notifyListeners(),
+    );
     _ref.listen(intelligenceStateProvider, (_, _) => notifyListeners());
     _ref.listen(mockLoginConfigProvider, (_, _) => notifyListeners());
   }
@@ -59,25 +67,38 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
   OnboardingStatus get onboardingStatus =>
       _ref.read(onboardingStatusGuardProvider);
   bool get hasValidProfile => _ref.read(profileCompleteGuardProvider);
+  bool get hasCreatedFirstItem => _ref.read(creatorFirstItemCreatedGuardProvider);
+  bool get hasCompletedTimelineFirstAction => _ref.read(
+    timelineFirstActionCompletedGuardProvider,
+  );
 }
 
 String _resolveInitialLocation({
   required bool isAuthenticated,
   required OnboardingStatus onboardingStatus,
   required bool hasValidProfile,
+  required bool hasCreatedFirstItem,
+  required bool hasCompletedTimelineFirstAction,
 }) {
   if (onboardingStatus == OnboardingStatus.unknown) {
     return RoutePaths.onboarding;
   }
   final bool onboardingComplete = onboardingStatus == OnboardingStatus.complete;
   if (!onboardingComplete) {
-    return RoutePaths.onboarding;
+    // Keep first-run users focused on creation before secondary surfaces.
+    return isAuthenticated ? RoutePaths.creator : RoutePaths.onboarding;
   }
   if (!isAuthenticated) {
     return RoutePaths.login;
   }
   if (!hasValidProfile) {
     return RoutePaths.onboarding;
+  }
+  if (!hasCreatedFirstItem) {
+    return RoutePaths.creator;
+  }
+  if (!hasCompletedTimelineFirstAction) {
+    return RoutePaths.timeline;
   }
   return RoutePaths.home;
 }
@@ -90,6 +111,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     isAuthenticated: refresh.isAuthenticated,
     onboardingStatus: refresh.onboardingStatus,
     hasValidProfile: refresh.hasValidProfile,
+    hasCreatedFirstItem: refresh.hasCreatedFirstItem,
+    hasCompletedTimelineFirstAction: refresh.hasCompletedTimelineFirstAction,
   );
 
   return GoRouter(
@@ -128,6 +151,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final bool onboardingComplete =
           onboardingStatus == OnboardingStatus.complete;
       final bool hasValidProfile = ref.read(profileCompleteGuardProvider);
+      final bool hasCreatedFirstItem = ref.read(
+        creatorFirstItemCreatedGuardProvider,
+      );
+      final bool hasCompletedTimelineFirstAction = ref.read(
+        timelineFirstActionCompletedGuardProvider,
+      );
       final bool mockLoginEnabled = ref
           .read(intelligenceStateProvider)
           .flags
@@ -146,6 +175,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           (loginMode == 'recovery' ||
               loginMode == 'verify-email' ||
               loginMode == 'auth-callback');
+      final bool allowMissionActivationSurface =
+          location == RoutePaths.home ||
+          location == RoutePaths.shell ||
+          location == RoutePaths.creator;
 
       final bool premiumOnlyLocation = location == RoutePaths.advisor;
       if (premiumOnlyLocation && !hasPremiumAccess) {
@@ -165,6 +198,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (allowLoginDuringOnboarding) {
           return null;
         }
+        if (isAuthenticated && allowMissionActivationSurface) {
+          return null;
+        }
         if (qaSkipOnboarding &&
             mockLoginEnabled &&
             location == RoutePaths.login) {
@@ -181,7 +217,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (location == RoutePaths.shell && isAuthenticated) {
-        return RoutePaths.home;
+        if (!hasCreatedFirstItem) {
+          return RoutePaths.creator;
+        }
+        return hasCompletedTimelineFirstAction
+            ? RoutePaths.home
+            : RoutePaths.timeline;
       }
 
       if (location == RoutePaths.onboarding) {
@@ -189,7 +230,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return null;
         }
         if (isAuthenticated) {
-          return RoutePaths.home;
+          if (!hasCreatedFirstItem) {
+            return RoutePaths.creator;
+          }
+          return hasCompletedTimelineFirstAction
+              ? RoutePaths.home
+              : RoutePaths.timeline;
         }
         return RoutePaths.login;
       }
@@ -207,7 +253,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (location == RoutePaths.login && isAuthenticated) {
-        return RoutePaths.home;
+        if (!hasCreatedFirstItem) {
+          return RoutePaths.creator;
+        }
+        return hasCompletedTimelineFirstAction
+            ? RoutePaths.home
+            : RoutePaths.timeline;
+      }
+
+      if (isAuthenticated && onboardingComplete && hasValidProfile) {
+        if (location == RoutePaths.home && !hasCreatedFirstItem) {
+          return RoutePaths.creator;
+        }
+        if (hasCreatedFirstItem &&
+            !hasCompletedTimelineFirstAction &&
+            location != RoutePaths.timeline) {
+          return RoutePaths.timeline;
+        }
       }
 
       return null;
@@ -261,7 +323,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.timeline,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.nexus),
+        const NavigationShell(initialView: AppView.timeline),
       ),
       GoRoute(
         path: RoutePaths.tasks,
@@ -296,7 +358,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         redirect: (_, _) => RoutePaths.home,
       ),
       GoRoute(
-        path: RoutePaths.timeline,
+        path: RoutePaths.legacyTimeline,
         redirect: (_, _) => RoutePaths.timeline,
       ),
       GoRoute(

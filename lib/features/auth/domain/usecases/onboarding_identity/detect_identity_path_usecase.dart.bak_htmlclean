@@ -1,0 +1,3 @@
+﻿class DetectIdentityPathUsecase {
+  const DetectIdentityPathUsecase();
+}

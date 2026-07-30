@@ -1,3 +1,3 @@
-﻿class ViewHabitStatisticsUsecase {
+class ViewHabitStatisticsUsecase {
   const ViewHabitStatisticsUsecase();
 }

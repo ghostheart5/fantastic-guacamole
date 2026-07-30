@@ -1,0 +1,3 @@
+﻿class ViewCreatorEarningsUsecase {
+  const ViewCreatorEarningsUsecase();
+}

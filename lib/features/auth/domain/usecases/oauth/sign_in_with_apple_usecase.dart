@@ -1,3 +1,3 @@
-﻿class SignInWithAppleUsecase {
+class SignInWithAppleUsecase {
   const SignInWithAppleUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class PublishCompanionUsecase {
+  const PublishCompanionUsecase();
+}

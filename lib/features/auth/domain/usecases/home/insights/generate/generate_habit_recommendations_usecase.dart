@@ -1,3 +1,3 @@
-﻿class GenerateHabitRecommendationsUsecase {
+class GenerateHabitRecommendationsUsecase {
   const GenerateHabitRecommendationsUsecase();
 }

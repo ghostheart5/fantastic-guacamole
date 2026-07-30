@@ -1,0 +1,3 @@
+﻿class SearchMemoriesUsecase {
+  const SearchMemoriesUsecase();
+}

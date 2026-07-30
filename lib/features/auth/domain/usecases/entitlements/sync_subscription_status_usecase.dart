@@ -1,3 +1,3 @@
-﻿class SyncSubscriptionStatusUsecase {
+class SyncSubscriptionStatusUsecase {
   const SyncSubscriptionStatusUsecase();
 }

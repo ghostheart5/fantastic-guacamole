@@ -1,3 +1,3 @@
-﻿class CompareLogsUsecase {
+class CompareLogsUsecase {
   const CompareLogsUsecase();
 }

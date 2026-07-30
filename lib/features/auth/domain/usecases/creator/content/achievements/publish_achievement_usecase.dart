@@ -1,3 +1,3 @@
-﻿class PublishAchievementUsecase {
+class PublishAchievementUsecase {
   const PublishAchievementUsecase();
 }

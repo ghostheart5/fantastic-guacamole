@@ -1,3 +1,3 @@
-﻿class ArchiveMemoryUsecase {
+class ArchiveMemoryUsecase {
   const ArchiveMemoryUsecase();
 }

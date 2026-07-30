@@ -1,0 +1,3 @@
+﻿class DisableHighContrastUsecase {
+  const DisableHighContrastUsecase();
+}

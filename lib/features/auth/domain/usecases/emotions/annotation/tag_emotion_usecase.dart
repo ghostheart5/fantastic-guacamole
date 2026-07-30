@@ -1,3 +1,3 @@
-﻿class TagEmotionUsecase {
+class TagEmotionUsecase {
   const TagEmotionUsecase();
 }

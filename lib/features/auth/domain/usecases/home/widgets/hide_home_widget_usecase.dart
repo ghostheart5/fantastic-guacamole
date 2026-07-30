@@ -1,3 +1,3 @@
-﻿class HideHomeWidgetUsecase {
+class HideHomeWidgetUsecase {
   const HideHomeWidgetUsecase();
 }

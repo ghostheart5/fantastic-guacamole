@@ -1,3 +1,3 @@
-﻿class GenerateEmotionInsightsUsecase {
+class GenerateEmotionInsightsUsecase {
   const GenerateEmotionInsightsUsecase();
 }

@@ -1,18 +1,8 @@
 import 'package:fantastic_guacamole/state/providers/goal_success_probability_provider.dart';
-import 'package:fantastic_guacamole/state/providers/predictive_risk_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memory_intelligence_provider.dart';
-import 'package:fantastic_guacamole/state/providers/cognitive_twin_provider.dart';
-import 'package:fantastic_guacamole/state/providers/life_os_provider.dart';
-import 'package:fantastic_guacamole/state/providers/memory_graph_provider.dart';
 import 'dart:async';
 import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_daily_planner_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_focus_scheduler_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_goal_restructure_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_life_optimization_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_mission_control_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_review_provider.dart';
-import 'package:fantastic_guacamole/state/providers/daily_command_briefing_provider.dart';
+import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/explainable_si_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_command_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_command_handoff_provider.dart';
@@ -26,8 +16,8 @@ import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
+import 'package:fantastic_guacamole/tutorial/mission/mission_event_bridge.dart';
+import 'package:fantastic_guacamole/tutorial/mission/mission_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -169,6 +159,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       _gettingCoaching = false;
     });
 
+    unawaited(
+      ref.read(missionEventBridgeProvider).reportSmartCoachQuestionAsked(),
+    );
+
     AppAnalytics.track(
       'smart_coach_response_rendered',
       params: <String, Object?>{'message_length': result.message.length},
@@ -225,6 +219,9 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
         _followUps.add(SmartCoachExchange(question: text, answer: reply));
         _sendingFollowUp = false;
       });
+      unawaited(
+        ref.read(missionEventBridgeProvider).reportSmartCoachQuestionAsked(),
+      );
       AppAnalytics.track(
         'smart_coach_followup_response_rendered',
         params: <String, Object?>{'reply_length': reply.length},
@@ -267,21 +264,16 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool missionTutorialEnabled = ref.watch(
+      missionTutorialEnabledProvider,
+    );
+    final executionSignals = ref.watch(executionSignalsProvider);
+    final int executionStabilityPercent =
+        (executionSignals.completionStability7d * 100).round();
     ref.watch(extendedDomainBootstrapProvider);
-    final briefing = ref.watch(dailyCommandBriefingProvider);
     final explainable = ref.watch(explainableSIProvider);
     final adaptiveReplans = ref.watch(adaptiveReplanningProvider);
     final memoryIntel = ref.watch(memoryIntelligenceProvider);
-    final twin = ref.watch(cognitiveTwinProvider);
-    final lifeOs = ref.watch(lifeOSProvider);
-    final memoryGraph = ref.watch(memoryGraphProvider);
-    final missionControl = ref.watch(autonomousMissionControlProvider);
-    final dailyPlan = ref.watch(autonomousDailyPlannerProvider);
-    final focusBlock = ref.watch(autonomousFocusSchedulerProvider);
-    final goalRestructure = ref.watch(autonomousGoalRestructureProvider);
-    final review = ref.watch(autonomousReviewProvider);
-    final optimization = ref.watch(autonomousLifeOptimizationProvider);
-    final predictiveRisk = ref.watch(predictiveRiskProvider);
     final goalForecast = ref.watch(goalSuccessProbabilityProvider);
     final AsyncValue<SmartCoachScreenModel> smartModelAsync = ref.watch(
       smartCoachScreenModelProvider,
@@ -330,6 +322,11 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                       nextAction: modelNextAction,
                       taskCount: suggestedTasks.length,
                       coachOnline: !siUnavailable,
+                      executionCompletedToday: executionSignals.completedToday,
+                      executionDeferralsToday:
+                          executionSignals.skippedToday +
+                          executionSignals.delayedToday,
+                      executionStabilityPercent: executionStabilityPercent,
                     ),
                     const SizedBox(height: 4),
                     const _DisclaimerText(),
@@ -401,28 +398,13 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    const _InsightCheatSheet(),
-                    const SizedBox(height: 10),
+                    if (!missionTutorialEnabled) ...[
+                      const _InsightCheatSheet(),
+                      const SizedBox(height: 10),
+                    ],
                     _AdaptiveReplanningPanel(scenarios: adaptiveReplans),
                     const SizedBox(height: 10),
                     _MemoryPatternsPanel(memoryIntel: memoryIntel),
-                    const SizedBox(height: 10),
-                    _RiskForecastPanel(riskState: predictiveRisk),
-                    const SizedBox(height: 10),
-                    _CognitiveTwinPanel(twin: twin),
-                    const SizedBox(height: 10),
-                    _LifeOSPanel(lifeOs: lifeOs),
-                    const SizedBox(height: 10),
-                    _AutonomousExecutionBrief(
-                      missionControl: missionControl,
-                      dailyPlan: dailyPlan,
-                      focusBlock: focusBlock,
-                      goalRestructure: goalRestructure,
-                      review: review,
-                      optimization: optimization,
-                    ),
-                    const SizedBox(height: 10),
-                    _MemoryGraphPanel(memoryGraph: memoryGraph),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -438,22 +420,12 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    TutorialTarget(
-                      id: 'home.start_focus_button',
-                      child: HoloButton(
-                        label: _gettingCoaching
-                            ? 'THINKING...'
-                            : (_saved ? 'REFRESH INSIGHT' : 'GET INSIGHT'),
-                        color: AppColors.neonCyan,
-                        onTap: _gettingCoaching
-                            ? () {}
-                            : () {
-                                ref
-                                    .read(tutorialControllerProvider)
-                                    .reportEvent('tap:home.start_focus_button');
-                                _getCoaching();
-                              },
-                      ),
+                    HoloButton(
+                      label: _gettingCoaching
+                          ? 'THINKING...'
+                          : (_saved ? 'REFRESH INSIGHT' : 'GET INSIGHT'),
+                      color: AppColors.neonCyan,
+                      onTap: _gettingCoaching ? () {} : _getCoaching,
                     ),
                     if (hasCoachMessage) ...[
                       const SizedBox(height: 16),
@@ -550,12 +522,6 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                                     children: [
                                       _VoiceButton(
                                         message: effectiveCoachMessage,
-                                      ),
-                                      _VoiceSummaryButton(
-                                        headline: effectiveCoachMessage,
-                                        energy: _energy,
-                                        emotion: _emotion,
-                                        briefing: briefing,
                                       ),
                                       const _VoiceAccessibilityButton(),
                                       const _MicButton(),
@@ -754,127 +720,6 @@ class _AdaptiveReplanningPanel extends StatelessWidget {
                   ),
                 ),
               ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AutonomousExecutionBrief extends StatelessWidget {
-  const _AutonomousExecutionBrief({
-    required this.missionControl,
-    required this.dailyPlan,
-    required this.focusBlock,
-    required this.goalRestructure,
-    required this.review,
-    required this.optimization,
-  });
-
-  final MissionControlState missionControl;
-  final AutonomousDailyPlan dailyPlan;
-  final AutonomousFocusBlock focusBlock;
-  final GoalRestructureRecommendation goalRestructure;
-  final AutonomousReviewState review;
-  final LifeOptimizationState optimization;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xEE07111F),
-            AppColors.neonCyan.withValues(alpha: 0.10),
-            AppColors.memoryAmber.withValues(alpha: 0.07),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonCyan.withValues(alpha: 0.08),
-            blurRadius: 16,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'AUTONOMOUS EXECUTION BRIEF',
-            style: TextStyle(
-              color: AppColors.neonCyan,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            missionControl.status,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Do now: ${missionControl.primaryAction}',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              height: 1.4,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Today Focus: ${dailyPlan.focus}',
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Focus: ${focusBlock.title} • ${focusBlock.durationMinutes} min',
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Goal adjustment: ${goalRestructure.title}',
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Review ${review.score}% • ${review.tomorrowAdjustment}',
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Optimization ${optimization.optimizationScore}% • ${optimization.nextDirective}',
-            style: const TextStyle(
-              color: Colors.white38,
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
         ],
       ),
     );
@@ -1128,67 +973,6 @@ class _VoiceButton extends ConsumerWidget {
               'SPEAK',
               style: TextStyle(
                 color: AppColors.memoryAmber,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _VoiceSummaryButton extends ConsumerWidget {
-  const _VoiceSummaryButton({
-    required this.headline,
-    required this.energy,
-    required this.emotion,
-    required this.briefing,
-  });
-
-  final String headline;
-  final double energy;
-  final EmotionalState emotion;
-  final DailyCommandBriefing briefing;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onTap: () => unawaited(
-        ref
-            .read(voiceServiceProvider)
-            .speakSummary(
-              title: 'Daily command briefing',
-              points: <String>[
-                'Focus: ${briefing.focus}',
-                'Momentum: ${briefing.momentum}',
-                'Energy: ${briefing.energy}',
-                'Recovery: ${briefing.recovery}',
-                'Warning: ${briefing.warning}',
-                'Coach action: ${briefing.coachAction}',
-                'Current emotion state is ${emotion.name}',
-                headline,
-              ],
-            ),
-      ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.neonCyan.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.45)),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.summarize_rounded, color: AppColors.neonCyan, size: 15),
-            SizedBox(width: 6),
-            Text(
-              'BRIEFING',
-              style: TextStyle(
-                color: AppColors.neonCyan,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,
@@ -1542,245 +1326,3 @@ class _MemoryPatternsPanel extends StatelessWidget {
   }
 }
 
-class _RiskForecastPanel extends StatelessWidget {
-  const _RiskForecastPanel({required this.riskState});
-
-  final PredictiveRiskState riskState;
-
-  @override
-  Widget build(BuildContext context) {
-    final topRisk = riskState.risks.first;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('RISK FORECAST'),
-          const SizedBox(height: 8),
-          Text(topRisk.title),
-          const SizedBox(height: 4),
-          Text(topRisk.summary),
-          const SizedBox(height: 4),
-          Text('Mitigation: ${topRisk.mitigation}'),
-        ],
-      ),
-    );
-  }
-}
-
-class _CognitiveTwinPanel extends StatelessWidget {
-  const _CognitiveTwinPanel({required this.twin});
-
-  final CognitiveTwinState twin;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xEE07111F),
-            AppColors.neonViolet.withValues(alpha: 0.10),
-            AppColors.neonCyan.withValues(alpha: 0.06),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.28)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonViolet.withValues(alpha: 0.08),
-            blurRadius: 16,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'COGNITIVE TWIN',
-            style: TextStyle(
-              color: AppColors.neonViolet,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            twin.identityStatement,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Best action: ${twin.bestAction}',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              height: 1.4,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            twin.warning,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LifeOSPanel extends StatelessWidget {
-  const _LifeOSPanel({required this.lifeOs});
-
-  final LifeOSState lifeOs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xEE07111F),
-            AppColors.memoryAmber.withValues(alpha: 0.10),
-            AppColors.neonCyan.withValues(alpha: 0.06),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.memoryAmber.withValues(alpha: 0.28),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.memoryAmber.withValues(alpha: 0.08),
-            blurRadius: 16,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'LIFE OS',
-            style: TextStyle(
-              color: AppColors.memoryAmber,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            lifeOs.mission,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Primary action: ${lifeOs.primaryAction}',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Identity stage: ${lifeOs.identityStage}',
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MemoryGraphPanel extends StatelessWidget {
-  const _MemoryGraphPanel({required this.memoryGraph});
-
-  final MemoryGraphState memoryGraph;
-
-  @override
-  Widget build(BuildContext context) {
-    if (memoryGraph.nodes.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xEE07111F),
-            AppColors.neonViolet.withValues(alpha: 0.10),
-            AppColors.memoryAmber.withValues(alpha: 0.06),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.28)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonViolet.withValues(alpha: 0.08),
-            blurRadius: 16,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'MEMORY GRAPH',
-            style: TextStyle(
-              color: AppColors.neonViolet,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...memoryGraph.nodes
-              .take(4)
-              .map(
-                (node) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    '${node.type.toUpperCase()}: ${node.title} → ${node.connection}',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-              ),
-        ],
-      ),
-    );
-  }
-}

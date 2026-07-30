@@ -1,0 +1,3 @@
+﻿class CreateChallengeUsecase {
+  const CreateChallengeUsecase();
+}

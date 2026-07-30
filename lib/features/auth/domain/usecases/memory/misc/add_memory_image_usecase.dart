@@ -1,3 +1,3 @@
-﻿class AddMemoryImageUsecase {
+class AddMemoryImageUsecase {
   const AddMemoryImageUsecase();
 }

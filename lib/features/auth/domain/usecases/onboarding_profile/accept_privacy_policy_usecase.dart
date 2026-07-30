@@ -1,3 +1,3 @@
-﻿class AcceptPrivacyPolicyUsecase {
+class AcceptPrivacyPolicyUsecase {
   const AcceptPrivacyPolicyUsecase();
 }

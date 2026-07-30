@@ -1,3 +1,3 @@
-﻿class AddMemoryTagUsecase {
+class AddMemoryTagUsecase {
   const AddMemoryTagUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class ViewJournalStatisticsUsecase {
+class ViewJournalStatisticsUsecase {
   const ViewJournalStatisticsUsecase();
 }

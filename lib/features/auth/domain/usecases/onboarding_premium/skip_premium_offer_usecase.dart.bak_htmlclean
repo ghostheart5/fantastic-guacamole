@@ -1,0 +1,3 @@
+﻿class SkipPremiumOfferUsecase {
+  const SkipPremiumOfferUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class ContinueAsGuestUsecase {
+class ContinueAsGuestUsecase {
   const ContinueAsGuestUsecase();
 }

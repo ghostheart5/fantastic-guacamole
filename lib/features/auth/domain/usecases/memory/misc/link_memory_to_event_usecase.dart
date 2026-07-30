@@ -1,3 +1,3 @@
-﻿class LinkMemoryToEventUsecase {
+class LinkMemoryToEventUsecase {
   const LinkMemoryToEventUsecase();
 }

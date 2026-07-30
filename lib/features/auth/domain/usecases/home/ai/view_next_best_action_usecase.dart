@@ -1,3 +1,3 @@
-﻿class ViewNextBestActionUsecase {
+class ViewNextBestActionUsecase {
   const ViewNextBestActionUsecase();
 }

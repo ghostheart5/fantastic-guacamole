@@ -1,0 +1,3 @@
+﻿class AssessSpiritualLifeUsecase {
+  const AssessSpiritualLifeUsecase();
+}

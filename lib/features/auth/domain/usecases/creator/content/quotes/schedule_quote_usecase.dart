@@ -1,3 +1,3 @@
-﻿class ScheduleQuoteUsecase {
+class ScheduleQuoteUsecase {
   const ScheduleQuoteUsecase();
 }

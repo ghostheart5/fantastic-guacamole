@@ -1,0 +1,3 @@
+﻿class ImportMoodHistoryUsecase {
+  const ImportMoodHistoryUsecase();
+}

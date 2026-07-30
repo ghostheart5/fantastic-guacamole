@@ -54,7 +54,7 @@ class SIPolicyEngine {
       allowed: !blocked,
       flags: List<String>.unmodifiable(flags),
       adjustedText: blocked
-          ? 'Let’s take a safer route. Choose one small next step.'
+          ? 'Letâ€™s take a safer route. Choose one small next step.'
           : _soften(text, max),
       maxOutputChars: max,
     );

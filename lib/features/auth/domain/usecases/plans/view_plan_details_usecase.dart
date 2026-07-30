@@ -1,3 +1,3 @@
-﻿class ViewPlanDetailsUsecase {
+class ViewPlanDetailsUsecase {
   const ViewPlanDetailsUsecase();
 }

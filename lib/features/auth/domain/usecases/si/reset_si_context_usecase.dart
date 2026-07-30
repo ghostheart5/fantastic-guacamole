@@ -1,3 +1,3 @@
-﻿class ResetSiContextUsecase {
+class ResetSiContextUsecase {
   const ResetSiContextUsecase();
 }

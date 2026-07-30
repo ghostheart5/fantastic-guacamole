@@ -1,3 +1,3 @@
-﻿class RemoveImageFromLogUsecase {
+class RemoveImageFromLogUsecase {
   const RemoveImageFromLogUsecase();
 }

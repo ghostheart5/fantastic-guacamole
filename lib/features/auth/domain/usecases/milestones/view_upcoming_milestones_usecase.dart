@@ -1,3 +1,3 @@
-﻿class ViewUpcomingMilestonesUsecase {
+class ViewUpcomingMilestonesUsecase {
   const ViewUpcomingMilestonesUsecase();
 }

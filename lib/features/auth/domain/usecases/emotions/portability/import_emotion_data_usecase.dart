@@ -1,3 +1,3 @@
-﻿class ImportEmotionDataUsecase {
+class ImportEmotionDataUsecase {
   const ImportEmotionDataUsecase();
 }

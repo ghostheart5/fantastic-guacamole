@@ -1,3 +1,3 @@
-﻿class GetOnboardingProgressUsecase {
+class GetOnboardingProgressUsecase {
   const GetOnboardingProgressUsecase();
 }

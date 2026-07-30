@@ -1,3 +1,3 @@
-﻿class UnpinMemoryUsecase {
+class UnpinMemoryUsecase {
   const UnpinMemoryUsecase();
 }

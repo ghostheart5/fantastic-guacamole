@@ -94,7 +94,7 @@ class SIPresenceEngine {
       case PresenceMode.quiet:
         return _truncate('$clean\n\nOne small step is enough.', 220);
       case PresenceMode.steady:
-        return _truncate('$clean\n\nI’ll keep this clear.', 280);
+        return _truncate('$clean\n\nIâ€™ll keep this clear.', 280);
       case PresenceMode.active:
         return _truncate(clean, 360);
       case PresenceMode.directive:

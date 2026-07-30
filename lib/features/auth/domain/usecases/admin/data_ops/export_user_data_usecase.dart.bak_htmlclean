@@ -1,0 +1,3 @@
+﻿class ExportUserDataUsecase {
+  const ExportUserDataUsecase();
+}

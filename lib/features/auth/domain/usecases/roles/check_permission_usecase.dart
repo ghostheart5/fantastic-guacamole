@@ -1,3 +1,3 @@
-﻿class CheckPermissionUsecase {
+class CheckPermissionUsecase {
   const CheckPermissionUsecase();
 }

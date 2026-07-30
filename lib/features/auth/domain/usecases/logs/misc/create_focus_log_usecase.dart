@@ -1,3 +1,3 @@
-﻿class CreateFocusLogUsecase {
+class CreateFocusLogUsecase {
   const CreateFocusLogUsecase();
 }

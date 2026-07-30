@@ -1,0 +1,3 @@
+﻿class ViewAiModelsUsecase {
+  const ViewAiModelsUsecase();
+}

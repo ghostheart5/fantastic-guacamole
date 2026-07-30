@@ -1,3 +1,3 @@
-﻿class CompareTimePeriodMemoriesUsecase {
+class CompareTimePeriodMemoriesUsecase {
   const CompareTimePeriodMemoriesUsecase();
 }

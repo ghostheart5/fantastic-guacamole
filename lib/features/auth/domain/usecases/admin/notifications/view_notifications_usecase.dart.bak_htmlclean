@@ -1,0 +1,3 @@
+﻿class ViewNotificationsUsecase {
+  const ViewNotificationsUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class ViewQuotesUsecase {
+class ViewQuotesUsecase {
   const ViewQuotesUsecase();
 }

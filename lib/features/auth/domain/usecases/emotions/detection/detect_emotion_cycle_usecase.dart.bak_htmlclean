@@ -1,0 +1,3 @@
+﻿class DetectEmotionCycleUsecase {
+  const DetectEmotionCycleUsecase();
+}

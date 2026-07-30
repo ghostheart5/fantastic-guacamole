@@ -1,3 +1,3 @@
-﻿class VerifyAppLockPinUsecase {
+class VerifyAppLockPinUsecase {
   const VerifyAppLockPinUsecase();
 }

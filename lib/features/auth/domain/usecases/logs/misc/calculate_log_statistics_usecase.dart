@@ -1,3 +1,3 @@
-﻿class CalculateLogStatisticsUsecase {
+class CalculateLogStatisticsUsecase {
   const CalculateLogStatisticsUsecase();
 }

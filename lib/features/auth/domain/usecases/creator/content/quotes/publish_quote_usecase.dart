@@ -1,3 +1,3 @@
-﻿class PublishQuoteUsecase {
+class PublishQuoteUsecase {
   const PublishQuoteUsecase();
 }

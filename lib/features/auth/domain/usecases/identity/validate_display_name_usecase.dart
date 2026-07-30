@@ -1,3 +1,3 @@
-﻿class ValidateDisplayNameUsecase {
+class ValidateDisplayNameUsecase {
   const ValidateDisplayNameUsecase();
 }

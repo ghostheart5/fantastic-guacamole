@@ -1,0 +1,3 @@
+﻿class IsAdminUsecase {
+  const IsAdminUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class RefreshLogsUsecase {
+class RefreshLogsUsecase {
   const RefreshLogsUsecase();
 }

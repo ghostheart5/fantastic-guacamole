@@ -1,0 +1,3 @@
+﻿class SearchTasksUsecase {
+  const SearchTasksUsecase();
+}

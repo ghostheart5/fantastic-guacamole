@@ -1,3 +1,3 @@
-﻿class ViewGoalProgressUsecase {
+class ViewGoalProgressUsecase {
   const ViewGoalProgressUsecase();
 }

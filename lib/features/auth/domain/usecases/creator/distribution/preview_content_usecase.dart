@@ -1,3 +1,3 @@
-﻿class PreviewContentUsecase {
+class PreviewContentUsecase {
   const PreviewContentUsecase();
 }

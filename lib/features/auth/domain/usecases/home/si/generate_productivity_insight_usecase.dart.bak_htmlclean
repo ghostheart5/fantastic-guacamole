@@ -1,0 +1,3 @@
+﻿class GenerateProductivityInsightUsecase {
+  const GenerateProductivityInsightUsecase();
+}

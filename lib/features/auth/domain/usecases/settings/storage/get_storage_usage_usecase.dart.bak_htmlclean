@@ -1,0 +1,3 @@
+﻿class GetStorageUsageUsecase {
+  const GetStorageUsageUsecase();
+}

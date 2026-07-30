@@ -1,3 +1,3 @@
-﻿class GenerateJournalInsightUsecase {
+class GenerateJournalInsightUsecase {
   const GenerateJournalInsightUsecase();
 }

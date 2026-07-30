@@ -19,7 +19,7 @@ class StorageMigration {
     final Object? rawVersion = box.get(StorageKeys.storageVersion);
     final int currentVersion = _safeVersion(rawVersion);
 
-    Logger.log('StorageMigration', 'Current version → $currentVersion');
+    Logger.log('StorageMigration', 'Current version â†’ $currentVersion');
 
     if (currentVersion > latestVersion) {
       Logger.warn(

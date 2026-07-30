@@ -1,0 +1,3 @@
+﻿class ViewPersonalGrowthSummaryUsecase {
+  const ViewPersonalGrowthSummaryUsecase();
+}

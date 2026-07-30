@@ -1,0 +1,3 @@
+﻿class RequestDataDeletionUsecase {
+  const RequestDataDeletionUsecase();
+}

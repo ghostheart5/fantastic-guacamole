@@ -1,0 +1,3 @@
+﻿class UnlinkMemoryFromGoalUsecase {
+  const UnlinkMemoryFromGoalUsecase();
+}

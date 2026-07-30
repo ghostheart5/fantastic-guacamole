@@ -1,3 +1,3 @@
-﻿class GetRecommendedFocusSessionForEmotionUsecase {
+class GetRecommendedFocusSessionForEmotionUsecase {
   const GetRecommendedFocusSessionForEmotionUsecase();
 }

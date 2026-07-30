@@ -1,0 +1,3 @@
+﻿class LeaveCommunityUsecase {
+  const LeaveCommunityUsecase();
+}

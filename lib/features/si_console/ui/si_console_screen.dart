@@ -19,15 +19,14 @@ import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
-import 'package:fantastic_guacamole/state/providers/daily_command_briefing_provider.dart';
 import 'package:fantastic_guacamole/state/providers/explainable_si_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
+import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_simulation_provider.dart';
 import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
-import 'package:fantastic_guacamole/state/providers/intelligence_fusion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/cognitive_twin_provider.dart';
 import 'package:fantastic_guacamole/state/providers/future_self_simulator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/identity_drift_provider.dart';
@@ -35,9 +34,6 @@ import 'package:fantastic_guacamole/state/providers/future_decision_engine_provi
 import 'package:fantastic_guacamole/state/providers/future_timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/alternative_life_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/identity_evolution_provider.dart';
-import 'package:fantastic_guacamole/state/providers/life_os_provider.dart';
-import 'package:fantastic_guacamole/state/providers/memory_graph_provider.dart';
-import 'package:fantastic_guacamole/state/providers/autonomous_mission_control_provider.dart';
 import 'package:fantastic_guacamole/state/providers/autonomous_weekly_planner_provider.dart';
 import 'package:fantastic_guacamole/state/providers/autonomous_daily_planner_provider.dart';
 import 'package:fantastic_guacamole/state/providers/autonomous_focus_scheduler_provider.dart';
@@ -281,15 +277,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- /plan: summarize schedule and next blocks\n'
                 '- /timeline: summarize recent milestones/events\n'
                 '- /trajectory: summarize momentum, pressure, and prediction\n'
-                '- /momentum: show unified momentum score, trend, recovery, and forecast\n'
-                '- /briefing: show today\'s command briefing, warning, recovery, and coach action\n\n'
+                '- /momentum: show unified momentum score, trend, recovery, and forecast\n\n'
                 '- /timelinefuture: show the projected future timeline\n'
-                '- /lifeos: show the complete Life OS state\n'
-                '- /memorygraph: show connected memory patterns\n'
                 '- /paths: show alternative future paths\n'
                 '- /evolution: show identity evolution state\n'
                 '- /roadmap: show future checkpoints\n\n'
-                '- /mission: show autonomous mission control status\n'
                 '- /weekly: show autonomous weekly directives\n'
                 '- /daily: show autonomous daily directives\n'
                 '- /focus: show autonomous focus block recommendation\n'
@@ -311,34 +303,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           ),
         );
       });
-      _scrollToBottom();
-      return true;
-    }
-
-    if (normalized == '/mission' ||
-        normalized == 'mission' ||
-        normalized == '/autonomy' ||
-        normalized == 'autonomy' ||
-        normalized == '/autonomous' ||
-        normalized == 'autonomous') {
-      final mission = ref.read(autonomousMissionControlProvider);
-
-      final String response =
-          'AUTONOMOUS MISSION CONTROL\n\n'
-          'Status: ${mission.status}\n\n'
-          'Primary Action:\n${mission.primaryAction}\n\n'
-          'Primary Risk:\n${mission.primaryRisk}\n\n'
-          'Primary Opportunity:\n${mission.primaryOpportunity}\n\n'
-          'Today Focus:\n${mission.todayFocus}\n\n'
-          'Tomorrow Adjustment:\n${mission.tomorrowAdjustment}';
-
-      _safeSetState(() {
-        _messages.add(SIConsoleMessage(text: text, isUser: true));
-        _messages.add(
-          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
-        );
-      });
-
       _scrollToBottom();
       return true;
     }
@@ -677,37 +641,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       return true;
     }
 
-    if (normalized == '/memorygraph' ||
-        normalized == 'memorygraph' ||
-        normalized == '/memory graph' ||
-        normalized == 'memory graph') {
-      final memoryGraph = ref.read(memoryGraphProvider);
-
-      final String nodes = memoryGraph.nodes.isEmpty
-          ? 'No memory graph nodes available.'
-          : memoryGraph.nodes
-                .map(
-                  (node) =>
-                      '- ${node.type.toUpperCase()}: ${node.title}\n'
-                      '  Connection: ${node.connection}',
-                )
-                .join('\n\n');
-
-      final String response =
-          'MEMORY GRAPH STATE\n\n'
-          '$nodes\n\n'
-          'Prompt: "what pattern matters most?"';
-
-      _safeSetState(() {
-        _messages.add(SIConsoleMessage(text: text, isUser: true));
-        _messages.add(
-          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
-        );
-      });
-
-      _scrollToBottom();
-      return true;
-    }
     if (normalized == '/paths' ||
         normalized == 'paths' ||
         normalized == '/lifepaths' ||
@@ -744,30 +677,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           'Trait: ${evolution.trait}\n\n'
           '${evolution.summary}\n\n'
           'Next Evolution:\n${evolution.nextEvolution}';
-
-      _safeSetState(() {
-        _messages.add(SIConsoleMessage(text: text, isUser: true));
-        _messages.add(
-          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
-        );
-      });
-
-      _scrollToBottom();
-      return true;
-    }
-    if (normalized == '/lifeos' ||
-        normalized == 'lifeos' ||
-        normalized == '/life os' ||
-        normalized == 'life os') {
-      final lifeOs = ref.read(lifeOSProvider);
-
-      final response =
-          'LIFE OS STATE\n\n'
-          'Mission:\n${lifeOs.mission}\n\n'
-          'Current Mode:\n${lifeOs.currentMode}\n\n'
-          'Primary Action:\n${lifeOs.primaryAction}\n\n'
-          'Next Milestone:\n${lifeOs.nextMilestone}\n\n'
-          'Identity Stage:\n${lifeOs.identityStage}';
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -859,23 +768,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       _scrollToBottom();
       return true;
     }
-    if (normalized == '/fusion' ||
-        normalized == 'fusion' ||
-        normalized == '/operator brain' ||
-        normalized == 'operator brain') {
-      final fusion = ref.read(intelligenceFusionProvider);
+    if (normalized == '/fusion' || normalized == 'fusion') {
+      final explainable = ref.read(explainableSIProvider);
 
-      final response =
-          'INTELLIGENCE FUSION\n\n'
-          'Operating Mode:\n${fusion.operatingMode}\n\n'
-          'Next Action:\n${fusion.nextAction}\n\n'
-          'Rationale:\n${fusion.rationale}\n\n'
-          'Primary Threat:\n${fusion.primaryThreat}\n\n'
-          'Primary Opportunity:\n${fusion.primaryOpportunity}\n\n'
-          'Success Forecast:\n${fusion.successForecast}\n\n'
-          'Drift Status:\n${fusion.driftStatus}\n\n'
-          'Memory Lesson:\n${fusion.memoryLesson}\n\n'
-          'Adaptive Replan:\n${fusion.replanMove}';
+      final String response =
+          'STRATEGIC FUSION SUMMARY\n\n'
+          'Primary reason:\n${explainable.primaryReason}\n\n'
+          'Recommendation:\n${explainable.recommendation}';
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -923,29 +822,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       _scrollToBottom();
       return true;
     }
-    if (normalized == '/briefing' || normalized == 'briefing') {
-      final briefing = ref.read(dailyCommandBriefingProvider);
-      final String response =
-          'DAILY COMMAND BRIEFING\n\n'
-          'Focus:\n${briefing.focus}\n\n'
-          'Momentum:\n${briefing.momentum}\n\n'
-          'Trajectory:\n${briefing.trajectory}\n\n'
-          'Energy:\n${briefing.energy}\n\n'
-          'Warning:\n${briefing.warning}\n\n'
-          'Recovery:\n${briefing.recovery}\n\n'
-          'Coach Action:\n${briefing.coachAction}\n\n'
-          'Prompt: "explain the briefing and give me the next move"';
-
-      _safeSetState(() {
-        _messages.add(SIConsoleMessage(text: text, isUser: true));
-        _messages.add(
-          SIConsoleMessage(text: response, isUser: false, emotion: 'focused'),
-        );
-      });
-      _scrollToBottom();
-      return true;
-    }
-
     if (normalized == '/momentum' || normalized == 'momentum') {
       final momentum = ref.read(momentumEngineProvider);
       final String response =
@@ -1239,6 +1115,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   Widget build(BuildContext context) {
     ref.watch(extendedDomainBootstrapProvider);
     final int seededQueryCount = ref.watch(siQueriesProvider).length;
+    final executionSignals = ref.watch(executionSignalsProvider);
+    final int executionStabilityPercent =
+      (executionSignals.completionStability7d * 100).round();
     final consoleModelAsync = ref.watch(siConsoleScreenModelProvider);
     final SIConsoleScreenModel? consoleModel = consoleModelAsync.asData?.value;
     final Object? consoleError = consoleModelAsync.asError?.error;
@@ -1291,6 +1170,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   onSpeakAccessibility: () {
                     unawaited(_showAccessibilityGuide());
                   },
+                  executionCompletedToday: executionSignals.completedToday,
+                  executionDeferralsToday:
+                      executionSignals.skippedToday +
+                      executionSignals.delayedToday,
+                  executionStabilityPercent: executionStabilityPercent,
                 ),
                 Expanded(
                   child: Stack(
@@ -1363,12 +1247,18 @@ class _Header extends StatelessWidget {
     required this.seededQueryCount,
     required this.onSpeakSummary,
     required this.onSpeakAccessibility,
+    required this.executionCompletedToday,
+    required this.executionDeferralsToday,
+    required this.executionStabilityPercent,
     this.engineSnapshot,
   });
   final VoidCallback onBack;
   final int seededQueryCount;
   final VoidCallback onSpeakSummary;
   final VoidCallback onSpeakAccessibility;
+  final int executionCompletedToday;
+  final int executionDeferralsToday;
+  final int executionStabilityPercent;
   final String? engineSnapshot;
 
   @override
@@ -1448,6 +1338,28 @@ class _Header extends StatelessWidget {
           Wrap(
             spacing: 6,
             runSpacing: 6,
+            children: <Widget>[
+              _ExecutionPill(
+                label: 'DONE',
+                value: '$executionCompletedToday',
+                color: const Color(0xFF7AF7C4),
+              ),
+              _ExecutionPill(
+                label: 'DEFERS',
+                value: '$executionDeferralsToday',
+                color: const Color(0xFFFFB86B),
+              ),
+              _ExecutionPill(
+                label: 'STABILITY',
+                value: '$executionStabilityPercent%',
+                color: AppColors.neonViolet,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
             children: [
               GestureDetector(
                 onTap: onSpeakSummary,
@@ -1522,6 +1434,39 @@ class _Header extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ExecutionPill extends StatelessWidget {
+  const _ExecutionPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        '$label $value',
+        style: TextStyle(
+          color: color,
+          fontSize: 8,
+          letterSpacing: 0.8,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

@@ -1,3 +1,3 @@
-﻿class CreateCourseUsecase {
+class CreateCourseUsecase {
   const CreateCourseUsecase();
 }

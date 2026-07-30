@@ -1,3 +1,3 @@
-﻿class GenerateAiCoachMessageUsecase {
+class GenerateAiCoachMessageUsecase {
   const GenerateAiCoachMessageUsecase();
 }

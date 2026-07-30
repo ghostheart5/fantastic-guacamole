@@ -1,3 +1,3 @@
-﻿class ViewEnergyScoreUsecase {
+class ViewEnergyScoreUsecase {
   const ViewEnergyScoreUsecase();
 }

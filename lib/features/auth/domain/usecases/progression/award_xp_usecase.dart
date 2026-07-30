@@ -1,3 +1,3 @@
-﻿class AwardXpUsecase {
+class AwardXpUsecase {
   const AwardXpUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class HideActivityUsecase {
+class HideActivityUsecase {
   const HideActivityUsecase();
 }

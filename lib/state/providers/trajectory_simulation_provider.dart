@@ -1,4 +1,4 @@
-﻿import 'package:fantastic_guacamole/state/providers/daily_command_briefing_provider.dart';
+import 'package:fantastic_guacamole/state/providers/daily_command_briefing_provider.dart';
 import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';

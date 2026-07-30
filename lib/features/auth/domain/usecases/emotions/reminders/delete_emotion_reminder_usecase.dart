@@ -1,3 +1,3 @@
-﻿class DeleteEmotionReminderUsecase {
+class DeleteEmotionReminderUsecase {
   const DeleteEmotionReminderUsecase();
 }

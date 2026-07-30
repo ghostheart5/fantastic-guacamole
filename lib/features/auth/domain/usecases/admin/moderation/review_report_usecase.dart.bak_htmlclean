@@ -1,0 +1,3 @@
+﻿class ReviewReportUsecase {
+  const ReviewReportUsecase();
+}

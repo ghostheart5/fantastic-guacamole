@@ -1,3 +1,3 @@
-﻿class UnpinLogUsecase {
+class UnpinLogUsecase {
   const UnpinLogUsecase();
 }

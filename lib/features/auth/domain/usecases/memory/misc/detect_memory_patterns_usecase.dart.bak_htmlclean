@@ -1,0 +1,3 @@
+﻿class DetectMemoryPatternsUsecase {
+  const DetectMemoryPatternsUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class CalculateConsistencyTrendsUsecase {
+class CalculateConsistencyTrendsUsecase {
   const CalculateConsistencyTrendsUsecase();
 }

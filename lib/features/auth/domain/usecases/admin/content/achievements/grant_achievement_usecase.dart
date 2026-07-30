@@ -1,3 +1,3 @@
-﻿class GrantAchievementUsecase {
+class GrantAchievementUsecase {
   const GrantAchievementUsecase();
 }

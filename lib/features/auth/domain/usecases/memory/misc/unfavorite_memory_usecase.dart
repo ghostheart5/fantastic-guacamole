@@ -1,3 +1,3 @@
-﻿class UnfavoriteMemoryUsecase {
+class UnfavoriteMemoryUsecase {
   const UnfavoriteMemoryUsecase();
 }

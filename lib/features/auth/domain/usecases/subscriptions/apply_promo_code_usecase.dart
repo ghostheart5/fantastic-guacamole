@@ -1,3 +1,3 @@
-﻿class ApplyPromoCodeUsecase {
+class ApplyPromoCodeUsecase {
   const ApplyPromoCodeUsecase();
 }

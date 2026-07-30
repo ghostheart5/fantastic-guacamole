@@ -90,7 +90,7 @@ class _AIDecisionCardState extends State<AIDecisionCard>
             textAlign: TextAlign.center,
           ),
           AppText(
-            'Priority ${widget.task.priority}  ·  Energy ${widget.task.energyRequired}',
+            'Priority ${widget.task.priority} | Energy ${widget.task.energyRequired}',
             style: const TextStyle(fontSize: 12, color: Colors.blueAccent),
           ),
           if (emotion != null || confidence != null) ...[

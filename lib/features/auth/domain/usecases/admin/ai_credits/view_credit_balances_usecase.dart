@@ -1,3 +1,3 @@
-﻿class ViewCreditBalancesUsecase {
+class ViewCreditBalancesUsecase {
   const ViewCreditBalancesUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class UploadImageUsecase {
+class UploadImageUsecase {
   const UploadImageUsecase();
 }

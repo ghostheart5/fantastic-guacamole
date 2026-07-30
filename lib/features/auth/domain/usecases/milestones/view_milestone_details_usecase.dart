@@ -1,3 +1,3 @@
-﻿class ViewMilestoneDetailsUsecase {
+class ViewMilestoneDetailsUsecase {
   const ViewMilestoneDetailsUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class UnshareMemoryUsecase {
+class UnshareMemoryUsecase {
   const UnshareMemoryUsecase();
 }

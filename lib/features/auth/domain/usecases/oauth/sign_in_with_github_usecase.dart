@@ -1,3 +1,3 @@
-﻿class SignInWithGithubUsecase {
+class SignInWithGithubUsecase {
   const SignInWithGithubUsecase();
 }

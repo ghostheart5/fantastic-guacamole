@@ -1,0 +1,3 @@
+﻿class ViewMoodHistoryUsecase {
+  const ViewMoodHistoryUsecase();
+}

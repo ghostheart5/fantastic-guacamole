@@ -1,3 +1,3 @@
-﻿class EditAffirmationUsecase {
+class EditAffirmationUsecase {
   const EditAffirmationUsecase();
 }

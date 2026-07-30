@@ -1,3 +1,3 @@
-﻿class IdentifyWeaknessesUsecase {
+class IdentifyWeaknessesUsecase {
   const IdentifyWeaknessesUsecase();
 }

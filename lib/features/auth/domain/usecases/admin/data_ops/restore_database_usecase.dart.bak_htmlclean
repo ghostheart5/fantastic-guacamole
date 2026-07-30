@@ -1,0 +1,3 @@
+﻿class RestoreDatabaseUsecase {
+  const RestoreDatabaseUsecase();
+}

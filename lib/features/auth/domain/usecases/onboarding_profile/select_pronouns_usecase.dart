@@ -1,3 +1,3 @@
-﻿class SelectPronounsUsecase {
+class SelectPronounsUsecase {
   const SelectPronounsUsecase();
 }

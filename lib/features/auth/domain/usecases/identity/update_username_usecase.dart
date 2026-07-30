@@ -1,3 +1,3 @@
-﻿class UpdateUsernameUsecase {
+class UpdateUsernameUsecase {
   const UpdateUsernameUsecase();
 }

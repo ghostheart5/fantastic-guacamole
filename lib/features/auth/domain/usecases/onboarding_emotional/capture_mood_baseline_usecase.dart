@@ -1,3 +1,3 @@
-﻿class CaptureMoodBaselineUsecase {
+class CaptureMoodBaselineUsecase {
   const CaptureMoodBaselineUsecase();
 }

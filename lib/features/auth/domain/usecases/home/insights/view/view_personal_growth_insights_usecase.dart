@@ -1,3 +1,3 @@
-﻿class ViewPersonalGrowthInsightsUsecase {
+class ViewPersonalGrowthInsightsUsecase {
   const ViewPersonalGrowthInsightsUsecase();
 }

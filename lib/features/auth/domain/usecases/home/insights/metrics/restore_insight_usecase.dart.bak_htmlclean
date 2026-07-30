@@ -1,0 +1,3 @@
+﻿class RestoreInsightUsecase {
+  const RestoreInsightUsecase();
+}

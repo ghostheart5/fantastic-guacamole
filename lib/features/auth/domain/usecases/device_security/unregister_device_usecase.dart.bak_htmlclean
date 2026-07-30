@@ -1,0 +1,3 @@
+﻿class UnregisterDeviceUsecase {
+  const UnregisterDeviceUsecase();
+}

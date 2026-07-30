@@ -1,3 +1,3 @@
-﻿class ViewSiCoachCardUsecase {
+class ViewSiCoachCardUsecase {
   const ViewSiCoachCardUsecase();
 }

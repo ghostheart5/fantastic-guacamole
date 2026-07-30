@@ -1,3 +1,3 @@
-﻿class ViewOverdueTasksUsecase {
+class ViewOverdueTasksUsecase {
   const ViewOverdueTasksUsecase();
 }

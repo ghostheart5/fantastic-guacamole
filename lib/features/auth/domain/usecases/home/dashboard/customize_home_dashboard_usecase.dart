@@ -1,3 +1,3 @@
-﻿class CustomizeHomeDashboardUsecase {
+class CustomizeHomeDashboardUsecase {
   const CustomizeHomeDashboardUsecase();
 }

@@ -1,0 +1,3 @@
+﻿class ViewActiveSessionsUsecase {
+  const ViewActiveSessionsUsecase();
+}

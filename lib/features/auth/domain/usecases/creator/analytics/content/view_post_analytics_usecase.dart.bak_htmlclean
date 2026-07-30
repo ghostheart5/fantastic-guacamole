@@ -1,0 +1,3 @@
+﻿class ViewPostAnalyticsUsecase {
+  const ViewPostAnalyticsUsecase();
+}

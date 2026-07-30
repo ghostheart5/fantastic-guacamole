@@ -1,3 +1,3 @@
-﻿class DisableBiometricsUsecase {
+class DisableBiometricsUsecase {
   const DisableBiometricsUsecase();
 }

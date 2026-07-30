@@ -1,3 +1,3 @@
-﻿class ExportPlanUsecase {
+class ExportPlanUsecase {
   const ExportPlanUsecase();
 }

@@ -154,7 +154,7 @@ class SICognitiveSelfRepairSystem {
     required InstinctGuidance instinct,
   }) {
     if (severity == RepairSeverity.critical) {
-      return 'Let’s pause and take a safer path. Choose one small, clear next step.';
+      return 'Letâ€™s pause and take a safer path. Choose one small, clear next step.';
     }
 
     String output = siClean(

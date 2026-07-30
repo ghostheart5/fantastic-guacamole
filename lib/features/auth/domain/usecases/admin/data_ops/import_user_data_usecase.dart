@@ -1,3 +1,3 @@
-﻿class ImportUserDataUsecase {
+class ImportUserDataUsecase {
   const ImportUserDataUsecase();
 }

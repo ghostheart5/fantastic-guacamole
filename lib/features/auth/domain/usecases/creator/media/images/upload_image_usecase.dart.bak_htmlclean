@@ -1,0 +1,3 @@
+﻿class UploadImageUsecase {
+  const UploadImageUsecase();
+}

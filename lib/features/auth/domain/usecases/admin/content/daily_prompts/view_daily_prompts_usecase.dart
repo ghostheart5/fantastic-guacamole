@@ -1,3 +1,3 @@
-﻿class ViewDailyPromptsUsecase {
+class ViewDailyPromptsUsecase {
   const ViewDailyPromptsUsecase();
 }

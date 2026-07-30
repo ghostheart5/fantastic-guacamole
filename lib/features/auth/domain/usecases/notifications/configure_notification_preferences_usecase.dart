@@ -1,3 +1,3 @@
-﻿class ConfigureNotificationPreferencesUsecase {
+class ConfigureNotificationPreferencesUsecase {
   const ConfigureNotificationPreferencesUsecase();
 }

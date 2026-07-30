@@ -1,3 +1,3 @@
-﻿class RemoveHabitFromPlanUsecase {
+class RemoveHabitFromPlanUsecase {
   const RemoveHabitFromPlanUsecase();
 }

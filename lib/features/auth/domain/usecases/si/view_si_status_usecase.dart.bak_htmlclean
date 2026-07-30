@@ -1,0 +1,3 @@
+﻿class ViewSiStatusUsecase {
+  const ViewSiStatusUsecase();
+}

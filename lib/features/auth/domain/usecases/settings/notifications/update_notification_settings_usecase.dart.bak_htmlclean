@@ -1,0 +1,3 @@
+﻿class UpdateNotificationSettingsUsecase {
+  const UpdateNotificationSettingsUsecase();
+}

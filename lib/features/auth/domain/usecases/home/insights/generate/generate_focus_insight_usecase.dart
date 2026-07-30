@@ -1,3 +1,3 @@
-﻿class GenerateFocusInsightUsecase {
+class GenerateFocusInsightUsecase {
   const GenerateFocusInsightUsecase();
 }

@@ -1,3 +1,3 @@
-﻿class SelectIdentityTagsUsecase {
+class SelectIdentityTagsUsecase {
   const SelectIdentityTagsUsecase();
 }

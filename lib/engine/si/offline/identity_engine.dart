@@ -1,5 +1,5 @@
-// Identity Engine — language-based identity reinforcement
-// Tracks discipline, focus, and growth identity dimensions (0.0–1.0).
+// Identity Engine â€” language-based identity reinforcement
+// Tracks discipline, focus, and growth identity dimensions (0.0â€“1.0).
 // Wraps SI responses with identity-affirming language when thresholds are met.
 
 class IdentityState {
@@ -9,7 +9,7 @@ class IdentityState {
     required this.growthIdentity,
   });
 
-  final double disciplineIdentity; // 0.0–1.0
+  final double disciplineIdentity; // 0.0â€“1.0
   final double focusIdentity;
   final double growthIdentity;
 

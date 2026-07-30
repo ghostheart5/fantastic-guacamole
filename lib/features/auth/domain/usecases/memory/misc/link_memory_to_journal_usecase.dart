@@ -1,3 +1,3 @@
-﻿class LinkMemoryToJournalUsecase {
+class LinkMemoryToJournalUsecase {
   const LinkMemoryToJournalUsecase();
 }

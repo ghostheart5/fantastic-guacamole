@@ -1,3 +1,3 @@
-﻿class ViewJournalInsightsUsecase {
+class ViewJournalInsightsUsecase {
   const ViewJournalInsightsUsecase();
 }

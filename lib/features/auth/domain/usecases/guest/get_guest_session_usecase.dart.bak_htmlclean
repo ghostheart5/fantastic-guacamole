@@ -1,0 +1,3 @@
+﻿class GetGuestSessionUsecase {
+  const GetGuestSessionUsecase();
+}

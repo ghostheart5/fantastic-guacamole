@@ -25,6 +25,12 @@ import 'package:fantastic_guacamole/data/storage/storage_migration.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show
         OnboardingStatus,
+    creatorFirstItemCreatedProvider,
+    creatorFirstItemCreatedStorageKey,
+    creatorFirstItemCreatedStorageKeyForUser,
+  timelineFirstActionCompletedProvider,
+  timelineFirstActionCompletedStorageKey,
+  timelineFirstActionCompletedStorageKeyForUser,
         onboardingCompleteProvider,
         onboardingStatusProvider,
         onboardingCompleteStorageKey,
@@ -42,7 +48,6 @@ import 'package:fantastic_guacamole/system/firebase/firebase_bootstrap.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/system/system_boot.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -55,6 +60,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
+
+const int _onboardingContentVersion = 6;
 
 class AppBootstrapper {
   const AppBootstrapper();
@@ -240,6 +247,8 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
 
         return const StartupBootstrapResult(
           hasOnboarded: false,
+          hasCreatedFirstItem: false,
+          hasCompletedTimelineFirstAction: false,
           onboardingResolved: false,
           startupError:
               'Startup bootstrap timed out. App started in degraded mode.',
@@ -276,6 +285,12 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
     );
 
     ref.read(onboardingCompleteProvider.notifier).set(result.hasOnboarded);
+    ref
+      .read(creatorFirstItemCreatedProvider.notifier)
+      .set(result.hasCreatedFirstItem);
+    ref
+      .read(timelineFirstActionCompletedProvider.notifier)
+      .set(result.hasCompletedTimelineFirstAction);
 
     final OnboardingStatus onboardingStatus = result.onboardingResolved
         ? (result.hasOnboarded
@@ -392,6 +407,12 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
     }
 
     ref.read(onboardingCompleteProvider.notifier).set(prefsResult.hasOnboarded);
+    ref
+      .read(creatorFirstItemCreatedProvider.notifier)
+      .set(prefsResult.hasCreatedFirstItem);
+    ref
+      .read(timelineFirstActionCompletedProvider.notifier)
+      .set(prefsResult.hasCompletedTimelineFirstAction);
 
     final OnboardingStatus onboardingStatus = prefsResult.isResolved
         ? (prefsResult.hasOnboarded
@@ -479,11 +500,15 @@ Future<String?> _runStateBootstrapSafe(WidgetRef ref) async {
 class StartupBootstrapResult {
   const StartupBootstrapResult({
     required this.hasOnboarded,
+    required this.hasCreatedFirstItem,
+    required this.hasCompletedTimelineFirstAction,
     required this.onboardingResolved,
     required this.startupError,
   });
 
   final bool hasOnboarded;
+  final bool hasCreatedFirstItem;
+  final bool hasCompletedTimelineFirstAction;
   final bool onboardingResolved;
   final String? startupError;
 }
@@ -491,11 +516,15 @@ class StartupBootstrapResult {
 class PrefsLoadResult {
   const PrefsLoadResult({
     required this.hasOnboarded,
+    required this.hasCreatedFirstItem,
+    required this.hasCompletedTimelineFirstAction,
     required this.isResolved,
     required this.issue,
   });
 
   final bool hasOnboarded;
+  final bool hasCreatedFirstItem;
+  final bool hasCompletedTimelineFirstAction;
   final bool isResolved;
   final String? issue;
 }
@@ -568,6 +597,9 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
       if (blockingIssues.isNotEmpty) {
         return StartupBootstrapResult(
           hasOnboarded: hasOnboarded,
+          hasCreatedFirstItem: prefsResult.hasCreatedFirstItem,
+          hasCompletedTimelineFirstAction:
+              prefsResult.hasCompletedTimelineFirstAction,
           onboardingResolved: prefsResult.isResolved,
           startupError:
               '${_blockingStartupPrefix}Critical production startup configuration is missing:\n- ${blockingIssues.join('\n- ')}',
@@ -607,6 +639,8 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
 
   return StartupBootstrapResult(
     hasOnboarded: hasOnboarded,
+    hasCreatedFirstItem: prefsResult.hasCreatedFirstItem,
+    hasCompletedTimelineFirstAction: prefsResult.hasCompletedTimelineFirstAction,
     onboardingResolved: prefsResult.isResolved,
     startupError: startupError,
   );
@@ -763,6 +797,8 @@ Future<PrefsLoadResult> _measurePrefsStage(
 
     return PrefsLoadResult(
       hasOnboarded: false,
+      hasCreatedFirstItem: false,
+      hasCompletedTimelineFirstAction: false,
       isResolved: false,
       issue: message,
     );
@@ -778,6 +814,8 @@ Future<PrefsLoadResult> _measurePrefsStage(
 
     return PrefsLoadResult(
       hasOnboarded: false,
+      hasCreatedFirstItem: false,
+      hasCompletedTimelineFirstAction: false,
       isResolved: false,
       issue: message,
     );
@@ -1130,6 +1168,8 @@ Future<String?> _initIdentitySafe(WidgetRef ref) async {
 
 Future<PrefsLoadResult> _loadPrefsSafe() async {
   bool hasOnboarded = false;
+  bool hasCreatedFirstItem = false;
+  bool hasCompletedTimelineFirstAction = false;
 
   try {
     Logger.log('Startup', 'Loading local preferences...');
@@ -1149,6 +1189,12 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
         : onboardingContentVersionStorageKeyForUser(userId);
 
     final String canonicalKey = _onboardingCanonicalStateKeyForUser(userId);
+    final String firstItemKey = userId == null
+      ? creatorFirstItemCreatedStorageKey
+      : creatorFirstItemCreatedStorageKeyForUser(userId);
+    final String timelineFirstActionKey = userId == null
+      ? timelineFirstActionCompletedStorageKey
+      : timelineFirstActionCompletedStorageKeyForUser(userId);
 
     int? canonicalVersion;
 
@@ -1214,7 +1260,7 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
       );
     }
 
-    final int currentOnboardingVersion = TutorialContent.contentVersion;
+    final int currentOnboardingVersion = _onboardingContentVersion;
 
     if (storedOnboardingVersion < currentOnboardingVersion) {
       final bool replayRequired = _requiresOnboardingReplay(
@@ -1258,6 +1304,59 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
       }),
     );
 
+    final Object? rawFirstItemCreated =
+        prefs.get(firstItemKey) ?? prefs.get(creatorFirstItemCreatedStorageKey);
+    final bool? coercedFirstItemCreated = _coercePrefsBool(rawFirstItemCreated);
+    final bool firstItemCreatedWasCorrupt =
+        rawFirstItemCreated != null && coercedFirstItemCreated == null;
+
+    if (coercedFirstItemCreated == null) {
+      // Existing onboarded users are treated as already initialized.
+      hasCreatedFirstItem = hasOnboarded;
+      await SharedPrefsService.saveBoolWithPrefs(
+        prefs,
+        firstItemKey,
+        hasCreatedFirstItem,
+      );
+    } else {
+      hasCreatedFirstItem = coercedFirstItemCreated;
+      if (rawFirstItemCreated is String || firstItemCreatedWasCorrupt) {
+        await SharedPrefsService.saveBoolWithPrefs(
+          prefs,
+          firstItemKey,
+          hasCreatedFirstItem,
+        );
+      }
+    }
+
+    final Object? rawTimelineFirstAction =
+        prefs.get(timelineFirstActionKey) ??
+        prefs.get(timelineFirstActionCompletedStorageKey);
+    final bool? coercedTimelineFirstAction = _coercePrefsBool(
+      rawTimelineFirstAction,
+    );
+    final bool timelineFirstActionWasCorrupt =
+        rawTimelineFirstAction != null && coercedTimelineFirstAction == null;
+
+    if (coercedTimelineFirstAction == null) {
+      // Existing users already past first-create are treated as unlocked.
+      hasCompletedTimelineFirstAction = hasCreatedFirstItem;
+      await SharedPrefsService.saveBoolWithPrefs(
+        prefs,
+        timelineFirstActionKey,
+        hasCompletedTimelineFirstAction,
+      );
+    } else {
+      hasCompletedTimelineFirstAction = coercedTimelineFirstAction;
+      if (rawTimelineFirstAction is String || timelineFirstActionWasCorrupt) {
+        await SharedPrefsService.saveBoolWithPrefs(
+          prefs,
+          timelineFirstActionKey,
+          hasCompletedTimelineFirstAction,
+        );
+      }
+    }
+
     Logger.log(
       'Startup',
       'Local preferences loaded. onboardingComplete=$hasOnboarded',
@@ -1269,6 +1368,8 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
 
     return PrefsLoadResult(
       hasOnboarded: hasOnboarded,
+      hasCreatedFirstItem: hasCreatedFirstItem,
+      hasCompletedTimelineFirstAction: hasCompletedTimelineFirstAction,
       isResolved: true,
       issue: null,
     );
@@ -1278,6 +1379,8 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
 
     return const PrefsLoadResult(
       hasOnboarded: false,
+      hasCreatedFirstItem: false,
+      hasCompletedTimelineFirstAction: false,
       isResolved: false,
       issue: 'Local preferences initialization timed out.',
     );
@@ -1289,6 +1392,8 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
 
     return PrefsLoadResult(
       hasOnboarded: false,
+      hasCreatedFirstItem: false,
+      hasCompletedTimelineFirstAction: false,
       isResolved: false,
       issue: 'Local preferences initialization failed: $error',
     );

@@ -1,3 +1,3 @@
-﻿class TrackEmotionalGrowthUsecase {
+class TrackEmotionalGrowthUsecase {
   const TrackEmotionalGrowthUsecase();
 }

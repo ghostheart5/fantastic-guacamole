@@ -1,3 +1,3 @@
-﻿class GetAiCreditBalanceUsecase {
+class GetAiCreditBalanceUsecase {
   const GetAiCreditBalanceUsecase();
 }

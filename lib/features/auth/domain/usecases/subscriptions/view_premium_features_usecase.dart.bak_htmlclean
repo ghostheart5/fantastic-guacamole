@@ -1,0 +1,3 @@
+﻿class ViewPremiumFeaturesUsecase {
+  const ViewPremiumFeaturesUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class ConfigureProfileVisibilityUsecase {
+class ConfigureProfileVisibilityUsecase {
   const ConfigureProfileVisibilityUsecase();
 }

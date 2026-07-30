@@ -1,0 +1,3 @@
+﻿class ConvertGuestToAccountUsecase {
+  const ConvertGuestToAccountUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class CreateDailyPlanUsecase {
+class CreateDailyPlanUsecase {
   const CreateDailyPlanUsecase();
 }

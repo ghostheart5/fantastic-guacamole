@@ -49,7 +49,7 @@ class SIMultiverseBridgeV2 {
       _path(
         'safety',
         'respond_conversationally',
-        'Let’s keep this simple and choose one small step.',
+        'Letâ€™s keep this simple and choose one small step.',
         instinct.safetyFirst ? 0.92 : 0.35,
         'Safety-first alternate path.',
       ),

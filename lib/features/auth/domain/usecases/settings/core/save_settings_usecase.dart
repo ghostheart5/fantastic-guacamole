@@ -1,3 +1,3 @@
-﻿class SaveSettingsUsecase {
+class SaveSettingsUsecase {
   const SaveSettingsUsecase();
 }

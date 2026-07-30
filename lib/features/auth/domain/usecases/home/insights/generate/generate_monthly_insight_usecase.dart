@@ -1,3 +1,3 @@
-﻿class GenerateMonthlyInsightUsecase {
+class GenerateMonthlyInsightUsecase {
   const GenerateMonthlyInsightUsecase();
 }

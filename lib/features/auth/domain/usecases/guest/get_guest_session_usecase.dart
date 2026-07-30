@@ -1,3 +1,3 @@
-﻿class GetGuestSessionUsecase {
+class GetGuestSessionUsecase {
   const GetGuestSessionUsecase();
 }

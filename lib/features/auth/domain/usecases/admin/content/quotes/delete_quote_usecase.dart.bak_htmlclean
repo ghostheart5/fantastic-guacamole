@@ -1,0 +1,3 @@
+﻿class DeleteQuoteUsecase {
+  const DeleteQuoteUsecase();
+}

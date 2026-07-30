@@ -1,0 +1,3 @@
+﻿class LogMoodUsecase {
+  const LogMoodUsecase();
+}

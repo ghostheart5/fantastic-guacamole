@@ -1,3 +1,3 @@
-﻿class JoinCommunityUsecase {
+class JoinCommunityUsecase {
   const JoinCommunityUsecase();
 }

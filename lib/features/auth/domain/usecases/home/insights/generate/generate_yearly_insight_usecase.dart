@@ -1,3 +1,3 @@
-﻿class GenerateYearlyInsightUsecase {
+class GenerateYearlyInsightUsecase {
   const GenerateYearlyInsightUsecase();
 }

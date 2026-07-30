@@ -1,3 +1,3 @@
-﻿class ViewGreetingUsecase {
+class ViewGreetingUsecase {
   const ViewGreetingUsecase();
 }

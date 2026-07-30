@@ -1,3 +1,3 @@
-﻿class FavoriteLogUsecase {
+class FavoriteLogUsecase {
   const FavoriteLogUsecase();
 }

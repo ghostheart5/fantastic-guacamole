@@ -1,0 +1,3 @@
+﻿class CreateMemoryTemplateUsecase {
+  const CreateMemoryTemplateUsecase();
+}

@@ -1,3 +1,3 @@
-﻿class SaveDraftUsecase {
+class SaveDraftUsecase {
   const SaveDraftUsecase();
 }

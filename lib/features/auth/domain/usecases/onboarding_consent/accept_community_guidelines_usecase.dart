@@ -1,3 +1,3 @@
-﻿class AcceptCommunityGuidelinesUsecase {
+class AcceptCommunityGuidelinesUsecase {
   const AcceptCommunityGuidelinesUsecase();
 }

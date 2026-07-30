@@ -1,0 +1,3 @@
+﻿class CustomizeHomeDashboardUsecase {
+  const CustomizeHomeDashboardUsecase();
+}

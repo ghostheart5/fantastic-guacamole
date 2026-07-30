@@ -1,3 +1,3 @@
-﻿class CalculateGrowthScoreUsecase {
+class CalculateGrowthScoreUsecase {
   const CalculateGrowthScoreUsecase();
 }

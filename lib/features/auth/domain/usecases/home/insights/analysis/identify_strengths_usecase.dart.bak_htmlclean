@@ -1,0 +1,3 @@
+﻿class IdentifyStrengthsUsecase {
+  const IdentifyStrengthsUsecase();
+}

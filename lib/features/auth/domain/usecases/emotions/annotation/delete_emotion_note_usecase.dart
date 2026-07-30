@@ -1,3 +1,3 @@
-﻿class DeleteEmotionNoteUsecase {
+class DeleteEmotionNoteUsecase {
   const DeleteEmotionNoteUsecase();
 }

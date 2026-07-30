@@ -1,3 +1,3 @@
-﻿class LevelUpUsecase {
+class LevelUpUsecase {
   const LevelUpUsecase();
 }

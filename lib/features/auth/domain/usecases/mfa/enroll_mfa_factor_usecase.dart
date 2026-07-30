@@ -1,3 +1,3 @@
-﻿class EnrollMfaFactorUsecase {
+class EnrollMfaFactorUsecase {
   const EnrollMfaFactorUsecase();
 }

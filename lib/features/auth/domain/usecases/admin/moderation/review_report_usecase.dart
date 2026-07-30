@@ -1,3 +1,3 @@
-﻿class ReviewReportUsecase {
+class ReviewReportUsecase {
   const ReviewReportUsecase();
 }
