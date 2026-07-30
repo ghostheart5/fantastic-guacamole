@@ -215,7 +215,8 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                     final savedKind = await ref
                         .read(creatorActionsProvider)
                         .createEntry(data);
-                    if (missionTutorialEnabled) {
+                    if (missionTutorialEnabled &&
+                      savedKind == CreatorSavedKind.goal) {
                       await ref
                           .read(missionEventBridgeProvider)
                           .reportGoalCreated();

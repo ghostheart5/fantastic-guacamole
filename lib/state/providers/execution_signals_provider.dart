@@ -80,6 +80,16 @@ final executionSignalsProvider = Provider<ExecutionSignals>((Ref ref) {
       continue;
     }
 
+    if (source == 'goal_completed') {
+      if (inToday) {
+        completedToday += 1;
+      }
+      if (inLast7Days) {
+        completed7d += 1;
+      }
+      continue;
+    }
+
     if (source == 'task_skipped') {
       if (inToday) {
         skippedToday += 1;
