@@ -262,7 +262,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                             ),
                           ),
                           const Text(
-                            'Calendar, tasks, goals, and activity',
+                            'Primary planning surface for tasks, goals, and signals',
                             style: TextStyle(
                               fontSize: 10,
                               letterSpacing: 0.5,
@@ -287,6 +287,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                   child: _TimelineIntelligenceStrip(
+                    title: 'Planner signals',
+                    subtitle: 'Primary story first, context second.',
                     healthScore: healthScore,
                     riskScore: riskScore,
                     overdueCount: overdueCount,
@@ -374,7 +376,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   hasScrollBody: false,
                   child: Center(
                     child: Text(
-                      'No timeline matches this window/filter.\nTry another view or reduce filters.',
+                      'No timeline items match this view.\nTry another window, clear filters, or create a task or goal.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white38,
@@ -445,6 +447,26 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
   bool get _isCompleted => _effectiveStatus == TimelineEventStatus.completed;
 
   bool get _isOverdue => _effectiveStatus == TimelineEventStatus.overdue;
+
+  String get _typeLabel {
+    return switch (event.type) {
+      TimelineEventType.task => 'Task',
+      TimelineEventType.goal => 'Goal',
+      TimelineEventType.habit => 'Habit',
+      TimelineEventType.project => 'Project',
+      TimelineEventType.milestone => 'Milestone',
+      TimelineEventType.deadline => 'Deadline',
+      TimelineEventType.forecast => 'Forecast',
+      TimelineEventType.snapshot =>
+        event.phase == 'snapshot' ? 'Snapshot' : 'Memory',
+      TimelineEventType.risk => 'Risk',
+      TimelineEventType.recommendation => 'Recommendation',
+      TimelineEventType.reflection => 'Journal',
+      TimelineEventType.levelUp => 'Level Up',
+      TimelineEventType.streak => 'Streak',
+      TimelineEventType.goalComplete => 'Goal Complete',
+    };
+  }
 
   bool get _canExecuteTaskAction {
     if (event.relatedId == null || event.relatedId!.trim().isEmpty) {
@@ -764,6 +786,32 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
                   ),
                   const SizedBox(height: 6),
                   _buildStatusFeedback(),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      child: Text(
+                        _typeLabel,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ),
                   if (event.detail.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
@@ -933,6 +981,8 @@ class _TimelineStatusBadge extends StatelessWidget {
 
 class _TimelineIntelligenceStrip extends StatelessWidget {
   const _TimelineIntelligenceStrip({
+    required this.title,
+    required this.subtitle,
     required this.healthScore,
     required this.riskScore,
     required this.overdueCount,
@@ -959,6 +1009,8 @@ class _TimelineIntelligenceStrip extends StatelessWidget {
     required this.isOnTrack,
   });
 
+  final String title;
+  final String subtitle;
   final int healthScore;
   final int riskScore;
   final int overdueCount;
@@ -996,6 +1048,25 @@ class _TimelineIntelligenceStrip extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 11,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 6,
             runSpacing: 6,

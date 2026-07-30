@@ -22,17 +22,17 @@ class MissionCatalog {
   const MissionCatalog._();
 
   static const List<MissionStep> steps = <MissionStep>[
-    MissionStep(id: MissionId.createFirstGoal, title: 'Create your first item'),
-    MissionStep(id: MissionId.configureFirstItem, title: 'Add timing details'),
+    MissionStep(id: MissionId.createFirstGoal, title: 'Open Creator'),
+    MissionStep(
+      id: MissionId.configureFirstItem,
+      title: 'Choose Frequency',
+    ),
     MissionStep(
       id: MissionId.askSmartPlannerQuestion,
-      title: 'Choose when it happens',
+      title: 'Ask Smart Planner',
     ),
-    MissionStep(id: MissionId.openTimeline, title: 'Review it on your timeline'),
-    MissionStep(
-      id: MissionId.complete,
-      title: "You're ready to use ChronoSpark.",
-    ),
+    MissionStep(id: MissionId.openTimeline, title: 'Open Timeline'),
+    MissionStep(id: MissionId.complete, title: 'Mark Complete'),
   ];
 
   static const List<MissionId> progression = <MissionId>[

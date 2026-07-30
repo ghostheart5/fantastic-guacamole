@@ -87,7 +87,7 @@ class _MissionOverlayState extends ConsumerState<MissionOverlay> {
                         Text(
                           state.isCompletionBannerActive
                               ? 'SETUP COMPLETE'
-                              : 'FIRST SETUP',
+                              : 'First Setup',
                           style: const TextStyle(
                             color: Color(0xFF00E5FF),
                             fontSize: 10,

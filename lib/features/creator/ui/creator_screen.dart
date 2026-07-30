@@ -212,15 +212,19 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                   onSubmit: (data) async {
                     final bool shouldAutoOpenTimeline =
                         !ref.read(creatorFirstItemCreatedProvider);
-                    await ref.read(creatorActionsProvider).createEntry(data);
+                    final savedKind = await ref
+                        .read(creatorActionsProvider)
+                        .createEntry(data);
                     if (missionTutorialEnabled) {
                       await ref
                           .read(missionEventBridgeProvider)
                           .reportGoalCreated();
                     }
-                    await ref
-                        .read(localMetricsAccumulatorProvider)
-                        .recordTaskCreated();
+                    if (savedKind == CreatorSavedKind.task) {
+                      await ref
+                          .read(localMetricsAccumulatorProvider)
+                          .recordTaskCreated();
+                    }
                     ref.invalidate(tasksProvider);
                     ref.invalidate(goalProgressProvider);
 

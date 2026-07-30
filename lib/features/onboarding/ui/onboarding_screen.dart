@@ -805,7 +805,7 @@ class _PersonalizationSlide extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'Your first setup',
+                'First Setup',
                 style: TextStyle(
                   color: AppColors.neonCyan,
                   fontSize: 10,
@@ -824,7 +824,7 @@ class _PersonalizationSlide extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.all(14),
                 child: const Text(
-                  'Create your first item, choose when it happens, then review it on Timeline. You can explore Smart Planner, Forecast, Progress, SI Console, and Profile after setup.',
+                  'Create Something, Choose When It Happens, then View Your Timeline. You can explore Smart Planner, Forecast, Progress, SI Console, and Profile after setup.',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
@@ -835,19 +835,19 @@ class _PersonalizationSlide extends StatelessWidget {
               const SizedBox(height: 20),
               const _MissionCheckpointRow(
                 index: '01',
-                title: 'Create your first item',
+                title: 'Create Something',
                 detail: 'Start with a task, routine, note, or goal.',
               ),
               const SizedBox(height: 10),
               const _MissionCheckpointRow(
                 index: '02',
-                title: 'Choose when it happens',
+                title: 'Choose When It Happens',
                 detail: 'Set it as one time, daily, or weekly.',
               ),
               const SizedBox(height: 10),
               const _MissionCheckpointRow(
                 index: '03',
-                title: 'View your timeline',
+                title: 'View Your Timeline',
                 detail: 'See your plan in a calendar-style view.',
               ),
             ],
@@ -871,7 +871,7 @@ class _PersonalizationSlide extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Text(
-                                'Get started',
+                                'Get Started',
                                 style: TextStyle(
                                   color: AppColors.neonCyan,
                                   fontSize: 10,
@@ -891,7 +891,7 @@ class _PersonalizationSlide extends StatelessWidget {
                                         ],
                                       ).createShader(bounds),
                                   child: const Text(
-                                    'Build your first plan',
+                                    'Create Your First Plan',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 44,
@@ -906,7 +906,7 @@ class _PersonalizationSlide extends StatelessWidget {
                               const _SignalReveal(
                                 delay: Duration(milliseconds: 220),
                                 child: Text(
-                                    'Create your first item, choose when it happens, and review it on Timeline.',
+                                    'Create Something, Choose When It Happens, and View Your Timeline.',
                                   style: TextStyle(
                                     color: AppColors.neonCyan,
                                     fontSize: 15,
@@ -940,7 +940,7 @@ class _PersonalizationSlide extends StatelessWidget {
                               const _SignalReveal(
                                 delay: Duration(milliseconds: 420),
                                 child: _StatusLine(
-                                  text: 'You are ready to begin',
+                                  text: 'Ready To Start',
                                 ),
                               ),
                             ],
@@ -968,7 +968,7 @@ class _PersonalizationSlide extends StatelessWidget {
                       ),
                     ),
                     child: const Text(
-                      'Get started',
+                      'Get Started',
                       style: TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: 10,
@@ -985,7 +985,7 @@ class _PersonalizationSlide extends StatelessWidget {
                         colors: [Colors.white, AppColors.neonCyan],
                       ).createShader(bounds),
                       child: const Text(
-                        'Build your first plan',
+                        'Create Your First Plan',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 39,
@@ -1000,7 +1000,7 @@ class _PersonalizationSlide extends StatelessWidget {
                   const _SignalReveal(
                     delay: Duration(milliseconds: 220),
                     child: Text(
-                      'Create your first item, choose when it happens, and review it on Timeline.',
+                      'Create Something, Choose When It Happens, and View Your Timeline.',
                       style: TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: 14,
@@ -1032,7 +1032,7 @@ class _PersonalizationSlide extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const _StatusLine(text: 'You are ready to begin'),
+                  const _StatusLine(text: 'Ready To Start'),
                   const SizedBox(height: 18),
                   missionCard,
                 ],

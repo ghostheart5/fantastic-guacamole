@@ -41,7 +41,7 @@ class FirstWeekJourneyDay {
 class TutorialContent {
   const TutorialContent._();
 
-  static const int contentVersion = 6;
+  static const int contentVersion = 8;
 
   static const List<TutorialStepContent> steps = [
     TutorialStepContent(
@@ -81,10 +81,10 @@ class TutorialContent {
     ),
     TutorialStepContent(
       id: 'creator_workbench',
-      title: 'CREATOR',
+      title: 'Open Creator',
       description:
-          'Create manual tasks directly when guided surfaces are too broad for your goal.',
-      ctaLabel: 'Create Task',
+          'Use Creator to build a task, goal, routine, or note when you need direct control.',
+      ctaLabel: 'Open Creator',
     ),
     TutorialStepContent(
       id: 'logs_overview',
@@ -102,7 +102,7 @@ class TutorialContent {
     ),
     TutorialStepContent(
       id: 'console_overview',
-        title: 'SI CONSOLE ASSISTANT',
+      title: 'SI Console',
       description:
           'Use SI Console for deeper planning questions and advanced guidance.',
         ctaLabel: 'Open Console',
@@ -123,7 +123,7 @@ class TutorialContent {
     ),
     TutorialStepContent(
       id: 'goals_overview',
-      title: 'CREATOR WORKSPACE',
+      title: 'Goals',
       description:
           'Keep goals precise, measurable, and aligned with your current energy state.',
       ctaLabel: 'Open Creator',
@@ -139,14 +139,14 @@ class TutorialContent {
       id: 'soul_map_overview',
       title: 'TIMELINE',
       description:
-          'Read emotional and identity vectors that influence clarity, resilience, and decision quality.',
+          'Review tasks, goals, and timeline signals so you can spot drift and course-correct cleanly.',
       ctaLabel: 'Review Signals',
     ),
     TutorialStepContent(
       id: 'timeline_overview',
-      title: 'TIMELINE REVIEW',
+      title: 'Open Timeline',
       description:
-          'Connect past decisions to current trajectory and execute cleaner course corrections.',
+          'Review what you created, scheduled, and completed so the next move stays obvious.',
       ctaLabel: 'Open Timeline',
     ),
   ];
@@ -228,9 +228,9 @@ class TutorialContent {
         'Read prediction first, then choose one action and open Flowmap if you need branching.',
 
     'creator':
-        'Use Creator when you need direct manual control over task creation.',
+      'Use Creator when you need direct manual control over tasks, goals, routines, and notes.',
     'creator_workbench':
-        'Use Creator when you need direct manual control over task creation.',
+      'Use Creator when you need direct manual control over tasks, goals, routines, and notes.',
 
     'logs':
         'Review completed actions first, then inspect recurring patterns before changing strategy.',
@@ -271,9 +271,9 @@ class TutorialContent {
         'Store high-signal memories with enough detail for stronger future coaching context.',
 
     'soul_map':
-        'Use Timeline regularly to review history, detect drift, and course-correct execution.',
+      'Use Timeline regularly to review history, detect drift, and course-correct execution.',
     'soul_map_overview':
-        'Use Timeline regularly to review history, detect drift, and course-correct execution.',
+      'Use Timeline regularly to review history, detect drift, and course-correct execution.',
 
     'timeline':
         'Scan timeline causality before changing direction so course correction is intentional.',

@@ -3,9 +3,12 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
+
+enum CreatorSavedKind { task, goal }
 
 final creatorActionsProvider = Provider<CreatorActions>(
   (ref) => CreatorActions(ref: ref),
@@ -16,11 +19,11 @@ class CreatorActions {
 
   final Ref ref;
 
-  Future<void> createTask(CreatorFormData data) {
+  Future<CreatorSavedKind> createTask(CreatorFormData data) {
     return createEntry(data);
   }
 
-  Future<void> createEntry(CreatorFormData data) async {
+  Future<CreatorSavedKind> createEntry(CreatorFormData data) async {
     final String mode = data.creatorMode.trim().toLowerCase();
     final String kind = _kindFor(data, mode);
 
@@ -28,6 +31,12 @@ class CreatorActions {
       kind: kind,
       requested: data.recurrenceRule,
     );
+
+    if (kind == 'goal') {
+      await _createGoal(data: data, recurrence: recurrence);
+      await _markFirstItemCreated();
+      return CreatorSavedKind.goal;
+    }
 
     final int priority = _priorityFor(kind: kind, requested: data.priority);
 
@@ -48,6 +57,39 @@ class CreatorActions {
       .read(taskActionsProvider)
       .createTask(entity, actionSource: 'creator');
     await _markFirstItemCreated();
+    return CreatorSavedKind.task;
+  }
+
+  Future<void> _createGoal({
+    required CreatorFormData data,
+    required RecurrenceRule recurrence,
+  }) async {
+    final String title = data.title.trim();
+    final String? description = data.description?.trim().isEmpty ?? true
+        ? null
+        : data.description?.trim();
+
+    switch (recurrence) {
+      case RecurrenceRule.daily:
+        await ref.read(goalsProvider.notifier).addDaily(
+          title: title,
+          description: description,
+        );
+        break;
+      case RecurrenceRule.weekly:
+        await ref.read(goalsProvider.notifier).addWeekly(
+          title: title,
+          description: description,
+        );
+        break;
+      case RecurrenceRule.none:
+        await ref.read(goalsProvider.notifier).add(
+          title: title,
+          description: description,
+          targetDate: data.scheduledFor,
+        );
+        break;
+    }
   }
 
   Future<void> _markFirstItemCreated() async {
