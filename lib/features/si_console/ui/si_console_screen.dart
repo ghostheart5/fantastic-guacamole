@@ -112,7 +112,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           _safeSetState(() {
             _messages.add(
               SIConsoleMessage(
-                text: 'GOAL SYNC: ${event.action.toUpperCase()} ${event.title}',
+                text: 'Goal sync: ${event.action.toLowerCase()} ${event.title}',
                 isUser: false,
                 emotion: 'focused',
               ),
@@ -130,7 +130,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       _addSI(
         'SI Console is ready.\n'
         'I can help with tasks, goals, timeline, momentum, and planning context. '
-        'Ask a question, or type "help" to see available commands.',
+        'Ask a question, or type "help" to see the available commands.',
         emotion: 'confident',
       );
     });
@@ -199,11 +199,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 ),
                 SizedBox(height: 10),
                 Text(
-                  '1. Type prompt then send',
+                  '1. Type a prompt, then send',
                   style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
                 Text(
-                  '2. Summary for quick recap',
+                  '2. Summary for a quick recap',
                   style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
                 Text(

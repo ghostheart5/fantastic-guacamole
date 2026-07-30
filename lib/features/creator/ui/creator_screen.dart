@@ -184,7 +184,7 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                             ),
                           ),
                           const Text(
-                            'Tasks, routines, goals, and notes',
+                            'Create, schedule, and review items',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -243,7 +243,7 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                             duration: const Duration(seconds: 2),
                             behavior: SnackBarBehavior.floating,
                             action: SnackBarAction(
-                              label: 'VIEW TIMELINE',
+                              label: 'REVIEW TIMELINE',
                               onPressed: () {
                                 if (!context.mounted) {
                                   return;
@@ -289,10 +289,10 @@ class _CreatorMissionPanel extends ConsumerWidget {
 
         if (activeMissionId == MissionId.createFirstGoal) {
           badge = 'STEP 1';
-          title = 'Create your first item.';
+          title = 'Create your first item in Creator.';
         } else if (activeMissionId == MissionId.configureFirstItem) {
           badge = 'STEP 2';
-          title = 'Add timing details and save it.';
+          title = 'Add timing details, then save it.';
         }
 
         if (badge == null || title == null) {

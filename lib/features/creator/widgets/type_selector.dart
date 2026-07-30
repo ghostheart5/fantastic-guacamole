@@ -31,7 +31,7 @@ class TypeSelector extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             const Text(
-              'TYPE',
+              'ITEM TYPE',
               style: TextStyle(
                 fontSize: 10,
                 letterSpacing: 2.5,

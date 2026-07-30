@@ -183,7 +183,7 @@ class SettingsScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     _NeonToggleTile(
-                      title: 'Dark Mode',
+                      title: 'Dark mode',
                       switchKey: const Key('settings_dark_mode_toggle'),
                       value: isDarkMode,
                       onChanged: (bool enabled) {
@@ -194,7 +194,7 @@ class SettingsScreen extends ConsumerWidget {
                       },
                     ),
                     _NeonToggleTile(
-                      title: 'Audio FX',
+                      title: 'Audio effects',
                       value: soundEnabled,
                       onChanged: (v) =>
                           ref.read(soundEnabledProvider.notifier).set(v),
@@ -265,7 +265,7 @@ class SettingsScreen extends ConsumerWidget {
                                   },
                                   icon: const Icon(Icons.build_circle_outlined),
                                   label: const Text(
-                                    'Fix Notification Access',
+                                    'Fix notification access',
                                   ),
                                 ),
                               ),
@@ -290,7 +290,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     _NeonNavTile(
                       title: 'Billing Center',
-                      subtitle: 'Manage active plan and renewal status.',
+                      subtitle: 'Manage your plan and renewal status.',
                       onTap: () => context.push(RoutePaths.subscriptionManagement),
                     ),
                     _NeonNavTile(

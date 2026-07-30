@@ -517,7 +517,7 @@ class _LoginBrandPanel extends StatelessWidget {
         _LoginBrandHeader(pulse: pulse),
         const SizedBox(height: 18),
         const Text(
-          'Sign in, reset your password, or create an account from one place.',
+          'Sign in, reset your password, or create an account here.',
           style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.55),
         ),
       ],
@@ -611,7 +611,7 @@ class _LoginFormCard extends StatelessWidget {
           ),
           SizedBox(height: compact ? 4 : 6),
           Text(
-            'Secure access to your planner and progress.',
+            'Secure access to your planner, progress, and saved work.',
             style: TextStyle(
               color: Colors.white60,
               fontSize: compact ? 11 : 12,
@@ -676,7 +676,7 @@ class _LoginFormCard extends StatelessWidget {
             child: SmartPressable(
               onTap: onForgotPassword,
               child: Text(
-                'Forgot Password?',
+                'Forgot password?',
                 style: TextStyle(
                   color: AppColors.neonCyan.withValues(alpha: 0.9),
                   fontSize: 12,
@@ -710,9 +710,7 @@ class _LoginFormCard extends StatelessWidget {
                   const SizedBox(width: 0),
                   Expanded(
                     child: _SecondaryButton(
-                      label: isSignUpMode
-                          ? 'Switch to Login'
-                          : 'Create Account',
+                        label: isSignUpMode ? 'Use sign in' : 'Create account',
                       icon: isSignUpMode
                           ? Icons.arrow_back_rounded
                           : Icons.person_add_rounded,
@@ -729,7 +727,7 @@ class _LoginFormCard extends StatelessWidget {
                 if (allowSignUp) ...[
                   const SizedBox(height: 2),
                   _SecondaryButton(
-                    label: isSignUpMode ? 'Switch to Login' : 'Create Account',
+                    label: isSignUpMode ? 'Use sign in' : 'Create account',
                     icon: isSignUpMode
                         ? Icons.arrow_back_rounded
                         : Icons.person_add_rounded,
@@ -764,7 +762,7 @@ class _LoginFormCard extends StatelessWidget {
                     SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'TESTER ACCESS | COMMAND LOGIN',
+                        'TEST ACCESS | LOGIN',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,

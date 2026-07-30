@@ -145,7 +145,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
         _gettingCoaching = false;
         _coachingPrompt = notes.isEmpty ? 'quick check-in' : notes;
         _coachingMessage =
-            'Insight request timed out. Tap GET INSIGHT again or shorten your input for a faster response.';
+            'Insight request timed out. Try again or shorten your input for a faster response.';
       });
       return;
     }
@@ -241,13 +241,13 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       if (!mounted) return;
       setState(() {
         _sendingFollowUp = false;
-        _followUpError = 'Follow-up timed out. Retry with a shorter prompt.';
+        _followUpError = 'Follow-up timed out. Try a shorter prompt.';
       });
     } catch (error, stackTrace) {
       if (!mounted) return;
       setState(() {
         _sendingFollowUp = false;
-        _followUpError = 'Follow-up transmit failed. Tap Retry Link.';
+        _followUpError = 'Follow-up could not be sent. Try again.';
       });
       ErrorBoundary.of(context)?.captureError(error, stackTrace);
     }
@@ -384,7 +384,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                         ),
                         decoration: const InputDecoration(
                           hintText:
-                              'Share your current context, friction, or desired outcome...',
+                              'Share your current context, friction, or outcome...',
                           hintStyle: TextStyle(color: Colors.white24),
                           border: InputBorder.none,
                           isDense: true,
@@ -422,8 +422,8 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     const SizedBox(height: 20),
                     HoloButton(
                       label: _gettingCoaching
-                          ? 'THINKING...'
-                          : (_saved ? 'REFRESH INSIGHT' : 'GET INSIGHT'),
+                          ? 'Getting insight...'
+                          : (_saved ? 'Refresh insight' : 'Get insight'),
                       color: AppColors.neonCyan,
                       onTap: _gettingCoaching ? () {} : _getCoaching,
                     ),
@@ -457,7 +457,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    'WHY THIS ACTION?',
+                                    'Why this action?',
                                     style: TextStyle(
                                       color: AppColors.neonCyan,
                                       fontSize: 10,
@@ -628,7 +628,7 @@ class _InsightCheatSheet extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: const Text(
-        'Get Insight cheat sheet:\n'
+        'Insight cheat sheet:\n'
         '- One topic: lose weight, tired, stressed, sleep, nutrition, exercise, productivity, goals\n'
         '- One feeling: drained, anxious, stuck, unmotivated\n'
         '- One detail: sleep, food, deadlines, workouts, or what keeps failing\n\n'

@@ -84,13 +84,13 @@ class _DynamicFormState extends State<DynamicForm> {
   String get _submitLabel {
     switch (widget.workspaceMode) {
       case CreatorWorkspaceMode.tasks:
-        return 'Create';
+        return 'Create item';
       case CreatorWorkspaceMode.goals:
-        return 'Create';
+        return 'Create goal';
       case CreatorWorkspaceMode.milestones:
-        return 'Forge milestone';
+        return 'Save milestone';
       case CreatorWorkspaceMode.plan:
-        return 'Create';
+        return 'Create plan item';
     }
   }
 
@@ -151,7 +151,7 @@ class _DynamicFormState extends State<DynamicForm> {
       if (!mounted) return;
       setState(() {
         _errorMessage =
-        'The task could not be saved. Your entry is still here-retry.';
+            'The item could not be saved. Your entry is still here. Try again.';
       });
     } finally {
       if (mounted) {
@@ -180,15 +180,15 @@ class _DynamicFormState extends State<DynamicForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionLabel('ENTRY DETAILS', AppColors.memoryAmber),
+          _sectionLabel('ITEM DETAILS', AppColors.memoryAmber),
           const SizedBox(height: 14),
-          _buildTextField(_titleController, 'Title *', maxLines: 1),
+          _buildTextField(_titleController, 'Item title *', maxLines: 1),
           const SizedBox(height: 10),
           _buildTextField(
             _detailController,
             _selectedType.toLowerCase() == 'note'
-                ? 'Notes (optional)'
-                : 'Description (optional)',
+                ? 'Notes or details (optional)'
+                : 'Description or details (optional)',
             maxLines: _selectedType.toLowerCase() == 'note' ? 5 : 3,
           ),
           const SizedBox(height: 20),

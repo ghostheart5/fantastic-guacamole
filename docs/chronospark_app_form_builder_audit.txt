@@ -1,0 +1,340 @@
+CHRONOSPARK APP FORM BUILDER AUDIT
+Date: 2026-07-30
+Mode: Audit only. No code changes.
+Scope: How ChronoSpark captures user input through app forms, how those forms feed workflows, how they relate to local persistence and Supabase, and what is still missing for a clean form-builder product story.
+
+============================================================
+EXECUTIVE VERDICT
+============================================================
+ChronoSpark already has a real in-app form system, but it is not a single cohesive form-builder product yet.
+
+What is strong:
+- Creator is a legitimate multi-type form surface for task, goal, routine, note, milestone, and plan-style input.
+- Timeline supports review and execution actions after creation.
+- Local repositories already store the app's core content model.
+- Supabase is present and real, but it is mostly supporting auth, health checks, and monetization rather than creator-content storage.
+
+What is weak:
+- The form story is fragmented across Creator, Smart Coach, SI Console, login, settings, and profile.
+- There is no dedicated unified form-builder layer for tasks/goals/routines/notes.
+- Validation is mostly basic field-level guardrails, not workflow-level validation.
+- There is a meaningful architecture split between local content persistence and Supabase-backed services.
+
+Overall form-builder readiness score: 74/100
+
+============================================================
+1. FORM SURFACE INVENTORY
+============================================================
+Active form surfaces:
+
+1) Creator
+- File: lib/features/creator/ui/creator_screen.dart
+- Core widget: lib/features/creator/widgets/dynamic_form.dart
+- Type selector: lib/features/creator/widgets/type_selector.dart
+- Role: Primary entry builder for user-created content.
+- Fields: title, description/notes, type, priority, recurrence, schedule date.
+- Save target: local task/goal repositories through creator and task/goal providers.
+- Status: Active and central.
+
+2) Smart Coach / Smart Planner
+- File: lib/features/home/ui/smart_coach_screen.dart
+- Role: Guided coaching input surface.
+- Fields: focus context, energy slider, emotion selector, follow-up prompt.
+- Save target: coaching output and downstream timeline/memory side effects.
+- Status: Active, but not a general form-builder.
+
+3) SI Console
+- File: lib/features/si_console/ui/si_console_screen.dart
+- Role: command/prompt input surface.
+- Fields: freeform prompt input.
+- Save target: command processing / assistant flow.
+- Status: Active, but narrow.
+
+4) Login
+- File: lib/features/auth/ui/login_screen.dart
+- Role: authentication form.
+- Fields: email, password, sign-in/sign-up mode.
+- Save target: Supabase auth and social sign-in flow.
+- Status: Active and critical.
+
+5) Settings
+- File: lib/features/settings/ui/settings_screen.dart
+- File: lib/features/settings/ui/settings_screen.sections.dart
+- Role: preferences and reminder forms.
+- Fields: toggles, reminder time, notification-related controls.
+- Save target: local settings and related services.
+- Status: Active.
+
+6) Profile
+- File: lib/features/profile/ui/profile_screen.dart
+- Role: account/status control surface.
+- Fields: account actions and preference-linked controls.
+- Save target: mixed local and backend-linked flows.
+- Status: Active.
+
+Supporting creator-adjacent surfaces:
+- lib/features/creator/widgets/quick_input_bar.dart
+- lib/features/creator/widgets/input_field.dart
+- lib/features/creator/ui/widgets/creator_entry_lists.dart
+- lib/features/timeline/ui/timeline_screen.dart
+
+Missing dedicated form feature folders:
+- No lib/features/tasks
+- No lib/features/goals
+- No lib/features/routines
+- No lib/features/notes
+
+That absence matters: the product has the concepts, but not a clean dedicated form-builder feature boundary for them.
+
+============================================================
+2. CREATOR AUDIT
+============================================================
+Creator is the closest thing ChronoSpark has to a real form builder.
+
+Observed inputs:
+- Title field
+- Description / notes field
+- Type selector
+- Priority picker
+- Recurrence picker
+- Schedule date picker
+- Submit button with loading and error handling
+
+Supported item types:
+- Task
+- Routine
+- Note
+- Goal
+- Milestone and plan-like modes also exist in the surrounding creator workflow
+
+Supported timing choices:
+- One-time
+- Daily
+- Weekly
+- Scheduled date selection
+
+Observed behavior:
+- Routine defaults to daily recurrence when recurrence is not explicitly chosen.
+- Goal creation routes through the native goals provider stack instead of being stored only as a task-like stub.
+- Creator creation success updates a first-item-created flag in local persistence.
+- Creator creation can launch Timeline after save in the broader user flow.
+
+Validation quality:
+- Title required check exists.
+- Schedule date is optional.
+- Priority is constrained by picker UI, but there is little evidence of deeper semantic validation.
+- Type/recurrence compatibility is handled by code defaults rather than explicit user-facing validation.
+- Error handling exists, but it is basic.
+
+Creator readiness score: 84/100
+
+Creator strengths:
+- Clear central form hub.
+- Good coverage of common planner input.
+- Real persistence and real workflow wiring.
+
+Creator gaps:
+- Notes, goals, routines, and tasks are not separated into distinct domain-native form surfaces.
+- Validation is functional but not polished.
+- There is no strong summary/review step before persistence.
+
+============================================================
+3. WORKFLOW BINDING AUDIT
+============================================================
+What happens after submit:
+- Task-like entries are created through the task action pipeline.
+- Goal-like entries are routed into the goal provider stack.
+- Timeline is connected to task creation and task completion flows.
+- Creator marks the first item created for later onboarding/experience handling.
+
+Timeline review behavior:
+- Timeline can show tasks, goals, milestones, deadlines, forecasts, snapshots, risks, recommendations, reflections, level-ups, streaks, and goal completion events.
+- Timeline supports complete, not completed, skip, and reschedule actions for actionable items.
+
+Workflow binding score: 79/100
+
+What is good:
+- There is a real create -> review -> act loop.
+- Creation and execution are not isolated.
+
+What is weak:
+- Creator does not always feel like a deliberate form-builder flow because workflow and presentation are split across several screens.
+- The action loop is stronger for tasks than for the other item types.
+
+============================================================
+4. LOCAL STORAGE AUDIT
+============================================================
+ChronoSpark's core content is mostly local-first.
+
+Observed local repositories:
+- Tasks: Hive-backed repository
+- Goals: Hive-backed repository
+- Routines: Hive-backed repository
+- Memories: SharedPreferences-backed repository
+- Timeline events: SharedPreferences-backed repository
+
+What that means:
+- User-created planner content is not primarily stored in Supabase.
+- The app has a local domain model for core user-created data.
+- Supabase should be treated as supporting infrastructure, not the main form submission target.
+
+Local persistence score: 91/100
+
+Strengths:
+- Fast local UX.
+- Predictable offline behavior for the core planner domain.
+- Clear separation between content creation and remote services.
+
+Gaps:
+- The product story can feel inconsistent because some surfaces look cloud-connected while the core creator content remains local.
+- There is no single user-facing explanation of which input goes local and which input goes remote.
+
+============================================================
+5. SUPABASE AUDIT
+============================================================
+Supabase is real in the app, but it is not the main content form sink.
+
+Observed Supabase roles:
+- Auth/session support.
+- Backend health checks.
+- Storage reachability checks.
+- Read-only monetization data.
+
+Observed read targets:
+- user_daily_metrics
+- chronospark-sync storage bucket
+- monetization_subscription_statuses
+- monetization_wallets
+- monetization_credit_transactions
+- monetization_entitlement_events
+
+Observed behavior:
+- Supabase reads are guarded by auth/session checks.
+- Monetization repositories filter by authenticated user.
+- The backend health provider treats permission-denied states separately from connectivity failures.
+
+What Supabase is not doing in the current form-builder story:
+- It is not the primary write path for creator content.
+- It is not the main persistence layer for tasks/goals/routines/notes.
+- It is not the center of the user input workflow.
+
+Supabase integration score: 62/100
+
+Why the score is lower than the local model score:
+- The integration is functional, but narrow.
+- The product does not yet present a clear local-vs-cloud data contract to the user.
+- The audit surface looks broader than the actual write path.
+
+============================================================
+6. DATA MODEL AUDIT
+============================================================
+Current model coverage:
+
+Task
+- Has title, description, createdAt, priority, difficulty, energyRequired, scheduledFor, recurrenceRule, completedAt, dueDate, goalId, completion state.
+- Coverage: strong.
+
+Goal
+- Has title, description, createdAt, targetDate, colorHex.
+- Coverage: solid, but separate from the main task creation path.
+
+Routine
+- Has userId, description, stepTaskIds, status, timestamps.
+- Coverage: present, but surfaced indirectly.
+
+Memory
+- Has text, category, tags, links, metadata, source, starred, archivedAt.
+- Coverage: good for note-like capture, but not exposed as a dedicated creator lane.
+
+Timeline event
+- Has event type, status, due phase, related ID, and multiple informational variants.
+- Coverage: strong for review and execution.
+
+Main missing fields for a stronger form-builder product:
+- Explicit source_screen or source_surface on more submissions.
+- Better review-state metadata before save.
+- Stronger validation metadata for required/optional distinctions.
+- Dedicated note-specific downstream review semantics.
+- Better cross-entity linking for task-goal-routine relationships.
+
+Data model completeness score: 82/100
+
+============================================================
+7. VALIDATION AND UX AUDIT
+============================================================
+Validation quality:
+- Good enough for basic use.
+- Not yet good enough for a premium form-builder story.
+
+Observed validation style:
+- Basic required-field handling.
+- Simple date picking with a bounded future range.
+- Recurrence and type defaults handled in code.
+- Loading and error states are present.
+
+Observed UX quality:
+- Creator is the best-structured form surface in the app.
+- Supporting forms exist, but they do not feel like one unified system.
+- The app still leans on multiple conceptual layers: planner, console, coach, mission, and dashboard.
+
+UX/form clarity score: 76/100
+
+Main UX problems:
+- The same user concept appears in multiple places with slightly different vocabulary.
+- Some surfaces feel like command tools instead of friendly form flows.
+- The create/save/review loop is real, but not yet simple enough.
+
+============================================================
+8. RISK CLASSIFICATION
+============================================================
+High risk:
+- User confusion over where content is stored.
+- Misunderstanding of which surfaces are real planner forms versus support tools.
+- Goal/routine/note semantic drift across the app.
+
+Medium risk:
+- Validation that is technically functional but not deeply guided.
+- Supabase being interpreted as the primary content backend when it is not.
+- Fragmented terminology around planner item types.
+
+Low risk:
+- Missing dedicated form folders.
+- Basic defaulting logic for recurrence and priority.
+- Supporting surfaces like login and settings behaving as ordinary forms.
+
+============================================================
+9. SAFE IMPROVEMENT ROADMAP
+============================================================
+Phase 1: Clarify the form system
+- Present Creator as the primary form-builder surface.
+- Reduce vocabulary drift between task, goal, routine, note, and plan.
+- Make the review/save outcome more explicit.
+
+Phase 2: Normalize domain-specific input
+- Separate item types more cleanly in the UI.
+- Make validation reflect the chosen type.
+- Expose richer guidance for recurrence and scheduling.
+
+Phase 3: Clarify data destinations
+- Explain which flows stay local and which use Supabase.
+- Make backend-facing surfaces visibly distinct from planner-content capture.
+- Keep Supabase focused on auth, health, and monetization unless the product explicitly expands that role.
+
+Phase 4: Strengthen the workflow loop
+- Tighten Create -> Timeline -> Complete feedback.
+- Improve note and goal review semantics.
+- Add a stronger post-save summary or confirmation path.
+
+============================================================
+FINAL VERDICT
+============================================================
+ChronoSpark already has a real app form system, but it is currently a distributed planner workflow rather than a single polished form-builder product.
+
+Best current description:
+- Strong Creator surface
+- Real local persistence
+- Real Timeline review loop
+- Narrow but functional Supabase support
+- Fragmented product framing
+
+If the goal is a true app form-builder experience, the next best move is not more backend work. It is clearer form hierarchy, clearer type semantics, and clearer user-facing routing between create, review, and completion.

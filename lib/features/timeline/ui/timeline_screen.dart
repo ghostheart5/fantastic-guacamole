@@ -262,7 +262,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                             ),
                           ),
                           const Text(
-                            'Primary planning surface for tasks, goals, and signals',
+                            'Review saved items, deadlines, and signals',
                             style: TextStyle(
                               fontSize: 10,
                               letterSpacing: 0.5,
@@ -376,7 +376,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   hasScrollBody: false,
                   child: Center(
                     child: Text(
-                      'No timeline items match this view.\nTry another window, clear filters, or create a task or goal.',
+                        'No items match this view.\nTry another window, clear filters, or create something in Creator.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white38,

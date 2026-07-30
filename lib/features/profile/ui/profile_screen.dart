@@ -120,7 +120,7 @@ class ProfileScreen extends ConsumerWidget {
                             onPressed: () =>
                                 context.push(RoutePaths.subscriptionManagement),
                             icon: const Icon(Icons.credit_card, size: 18),
-                            label: const Text('Billing Center'),
+                            label: const Text('Billing center'),
                           ),
                         ),
                       ],
@@ -148,7 +148,7 @@ class ProfileScreen extends ConsumerWidget {
                 runSpacing: 10,
                 children: [
                   _MetricCard(
-                    label: 'LEVEL',
+                    label: 'Level',
                     value: '${data.level}',
                     color: AppColors.neonCyan,
                   ),
@@ -158,7 +158,7 @@ class ProfileScreen extends ConsumerWidget {
                     color: AppColors.memoryAmber,
                   ),
                   _MetricCard(
-                    label: 'STREAK',
+                    label: 'Streak',
                     value: '${data.streak}d',
                     color: AppColors.neonViolet,
                   ),
@@ -332,7 +332,7 @@ class _OperatorStatusCard extends StatelessWidget {
     if (streak >= 7) {
       return 'Consistency is building a stronger future path.';
     }
-    return 'Complete actions to strengthen your operator signal.';
+    return 'Complete actions to strengthen your profile signal.';
   }
 
   @override
