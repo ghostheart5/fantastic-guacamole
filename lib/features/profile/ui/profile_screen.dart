@@ -86,7 +86,7 @@ class ProfileScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Account center',
+                      'Account hub',
                       style: TextStyle(
                         color: AppColors.neonViolet,
                         fontSize: 10,
@@ -96,7 +96,7 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Find account controls, settings, and billing in one path.',
+                      'Manage account details, settings, and billing in one place.',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -200,7 +200,7 @@ class ProfileScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Momentum profile',
+                      'Momentum trend',
                       style: TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: 11,

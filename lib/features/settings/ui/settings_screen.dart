@@ -145,7 +145,7 @@ class SettingsScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Status',
+                      'Workspace status',
                       style: TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: 10,
@@ -155,7 +155,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'ChronoSpark systems online',
+                      'Settings are ready',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -164,7 +164,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     SizedBox(height: 5),
                     Text(
-                      'Core controls, account access, and support links are consolidated here.',
+                      'Manage app controls, account access, and support links here.',
                       style: TextStyle(
                         color: Colors.white60,
                         fontSize: 12,
@@ -178,7 +178,7 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               _Section(
-                label: 'SYSTEM CORE',
+                label: 'APP PREFERENCES',
                 accentColor: AppColors.neonCyan,
                 child: Column(
                   children: [
@@ -206,11 +206,11 @@ class SettingsScreen extends ConsumerWidget {
                       builder: (context, granted, _) {
                         final String subtitle = switch (granted) {
                           true => 'Granted',
-                          false => 'Denied (scheduling disabled)',
-                          null => 'Unknown until app initializes notifications',
+                          false => 'Denied (reminders are off)',
+                          null => 'Checking notification access',
                         };
                         return _NeonStatusTile(
-                          title: 'Alert Permission',
+                          title: 'Notifications',
                           subtitle: subtitle,
                         );
                       },
@@ -265,7 +265,7 @@ class SettingsScreen extends ConsumerWidget {
                                   },
                                   icon: const Icon(Icons.build_circle_outlined),
                                   label: const Text(
-                                    'Open Notification Recovery',
+                                    'Fix Notification Access',
                                   ),
                                 ),
                               ),
@@ -279,13 +279,13 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               _Section(
-                label: 'OPERATOR ACCOUNT',
+                label: 'ACCOUNT',
                 accentColor: AppColors.neonViolet,
                 child: Column(
                   children: [
                     _NeonNavTile(
                       title: 'Profile & Identity',
-                      subtitle: 'Name, progression, and identity controls.',
+                      subtitle: 'Name, progress, and identity settings.',
                       onTap: () => context.push(RoutePaths.profile),
                     ),
                     _NeonNavTile(
@@ -301,7 +301,7 @@ class SettingsScreen extends ConsumerWidget {
                     _NeonNavTile(
                       title: 'Explore Plans',
                       subtitle:
-                          '${access.subscriptionStatusDetail} · compare available tiers.',
+                          '${access.subscriptionStatusDetail} · compare plan tiers.',
                       onTap: () => context.push(routes.paywall),
                     ),
                     _NeonNavTile(
@@ -336,14 +336,14 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               _Section(
-                label: 'NETWORK & SUPPORT',
+                label: 'SUPPORT & LEGAL',
                 accentColor: AppColors.memoryAmber,
                 child: Column(
                   children: [
                     _NeonNavTile(
                       title: 'Privacy Policy',
                       subtitle: legalPoliciesCount > 0
-                          ? 'Live: ${AppUrls.privacy} | local cache:$legalPoliciesCount'
+                          ? 'Live: ${AppUrls.privacy} | cache: $legalPoliciesCount'
                           : AppUrls.privacy,
                       onTap: () => unawaited(
                         _openExternalWithFallback(

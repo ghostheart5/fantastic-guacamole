@@ -517,7 +517,7 @@ class _LoginBrandPanel extends StatelessWidget {
         _LoginBrandHeader(pulse: pulse),
         const SizedBox(height: 18),
         const Text(
-          'Access the system, reset the key, or initialize a new profile from one place.',
+          'Sign in, reset your password, or create an account from one place.',
           style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.55),
         ),
       ],
@@ -601,7 +601,7 @@ class _LoginFormCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            isSignUpMode ? 'CREATE ACCOUNT' : 'ACCESS SYSTEM',
+            isSignUpMode ? 'Create account' : 'Sign in',
             style: TextStyle(
               color: Colors.white38,
               fontSize: compact ? 9 : 10,
@@ -611,7 +611,7 @@ class _LoginFormCard extends StatelessWidget {
           ),
           SizedBox(height: compact ? 4 : 6),
           Text(
-            'Secure command access for your mission control.',
+            'Secure access to your planner and progress.',
             style: TextStyle(
               color: Colors.white60,
               fontSize: compact ? 11 : 12,
@@ -688,7 +688,7 @@ class _LoginFormCard extends StatelessWidget {
           ),
           SizedBox(height: compact ? 14 : 18),
           _PrimaryButton(
-            label: isSignUpMode ? 'INITIALIZE PROFILE' : 'ENTER SYSTEM',
+            label: isSignUpMode ? 'Create account' : 'Sign in',
             isLoading: isSubmitting,
             onTap: onPrimaryAction,
           ),

@@ -34,15 +34,15 @@ class TrajectoryEngineScreen extends ConsumerWidget {
             ref.read(appFlowProvider.notifier).toNexus();
           },
         ),
-        title: const Text('Forecast'),
+        title: const Text('Future Forecast'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           _Panel(
-            title: 'Forecast',
+            title: 'Outlook',
             child: Text(
-              trajectory.predictionOutcome ?? 'Future path is stabilizing.',
+              trajectory.predictionOutcome ?? 'Your current path looks stable.',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -60,12 +60,12 @@ class TrajectoryEngineScreen extends ConsumerWidget {
           const SizedBox(height: 12),
 
           _Panel(
-            title: 'Outlook',
+            title: 'What this means',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const <Widget>[
                 Text(
-                  'Trajectory remains active.',
+                  'Your momentum is active.',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -74,7 +74,7 @@ class TrajectoryEngineScreen extends ConsumerWidget {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'Momentum, adaptation, and execution indicate the projected path is continuing to develop. Continue reinforcing positive behavior signals.',
+                  'Your recent execution supports this path. Keep reinforcing positive habits.',
                   style: TextStyle(
                     color: Color(0xFFD8E2FF),
                     fontSize: 14,
@@ -142,7 +142,7 @@ class TrajectoryEngineScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _Panel(
-            title: 'Success forecast',
+            title: 'Success outlook',
             child: Text(
               trajectory.alert.contains('risk')
                   ? 'Some risk signals are active. Focus on one clear next step today.'
@@ -158,7 +158,7 @@ class TrajectoryEngineScreen extends ConsumerWidget {
           const SizedBox(height: 12),
 
           _Panel(
-            title: 'Adjustments',
+            title: 'Recommended next steps',
             child: Text(
               trajectory.alert,
               style: const TextStyle(
@@ -183,7 +183,7 @@ class _TrajectorySimulationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Panel(
-      title: 'SIMULATION',
+      title: 'Scenarios',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: simulations.map((simulation) {
@@ -309,7 +309,7 @@ class _FutureRoadmapCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Panel(
-      title: 'FUTURE ROADMAP',
+      title: 'Future roadmap',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[

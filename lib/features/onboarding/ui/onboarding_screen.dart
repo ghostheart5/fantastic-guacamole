@@ -102,18 +102,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           context: context,
           builder: (BuildContext dialogContext) {
             return AlertDialog(
-              title: const Text('Leave setup?'),
+              title: const Text('Exit setup?'),
               content: const Text(
-                'You can continue this setup later. Your progress will stay saved.',
+                'You can continue later. Your progress is saved.',
               ),
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Continue setup'),
+                  child: const Text('Keep setting up'),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: const Text('Leave'),
+                  child: const Text('Exit'),
                 ),
               ],
             );
@@ -350,7 +350,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             SizedBox(
                               width: 220,
                               child: _GradientButton(
-                                label: 'START PLANNING',
+                                label: 'Continue',
                                 onTap: _next,
                               ),
                             ),
@@ -367,7 +367,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                   _beginMissionZero();
                                 },
                                 child: const Text(
-                                  'SKIP',
+                                  'Skip for now',
                                   style: TextStyle(
                                     color: Colors.white38,
                                     fontSize: 12,
@@ -388,7 +388,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
                             // Primary action button
                             _GradientButton(
-                              label: 'START PLANNING',
+                              label: 'Continue',
                               onTap: _next,
                             ),
                             const SizedBox(height: 14),
@@ -406,7 +406,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                   _beginMissionZero();
                                 },
                                 child: const Text(
-                                  'SKIP',
+                                  'Skip for now',
                                   style: TextStyle(
                                     color: Colors.white38,
                                     fontSize: 12,
@@ -805,7 +805,7 @@ class _PersonalizationSlide extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'YOUR FIRST SETUP',
+                'Your first setup',
                 style: TextStyle(
                   color: AppColors.neonCyan,
                   fontSize: 10,
@@ -824,7 +824,7 @@ class _PersonalizationSlide extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.all(14),
                 child: const Text(
-                  'Create your first item, choose when it happens, and then review it on your timeline. Smart Planner, Future Vector, Ascension, SI Console, and Profile are available to explore after setup.',
+                  'Create your first item, choose when it happens, then review it on Timeline. You can explore Smart Planner, Forecast, Progress, SI Console, and Profile after setup.',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
@@ -835,19 +835,19 @@ class _PersonalizationSlide extends StatelessWidget {
               const SizedBox(height: 20),
               const _MissionCheckpointRow(
                 index: '01',
-                title: 'Create Something',
+                title: 'Create your first item',
                 detail: 'Start with a task, routine, note, or goal.',
               ),
               const SizedBox(height: 10),
               const _MissionCheckpointRow(
                 index: '02',
-                title: 'Choose When It Happens',
+                title: 'Choose when it happens',
                 detail: 'Set it as one time, daily, or weekly.',
               ),
               const SizedBox(height: 10),
               const _MissionCheckpointRow(
                 index: '03',
-                title: 'View Your Timeline',
+                title: 'View your timeline',
                 detail: 'See your plan in a calendar-style view.',
               ),
             ],
@@ -871,7 +871,7 @@ class _PersonalizationSlide extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Text(
-                                'GET STARTED',
+                                'Get started',
                                 style: TextStyle(
                                   color: AppColors.neonCyan,
                                   fontSize: 10,
@@ -891,7 +891,7 @@ class _PersonalizationSlide extends StatelessWidget {
                                         ],
                                       ).createShader(bounds),
                                   child: const Text(
-                                    'BUILD YOUR FIRST PLAN',
+                                    'Build your first plan',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 44,
@@ -906,7 +906,7 @@ class _PersonalizationSlide extends StatelessWidget {
                               const _SignalReveal(
                                 delay: Duration(milliseconds: 220),
                                 child: Text(
-                                  'Create your first item, choose when it happens, and see it on your timeline.',
+                                    'Create your first item, choose when it happens, and review it on Timeline.',
                                   style: TextStyle(
                                     color: AppColors.neonCyan,
                                     fontSize: 15,
@@ -927,7 +927,7 @@ class _PersonalizationSlide extends StatelessWidget {
                               const _SignalReveal(
                                 delay: Duration(milliseconds: 320),
                                 child: Text(
-                                  'ChronoSpark starts with one simple step: create a task, routine, note, or goal. After that, your timeline helps you see what is planned.',
+                                  'Start with one task, routine, note, or goal. Then review it on Timeline.',
                                   style: TextStyle(
                                     color: Colors.white70,
                                     fontSize: 16,
@@ -940,7 +940,7 @@ class _PersonalizationSlide extends StatelessWidget {
                               const _SignalReveal(
                                 delay: Duration(milliseconds: 420),
                                 child: _StatusLine(
-                                  text: 'READY TO START',
+                                  text: 'You are ready to begin',
                                 ),
                               ),
                             ],
@@ -968,7 +968,7 @@ class _PersonalizationSlide extends StatelessWidget {
                       ),
                     ),
                     child: const Text(
-                      'GET STARTED',
+                      'Get started',
                       style: TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: 10,
@@ -985,7 +985,7 @@ class _PersonalizationSlide extends StatelessWidget {
                         colors: [Colors.white, AppColors.neonCyan],
                       ).createShader(bounds),
                       child: const Text(
-                        'BUILD YOUR FIRST PLAN',
+                        'Build your first plan',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 39,
@@ -1000,7 +1000,7 @@ class _PersonalizationSlide extends StatelessWidget {
                   const _SignalReveal(
                     delay: Duration(milliseconds: 220),
                     child: Text(
-                      'Create your first item, choose when it happens, and see it on your timeline.',
+                      'Create your first item, choose when it happens, and review it on Timeline.',
                       style: TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: 14,
@@ -1022,7 +1022,7 @@ class _PersonalizationSlide extends StatelessWidget {
                   const _SignalReveal(
                     delay: Duration(milliseconds: 320),
                     child: Text(
-                      'ChronoSpark starts with one simple step: create a task, routine, note, or goal. After that, your timeline helps you see what is planned.',
+                      'Start with one task, routine, note, or goal. Then review it on Timeline.',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 15,
@@ -1032,7 +1032,7 @@ class _PersonalizationSlide extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const _StatusLine(text: 'READY TO START'),
+                  const _StatusLine(text: 'You are ready to begin'),
                   const SizedBox(height: 18),
                   missionCard,
                 ],

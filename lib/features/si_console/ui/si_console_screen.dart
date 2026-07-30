@@ -128,9 +128,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     // Greeting after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _addSI(
-        'System online. Strategic Intelligence interface active.\n'
-        'I have access to tasks, progression, goals, memories, day plan, flowmap, emotions, timeline, milestones, and console history. '
-        'Ask me anything - or type "help" to see available commands.',
+        'SI Console is ready.\n'
+        'I can help with tasks, goals, timeline, momentum, and planning context. '
+        'Ask a question, or type "help" to see available commands.',
         emotion: 'confident',
       );
     });
@@ -190,7 +190,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'A11Y means accessibility. These controls help with readable and spoken guidance.',
+                  'These controls improve readability and spoken guidance.',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 12,
@@ -266,7 +266,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _messages.add(
           const SIConsoleMessage(
             text:
-                'STRATEGIC INTELLIGENCE GUIDE\n\n'
+              'SI Console guide\n\n'
                 'Signal channels:\n'
                 '- /tasks: inspect active tasks and next actions\n'
                 '- /goals: summarize goals and drift\n'
@@ -289,7 +289,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- /optimize: show autonomous life optimization state\n\n'
                 'Operating rules:\n'
                 '- Task creation is Creator-only. Use Creator to create tasks/goals.\n'
-                '- SI Console is analysis + guidance, not data-entry.\n\n'
+                '- SI Console provides analysis and guidance, not task entry.\n\n'
                 'High-impact strategic prompts:\n'
                 '- "What is my highest-leverage next move?"\n'
                 '- "Show the newest task and the smartest execution order."\n'
@@ -297,7 +297,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- "Show today\'s biggest risk and three stabilizing moves."\n'
                 '- "Summarize goals drifting off course and the next correction."\n'
                 '- "Compare current self to future self."\n\n'
-                'Tip: choose a signal channel, then ask for pressure, risk, prediction, or next move.',
+                'Tip: pick a command, then ask for risk, prediction, or next move.',
             isUser: false,
             emotion: 'focused',
           ),

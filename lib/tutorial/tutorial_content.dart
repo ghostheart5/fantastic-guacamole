@@ -46,7 +46,7 @@ class TutorialContent {
   static const List<TutorialStepContent> steps = [
     TutorialStepContent(
       id: 'nexus_overview',
-      title: 'NEXUS OVERVIEW',
+      title: 'HOME OVERVIEW',
       description:
           'Scan energy, clarity, and momentum in one view, then choose one concrete next step.',
       ctaLabel: 'Open Nexus',
@@ -56,7 +56,7 @@ class TutorialContent {
       title: 'SMART PLANNER',
       description:
           'Send one focused prompt to get immediate guidance when momentum drops.',
-      ctaLabel: 'Try Prompt',
+      ctaLabel: 'Try a Prompt',
     ),
     TutorialStepContent(
       id: 'daily_reflection',
@@ -67,16 +67,16 @@ class TutorialContent {
     ),
     TutorialStepContent(
       id: 'planner_priority',
-      title: 'PLAN PRIORITIES',
+      title: 'PRIORITIZE YOUR PLAN',
       description:
           'Pick one top priority first, then stack supporting actions behind it.',
       ctaLabel: 'Set Priority',
     ),
     TutorialStepContent(
       id: 'trajectory_overview',
-      title: 'TRAJECTORY',
+        title: 'FORECAST',
       description:
-          'Read the prediction, choose one action, then branch in Flowmap when needed.',
+          'Read your forecast, choose one action, then branch in Flowmap when needed.',
       ctaLabel: 'Open Trajectory',
     ),
     TutorialStepContent(
@@ -102,17 +102,17 @@ class TutorialContent {
     ),
     TutorialStepContent(
       id: 'console_overview',
-      title: 'SI CONSOLE',
+        title: 'SI CONSOLE ASSISTANT',
       description:
-          'Use SI Console for deep intelligence queries and advanced signal interpretation.',
-      ctaLabel: 'ENTER CONSOLE',
+          'Use SI Console for deeper planning questions and advanced guidance.',
+        ctaLabel: 'Open Console',
     ),
     TutorialStepContent(
       id: 'progression_overview',
       title: 'PROGRESSION TRACKER',
       description:
           'Track momentum shifts over time and confirm your weekly trajectory is climbing.',
-      ctaLabel: 'CHECK CLIMB',
+      ctaLabel: 'View Progress',
     ),
     TutorialStepContent(
       id: 'flowmap_overview',
@@ -126,7 +126,7 @@ class TutorialContent {
       title: 'CREATOR WORKSPACE',
       description:
           'Keep goals precise, measurable, and aligned with your current energy state.',
-      ctaLabel: 'OPEN CREATOR',
+      ctaLabel: 'Open Creator',
     ),
     TutorialStepContent(
       id: 'memories_overview',
@@ -140,14 +140,14 @@ class TutorialContent {
       title: 'TIMELINE',
       description:
           'Read emotional and identity vectors that influence clarity, resilience, and decision quality.',
-      ctaLabel: 'SCAN MAP',
+      ctaLabel: 'Review Signals',
     ),
     TutorialStepContent(
       id: 'timeline_overview',
       title: 'TIMELINE REVIEW',
       description:
           'Connect past decisions to current trajectory and execute cleaner course corrections.',
-      ctaLabel: 'OPEN TIMELINE',
+      ctaLabel: 'Open Timeline',
     ),
   ];
 

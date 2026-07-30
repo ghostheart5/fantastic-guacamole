@@ -58,7 +58,7 @@ class _NexusHeader extends ConsumerWidget {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        'NEXUS',
+                        'Home',
                         style: TextStyle(
                           fontSize: ultraCompact ? 22 : (compact ? 26 : 28),
                           fontWeight: FontWeight.w900,
@@ -73,7 +73,7 @@ class _NexusHeader extends ConsumerWidget {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        'Planning overview',
+                        'Today\'s overview',
                         style: TextStyle(
                           fontSize: ultraCompact ? 6 : (compact ? 7 : 8),
                           letterSpacing: ultraCompact
@@ -122,7 +122,7 @@ class _NexusHeader extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Level | streak | status',
+                      'Level | streak | focus',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -538,7 +538,7 @@ class _RingLabels extends StatelessWidget {
         runSpacing: ultraCompact ? 6 : 8,
         children: [
           _RingLabel(
-            label: 'VELOCITY',
+            label: 'ENERGY',
             value: '${(energy * 100).round()}%',
             color: AppColors.neonCyan,
           ),
@@ -570,15 +570,15 @@ class _NexusBridgeCard extends StatelessWidget {
     final bool profileReady = profile.hasValidProfile;
     final String displayName = profileReady
         ? profile.name.trim().toUpperCase()
-        : 'OPERATOR';
+        : 'YOUR PROFILE';
 
     final String greeting = !profileReady
-        ? 'Operator profile initializing. Complete setup to unlock full signal sync.'
+      ? 'Profile setup in progress. Complete setup to sync everything.'
         : energy >= 0.65
-        ? 'High-capacity window detected. Execute one high-impact move now.'
+      ? 'Great energy. Pick one high-impact action.'
         : energy >= 0.4
-        ? 'Stable operating state online. Build momentum with one decisive action.'
-        : 'Low reserve detected. Choose one light win to restore operating rhythm.';
+      ? 'You are in a steady zone. Take one clear next step.'
+        : 'Energy is low. Start with one small win to rebuild momentum.';
 
     return Container(
       width: double.infinity,
@@ -603,7 +603,7 @@ class _NexusBridgeCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'OPERATOR STATUS: $displayName',
+            'Today\'s status: $displayName',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -625,8 +625,8 @@ class _NexusBridgeCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             profileReady
-                ? 'LVL ${profile.level}  -  STREAK ${profile.streak}d  -  TODAY $completedToday'
-                : 'OPERATOR STATUS  -  INITIALIZING',
+                ? 'Level ${profile.level}  -  Streak ${profile.streak}d  -  Today $completedToday'
+                : 'Profile status  -  Initializing',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -736,7 +736,7 @@ class _CoreSignalsStrip extends StatelessWidget {
             children: [
               const Expanded(
                 child: Text(
-                  'SYSTEM SYNTHESIS (CROSS-MODULE)',
+                  'System summary',
                   style: TextStyle(
                     color: AppColors.neonViolet,
                     fontSize: 10,
@@ -1256,7 +1256,7 @@ class _ActionGrid extends ConsumerWidget {
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'MISSION ROUTER',
+                  'Quick actions',
                   style: TextStyle(
                     fontSize: 10,
                     letterSpacing: 1.6,
@@ -1291,12 +1291,12 @@ class _ActionGrid extends ConsumerWidget {
                 onTap: () => ref.read(appFlowProvider.notifier).toProfile(),
               ),
               actionButton(
-                label: 'Ascension',
+                label: 'Progress',
                 color: AppColors.neonViolet,
                 onTap: () => ref.read(appFlowProvider.notifier).toProgression(),
               ),
               actionButton(
-                label: 'Future Vector',
+                label: 'Forecast',
                 color: AppColors.neonViolet,
                 onTap: () =>
                     ref.read(appFlowProvider.notifier).toTrajectoryEngine(),
