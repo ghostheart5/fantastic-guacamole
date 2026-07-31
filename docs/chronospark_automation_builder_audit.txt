@@ -1,0 +1,983 @@
+CHRONOSPARK APP AUTOMATION BUILDER / RPA AUDIT
+Scope: Mobile app automation only (not website automation)
+Mode: AUDIT ONLY (no code changes)
+Date: 2026-07-30
+
+============================================================
+SECTION 1
+EXECUTIVE AUTOMATION SUMMARY
+============================================================
+
+What automations exist:
+- Creator save fan-out for tasks/goals through action providers with side effects:
+  - task create -> timeline connect/mirror, log mirror, metrics, event bus, coach refresh
+  - goal create/update/complete -> reminder sync, timeline connect/mirror, XP, event bus
+  - Evidence: lib/state/providers/creator_provider.dart, lib/state/providers/task_provider.dart, lib/state/providers/goals_provider.dart
+- Timeline execution automations:
+  - Complete / Not Completed / Skip / Reschedule actions invoke task automations
+  - Evidence: lib/features/timeline/ui/timeline_screen.dart, lib/state/providers/task_provider.dart
+- Event-driven invalidation automation:
+  - Domain event bus triggers provider invalidation across tasks/goals/logs/timeline/notifications/progression
+  - Evidence: lib/state/providers/event_bus_provider.dart, lib/state/core/state_bootstrap.dart
+- Notification automation exists for local reminders:
+  - goal reminders, habit reminder, daily planning reminder, reflection reminder
+  - Evidence: lib/state/services/reminder_orchestrator_service.dart, lib/state/services/reflection_reminder_service.dart, lib/system/notifications/notification_scheduler.dart
+- Background scheduler automations:
+  - offline sync replay every 15m, AI precompute every 20m
+  - periodic data hygiene cleanup
+  - Evidence: lib/system/system_scheduler.dart, lib/state/services/data_hygiene_scheduler.dart, lib/app/navigation_shell.dart
+- Supabase automation exists in specific bounded areas:
+  - health checks + realtime stream for user_daily_metrics
+  - cloud backup sync and offline queue replay
+  - FCM token -> Supabase auth metadata bridge
+  - monetization table reads and RPC credit consume
+  - Evidence: lib/state/providers/supabase_backend_provider.dart, lib/state/providers/sync_provider.dart, lib/data/services/sync_service.dart, lib/data/repositories/firebase_supabase_bridge_repository.dart, lib/features/monetization/data/monetization_remote_data_source.dart
+
+What automations are missing:
+- No explicit dedicated Note pipeline (notes are saved as task kind note, no note-specific downstream handling).
+- No explicit routine-instance engine (daily routine recurrence relies on task recurrence semantics, not a dedicated daily instantiation job).
+- No centralized completion event orchestrator that atomically guarantees full chain propagation across Timeline -> Ascension -> Future Vector -> Smart Planner -> SI Console.
+- No robust global retry/backoff policy for all Supabase read paths (monetization reads mostly direct).
+- No explicit conflict-resolution automation beyond sync merge logic in backup sync.
+
+Which automations are most valuable:
+- Task and goal save fan-out in providers.
+- Timeline action automations (complete/skip/not completed/reschedule).
+- Event bus invalidation bootstrap.
+- Offline queue replay + periodic scheduler.
+
+Which automations create confusion:
+- Smart Planner naming vs actual screen/controller split (Nexus + SmartCoach + SI pipeline sources).
+- Mission step naming mismatch (e.g., reportCreatorOpened completes configure step in mission state).
+- Ascension concept spans profile XP/progression/momentum rather than single authoritative pipeline.
+
+Which automations are duplicated:
+- Multiple independent coach refresh triggers after many mutations (task/goals/logs/notifications/timeline each can trigger decision refresh).
+- Timeline and logs both mirror lifecycle signals in separate fan-outs.
+- Notifications can be scheduled through multiple service paths (orchestrator + reflection service + notification provider).
+
+Verdict:
+- KEEP: Core task/goal/timeline fan-out + event bus invalidation + scheduler/replay foundation.
+- REDESIGN: Cross-system completion orchestration and Smart Planner/Future Vector feed contracts.
+- MERGE: Duplicate decision refresh and mirror-write pathways.
+- REMOVE: Dead/legacy-like automation ambiguity from non-authoritative alternate pathways (after migration verification).
+- UNKNOWN: Some advanced AI/trajectory/autonomous modules that compute from derived providers but are not fully event-contract-based.
+
+
+============================================================
+SECTION 2
+AUTOMATION INVENTORY
+============================================================
+
+Legend:
+- Risk level: Low / Medium / High / Critical
+
+1) file: lib/app/app_root.dart
+- trigger: deep link state listener (ref.listen deepLinkStateProvider)
+- action: resolve path and router.replace
+- destination: app router route state
+- state impact: navigation state mutation
+- risk: Medium (silent route replacement if malformed/duplicate links)
+
+2) file: lib/app/app_root.dart
+- trigger: mission state listener (finished)
+- action: finalize mission activation, persist onboarding flags
+- destination: shared prefs + onboarding providers + navigation to Creator
+- state impact: onboarding lifecycle transition
+- risk: High (state gating and flow correctness)
+
+3) file: lib/app/startup/app_bootstrap.dart
+- trigger: startup sequence
+- action: staged init (storage/firebase/supabase/identity/prefs)
+- destination: runtime services/providers
+- state impact: global app readiness
+- risk: High
+
+4) file: lib/app/startup/app_bootstrap.dart
+- trigger: deferred startup stages after first interactive frame
+- action: init messaging, endpoint health check, notification scheduler, deep links
+- destination: push/notification/link systems
+- state impact: deferred infra readiness
+- risk: Medium
+
+5) file: lib/app/navigation_shell.dart
+- trigger: app lifecycle events (resume/pause/inactive)
+- action: scheduler pause/resume, session save/recovery
+- destination: system scheduler, data hygiene scheduler, session recovery
+- state impact: resilience + continuity
+- risk: Medium
+
+6) file: lib/app/navigation_shell.dart
+- trigger: network online transition listener
+- action: replay offline queue + sync
+- destination: sync providers
+- state impact: eventual consistency
+- risk: Medium
+
+7) file: lib/system/system_scheduler.dart
+- trigger: periodic timers (15m, 20m)
+- action: offline queue sync callback, AI precompute callback
+- destination: sync and AI providers
+- state impact: background maintenance
+- risk: Medium
+
+8) file: lib/state/services/data_hygiene_scheduler.dart
+- trigger: periodic timer + immediate start runNow
+- action: cache/orphan/session/notification cleanup
+- destination: storage + notification repository
+- state impact: retention and hygiene
+- risk: Medium
+
+9) file: lib/state/providers/creator_provider.dart
+- trigger: createEntry submit
+- action: task/goal creation branch, recurrence normalization, first-item flag
+- destination: task/goals providers + onboarding flags
+- state impact: core content creation
+- risk: High
+
+10) file: lib/features/creator/ui/creator_screen.dart
+- trigger: onSubmit success
+- action: invalidate tasks/goal progress, mission event report, metrics record, timeline navigation assist
+- destination: providers + mission + app flow
+- state impact: post-create UI/data propagation
+- risk: High
+
+11) file: lib/state/providers/task_provider.dart
+- trigger: createTask
+- action: persist, timeline connect, mirrored log/timeline event, analytics, event bus emit, invalidations
+- destination: repositories/providers/event bus
+- state impact: broad cross-system fan-out
+- risk: High
+
+12) file: lib/state/providers/task_provider.dart
+- trigger: completeTask
+- action: persist completion, scoring/XP/SI state update, mirrored log/timeline/notifications, event emit
+- destination: profile/session score/SI/log/timeline/notifications
+- state impact: completion chain pivot
+- risk: Critical
+
+13) file: lib/state/providers/task_provider.dart
+- trigger: skipTask
+- action: learning update, SI update, mirrored log/timeline, refresh coach, event emit
+- destination: learning/SI/log/timeline
+- state impact: behavioral signal
+- risk: Medium
+
+14) file: lib/state/providers/task_provider.dart
+- trigger: delayTask (reschedule / not_completed)
+- action: update schedule, source-specific logs/events, event emit
+- destination: task store + timeline/log/event bus
+- state impact: schedule + compliance semantics
+- risk: High
+
+15) file: lib/features/timeline/ui/timeline_screen.dart
+- trigger: action chips (Complete/Not Completed/Skip/Reschedule)
+- action: call taskActions with actionSource timeline
+- destination: task automation chain
+- state impact: operator review loop execution
+- risk: High
+
+16) file: lib/state/providers/goals_provider.dart
+- trigger: goal add/update/complete etc
+- action: reminders sync, timeline connect/mirror, XP update, insights invalidation, event emit
+- destination: reminders/timeline/profile/insights/event bus
+- state impact: goal lifecycle automation
+- risk: High
+
+17) file: lib/state/providers/event_bus_provider.dart
+- trigger: Task/Goal/Insight/Log/Timeline/Progression/Memory/Notification events
+- action: provider invalidations
+- destination: state graph
+- state impact: consistency propagation
+- risk: High
+
+18) file: lib/state/providers/logs_provider.dart
+- trigger: add/addCompletedTask
+- action: persist log, optional timeline mirror, optional insights/soul map updates, event emit
+- destination: logs/timeline/insights/soul map
+- state impact: telemetry + reflective history
+- risk: Medium
+
+19) file: lib/state/providers/notification_provider.dart
+- trigger: push/mirrored notification events
+- action: schedule notification, optional plan/coach refresh, event emit
+- destination: notification repository + audio + state invalidation
+- state impact: alerting and nudge loop
+- risk: Medium
+
+20) file: lib/state/services/reminder_orchestrator_service.dart
+- trigger: goal list/habit list changes + prefs
+- action: schedule/cancel reminders
+- destination: notification scheduler
+- state impact: proactive reminders
+- risk: Medium
+
+21) file: lib/state/services/reflection_reminder_service.dart
+- trigger: enable/time change
+- action: permission request + daily reminder scheduling
+- destination: notification scheduler + prefs
+- state impact: daily reflection automation
+- risk: Medium
+
+22) file: lib/system/notifications/notification_scheduler.dart
+- trigger: schedule calls
+- action: local notification schedule with status codes + payload route
+- destination: OS notification system
+- state impact: reminder delivery
+- risk: Medium
+
+23) file: lib/system/firebase/firebase_messaging_bootstrap.dart
+- trigger: startup + token refresh + foreground/background message listeners
+- action: cache latest token, runtime diagnostics logs
+- destination: bootstrap static state + diagnostics
+- state impact: push channel readiness
+- risk: Medium
+
+24) file: lib/state/providers/service_providers.dart (firebaseSupabaseBridgeProvider)
+- trigger: client availability + auth state listener
+- action: sync cached/latest FCM token to Supabase auth metadata
+- destination: Supabase auth user metadata
+- state impact: cross-system identity token alignment
+- risk: Medium
+
+25) file: lib/state/providers/sync_provider.dart
+- trigger: manual/provider invocation + scheduler replay callbacks
+- action: replay queue, syncToCloud, enqueue failures, restore invalidations
+- destination: cloud backup + local queue
+- state impact: eventual cloud consistency
+- risk: High
+
+26) file: lib/data/services/sync_service.dart
+- trigger: syncToCloud/restore/syncDelta
+- action: backup upload/download, merge strategy, retry in storage gateway layer
+- destination: Supabase storage bucket
+- state impact: backup and reconciliation
+- risk: High
+
+27) file: lib/state/providers/supabase_backend_provider.dart
+- trigger: health provider evaluation + realtime stream provider watch
+- action: db/storage checks and stream user_daily_metrics rows
+- destination: Supabase DB/storage/realtime
+- state impact: backend health visibility + live metrics feed
+- risk: Medium
+
+28) file: lib/features/monetization/data/monetization_remote_data_source.dart
+- trigger: monetization screen/provider reads and consume credits operations
+- action: table selects + RPC consume_monetization_credits
+- destination: Supabase monetization tables/functions
+- state impact: subscription/wallet/credits automation
+- risk: High
+
+29) file: lib/tutorial/mission/mission_provider.dart + mission_controller.dart
+- trigger: mission bridge reports from UI surfaces
+- action: complete and advance mission steps, persist state
+- destination: mission repository/shared prefs
+- state impact: onboarding progression automation
+- risk: Medium
+
+30) file: lib/features/home/ui/smart_coach_screen.dart
+- trigger: coaching request/follow-up
+- action: logs emotion check-in to timeline, asks coach, mission event report
+- destination: timeline + coach pipeline + mission progression
+- state impact: Smart Planner conversational loop
+- risk: Medium
+
+
+============================================================
+SECTION 3
+CREATOR AUTOMATION AUDIT
+============================================================
+
+Audit target: Task / Routine / Goal / Note creation path
+Evidence: lib/features/creator/widgets/dynamic_form.dart, lib/features/creator/widgets/type_selector.dart, lib/state/providers/creator_provider.dart, lib/state/providers/task_provider.dart, lib/state/providers/goals_provider.dart, lib/features/creator/ui/creator_screen.dart
+
+Task:
+- save record: wired
+- refresh UI: wired (provider invalidation + snack + optional timeline redirect)
+- update Timeline: wired (connectTask + mirrored events)
+- update providers: wired
+- analytics: wired (task_created/local metrics)
+- onboarding progression: partial (first-item flag + mission only for specific goal event)
+- notifications: partial (indirect, via reminder/decision notifications not explicit task creation reminder)
+
+Routine:
+- save record: wired as task kind routine with recurrence coercion
+- refresh UI: wired
+- update Timeline: wired via task connect
+- update providers: wired
+- analytics: partial (tracked as task creation, no routine-specific analytics)
+- onboarding progression: partial
+- notifications: partial (habit reminders exist, routine-specific reminder path not explicit)
+
+Goal:
+- save record: wired
+- refresh UI: wired
+- update Timeline: wired (connectGoal / mirrored goal events)
+- update providers: wired
+- analytics: wired (goal_created)
+- onboarding progression: wired (goal-created mission bridge in creator flow)
+- notifications: wired/partial (goal reminders by targetDate, no advanced schedule policy)
+
+Note:
+- save record: partial (stored as task kind note)
+- refresh UI: wired
+- update Timeline: partial (generic task connect, no note-type timeline semantics)
+- update providers: wired
+- analytics: partial (generic task metrics only)
+- onboarding progression: missing (no note-specific progression logic)
+- notifications: missing/partial (no note reminder automation path)
+
+Overall Creator classification:
+- Task: wired
+- Routine: partial
+- Goal: wired
+- Note: partial/missing
+
+
+============================================================
+SECTION 4
+TIMELINE AUTOMATION AUDIT
+============================================================
+
+Does Timeline auto-refresh after create?
+- Yes, via timelineProvider invalidations and connectTask/connectGoal calls.
+
+Does Timeline auto-update completion state?
+- Yes for task actions from Timeline and task completion side effects (mirrored completion event).
+
+Does Timeline auto-update overdue status?
+- Partial: overdue is derived by event properties and filtering; no dedicated overdue recalculation scheduler per entity class beyond timeline query rebuild.
+
+Does Timeline auto-update routines?
+- Partial: routines flow through task-like entities; no dedicated routine instance engine that continuously seeds timeline entries.
+
+Does Timeline auto-update indicators?
+- Yes: health/risk/upcoming/milestones/recommendations are provider-derived and recomputed.
+
+Does Timeline auto-update progression?
+- Partial: timeline actions can trigger XP via task/goal fan-outs; timeline itself does not own progression state updates directly.
+
+Missing automation:
+- Explicit routine instantiation and overdue rollover logic beyond manual action path.
+- Dedicated note timeline semantics.
+- Unified “completion propagated” confirmation event across all downstream systems.
+
+
+============================================================
+SECTION 5
+COMPLETION AUTOMATION AUDIT
+============================================================
+
+Expected chain:
+User marks completed
+-> status saved
+-> Timeline updated
+-> Ascension updated
+-> Future Vector updated
+-> Smart Planner context updated
+-> SI Console updated
+
+Actual chain status:
+- status saved: exists (task repository update via completeTask usecase)
+- Timeline updated: exists (mirrored “Task Completed” event)
+- Ascension updated: exists (profile XP + streak/momentum impacts through providers)
+- Future Vector updated: partial (future providers derive from momentum/execution/trajectory; indirect and recompute-based)
+- Smart Planner context updated: partial-to-wired (SmartCoach + SI pipeline read execution/timeline/logs/tasks; indirect pull model)
+- SI Console updated: partial (goal lifecycle has direct event subscription in SI console; task completion primarily updates via provider reads, not dedicated push channel)
+
+Where the chain breaks:
+- No singular completion orchestrator with ack that all downstreams consumed the completion signal.
+- SI Console receives direct stream for goals, but not equivalent direct stream UX for task lifecycle updates.
+- Future Vector/Smart Planner updates are mostly derived-provider recomputation rather than explicit event contract per completion.
+
+
+============================================================
+SECTION 6
+ASCENSION AUTOMATION AUDIT
+============================================================
+
+Actual automatic progression increases:
+- Task completion -> profile XP and streak logic updates.
+- Goal lifecycle fan-out -> XP gains (create/update/complete with different XP values).
+- Progression provider derives from profile state.
+
+Should increase progression from:
+- completed tasks: yes (actual exists)
+- routine streaks: partial (indirect only if routine treated as task completion)
+- goal completion: yes (actual exists)
+- consistency: partial (consistency used heavily in momentum/execution, not consistently translated into direct Ascension XP/reward rules)
+
+Actual vs expected:
+- Actual: strong event-based XP for tasks/goals.
+- Expected: stronger explicit consistency and routine-streak contributions as first-class progression triggers.
+
+
+============================================================
+SECTION 7
+FUTURE VECTOR AUTOMATION AUDIT
+============================================================
+
+Current automatic inputs feeding Future/Forecast layer:
+- momentum engine state
+- trajectory summary
+- execution signals (created/completed/skipped/delayed + stability)
+- identity drift/cognitive twin/future decision projections
+
+Should include:
+- completion history: yes (included through execution signals/logs)
+- deadlines: partial (timeline/provider context exists, but core forecast providers are mostly momentum/trajectory-driven)
+- missed items: yes (skipped/delayed captured)
+- routines: partial (routine presence contributes via active routines boost, not deep routine analytics)
+- consistency: yes (completion stability 7d used)
+
+Gaps:
+- Deadline pressure is not a first-class shared contract in all future providers.
+- Forecast chain is distributed and mostly heuristic; lacks unified forecast event pipeline with confidence audit trail.
+
+
+============================================================
+SECTION 8
+SMART PLANNER AUTOMATION AUDIT
+============================================================
+
+Note: “Smart Planner” in UX maps primarily to SmartCoach/Nexus+SI aggregation stack.
+
+What automatically reaches Smart Planner stack:
+- tasks, goals, logs, timeline, memories, notifications
+- execution signals and trajectory/momentum
+- plan preview generated from calendar service
+
+Should know:
+- tasks: yes
+- goals: yes
+- notes: partial (note-as-task only)
+- schedule: partial (timeline + plan preview, but not a dedicated schedule graph contract)
+- completion history: yes (logs + execution signals)
+
+Actual vs expected:
+- Actual: broad data coverage through SI aggregation provider.
+- Expected: cleaner first-class note/routine schedule contracts and explicit freshness guarantees.
+
+
+============================================================
+SECTION 9
+SI CONSOLE AUTOMATION AUDIT
+============================================================
+
+Automatic data flow into SI Console:
+- Pull model via providers: SI pipeline aggregation, trajectory/future/autonomous modules, execution signals, timeline, milestones, core values, soul map.
+- Push model: goal lifecycle event subscription appends console messages (“Goal sync: ...”).
+
+Should summarize:
+- goals: yes
+- tasks: yes
+- routines: partial (as task/routine-derived signals)
+- notes: partial
+- completion: yes
+- progress: yes
+- schedule health: partial-to-yes (timeline health/risk providers integrated)
+
+Data flow status:
+- Functional but mixed architecture (heavy pull + selective push).
+- Missing consistent push notifications for non-goal lifecycle events in console stream.
+
+
+============================================================
+SECTION 10
+REMINDER / NOTIFICATION AUTOMATION
+============================================================
+
+Local notifications:
+- working: scheduler init, scheduleDailyAtWithStatus, one-time scheduling, cancellation, payload handling.
+- evidence: lib/system/notifications/notification_scheduler.dart
+
+Firebase notifications:
+- partial: token acquisition/refresh + foreground/background message listeners are present.
+- missing/partial: end-user notification rendering orchestration for incoming remote messages appears limited to logs/diagnostics.
+- evidence: lib/system/firebase/firebase_messaging_bootstrap.dart
+
+Reminders:
+- goal reminders: working/partial (targetDate-based one-day-before strategy)
+- habit reminders: working (daily at fixed time)
+- daily planning reminder: working
+- reflection reminder: working with permission flow
+
+Background jobs:
+- system timers + hygiene scheduler working.
+
+Classification:
+- local notifications: working
+- Firebase push channel: partial
+- reminder orchestration: working/partial
+- background job orchestration: working
+- scheduled alerts reliability: partial (depends on permission/init and app/device behavior)
+
+
+============================================================
+SECTION 11
+SUPABASE AUTOMATION AUDIT
+============================================================
+
+A) user_daily_metrics (health + realtime)
+- file: lib/state/providers/supabase_backend_provider.dart
+- trigger: provider evaluation/watch
+- operation: select().limit(1) health check; stream(primaryKey: [user_id, date])
+- error handling: catches permission/connectivity signals and maps to health badge
+- risk: Medium (health probe is non-transactional and role-dependent)
+
+B) chronospark-sync storage bucket (cloud backup)
+- files: lib/data/services/sync_service.dart, lib/state/providers/sync_provider.dart
+- trigger: manual sync provider calls + scheduler replay callbacks
+- operation: upload/download backup objects scoped by user id
+- retries: yes (retry executor in storage gateway)
+- conflict handling: partial (merge strategy mainly task timestamp-based)
+- error handling: queue on failure + message provider
+- risk: High
+
+C) auth metadata bridge (FCM token)
+- files: lib/state/providers/service_providers.dart, lib/data/repositories/firebase_supabase_bridge_repository.dart
+- trigger: auth state changes and bootstrap when client/token present
+- operation: auth.updateUser metadata fields
+- retries: minimal (rate-limit-aware skip, no queue)
+- error handling: non-fatal logging, over-rate-limit guard
+- risk: Medium
+
+D) monetization tables
+- file: lib/features/monetization/data/monetization_remote_data_source.dart
+- tables: monetization_subscription_statuses, monetization_wallets, monetization_credit_transactions, monetization_entitlement_events
+- trigger: monetization reads; wallet/entitlement fetches; transaction list loads
+- operation: select/eq/order/limit; RPC consume_monetization_credits
+- retries: not explicit on table reads
+- error handling: throws backend exceptions/fallbacks for not-ready states
+- risk: High
+
+Supabase automation gaps:
+- No generalized retry/circuit-breaker policy across all Supabase reads.
+- No explicit conflict handling for most domains beyond backup task merge.
+- Limited realtime subscriptions (metrics only, not task/goal/timeline domains).
+
+
+============================================================
+SECTION 12
+ONBOARDING AUTOMATION AUDIT
+============================================================
+
+Mission progression:
+- Automatic mission event reports from Creator/Timeline/SmartCoach surfaces.
+- Mission state advances through mission controller/repository persistence.
+
+Tutorial/onboarding completion:
+- Onboarding setup writes canonical/shared-user state keys.
+- Mission completion can finalize activation and redirect flow.
+
+What is automatic:
+- Step persistence and restoration.
+- Mission state transitions when specific UI events fire.
+- Startup hydration of onboarding flags and provider state.
+
+What requires user action:
+- Actual in-app actions (create item, open timeline, ask planner/coach) to progress mission.
+
+What can lock users:
+- If mission event wiring and actual screen usage diverge, progression can stall.
+- Naming/mapping ambiguity in mission semantics can create operator confusion.
+
+What should remain manual:
+- Explicit operator consent flows and setup preferences should remain user-driven.
+
+
+============================================================
+SECTION 13
+EVENT CHAIN MAP
+============================================================
+
+Create Item:
+- Trigger: Creator submit
+- Provider: creatorActionsProvider -> taskActionsProvider/goalsProvider
+- Storage: task/goal repository write
+- Supabase: indirect (backup/sync paths), not direct live create write in these providers
+- Timeline: connectTask/connectGoal + mirrored events
+- Ascension: XP via profile updates (task/goal fan-outs)
+- Future Vector: indirect via execution/momentum/trajectory recompute
+- Smart Planner: indirect via SI aggregation providers
+- SI Console: indirect via provider pull; goal create has direct lifecycle event visibility potential
+- Broken links: note/routine specialized semantics
+
+Update Item:
+- Trigger: updateCreatorEntry / goal update methods
+- Provider: taskActionsProvider/goalsProvider
+- Storage: update usecases
+- Supabase: indirect through sync/backups
+- Timeline: mirrored goal updates; task update has log + event bus but weaker dedicated timeline semantics
+- Ascension: limited XP path on goal updates
+- Future Vector / Smart Planner / SI Console: mostly indirect recompute
+- Broken links: no unified update event contract across all intelligence consumers
+
+Delete Item:
+- Trigger: task/goal delete usecases in providers (where invoked)
+- Provider: goals/task/routine pathways
+- Storage: delete usecases
+- Supabase: indirect
+- Timeline: partial depending on usecase path; some removes rely on specific timeline delete flows
+- Ascension/Future/Planner/Console: indirect via invalidation
+- Broken links: deletion propagation consistency is uneven by domain/action path
+
+Complete Item:
+- Trigger: timeline action or task/goal completion methods
+- Provider: taskActionsProvider.completeTask / goalsProvider.complete
+- Storage: completion usecases
+- Supabase: indirect
+- Timeline: mirrored completion events
+- Ascension: XP/streak updates
+- Future Vector: execution/momentum/trajectory update path
+- Smart Planner: SI provider recompute
+- SI Console: partial push (goal events) + pull recompute
+- Broken links: no explicit end-to-end completion ack chain
+
+Skip Item:
+- Trigger: timeline skip action
+- Provider: taskActionsProvider.skipTask
+- Storage: state mutation via usecases
+- Timeline: mirrored skipped event
+- Ascension: indirect via momentum/learning effects (not direct XP reward)
+- Future/Planner/Console: via execution signals and provider recompute
+- Broken links: limited explicit downstream event contracts
+
+Reschedule Item:
+- Trigger: timeline reschedule/not completed
+- Provider: taskActionsProvider.delayTask
+- Storage: task scheduledFor update
+- Timeline: mirrored delayed/not-completed event
+- Ascension/Future/Planner/Console: indirect through logs/execution/provider recompute
+- Broken links: no unified SLA for delayed-item recovery automation
+
+
+============================================================
+SECTION 14
+AUTOMATION OPPORTUNITIES
+============================================================
+
+Top 25 opportunities (no new feature scope; automation quality improvements only):
+
+1. Consolidate completion fan-out into one completion orchestrator service entrypoint.
+2. Add explicit task lifecycle push feed in SI Console (parallel to goal lifecycle feed).
+3. Normalize note handling as first-class automation signals (still within existing entities).
+4. Add routine-specific analytics tags while keeping routine as task kind.
+5. Add shared retry policy wrapper for all Supabase table reads.
+6. Add lightweight jitter/backoff for auth metadata token bridge sync.
+7. Add dedupe guard for mirrored timeline/log write storms on rapid action taps.
+8. Introduce idempotency keys for key fan-out operations (timeline/log/notification mirror).
+9. Add stale-action protection for delayed/reschedule duplicate submissions.
+10. Add explicit “completion propagated” diagnostic marker across key downstreams.
+11. Include deadline pressure directly in future decision/future timeline scoring.
+12. Add schedule-health freshness timestamp into SI pipeline aggregation output.
+13. Add consistency-derived progression bonus trigger (bounded) in ascension path.
+14. Add routine continuity score feed into future vector providers.
+15. Add targeted queue item categories for sync failure triage (not just sync_to_cloud/sync_delta).
+16. Add queue replay telemetry counters per action type.
+17. Add fallback plan when notification permission denied (non-blocking in-app reminder flags).
+18. Add mission progression diagnostics screen snippet for lock debugging.
+19. Tighten mission step semantics names to actual triggers (without route changes).
+20. Add post-create auto-refresh for any stale async provider dependencies in Smart Planner views.
+21. Add monetization datasource safe fallback and retry for transient errors.
+22. Add periodic integrity check for onboarding canonical/shared-user key parity.
+23. Add event bus subscription health check in bootstrap diagnostics.
+24. Add consolidated action-source taxonomy map for task/goal/timeline actions.
+25. Add non-invasive automation audit counters exported to diagnostics for regression detection.
+
+
+============================================================
+SECTION 15
+AUTOMATION RISK REPORT
+============================================================
+
+Critical:
+- Completion chain is distributed across multiple providers with no atomic end-to-end success contract.
+  - Files: lib/state/providers/task_provider.dart, lib/state/providers/goals_provider.dart, lib/state/providers/event_bus_provider.dart
+
+High:
+- Supabase sync conflict handling is narrow (task timestamp merge only) and can drift cross-domain state.
+  - Files: lib/data/services/sync_service.dart, lib/state/providers/sync_provider.dart
+- Creator type model conflates Note/Routine into generic task semantics causing downstream ambiguity.
+  - Files: lib/state/providers/creator_provider.dart, lib/features/creator/widgets/type_selector.dart
+- Duplicate decision refresh triggers increase race/stale refresh risk.
+  - Files: task_provider.dart, goals_provider.dart, logs_provider.dart, timeline_provider.dart, notification_provider.dart
+- Monetization remote data reads rely on direct calls with limited retry strategy.
+  - File: lib/features/monetization/data/monetization_remote_data_source.dart
+
+Medium:
+- Notification pipeline has mixed local/push behavior and partial remote message UX automation.
+  - Files: firebase_messaging_bootstrap.dart, notification_scheduler.dart
+- Mission progression semantics can be confusing and may cause onboarding interpretation drift.
+  - Files: mission_state.dart, mission_controller.dart, mission_event_bridge.dart
+- Background timers can overlap with manual sync actions without explicit global lock.
+  - Files: system_scheduler.dart, navigation_shell.dart, sync_provider.dart
+
+Low:
+- Health/readiness provider checks are non-fatal and mostly diagnostic but can produce noise.
+  - File: supabase_backend_provider.dart
+
+
+============================================================
+SECTION 16
+AUTOMATION SCORECARD
+============================================================
+
+Scoring scale: 0-100
+
+- Creator Automation: 72
+- Timeline Automation: 78
+- Completion Automation: 74
+- Ascension Automation: 61
+- Future Vector Automation: 58
+- Smart Planner Automation: 64
+- SI Console Automation: 66
+- Notification Automation: 57
+- Supabase Automation: 54
+- State Synchronization: 73
+- Background Processing: 68
+- Reliability: 63
+- Production Readiness: 60
+
+Average automation score:
+- (72 + 78 + 74 + 61 + 58 + 64 + 66 + 57 + 54 + 73 + 68 + 63 + 60) / 13
+- 848 / 13 = 65.23
+- Rounded: 65.2
+
+
+============================================================
+SECTION 17
+KEEP / REDESIGN / REMOVE / MERGE
+============================================================
+
+KEEP:
+- task and goal fan-out pipelines
+  - lib/state/providers/task_provider.dart
+  - lib/state/providers/goals_provider.dart
+- event bus invalidation bootstrap
+  - lib/state/providers/event_bus_provider.dart
+  - lib/state/core/state_bootstrap.dart
+- scheduler + hygiene foundations
+  - lib/system/system_scheduler.dart
+  - lib/state/services/data_hygiene_scheduler.dart
+
+REDESIGN:
+- completion chain orchestration (single source of truth for downstream delivery)
+  - lib/state/providers/task_provider.dart
+  - lib/state/providers/goals_provider.dart
+  - lib/state/providers/si_pipeline_provider.dart
+- Smart Planner/Future Vector feed contract clarity
+  - lib/state/providers/trajectory_provider.dart
+  - lib/state/providers/future_timeline_provider.dart
+  - lib/state/providers/autonomous_daily_planner_provider.dart
+
+MERGE:
+- duplicated coach refresh triggers and mirror-write logic
+  - lib/state/providers/task_provider.dart
+  - lib/state/providers/goals_provider.dart
+  - lib/state/providers/logs_provider.dart
+  - lib/state/providers/timeline_provider.dart
+  - lib/state/providers/notification_provider.dart
+
+REMOVE LATER:
+- ambiguous/legacy-like duplicate pathways after verification (do not remove now)
+  - scattered mirrored side-effect paths where a consolidated orchestrator can replace duplicates
+
+
+============================================================
+SECTION 18
+IDEAL CHRONOSPARK AUTOMATION MODEL
+============================================================
+
+Ideal chain:
+Create
+-> Save
+-> Timeline
+-> Completion
+-> Progress
+-> Forecast
+-> Coaching
+-> Console
+
+Step-by-step ideal automatic behavior:
+1) Create
+- User submits Task/Routine/Goal/Note from Creator.
+- Input normalized into canonical lifecycle payload with type-specific metadata.
+
+2) Save
+- Single write succeeds and emits one canonical lifecycle event.
+- Event has idempotency key + action source + correlation id.
+
+3) Timeline
+- Timeline receives canonical event and updates once.
+- Overdue/upcoming/recommendation indices recompute deterministically.
+
+4) Completion
+- Completion action emits canonical completion event.
+- Completion event updates logs, metrics, and status exactly once.
+
+5) Progress
+- Ascension/progression consumes completion event to update XP, streak, consistency contributions.
+
+6) Forecast
+- Future Vector consumes updated completion + deadline + deferral + consistency state.
+- Forecast confidence and rationale are persisted for diagnostics.
+
+7) Coaching
+- Smart Planner consumes latest forecast + execution context to produce next action.
+
+8) Console
+- SI Console receives push summary of lifecycle transitions and can pull full context on demand.
+
+No implementation performed in this audit.
+
+
+============================================================
+SECTION 19
+SAFE AUTOMATION ROADMAP
+============================================================
+
+Phase 1: Audit existing automations
+- Goal: establish canonical trigger/action inventory and identify broken chains.
+- Files likely involved:
+  - lib/state/providers/*.dart
+  - lib/app/*.dart
+  - lib/system/*.dart
+  - lib/tutorial/mission/*.dart
+- Risk level: Low
+- Supabase involved: No (read-only review)
+- What not to touch:
+  - auth/google login/firebase config/supabase schema/RLS/AI logic/smart planner logic/SI console logic/routing/providers implementation changes
+
+Phase 2: Verify Creator -> Timeline automation
+- Goal: verify all creator types propagate correctly and consistently to timeline and state.
+- Files likely involved:
+  - lib/state/providers/creator_provider.dart
+  - lib/state/providers/task_provider.dart
+  - lib/state/providers/goals_provider.dart
+  - lib/features/creator/ui/creator_screen.dart
+  - lib/features/timeline/ui/timeline_screen.dart
+- Risk level: Medium
+- Supabase involved: No (local/provider path)
+- What not to touch:
+  - protected auth/routing/AI/supabase schema areas
+
+Phase 3: Add completion-event automation
+- Goal: centralize completion fan-out and remove duplicate refresh races.
+- Files likely involved:
+  - lib/state/providers/task_provider.dart
+  - lib/state/providers/goals_provider.dart
+  - lib/state/providers/event_bus_provider.dart
+  - lib/state/providers/logs_provider.dart
+  - lib/state/providers/timeline_provider.dart
+- Risk level: High
+- Supabase involved: No direct table/schema changes
+- What not to touch:
+  - auth/routing/google/firebase config
+
+Phase 4: Feed completion into intelligence systems
+- Goal: harden Future Vector + Smart Planner + SI Console consistency on completion events.
+- Files likely involved:
+  - lib/state/providers/execution_signals_provider.dart
+  - lib/state/providers/trajectory_provider.dart
+  - lib/state/providers/future_timeline_provider.dart
+  - lib/state/providers/si_pipeline_provider.dart
+  - lib/features/si_console/ui/si_console_screen.dart
+- Risk level: High
+- Supabase involved: No (unless adding cloud telemetry later)
+- What not to touch:
+  - AI model policy internals and prompt logic core
+
+Phase 5: Improve notifications/reminders
+- Goal: unify reminder status semantics and push/local fallback behavior.
+- Files likely involved:
+  - lib/state/services/reminder_orchestrator_service.dart
+  - lib/state/services/reflection_reminder_service.dart
+  - lib/system/notifications/notification_scheduler.dart
+  - lib/system/firebase/firebase_messaging_bootstrap.dart
+- Risk level: Medium
+- Supabase involved: Partial (token bridge metadata path only)
+- What not to touch:
+  - firebase project config files, auth, routing
+
+Phase 6: Improve sync reliability
+- Goal: stronger retry/conflict handling observability in sync queue + cloud backup.
+- Files likely involved:
+  - lib/state/providers/sync_provider.dart
+  - lib/data/services/sync_service.dart
+  - lib/state/services/offline_sync_queue_service.dart
+- Risk level: High
+- Supabase involved: Yes (storage bucket operations)
+- What not to touch:
+  - supabase schema/migrations/RLS/auth flows
+
+
+============================================================
+SECTION 20
+FINAL AUTOMATION BUILDER VERDICT
+============================================================
+
+Current automation identity:
+- Provider-centric, event-assisted mobile automation with strong local fan-out and partial cloud reliability.
+
+Intended automation identity:
+- Deterministic, contract-driven mobile automation chain where completion reliably propagates through progression, forecasting, planner, and console.
+
+Biggest automation gap:
+- No single canonical completion orchestration contract across all downstream systems.
+
+Biggest automation risk:
+- Distributed side effects and duplicate refresh triggers causing race/stale-state behavior under rapid interactions.
+
+Strongest automation:
+- Task/Goal -> Timeline/Logs/EventBus fan-out with provider invalidation backbone.
+
+Weakest automation:
+- Supabase-wide reliability consistency and note/routine first-class automation semantics.
+
+Most important missing trigger:
+- Unified task lifecycle push trigger into SI Console equivalent to existing goal lifecycle stream.
+
+Most important missing event chain:
+- Completion ack chain: Complete -> persisted -> timeline/log/progression/forecast/planner/console all confirmed.
+
+Average automation score:
+- 65.2 / 100
+
+Safest next coding pass:
+- Consolidate duplicate completion side effects into a single provider-level orchestrated path while preserving current API signatures.
+
+Most dangerous thing to modify:
+- Cross-cutting provider invalidation/event bus wiring and startup bootstrap sequencing without tight regression guards.
+
+Files to inspect before coding:
+- lib/state/providers/task_provider.dart
+- lib/state/providers/goals_provider.dart
+- lib/state/providers/event_bus_provider.dart
+- lib/state/providers/si_pipeline_provider.dart
+- lib/state/providers/trajectory_provider.dart
+- lib/state/providers/sync_provider.dart
+- lib/data/services/sync_service.dart
+- lib/system/notifications/notification_scheduler.dart
+
+Supabase tables to verify before coding:
+- user_daily_metrics
+- monetization_subscription_statuses
+- monetization_wallets
+- monetization_credit_transactions
+- monetization_entitlement_events
+- Storage bucket path: chronospark-sync/<uid>/backup/*
+
+What should not be touched yet:
+- Auth
+- Google Login
+- Firebase Configuration
+- Supabase Schema
+- RLS Policies
+- AI Logic
+- Smart Planner Logic core behavior contract
+- SI Console Logic core behavior contract
+- Routing
+- Provider architecture surface contracts
+
+END OF AUDIT
