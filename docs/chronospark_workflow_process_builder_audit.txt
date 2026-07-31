@@ -1,0 +1,824 @@
+CHRONOSPARK WORKFLOW / PROCESS BUILDER AUDIT
+Date: 2026-07-30
+Mode: Audit only. No code changes.
+Scope: Mobile app workflows and processes only. This report covers creator flows, timeline review, completion, routines, goals, notes, onboarding, profile/settings, subscription/payment, notifications/reminders, Supabase workflow touchpoints, and process handoffs.
+
+============================================================
+SECTION 1: EXECUTIVE WORKFLOW SUMMARY
+============================================================
+Main workflow today:
+- Login -> Creator or Timeline -> create task/goal/routine-like item -> Timeline review -> task completion side effects -> progression/intelligence updates.
+- In practice, the app is strongest around task/goal creation and task completion. Many other workflow labels are routed through existing task or intelligence surfaces rather than dedicated process modules.
+
+Intended main workflow:
+- Login -> create task/routine/goal/note in Creator -> choose timing and date -> Create -> appear on Timeline -> mark completed/not completed/skipped/rescheduled -> feed Ascension, Future Vector, Smart Planner, and SI Console.
+
+Clear create to schedule to review to complete process?
+- Partially yes. The task/goal path is clear. Scheduling exists. Timeline review exists. Completion exists. Routine and note are only partially modeled and are not first-class processes.
+
+Where the process breaks:
+- Routines and notes do not have dedicated feature folders or native lifecycle flows.
+- Timeline review is strong for tasks but weaker for routine/note semantics.
+- Completion has a strong task path, but “not completed” is implemented as delay/move-forward, not a distinct status model.
+- Onboarding exists as multiple overlapping systems, with some usecase shells still unused.
+- Subscription and profile/settings are navigable, but workflow ownership is split across multiple repositories and screens.
+
+Workflow style:
+- Mixed. User-driven at the point of create/decision, system-driven in side effects, logs, progression, and derived intelligence.
+
+Duplicate workflows:
+- Onboarding exists across onboarding screen, mission state, tutorial controller, bootstrap flags, and route guards.
+- Smart Planner, Future Vector, Ascension, and SI Console are heavily represented through derived providers and Nexus surfaces rather than dedicated end-to-end process modules.
+
+Dead-end workflows:
+- Routine and note creation do not land in dedicated native lifecycle systems.
+- Empty onboarding usecases are shells and do not currently drive runtime flow.
+
+Workflows that start but never complete:
+- Some onboarding usecase scaffolds.
+- Some process labels in the UI that are not backed by a full lifecycle model.
+
+Direct verdict:
+- KEEP: task creation, goal creation, timeline review, completion fan-out, progression spine, settings permissions, monetization read surfaces.
+- REDESIGN: routine and note process ownership, not-completed semantics, onboarding consolidation.
+- MERGE: onboarding/tutorial/mission flow labels and intelligence summaries that overlap.
+- REMOVE LATER: dormant onboarding usecase shells and any dead labels that never enter runtime.
+- UNKNOWN: any route-adjacent behavior that needs device/runtime verification.
+
+Reference files:
+- [lib/features/creator/ui/creator_screen.dart](../lib/features/creator/ui/creator_screen.dart)
+- [lib/features/timeline/ui/timeline_screen.dart](../lib/features/timeline/ui/timeline_screen.dart)
+- [lib/state/providers/task_provider.dart](../lib/state/providers/task_provider.dart)
+- [lib/state/providers/goals_provider.dart](../lib/state/providers/goals_provider.dart)
+- [lib/features/onboarding/ui/onboarding_screen.dart](../lib/features/onboarding/ui/onboarding_screen.dart)
+
+============================================================
+SECTION 2: WORKFLOW INVENTORY
+============================================================
+1. Login workflow
+- Files: lib/features/auth/screens/auth_gate.dart, lib/features/auth/application/auth_controller.dart, lib/app/router/route_guards.dart, lib/app/startup/app_bootstrap.dart.
+- Trigger: app open or route access.
+- Human task: sign in or complete auth callback.
+- System task: restore session, set local identity mirror, resolve onboarding/profile guards.
+- Data record: auth session, local identity mirror.
+- State/status: authenticated, unauthenticated, loading, error.
+- Persistence: Supabase session + secure/local identity storage.
+- Supabase: auth session reads via Supabase client; no SQL in this audit.
+- Completion: valid session and route guard pass.
+- Failure: missing backend, invalid session, callback incomplete.
+- Status: active.
+- Risk: high.
+
+2. Onboarding workflow
+- Files: lib/features/onboarding/ui/onboarding_screen.dart, lib/app/startup/app_bootstrap.dart, lib/app/router/route_guards.dart, lib/tutorial/mission/*, lib/tutorial/tutorial_*.
+- Trigger: first run or reset.
+- Human task: step through setup gate/mission/tutorial actions.
+- System task: persist step, set onboarding flags, route user.
+- Data record: onboarding flags and step index.
+- State/status: unknown, incomplete, complete.
+- Persistence: shared preferences plus per-user keys.
+- Supabase: only where current user id is used to namespace local keys.
+- Completion: onboarding complete flag set.
+- Failure: corrupted or stale progress, overlapping guards, abandoned flow.
+- Status: active but fragmented.
+- Risk: high.
+
+3. Creator create-task workflow
+- Files: lib/features/creator/ui/creator_screen.dart, lib/features/creator/widgets/dynamic_form.dart, lib/state/providers/creator_provider.dart, lib/state/providers/task_provider.dart.
+- Trigger: creator submit.
+- Human task: choose type, enter title, optional details, timing, date.
+- System task: validate title, build TaskEntity, persist, connect to timeline, log event, set first-item flag.
+- Data record: TaskEntity.
+- State/status: created, scheduled, completed later.
+- Persistence: task repository, shared prefs first-item flag, logs/timeline mirrors.
+- Supabase: task persistence may be mirrored through auth/session context; no direct SQL inspected here.
+- Completion: item saved and success snackbar shown.
+- Failure: blank title or save exception.
+- Status: active.
+- Risk: high.
+
+4. Creator create-goal workflow
+- Files: lib/features/creator/ui/creator_screen.dart, lib/state/providers/creator_provider.dart, lib/state/providers/goals_provider.dart.
+- Trigger: creator submit in goals mode.
+- Human task: choose goal details and timing.
+- System task: create GoalEntity through goals provider, sync reminders, fan out analytics/timeline.
+- Data record: GoalEntity.
+- State/status: created, active, completed, archived.
+- Persistence: goal repository plus timeline/log side effects.
+- Supabase: goal storage may depend on repository backing; no SQL executed in this audit.
+- Completion: goal saved and projected.
+- Failure: save or fan-out failure.
+- Status: active.
+- Risk: high.
+
+5. Creator create-routine workflow
+- Files: lib/features/creator/ui/creator_screen.dart, lib/features/creator/widgets/dynamic_form.dart, lib/state/providers/creator_provider.dart.
+- Trigger: routine type selected in Creator.
+- Human task: choose routine name and recurrence.
+- System task: fallback recurrence to daily and store as TaskEntity kind routine.
+- Data record: TaskEntity with kind routine.
+- State/status: stored as task-like record, not native routine record.
+- Persistence: task repository.
+- Supabase: not a dedicated routine workflow in this audit.
+- Completion: record saved.
+- Failure: same as task save.
+- Status: partial.
+- Risk: medium-high.
+
+6. Creator create-note workflow
+- Files: lib/features/creator/ui/creator_screen.dart, lib/features/creator/widgets/dynamic_form.dart, lib/state/providers/creator_provider.dart.
+- Trigger: note type selected in Creator.
+- Human task: enter note title/details.
+- System task: store as TaskEntity kind note.
+- Data record: TaskEntity with kind note.
+- State/status: note-like task state only.
+- Persistence: task repository.
+- Supabase: not a dedicated note workflow in this audit.
+- Completion: record saved.
+- Failure: same as task save.
+- Status: partial.
+- Risk: medium-high.
+
+7. Timeline review workflow
+- Files: lib/features/timeline/ui/timeline_screen.dart, lib/state/providers/timeline_provider.dart.
+- Trigger: timeline open.
+- Human task: review today/upcoming/completed/overdue items.
+- System task: merge base events, projections, intelligence events, group/filter, expose actions.
+- Data record: timeline events, projected events from tasks/goals.
+- State/status: planned, active, completed, overdue, atRisk, info.
+- Persistence: timeline repository plus mirrored events.
+- Supabase: if timeline mirrors remote state, it is indirect here.
+- Completion: user performs a timeline action.
+- Failure: empty list, stale projections, action failure.
+- Status: active.
+- Risk: high.
+
+8. Completion workflow
+- Files: lib/features/timeline/ui/timeline_screen.dart, lib/state/providers/task_provider.dart, lib/state/providers/goals_provider.dart, lib/state/providers/execution_signals_provider.dart.
+- Trigger: timeline action chip or item action.
+- Human task: choose completed, not completed, skipped, or rescheduled.
+- System task: update task/goal state, emit logs, timeline mirrors, profile XP/streak, intelligence invalidation.
+- Data record: TaskEntity, GoalEntity, log entries, timeline events.
+- State/status: completed, delayed, skipped, overdue, active.
+- Persistence: task repository, goal repository, logs, timeline mirrors, profile store.
+- Supabase: some linked state may be remote-backed through auth/session context; direct workflow source is local-first.
+- Completion: item status recorded and side effects fire.
+- Failure: update or mirror failure.
+- Status: active for tasks, partial for goal/routine/note semantics.
+- Risk: high.
+
+9. Smart Planner workflow
+- Files: lib/features/home/ui/smart_coach_screen.dart, lib/state/providers/feature_derived_providers.dart, lib/state/providers/momentum_engine_provider.dart, lib/state/providers/goal_success_probability_provider.dart.
+- Trigger: smart coach open or request coaching/follow-up.
+- Human task: ask for insight or respond to prompts.
+- System task: derive coaching from tasks, logs, memories, trajectory, risk, and execution signals.
+- Data record: aggregate signals, log entries, memories, timeline events.
+- State/status: derived only.
+- Persistence: mostly derived, with some timeline/log mirroring.
+- Supabase: not directly in this workflow.
+- Completion: coaching result rendered.
+- Failure: timeout, source degradation, crisis path.
+- Status: active.
+- Risk: high.
+
+10. Ascension / progression workflow
+- Files: lib/state/controllers/profile_controller.dart, lib/features/progression/ui/progression_screen.dart, lib/features/nexus/ui/nexus_screen.widgets.dart, lib/state/providers/momentum_engine_provider.dart.
+- Trigger: task/goal completion and XP updates.
+- Human task: complete work and view progression.
+- System task: add XP, update streak, recompute growth/momentum.
+- Data record: profile state, streak, XP.
+- State/status: level, streak, growth band.
+- Persistence: secure store / profile controller state.
+- Supabase: profile workflow may be linked to auth/profile tables, but no SQL run here.
+- Completion: XP/streak persisted.
+- Failure: profile write failure.
+- Status: active.
+- Risk: medium.
+
+11. Future Vector workflow
+- Files: lib/features/trajectory_engine/ui/trajectory_engine_screen.dart, lib/state/providers/future_timeline_provider.dart, lib/state/providers/trajectory_provider.dart, lib/state/providers/momentum_engine_provider.dart.
+- Trigger: trajectory/future screens open.
+- Human task: review prediction and scenario output.
+- System task: compute forecasts from trajectory, momentum, execution, and identity drift.
+- Data record: derived future checkpoints and scenarios.
+- State/status: derived only.
+- Persistence: none direct.
+- Supabase: not direct in this workflow.
+- Completion: forecast displayed.
+- Failure: source degradation.
+- Status: active but indirect.
+- Risk: high.
+
+12. SI Console workflow
+- Files: lib/features/si_console/ui/si_console_screen.dart, lib/state/providers/execution_signals_provider.dart, lib/state/providers/feature_derived_providers.dart, lib/state/providers/trajectory_provider.dart.
+- Trigger: SI Console open or command input.
+- Human task: inspect or issue commands.
+- System task: summarize tasks/goals/timeline/memories/logs/momentum.
+- Data record: aggregates, events, decision state.
+- State/status: derived and ephemeral.
+- Persistence: indirect via logs/timeline/memories.
+- Supabase: not direct in this workflow.
+- Completion: command or summary displayed.
+- Failure: source degradation.
+- Status: active.
+- Risk: high.
+
+13. Profile workflow
+- Files: lib/features/profile/ui/profile_screen.dart.
+- Trigger: profile open.
+- Human task: view identity, settings, billing.
+- System task: read profile/momentum/identity/account status.
+- Data record: profile state, identity account state.
+- State/status: active profile, account hub, momentum trend.
+- Persistence: profile controller store and identity mirrors.
+- Supabase: auth/session-backed identity may be involved.
+- Completion: profile viewed or navigated.
+- Failure: identity unavailable.
+- Status: active.
+- Risk: medium.
+
+14. Settings workflow
+- Files: lib/features/settings/ui/settings_screen.dart.
+- Trigger: settings open.
+- Human task: change preferences, permissions, billing, logout, delete account.
+- System task: save preferences, request permissions, route to billing/support, clear onboarding local state on delete.
+- Data record: prefs, notification state, auth state, onboarding flags.
+- State/status: toggles and permission states.
+- Persistence: shared prefs and auth/runtime state.
+- Supabase: delete path uses auth runtime context; no SQL run here.
+- Completion: setting saved or action completed.
+- Failure: permission denied, deletion failure, link failure.
+- Status: active.
+- Risk: medium-high.
+
+15. Subscription / payment workflow
+- Files: lib/features/monetization/providers/monetization_feature_providers.dart, lib/features/monetization/presentation/screens/paywall_screen.dart, lib/features/monetization/presentation/screens/subscription_management_screen.dart, lib/features/monetization/data/repositories/*.dart.
+- Trigger: paywall open, billing center open, purchase action.
+- Human task: choose plan or review billing status.
+- System task: read plans, entitlement, wallet, current subscription, purchase verification.
+- Data record: subscription status, entitlement events, wallet, purchases, credit transactions.
+- State/status: free, active, premium, unknown.
+- Persistence: Supabase-backed monetization repositories plus local state.
+- Supabase: yes, clearly used for monetization reads and verification pathways.
+- Completion: purchase/billing state reflected in UI.
+- Failure: unavailable backend, unknown status, verification failure.
+- Status: partial to production-ready depending on backend availability.
+- Risk: medium-high.
+
+16. Notifications / reminders workflow
+- Files: lib/features/settings/ui/settings_screen.dart, lib/features/permissions/notification_permission_prompt.dart, lib/system/notifications/notification_scheduler.dart, lib/state/providers/notification_provider.dart, lib/features/monetization/services/reminder-related code.
+- Trigger: settings open, reminder setup, permission prompt, reminder scheduling.
+- Human task: grant notification permission.
+- System task: schedule or recover permissions, show prompt, persist settings.
+- Data record: notification permission state, scheduled reminders.
+- State/status: granted, denied, checking, scheduled.
+- Persistence: local prefs and system notification scheduler.
+- Supabase: not direct in this workflow.
+- Completion: permission granted or reminder scheduled.
+- Failure: permission denied, platform restrictions.
+- Status: partial.
+- Risk: medium.
+
+17. Onboarding mission/tutorial workflow
+- Files: lib/tutorial/mission/*, lib/tutorial/tutorial_*, lib/features/onboarding/ui/onboarding_screen.dart.
+- Trigger: mission/tutorial enablement and onboarding open.
+- Human task: open Creator, choose frequency, ask Smart Planner, open Timeline, dismiss completion banner.
+- System task: persist mission state and tutorial progress.
+- Data record: mission state, tutorial progress.
+- State/status: active, locked, completed, dismissed.
+- Persistence: mission repository, tutorial repository, shared prefs.
+- Supabase: only indirectly via auth/user-namespaced local keys.
+- Completion: completion banner dismissed and mission finished.
+- Failure: shell steps, overlapping labels, missed state sync.
+- Status: active but fragmented.
+- Risk: high.
+
+============================================================
+SECTION 3: CORE CREATE WORKFLOW AUDIT
+============================================================
+Creator -> choose type -> enter details -> choose timing -> choose date -> create -> save -> show success -> send/offfer Timeline.
+
+Step-by-step:
+- Choose type: exists in DynamicForm TypeSelector, implemented in lib/features/creator/widgets/dynamic_form.dart.
+- Enter details: exists, title required, detail optional.
+- Choose timing: exists via recurrence picker and type-specific defaults.
+- Choose date: exists via schedule date picker.
+- Create: exists via onSubmit callback in CreatorScreen.
+- Save: exists through creatorActionsProvider -> taskActionsProvider/goalsProvider.
+- Show success: exists as snackbar.
+- Offer Timeline: exists via snackbar action and auto-open on first item.
+
+Validation:
+- Title is required.
+- Routine type defaults recurrence to daily if none.
+- Goal mode routes to goal save path.
+
+State changes:
+- creatorFirstItemCreated flag may flip.
+- tasks/goal progress providers invalidate.
+- timeline gets mirrored events.
+
+Failure handling:
+- Blank title returns local error message.
+- Save failure is caught and shown in form UI.
+
+Next user action:
+- Review on Timeline or continue creating.
+
+Core create workflow score: 84/100
+
+============================================================
+SECTION 4: TIMELINE REVIEW WORKFLOW AUDIT
+============================================================
+Supports:
+- Scheduled item review: yes.
+- Completion: yes.
+- Not completed: yes, but implemented by moving the item forward rather than a distinct persistent status.
+- Skipped: yes.
+- Rescheduled: yes.
+- Overdue: yes.
+- Item details: yes.
+- Empty state handling: partial, mostly inferred through filtering and banners.
+- Filtering/grouping: yes, by window and focus.
+- Calendar/planner behavior: yes, but partly as review surface rather than literal calendar engine.
+
+Status matrix:
+- Completed: UI yes, data model yes, persistence yes, Supabase no direct evidence, downstream yes.
+- Not completed: UI yes, data model partial, persistence yes via delay, Supabase no direct evidence, downstream partial.
+- Skipped: UI yes, data model yes via logs/timeline, persistence yes, Supabase no direct evidence, downstream yes.
+- Rescheduled: UI yes, data model yes via scheduledFor/delayTask, persistence yes, Supabase no direct evidence, downstream yes.
+- Overdue: UI yes, data model yes, persistence yes, Supabase no direct evidence, downstream yes.
+
+Timeline workflow score: 82/100
+
+============================================================
+SECTION 5: COMPLETION PROCESS AUDIT
+============================================================
+Real completion process:
+- Yes for tasks, and yes for goals as a separate goal completion fan-out.
+
+What exists:
+- completed status: yes.
+- not completed status: partial and semantic only.
+- skipped status: yes.
+- rescheduled status: yes.
+- overdue status: yes.
+- completedAt timestamp: yes for tasks.
+- completion event: yes via logs and timeline mirrors.
+- completion note/reflection: partial, mostly via timeline/log detail.
+- source screen: timeline is the primary source.
+- repeat/routine handling after completion: weak/indirect.
+- goal progress update after task completion: yes through goal-progress invalidation and goal flows.
+- Ascension XP/progress update: yes.
+- Future Vector signal update: indirect through trajectory/momentum.
+- Smart Planner context update: yes through aggregate providers.
+- SI Console status update: yes through aggregates and logs.
+
+Main gap:
+- Completion is strong for task actions but not normalized as one explicit process record across all item types.
+
+Recommended completion process status:
+- Current model is mixed: real task completion, partial generic item completion.
+
+Completion workflow score: 80/100
+
+============================================================
+SECTION 6: ROUTINE / REPEATING PROCESS AUDIT
+============================================================
+What exists:
+- one time: yes.
+- every day: yes, as recurrence fallback and some goal/routine support.
+- every week: partially present through recurrence and goals.
+- scheduled date: yes.
+- repeat rule: yes in TaskEntity through recurrenceRule.
+- next occurrence generation: not clearly first-class.
+- missed occurrence handling: weak/indirect.
+- routine streaks: not first-class.
+- routine completion per day/week: not first-class.
+- routine pause/stop: routine entity has active/paused/archived status, but workflow ownership is weak.
+- routine appearing on Timeline: indirect only.
+
+Process verdict:
+- Routines are stored as task-like records, not generated occurrences.
+- Completion applies to the record, not a true occurrence model.
+- Missed routines can only be inferred indirectly.
+- Routine streaks are not native.
+
+Routine workflow score: 52/100
+
+============================================================
+SECTION 7: GOAL PROCESS AUDIT
+============================================================
+Current goal lifecycle:
+- Create goal: yes.
+- Optionally attach tasks/routines/notes: partial and indirect.
+- Track progress: yes through linked task progress and goalProgressProvider.
+- Show on Timeline if dated: yes.
+- Update progress from completed work: yes, through task completion and goal provider fan-out.
+- Feed Ascension/Future Vector/Smart Planner/SI Console: yes, mostly indirectly through aggregate providers and logs.
+
+Goal capabilities:
+- status: partial, mostly through related task/goal state and lifecycle helpers.
+- progress: yes through progress views and linked tasks.
+- target date: yes.
+- linked tasks: yes.
+- milestones: present in broader goal provider model and timeline helpers.
+- completion: yes.
+- archive/delete: yes at provider/repository level.
+- visibility on Timeline: yes.
+- connection to intelligence features: yes.
+
+Goal process score: 78/100
+
+============================================================
+SECTION 8: NOTE PROCESS AUDIT
+============================================================
+Current note lifecycle:
+- Create note: yes, but via task-like semantics.
+- Store note: yes, but not in a dedicated note entity or feature flow.
+- Timeline visibility: indirect only.
+- Linking: not native.
+- Editing: not clearly first-class in a dedicated note process.
+- Deletion: likely follows task-like deletion path, not note-native.
+- Intelligence context: indirect only.
+
+Verdict:
+- Notes exist as a UI type and as task-like records, but not as a dedicated process system.
+
+Note process score: 40/100
+
+============================================================
+SECTION 9: NOTIFICATION / REMINDER PROCESS AUDIT
+============================================================
+State:
+- Working: partial.
+- Reminder settings: yes.
+- Notification permissions: yes.
+- Scheduled notifications: yes, via system scheduler and reminder code.
+- Routine reminders: partial.
+- Task reminders: partial.
+- Daily planning reminders: yes in goal/reminder sync paths.
+- Reflection reminders: possible but not clearly first-class in this audit.
+- Failure handling: partial.
+- Opt-in/out controls: yes through permission and settings flows.
+- Firebase notification usage: present in project dependencies, but this audit did not modify or validate Firebase config.
+- Local notification usage: yes.
+
+Classification:
+- partial.
+
+Notification/reminder score: 66/100
+
+============================================================
+SECTION 10: ONBOARDING PROCESS AUDIT
+============================================================
+Starts:
+- First run, onboarding guard, mission/tutorial prompts, or user reset.
+
+Ends:
+- Onboarding complete flag set, mission/tutorial completion dismissed, route guard passes.
+
+Blocks user:
+- Yes, until onboarding status resolves.
+
+Mission steps:
+- Open Creator.
+- Choose Frequency.
+- Ask Smart Planner.
+- Open Timeline.
+- Mark Complete.
+
+Real action required:
+- Some steps require real navigation or interaction; some are screen visits.
+
+Writes onboarding complete:
+- app bootstrap and onboarding/local state flows write the completion state.
+
+Storage keys:
+- onboarding_complete
+- onboarding_content_version
+- onboarding_step_index
+- onboarding_state_v1
+- creator_first_item_created_v1
+- timeline_first_action_completed_v1
+- per-user variants of the above.
+
+Abandon mid-way:
+- Progress may remain saved; user can resume, but overlapping systems can make the flow feel fragmented.
+
+Old progress exists:
+- Bootstrap and screen restore from shared prefs and per-user keys.
+
+Trap risk:
+- Yes. Multiple overlapping onboarding systems can trap or confuse the user if flags diverge.
+
+Onboarding process score: 58/100
+
+============================================================
+SECTION 11: SUBSCRIPTION / PAYMENT PROCESS AUDIT
+============================================================
+Where user sees subscription:
+- Profile billing center.
+- Settings billing center and paywall entry.
+- Paywall screen.
+
+What triggers paywall:
+- Route gate and feature gate logic.
+
+What plan/status is read:
+- current subscription, entitlement, wallet, plan list, premium access state.
+
+What tables/services are used:
+- monetization_subscription_statuses
+- monetization_wallets
+- monetization_credit_transactions
+- monetization_purchases
+- monetization_entitlement_events
+- purchase binding table
+
+After purchase if wired:
+- purchase verification and entitlement refresh pathways exist.
+
+Unknown subscription status:
+- UI still shows free/unknown-like fallback state.
+
+Profile/settings connection:
+- Profile and Settings both route to billing and subscription details.
+
+Classification:
+- partial, approaching production-ready on the read side, but still split across local and remote layers.
+
+Subscription process score: 71/100
+
+============================================================
+SECTION 12: PROFILE / SETTINGS PROCESS AUDIT
+============================================================
+Profile:
+- edit profile: partial.
+- account info: yes.
+- identity: yes.
+- subscription access: yes.
+- settings access: yes.
+
+Settings:
+- permissions: yes.
+- preferences: yes.
+- reset controls: yes, including onboarding reset.
+- account deletion: yes, with fallback paths.
+- tutorial reset: yes through onboarding/task reset paths.
+- notification settings: yes.
+- subscription/billing path: yes.
+
+Disconnected or dangerous flows:
+- account deletion path mixes local cleanup, auth deletion, and fallback support handling.
+- onboarding reset is spread across settings, tutorial, and bootstrap logic.
+
+Profile/settings score: 74/100
+
+============================================================
+SECTION 13: SUPABASE WORKFLOW CONNECTION AUDIT
+============================================================
+Confirmed Supabase workflow connections:
+- Auth/session bootstrap: lib/app/startup/app_bootstrap.dart, lib/features/auth/screens/auth_gate.dart, lib/features/auth/application/auth_controller.dart.
+- Profile creation/update through auth user handling: supabase/migrations/202607110001_profiles.sql.
+- Monetization: lib/features/monetization/providers/monetization_feature_providers.dart, lib/features/monetization/data/repositories/*.dart, supabase/migrations/20260716193000_monetization_system.sql, supabase/migrations/202607050001_purchase_bindings.sql.
+- Secure user metrics: supabase/migrations/20260717170000_secure_user_daily_metrics.sql.
+
+Operations observed in code:
+- select: subscription plans, current subscription, entitlements, wallets, purchases, credit transactions.
+- rpc: monetize credit consumption and purchase verification paths.
+- insert/update: profile trigger and monetization state functions in migrations.
+
+Workflow risks:
+- create writes to one source but Timeline reads another: yes, especially for task-like routines/notes and derived intelligence.
+- status updates missing from Supabase: likely for task completion and routine semantics in this audit.
+- completion events missing from Supabase: direct evidence not confirmed for all workflows.
+- records not tied to auth user: most monetization tables are tied to user_id; task/goal local flows are less clearly Supabase-backed.
+- RLS likely to fail: no direct proof, but monetization tables use strict own-user policies.
+- no failure recovery: partial.
+- duplicate local/remote states: yes, especially onboarding, profile identity, and monetization read models.
+
+Supabase workflow score: 68/100
+
+============================================================
+SECTION 14: APPROVALS / HUMAN DECISION POINTS
+============================================================
+- Create item: Creator submit, clear choice, undo mostly via editing or navigation back, risk medium.
+- Choose frequency: DynamicForm recurrence picker, clear, undo yes by changing selection, risk low.
+- Choose date: schedule picker, clear, undo yes, risk low.
+- Mark completed: Timeline action chip, clear, undo not explicit, risk medium.
+- Skip: Timeline action chip, clear, undo limited, risk medium.
+- Reschedule: Timeline action menu, clear, undo limited, risk medium.
+- Ask Smart Planner: Smart Coach screen, clear, undo by leaving screen, risk low.
+- Accept recommendation: Smart Coach or SI surfaces, less explicit, risk medium.
+- Subscribe: paywall and billing center, clear, cancel via back navigation, risk medium-high.
+- Change setting: settings screen, clear, undo by toggling back, risk low.
+- Delete account: settings screen, clear but dangerous, undo none, risk high.
+
+============================================================
+SECTION 15: PROCESS STATES AND STATUS MODEL
+============================================================
+Current item states:
+- task: created, isCompleted, isCanceled, scheduledFor, dueDate, recurring.
+- goal: created, active/completed/archived via provider behavior and projections.
+- timeline event: planned, active, completed, overdue, atRisk, info.
+- routine: active, paused, archived, but not a native process record.
+- note: task-like kind only.
+
+Recommended states missing or weak:
+- draft: not first-class.
+- planned: partially present.
+- scheduled: yes.
+- active: yes.
+- completed: yes.
+- not_completed: weak, mapped to delay.
+- skipped: yes.
+- rescheduled: yes.
+- overdue: yes.
+- archived: yes in some models.
+- deleted: yes in some repositories, but not unified.
+
+Workflow record states:
+- started: yes in onboarding/tutorial and auth flows.
+- in_progress: partial.
+- waiting_for_user: yes in onboarding and paywall flows.
+- failed: partial.
+- completed: yes.
+- cancelled: partial.
+
+============================================================
+SECTION 16: TASK QUEUE / DAILY QUEUE AUDIT
+============================================================
+Existing queue-like screens:
+- Timeline is the closest true queue.
+- Home/Nexus is a command and intelligence hub.
+- Creator is a producer, not a queue.
+- Smart Planner is a recommendation surface, not the queue itself.
+
+Recommended queue ownership:
+- Timeline should own the daily queue.
+- Nexus should summarize queue health.
+- Smart Planner should recommend next actions into the queue.
+
+Queue should show:
+- today, overdue, upcoming, completed, skipped.
+
+Feed into:
+- completion, progression, forecasting, and SI summaries.
+
+Queue score: 76/100
+
+============================================================
+SECTION 17: ERROR AND EXCEPTION PROCESS AUDIT
+============================================================
+- Save fails: handled in Creator form and some provider paths; user gets local error message.
+- Supabase write fails: partially handled by repository fallbacks and exception catches.
+- User not authenticated: auth gate and route guards manage this.
+- Schedule date missing: handled by default timing behavior and optional date inputs.
+- Notification permission denied: handled in settings with recovery prompts.
+- Subscription status unknown: handled with free/unknown fallback UI.
+- Onboarding state corrupted: partial recovery through prefs reload and bootstrap logic.
+- Duplicate record created: partial protection through repositories and first-item flags.
+- Timeline empty after create: first-item auto-open and success snackbar help, but no dedicated empty recovery flow.
+- Completion update fails: partial catch/log behavior; user feedback varies by screen.
+
+Error recovery score: 64/100
+
+============================================================
+SECTION 18: WORKFLOW SCORECARD
+============================================================
+Core create workflow: 84
+Schedule workflow: 78
+Timeline review workflow: 82
+Completion workflow: 80
+Routine workflow: 52
+Goal workflow: 78
+Note workflow: 40
+Onboarding process: 58
+Subscription process: 71
+Profile/settings process: 74
+Reminder/notification process: 66
+Supabase workflow connection: 68
+Human decision clarity: 73
+Process state model: 61
+Error recovery: 64
+Downstream feature handoff: 79
+Production workflow readiness: 72
+
+Average workflow score: 68.2/100
+
+============================================================
+SECTION 19: KEEP / REDESIGN / MERGE / REMOVE LATER
+============================================================
+KEEP:
+- Task creation, goal creation, timeline review, completion fan-out, profile progression, monetization read surfaces, settings permission handling.
+
+REDESIGN:
+- Routine lifecycle.
+- Note lifecycle.
+- Not-completed semantics.
+- Onboarding state ownership.
+
+MERGE:
+- Onboarding/tutorial/mission labels and guards.
+- Future Vector / trajectory / SI summary overlaps.
+
+REMOVE LATER:
+- Empty onboarding usecase shells.
+- Any dead labels or branches never used at runtime.
+
+UNKNOWN:
+- Route-adjacent behavior that needs live device verification.
+
+============================================================
+SECTION 20: TARGET CHRONOSPARK WORKFLOW MODEL
+============================================================
+Ideal process handoff:
+Creator -> Stored Record -> Timeline Queue -> User Completion Decision -> Completion Event -> Progress/Ascension -> Forecast/Future Vector -> Smart Planner Context -> SI Console Summary.
+
+How it should hand off:
+- Creator should write one canonical record.
+- Timeline should read the same canonical record.
+- Completion should write one canonical status event.
+- Progression should consume that event once.
+- Future Vector should consume the same event for prediction.
+- Smart Planner should summarize the same event for guidance.
+- SI Console should explain the state in plain operational language.
+
+============================================================
+SECTION 21: SAFE WORKFLOW ROADMAP
+============================================================
+Phase 1: Confirm Creator to Timeline process.
+- Goal: ensure create/save/project/review path is coherent.
+- Likely files: lib/features/creator/, lib/features/timeline/, lib/state/providers/creator_provider.dart, lib/state/providers/timeline_provider.dart.
+- Supabase involved: maybe.
+- Risk: medium.
+- Do not touch: auth, routing, AI, Firebase, Supabase schema, SI Console.
+- Success: every created item appears in Timeline with correct type and timing.
+
+Phase 2: Add or design completion workflow.
+- Goal: unify completed/not completed/skipped/rescheduled semantics.
+- Likely files: lib/features/timeline/, lib/state/providers/task_provider.dart, lib/state/providers/goals_provider.dart.
+- Supabase involved: maybe.
+- Risk: high.
+- Do not touch: auth, routing, AI, Firebase, Supabase schema.
+- Success: one clear status decision path and one canonical completion event.
+
+Phase 3: Improve routine recurrence process.
+- Goal: make routines native or explicitly modeled as occurrences.
+- Likely files: lib/features/creator/, lib/state/providers/, lib/domain/entities/.
+- Supabase involved: maybe.
+- Risk: high.
+- Do not touch: auth, routing, AI, Firebase, Supabase schema.
+- Success: routine recurrence and missed-occurrence handling become explicit.
+
+Phase 4: Connect completion events to Ascension/Future Vector/Smart Planner/SI Console.
+- Goal: standardize downstream consumption of completion signals.
+- Likely files: lib/state/providers/feature_derived_providers.dart, lib/state/providers/momentum_engine_provider.dart, lib/state/providers/future_timeline_provider.dart, lib/features/home/, lib/features/nexus/.
+- Supabase involved: no direct change.
+- Risk: medium.
+- Do not touch: auth, routing, Firebase, Supabase schema.
+- Success: one completion event feeds all downstream systems.
+
+Phase 5: Simplify onboarding process.
+- Goal: consolidate onboarding, mission, tutorial, and guards.
+- Likely files: lib/features/onboarding/, lib/tutorial/, lib/app/router/, lib/app/startup/.
+- Supabase involved: maybe only for namespaced local keys.
+- Risk: medium-high.
+- Do not touch: auth, routing, AI, Firebase.
+- Success: one clear onboarding owner and one clear exit condition.
+
+Phase 6: Improve subscription and settings process.
+- Goal: unify billing, permissions, and account recovery.
+- Likely files: lib/features/settings/, lib/features/profile/, lib/features/monetization/.
+- Supabase involved: yes.
+- Risk: medium.
+- Do not touch: schema, RLS, auth logic.
+- Success: billing/status and preference flows are easy to understand.
+
+Phase 7: Add tests for core workflows.
+- Goal: protect create, timeline, completion, onboarding, and billing paths.
+- Likely files: test/, integration_test/.
+- Supabase involved: maybe via mocks only.
+- Risk: low.
+- Do not touch: production config.
+- Success: workflow regressions are detected by tests.
+
+============================================================
+SECTION 22: FINAL WORKFLOW / PROCESS BUILDER VERDICT
+============================================================
+FINAL WORKFLOW VERDICT:
+- Current workflow identity: mixed local-first productivity planner with strong task/goal/timeline flow and weaker routine/note/onboarding ownership.
+- Intended workflow identity: creator-driven planning system with canonical timeline queue and explicit completion-to-progression handoff.
+- Biggest process gap: routines and notes are not first-class lifecycle workflows.
+- Biggest workflow risk: onboarding fragmentation and status semantic drift.
+- Strongest workflow: task creation -> timeline review -> completion -> progression.
+- Weakest workflow: note lifecycle and native routine recurrence.
+- Most important missing status: a true not_completed / occurrence state for repeating work.
+- Most important missing handoff: one canonical completion event shared by all downstream systems.
+- Average workflow score: 68.2/100.
+- Safest next coding pass: unify create-to-timeline and completion semantics without touching auth or routing.
+- Most dangerous workflow to modify: onboarding/mission/tutorial guard chain.
+- Files to inspect before coding: lib/features/creator/, lib/features/timeline/, lib/state/providers/task_provider.dart, lib/state/providers/goals_provider.dart, lib/features/onboarding/, lib/tutorial/.
+- Supabase tables to verify before coding: monetization_subscription_statuses, monetization_wallets, monetization_credit_transactions, monetization_purchases, monetization_entitlement_events, purchase_bindings, profiles, user_daily_metrics.
+- What must not be touched yet: auth logic, Google login, Supabase schema/RLS, Firebase config, AI logic, SI Console logic, routing.
