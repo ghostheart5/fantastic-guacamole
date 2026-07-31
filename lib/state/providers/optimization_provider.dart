@@ -44,7 +44,7 @@ final optimizationConfigProvider = FutureProvider<OptimizationConfig>((
     );
     final merged = const OptimizationMerger().merge(localConfig, globalConfig);
 
-    // Apply insight-driven self-optimization (once per day, bounded 0.5â€“1.5)
+    // Apply insight-driven self-optimization (once per day, bounded 0.5-1.5)
     await SharedPrefsService.init();
     final String today = DateTime.now().toIso8601String().substring(0, 10);
     if (SharedPrefsService.load(_lastOptimizationDateKey) == today) {

@@ -15,7 +15,7 @@ class InsightsService {
         ? 'No notable system patterns yet.'
         : insights.length == 1
         ? insights.first.title
-        : '${insights.first.title} â€¢ ${insights.length - 1} more signals';
+        : '${insights.first.title} - ${insights.length - 1} more signals';
     return InsightsBundle(
       items: insights,
       summary: summary,

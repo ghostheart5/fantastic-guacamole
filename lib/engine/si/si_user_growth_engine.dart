@@ -195,7 +195,7 @@ class SIUserGrowthEngine {
     if (growth.trajectory == UserGrowthTrajectory.improving &&
         growth.growthScore >= 0.68) {
       return _truncate(
-        '$clean\n\nGrowth note: momentum is building â€” keep the scope clear.',
+        '$clean\n\nGrowth note: momentum is building - keep the scope clear.',
         420,
       );
     }
