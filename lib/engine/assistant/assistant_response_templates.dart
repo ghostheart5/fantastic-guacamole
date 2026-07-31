@@ -9,7 +9,7 @@ class AssistantResponseTemplates {
     required double energy,
   }) {
     final String actionLines = actions
-        .map((String item) => 'â€¢ $item')
+        .map((String item) => '- $item')
         .join('\n');
     final int pct = (energy * 100).round();
     return '$insight\n\n'
@@ -55,17 +55,17 @@ class AssistantResponseTemplates {
       );
     }
 
-    return 'ðŸ§  SI ANALYSIS\n\n'
+    return 'SI ANALYSIS\n\n'
         'Query\n'
         '$query\n\n'
         'Intent Category\n'
         '$category\n\n'
         'Current State\n'
-        'â€¢ $goalsCount active goals\n'
-        'â€¢ $openTasks open tasks\n'
-        'â€¢ $overdue overdue items\n\n'
+      '- $goalsCount active goals\n'
+      '- $openTasks open tasks\n'
+      '- $overdue overdue items\n\n'
         'Priority Task\n'
-        'âœ… $priorityTask\n\n'
+      '[done] $priorityTask\n\n'
         'Impact\n'
         '$impact\n\n'
         'Timeline Effect\n'

@@ -20,18 +20,18 @@ class CompletionInsightEngine {
     if (seconds < 60) {
       observation = "Short session.";
       suggestion = energy < 0.3
-          ? "Low energy â€” rest before your next attempt."
+          ? "Low energy - rest before your next attempt."
           : "Try stretching your focus time.";
     } else if (seconds < 300) {
       observation = "Good effort.";
       suggestion = energy < 0.3
-          ? "Energy is low â€” consider a short break."
+          ? "Energy is low - consider a short break."
           : "Push a bit further next time.";
     } else {
       observation = "Strong session.";
       suggestion = energy > 0.6
-          ? "Energy is high â€” keep building this rhythm."
-          : "Great work â€” recharge before the next session.";
+          ? "Energy is high - keep building this rhythm."
+          : "Great work - recharge before the next session.";
     }
 
     return CompletionInsight(
