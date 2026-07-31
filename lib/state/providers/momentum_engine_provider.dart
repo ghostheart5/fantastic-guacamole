@@ -1,7 +1,8 @@
+import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
-import 'package:fantastic_guacamole/state/providers/routines_provider.dart';
+import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -36,7 +37,11 @@ final momentumEngineProvider = Provider<MomentumEngineState>((ref) {
   final siState = ref.watch(siStateProvider);
   final trajectory = ref.watch(trajectorySummaryProvider);
   final execution = ref.watch(executionSignalsProvider);
-  final routines = ref.watch(routinesProvider);
+  final habitsAsync = ref.watch(habitsProvider);
+  final List<HabitRecord> habits = habitsAsync.maybeWhen(
+    data: (items) => items,
+    orElse: () => const <HabitRecord>[],
+  );
 
   final int energyPercent = (siState.energy * 100).round().clamp(0, 100);
   final int fatiguePercent = (siState.fatigue * 100).round().clamp(0, 100);
@@ -47,7 +52,7 @@ final momentumEngineProvider = Provider<MomentumEngineState>((ref) {
   final int streakBoost = (profile.streak * 2).clamp(0, 20);
   final int completionBoost = (siState.completedToday * 6).clamp(0, 24);
   final int executionBoost = (execution.completedToday * 5).clamp(0, 20);
-  final int routineBoost = routines.where((routine) => routine.active).length * 2;
+  final int routineBoost = habits.where((habit) => habit.active).length * 2;
   final int deferralPenalty =
       ((execution.skippedToday * 6) + (execution.delayedToday * 4)).clamp(
         0,

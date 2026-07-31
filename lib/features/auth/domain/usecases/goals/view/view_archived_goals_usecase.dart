@@ -7,11 +7,9 @@ class ViewArchivedGoalsUsecase {
   final IGoalRepository _repository;
 
   List<GoalEntity> call() {
-    final List<GoalEntity> goals = _repository.getGoals();
-
-    // GoalEntity does not currently expose an archived/status field.
-    // Keep this use case repository-backed and return an empty archived set
-    // until goal archival state is added to the domain model.
-    return goals.where((GoalEntity goal) => false).toList(growable: false);
+    return _repository
+        .getGoals()
+        .where((GoalEntity goal) => goal.isArchived)
+        .toList(growable: false);
   }
 }

@@ -7,6 +7,9 @@ class ViewActiveGoalsUsecase {
   final IGoalRepository _repository;
 
   List<GoalEntity> call() {
-    return _repository.getGoals();
+    return _repository
+        .getGoals()
+        .where((GoalEntity goal) => goal.isActive)
+        .toList(growable: false);
   }
 }

@@ -197,7 +197,8 @@ class _DynamicFormState extends State<DynamicForm> {
             onSelect: (t) => setState(() {
               _selectedType = t;
               final String kind = t.trim().toLowerCase();
-              if (kind == 'routine' && _recurrenceRule == RecurrenceRule.none) {
+              if ((kind == 'routine' || kind == 'habit') &&
+                  _recurrenceRule == RecurrenceRule.none) {
                 _recurrenceRule = RecurrenceRule.daily;
               }
             }),

@@ -12,6 +12,7 @@ export 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
+export 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';

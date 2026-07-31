@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
@@ -25,7 +26,7 @@ class CreatorActions {
 
   Future<CreatorSavedKind> createEntry(CreatorFormData data) async {
     final String mode = data.creatorMode.trim().toLowerCase();
-    final String kind = _kindFor(data, mode);
+    final String kind = _normalizeKind(_kindFor(data, mode));
 
     final RecurrenceRule recurrence = _recurrenceFor(
       kind: kind,
@@ -40,18 +41,32 @@ class CreatorActions {
 
     final int priority = _priorityFor(kind: kind, requested: data.priority);
 
-    final entity = TaskEntity(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      title: data.title,
-      kind: kind,
-      description: data.description,
-      createdAt: DateTime.now(),
-      priority: priority,
-      difficulty: _difficultyFor(kind),
-      energyRequired: _energyRequiredFor(kind),
-      scheduledFor: data.scheduledFor,
-      recurrenceRule: recurrence,
-    );
+    final TaskEntity entity;
+    if (kind == 'note') {
+      final NoteEntity note = NoteEntity(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        title: data.title,
+        body: data.description,
+        createdAt: DateTime.now(),
+      );
+      entity = note.toTaskEntity(
+        scheduledFor: data.scheduledFor,
+        recurrenceRule: recurrence,
+      );
+    } else {
+      entity = TaskEntity(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        title: data.title,
+        kind: kind,
+        description: data.description,
+        createdAt: DateTime.now(),
+        priority: priority,
+        difficulty: _difficultyFor(kind),
+        energyRequired: _energyRequiredFor(kind),
+        scheduledFor: data.scheduledFor,
+        recurrenceRule: recurrence,
+      );
+    }
 
     await ref
       .read(taskActionsProvider)
@@ -113,7 +128,15 @@ class CreatorActions {
       'goals' => 'goal',
       'milestones' => 'milestone',
       'plan' => 'plan',
+      'habits' => 'habit',
       _ => data.type.trim().toLowerCase(),
+    };
+  }
+
+  String _normalizeKind(String kind) {
+    return switch (kind) {
+      'routine' => 'habit',
+      _ => kind,
     };
   }
 
@@ -126,7 +149,7 @@ class CreatorActions {
     }
 
     return switch (kind) {
-      'routine' => RecurrenceRule.daily,
+      'routine' || 'habit' => RecurrenceRule.daily,
       _ => RecurrenceRule.none,
     };
   }
@@ -147,7 +170,7 @@ class CreatorActions {
       'mission' => 3,
       'milestone' => 3,
       'plan' => 2,
-      'routine' => 2,
+      'routine' || 'habit' => 2,
       'note' => 1,
       _ => 3,
     };

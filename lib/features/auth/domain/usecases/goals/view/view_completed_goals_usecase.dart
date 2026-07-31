@@ -7,11 +7,9 @@ class ViewCompletedGoalsUsecase {
   final IGoalRepository _repository;
 
   List<GoalEntity> call() {
-    final List<GoalEntity> goals = _repository.getGoals();
-
-    // GoalEntity does not currently expose a completed/status field.
-    // Keep this use case repository-backed and return an empty completed set
-    // until goal completion state is added to the domain model.
-    return goals.where((GoalEntity goal) => false).toList(growable: false);
+    return _repository
+        .getGoals()
+        .where((GoalEntity goal) => goal.isCompleted)
+        .toList(growable: false);
   }
 }
