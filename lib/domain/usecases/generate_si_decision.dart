@@ -19,7 +19,7 @@ class GenerateSiDecision {
 
     if (SiPolicy.shouldSuggestBreak(state)) {
       return const SiDecisionEntity(
-        rationale: 'Fatigue high or energy low â€” take a break.',
+        rationale: 'Fatigue high or energy low - take a break.',
         shouldTakeBreak: true,
       );
     }

@@ -861,7 +861,7 @@ class CoachQueryController implements SmartCoachInterface {
 
     if (topic == _CoachTopic.nutrition) {
       if (lowered.contains('haven\'t eaten') ||
-          lowered.contains('havenâ€™t eaten') ||
+          lowered.contains('haven\'t eaten') ||
           lowered.contains('no meal') ||
           lowered.contains('skipped a meal')) {
         return 'You said you haven\'t eaten yet.';
@@ -908,7 +908,7 @@ class CoachQueryController implements SmartCoachInterface {
       parts.add('You got ${hoursMatch.group(1)} hours of sleep,');
     }
     if (lowered.contains('haven\'t eaten') ||
-        lowered.contains('havenâ€™t eaten') ||
+        lowered.contains('haven\'t eaten') ||
         lowered.contains('no meal') ||
         lowered.contains('not eaten') ||
         lowered.contains('skipped a meal')) {
@@ -1269,7 +1269,7 @@ class CoachQueryController implements SmartCoachInterface {
     switch (topic) {
       case _CoachTopic.weightLoss:
         insight =
-            'Youâ€™re probably getting slowed down by calorie drift and not enough daily movement.';
+            'You\'re probably getting slowed down by calorie drift and not enough daily movement.';
         actions = <String>[
           'Drink 16 oz water now.',
           'Add a palm-sized protein serving to your next meal.',
@@ -1280,7 +1280,7 @@ class CoachQueryController implements SmartCoachInterface {
         followUp = 'What is your current weight and target weight?';
       case _CoachTopic.weightGain:
         insight =
-            'Youâ€™re probably not getting enough calories, protein, or resistance work to move weight up consistently.';
+            'You\'re probably not getting enough calories, protein, or resistance work to move weight up consistently.';
         actions = <String>[
           'Add one calorie-dense meal or snack today.',
           'Include protein in every meal.',

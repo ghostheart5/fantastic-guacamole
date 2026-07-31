@@ -40,6 +40,6 @@ final autonomousReviewProvider = Provider<AutonomousReviewState>((ref) {
     score: score,
     summary: summary,
     tomorrowAdjustment: tomorrowAdjustment,
-    alignment: '${lifeOs.identityStage} â€¢ ${daily.focus}',
+    alignment: '${lifeOs.identityStage} - ${daily.focus}',
   );
 });

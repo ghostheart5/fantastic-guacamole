@@ -125,7 +125,7 @@ class SISyntheticLanguageGenerator {
       return '$text\n\nOne small step.';
     }
     if (presence.mode == PresenceMode.steady && !text.contains('clear')) {
-      return '$text\n\nIâ€™ll keep this clear.';
+      return '$text\n\nI\'ll keep this clear.';
     }
     return text;
   }

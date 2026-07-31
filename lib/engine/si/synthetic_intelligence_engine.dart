@@ -207,7 +207,7 @@ class SyntheticIntelligenceEngine {
       'not sure',
       'unclear',
       'lost',
-      'donâ€™t know',
+      'don\'t know',
       "don't know",
     ])) {
       confusion = 0.72;

@@ -83,7 +83,7 @@ class SIEthicsLayer {
     bool blocked,
   ) {
     if (blocked) {
-      return 'Letâ€™s take a safer, more supportive route. Choose one small next step.';
+      return 'Let\'s take a safer, more supportive route. Choose one small next step.';
     }
 
     String out = siClean(message, fallback: 'Choose one small next step.');

@@ -58,7 +58,7 @@ class SICognitiveStyleEngine {
         format: 'stepwise',
         maxChars: 280,
         prefix: '',
-        suffix: 'Iâ€™ll keep it step-by-step.',
+        suffix: 'I\'ll keep it step-by-step.',
         useBullets: true,
       );
     }
@@ -128,7 +128,7 @@ class SICognitiveStyleEngine {
         .toList();
 
     if (parts.length <= 1) return text;
-    return parts.map((String p) => 'â€¢ $p').join('\n');
+    return parts.map((String p) => '- $p').join('\n');
   }
 
   String _truncate(String text, int maxChars) {

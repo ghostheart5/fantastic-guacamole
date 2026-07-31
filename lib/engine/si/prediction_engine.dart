@@ -154,7 +154,7 @@ class PredictionEngine {
 
   String _outcome(double probability, int samples) {
     if (samples < config.minReliableSamples) {
-      return 'Early signal â€” more history needed';
+      return 'Early signal - more history needed';
     }
     if (probability >= config.highThreshold) {
       return 'High chance of successful focus';

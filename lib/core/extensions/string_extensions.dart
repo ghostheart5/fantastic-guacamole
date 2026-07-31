@@ -24,7 +24,7 @@ extension StringExt on String {
   // Truncation
   // ------------------------------------------------------------------
 
-  String truncate(int maxLength, {String ellipsis = 'â€¦'}) =>
+  String truncate(int maxLength, {String ellipsis = '...'}) =>
       length <= maxLength ? this : '${substring(0, maxLength)}$ellipsis';
 
   // ------------------------------------------------------------------

@@ -34,7 +34,7 @@ class AppAssets {
   static const dataTemporalSeed = 'assets/data/temporal_seed.json';
   static const dataUser = 'assets/data/user.json';
 
-  // Fonts (raw asset paths â€” see pubspec.yaml for font family registration)
+  // Fonts (raw asset paths - see pubspec.yaml for font family registration)
   static const fontInterBold = 'assets/fonts/Inter-Bold.ttf';
   static const fontInterMedium = 'assets/fonts/Inter-Medium.ttf';
   static const fontInterRegular = 'assets/fonts/Inter-Regular.ttf';

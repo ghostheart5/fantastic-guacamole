@@ -794,7 +794,7 @@ class SIEngine {
 
     final SIResponse response = const SIResponse(
       message:
-          'I hit a system issue. Tell me the task or goal, and Iâ€™ll help with one small next step.',
+          'I hit a system issue. Tell me the task or goal, and I\'ll help with one small next step.',
       emotion: 'neutral',
       persona: SIPersona.assistant,
       traits: PersonalityTraits(

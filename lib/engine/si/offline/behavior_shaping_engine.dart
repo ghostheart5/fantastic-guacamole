@@ -1,5 +1,5 @@
-// Behavior Shaping Engine â€” progressive micro-progression
-// Session length ladder: 10â†’12â†’15â†’18â†’22â†’30 min
+// Behavior Shaping Engine - progressive micro-progression
+// Session length ladder: 10->12->15->18->22->30 min
 // Tracks consistency, capacity, and stability across sessions.
 
 class BehaviorState {
@@ -9,7 +9,7 @@ class BehaviorState {
     required this.stability,
   });
 
-  final double consistency; // 0.0â€“1.0
+  final double consistency; // 0.0-1.0
   final double capacity;
   final double stability;
 
@@ -30,7 +30,7 @@ class BehaviorTarget {
     required this.targetSessionLength,
   });
 
-  final double targetDifficulty; // 1.0â€“5.0
+  final double targetDifficulty; // 1.0-5.0
   final int targetSessionLength; // minutes
 }
 
