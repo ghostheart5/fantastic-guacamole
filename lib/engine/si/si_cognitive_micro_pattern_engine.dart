@@ -320,7 +320,7 @@ class SICognitiveMicroPatternEngine {
 
   String _summary(List<MicroPattern> patterns) {
     if (patterns.isEmpty) return 'No strong micro-patterns detected yet.';
-    return patterns.take(3).map((MicroPattern p) => p.label).join(' Â· ');
+    return patterns.take(3).map((MicroPattern p) => p.label).join(' - ');
   }
 
   double _sampleConfidence(int samples) {

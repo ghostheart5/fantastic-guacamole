@@ -97,7 +97,7 @@ class SISelfConsistencyEngine {
     if (safe.isEmpty) {
       return const SIResponseCandidate(
         message:
-            'Tell me what you want to work on, and Iâ€™ll help with one next step.',
+            'Tell me what you want to work on, and I\'ll help with one next step.',
         action: 'respond_conversationally',
         confidence: 0.5,
       );
@@ -133,7 +133,7 @@ class SISelfConsistencyEngine {
     if (consistent && original.isNotEmpty) return original;
 
     if (instinct.safetyFirst) {
-      return 'Letâ€™s keep it simple: choose one small next step.';
+      return 'Let\'s keep it simple: choose one small next step.';
     }
 
     return siClean(
