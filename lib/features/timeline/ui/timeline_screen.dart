@@ -549,6 +549,7 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
             id,
             by: const Duration(days: 1),
             actionSource: 'timeline',
+            delayReason: 'not_completed',
           );
     }, 'Marked not completed and moved to tomorrow.', TimelineEventStatus.active,
         'Not completed');

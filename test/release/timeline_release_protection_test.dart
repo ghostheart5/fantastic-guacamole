@@ -40,5 +40,19 @@ void main() {
       expect(text.contains('provider'), isTrue);
       expect(text.contains('timelineprovider') || text.contains('timeline_provider'), isTrue);
     });
+
+    test('timeline preserves explicit not-completed workflow semantics', () {
+      final String text = SourceTestUtils.readText(File('lib/features/timeline/ui/timeline_screen.dart')).toLowerCase();
+      expect(text.contains('not completed'), isTrue);
+      expect(text.contains("delayreason: 'not_completed'"), isTrue);
+    });
+
+    test('workflow signal taxonomy includes task_not_completed handling', () {
+      final String taskProvider = SourceTestUtils.readText(File('lib/state/providers/task_provider.dart')).toLowerCase();
+      final String executionSignals = SourceTestUtils.readText(File('lib/state/providers/execution_signals_provider.dart')).toLowerCase();
+
+      expect(taskProvider.contains('task_not_completed'), isTrue);
+      expect(executionSignals.contains('task_not_completed'), isTrue);
+    });
   });
 }

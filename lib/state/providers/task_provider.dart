@@ -313,6 +313,7 @@ class TaskActions {
     Duration by = const Duration(hours: 2),
     bool notify = true,
     String actionSource = 'unknown',
+    String delayReason = 'reschedule',
   }) async {
     if (id.trim().isEmpty) {
       throw StateError('Task not found');
@@ -329,19 +330,28 @@ class TaskActions {
         ? now.add(by)
         : (entity.scheduledFor ?? now).add(by);
     final TaskEntity delayed = entity.copyWith(scheduledFor: nextSchedule);
+    final bool isNotCompleted = delayReason.trim().toLowerCase() == 'not_completed';
+    final String logSource = isNotCompleted
+      ? 'task_not_completed'
+      : 'task_delayed';
+    final String eventTitle = isNotCompleted ? 'Task Not Completed' : 'Task Delayed';
+    final String eventDetail = isNotCompleted
+      ? '${delayed.title} marked not completed and moved to ${nextSchedule.toLocal().toIso8601String()}.'
+      : '${delayed.title} delayed until ${nextSchedule.toLocal().toIso8601String()}.';
+    final String lifecycleAction = isNotCompleted ? 'not_completed' : 'delayed';
+
     await _ref.read(updateTaskUseCaseProvider).call(delayed);
     await _ref
         .read(logsActionsProvider)
-        .addMirroredEntry(source: 'task_delayed', message: delayed.title);
+      .addMirroredEntry(source: logSource, message: delayed.title);
     await _ref
         .read(timelineActionsProvider)
         .addMirroredEvent(
           TimelineEventEntity(
             id: 'timeline-task-delayed-${now.microsecondsSinceEpoch}',
             type: TimelineEventType.reflection,
-            title: 'Task Delayed',
-            detail:
-                '${delayed.title} delayed until ${nextSchedule.toLocal().toIso8601String()}.',
+        title: eventTitle,
+        detail: eventDetail,
             timestamp: now,
           ),
         );
@@ -358,7 +368,7 @@ class TaskActions {
           TaskLifecycleEvent(
             taskId: delayed.id,
             title: delayed.title,
-            action: 'delayed',
+            action: lifecycleAction,
             actionSource: actionSource,
           ),
         );

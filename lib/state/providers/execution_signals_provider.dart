@@ -100,7 +100,7 @@ final executionSignalsProvider = Provider<ExecutionSignals>((Ref ref) {
       continue;
     }
 
-    if (source == 'task_delayed') {
+    if (source == 'task_delayed' || source == 'task_not_completed') {
       if (inToday) {
         delayedToday += 1;
       }
