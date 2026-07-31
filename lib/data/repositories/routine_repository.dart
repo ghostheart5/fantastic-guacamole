@@ -30,7 +30,8 @@ class RoutineRepository implements IRoutineRepository {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
       _corruptedSnapshot = false;
       return list
-          .whereType<Map<String, dynamic>>()
+          .whereType<Map<dynamic, dynamic>>()
+          .map(_normalizeRoutinePayloadToHabitShape)
           .map(RoutineEntity.fromJson)
           .toList(growable: false);
     } on Object catch (error) {
@@ -93,6 +94,37 @@ class RoutineRepository implements IRoutineRepository {
         routines.map((RoutineEntity routine) => routine.toJson()).toList(),
       ),
     );
+  }
+
+  Map<String, dynamic> _normalizeRoutinePayloadToHabitShape(
+    Map<dynamic, dynamic> payload,
+  ) {
+    final Map<String, dynamic> normalized = payload.map<String, dynamic>(
+      (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+    );
+
+    final String rawName =
+        normalized['name']?.toString() ?? normalized['title']?.toString() ?? '';
+    normalized['name'] = rawName.isEmpty ? 'Untitled Habit' : rawName;
+
+    if (!normalized.containsKey('title')) {
+      normalized['title'] = normalized['name'];
+    }
+
+    if (!normalized.containsKey('cadence')) {
+      final String fallbackCadence =
+          normalized['frequency']?.toString() ??
+          normalized['recurrence']?.toString() ??
+          normalized['recurrenceRule']?.toString() ??
+          'daily';
+      normalized['cadence'] = fallbackCadence;
+    }
+
+    if (!normalized.containsKey('targetCount')) {
+      normalized['targetCount'] = 1;
+    }
+
+    return normalized;
   }
 
   void _ensureWriteAllowed() {

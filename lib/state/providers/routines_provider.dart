@@ -7,6 +7,10 @@ final routinesProvider =
       RoutinesNotifier.new,
     );
 
+// Habit-semantics alias over legacy routines provider.
+final habitsFromRoutinesProvider = routinesProvider;
+
+@Deprecated('Use habitsFromRoutinesProvider for habit-semantics access.')
 final routineProvider = routinesProvider;
 
 class RoutinesNotifier extends Notifier<List<RoutineEntity>> {
@@ -40,5 +44,21 @@ class RoutinesNotifier extends Notifier<List<RoutineEntity>> {
   Future<void> saveAll(List<RoutineEntity> routines) async {
     await ref.read(saveRoutinesUseCaseProvider).call(routines);
     state = routines;
+  }
+
+  Future<void> addHabit(RoutineEntity habit) {
+    return add(habit);
+  }
+
+  Future<void> updateHabit(RoutineEntity habit) {
+    return update(habit);
+  }
+
+  Future<void> removeHabit(String id) {
+    return remove(id);
+  }
+
+  Future<void> saveAllHabits(List<RoutineEntity> habits) {
+    return saveAll(habits);
   }
 }

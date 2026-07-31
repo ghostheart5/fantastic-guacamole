@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +13,13 @@ class TypeSelector extends StatelessWidget {
   final String selected;
   final ValueChanged<String> onSelect;
 
-  static const _types = ['Task', 'Routine', 'Note', 'Goal'];
+  static List<String> _types() {
+    final List<String> values = <String>['Task', 'Habit', 'Note', 'Goal'];
+    if (Env.enableLegacyRoutineEntryPoints) {
+      values.add('Routine');
+    }
+    return values;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +52,7 @@ class TypeSelector extends StatelessWidget {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: _types.map((type) {
+          children: _types().map((type) {
             final isSelected = type == selected;
             return SmartPressable(
               onTap: () => onSelect(type),

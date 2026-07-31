@@ -89,6 +89,11 @@ abstract final class Env {
     'CHRONOSPARK_ENABLE_CLOUD_SYNC',
     defaultValue: false,
   );
+  static const bool _enableLegacyRoutineEntryPointsDefine =
+      bool.fromEnvironment(
+        'CHRONOSPARK_ENABLE_LEGACY_ROUTINE_ENTRY_POINTS',
+        defaultValue: false,
+      );
   static const String _appLinksAndroidSha256Define = String.fromEnvironment(
     'CHRONOSPARK_ANDROID_SHA256_CERT',
     defaultValue: '',
@@ -159,6 +164,10 @@ abstract final class Env {
       _readString('CHRONOSPARK_SUPABASE_ANON_KEY', _supabaseAnonKeyDefine);
   static bool get enableCloudSync =>
       _readBool('CHRONOSPARK_ENABLE_CLOUD_SYNC', _enableCloudSyncDefine);
+  static bool get enableLegacyRoutineEntryPoints => _readBool(
+    'CHRONOSPARK_ENABLE_LEGACY_ROUTINE_ENTRY_POINTS',
+    _enableLegacyRoutineEntryPointsDefine,
+  );
   static String get appLinksAndroidSha256 => _readString(
     'CHRONOSPARK_ANDROID_SHA256_CERT',
     _appLinksAndroidSha256Define,

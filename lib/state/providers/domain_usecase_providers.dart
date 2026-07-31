@@ -789,6 +789,28 @@ final saveRoutinesUseCaseProvider = Provider<SaveRoutines>((ref) {
   return SaveRoutines(ref.read(domainRoutineRepositoryProvider));
 });
 
+// Habit-semantics aliases over the legacy routine repository/usecases.
+// These aliases allow gradual migration without breaking existing callers.
+final getHabitsFromRoutineUseCaseProvider = Provider<GetRoutines>((ref) {
+  return ref.read(getRoutinesUseCaseProvider);
+});
+
+final createHabitFromRoutineUseCaseProvider = Provider<CreateRoutine>((ref) {
+  return ref.read(createRoutineUseCaseProvider);
+});
+
+final updateHabitFromRoutineUseCaseProvider = Provider<UpdateRoutine>((ref) {
+  return ref.read(updateRoutineUseCaseProvider);
+});
+
+final deleteHabitFromRoutineUseCaseProvider = Provider<DeleteRoutine>((ref) {
+  return ref.read(deleteRoutineUseCaseProvider);
+});
+
+final saveHabitsFromRoutineUseCaseProvider = Provider<SaveRoutines>((ref) {
+  return ref.read(saveRoutinesUseCaseProvider);
+});
+
 final getSubtasksUseCaseProvider = Provider<GetSubtasks>((ref) {
   return GetSubtasks(ref.read(domainSubtaskRepositoryProvider));
 });
