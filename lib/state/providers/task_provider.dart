@@ -67,10 +67,14 @@ final taskActionsProvider = Provider<TaskActions>((Ref ref) {
 });
 
 class TaskActions {
-  const TaskActions(this._ref);
+  TaskActions(this._ref);
 
   final Ref _ref;
   static final SessionScoringEngine _scoringEngine = SessionScoringEngine();
+  static const Duration _timelineActionDedupWindow = Duration(
+    milliseconds: 900,
+  );
+  final Map<String, DateTime> _recentTimelineActions = <String, DateTime>{};
 
   Future<void> createTask(
     TaskEntity entity, {
@@ -105,19 +109,18 @@ class TaskActions {
       ),
     );
 
-    _ref
-        .read(eventBusProvider)
-        .emit(
-          TaskLifecycleEvent(
-            taskId: normalized.id,
-            title: trimmed,
-            action: 'created',
-            actionSource: actionSource,
-          ),
-        );
-
-    _ref.invalidate(tasksProvider);
-    _ref.invalidate(goalProgressProvider);
+    _emitTaskLifecycle(
+      taskId: normalized.id,
+      title: trimmed,
+      action: 'created',
+      actionSource: actionSource,
+    );
+    await _bestEffort(
+      () => _ref
+          .read(localMetricsAccumulatorProvider)
+          .recordAutomationCheckpoint('task_created_event_emitted'),
+    );
+    _invalidateTaskGraph();
   }
 
   Future<void> createQuickTask(String title, {bool notify = false}) async {
@@ -142,6 +145,14 @@ class TaskActions {
     bool notify = true,
     String actionSource = 'unknown',
   }) async {
+    if (_shouldSuppressTimelineDuplicate(
+      taskId: id,
+      action: 'completed',
+      actionSource: actionSource,
+    )) {
+      return;
+    }
+
     Task? selectedTask = _taskFromCachedTasks(id);
     final Future<Task?> selectedTaskFuture = selectedTask != null
         ? Future<Task?>.value(selectedTask)
@@ -200,20 +211,20 @@ class TaskActions {
           'action_source': actionSource,
         },
       );
-      _ref
-          .read(eventBusProvider)
-          .emit(
-            TaskLifecycleEvent(
-              taskId: selectedTask.id,
-              title: selectedTask.title,
-              action: 'completed',
-              actionSource: actionSource,
-            ),
-          );
+      _emitTaskLifecycle(
+        taskId: selectedTask.id,
+        title: selectedTask.title,
+        action: 'completed',
+        actionSource: actionSource,
+      );
+      await _bestEffort(
+        () => _ref
+            .read(localMetricsAccumulatorProvider)
+            .recordAutomationCheckpoint('task_completed_event_emitted'),
+      );
     }
 
-    _ref.invalidate(tasksProvider);
-    _ref.invalidate(goalProgressProvider);
+    _invalidateTaskGraph();
   }
 
   Future<Task?> _taskFromRepository(String id) async {
@@ -263,6 +274,14 @@ class TaskActions {
       throw StateError('Task not found');
     }
 
+    if (_shouldSuppressTimelineDuplicate(
+      taskId: selectedTask.id,
+      action: 'skipped',
+      actionSource: actionSource,
+    )) {
+      return;
+    }
+
     final DateTime now = DateTime.now();
     await _ref
         .read(learningProvider.notifier)
@@ -293,19 +312,18 @@ class TaskActions {
       unawaited(_markTimelineFirstActionCompleted());
     }
 
-    _ref
-        .read(eventBusProvider)
-        .emit(
-          TaskLifecycleEvent(
-            taskId: selectedTask.id,
-            title: selectedTask.title,
-            action: 'skipped',
-            actionSource: actionSource,
-          ),
-        );
-
-    _ref.invalidate(tasksProvider);
-    _ref.invalidate(goalProgressProvider);
+    _emitTaskLifecycle(
+      taskId: selectedTask.id,
+      title: selectedTask.title,
+      action: 'skipped',
+      actionSource: actionSource,
+    );
+    await _bestEffort(
+      () => _ref
+          .read(localMetricsAccumulatorProvider)
+          .recordAutomationCheckpoint('task_skipped_event_emitted'),
+    );
+    _invalidateTaskGraph();
   }
 
   Future<void> delayTask(
@@ -340,6 +358,14 @@ class TaskActions {
       : '${delayed.title} delayed until ${nextSchedule.toLocal().toIso8601String()}.';
     final String lifecycleAction = isNotCompleted ? 'not_completed' : 'delayed';
 
+    if (_shouldSuppressTimelineDuplicate(
+      taskId: delayed.id,
+      action: lifecycleAction,
+      actionSource: actionSource,
+    )) {
+      return;
+    }
+
     await _ref.read(updateTaskUseCaseProvider).call(delayed);
     await _ref
         .read(logsActionsProvider)
@@ -362,19 +388,20 @@ class TaskActions {
     if (actionSource == 'timeline') {
       unawaited(_markTimelineFirstActionCompleted());
     }
-    _ref
-        .read(eventBusProvider)
-        .emit(
-          TaskLifecycleEvent(
-            taskId: delayed.id,
-            title: delayed.title,
-            action: lifecycleAction,
-            actionSource: actionSource,
+    _emitTaskLifecycle(
+      taskId: delayed.id,
+      title: delayed.title,
+      action: lifecycleAction,
+      actionSource: actionSource,
+    );
+    await _bestEffort(
+      () => _ref
+          .read(localMetricsAccumulatorProvider)
+          .recordAutomationCheckpoint(
+            'task_${lifecycleAction}_event_emitted',
           ),
-        );
-    _ref.invalidate(tasksProvider);
-    _ref.invalidate(goalProgressProvider);
-    _ref.invalidate(domainSiDecisionProvider);
+    );
+    _invalidateTaskGraph(includeDecision: true);
   }
 
   Future<void> updateCreatorEntry({
@@ -418,19 +445,91 @@ class TaskActions {
           ),
     );
 
+    _emitTaskLifecycle(taskId: updated.id, title: updated.title, action: 'updated');
+    await _bestEffort(
+      () => _ref
+          .read(localMetricsAccumulatorProvider)
+          .recordAutomationCheckpoint('task_updated_event_emitted'),
+    );
+    _invalidateTaskGraph(includeDecision: true);
+  }
+
+  void _emitTaskLifecycle({
+    required String taskId,
+    required String title,
+    required String action,
+    String actionSource = 'unknown',
+  }) {
     _ref
         .read(eventBusProvider)
         .emit(
           TaskLifecycleEvent(
-            taskId: updated.id,
-            title: updated.title,
-            action: 'updated',
+            taskId: taskId,
+            title: title,
+            action: action,
+            actionSource: actionSource,
           ),
         );
+  }
 
+  bool _shouldSuppressTimelineDuplicate({
+    required String taskId,
+    required String action,
+    required String actionSource,
+  }) {
+    if (actionSource != 'timeline') {
+      return false;
+    }
+
+    final String normalizedTaskId = taskId.trim();
+    if (normalizedTaskId.isEmpty) {
+      return false;
+    }
+
+    final DateTime now = DateTime.now();
+    _recentTimelineActions.removeWhere(
+      (_, DateTime timestamp) => now.difference(timestamp).inSeconds > 8,
+    );
+
+    final String key = '$normalizedTaskId::$action';
+    final DateTime? previous = _recentTimelineActions[key];
+    if (previous != null &&
+        now.difference(previous) < _timelineActionDedupWindow) {
+      AppAnalytics.track(
+        'task_action_dedup_suppressed',
+        params: <String, Object?>{
+          'task_id': normalizedTaskId,
+          'action': action,
+          'action_source': actionSource,
+        },
+      );
+      return true;
+    }
+
+    _recentTimelineActions[key] = now;
+    return false;
+  }
+
+  void _invalidateTaskGraph({bool includeDecision = false}) {
     _ref.invalidate(tasksProvider);
     _ref.invalidate(goalProgressProvider);
-    _ref.invalidate(domainSiDecisionProvider);
+    unawaited(
+      _bestEffort(
+        () => _ref
+            .read(localMetricsAccumulatorProvider)
+            .recordAutomationCheckpoint('task_graph_invalidated'),
+      ),
+    );
+    if (includeDecision) {
+      _ref.invalidate(domainSiDecisionProvider);
+      unawaited(
+        _bestEffort(
+          () => _ref
+              .read(localMetricsAccumulatorProvider)
+              .recordAutomationCheckpoint('task_decision_invalidated'),
+        ),
+      );
+    }
   }
 
   Future<void> _refreshCoachDecision({required bool notify}) async {

@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
+import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1746,26 +1747,30 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
       _GoalAction.completed => 'Goal completed',
     };
 
-    await ref
-        .read(logsActionsProvider)
-        .addMirroredEntry(source: 'goal_$actionName', message: goal.title);
+    await _bestEffort(
+      () => ref
+          .read(logsActionsProvider)
+          .addMirroredEntry(source: 'goal_$actionName', message: goal.title),
+    );
 
     if (action == _GoalAction.created) {
-      await ref.read(timelineActionsProvider).connectGoal(goal);
+      await _bestEffort(() => ref.read(timelineActionsProvider).connectGoal(goal));
     } else {
-      await ref
-          .read(timelineActionsProvider)
-          .addMirroredEvent(
-            TimelineEventEntity(
-              id: 'timeline-goal-$actionName-${now.microsecondsSinceEpoch}',
-              type: action == _GoalAction.completed
-                  ? TimelineEventType.goalComplete
-                  : TimelineEventType.reflection,
-              title: detailPrefix,
-              detail: goal.title,
-              timestamp: now,
+      await _bestEffort(
+        () => ref
+            .read(timelineActionsProvider)
+            .addMirroredEvent(
+              TimelineEventEntity(
+                id: 'timeline-goal-$actionName-${now.microsecondsSinceEpoch}',
+                type: action == _GoalAction.completed
+                    ? TimelineEventType.goalComplete
+                    : TimelineEventType.reflection,
+                title: detailPrefix,
+                detail: goal.title,
+                timestamp: now,
+              ),
             ),
-          );
+      );
     }
 
     final int progressionXp = switch (action) {
@@ -1773,7 +1778,9 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
       _GoalAction.updated => 6,
       _GoalAction.completed => 40,
     };
-    ref.read(profileProvider.notifier).addXP(progressionXp);
+    await _bestEffort(() async {
+      ref.read(profileProvider.notifier).addXP(progressionXp);
+    });
     ref.invalidate(insightsBundleProvider);
     await _refreshCoachDecision();
     ref
@@ -1785,6 +1792,11 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
             action: actionName,
           ),
         );
+    await _bestEffort(
+      () => ref
+          .read(localMetricsAccumulatorProvider)
+          .recordAutomationCheckpoint('goal_${actionName}_event_emitted'),
+    );
   }
 
   Future<void> _refreshCoachDecision() async {
@@ -1793,6 +1805,15 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
       ref.invalidate(domainSiDecisionProvider);
     } catch (_) {
       // Avoid blocking goal updates if coach refresh fails.
+    }
+  }
+
+  Future<void> _bestEffort(Future<void> Function() operation) async {
+    try {
+      await operation();
+    } catch (_) {
+      // Goal mutation already succeeded. Auxiliary automation should not fail
+      // the user-facing action.
     }
   }
 }

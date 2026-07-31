@@ -43,6 +43,9 @@ final nexusStartupSummaryProvider = Provider<NexusStartupSummary>((Ref ref) {
 final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   Ref ref,
 ) async {
+  // Keep SI aggregation synchronized with task lifecycle invalidations.
+  ref.watch(tasksProvider);
+
   SISourceStatus tasksStatus = SISourceStatus.ready;
   String? tasksError;
   List<Task> tasks = const <Task>[];
@@ -392,18 +395,18 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
     ]);
   }
 
-  final String engineSnapshot = chunks.join(' Â· ').toUpperCase();
+  final String engineSnapshot = chunks.join(' · ').toUpperCase();
 
   final String valuesSnapshot =
-      'VALUES ${coreValues.overall}% Â· LOW ${coreValueTitle(coreValues.mostNeglected).toUpperCase()} ${coreValues.scores[coreValues.mostNeglected]?.score ?? 0}%';
+      'VALUES ${coreValues.overall}% · LOW ${coreValueTitle(coreValues.mostNeglected).toUpperCase()} ${coreValues.scores[coreValues.mostNeglected]?.score ?? 0}%';
 
   final String soulMapSnapshot =
-      'SOULMAP ${soulMap.overall}% Â· LOW ${soulMapDimensionTitle(soulMap.weakest).toUpperCase()} ${soulMap.scores[soulMap.weakest]?.score ?? 0}%';
+      'SOULMAP ${soulMap.overall}% · LOW ${soulMapDimensionTitle(soulMap.weakest).toUpperCase()} ${soulMap.scores[soulMap.weakest]?.score ?? 0}%';
 
   return SIConsoleScreenModel(
     aggregation: aggregation,
     decision: decision,
-    engineSnapshot: '$engineSnapshot Â· $valuesSnapshot Â· $soulMapSnapshot',
+    engineSnapshot: '$engineSnapshot · $valuesSnapshot · $soulMapSnapshot',
   );
 });
 

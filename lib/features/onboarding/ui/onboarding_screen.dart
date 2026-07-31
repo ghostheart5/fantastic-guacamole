@@ -1261,16 +1261,23 @@ class _SignalReveal extends StatefulWidget {
 
 class _SignalRevealState extends State<_SignalReveal> {
   bool _visible = false;
+  Timer? _revealTimer;
 
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(widget.delay, () {
+    _revealTimer = Timer(widget.delay, () {
       if (!mounted) {
         return;
       }
       setState(() => _visible = true);
     });
+  }
+
+  @override
+  void dispose() {
+    _revealTimer?.cancel();
+    super.dispose();
   }
 
   @override

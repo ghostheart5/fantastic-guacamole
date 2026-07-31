@@ -78,6 +78,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   bool _typing = false;
   late final AnimationController _typingAnim;
   StreamSubscription<GoalLifecycleEvent>? _goalEventSubscription;
+  StreamSubscription<TaskLifecycleEvent>? _taskEventSubscription;
 
   void _runAfterBuild(VoidCallback action) {
     if (!mounted) return;
@@ -120,6 +121,25 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           });
           _scrollToBottom();
         });
+    _taskEventSubscription = ref
+        .read(eventBusProvider)
+        .on<TaskLifecycleEvent>()
+        .listen((event) {
+          if (!mounted) {
+            return;
+          }
+          _safeSetState(() {
+            _messages.add(
+              SIConsoleMessage(
+                text:
+                    'Task sync: ${event.action.toLowerCase()} ${event.title} (${event.actionSource.toLowerCase()})',
+                isUser: false,
+                emotion: 'focused',
+              ),
+            );
+          });
+          _scrollToBottom();
+        });
     _typingAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -143,6 +163,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _scroll.dispose();
     unawaited(_voiceService.stop());
     unawaited(_goalEventSubscription?.cancel());
+    unawaited(_taskEventSubscription?.cancel());
     super.dispose();
   }
 

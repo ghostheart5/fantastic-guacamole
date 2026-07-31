@@ -7,6 +7,7 @@ class LocalMetricsAccumulator {
   static const _kTasksCreated = 'lma_tasks_created';
   static const _kTasksCompleted = 'lma_tasks_completed';
   static const _kMomentumPeak = 'lma_momentum_peak';
+  static const _kAutomationPrefix = 'lma_auto_';
 
   String _todayIso() => DateTime.now().toIso8601String().substring(0, 10);
 
@@ -50,6 +51,32 @@ class LocalMetricsAccumulator {
     }
   }
 
+  Future<void> recordAutomationCheckpoint(String checkpoint) async {
+    await _resetIfNewDay();
+    final String normalized = checkpoint
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9_]+'), '_');
+    if (normalized.isEmpty) {
+      return;
+    }
+    final String key = '$_kAutomationPrefix$normalized';
+    await SharedPrefsService.save(key, (_loadInt(key) + 1).toString());
+  }
+
+  Map<String, int> _loadAutomationCounters() {
+    final Map<String, int> counters = <String, int>{};
+    final Map<String, String> all = SharedPrefsService.getAll();
+    for (final MapEntry<String, String> entry in all.entries) {
+      if (!entry.key.startsWith(_kAutomationPrefix)) {
+        continue;
+      }
+      final String name = entry.key.substring(_kAutomationPrefix.length);
+      counters[name] = int.tryParse(entry.value) ?? 0;
+    }
+    return counters;
+  }
+
   Future<Map<String, dynamic>> snapshot() async {
     await _resetIfNewDay();
     return {
@@ -57,6 +84,7 @@ class LocalMetricsAccumulator {
       'tasks_created': _loadInt(_kTasksCreated),
       'tasks_completed': _loadInt(_kTasksCompleted),
       'momentum_peak': _loadDouble(_kMomentumPeak),
+      'automation_counters': _loadAutomationCounters(),
     };
   }
 }

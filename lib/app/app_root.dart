@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
@@ -20,7 +21,6 @@ import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class AppRoot extends ConsumerStatefulWidget {
   const AppRoot({super.key, this.startupError});
@@ -226,14 +226,13 @@ class _AppRootState extends ConsumerState<AppRoot> {
 
     _activationFinalizationInFlight = true;
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(onboardingCompleteStorageKey, true);
-      await prefs.setInt(
+      await SharedPrefsService.saveBool(onboardingCompleteStorageKey, true);
+      await SharedPrefsService.saveInt(
         onboardingContentVersionStorageKey,
         _onboardingContentVersion,
       );
-      await prefs.setInt(onboardingStepStorageKey, 0);
-      await prefs.setString(
+      await SharedPrefsService.saveInt(onboardingStepStorageKey, 0);
+      await SharedPrefsService.save(
         'onboarding_state_v1',
         jsonEncode(<String, Object?>{
           'complete': true,

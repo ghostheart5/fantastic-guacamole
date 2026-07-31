@@ -60,7 +60,8 @@ class _LoginScreenState extends State<LoginScreen>
     _entry = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 720),
-    )..forward();
+      value: 1.0,
+    );
   }
 
   @override
@@ -104,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          // Heavy dark overlay â€” bottom heavier for form readability
+          // Heavy dark overlay - bottom heavier for form readability
           const Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -601,7 +602,7 @@ class _LoginFormCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            isSignUpMode ? 'Create account' : 'Sign in',
+            isSignUpMode ? 'Create account' : 'ACCESS SYSTEM',
             style: TextStyle(
               color: Colors.white38,
               fontSize: compact ? 9 : 10,
@@ -676,7 +677,7 @@ class _LoginFormCard extends StatelessWidget {
             child: SmartPressable(
               onTap: onForgotPassword,
               child: Text(
-                'Forgot password?',
+                'Forgot Password?',
                 style: TextStyle(
                   color: AppColors.neonCyan.withValues(alpha: 0.9),
                   fontSize: 12,
@@ -688,7 +689,7 @@ class _LoginFormCard extends StatelessWidget {
           ),
           SizedBox(height: compact ? 14 : 18),
           _PrimaryButton(
-            label: isSignUpMode ? 'Create account' : 'Sign in',
+            label: isSignUpMode ? 'Create account' : 'ENTER SYSTEM',
             isLoading: isSubmitting,
             onTap: onPrimaryAction,
           ),
@@ -906,13 +907,17 @@ class _PrimaryButton extends StatelessWidget {
                   color: Colors.black,
                 ),
               )
-            : Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2.5,
+            : GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: onTap,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.5,
+                  ),
                 ),
               ),
       ),
@@ -975,15 +980,19 @@ class _SecondaryButton extends StatelessWidget {
                 ),
             const SizedBox(width: 8),
             Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.88),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.3,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: onTap,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.88),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                  ),
                 ),
               ),
             ),

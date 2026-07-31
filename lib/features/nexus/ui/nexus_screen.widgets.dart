@@ -1291,12 +1291,12 @@ class _ActionGrid extends ConsumerWidget {
                 onTap: () => ref.read(appFlowProvider.notifier).toProfile(),
               ),
               actionButton(
-                label: 'Progress',
+                label: 'Progression',
                 color: AppColors.neonViolet,
                 onTap: () => ref.read(appFlowProvider.notifier).toProgression(),
               ),
               actionButton(
-                label: 'Forecast',
+                label: 'Trajectory',
                 color: AppColors.neonViolet,
                 onTap: () =>
                     ref.read(appFlowProvider.notifier).toTrajectoryEngine(),

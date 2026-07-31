@@ -142,6 +142,25 @@ class SharedPrefsService {
     return prefs.getString(key);
   }
 
+  static Map<String, String> getAll() {
+    final SharedPreferences? prefs = _prefs;
+    if (prefs == null) {
+      if (_initFuture == null) {
+        unawaited(init());
+      }
+      return const <String, String>{};
+    }
+
+    final Map<String, String> values = <String, String>{};
+    for (final String key in prefs.getKeys()) {
+      final Object? value = prefs.get(key);
+      if (value is String) {
+        values[key] = value;
+      }
+    }
+    return values;
+  }
+
   static Future<void> delete(String key) async {
     await init();
     final SharedPreferences? prefs = _prefs;
