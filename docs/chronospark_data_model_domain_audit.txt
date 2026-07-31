@@ -1,0 +1,369 @@
+CHRONOSPARK APP DATA MODEL BUILDER / DOMAIN MODEL DESIGNER AUDIT
+AUDIT ONLY REPORT
+
+1) AUDIT SCOPE AND CONSTRAINTS
+- Mode: Read-only audit. No source code edits, no DB mutation, no SQL execution.
+- Allowed write action per request: create this file only.
+- Objective: assess current data/domain model quality, identify gaps, classify model actions, and provide a readiness roadmap.
+
+2) EVIDENCE BASELINE (FILES REVIEWED)
+Core domain entities:
+- lib/domain/entities/task_entity.dart
+- lib/domain/entities/task.dart
+- lib/domain/entities/goal_entity.dart
+- lib/domain/entities/routine_entity.dart
+- lib/domain/entities/timeline_event_entity.dart
+- lib/domain/entities/settings_entity.dart
+- lib/domain/entities/profile_entity.dart
+
+State/providers and orchestration:
+- lib/state/providers/task_provider.dart
+- lib/state/providers/goals_provider.dart
+- lib/state/providers/routines_provider.dart
+- lib/state/providers/timeline_provider.dart
+- lib/state/providers/creator_provider.dart
+
+Use cases with model signal:
+- lib/features/auth/domain/usecases/goals/view/view_completed_goals_usecase.dart
+- lib/features/auth/domain/usecases/goals/view/view_archived_goals_usecase.dart
+- lib/features/auth/domain/usecases/goals/view/view_overdue_goals_usecase.dart
+- lib/features/auth/domain/usecases/goals/view/view_goal_timeline_usecase.dart
+- lib/features/auth/domain/usecases/misc/connect_timeline_to_tasks_usecase.dart
+- lib/features/auth/domain/usecases/misc/connect_timeline_to_goals_usecase.dart
+- lib/features/auth/domain/usecases/misc/create_timeline_event_usecase.dart
+
+Persistence and services:
+- lib/data/repositories/task_repository.dart
+- lib/data/repositories/goal_repository.dart
+- lib/data/repositories/routine_repository.dart
+- lib/data/repositories/timeline_repository.dart
+- lib/data/repositories/profile_repository.dart
+- lib/data/repositories/settings_repository.dart
+- lib/data/services/sync_service.dart
+- lib/data/services/workspace_store_service.dart
+- lib/data/repositories/firebase_supabase_bridge_repository.dart
+
+Supabase integration/migrations:
+- lib/features/monetization/data/monetization_remote_data_source.dart
+- lib/features/monetization/models/subscription_status.dart
+- lib/features/monetization/models/ai_credit_wallet.dart
+- lib/features/monetization/models/entitlement_event.dart
+- supabase/migrations/202607110001_profiles.sql
+- supabase/migrations/202607110002_data_policies.sql
+- supabase/migrations/20260716193000_monetization_system.sql
+- supabase/migrations/202607050001_purchase_bindings.sql
+
+3) REQUESTED SURFACE VS ACTUAL FOLDER TOPOLOGY
+Missing folders from requested conceptual scope:
+- lib/features/tasks
+- lib/features/goals
+- lib/features/routines
+- lib/features/notes
+- lib/features/subscription
+- lib/features/smart_coach
+- lib/features/smart_planner
+- lib/features/ascension
+- lib/features/future_vector
+- lib/services
+- lib/shared
+
+Present and active folders in audited scope:
+- lib/features/creator
+- lib/features/timeline
+- lib/features/monetization
+
+Assessment:
+- Architecture is functionally feature-driven but physically concentrated in state/providers + domain/usecases, with multiple conceptual domains not split into dedicated feature roots.
+
+4) ENTITY INVENTORY AND OWNERSHIP SEMANTICS
+TaskEntity:
+- Has id/title/kind/description/createdAt/isCompleted/completedAt/scheduledFor/dueDate/goalId/isCanceled/subtasks/recurrenceRule/priority-difficulty-energy.
+- No userId.
+
+GoalEntity:
+- Has id/title/createdAt/description/targetDate/colorHex.
+- No status/completion flag/archived flag/progress counters/userId.
+
+RoutineEntity:
+- Has id/name/createdAt/updatedAt/userId?/description/stepTaskIds/status(active-paused-archived).
+- No explicit recurrence cadence field; cadence is inferred upstream from creator input.
+
+TimelineEventEntity:
+- Has id/type/title/detail/timestamp/status/dueAt/phase/relatedId.
+- Works as generalized activity/risk/recommendation stream with event enums.
+
+Assessment:
+- Entity coverage is enough for local operation, but ownership and completion semantics are incomplete for long-term normalized domain consistency.
+
+5) TASK MODEL AUDIT
+Strengths:
+- Rich behavioral state for planner and SI scoring (priority/difficulty/energy/recurrence).
+- Explicit completion timestamps and overdue derivation.
+- Supports relation to goal via goalId and list of subtask IDs.
+
+Gaps:
+- No userId on TaskEntity while cloud auth/user boundaries exist.
+- Subtasks modeled as List<String> IDs only; no embedded value object relation contract in entity.
+- No explicit task lifecycle enum; lifecycle inferred from isCompleted/isCanceled plus delayed behavior in provider.
+
+Risk:
+- Medium: sufficient now, but cross-device and cloud synchronization will need ownership + explicit lifecycle normalization.
+
+6) GOAL MODEL AUDIT
+Strengths:
+- Clean minimum shape with JSON roundtrip.
+- Supports scheduling pressure via targetDate.
+
+Gaps (critical):
+- No completion state, archived state, or status enum.
+- Downstream use cases for completed/archived goals currently return empty by design.
+- No userId.
+
+Observed consequence:
+- view_completed_goals_usecase and view_archived_goals_usecase are placeholder-like and cannot model true goal lifecycle.
+
+Risk:
+- High: goal analytics and domain correctness are constrained by missing core state.
+
+7) ROUTINE MODEL AUDIT
+Strengths:
+- Includes status enum and optional userId.
+- Has mutable stepTaskIds for linked task structure.
+
+Gaps:
+- No recurrence/frequency field in RoutineEntity itself.
+- Creator path may tag tasks with kind="routine" and recurrenceRule, but dedicated routines state is separate and weakly coupled.
+
+Risk:
+- Medium-high: routine intent exists in creator UX, but domain split between task-like recurrence and routine repository is not normalized.
+
+8) TIMELINE MODEL AUDIT
+Strengths:
+- Single timeline event abstraction supports task/goal/habit/project/milestone/risk/recommendation.
+- Status enum includes planned/active/completed/overdue/atRisk/info.
+- Flexible relatedId and dueAt fields support broad read models.
+
+Gaps:
+- Timeline mixes events and inferred schedule state (overdue/upcoming/risk) in one envelope.
+- No explicit event source taxonomy beyond type and title/detail conventions.
+- relatedId is untyped String; no polymorphic reference integrity.
+
+Risk:
+- Medium: excellent for UI stream, weaker as durable canonical audit log without normalization rules.
+
+9) CREATOR INTAKE MODEL AUDIT
+Current behavior:
+- Creator routes data to either goal creation or task creation.
+- Modes map to kinds (goal/milestone/plan/routine/note/task).
+- Routine mode defaults to daily recurrence when recurrence none is selected.
+
+Gaps:
+- CreatorSavedKind returns only task or goal; routine/note/milestone/plan are represented as task kind variants.
+- No dedicated NoteEntity path identified.
+
+Risk:
+- Medium: intake flexibility is high, but domain specificity is collapsed into task kinds, reducing model clarity.
+
+10) RELATIONSHIP AND CARDINALITY AUDIT
+Observed relations:
+- Goal 1 -> many Tasks via task.goalId.
+- TimelineEvent many -> optional one related domain item via relatedId.
+- Routine -> many stepTaskIds.
+
+Missing referential guarantees:
+- No typed foreign keys in local stores.
+- No enforcement that relatedId points to valid entity type.
+
+Risk:
+- Medium.
+
+11) LIFECYCLE AND STATE TRANSITION AUDIT
+Task lifecycle:
+- create, complete, skip, delay/not_completed, update reflected in task provider with logs/timeline emissions.
+- Dedup guard exists for timeline-origin actions.
+
+Goal lifecycle:
+- create/update/delete/duplicate exists, but completed/archived semantic state absent.
+
+Routine lifecycle:
+- CRUD exists in routines provider with status enum on entity.
+
+Timeline lifecycle:
+- record events and emit TimelineLifecycleEvent.
+
+Risk:
+- High mainly due to goal lifecycle incompleteness.
+
+12) LOCAL PERSISTENCE AUDIT
+TaskRepository:
+- Hive-backed per-task payloads; malformed payload detection can fail hard with format exception after counting malformed records.
+
+GoalRepository and RoutineRepository:
+- Snapshot corruption guard blocks writes when corrupted.
+
+TimelineRepository:
+- SharedPrefs-backed array snapshot.
+
+ProfileRepository:
+- SecureStore-backed.
+
+SettingsRepository:
+- SharedPrefs-backed with corruption warnings and null fallback.
+
+Assessment:
+- Good defensive posture locally; model persistence remains primarily local-first.
+
+13) SUPABASE SCHEMA AND RLS AUDIT
+Current tables and policy coverage identified:
+- profiles (+ trigger for updated_at, auth.users trigger insert/update behavior)
+- user_daily_metrics (RLS policies, auth-bound user_id insert/update checks)
+- storage bucket chronospark-sync with per-user path policies
+- monetization_subscription_statuses
+- monetization_wallets
+- monetization_credit_transactions
+- monetization_purchases
+- monetization_entitlement_events
+- purchase_bindings
+
+Assessment:
+- Supabase schema is currently oriented to identity, metrics, storage sync, and monetization.
+- Core planner domain tables (tasks/goals/routines/timeline canonical) are not present in the reviewed migrations.
+
+14) APP TO SUPABASE MAPPING MATRIX
+profiles:
+- Managed by DB trigger from auth.users; app auth service does not directly upsert profiles table in reviewed path.
+
+user_daily_metrics:
+- Used for health check and realtime stream in supabase_backend_provider.
+
+chronospark-sync storage bucket:
+- Used by SyncService through SupabaseStorageCloudBackupGateway for backup/full and backup/tasks JSON blobs under uid paths.
+
+Monetization tables + RPC:
+- monetization_remote_data_source reads subscription/wallet/transactions/entitlement events.
+- consume_monetization_credits RPC consumed for credit debit flow.
+
+Auth metadata bridge:
+- firebase_supabase_bridge_repository updates auth user metadata with firebase messaging token.
+
+Conclusion:
+- Supabase is integrated, but not as source of truth for core planning entities.
+
+15) SERIALIZATION, CONTRACT, AND TEST SIGNALS
+Observed:
+- GoalEntity/RoutineEntity/TimelineEventEntity/TutorialProgress have explicit toJson/fromJson.
+- TaskEntity maps through TaskEntityMapper; Task (view model) has JSON factory and serializer.
+- Tests include broad JSON roundtrip and contract checks for tutorial and model behavior.
+
+Assessment:
+- Serialization discipline is strong for active entities.
+
+16) CONSISTENCY AND NAMING AUDIT
+Findings:
+- Dual task models (TaskEntity + Task) indicate separation of domain vs read model but increase cognitive load.
+- Creator mode kinds include semantic values (milestone/plan/note/routine) without dedicated entities.
+- Feature code for goals/timeline exists largely under providers and auth-domain usecases rather than dedicated feature roots.
+
+Impact:
+- Medium maintainability tax; not a blocker but raises onboarding and extension complexity.
+
+17) OPTION ANALYSIS: TIMELINE MODEL
+Option A: Keep single TimelineEventEntity as canonical store.
+- Pros: simple, flexible, already working.
+- Cons: weak type integrity, mixed event semantics.
+
+Option B: Split into TimelineEvent (fact) + TimelineProjection (derived risk/upcoming).
+- Pros: cleaner event sourcing boundary and analytics consistency.
+- Cons: migration and query complexity increase.
+
+Option C: Fully polymorphic timeline with typed references per entity family.
+- Pros: strongest integrity.
+- Cons: high complexity for current app maturity.
+
+Recommendation:
+- Choose Option B (phased). Keep current timeline for UI while introducing explicit derived projection rules.
+
+18) OPTION ANALYSIS: ROUTINE MODEL (A/B/C)
+Option A: Keep routines as Task kind + recurrence only.
+- Pros: minimum change.
+- Cons: routine semantics remain ambiguous.
+
+Option B: Keep RoutineEntity, add explicit recurrence cadence and execution policy fields, maintain links to tasks.
+- Pros: strong domain clarity with manageable migration.
+- Cons: moderate refactor in creator and routine flows.
+
+Option C: Replace with full Habit domain and deprecate RoutineEntity.
+- Pros: potentially clean long-term if habit-first product strategy.
+- Cons: largest rewrite and unclear need right now.
+
+Recommendation:
+- Choose Option B.
+
+19) OPTION ANALYSIS: COMPLETION MODEL (A/B/C)
+Option A: Boolean + timestamp only on each entity.
+- Pros: easy.
+- Cons: poor auditability and history.
+
+Option B: Add explicit status enums per aggregate (TaskStatus, GoalStatus, RoutineStatus) with optional timestamps.
+- Pros: clear lifecycle semantics, easier filtering/reporting.
+- Cons: moderate migration.
+
+Option C: Event-sourced completion ledger (CompletionEvent table/model) + projections.
+- Pros: best historical fidelity and analytics.
+- Cons: highest complexity.
+
+Recommendation:
+- Near term: Option B.
+- Later if needed: evolve to Option C for deep analytics/audits.
+
+20) CLASSIFICATION TABLE (KEEP / MERGE / NORMALIZE / REDESIGN / REMOVE LATER / UNKNOWN)
+KEEP
+- lib/domain/entities/task_entity.dart (core task behavior)
+- lib/domain/entities/timeline_event_entity.dart (timeline UI/event backbone)
+- lib/data/repositories/task_repository.dart (robust local storage behavior)
+- supabase/migrations/202607110001_profiles.sql (auth profile baseline)
+
+MERGE
+- task-like creator kinds (milestone/plan/note/routine) currently funneled into TaskEntity kind: merge into explicit domain strategy map before adding more kinds.
+  Files: lib/state/providers/creator_provider.dart, lib/state/models/creator_form_data.dart
+
+NORMALIZE
+- Goal lifecycle fields: add explicit status/completion/archive semantics.
+  Files: lib/domain/entities/goal_entity.dart, related goal view usecases.
+- Routine cadence semantics: add recurrence fields to RoutineEntity.
+  Files: lib/domain/entities/routine_entity.dart, lib/state/providers/routines_provider.dart, creator flows.
+- Ownership fields consistency (userId): TaskEntity and GoalEntity should align with RoutineEntity optional userId approach.
+
+REDESIGN
+- Goal completed/archived read usecases currently placeholder behavior.
+  Files: lib/features/auth/domain/usecases/goals/view/view_completed_goals_usecase.dart, lib/features/auth/domain/usecases/goals/view/view_archived_goals_usecase.dart
+- Timeline relatedId typing and event-source taxonomy.
+  Files: lib/domain/entities/timeline_event_entity.dart, timeline connectors/usecases.
+
+REMOVE LATER
+- Conceptual duplication pressure from TaskEntity vs Task can be reduced once unified mapping boundaries are documented and stabilized.
+  Files: lib/domain/entities/task_entity.dart, lib/domain/entities/task.dart
+
+UNKNOWN (requires product decision)
+- Whether notes should remain Task kind="note" or become first-class NoteEntity.
+- Whether routines should evolve toward a Habit aggregate.
+
+21) SCORECARD, AVERAGE, AND FINAL VERDICT
+Scoring rubric: 0 to 10 (10 best)
+- Domain completeness: 6.0
+- Lifecycle correctness: 5.0
+- Relationship integrity: 5.5
+- Local persistence robustness: 8.0
+- Supabase alignment for current non-core domains: 8.0
+- Supabase alignment for planner core domains: 3.5
+- Serialization/test contract strength: 8.5
+- Naming/structural coherence: 6.0
+- Evolution readiness: 6.0
+
+Average score:
+- (6.0 + 5.0 + 5.5 + 8.0 + 8.0 + 3.5 + 8.5 + 6.0 + 6.0) / 9 = 6.28
+
+Final verdict:
+- Current architecture is operationally solid for local-first planning plus cloud auth/monetization/backup.
+- Primary domain debt is centered on Goal and Routine semantic completeness, ownership consistency, and typed timeline relationships.
+- Recommended immediate program: normalize Goal lifecycle + Routine cadence + ownership fields, then phase timeline normalization (event vs projection split).
