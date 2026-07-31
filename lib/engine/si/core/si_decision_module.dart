@@ -53,7 +53,7 @@ class SIDecisionModule {
       return 'I may need one detail before acting. ${cognition.summary}';
     }
     if (instinct.safetyFirst) {
-      return 'Letâ€™s keep this simple and safe. ${cognition.summary}';
+      return 'Let\'s keep this simple and safe. ${cognition.summary}';
     }
     return cognition.summary;
   }
@@ -120,7 +120,7 @@ class SIDecisionModule {
     if (ethics.flags.contains('overwhelm_risk') || instinct.avoidOverwhelm) {
       result = _truncate(result, 220);
     }
-    return siClean(result, fallback: 'Letâ€™s take one small step.');
+    return siClean(result, fallback: 'Let\'s take one small step.');
   }
 
   String _action(String intent) {

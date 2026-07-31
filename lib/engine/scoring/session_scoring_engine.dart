@@ -11,13 +11,13 @@ class SessionScoringEngine {
 
     final String feedback;
     if (quality >= 0.8) {
-      feedback = 'Excellent session â€” peak performance.';
+      feedback = 'Excellent session - peak performance.';
     } else if (quality >= 0.5) {
-      feedback = 'Solid effort â€” keep building momentum.';
+      feedback = 'Solid effort - keep building momentum.';
     } else if (quality >= 0.25) {
-      feedback = 'Good start â€” push a bit further next time.';
+      feedback = 'Good start - push a bit further next time.';
     } else {
-      feedback = 'Short session â€” every rep counts.';
+      feedback = 'Short session - every rep counts.';
     }
 
     return SessionScore(
