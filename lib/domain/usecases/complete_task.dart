@@ -30,12 +30,20 @@ class CompleteTask {
       final Duration offset = task.recurrenceRule == RecurrenceRule.daily
           ? const Duration(days: 1)
           : const Duration(days: 7);
+      final DateTime baseline = task.scheduledFor ?? now;
+      DateTime nextScheduledFor = baseline.add(offset);
+
+      // Preserve cadence while ensuring the next instance is actionable.
+      while (!nextScheduledFor.isAfter(now)) {
+        nextScheduledFor = nextScheduledFor.add(offset);
+      }
+
       final next = task.copyWith(
         id: '${task.id}_${now.millisecondsSinceEpoch}',
         isCompleted: false,
         completedAt: null,
         createdAt: now,
-        scheduledFor: now.add(offset),
+        scheduledFor: nextScheduledFor,
       );
       await repository.saveTask(next);
     }
