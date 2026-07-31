@@ -5,9 +5,9 @@ class UserGrowthState {
     this.growthVelocity = 0.0,
   });
 
-  final double skillProgress; // 0.0â€“1.0
-  final double adaptationRate; // 0.0â€“1.0
-  final double growthVelocity; // 0.0â€“1.0
+  final double skillProgress; // 0.0-1.0
+  final double adaptationRate; // 0.0-1.0
+  final double growthVelocity; // 0.0-1.0
 
   UserGrowthState copyWith({
     double? skillProgress,
