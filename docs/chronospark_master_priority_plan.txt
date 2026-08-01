@@ -82,7 +82,11 @@ EXECUTION STATUS UPDATE
 - P4-1 closeout complete: routine/note first-class implementation track closed.
 - P4-1 closeout report: docs/chronospark_p41_routine_note_first_class_phase_closeout_report.txt.
 - P5-0 kickoff plan created: docs/chronospark_p50_priority_intake_kickoff_plan.txt.
-- Next implementation focus: P5-0 intake Wave 1 baseline contracts.
+- P5-0 Wave 1 applied: post-P4 semantic-origin telemetry gap baseline contracts added.
+- P5-0 Wave 1 report: docs/chronospark_p50_post_p4_semantic_origin_gap_baseline_wave1_report.txt.
+- P5-0 Wave 1 complete: baseline validation completed.
+- P5-0 Wave 1 completion report: docs/chronospark_p50_post_p4_semantic_origin_gap_baseline_completion_report.txt.
+- Next implementation focus: P5-1 Wave 2 semantic-origin metadata enrichment.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)

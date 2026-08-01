@@ -1,0 +1,19 @@
+CHRONOSPARK P5-0 WAVE 1 BASELINE COMPLETION REPORT
+Date: 2026-07-31
+Phase: P5-0 post-P4 priority intake
+Status: WAVE 1 COMPLETE
+
+Artifacts
+- test/release/p50_post_p4_semantic_origin_gap_baseline_contract_test.dart
+- docs/chronospark_p50_post_p4_semantic_origin_gap_baseline_wave1_report.txt
+- phase0_safe_preflight.ps1
+
+Validation
+- phase0_safe_preflight.ps1 -IncludeUntracked: PASS
+- Targeted release tests: PASS
+  - p50_post_p4_semantic_origin_gap_baseline_contract_test.dart
+  - p43_routine_note_timeline_projection_semantics_contract_test.dart
+  - p24_connector_workflow_contract_test.dart
+
+Outcome
+- Post-P4 semantic-origin telemetry gaps are now pinned with release baseline contracts for safe incremental hardening.
