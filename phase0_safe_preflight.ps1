@@ -121,6 +121,7 @@ $allowedExact = @(
   'test/release/p22_timeline_readability_hierarchy_contract_test.dart',
   'test/release/p23_observability_hardening_contract_test.dart',
   'test/release/p24_connector_workflow_contract_test.dart',
+  'test/release/p31_release_alm_parity_contract_test.dart',
   'test/coverage_zero/use_case_command_coverage_test.dart',
   'docs/chronospark_p02_completion_verification_report.txt'
 )

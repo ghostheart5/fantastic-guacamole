@@ -1,0 +1,21 @@
+CHRONOSPARK P3-1 RELEASE ALM PARITY WAVE 1 REPORT
+Date: 2026-07-31
+Phase: P3-1 Deployment ALM parity and staging discipline improvements
+Status: WAVE 1 APPLIED
+
+Objective
+- Increase release-process parity confidence with contract coverage over key CI workflow guardrails.
+
+Wave 1 Change
+- Added release ALM parity contract test:
+  - test/release/p31_release_alm_parity_contract_test.dart
+
+Coverage Focus
+- Manual release preflight workflow keeps production/staging/tester profile support.
+- Manual preflight keeps secret guard, release guard, and safe preflight script wiring.
+- Android release workflow keeps production guard defines and mock-access flags locked off.
+- Required release workflow files remain present per ALM scope.
+
+Safety
+- No workflow behavior changed.
+- No production runtime code changes.
