@@ -87,6 +87,9 @@ $allowedExact = @(
   'lib/tutorial/tutorial_analytics.dart',
   'lib/app/app_root.dart',
   'lib/domain/usecases/complete_goal.dart',
+  'lib/domain/usecases/archive_goal.dart',
+  'lib/domain/usecases/reopen_goal.dart',
+  'lib/state/providers/domain_usecase_providers.dart',
   'test/coverage_zero/use_case_command_coverage_test.dart'
 )
 

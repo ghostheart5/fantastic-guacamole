@@ -219,6 +219,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart
 import 'package:fantastic_guacamole/domain/usecases/add_insight.dart';
 import 'package:fantastic_guacamole/domain/usecases/add_log_entry.dart';
 import 'package:fantastic_guacamole/domain/usecases/add_timeline_event.dart';
+import 'package:fantastic_guacamole/domain/usecases/archive_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/cancel_notification.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_task.dart';
@@ -257,6 +258,7 @@ import 'package:fantastic_guacamole/domain/usecases/get_subtasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/remove_timeline_event.dart';
+import 'package:fantastic_guacamole/domain/usecases/reopen_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_analytics_metric.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_coach_message.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_extended_app_setting.dart';
@@ -697,6 +699,14 @@ final deleteGoalUseCaseProvider = Provider<DeleteGoal>((ref) {
 
 final completeGoalUseCaseProvider = Provider<CompleteGoal>((ref) {
   return CompleteGoal(ref.read(domainGoalRepositoryProvider));
+});
+
+final archiveGoalUseCaseProvider = Provider<ArchiveGoal>((ref) {
+  return ArchiveGoal(ref.read(domainGoalRepositoryProvider));
+});
+
+final reopenGoalUseCaseProvider = Provider<ReopenGoal>((ref) {
+  return ReopenGoal(ref.read(domainGoalRepositoryProvider));
 });
 
 final saveGoalsUseCaseProvider = Provider<SaveGoals>((ref) {

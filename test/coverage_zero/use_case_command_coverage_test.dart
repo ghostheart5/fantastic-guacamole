@@ -9,12 +9,14 @@ import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart'
 import 'package:fantastic_guacamole/domain/interfaces/i_subtask_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
 import 'package:fantastic_guacamole/domain/usecases/add_timeline_event.dart';
+import 'package:fantastic_guacamole/domain/usecases/archive_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_project.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_routine.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_subtask.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_goal.dart';
+import 'package:fantastic_guacamole/domain/usecases/reopen_goal.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeTimelineRepository implements ITimelineRepository {
@@ -137,10 +139,12 @@ void main() {
       expect(repository.addedEvents.single.title, 'Task updated');
     });
 
-    test('goal use cases delegate save and delete operations', () async {
+    test('goal use cases preserve lifecycle transitions and explicit delete', () async {
       final _FakeGoalRepository repository = _FakeGoalRepository();
       final CreateGoal createGoal = CreateGoal(repository);
       final CompleteGoal completeGoal = CompleteGoal(repository);
+      final ArchiveGoal archiveGoal = ArchiveGoal(repository);
+      final ReopenGoal reopenGoal = ReopenGoal(repository);
       final DeleteGoal deleteGoal = DeleteGoal(repository);
       final GoalEntity goal = GoalEntity(
         id: 'g-1',
@@ -150,13 +154,23 @@ void main() {
 
       await createGoal.call(goal);
       await completeGoal.call('g-1');
+      GoalEntity persistedGoal = repository.savedGoals.single;
+      expect(persistedGoal.status, GoalStatus.completed);
+      expect(persistedGoal.completedAt, isNotNull);
+
+      await archiveGoal.call('g-1');
+      persistedGoal = repository.savedGoals.single;
+      expect(persistedGoal.status, GoalStatus.archived);
+      expect(persistedGoal.archivedAt, isNotNull);
+
+      await reopenGoal.call('g-1');
+      persistedGoal = repository.savedGoals.single;
+      expect(persistedGoal.status, GoalStatus.active);
+
       await deleteGoal.call('g-2');
 
       expect(repository.savedGoals, hasLength(1));
-      final GoalEntity persistedGoal = repository.savedGoals.single;
       expect(persistedGoal.id, 'g-1');
-      expect(persistedGoal.status, GoalStatus.completed);
-      expect(persistedGoal.completedAt, isNotNull);
       expect(repository.deletedGoalIds, <String>['g-2']);
     });
 
