@@ -25,7 +25,9 @@ EXECUTION STATUS UPDATE
 - P1-3 Wave 3 applied: non-legacy paywall UI surfaces moved to feature-stack provider imports.
 - P1-3 Wave 3 map/report: docs/chronospark_p13_monetization_pathway_map_wave3.txt.
 - P1-3 verification complete: docs/chronospark_p13_completion_verification_report.txt.
-- Next implementation focus: P1-4 first-user navigation emphasis for Creator-first flow.
+- P1-4 Wave 1 applied: creator-first first-user routing guardrails locked with release contracts.
+- P1-4 Wave 1 report: docs/chronospark_p14_creator_first_wave1_report.txt.
+- Next implementation focus: P1-4 Wave 2 optional runtime emphasis tweak (only if needed) plus verification sweep.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)
