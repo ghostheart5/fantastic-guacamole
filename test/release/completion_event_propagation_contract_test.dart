@@ -21,5 +21,20 @@ void main() {
       expect(providerText.contains('bus.on<GoalLifecycleEvent>().listen'), isTrue);
       expect(providerText.contains('ref.invalidate(completionEventsProvider);'), isTrue);
     });
+
+    test('task completion event writes invalidate completion events provider after persistence', () {
+      final File taskProviderFile = File('lib/state/providers/task_provider.dart');
+      expect(taskProviderFile.existsSync(), isTrue);
+
+      final String taskProviderText = SourceTestUtils.readText(taskProviderFile);
+
+      expect(
+        taskProviderText.contains("import 'package:fantastic_guacamole/state/providers/completion_events_provider.dart';"),
+        isTrue,
+      );
+
+      expect(taskProviderText.contains('await _ref.read(completionEventRepositoryProvider).addEvent(event);'), isTrue);
+      expect(taskProviderText.contains('_ref.invalidate(completionEventsProvider);'), isTrue);
+    });
   });
 }

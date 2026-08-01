@@ -91,6 +91,7 @@ $allowedExact = @(
   'lib/domain/usecases/reopen_goal.dart',
   'lib/state/providers/domain_usecase_providers.dart',
   'lib/state/providers/goals_provider.dart',
+  'lib/state/providers/task_provider.dart',
   'lib/state/providers/event_bus_provider.dart',
   'lib/features/auth/domain/usecases/goals/view/view_active_goals_usecase.dart',
   'lib/features/auth/domain/usecases/goals/view/view_completed_goals_usecase.dart',

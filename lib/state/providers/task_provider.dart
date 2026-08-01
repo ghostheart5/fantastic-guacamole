@@ -28,6 +28,7 @@ import 'package:fantastic_guacamole/state/core/app_providers.dart'
         timelineFirstActionCompletedStorageKeyForUser;
 import 'package:fantastic_guacamole/state/models/session_score_view.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/completion_events_provider.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
@@ -744,6 +745,7 @@ class TaskActions {
       },
     );
     await _ref.read(completionEventRepositoryProvider).addEvent(event);
+    _ref.invalidate(completionEventsProvider);
   }
 
   Future<void> _bestEffort(Future<void> Function() operation) async {
