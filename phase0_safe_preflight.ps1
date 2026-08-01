@@ -99,6 +99,7 @@ $allowedExact = @(
   'lib/state/controllers/ai_controller.dart',
   'lib/state/controllers/ai_controller.helpers.dart',
   'lib/features/monetization/providers/monetization_compat_providers.dart',
+  'lib/features/monetization/guards/monetization_guards.dart',
   'lib/features/auth/domain/usecases/goals/view/view_active_goals_usecase.dart',
   'lib/features/auth/domain/usecases/goals/view/view_completed_goals_usecase.dart',
   'lib/features/auth/domain/usecases/goals/view/view_archived_goals_usecase.dart',

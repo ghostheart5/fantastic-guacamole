@@ -20,7 +20,9 @@ EXECUTION STATUS UPDATE
 - P1-2 Wave 3 applied: SI Console context summaries/signals consolidated to shared AI controller helpers.
 - P1-3 Wave 1 applied: removed unused legacy compat provider exposure in monetization compat surface.
 - P1-3 Wave 1 map/report: docs/chronospark_p13_monetization_pathway_map_wave1.txt.
-- Next implementation focus: P1-3 Wave 2 targeted legacy import reduction on non-legacy surfaces.
+- P1-3 Wave 2 applied: guard-level monetization utilities migrated from legacy providers to feature providers.
+- P1-3 Wave 2 map/report: docs/chronospark_p13_monetization_pathway_map_wave2.txt.
+- Next implementation focus: P1-3 Wave 3 targeted legacy import reduction on non-legacy UI surfaces.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)

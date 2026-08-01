@@ -1,12 +1,35 @@
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
-import 'package:fantastic_guacamole/features/monetization/models/subscription_status.dart';
-import 'package:fantastic_guacamole/features/monetization/providers/monetization_providers.dart';
-import 'package:fantastic_guacamole/features/monetization/services/credit_service.dart'
-    as monetization;
+import 'package:fantastic_guacamole/features/monetization/data/models/models.dart';
+import 'package:fantastic_guacamole/features/monetization/providers/monetization_feature_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+class CreditBalanceCheck {
+  const CreditBalanceCheck({required this.allowed, required this.wallet});
+
+  final bool allowed;
+  final AiCreditWallet wallet;
+}
+
+class CreditConsumeResult {
+  const CreditConsumeResult({required this.allowed, required this.wallet});
+
+  final bool allowed;
+  final AiCreditWallet wallet;
+}
+
+const AiCreditWallet _emptyWallet = AiCreditWallet(
+  userId: '',
+  balance: 0,
+  allowanceRemaining: 0,
+  bonusBalance: 0,
+  periodCredits: 0,
+  lifetimeEarned: 0,
+  lifetimeSpent: 0,
+  tier: 'free',
+);
 
 Future<bool> premiumFeatureGuard(
   WidgetRef ref,
@@ -27,24 +50,37 @@ Future<bool> premiumFeatureGuard(
   return false;
 }
 
-Future<monetization.CreditBalanceCheck> checkCreditBalance(
+Future<CreditBalanceCheck> checkCreditBalance(
   Ref ref, {
   required int amount,
 }) {
-  return ref.read(monetizationCreditServiceProvider).checkBalance(amount);
+  return () async {
+    final AiCreditWallet? wallet = await ref.read(aiCreditWalletProvider.future);
+    final AiCreditWallet resolvedWallet = wallet ?? _emptyWallet;
+    return CreditBalanceCheck(
+      allowed: resolvedWallet.balance >= amount,
+      wallet: resolvedWallet,
+    );
+  }();
 }
 
-Future<monetization.CreditConsumeResult> consumeCredits(
+Future<CreditConsumeResult> consumeCredits(
   Ref ref, {
   required int amount,
   required String reason,
   Map<String, dynamic> metadata = const <String, dynamic>{},
 }) {
-  return ref
-      .read(monetizationCreditServiceProvider)
-      .consume(amount: amount, reason: reason, metadata: metadata);
+  return () async {
+    final AiCreditWallet? wallet = await ref
+        .read(aiCreditServiceProvider)
+        .spendCredits(amount: amount, reason: reason, metadata: metadata);
+    if (wallet == null) {
+      return const CreditConsumeResult(allowed: false, wallet: _emptyWallet);
+    }
+    return CreditConsumeResult(allowed: true, wallet: wallet);
+  }();
 }
 
-Future<SubscriptionStatus> checkSubscriptionStatus(Ref ref) {
-  return ref.read(subscriptionProvider.future);
+Future<UserSubscription?> checkSubscriptionStatus(Ref ref) {
+  return ref.read(currentSubscriptionProvider.future);
 }

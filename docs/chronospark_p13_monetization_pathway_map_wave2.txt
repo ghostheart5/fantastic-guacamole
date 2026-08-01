@@ -1,0 +1,33 @@
+CHRONOSPARK P1-3 MONETIZATION PATHWAY MAP WAVE 2
+Date: 2026-07-31
+Phase: P1-3 Monetization compatibility pathway normalization
+Status: WAVE 2 APPLIED
+
+Scope
+- Keep purchase and entitlement business logic unchanged.
+- Reduce legacy provider dependency in shared guard utilities used by AI credit gating.
+
+Wave 2 Change
+- Migrated guard-level monetization utilities to feature providers:
+  - Updated: lib/features/monetization/guards/monetization_guards.dart
+- Preserved compatibility return shape for AI flows with local wrappers:
+  - CreditBalanceCheck
+  - CreditConsumeResult
+
+Contract Coverage
+- Expanded: test/release/p13_monetization_stack_normalization_contract_test.dart
+  - Verifies compat provider surface does not expose legacy provider token.
+  - Verifies guard utility imports feature providers and not legacy providers.
+
+Safety
+- No change to purchase repository implementation or verification mode.
+- No auth/session/supabase policy edits.
+- No startup-order changes.
+
+Validation Plan
+- phase0_safe_preflight.ps1 -IncludeUntracked
+- Focused release contract tests for P1-3 and P1-2
+- flutter analyze baseline check
+
+Next Candidate (P1-3 Wave 3)
+- Replace remaining direct legacy provider imports in paywall-oriented UI surfaces where a feature-stack equivalent exists, guarded by source contracts.
