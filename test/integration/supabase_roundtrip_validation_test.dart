@@ -40,7 +40,10 @@ void main() {
       }
 
       try {
-        await sb.Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+        await sb.Supabase.initialize(
+          url: supabaseUrl,
+          publishableKey: supabaseAnonKey,
+        );
       } on Object {
         // Supabase may already be initialized in some test runners.
       }

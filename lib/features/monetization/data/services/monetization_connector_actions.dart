@@ -10,14 +10,11 @@ import 'package:fantastic_guacamole/features/monetization/data/repositories/subs
 /// wallet, credit consumption, and purchase execution.
 class MonetizationConnectorActions {
   const MonetizationConnectorActions({
-    required SubscriptionRepository subscriptionRepository,
-    required AiCreditRepository aiCreditRepository,
-    required EntitlementRepository entitlementRepository,
-    required PurchaseRepository purchaseRepository,
-  }) : _subscriptionRepository = subscriptionRepository,
-       _aiCreditRepository = aiCreditRepository,
-       _entitlementRepository = entitlementRepository,
-       _purchaseRepository = purchaseRepository;
+    required this._subscriptionRepository,
+    required this._aiCreditRepository,
+    required this._entitlementRepository,
+    required this._purchaseRepository,
+  });
 
   final SubscriptionRepository _subscriptionRepository;
   final AiCreditRepository _aiCreditRepository;

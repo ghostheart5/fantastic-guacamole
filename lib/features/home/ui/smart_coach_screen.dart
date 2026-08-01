@@ -1093,8 +1093,14 @@ class _MicButton extends ConsumerWidget {
     final List<String> previews = events
         .take(3)
         .map((e) {
-          final dynamic value = e;
-          final String title = (value.title ?? '').toString().trim();
+          final String title;
+          if (e is Map<String, dynamic>) {
+            title = (e['title'] ?? '').toString().trim();
+          } else if (e is Map) {
+            title = (e['title'] ?? '').toString().trim();
+          } else {
+            title = '';
+          }
           return title.isEmpty ? 'untitled item' : title;
         })
         .toList(growable: false);

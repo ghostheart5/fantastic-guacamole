@@ -12,12 +12,10 @@ import 'package:fantastic_guacamole/features/monetization/repositories/subscript
 /// Canonical connector action facade for the legacy monetization stack.
 class MonetizationConnectorActions {
   const MonetizationConnectorActions({
-    required SubscriptionRepository subscriptionRepository,
-    required AiCreditRepository aiCreditRepository,
-    required PurchaseRepository purchaseRepository,
-  }) : _subscriptionRepository = subscriptionRepository,
-       _aiCreditRepository = aiCreditRepository,
-       _purchaseRepository = purchaseRepository;
+    required this._subscriptionRepository,
+    required this._aiCreditRepository,
+    required this._purchaseRepository,
+  });
 
   final SubscriptionRepository _subscriptionRepository;
   final AiCreditRepository _aiCreditRepository;

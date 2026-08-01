@@ -198,22 +198,22 @@ class SupabaseRoundtripValidator {
 
       if (row is! Map<String, dynamic>) {
         items.add(
-          ValidationItem(
+          const ValidationItem(
             category: 'AUTH',
             check: 'profile row exists in profiles table',
             state: ValidationState.fail,
             message: 'No profile row found for current auth user.',
-            evidence: const <String>['public.profiles'],
+            evidence: <String>['public.profiles'],
           ),
         );
         items.add(
-          ValidationItem(
+          const ValidationItem(
             category: 'AUTH',
             check: 'profile id matches auth.uid',
             state: ValidationState.fail,
             message:
                 'Cannot verify id equality because profile row is missing.',
-            evidence: const <String>['public.profiles.id == auth.uid()'],
+            evidence: <String>['public.profiles.id == auth.uid()'],
           ),
         );
       } else {
@@ -258,13 +258,13 @@ class SupabaseRoundtripValidator {
         ),
       );
       items.add(
-        ValidationItem(
+        const ValidationItem(
           category: 'AUTH',
           check: 'profile id matches auth.uid',
           state: ValidationState.fail,
           message:
               'Cannot verify profile id match because profiles query failed.',
-          evidence: const <String>['public.profiles.id == auth.uid()'],
+          evidence: <String>['public.profiles.id == auth.uid()'],
         ),
       );
     }

@@ -4,7 +4,6 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
-import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_event_bridge.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_provider.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_state.dart';
@@ -254,8 +253,8 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                           .reportGoalCreated();
                     }
                     if (savedKind == CreatorSavedKind.task ||
-                      savedKind == CreatorSavedKind.routine ||
-                      savedKind == CreatorSavedKind.note) {
+                        savedKind == CreatorSavedKind.routine ||
+                        savedKind == CreatorSavedKind.note) {
                       await ref
                           .read(localMetricsAccumulatorProvider)
                           .recordTaskCreated();
