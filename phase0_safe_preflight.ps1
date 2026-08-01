@@ -90,6 +90,8 @@ $allowedExact = @(
   'lib/domain/usecases/archive_goal.dart',
   'lib/domain/usecases/reopen_goal.dart',
   'lib/state/providers/domain_usecase_providers.dart',
+  'lib/state/providers/goals_provider.dart',
+  'test/release/goal_lifecycle_provider_contract_test.dart',
   'test/coverage_zero/use_case_command_coverage_test.dart'
 )
 

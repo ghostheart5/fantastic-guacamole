@@ -910,6 +910,8 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
   }
 
   Future<TimelineEventEntity?> reopenGoalLifecycle(String goalId) async {
+    await reopen(goalId);
+
     final TimelineEventEntity? event = await ref
         .read(featureReopenGoalUseCaseProvider)
         .call(goalId);
@@ -936,6 +938,8 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
   }
 
   Future<TimelineEventEntity?> completeGoalLifecycle(String goalId) async {
+    await complete(goalId);
+
     final TimelineEventEntity? event = await ref
         .read(featureLifecycleCompleteGoalUseCaseProvider)
         .call(goalId);
@@ -949,6 +953,8 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
   }
 
   Future<TimelineEventEntity?> markGoalCompleted(String goalId) async {
+    await complete(goalId);
+
     final TimelineEventEntity? event = await ref
         .read(featureMarkGoalCompletedUseCaseProvider)
         .call(goalId);
@@ -1614,6 +1620,8 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
   }
 
   Future<TimelineEventEntity?> archiveGoal(String goalId) async {
+    await archive(goalId);
+
     final TimelineEventEntity? event = await ref
         .read(featureArchiveGoalUseCaseProvider)
         .call(goalId);
@@ -1631,6 +1639,8 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
   }
 
   Future<TimelineEventEntity?> restoreGoalMetadata(String goalId) async {
+    await reopen(goalId);
+
     final TimelineEventEntity? event = await ref
         .read(featureRestoreGoalMetadataUseCaseProvider)
         .call(goalId);
@@ -1708,20 +1718,24 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
   }
 
   Future<void> remove(String id) async {
-    await complete(id);
+    await ref.read(deleteGoalUseCaseProvider).call(id);
+    state = state.where((GoalEntity goal) => goal.id != id).toList();
+    await ref
+        .read(reminderOrchestratorServiceProvider)
+        .syncGoalReminders(state);
+    ref.invalidate(goalProgressProvider);
   }
 
   Future<void> complete(String id) async {
-    GoalEntity? selectedGoal;
-    for (final GoalEntity goal in state) {
-      if (goal.id == id) {
-        selectedGoal = goal;
-        break;
-      }
-    }
+    final GoalEntity? selectedGoal = _findGoalById(id);
 
     await ref.read(completeGoalUseCaseProvider).call(id);
-    state = state.where((g) => g.id != id).toList();
+    if (selectedGoal != null) {
+      final GoalEntity completedGoal = selectedGoal.markCompleted();
+      state = state
+          .map((GoalEntity goal) => goal.id == id ? completedGoal : goal)
+          .toList(growable: false);
+    }
     await ref
         .read(reminderOrchestratorServiceProvider)
         .syncGoalReminders(state);
@@ -1730,9 +1744,65 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
         'goal_completed',
         params: <String, Object?>{'goal_id': selectedGoal.id},
       );
-      await _fanOutGoalEvent(goal: selectedGoal, action: _GoalAction.completed);
+      await _fanOutGoalEvent(
+        goal: selectedGoal.markCompleted(),
+        action: _GoalAction.completed,
+      );
     }
     ref.invalidate(goalProgressProvider);
+  }
+
+  Future<void> archive(String id) async {
+    final GoalEntity? selectedGoal = _findGoalById(id);
+
+    await ref.read(archiveGoalUseCaseProvider).call(id);
+    if (selectedGoal == null) {
+      return;
+    }
+
+    final GoalEntity archivedGoal = selectedGoal.archive();
+    state = state
+        .map((GoalEntity goal) => goal.id == id ? archivedGoal : goal)
+        .toList(growable: false);
+
+    await ref
+        .read(reminderOrchestratorServiceProvider)
+        .syncGoalReminders(state);
+    await _fanOutGoalEvent(goal: archivedGoal, action: _GoalAction.updated);
+    ref.invalidate(archivedGoalsProvider);
+    ref.invalidate(activeGoalsProvider);
+    ref.invalidate(goalProgressProvider);
+  }
+
+  Future<void> reopen(String id) async {
+    final GoalEntity? selectedGoal = _findGoalById(id);
+
+    await ref.read(reopenGoalUseCaseProvider).call(id);
+    if (selectedGoal == null) {
+      return;
+    }
+
+    final GoalEntity reopenedGoal = selectedGoal.activate();
+    state = state
+        .map((GoalEntity goal) => goal.id == id ? reopenedGoal : goal)
+        .toList(growable: false);
+
+    await ref
+        .read(reminderOrchestratorServiceProvider)
+        .syncGoalReminders(state);
+    await _fanOutGoalEvent(goal: reopenedGoal, action: _GoalAction.updated);
+    ref.invalidate(archivedGoalsProvider);
+    ref.invalidate(activeGoalsProvider);
+    ref.invalidate(goalProgressProvider);
+  }
+
+  GoalEntity? _findGoalById(String id) {
+    for (final GoalEntity goal in state) {
+      if (goal.id == id) {
+        return goal;
+      }
+    }
+    return null;
   }
 
   Future<void> _fanOutGoalEvent({
