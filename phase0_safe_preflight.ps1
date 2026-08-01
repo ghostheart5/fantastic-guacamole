@@ -92,10 +92,12 @@ $allowedExact = @(
   'lib/state/providers/domain_usecase_providers.dart',
   'lib/state/providers/goals_provider.dart',
   'lib/state/providers/task_provider.dart',
+  'lib/state/providers/creator_provider.dart',
   'lib/state/providers/event_bus_provider.dart',
   'lib/state/providers/intelligence_fusion_provider.dart',
   'lib/state/providers/future_timeline_provider.dart',
   'lib/features/timeline/ui/timeline_screen.dart',
+  'lib/features/creator/ui/creator_screen.dart',
   'lib/state/controllers/coach_query_controller.dart',
   'lib/state/services/session_recovery_service.dart',
   'lib/state/controllers/ai_controller.dart',
@@ -125,6 +127,7 @@ $allowedExact = @(
   'test/release/p32_media_audio_video_sequencing_contract_test.dart',
   'test/release/p33_visual_experience_consistency_contract_test.dart',
   'test/release/p40_post_p3_routine_note_gap_baseline_contract_test.dart',
+  'test/release/p41_routine_note_first_class_surface_contract_test.dart',
   'test/coverage_zero/use_case_command_coverage_test.dart',
   'docs/chronospark_p02_completion_verification_report.txt'
 )

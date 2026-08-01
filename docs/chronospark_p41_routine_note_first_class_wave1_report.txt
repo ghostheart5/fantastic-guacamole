@@ -1,0 +1,24 @@
+CHRONOSPARK P4-1 ROUTINE/NOTE FIRST-CLASS WAVE 1 REPORT
+Date: 2026-07-31
+Phase: P4-1 routine/note first-class implementation
+Status: WAVE 1 APPLIED
+
+Wave Scope (migration-safe)
+- Model/contract surface only.
+- No domain persistence-route replacement in this wave.
+
+Implemented Changes
+- Expanded creator save result categories:
+  - CreatorSavedKind now includes: task, goal, routine, note.
+- Creator save flow now preserves original requested kind for save-result classification.
+- Existing persistence path remains unchanged:
+  - routine still normalizes to habit for task persistence path.
+  - note still maps through NoteEntity.toTaskEntity and taskActionsProvider.createTask.
+- Creator screen metrics compatibility preserved for task/routine/note save outcomes.
+
+Contract Coverage Added
+- test/release/p41_routine_note_first_class_surface_contract_test.dart
+
+Safety
+- No auth/session/supabase schema/startup-order/billing runtime changes.
+- No route graph changes.

@@ -6,16 +6,16 @@ import '../behavior/_support/source_test_utils.dart';
 
 void main() {
   group('P4-0 post-P3 routine/note baseline contract', () {
-    test('creator save kinds remain task-or-goal only in current baseline', () {
+    test('creator save-kind pathway still preserves task and goal save handling', () {
       final File creatorProviderFile = File('lib/state/providers/creator_provider.dart');
       expect(creatorProviderFile.existsSync(), isTrue);
 
       final String text = SourceTestUtils.readText(creatorProviderFile);
 
-      expect(text.contains('enum CreatorSavedKind { task, goal }'), isTrue);
+      expect(text.contains('enum CreatorSavedKind { task, goal'), isTrue);
       expect(text.contains("if (kind == 'goal') {"), isTrue);
       expect(text.contains('return CreatorSavedKind.goal;'), isTrue);
-      expect(text.contains('return CreatorSavedKind.task;'), isTrue);
+      expect(text.contains("_ => CreatorSavedKind.task"), isTrue);
     });
 
     test('routine and note intent currently normalize into habit/task pathways', () {

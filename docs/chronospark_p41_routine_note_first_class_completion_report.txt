@@ -1,0 +1,24 @@
+CHRONOSPARK P4-1 ROUTINE/NOTE FIRST-CLASS COMPLETION REPORT (WAVE 1)
+Date: 2026-07-31
+Phase: P4-1 routine/note first-class implementation
+Status: WAVE 1 COMPLETE
+
+Artifacts
+- lib/state/providers/creator_provider.dart
+- lib/features/creator/ui/creator_screen.dart
+- test/release/p41_routine_note_first_class_surface_contract_test.dart
+- test/release/p40_post_p3_routine_note_gap_baseline_contract_test.dart (compat update)
+- phase0_safe_preflight.ps1
+- docs/chronospark_p41_routine_note_first_class_wave1_report.txt
+
+Validation
+- phase0_safe_preflight.ps1 -IncludeUntracked: PASS
+- Targeted release tests: PASS
+  - p40_post_p3_routine_note_gap_baseline_contract_test.dart
+  - p41_routine_note_first_class_surface_contract_test.dart
+  - p24_connector_workflow_contract_test.dart
+- flutter analyze: unchanged 13-info baseline
+
+Outcome
+- Creator save-result model surface now differentiates routine and note without introducing high-risk routing behavior changes.
+- Ready for P4-1 Wave 2: dedicated runtime routing split for routine and note handlers.

@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
-enum CreatorSavedKind { task, goal }
+enum CreatorSavedKind { task, goal, routine, note }
 
 final creatorActionsProvider = Provider<CreatorActions>(
   (ref) => CreatorActions(ref: ref),
@@ -26,7 +26,8 @@ class CreatorActions {
 
   Future<CreatorSavedKind> createEntry(CreatorFormData data) async {
     final String mode = data.creatorMode.trim().toLowerCase();
-    final String kind = _normalizeKind(_kindFor(data, mode));
+    final String requestedKind = _kindFor(data, mode);
+    final String kind = _normalizeKind(requestedKind);
 
     final RecurrenceRule recurrence = _recurrenceFor(
       kind: kind,
@@ -72,7 +73,16 @@ class CreatorActions {
         .read(taskActionsProvider)
         .createTask(entity, actionSource: 'creator');
     await _markFirstItemCreated();
-    return CreatorSavedKind.task;
+    return _savedKindFor(requestedKind: requestedKind);
+  }
+
+  CreatorSavedKind _savedKindFor({required String requestedKind}) {
+    return switch (requestedKind.trim().toLowerCase()) {
+      'goal' => CreatorSavedKind.goal,
+      'routine' => CreatorSavedKind.routine,
+      'note' => CreatorSavedKind.note,
+      _ => CreatorSavedKind.task,
+    };
   }
 
   Future<void> _createGoal({

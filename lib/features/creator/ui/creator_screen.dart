@@ -253,7 +253,9 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                           .read(missionEventBridgeProvider)
                           .reportGoalCreated();
                     }
-                    if (savedKind == CreatorSavedKind.task) {
+                    if (savedKind == CreatorSavedKind.task ||
+                      savedKind == CreatorSavedKind.routine ||
+                      savedKind == CreatorSavedKind.note) {
                       await ref
                           .read(localMetricsAccumulatorProvider)
                           .recordTaskCreated();

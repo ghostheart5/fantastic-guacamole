@@ -67,7 +67,11 @@ EXECUTION STATUS UPDATE
 - P4-0 Wave 1 report: docs/chronospark_p40_post_p3_intake_wave1_report.txt.
 - P4-0 complete: new-priority intake launched with migration-safe kickoff artifacts.
 - P4-0 completion report: docs/chronospark_p40_post_p3_intake_completion_report.txt.
-- Next implementation focus: P4-1 routine/note first-class implementation (Wave 1).
+- P4-1 Wave 1 applied: creator save-kind model surface expanded for routine/note.
+- P4-1 Wave 1 report: docs/chronospark_p41_routine_note_first_class_wave1_report.txt.
+- P4-1 Wave 1 complete: migration-safe surface upgrade validated with release contracts.
+- P4-1 Wave 1 completion report: docs/chronospark_p41_routine_note_first_class_completion_report.txt.
+- Next implementation focus: P4-1 Wave 2 runtime routing split for routine/note handlers.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)
