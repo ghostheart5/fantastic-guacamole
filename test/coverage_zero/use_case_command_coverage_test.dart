@@ -40,10 +40,17 @@ class _FakeGoalRepository implements IGoalRepository {
   final List<String> deletedGoalIds = <String>[];
 
   @override
-  List<GoalEntity> getGoals() => <GoalEntity>[];
+  List<GoalEntity> getGoals() => List<GoalEntity>.of(savedGoals);
 
   @override
   Future<void> saveGoal(GoalEntity goal) async {
+    final int existingIndex = savedGoals.indexWhere(
+      (GoalEntity item) => item.id == goal.id,
+    );
+    if (existingIndex >= 0) {
+      savedGoals[existingIndex] = goal;
+      return;
+    }
     savedGoals.add(goal);
   }
 
@@ -146,8 +153,11 @@ void main() {
       await deleteGoal.call('g-2');
 
       expect(repository.savedGoals, hasLength(1));
-      expect(repository.savedGoals.single.id, 'g-1');
-      expect(repository.deletedGoalIds, <String>['g-1', 'g-2']);
+      final GoalEntity persistedGoal = repository.savedGoals.single;
+      expect(persistedGoal.id, 'g-1');
+      expect(persistedGoal.status, GoalStatus.completed);
+      expect(persistedGoal.completedAt, isNotNull);
+      expect(repository.deletedGoalIds, <String>['g-2']);
     });
 
     test('project, routine, and subtask use cases delegate save', () async {

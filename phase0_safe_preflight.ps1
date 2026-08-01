@@ -85,7 +85,9 @@ $allowedExact = @(
   'lib/tutorial/tutorial_controller.dart',
   'lib/tutorial/tutorial_overlay.dart',
   'lib/tutorial/tutorial_analytics.dart',
-  'lib/app/app_root.dart'
+  'lib/app/app_root.dart',
+  'lib/domain/usecases/complete_goal.dart',
+  'test/coverage_zero/use_case_command_coverage_test.dart'
 )
 
 $violationsBlocked = @()
