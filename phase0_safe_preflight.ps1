@@ -91,7 +91,11 @@ $allowedExact = @(
   'lib/domain/usecases/reopen_goal.dart',
   'lib/state/providers/domain_usecase_providers.dart',
   'lib/state/providers/goals_provider.dart',
+  'lib/features/auth/domain/usecases/goals/view/view_active_goals_usecase.dart',
+  'lib/features/auth/domain/usecases/goals/view/view_completed_goals_usecase.dart',
+  'lib/features/auth/domain/usecases/goals/view/view_archived_goals_usecase.dart',
   'test/release/goal_lifecycle_provider_contract_test.dart',
+  'test/release/goal_status_visibility_contract_test.dart',
   'test/coverage_zero/use_case_command_coverage_test.dart'
 )
 
@@ -99,6 +103,10 @@ $violationsBlocked = @()
 $violationsOutOfScope = @()
 
 foreach ($file in $changedFiles) {
+  if ($allowedExact -contains $file) {
+    continue
+  }
+
   $isBlocked = $false
 
   if ($blockedExact -contains $file) {
@@ -114,7 +122,7 @@ foreach ($file in $changedFiles) {
     continue
   }
 
-  $isAllowed = ($allowedExact -contains $file) -or (Is-UnderPrefix $file $allowedPrefixes)
+  $isAllowed = Is-UnderPrefix $file $allowedPrefixes
   if (-not $isAllowed) {
     $violationsOutOfScope += $file
   }

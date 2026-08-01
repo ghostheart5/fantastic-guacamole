@@ -9,7 +9,7 @@ class ViewCompletedGoalsUsecase {
   List<GoalEntity> call() {
     return _repository
         .getGoals()
-        .where((GoalEntity goal) => goal.isCompleted)
+        .where((GoalEntity goal) => goal.status == GoalStatus.completed)
         .toList(growable: false);
   }
 }

@@ -9,7 +9,7 @@ class ViewActiveGoalsUsecase {
   List<GoalEntity> call() {
     return _repository
         .getGoals()
-        .where((GoalEntity goal) => goal.isActive)
+        .where((GoalEntity goal) => goal.status == GoalStatus.active)
         .toList(growable: false);
   }
 }

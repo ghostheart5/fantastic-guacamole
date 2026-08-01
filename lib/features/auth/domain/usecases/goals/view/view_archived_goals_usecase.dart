@@ -9,7 +9,7 @@ class ViewArchivedGoalsUsecase {
   List<GoalEntity> call() {
     return _repository
         .getGoals()
-        .where((GoalEntity goal) => goal.isArchived)
+        .where((GoalEntity goal) => goal.status == GoalStatus.archived)
         .toList(growable: false);
   }
 }
