@@ -41,7 +41,11 @@ EXECUTION STATUS UPDATE
 - P2-2 Wave 1 report: docs/chronospark_p22_timeline_readability_wave1_report.txt.
 - P2-2 complete: timeline readability/hierarchy tuning verified and stabilized.
 - P2-2 verification report: docs/chronospark_p22_completion_verification_report.txt.
-- Next implementation focus: advance to next roadmap phase per priority order.
+- P2-3 Wave 1 applied: session recovery failures now emit non-fatal diagnostics and warning logs.
+- P2-3 Wave 1 report: docs/chronospark_p23_observability_wave1_report.txt.
+- P2-3 complete: crash/voice/session observability hardening follow-through verified.
+- P2-3 verification report: docs/chronospark_p23_completion_verification_report.txt.
+- Next implementation focus: P2-4 API connector and workflow contract cleanup.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)

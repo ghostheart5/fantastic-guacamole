@@ -97,6 +97,7 @@ $allowedExact = @(
   'lib/state/providers/future_timeline_provider.dart',
   'lib/features/timeline/ui/timeline_screen.dart',
   'lib/state/controllers/coach_query_controller.dart',
+  'lib/state/services/session_recovery_service.dart',
   'lib/state/controllers/ai_controller.dart',
   'lib/state/controllers/ai_controller.helpers.dart',
   'lib/features/monetization/providers/monetization_compat_providers.dart',
@@ -118,6 +119,7 @@ $allowedExact = @(
   'test/release/p21_core_loop_route_priority_contract_test.dart',
   'test/release/p21_core_loop_transition_chain_contract_test.dart',
   'test/release/p22_timeline_readability_hierarchy_contract_test.dart',
+  'test/release/p23_observability_hardening_contract_test.dart',
   'test/coverage_zero/use_case_command_coverage_test.dart',
   'docs/chronospark_p02_completion_verification_report.txt'
 )
