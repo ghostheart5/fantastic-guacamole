@@ -12,7 +12,8 @@ EXECUTION STATUS UPDATE
 - P0-2 completion report: docs/chronospark_p02_completion_verification_report.txt.
 - P1-1 Wave 1 applied: lifecycle fan-out invalidates completion events in event bus bootstrap.
 - P1-1 Wave 2 applied: completion event write path now invalidates completion event provider after persistence.
-- Next implementation focus: P1-1 Wave 3 trace for remaining Future Vector/Ascension provider context gaps, then targeted contract coverage.
+- P1-1 Wave 3 applied: Future Vector and Ascension intelligence providers now read direct completion-event context.
+- Next implementation focus: P1-1 verification sweep and checkpoint evidence update.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)

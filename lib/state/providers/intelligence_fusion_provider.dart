@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/autonomous_action_provider.dart';
+import 'package:fantastic_guacamole/state/providers/completion_events_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goal_success_probability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memory_intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
@@ -43,6 +44,7 @@ final intelligenceFusionProvider = Provider<IntelligenceFusionState>((ref) {
   final drift = ref.watch(trajectoryDriftProvider);
   final memory = ref.watch(memoryIntelligenceProvider);
   final replans = ref.watch(adaptiveReplanningProvider);
+  final completionEvents = ref.watch(completionEventsProvider);
 
   final String primaryThreat = risk.risks.isEmpty
       ? 'No major threat detected.'
@@ -67,6 +69,8 @@ final intelligenceFusionProvider = Provider<IntelligenceFusionState>((ref) {
       'Momentum ${momentum.score}% ${momentum.trend}. '
       'Success forecast ${success.probability}%. '
       'Drift score ${drift.score}%. '
+      'Completion signal ${completionEvents.length} recent '
+      '${completionEvents.isEmpty ? 'none' : completionEvents.first.eventType.name}. '
       '${operator.rationale}';
 
   return IntelligenceFusionState(
