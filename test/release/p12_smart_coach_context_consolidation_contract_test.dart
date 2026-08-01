@@ -22,5 +22,17 @@ void main() {
       expect(text.contains('Future<CoachCoachingResult> requestCoaching('), isTrue);
       expect(text.contains('Future<String> requestFollowUp('), isTrue);
     });
+
+    test('shared coach AI context helper exists and is reused by both request paths', () {
+      final File file = File('lib/state/controllers/coach_query_controller.dart');
+      expect(file.existsSync(), isTrue);
+
+      final String text = SourceTestUtils.readText(file);
+
+      expect(text.contains('Map<String, dynamic> _buildCoachAIContext('), isTrue);
+
+      final int helperCallCount = '_buildCoachAIContext('.allMatches(text).length;
+      expect(helperCallCount >= 3, isTrue);
+    });
   });
 }

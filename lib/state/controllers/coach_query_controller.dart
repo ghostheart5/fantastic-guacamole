@@ -203,26 +203,22 @@ class CoachQueryController implements SmartCoachInterface {
     final recommendation = await _safeCoachQuery(
       input: aiInput,
       history: history,
-      context: <String, dynamic>{
-        'source': 'smart_coach',
-        'energy': energy,
-        'emotion': emotion.name,
-        'detectedTopic': detectedTopicLabel,
-        'assistantIntent': assistantIntent.toJson(),
-        'assistantContext': contextBuilder.buildSmartCoachContext(
-          input: prompt,
-          intent: assistantIntent,
-          energy: energy,
-          emotion: emotion.name,
-          memorySummaries: memorySummaries,
-          timelineSummaries: timelineSummaries,
-          goalSummaries: goalSummaries,
-        ),
-        'chronosparkModel': chronosparkModelContext,
-        'reflection': notes,
-        'knowledge': knowledge,
-        ...moduleSnapshot,
-      },
+      context: _buildCoachAIContext(
+        source: 'smart_coach',
+        input: prompt,
+        reflection: notes,
+        energy: energy,
+        emotion: emotion,
+        detectedTopicLabel: detectedTopicLabel,
+        assistantIntent: assistantIntent,
+        contextBuilder: contextBuilder,
+        memorySummaries: memorySummaries,
+        timelineSummaries: timelineSummaries,
+        goalSummaries: goalSummaries,
+        chronosparkModelContext: chronosparkModelContext,
+        knowledge: knowledge,
+        moduleSnapshot: moduleSnapshot,
+      ),
       source: 'smart_coach',
     );
 
@@ -361,26 +357,22 @@ class CoachQueryController implements SmartCoachInterface {
     final recommendation = await _safeCoachQuery(
       input: aiInput,
       history: history,
-      context: <String, dynamic>{
-        'source': 'smart_coach_follow_up',
-        'energy': energy,
-        'emotion': emotion.name,
-        'detectedTopic': detectedTopicLabel,
-        'assistantIntent': assistantIntent.toJson(),
-        'assistantContext': contextBuilder.buildSmartCoachContext(
-          input: input,
-          intent: assistantIntent,
-          energy: energy,
-          emotion: emotion.name,
-          memorySummaries: memorySummaries,
-          timelineSummaries: timelineSummaries,
-          goalSummaries: goalSummaries,
-        ),
-        'chronosparkModel': chronosparkModelContext,
-        'reflection': reflection,
-        'knowledge': knowledge,
-        ...moduleSnapshot,
-      },
+      context: _buildCoachAIContext(
+        source: 'smart_coach_follow_up',
+        input: input,
+        reflection: reflection,
+        energy: energy,
+        emotion: emotion,
+        detectedTopicLabel: detectedTopicLabel,
+        assistantIntent: assistantIntent,
+        contextBuilder: contextBuilder,
+        memorySummaries: memorySummaries,
+        timelineSummaries: timelineSummaries,
+        goalSummaries: goalSummaries,
+        chronosparkModelContext: chronosparkModelContext,
+        knowledge: knowledge,
+        moduleSnapshot: moduleSnapshot,
+      ),
       source: 'smart_coach_follow_up',
     );
 
@@ -553,6 +545,44 @@ class CoachQueryController implements SmartCoachInterface {
       timelineSummaries: timelineSummaries,
       chronosparkModelContext: chronosparkModelContext,
     );
+  }
+
+  Map<String, dynamic> _buildCoachAIContext({
+    required String source,
+    required String input,
+    required String reflection,
+    required double energy,
+    required EmotionalState emotion,
+    required String detectedTopicLabel,
+    required AssistantIntent assistantIntent,
+    required DefaultAssistantContextBuilder contextBuilder,
+    required List<String> memorySummaries,
+    required List<String> timelineSummaries,
+    required List<String> goalSummaries,
+    required Map<String, dynamic> chronosparkModelContext,
+    required String knowledge,
+    required Map<String, dynamic> moduleSnapshot,
+  }) {
+    return <String, dynamic>{
+      'source': source,
+      'energy': energy,
+      'emotion': emotion.name,
+      'detectedTopic': detectedTopicLabel,
+      'assistantIntent': assistantIntent.toJson(),
+      'assistantContext': contextBuilder.buildSmartCoachContext(
+        input: input,
+        intent: assistantIntent,
+        energy: energy,
+        emotion: emotion.name,
+        memorySummaries: memorySummaries,
+        timelineSummaries: timelineSummaries,
+        goalSummaries: goalSummaries,
+      ),
+      'chronosparkModel': chronosparkModelContext,
+      'reflection': reflection,
+      'knowledge': knowledge,
+      ...moduleSnapshot,
+    };
   }
 
   String _knowledgeContext() {
