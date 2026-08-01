@@ -1,0 +1,23 @@
+CHRONOSPARK P2-1 CORE LOOP TEST-DEPTH WAVE 2 REPORT
+Date: 2026-07-31
+Phase: P2-1 Upgrade behavior-driven integration test depth for core loop
+Status: WAVE 2 APPLIED
+
+Objective
+- Expand coverage from route-priority contracts into transition-chain contracts for create-to-timeline-to-completion flow.
+
+Wave 2 Change
+- Added transition-chain release contract:
+  - test/release/p21_core_loop_transition_chain_contract_test.dart
+
+What It Verifies
+- Timeline-origin action markers remain wired across multiple task mutation paths.
+- Completion event write path remains persistence-first then provider invalidation.
+- Event-bus fan-out continues invalidating completion events for both task and goal lifecycles.
+
+Safety
+- No production runtime code changes.
+- No auth/supabase/billing/startup-order/release-secret changes.
+
+Validation Target
+- Preflight pass + targeted contract pass + analyzer baseline unchanged.

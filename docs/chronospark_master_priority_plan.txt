@@ -33,7 +33,11 @@ EXECUTION STATUS UPDATE
 - P1-4 verification report: docs/chronospark_p14_completion_verification_report.txt.
 - P2-1 Wave 1 applied: core-loop route priority contract coverage expanded with order-sensitive assertions.
 - P2-1 Wave 1 report: docs/chronospark_p21_core_loop_test_depth_wave1_report.txt.
-- Next implementation focus: P2-1 Wave 2 behavior-depth additions for create-to-timeline transition resilience.
+- P2-1 Wave 2 applied: core-loop transition-chain contract coverage added for create/timeline/completion continuity.
+- P2-1 Wave 2 report: docs/chronospark_p21_core_loop_test_depth_wave2_report.txt.
+- P2-1 complete: behavior-depth upgrade delivered with low-risk release contracts.
+- P2-1 verification report: docs/chronospark_p21_completion_verification_report.txt.
+- Next implementation focus: P2-2 timeline readability and hierarchy tuning.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)

@@ -115,6 +115,7 @@ $allowedExact = @(
   'test/release/p13_monetization_stack_normalization_contract_test.dart',
   'test/release/p14_creator_first_navigation_contract_test.dart',
   'test/release/p21_core_loop_route_priority_contract_test.dart',
+  'test/release/p21_core_loop_transition_chain_contract_test.dart',
   'test/coverage_zero/use_case_command_coverage_test.dart',
   'docs/chronospark_p02_completion_verification_report.txt'
 )
