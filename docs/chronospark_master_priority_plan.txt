@@ -14,7 +14,8 @@ EXECUTION STATUS UPDATE
 - P1-1 Wave 2 applied: completion event write path now invalidates completion event provider after persistence.
 - P1-1 Wave 3 applied: Future Vector and Ascension intelligence providers now read direct completion-event context.
 - P1-1 verification complete: docs/chronospark_p11_completion_propagation_verification_report.txt.
-- Next implementation focus: P1-2 duplicate AI prompt/context pathway consolidation.
+- P1-2 Wave 1 applied: Smart Coach prompt/context assembly consolidated to shared helper path.
+- Next implementation focus: P1-2 Wave 2 SI Console/AI controller context assembly dedupe map and minimal consolidation.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)

@@ -52,6 +52,20 @@ class CoachCoachingResult {
   final String? savedNotes;
 }
 
+class _CoachAssistantContextData {
+  const _CoachAssistantContextData({
+    required this.goalSummaries,
+    required this.memorySummaries,
+    required this.timelineSummaries,
+    required this.chronosparkModelContext,
+  });
+
+  final List<String> goalSummaries;
+  final List<String> memorySummaries;
+  final List<String> timelineSummaries;
+  final Map<String, dynamic> chronosparkModelContext;
+}
+
 class CoachQueryController implements SmartCoachInterface {
   const CoachQueryController(this._ref);
 
@@ -113,91 +127,18 @@ class CoachQueryController implements SmartCoachInterface {
     );
     final DefaultAssistantContextBuilder contextBuilder =
         const DefaultAssistantContextBuilder();
-    final List<String> goalSummaries = _ref
-        .read(goalsProvider)
-        .take(3)
-        .map((goal) => goal.title.trim())
-        .where((title) => title.isNotEmpty)
-        .toList(growable: false);
-    final tasks = _ref.read(tasksProvider).asData?.value ?? const <Task>[];
-    final completionEvents = _ref.read(completionEventsProvider);
-    final routines = _ref.read(routinesProvider);
-    final scheduledTasks = tasks
-        .where((task) => task.scheduledFor != null)
-        .toList(growable: false);
-    final activeRoutines = routines
-        .where((routine) => routine.active)
-        .toList(growable: false);
-    final List<String> memorySummaries = _ref
-        .read(memoriesProvider)
-        .take(3)
-        .map((memory) => memory.text.trim())
-        .where((text) => text.isNotEmpty)
-        .toList(growable: false);
-    final List<String> timelineSummaries = _ref
-        .read(timelineProvider)
-        .take(3)
-        .map((event) => event.title.trim())
-        .where((text) => text.isNotEmpty)
-        .toList(growable: false);
+    final _CoachAssistantContextData assistantContext =
+        _buildAssistantContextData(
+          contextBuilder: contextBuilder,
+          assistantIntent: assistantIntent,
+          energy: energy,
+          emotion: emotion,
+        );
+    final List<String> goalSummaries = assistantContext.goalSummaries;
+    final List<String> memorySummaries = assistantContext.memorySummaries;
+    final List<String> timelineSummaries = assistantContext.timelineSummaries;
     final Map<String, dynamic>
-    chronosparkModelContext = contextBuilder.buildChronosparkModelContext(
-      surface: 'smart_coach',
-      intent: assistantIntent,
-      taskSummaries: tasks
-          .take(3)
-          .map((task) => task.title.trim())
-          .where((title) => title.isNotEmpty)
-          .toList(growable: false),
-      goalSummaries: goalSummaries,
-      timelineSummaries: timelineSummaries,
-      memorySummaries: memorySummaries,
-      completionSummaries: completionEvents
-          .take(3)
-          .map(
-            (event) =>
-                '${event.eventType.name} @ ${event.eventAt.toIso8601String()}',
-          )
-          .toList(growable: false),
-      routineSummaries: activeRoutines
-          .take(3)
-          .map((routine) => routine.name.trim())
-          .where((name) => name.isNotEmpty)
-          .toList(growable: false),
-      scheduleSummaries: scheduledTasks
-          .take(3)
-          .map((task) => task.title.trim())
-          .where((title) => title.isNotEmpty)
-          .toList(growable: false),
-      signals: <String, dynamic>{
-        'energy': energy,
-        'emotion': emotion.name,
-        'profile': <String, dynamic>{
-          'name': _ref.read(profileProvider).name,
-          'level': _ref.read(profileProvider).level,
-          'xp': _ref.read(profileProvider).xp,
-          'streak': _ref.read(profileProvider).streak,
-        },
-        'progression': <String, dynamic>{
-          'level': _ref.read(progressionProvider).progress.level,
-          'xp': _ref.read(progressionProvider).progress.xp,
-          'streak': _ref.read(progressionProvider).progress.streak,
-        },
-        'completion': <String, dynamic>{
-          'count': completionEvents.length,
-          'recentCount': completionEvents.take(3).length,
-        },
-        'schedule': <String, dynamic>{
-          'totalTasks': tasks.length,
-          'scheduledTasks': scheduledTasks.length,
-          'density': tasks.isEmpty ? 0.0 : scheduledTasks.length / tasks.length,
-        },
-        'routines': <String, dynamic>{
-          'count': routines.length,
-          'activeCount': activeRoutines.length,
-        },
-      },
-    );
+    chronosparkModelContext = assistantContext.chronosparkModelContext;
 
     if (detectedTopic != _CoachTopic.generalChat) {
       final Map<String, dynamic> moduleSnapshot = _coachModuleSnapshot(
@@ -358,91 +299,18 @@ class CoachQueryController implements SmartCoachInterface {
     );
     final DefaultAssistantContextBuilder contextBuilder =
         const DefaultAssistantContextBuilder();
-    final List<String> goalSummaries = _ref
-        .read(goalsProvider)
-        .take(3)
-        .map((goal) => goal.title.trim())
-        .where((title) => title.isNotEmpty)
-        .toList(growable: false);
-    final tasks = _ref.read(tasksProvider).asData?.value ?? const <Task>[];
-    final completionEvents = _ref.read(completionEventsProvider);
-    final routines = _ref.read(routinesProvider);
-    final scheduledTasks = tasks
-        .where((task) => task.scheduledFor != null)
-        .toList(growable: false);
-    final activeRoutines = routines
-        .where((routine) => routine.active)
-        .toList(growable: false);
-    final List<String> memorySummaries = _ref
-        .read(memoriesProvider)
-        .take(3)
-        .map((memory) => memory.text.trim())
-        .where((text) => text.isNotEmpty)
-        .toList(growable: false);
-    final List<String> timelineSummaries = _ref
-        .read(timelineProvider)
-        .take(3)
-        .map((event) => event.title.trim())
-        .where((text) => text.isNotEmpty)
-        .toList(growable: false);
+    final _CoachAssistantContextData assistantContext =
+        _buildAssistantContextData(
+          contextBuilder: contextBuilder,
+          assistantIntent: assistantIntent,
+          energy: energy,
+          emotion: emotion,
+        );
+    final List<String> goalSummaries = assistantContext.goalSummaries;
+    final List<String> memorySummaries = assistantContext.memorySummaries;
+    final List<String> timelineSummaries = assistantContext.timelineSummaries;
     final Map<String, dynamic>
-    chronosparkModelContext = contextBuilder.buildChronosparkModelContext(
-      surface: 'smart_coach',
-      intent: assistantIntent,
-      taskSummaries: tasks
-          .take(3)
-          .map((task) => task.title.trim())
-          .where((title) => title.isNotEmpty)
-          .toList(growable: false),
-      goalSummaries: goalSummaries,
-      timelineSummaries: timelineSummaries,
-      memorySummaries: memorySummaries,
-      completionSummaries: completionEvents
-          .take(3)
-          .map(
-            (event) =>
-                '${event.eventType.name} @ ${event.eventAt.toIso8601String()}',
-          )
-          .toList(growable: false),
-      routineSummaries: activeRoutines
-          .take(3)
-          .map((routine) => routine.name.trim())
-          .where((name) => name.isNotEmpty)
-          .toList(growable: false),
-      scheduleSummaries: scheduledTasks
-          .take(3)
-          .map((task) => task.title.trim())
-          .where((title) => title.isNotEmpty)
-          .toList(growable: false),
-      signals: <String, dynamic>{
-        'energy': energy,
-        'emotion': emotion.name,
-        'profile': <String, dynamic>{
-          'name': _ref.read(profileProvider).name,
-          'level': _ref.read(profileProvider).level,
-          'xp': _ref.read(profileProvider).xp,
-          'streak': _ref.read(profileProvider).streak,
-        },
-        'progression': <String, dynamic>{
-          'level': _ref.read(progressionProvider).progress.level,
-          'xp': _ref.read(progressionProvider).progress.xp,
-          'streak': _ref.read(progressionProvider).progress.streak,
-        },
-        'completion': <String, dynamic>{
-          'count': completionEvents.length,
-          'recentCount': completionEvents.take(3).length,
-        },
-        'schedule': <String, dynamic>{
-          'totalTasks': tasks.length,
-          'scheduledTasks': scheduledTasks.length,
-          'density': tasks.isEmpty ? 0.0 : scheduledTasks.length / tasks.length,
-        },
-        'routines': <String, dynamic>{
-          'count': routines.length,
-          'activeCount': activeRoutines.length,
-        },
-      },
-    );
+    chronosparkModelContext = assistantContext.chronosparkModelContext;
 
     if (detectedTopic != _CoachTopic.generalChat) {
       final String fallbackReply = _buildFollowUpResponse(
@@ -583,6 +451,108 @@ class CoachQueryController implements SmartCoachInterface {
         lower.contains('actions') &&
         lower.contains('next step') &&
         lower.contains('coach question');
+  }
+
+  _CoachAssistantContextData _buildAssistantContextData({
+    required DefaultAssistantContextBuilder contextBuilder,
+    required AssistantIntent assistantIntent,
+    required double energy,
+    required EmotionalState emotion,
+  }) {
+    final List<String> goalSummaries = _ref
+        .read(goalsProvider)
+        .take(3)
+        .map((goal) => goal.title.trim())
+        .where((title) => title.isNotEmpty)
+        .toList(growable: false);
+    final List<Task> tasks =
+        _ref.read(tasksProvider).asData?.value ?? const <Task>[];
+    final completionEvents = _ref.read(completionEventsProvider);
+    final routines = _ref.read(routinesProvider);
+    final List<Task> scheduledTasks = tasks
+        .where((task) => task.scheduledFor != null)
+        .toList(growable: false);
+    final activeRoutines = routines
+        .where((routine) => routine.active)
+        .toList(growable: false);
+    final List<String> memorySummaries = _ref
+        .read(memoriesProvider)
+        .take(3)
+        .map((memory) => memory.text.trim())
+        .where((text) => text.isNotEmpty)
+        .toList(growable: false);
+    final List<String> timelineSummaries = _ref
+        .read(timelineProvider)
+        .take(3)
+        .map((event) => event.title.trim())
+        .where((text) => text.isNotEmpty)
+        .toList(growable: false);
+
+    final Map<String, dynamic>
+    chronosparkModelContext = contextBuilder.buildChronosparkModelContext(
+      surface: 'smart_coach',
+      intent: assistantIntent,
+      taskSummaries: tasks
+          .take(3)
+          .map((task) => task.title.trim())
+          .where((title) => title.isNotEmpty)
+          .toList(growable: false),
+      goalSummaries: goalSummaries,
+      timelineSummaries: timelineSummaries,
+      memorySummaries: memorySummaries,
+      completionSummaries: completionEvents
+          .take(3)
+          .map(
+            (event) =>
+                '${event.eventType.name} @ ${event.eventAt.toIso8601String()}',
+          )
+          .toList(growable: false),
+      routineSummaries: activeRoutines
+          .take(3)
+          .map((routine) => routine.name.trim())
+          .where((name) => name.isNotEmpty)
+          .toList(growable: false),
+      scheduleSummaries: scheduledTasks
+          .take(3)
+          .map((task) => task.title.trim())
+          .where((title) => title.isNotEmpty)
+          .toList(growable: false),
+      signals: <String, dynamic>{
+        'energy': energy,
+        'emotion': emotion.name,
+        'profile': <String, dynamic>{
+          'name': _ref.read(profileProvider).name,
+          'level': _ref.read(profileProvider).level,
+          'xp': _ref.read(profileProvider).xp,
+          'streak': _ref.read(profileProvider).streak,
+        },
+        'progression': <String, dynamic>{
+          'level': _ref.read(progressionProvider).progress.level,
+          'xp': _ref.read(progressionProvider).progress.xp,
+          'streak': _ref.read(progressionProvider).progress.streak,
+        },
+        'completion': <String, dynamic>{
+          'count': completionEvents.length,
+          'recentCount': completionEvents.take(3).length,
+        },
+        'schedule': <String, dynamic>{
+          'totalTasks': tasks.length,
+          'scheduledTasks': scheduledTasks.length,
+          'density': tasks.isEmpty ? 0.0 : scheduledTasks.length / tasks.length,
+        },
+        'routines': <String, dynamic>{
+          'count': routines.length,
+          'activeCount': activeRoutines.length,
+        },
+      },
+    );
+
+    return _CoachAssistantContextData(
+      goalSummaries: goalSummaries,
+      memorySummaries: memorySummaries,
+      timelineSummaries: timelineSummaries,
+      chronosparkModelContext: chronosparkModelContext,
+    );
   }
 
   String _knowledgeContext() {
