@@ -1,0 +1,28 @@
+CHRONOSPARK P1-4 CREATOR-FIRST NAVIGATION WAVE 2 REPORT
+Date: 2026-07-31
+Phase: P1-4 First-user navigation emphasis
+Status: WAVE 2 APPLIED
+
+Objective
+- Remove startup-view drift that could weaken creator-first route intent.
+
+Behavioral Gap Identified
+- NavigationShell startup path always called appFlow show() with AppView.nexus.
+- This bypassed route-provided initialView (for example creator route requesting AppView.creator) until later lifecycle updates.
+
+Wave 2 Change
+- Updated NavigationShell startup post-frame activation to enforce widget.initialView instead of a hardcoded nexus view:
+  - lib/app/navigation_shell.dart
+
+Contract Coverage
+- Extended P1-4 source contract test to assert startup path references widget.initialView:
+  - test/release/p14_creator_first_navigation_contract_test.dart
+
+Validation
+- phase0_safe_preflight.ps1 -IncludeUntracked: PASS
+- Targeted release contracts: PASS
+  - p14_creator_first_navigation_contract_test.dart
+- flutter analyze: unchanged baseline (13 info-level issues, no new errors/warnings from Wave 2 scope)
+
+Risk
+- Low. Change is route-intent alignment only and remains bounded by existing activation guard enforcement.

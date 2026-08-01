@@ -157,7 +157,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
       ref
           .read(appFlowProvider.notifier)
-          .show(_enforceActivationView(AppView.nexus, announceIfLocked: false));
+          .show(
+            _enforceActivationView(
+              widget.initialView,
+              announceIfLocked: false,
+            ),
+          );
       unawaited(_checkRecovery());
     });
   }

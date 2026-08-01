@@ -28,6 +28,8 @@ void main() {
       expect(text.contains('return AppView.creator;'), isTrue);
       expect(text.contains('if (!hasCreatedFirstItem) {'), isTrue);
       expect(text.contains('return AppView.creator;'), isTrue);
+      expect(text.contains('_enforceActivationView('), isTrue);
+      expect(text.contains('widget.initialView'), isTrue);
     });
   });
 }
