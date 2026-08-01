@@ -1,0 +1,208 @@
+CHRONOSPARK PHASE 0 P0-1 FILE-BY-FILE SEQUENCE PLAN
+Date: 2026-07-31
+Mode: Planning only
+Runtime changes: None
+
+Objective
+- Prepare a migration-safe execution sequence for P0-1: unify onboarding and tutorial authority into one canonical first-user flow authority.
+- Preserve current app behavior until controlled implementation waves begin.
+
+Boundaries (hard no-touch)
+- No auth/session/token behavior edits.
+- No Supabase schema/policy edits.
+- No Firebase bootstrap/init ordering edits.
+- No billing/subscription runtime logic edits.
+- No Google Play release/signing/secrets changes.
+- No unrelated provider-graph rewrites.
+
+Source Basis
+- docs/chronospark_master_priority_plan.txt
+- docs/chronospark_phase0_kickoff_packet.txt
+- docs/tutorial_onboarding_audit.txt
+- docs/chronospark_master_audit_implementation_review.txt
+- docs/chronospark_integration_builder_audit.txt
+- docs/chronospark_logic_builder_audit.txt
+- docs/chronospark_executive_app_audit_and_plan.txt
+
+============================================================
+A) ENTRY CRITERIA FOR ANY P0-1 IMPLEMENTATION WAVE
+============================================================
+All must be true before code edits start:
+1. Canonical onboarding authority owner is declared.
+2. Route-gating ownership is declared.
+3. Mission progression ownership is declared.
+4. Compatibility policy for legacy tutorial flags is written.
+5. Rollback trigger and rollback branch policy is agreed.
+
+Recommended canonical ownership decision
+- Onboarding gate authority: app router + onboarding completion state.
+- Mission progression authority: mission provider/controller.
+- Tutorial overlay authority: secondary/post-onboarding assist only.
+
+============================================================
+B) FILE-BY-FILE SEQUENCING (IMPLEMENTATION ORDER)
+============================================================
+This is an execution order map for later coding, not code execution now.
+
+Wave 0: Read-only baseline snapshot and risk anchors
+- Files to inspect and freeze assumptions:
+  - lib/app/router/app_router.dart
+  - lib/app/router/route_guards.dart
+  - lib/app/navigation_shell.dart
+  - lib/app/app_root.dart
+  - lib/app/startup/app_bootstrap.dart
+  - lib/features/onboarding/ui/onboarding_screen.dart
+  - lib/tutorial/mission/mission_provider.dart
+  - lib/tutorial/mission/mission_controller.dart
+  - lib/tutorial/mission/mission_state.dart
+  - lib/tutorial/tutorial_provider.dart
+  - lib/tutorial/tutorial_controller.dart
+  - lib/tutorial/tutorial_overlay.dart
+  - lib/state/core/app_providers.dart
+- Outcome required:
+  - One current-state diagram: who currently decides onboarding completion, route access, and mission lock.
+
+Checkpoint 0
+- Deliverable exists: one-page authority matrix.
+- Abort condition:
+  - If no single authority can be identified without touching auth or startup order, stop and escalate for architecture decision.
+
+Wave 1: Canonical authority declaration (minimal-scope edits later)
+- Primary files for future edit:
+  - lib/state/core/app_providers.dart
+  - lib/app/startup/app_bootstrap.dart
+  - lib/features/onboarding/ui/onboarding_screen.dart
+- Scope:
+  - Declare one canonical onboarding completion key path and one canonical source for first-user completion state.
+  - Do not modify route logic in this wave.
+
+Checkpoint 1
+- Success criteria:
+  - Exactly one canonical onboarding completion source documented in code comments/design note.
+  - Legacy keys remain readable for compatibility.
+- Abort conditions:
+  - Any change requires auth gate edits.
+  - Any change affects Firebase/Supabase startup sequence.
+
+Wave 2: Route-gating consolidation (behavior-preserving)
+- Primary files for future edit:
+  - lib/app/router/app_router.dart
+  - lib/app/router/route_guards.dart
+  - lib/app/navigation_shell.dart
+- Scope:
+  - Route decisions consult canonical onboarding authority only.
+  - Preserve first-item and first-timeline-action gate behavior.
+  - Preserve deep-link safety behavior.
+
+Checkpoint 2
+- Success criteria:
+  - Existing protected flow still holds: Onboarding/Auth -> Creator -> Timeline -> First action -> Home expansion.
+  - No regressions in login/logout gate behavior.
+- Abort conditions:
+  - Any route change breaks first-item or first-action gates.
+  - Any route change requires touching auth providers.
+
+Wave 3: Mission and tutorial responsibility split
+- Primary files for future edit:
+  - lib/tutorial/mission/mission_provider.dart
+  - lib/tutorial/mission/mission_controller.dart
+  - lib/tutorial/tutorial_provider.dart
+  - lib/tutorial/tutorial_controller.dart
+  - lib/tutorial/tutorial_overlay.dart
+  - lib/app/app_root.dart
+- Scope:
+  - Mission flow remains primary for first-user progression.
+  - Tutorial overlay becomes explicit secondary guidance.
+  - Remove authority overlap, not features.
+
+Checkpoint 3
+- Success criteria:
+  - No duplicated authority for progression state transitions.
+  - Mission steps remain intact and measurable.
+- Abort conditions:
+  - Any change requires deleting tutorial assets/components before runtime verification.
+  - Any change forces provider-graph refactor beyond onboarding/tutorial scope.
+
+Wave 4: Naming compatibility and analytics normalization
+- Primary files for future edit:
+  - lib/features/onboarding/ui/onboarding_screen.dart
+  - tutorial/mission analytics touchpoints identified in audits
+- Scope:
+  - Normalize user-facing naming while preserving analytics backward compatibility mapping.
+
+Checkpoint 4
+- Success criteria:
+  - No analytics blind spots introduced.
+  - Mission continuity and reporting remain traceable.
+- Abort conditions:
+  - Any naming change requires telemetry pipeline contract changes without migration mapping.
+
+============================================================
+C) TEST AND VALIDATION GATES PER WAVE
+============================================================
+Gate set A: core flow guards
+- Must keep functional continuity for:
+  - Login
+  - Creator first-item creation
+  - Timeline first-action unlock
+  - Home expansion unlock
+
+Gate set B: no-touch protection
+- Confirm no file edits in:
+  - auth providers and auth gate internals
+  - supabase schema/policies
+  - firebase init order
+  - billing/subscription verification logic
+
+Gate set C: regression containment
+- Use small commits by wave.
+- Run targeted analysis and relevant tests after each wave.
+- Stop on first core-flow regression.
+
+============================================================
+D) ABORT CONDITIONS (GLOBAL)
+============================================================
+Stop immediately and roll back current wave if any occur:
+1. Login flow diverges from current behavior.
+2. Creator first-item path no longer auto-preserves timeline continuity.
+3. Timeline first-action progression gate fails.
+4. Any auth/supabase/billing code becomes required to complete onboarding merge.
+5. Any startup sequencing change is required.
+
+============================================================
+E) ROLLBACK PROTOCOL (FOR LATER EXECUTION)
+============================================================
+Per-wave rollback
+1. Keep one branch per wave.
+2. Keep one concern per commit.
+3. If abort condition triggers, revert wave branch to last green commit.
+4. Document failure reason in docs before retry.
+
+============================================================
+F) SAFEST NEXT PROMPT TYPES (ORDERED)
+============================================================
+Prompt 1
+- Read-only architecture map:
+  - "Map current onboarding/mission/tutorial authority and route-gating precedence from listed files; produce decision matrix; no edits."
+
+Prompt 2
+- Minimal-scope implementation plan:
+  - "Draft exact edit diff plan for Wave 1 canonical onboarding authority declaration only; no auth/supabase/billing/startup-order changes."
+
+Prompt 3
+- Guarded route consolidation:
+  - "Draft Wave 2 route-gating consolidation with explicit invariants for first-item and first-timeline-action gates; no auth-provider edits."
+
+============================================================
+G) WHAT NOT TO TOUCH (REPEATED FOR SAFETY)
+============================================================
+- lib/features/auth/** internals
+- Supabase policies/schema and migration files
+- Firebase initialization order and bootstrap coupling
+- Monetization verification contracts and purchase validation backend flows
+- Google Play release/signing/secret paths
+
+============================================================
+Status
+- Phase 0 remains safe and active.
+- This file is planning-only and introduces no app logic changes.

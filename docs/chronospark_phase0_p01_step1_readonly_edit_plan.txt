@@ -1,0 +1,169 @@
+CHRONOSPARK P0-1 STEP 1 READ-ONLY EDIT PLAN
+Date: 2026-07-31
+Mode: Planning only (no code edits)
+Scope: Canonical onboarding completion authority declaration
+
+Objective
+- Declare one canonical source of truth for onboarding completion authority and make bootstrap + onboarding screen read/write behavior align to it.
+- Keep changes migration-safe and non-destructive.
+
+Hard Constraints
+- Do not change auth/session/token behavior.
+- Do not change Supabase schema/policies/migrations.
+- Do not change billing/subscription flows.
+- Do not change Firebase/Supabase startup ordering.
+- Do not alter Google Play signing/release/secrets.
+
+Approved Step 1 File Targets
+- lib/state/core/app_providers.dart
+- lib/app/startup/app_bootstrap.dart
+- lib/features/onboarding/ui/onboarding_screen.dart
+
+Supporting Context Files (read-only references)
+- lib/app/router/app_router.dart
+- lib/app/router/route_guards.dart
+- lib/app/app_root.dart
+- docs/chronospark_phase0_execution_report.txt
+
+============================================================
+1) CURRENT STATE MAP (STEP 1 RELEVANT)
+============================================================
+Observed authority split:
+- Onboarding status flags/keys live in app providers.
+- Startup/bootstrap reads persisted state and initializes runtime state.
+- Onboarding screen sets progression/completion values.
+- Mission completion hook in app root can also mark onboarding complete.
+
+Risk in current split:
+- Multiple write points can drift if key/version/write-order assumptions diverge.
+- Inconsistent writes can cause redirect loops or first-session misroutes.
+
+============================================================
+2) TARGET STATE MAP (STEP 1)
+============================================================
+Canonical authority rule:
+- app_providers owns key names, status enums, and authority semantics.
+- bootstrap is the canonical startup reader/normalizer.
+- onboarding screen is an approved writer through canonical helper path.
+- app root mission-completion write remains allowed but must use same helper path semantics.
+
+Required properties:
+- Single completion meaning: complete == onboarding gate lifted.
+- Single content-version ownership definition.
+- Single default/fallback when persisted data is malformed.
+- Deterministic bootstrap order for onboarding state only.
+
+============================================================
+3) EDIT SEQUENCE (ORDERED, IMPLEMENTATION-READY)
+============================================================
+Wave 1: app_providers authority declaration
+- Add/confirm a central onboarding authority contract:
+  - canonical storage keys constants
+  - canonical status enum mapping
+  - canonical helper API for setting completion + version atomically
+- Ensure legacy key compatibility remains read-compatible (no deletion).
+
+Wave 2: app_bootstrap alignment
+- Route onboarding initialization through canonical authority contract from Wave 1.
+- Add normalization:
+  - invalid/missing values -> deterministic fallback
+  - old key forms -> mapped to canonical values
+- Keep all non-onboarding bootstrap logic untouched.
+
+Wave 3: onboarding_screen write-path alignment
+- Replace direct ad-hoc writes with canonical helper usage.
+- Preserve existing UX sequence and navigation behavior.
+- Ensure first-item/timeline-first-action flags are not redefined in this step.
+
+Wave 4: optional non-functional cleanup
+- Rename local variables/comments for clarity only if needed.
+- No behavior expansion.
+
+============================================================
+4) DIFF BOUNDARY RULES
+============================================================
+Allowed:
+- Onboarding status/keys/helpers in approved Step 1 files only.
+- Defensive parsing/normalization for onboarding persisted values.
+
+Not allowed:
+- Route logic rewires (reserved for Step 2).
+- Mission/tutorial semantic split (reserved for Step 3).
+- Analytics contract changes (reserved for Step 4 where needed).
+
+============================================================
+5) MIGRATION-SAFE STRATEGY
+============================================================
+- Preserve old persisted fields; map forward to canonical representation.
+- Avoid removing old reads until P0-1 stabilization tests pass.
+- Prefer additive helpers and controlled call-site switchovers.
+- No schema migrations or external data model updates.
+
+============================================================
+6) TEST PLAN (STEP 1-SCOPED)
+============================================================
+Static checks
+- Run preflight guard first:
+  - .\phase0_safe_preflight.ps1 -IncludeUntracked
+- Run analyzer after edits:
+  - flutter analyze
+
+Behavior checks (must pass)
+1. Fresh install path:
+- onboarding not complete at first launch
+- onboarding completion writes canonical state
+- next launch starts past onboarding gate
+
+2. Returning user path:
+- canonical complete state resumes non-onboarding route
+- no redirect loops
+
+3. Legacy persisted value path:
+- old/partial onboarding values normalize safely
+- app remains routable and stable
+
+4. Mission-completion compatibility path:
+- mission completion still results in canonical onboarding complete semantics
+- no duplicate conflicting writes
+
+============================================================
+7) ROLLBACK PLAN
+============================================================
+- Work in isolated wave branch.
+- Commit each wave separately (Wave 1/2/3).
+- On any gate regression:
+  - rollback most recent wave commit only
+  - rerun analyze + target behavior checks
+- If regression source is unclear, abort Step 1 and return to Phase 0 docs for narrower scope.
+
+============================================================
+8) ABORT CONDITIONS (STEP 1)
+============================================================
+Abort immediately if any occurs:
+- Auth behavior changes appear required.
+- Startup ordering changes outside onboarding appear required.
+- Route guard logic must be modified to complete Step 1.
+- Supabase/Firebase/billing files must be touched.
+
+============================================================
+9) EXECUTION COMMAND CHECKLIST
+============================================================
+Before edits
+- .\phase0_safe_preflight.ps1 -IncludeUntracked
+
+During edits
+- Restrict changes to Step 1 approved files.
+
+After edits
+- .\phase0_safe_preflight.ps1 -IncludeUntracked
+- flutter analyze
+- targeted onboarding flow verification
+
+============================================================
+10) DEFINITION OF DONE (STEP 1)
+============================================================
+- Canonical onboarding authority declared and documented in code.
+- bootstrap and onboarding screen aligned to canonical read/write path.
+- no sensitive domains touched.
+- analyzer passes or only pre-existing unrelated issues remain.
+- preflight remains PASS.

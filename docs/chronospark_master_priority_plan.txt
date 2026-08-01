@@ -4,6 +4,26 @@ Mode: Audit-only consolidation
 Scope: All docs audit/report files
 
 ============================================================
+PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)
+============================================================
+Execution date: 2026-07-31
+Execution mode: Safe, non-runtime enforcement
+
+Applied now:
+- Phase 0 execution report finalized in docs/chronospark_phase0_execution_report.txt.
+- P0 guardrail kickoff packet finalized in docs/chronospark_phase0_kickoff_packet.txt.
+- P0-1 file sequencing and abort protocol finalized in docs/chronospark_phase0_p01_file_sequence_plan.txt.
+- Added repo preflight guard script: phase0_safe_preflight.ps1.
+
+Operational safety command before any P0-1 coding wave:
+- pwsh ./phase0_safe_preflight.ps1
+
+Pass criteria to continue:
+- No blocked-area files changed (auth/supabase/billing/release/startup-order sensitive areas).
+- Change set remains within approved P0-1 file targets.
+- If violation is detected, stop and rollback wave branch before continuing.
+
+============================================================
 1) EXECUTIVE SUMMARY
 ============================================================
 This plan consolidates findings from every audit/report file in docs into one execution order centered on the core ChronoSpark product flow:
