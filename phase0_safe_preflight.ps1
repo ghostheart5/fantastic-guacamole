@@ -110,6 +110,7 @@ $allowedExact = @(
   'lib/features/auth/domain/usecases/goals/view/view_active_goals_usecase.dart',
   'lib/features/auth/domain/usecases/goals/view/view_completed_goals_usecase.dart',
   'lib/features/auth/domain/usecases/goals/view/view_archived_goals_usecase.dart',
+  'lib/features/auth/domain/usecases/misc/connect_timeline_to_tasks_usecase.dart',
   'test/release/goal_lifecycle_provider_contract_test.dart',
   'test/release/goal_status_visibility_contract_test.dart',
   'test/release/goal_transition_matrix_contract_test.dart',
@@ -129,6 +130,7 @@ $allowedExact = @(
   'test/release/p40_post_p3_routine_note_gap_baseline_contract_test.dart',
   'test/release/p41_routine_note_first_class_surface_contract_test.dart',
   'test/release/p42_routine_note_runtime_routing_split_contract_test.dart',
+  'test/release/p43_routine_note_timeline_projection_semantics_contract_test.dart',
   'test/coverage_zero/use_case_command_coverage_test.dart',
   'docs/chronospark_p02_completion_verification_report.txt'
 )

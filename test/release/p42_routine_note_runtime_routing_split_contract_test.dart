@@ -20,14 +20,14 @@ void main() {
       expect(text.contains('await _createTaskEntry(data: data, kind: kind, recurrence: recurrence);'), isTrue);
     });
 
-    test('routine handler preserves existing habit-backed persistence behavior', () {
+    test('routine handler preserves dedicated routine kind on task persistence path', () {
       final File creatorProviderFile = File('lib/state/providers/creator_provider.dart');
       expect(creatorProviderFile.existsSync(), isTrue);
 
       final String text = SourceTestUtils.readText(creatorProviderFile);
 
       expect(text.contains('Future<void> _createRoutineEntry({'), isTrue);
-      expect(text.contains("await _createTaskEntry(data: data, kind: 'habit', recurrence: recurrence);"), isTrue);
+      expect(text.contains("kind: 'routine'"), isTrue);
     });
 
     test('note handler preserves note-to-task conversion persistence behavior', () {

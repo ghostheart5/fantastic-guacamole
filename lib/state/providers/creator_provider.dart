@@ -60,7 +60,11 @@ class CreatorActions {
     required CreatorFormData data,
     required RecurrenceRule recurrence,
   }) async {
-    await _createTaskEntry(data: data, kind: 'habit', recurrence: recurrence);
+    await _createTaskEntry(
+      data: data,
+      kind: 'routine',
+      recurrence: recurrence,
+    );
   }
 
   Future<void> _createNoteEntry({

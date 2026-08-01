@@ -75,7 +75,11 @@ EXECUTION STATUS UPDATE
 - P4-1 Wave 2 report: docs/chronospark_p42_routine_note_runtime_routing_split_wave2_report.txt.
 - P4-1 Wave 2 complete: routing split validated with release contracts and baseline compatibility updates.
 - P4-1 Wave 2 completion report: docs/chronospark_p42_routine_note_runtime_routing_split_completion_report.txt.
-- Next implementation focus: P4-1 Wave 3 timeline projection semantics for routine/note continuity.
+- P4-1 Wave 3 applied: routine/note semantic continuity projected into timeline labels/details.
+- P4-1 Wave 3 report: docs/chronospark_p43_routine_note_timeline_projection_semantics_wave3_report.txt.
+- P4-1 Wave 3 complete: timeline projection semantics validated with release contracts.
+- P4-1 Wave 3 completion report: docs/chronospark_p43_routine_note_timeline_projection_semantics_completion_report.txt.
+- Next implementation focus: P4-1 closeout verification and P5 priority intake.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)
