@@ -1,0 +1,43 @@
+CHRONOSPARK P1-3 MONETIZATION PATHWAY MAP WAVE 1
+Date: 2026-07-31
+Phase: P1-3 Monetization compatibility pathway normalization
+Status: WAVE 1 APPLIED
+
+Scope
+- Build a source-backed pathway map of feature vs legacy monetization adapters.
+- Apply one minimal runtime-safe normalization step without altering purchase logic.
+
+Observed Pathway Map
+1) Feature stack (canonical)
+- Providers: lib/features/monetization/providers/monetization_feature_providers.dart
+- Actions facade: lib/features/monetization/data/services/monetization_connector_actions.dart
+- Used by feature controllers and app integration actions.
+
+2) Legacy stack (compat only)
+- Providers: lib/features/monetization/providers/monetization_providers.dart
+- Actions facade: lib/features/monetization/services/monetization_connector_actions.dart
+- Legacy adapter remains in integration layer for compatibility mapping.
+
+3) Compat bridge
+- Bridge models/adapters: lib/features/monetization/integration/monetization_actions_compat.dart
+- Compat provider surface: lib/features/monetization/providers/monetization_compat_providers.dart
+
+Wave 1 Change
+- Removed unused legacy compat provider exposure from compat provider surface while preserving default feature behavior:
+  - Updated: lib/features/monetization/providers/monetization_compat_providers.dart
+
+Verification
+- Preflight:
+  - .\phase0_safe_preflight.ps1 -IncludeUntracked => PASS
+- Contract test:
+  - test/release/p13_monetization_stack_normalization_contract_test.dart
+- Analyzer baseline:
+  - Existing info-level warnings only; no new wave-introduced errors in touched files.
+
+Risk Posture
+- No changes to purchase execution logic, entitlement checks, or wallet mutation paths.
+- No auth/session/supabase policy edits.
+- Change is provider-surface normalization only.
+
+Next Candidate (P1-3 Wave 2)
+- Replace remaining direct legacy-provider imports in non-legacy surfaces where canonical feature stack already exists, guarded by source contracts and preflight allowlist.
