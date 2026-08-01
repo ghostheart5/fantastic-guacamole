@@ -32,11 +32,34 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   static const _totalPages = 1; // setup gate only
 
   static const List<_Slide> _slides = <_Slide>[];
+
+    static const String _eventOnboardingStartedLegacy = 'onboarding_started';
+    static const String _eventOnboardingStartedCanonical =
+      'first_setup_started';
+    static const String _eventOnboardingSkippedLegacy = 'onboarding_skipped';
+    static const String _eventOnboardingSkippedCanonical =
+      'first_setup_skipped';
+    static const String _eventOnboardingStepAdvancedLegacy =
+      'onboarding_step_advanced';
+    static const String _eventOnboardingStepAdvancedCanonical =
+      'first_setup_step_advanced';
+    static const String _eventMissionActivationStartedLegacy =
+      'mission_zero_activation_started';
+    static const String _eventMissionActivationStartedCanonical =
+      'first_setup_activation_started';
+    static const String _eventMissionActivationStartFailedLegacy =
+      'mission_zero_activation_start_failed';
+    static const String _eventMissionActivationStartFailedCanonical =
+      'first_setup_activation_start_failed';
+
   @override
   void initState() {
     super.initState();
     _restoreOnboardingProgress();
-    AppAnalytics.track('onboarding_started');
+    _trackCompat(
+      legacyEvent: _eventOnboardingStartedLegacy,
+      canonicalEvent: _eventOnboardingStartedCanonical,
+    );
   }
 
   Future<void> _restoreOnboardingProgress() async {
@@ -194,8 +217,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         onboardingStepStorageKey,
         0,
       );
-      AppAnalytics.track(
-        'mission_zero_activation_started',
+      _trackCompat(
+        legacyEvent: _eventMissionActivationStartedLegacy,
+        canonicalEvent: _eventMissionActivationStartedCanonical,
         params: <String, Object?>{'entry_surface': 'setup_start'},
       );
       if (!mounted) return;
@@ -221,8 +245,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         error,
         stackTrace,
       );
-      AppAnalytics.track(
-        'mission_zero_activation_start_failed',
+      _trackCompat(
+        legacyEvent: _eventMissionActivationStartFailedLegacy,
+        canonicalEvent: _eventMissionActivationStartFailedCanonical,
         params: <String, Object?>{'error': error.toString()},
       );
       if (!mounted) {
@@ -290,8 +315,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   void _next() {
     if (_current < _totalPages - 1) {
-      AppAnalytics.track(
-        'onboarding_step_advanced',
+      _trackCompat(
+        legacyEvent: _eventOnboardingStepAdvancedLegacy,
+        canonicalEvent: _eventOnboardingStepAdvancedCanonical,
         params: <String, Object?>{'step_index': _current},
       );
       _page.nextPage(
@@ -301,6 +327,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     } else {
       _beginMissionZero();
     }
+  }
+
+  void _trackCompat({
+    required String legacyEvent,
+    required String canonicalEvent,
+    Map<String, Object?>? params,
+  }) {
+    if (params == null) {
+      AppAnalytics.track(legacyEvent);
+      AppAnalytics.track(canonicalEvent);
+      return;
+    }
+
+    AppAnalytics.track(legacyEvent, params: params);
+    AppAnalytics.track(canonicalEvent, params: params);
   }
 
   @override
@@ -367,8 +408,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             if (_current < _totalPages - 1)
                               GestureDetector(
                                 onTap: () {
-                                  AppAnalytics.track(
-                                    'onboarding_skipped',
+                                  _trackCompat(
+                                    legacyEvent: _eventOnboardingSkippedLegacy,
+                                    canonicalEvent:
+                                        _eventOnboardingSkippedCanonical,
                                     params: <String, Object?>{
                                       'step_index': _current,
                                     },
@@ -403,8 +446,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             if (_current < _totalPages - 1)
                               GestureDetector(
                                 onTap: () {
-                                  AppAnalytics.track(
-                                    'onboarding_skipped',
+                                  _trackCompat(
+                                    legacyEvent: _eventOnboardingSkippedLegacy,
+                                    canonicalEvent:
+                                        _eventOnboardingSkippedCanonical,
                                     params: <String, Object?>{
                                       'step_index': _current,
                                     },

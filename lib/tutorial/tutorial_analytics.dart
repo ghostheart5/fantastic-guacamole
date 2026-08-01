@@ -3,9 +3,25 @@ import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 class TutorialAnalytics {
   const TutorialAnalytics();
 
+  void _trackCompat(
+    String legacyEvent,
+    String canonicalEvent, {
+    Map<String, Object?>? params,
+  }) {
+    if (params == null) {
+      AppAnalytics.track(legacyEvent);
+      AppAnalytics.track(canonicalEvent);
+      return;
+    }
+
+    AppAnalytics.track(legacyEvent, params: params);
+    AppAnalytics.track(canonicalEvent, params: params);
+  }
+
   void trackStarted({required int contentVersion}) {
-    AppAnalytics.track(
+    _trackCompat(
       'tutorial_started',
+      'setup_guidance_started',
       params: <String, Object?>{'content_version': contentVersion},
     );
   }
@@ -53,7 +69,10 @@ class TutorialAnalytics {
   }
 
   void trackCompletedAllSteps() {
-    AppAnalytics.track('tutorial_completed_all_steps');
+    _trackCompat(
+      'tutorial_completed_all_steps',
+      'setup_guidance_completed_all_steps',
+    );
   }
 
   void trackResumeTutorial(String stepId) {
@@ -81,11 +100,11 @@ class TutorialAnalytics {
   }
 
   void trackReset() {
-    AppAnalytics.track('tutorial_progress_reset');
+    _trackCompat('tutorial_progress_reset', 'setup_guidance_progress_reset');
   }
 
   void trackReplayOnboarding() {
-    AppAnalytics.track('tutorial_replay_onboarding');
+    _trackCompat('tutorial_replay_onboarding', 'setup_guidance_replayed');
   }
 
   void trackContentVersionUpdated({

@@ -84,6 +84,7 @@ $allowedExact = @(
   'lib/tutorial/tutorial_provider.dart',
   'lib/tutorial/tutorial_controller.dart',
   'lib/tutorial/tutorial_overlay.dart',
+  'lib/tutorial/tutorial_analytics.dart',
   'lib/app/app_root.dart'
 )
 
