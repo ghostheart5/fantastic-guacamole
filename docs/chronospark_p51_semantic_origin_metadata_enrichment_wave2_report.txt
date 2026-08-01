@@ -1,0 +1,31 @@
+CHRONOSPARK P5-1 WAVE 2 SEMANTIC-ORIGIN METADATA ENRICHMENT REPORT
+Date: 2026-07-31
+Phase: P5 semantic-origin continuity hardening
+Status: WAVE 2 APPLIED
+
+Objective
+- Add migration-safe semantic-origin metadata and event labeling continuity for creator-origin routine/note/task flows.
+
+Implemented Changes
+- lib/state/providers/creator_provider.dart
+  - creator task persistence paths now emit semantic actionSource values:
+    - creator_task
+    - creator_routine
+    - creator_note
+- lib/state/providers/task_provider.dart
+  - task creation mirrored reflection event title/detail now vary by semantic kind:
+    - routine -> Routine Added / routine-specific detail
+    - note -> Note Added / note-specific detail
+    - default -> existing Task Added detail path
+  - completion-event metadata now includes task kind field.
+- test/release/p24_connector_workflow_contract_test.dart
+  - normalized actionSource assertion to remain compatible with semantic-source split.
+- test/release/p50_post_p4_semantic_origin_gap_baseline_contract_test.dart
+  - baseline updated to remain forward-compatible with Wave 2 enrichment.
+
+Contract Coverage Added
+- test/release/p51_semantic_origin_metadata_enrichment_contract_test.dart
+
+Safety
+- No auth/session/supabase schema/startup-order/billing runtime changes.
+- No route graph changes.

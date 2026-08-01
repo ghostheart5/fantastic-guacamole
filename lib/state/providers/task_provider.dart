@@ -638,6 +638,18 @@ class TaskActions {
     required DateTime timestamp,
     required bool notify,
   }) async {
+    final String semanticKind = (task.kind ?? '').trim().toLowerCase();
+    final String reflectionTitle = switch (semanticKind) {
+      'routine' => 'Routine Added',
+      'note' => 'Note Added',
+      _ => 'Task Added',
+    };
+    final String reflectionDetail = switch (semanticKind) {
+      'routine' => '${task.title} routine added to trajectory.',
+      'note' => '${task.title} note added to trajectory.',
+      _ => '${task.title} added to trajectory.',
+    };
+
     final bool soundEnabled = _ref.read(soundEnabledProvider);
     final bool advancedAudioEnabled = _ref.read(
       advancedAudioProfileEnabledProvider,
@@ -663,8 +675,8 @@ class TaskActions {
             TimelineEventEntity(
               id: 'timeline-task-created-${timestamp.microsecondsSinceEpoch}',
               type: TimelineEventType.reflection,
-              title: 'Task Added',
-              detail: '${task.title} added to trajectory.',
+              title: reflectionTitle,
+              detail: reflectionDetail,
               timestamp: timestamp,
             ),
           ),
@@ -742,6 +754,7 @@ class TaskActions {
         'title': task.title,
         'priority': task.priority,
         'difficulty': task.difficulty,
+        'kind': task.kind,
       },
     );
     await _ref.read(completionEventRepositoryProvider).addEvent(event);

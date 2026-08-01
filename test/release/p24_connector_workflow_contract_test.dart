@@ -15,7 +15,7 @@ void main() {
       expect(text.contains('Future<CreatorSavedKind> createEntry(CreatorFormData data) async {'), isTrue);
       expect(text.contains("await _createGoal(data: data, recurrence: recurrence);"), isTrue);
       expect(text.contains(".read(taskActionsProvider)"), isTrue);
-      expect(text.contains(".createTask(entity, actionSource: 'creator');"), isTrue);
+      expect(text.contains('.createTask(entity, actionSource:'), isTrue);
       expect(text.contains('await _markFirstItemCreated();'), isTrue);
       expect(text.contains('goalsProvider.notifier'), isTrue);
     });

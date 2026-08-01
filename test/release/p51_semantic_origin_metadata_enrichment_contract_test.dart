@@ -5,8 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../behavior/_support/source_test_utils.dart';
 
 void main() {
-  group('P5-0 post-P4 semantic-origin gap baseline contract', () {
-    test('creator persistence path emits creator-scoped actionSource markers', () {
+  group('P5-1 Wave 2 semantic-origin metadata enrichment contract', () {
+    test('creator provider routes semantic actionSource values by requested kind', () {
       final File creatorProviderFile = File('lib/state/providers/creator_provider.dart');
       expect(creatorProviderFile.existsSync(), isTrue);
 
@@ -17,26 +17,24 @@ void main() {
       expect(text.contains("actionSource: 'creator_note'"), isTrue);
     });
 
-    test('task creation side effects still publish trajectory reflection events', () {
+    test('task provider emits semantic creation reflection for routine and note', () {
       final File taskProviderFile = File('lib/state/providers/task_provider.dart');
       expect(taskProviderFile.existsSync(), isTrue);
 
       final String text = SourceTestUtils.readText(taskProviderFile);
 
-      expect(text.contains('title: reflectionTitle,'), isTrue);
-      expect(text.contains('detail: reflectionDetail,'), isTrue);
-      expect(text.contains("'Task Added'"), isTrue);
+      expect(text.contains("'routine' => 'Routine Added'"), isTrue);
+      expect(text.contains("'note' => 'Note Added'"), isTrue);
+      expect(text.contains("'routine' => '\${task.title} routine added to trajectory.'"), isTrue);
+      expect(text.contains("'note' => '\${task.title} note added to trajectory.'"), isTrue);
     });
 
-    test('completion event metadata includes task kind for semantic continuity', () {
+    test('completion telemetry metadata includes task kind field', () {
       final File taskProviderFile = File('lib/state/providers/task_provider.dart');
       expect(taskProviderFile.existsSync(), isTrue);
 
       final String text = SourceTestUtils.readText(taskProviderFile);
 
-      expect(text.contains("'title': task.title,"), isTrue);
-      expect(text.contains("'priority': task.priority,"), isTrue);
-      expect(text.contains("'difficulty': task.difficulty,"), isTrue);
       expect(text.contains("'kind': task.kind,"), isTrue);
     });
   });

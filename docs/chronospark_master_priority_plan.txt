@@ -86,7 +86,11 @@ EXECUTION STATUS UPDATE
 - P5-0 Wave 1 report: docs/chronospark_p50_post_p4_semantic_origin_gap_baseline_wave1_report.txt.
 - P5-0 Wave 1 complete: baseline validation completed.
 - P5-0 Wave 1 completion report: docs/chronospark_p50_post_p4_semantic_origin_gap_baseline_completion_report.txt.
-- Next implementation focus: P5-1 Wave 2 semantic-origin metadata enrichment.
+- P5-1 Wave 2 applied: semantic-origin metadata enrichment across creator/task telemetry paths.
+- P5-1 Wave 2 report: docs/chronospark_p51_semantic_origin_metadata_enrichment_wave2_report.txt.
+- P5-1 Wave 2 complete: runtime-safe enrichment verified.
+- P5-1 Wave 2 completion report: docs/chronospark_p51_semantic_origin_metadata_enrichment_completion_report.txt.
+- Next implementation focus: P5-2 transition-state contract expansion for routine/note continuity.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)

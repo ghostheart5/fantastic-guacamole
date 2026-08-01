@@ -48,7 +48,12 @@ class CreatorActions {
         await _createNoteEntry(data: data, recurrence: recurrence);
         break;
       default:
-        await _createTaskEntry(data: data, kind: kind, recurrence: recurrence);
+        await _createTaskEntry(
+          data: data,
+          kind: kind,
+          recurrence: recurrence,
+          actionSource: 'creator_task',
+        );
         break;
     }
 
@@ -64,6 +69,7 @@ class CreatorActions {
       data: data,
       kind: 'routine',
       recurrence: recurrence,
+      actionSource: 'creator_routine',
     );
   }
 
@@ -85,13 +91,14 @@ class CreatorActions {
 
     await ref
         .read(taskActionsProvider)
-        .createTask(entity, actionSource: 'creator');
+      .createTask(entity, actionSource: 'creator_note');
   }
 
   Future<void> _createTaskEntry({
     required CreatorFormData data,
     required String kind,
     required RecurrenceRule recurrence,
+    required String actionSource,
   }) async {
     final int priority = _priorityFor(kind: kind, requested: data.priority);
 
@@ -110,7 +117,7 @@ class CreatorActions {
 
     await ref
         .read(taskActionsProvider)
-        .createTask(entity, actionSource: 'creator');
+      .createTask(entity, actionSource: actionSource);
   }
 
   CreatorSavedKind _savedKindFor({required String requestedKind}) {
