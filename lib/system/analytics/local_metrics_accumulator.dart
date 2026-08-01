@@ -53,10 +53,10 @@ class LocalMetricsAccumulator {
 
   Future<void> recordAutomationCheckpoint(String checkpoint) async {
     await _resetIfNewDay();
-    final String normalized = checkpoint
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9_]+'), '_');
+    final String normalized = checkpoint.trim().toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9_]+'),
+      '_',
+    );
     if (normalized.isEmpty) {
       return;
     }

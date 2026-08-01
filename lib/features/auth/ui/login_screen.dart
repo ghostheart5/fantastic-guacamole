@@ -711,7 +711,7 @@ class _LoginFormCard extends StatelessWidget {
                   const SizedBox(width: 0),
                   Expanded(
                     child: _SecondaryButton(
-                        label: isSignUpMode ? 'Use sign in' : 'Create account',
+                      label: isSignUpMode ? 'Use sign in' : 'Create account',
                       icon: isSignUpMode
                           ? Icons.arrow_back_rounded
                           : Icons.person_add_rounded,

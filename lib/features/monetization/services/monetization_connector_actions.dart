@@ -51,9 +51,7 @@ class MonetizationConnectorActions {
     );
   }
 
-  Future<PurchaseOperationResult> purchasePlanById(
-    SubscriptionPlan plan,
-  ) {
+  Future<PurchaseOperationResult> purchasePlanById(SubscriptionPlan plan) {
     return _purchaseRepository.startSubscriptionPurchase(plan);
   }
 

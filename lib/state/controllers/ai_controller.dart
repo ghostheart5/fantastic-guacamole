@@ -380,88 +380,87 @@ class AIController {
         .map((event) => event.title.trim())
         .where((text) => text.isNotEmpty)
         .toList(growable: false);
-    final List<CompletionEventEntity> completionEvents =
-      _ref.read(completionEventsProvider);
+    final List<CompletionEventEntity> completionEvents = _ref.read(
+      completionEventsProvider,
+    );
     final List<RoutineEntity> routines = _ref.read(routinesProvider);
     final List<Task> scheduledTasks = tasks
-      .where((Task task) => task.scheduledFor != null)
-      .toList(growable: false);
+        .where((Task task) => task.scheduledFor != null)
+        .toList(growable: false);
     final List<RoutineEntity> activeRoutines = routines
-      .where((RoutineEntity routine) => routine.active)
-      .toList(growable: false);
-    final Map<String, dynamic> chronosparkModelContext =
-        contextBuilder.buildChronosparkModelContext(
-          surface: 'si_console',
-          intent: assistantIntent,
-          taskSummaries: tasks
-              .take(3)
-              .map((Task task) => task.title.trim())
-              .where((String title) => title.isNotEmpty)
-              .toList(growable: false),
-          goalSummaries: goals
-              .take(3)
-              .map((goal) => goal.title.trim())
-              .where((String title) => title.isNotEmpty)
-              .toList(growable: false),
-          timelineSummaries: timelineSummaries,
-          memorySummaries: selectedMemorySummaries,
-            completionSummaries: completionEvents
-              .take(3)
-              .map(
-              (CompletionEventEntity event) =>
+        .where((RoutineEntity routine) => routine.active)
+        .toList(growable: false);
+    final Map<String, dynamic>
+    chronosparkModelContext = contextBuilder.buildChronosparkModelContext(
+      surface: 'si_console',
+      intent: assistantIntent,
+      taskSummaries: tasks
+          .take(3)
+          .map((Task task) => task.title.trim())
+          .where((String title) => title.isNotEmpty)
+          .toList(growable: false),
+      goalSummaries: goals
+          .take(3)
+          .map((goal) => goal.title.trim())
+          .where((String title) => title.isNotEmpty)
+          .toList(growable: false),
+      timelineSummaries: timelineSummaries,
+      memorySummaries: selectedMemorySummaries,
+      completionSummaries: completionEvents
+          .take(3)
+          .map(
+            (CompletionEventEntity event) =>
                 '${event.eventType.name} @ ${event.eventAt.toIso8601String()}',
-              )
-              .toList(growable: false),
-            routineSummaries: activeRoutines
-              .take(3)
-              .map((RoutineEntity routine) => routine.name.trim())
-              .where((String name) => name.isNotEmpty)
-              .toList(growable: false),
-            scheduleSummaries: scheduledTasks
-              .take(3)
-              .map((Task task) => task.title.trim())
-              .where((String title) => title.isNotEmpty)
-              .toList(growable: false),
-          signals: <String, dynamic>{
-            'profile': <String, dynamic>{
-              'name': profile.name,
-              'level': profile.level,
-              'xp': profile.xp,
-              'streak': profile.streak,
-            },
-            'progression': <String, dynamic>{
-              'level': progression.level,
-              'xp': progression.xp,
-              'streak': progression.streak,
-            },
-            'si': <String, dynamic>{
-              'energy': si.energy,
-              'fatigue': si.fatigue,
-              'completedToday': si.completedToday,
-            },
-            'trajectory': <String, dynamic>{
-              'pressure': trajectory.pressureIndex,
-              'momentum': trajectory.momentum,
-              'divergence': trajectory.behaviorDivergence,
-              'prediction': trajectory.predictionOutcome,
-            },
-            'completion': <String, dynamic>{
-              'count': completionEvents.length,
-              'recentCount': completionEvents.take(3).length,
-            },
-            'schedule': <String, dynamic>{
-              'totalTasks': tasks.length,
-              'scheduledTasks': scheduledTasks.length,
-              'density': tasks.isEmpty
-                  ? 0.0
-                  : scheduledTasks.length / tasks.length,
-            },
-            'routines': <String, dynamic>{
-              'count': routines.length,
-              'activeCount': activeRoutines.length,
-            },
-          },
-        );
+          )
+          .toList(growable: false),
+      routineSummaries: activeRoutines
+          .take(3)
+          .map((RoutineEntity routine) => routine.name.trim())
+          .where((String name) => name.isNotEmpty)
+          .toList(growable: false),
+      scheduleSummaries: scheduledTasks
+          .take(3)
+          .map((Task task) => task.title.trim())
+          .where((String title) => title.isNotEmpty)
+          .toList(growable: false),
+      signals: <String, dynamic>{
+        'profile': <String, dynamic>{
+          'name': profile.name,
+          'level': profile.level,
+          'xp': profile.xp,
+          'streak': profile.streak,
+        },
+        'progression': <String, dynamic>{
+          'level': progression.level,
+          'xp': progression.xp,
+          'streak': progression.streak,
+        },
+        'si': <String, dynamic>{
+          'energy': si.energy,
+          'fatigue': si.fatigue,
+          'completedToday': si.completedToday,
+        },
+        'trajectory': <String, dynamic>{
+          'pressure': trajectory.pressureIndex,
+          'momentum': trajectory.momentum,
+          'divergence': trajectory.behaviorDivergence,
+          'prediction': trajectory.predictionOutcome,
+        },
+        'completion': <String, dynamic>{
+          'count': completionEvents.length,
+          'recentCount': completionEvents.take(3).length,
+        },
+        'schedule': <String, dynamic>{
+          'totalTasks': tasks.length,
+          'scheduledTasks': scheduledTasks.length,
+          'density': tasks.isEmpty ? 0.0 : scheduledTasks.length / tasks.length,
+        },
+        'routines': <String, dynamic>{
+          'count': routines.length,
+          'activeCount': activeRoutines.length,
+        },
+      },
+    );
 
     final Map<String, dynamic> context = <String, dynamic>{
       'source': 'si_console',

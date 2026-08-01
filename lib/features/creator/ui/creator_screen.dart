@@ -88,9 +88,11 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
     }
 
     final List<String> hints = <String>[
-      if (handoff.scheduleHint != null && handoff.scheduleHint!.trim().isNotEmpty)
+      if (handoff.scheduleHint != null &&
+          handoff.scheduleHint!.trim().isNotEmpty)
         'Schedule hint: ${handoff.scheduleHint!.trim()}',
-      if (handoff.frequencyHint != null && handoff.frequencyHint!.trim().isNotEmpty)
+      if (handoff.frequencyHint != null &&
+          handoff.frequencyHint!.trim().isNotEmpty)
         'Frequency hint: ${handoff.frequencyHint!.trim()}',
     ];
     if (hints.isNotEmpty) {
@@ -239,13 +241,14 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                   soundEnabled: soundEnabled,
                   advancedAudioEnabled: advancedAudioEnabled,
                   onSubmit: (data) async {
-                    final bool shouldAutoOpenTimeline =
-                        !ref.read(creatorFirstItemCreatedProvider);
+                    final bool shouldAutoOpenTimeline = !ref.read(
+                      creatorFirstItemCreatedProvider,
+                    );
                     final savedKind = await ref
                         .read(creatorActionsProvider)
                         .createEntry(data);
                     if (missionTutorialEnabled &&
-                      savedKind == CreatorSavedKind.goal) {
+                        savedKind == CreatorSavedKind.goal) {
                       await ref
                           .read(missionEventBridgeProvider)
                           .reportGoalCreated();

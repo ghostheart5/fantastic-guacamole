@@ -54,7 +54,9 @@ class NotificationActions {
 }
 
 class NotificationNotifier extends Notifier<List<NotificationEntity>> {
-  Future<void> _playCategoryAwareReminderSound(NotificationEntity notification) {
+  Future<void> _playCategoryAwareReminderSound(
+    NotificationEntity notification,
+  ) {
     final bool soundEnabled = ref.read(soundEnabledProvider);
     final bool advancedAudioEnabled = ref.read(
       advancedAudioProfileEnabledProvider,

@@ -8,7 +8,9 @@ class CompletionEventsDebugScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<CompletionEventEntity> events = ref.watch(completionEventsProvider);
+    final List<CompletionEventEntity> events = ref.watch(
+      completionEventsProvider,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -31,16 +33,14 @@ class CompletionEventsDebugScreen extends ConsumerWidget {
         ],
       ),
       body: events.isEmpty
-          ? const Center(
-              child: Text('No completion events recorded yet.'),
-            )
+          ? const Center(child: Text('No completion events recorded yet.'))
           : ListView.separated(
               itemCount: events.length,
               separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (BuildContext context, int index) {
                 final CompletionEventEntity event = events[index];
-                final String title = event.taskId == null ||
-                        event.taskId!.trim().isEmpty
+                final String title =
+                    event.taskId == null || event.taskId!.trim().isEmpty
                     ? event.eventType.name
                     : '${event.eventType.name} · ${event.taskId}';
                 final String subtitle =

@@ -24,13 +24,13 @@ class AppIntegrationActions {
   final Ref _ref;
 
   Future<AppIntegrationSnapshot> fetchIntegrationSnapshot() async {
-    final MonetizationStatusSnapshot monetizationStatus = await fetchMonetizationSnapshot();
+    final MonetizationStatusSnapshot monetizationStatus =
+        await fetchMonetizationSnapshot();
     final SupabaseBackendHealth supabaseHealth = await checkSupabaseHealth();
     final String? syncErrorMessage = _ref.read(syncErrorMessageProvider);
-    final int offlineQueueCount = _ref.read(offlineQueueCountProvider).maybeWhen(
-      data: (int value) => value,
-      orElse: () => 0,
-    );
+    final int offlineQueueCount = _ref
+        .read(offlineQueueCountProvider)
+        .maybeWhen(data: (int value) => value, orElse: () => 0);
     final String? currentUserId = currentUser?.id;
 
     return AppIntegrationSnapshot(
@@ -121,7 +121,9 @@ class AppIntegrationActions {
   }
 
   Future<PurchaseResult> purchaseCredits(AiCreditPackage pack) {
-    return _ref.read(monetizationConnectorActionsProvider).purchaseCredits(pack);
+    return _ref
+        .read(monetizationConnectorActionsProvider)
+        .purchaseCredits(pack);
   }
 
   Future<PurchaseResult> restorePurchases() {

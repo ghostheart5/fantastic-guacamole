@@ -80,7 +80,9 @@ class LocalUserDataCleanupService {
           onboardingContentVersionStorageKeyForUser(userId),
         ),
         () => preferences.delete(onboardingStepStorageKeyForUser(userId)),
-        () => preferences.delete(creatorFirstItemCreatedStorageKeyForUser(userId)),
+        () => preferences.delete(
+          creatorFirstItemCreatedStorageKeyForUser(userId),
+        ),
         () => preferences.delete(
           timelineFirstActionCompletedStorageKeyForUser(userId),
         ),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
+import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
 import 'package:flutter/foundation.dart';
 
 @immutable
@@ -31,11 +32,12 @@ class HabitRecord {
 }
 
 class HabitRepository {
-  HabitRepository(this._storage);
+  HabitRepository(this._storage, {this._syncDispatcher});
 
   static const String _key = 'habit_records_v1';
 
   final HiveStorage<String> _storage;
+  final SyncMutationDispatcher? _syncDispatcher;
 
   Future<List<HabitRecord>> getHabits() async {
     await _storage.open();
@@ -60,12 +62,43 @@ class HabitRepository {
         .toList(growable: false);
   }
 
-  Future<void> saveHabits(List<HabitRecord> habits) {
-    return _storage.put(
+  Future<void> saveHabits(List<HabitRecord> habits) async {
+    final List<HabitRecord> previous = await getHabits();
+    await _storage.put(
       _key,
       jsonEncode(
         habits.map((HabitRecord item) => item.toJson()).toList(growable: false),
       ),
     );
+
+    final Set<String> nextIds = habits
+        .map((HabitRecord item) => item.id)
+        .where((String id) => id.isNotEmpty)
+        .toSet();
+    final Set<String> removedIds = previous
+        .map((HabitRecord item) => item.id)
+        .where((String id) => id.isNotEmpty && !nextIds.contains(id))
+        .toSet();
+
+    for (final HabitRecord habit in habits) {
+      await _syncDispatcher?.enqueueUpsert(
+        tableName: 'habits',
+        recordId: habit.id,
+        payload: <String, dynamic>{
+          'id': habit.id,
+          'title': habit.title,
+          'active': habit.active,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+          'deleted_at': null,
+        },
+      );
+    }
+
+    for (final String removedId in removedIds) {
+      await _syncDispatcher?.enqueueDelete(
+        tableName: 'habits',
+        recordId: removedId,
+      );
+    }
   }
 }

@@ -68,10 +68,10 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
   OnboardingStatus get onboardingStatus =>
       _ref.read(onboardingStatusGuardProvider);
   bool get hasValidProfile => _ref.read(profileCompleteGuardProvider);
-  bool get hasCreatedFirstItem => _ref.read(creatorFirstItemCreatedGuardProvider);
-  bool get hasCompletedTimelineFirstAction => _ref.read(
-    timelineFirstActionCompletedGuardProvider,
-  );
+  bool get hasCreatedFirstItem =>
+      _ref.read(creatorFirstItemCreatedGuardProvider);
+  bool get hasCompletedTimelineFirstAction =>
+      _ref.read(timelineFirstActionCompletedGuardProvider);
 }
 
 String _resolveInitialLocation({
@@ -324,7 +324,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.timeline,
         builder: (BuildContext context, GoRouterState state) =>
-        const NavigationShell(initialView: AppView.timeline),
+            const NavigationShell(initialView: AppView.timeline),
       ),
       GoRoute(
         path: RoutePaths.tasks,
@@ -354,7 +354,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.completionEvents,
         builder: (BuildContext context, GoRouterState state) =>
-        const CompletionEventsDebugScreen(),
+            const CompletionEventsDebugScreen(),
       ),
 
       // Legacy top-level routes redirect into the secondary hierarchy.

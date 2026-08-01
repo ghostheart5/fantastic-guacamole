@@ -288,7 +288,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _messages.add(
           SIConsoleMessage(
             text:
-              'SI Console guide\n\n'
+                'SI Console guide\n\n'
                 'Signal channels:\n'
                 '- /tasks: inspect active tasks and next actions\n'
                 '- /goals: summarize goals and drift\n'
@@ -1132,7 +1132,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final int seededQueryCount = ref.watch(siQueriesProvider).length;
     final executionSignals = ref.watch(executionSignalsProvider);
     final int executionStabilityPercent =
-      (executionSignals.completionStability7d * 100).round();
+        (executionSignals.completionStability7d * 100).round();
     final consoleModelAsync = ref.watch(siConsoleScreenModelProvider);
     final SIConsoleScreenModel? consoleModel = consoleModelAsync.asData?.value;
     final Object? consoleError = consoleModelAsync.asError?.error;

@@ -1,0 +1,349 @@
+CHRONOSPARK MASTER PRIORITY CONSOLIDATION
+Date: 2026-07-31
+Mode: Audit-only consolidation
+Scope: All docs audit/report files
+
+============================================================
+1) EXECUTIVE SUMMARY
+============================================================
+This plan consolidates findings from every audit/report file in docs into one execution order centered on the core ChronoSpark product flow:
+Login -> Creator -> Create Task/Routine/Goal/Note -> Schedule -> Timeline -> Complete/Skip/Reschedule -> Ascension/Future Vector/Smart Planner/SI Console.
+
+Overall audit signal:
+- Engineering foundations are strong (test and release guard depth, extensive architecture and integration audits).
+- Product-flow clarity and domain semantics are the primary risk (onboarding overlap, goal/routine/note lifecycle gaps, timeline behavior cohesion).
+- AI/speech/media/design layers have broad capability but require sequencing behind core-flow correctness.
+- Security, auth, billing, and database infrastructure are operationally sensitive and should only be changed in dedicated phases after core-flow stabilization.
+
+Master principle for next work:
+- Prioritize fixes that improve completion of the core user loop before expanding advanced surfaces.
+- Do not introduce recommendations that are not directly supported by existing audits.
+
+============================================================
+2) TOP 10 HIGHEST-IMPACT FIXES
+============================================================
+1. Consolidate overlapping onboarding/tutorial systems into one canonical flow authority.
+2. Complete goal lifecycle semantics (create/active/completed/archived behavior continuity).
+3. Make routine and note paths first-class (not partial or task-only fallbacks).
+4. Ensure Creator intent routing maps correctly by type (task/routine/goal/note) into canonical domain paths.
+5. Close Timeline state-transition coverage and behavior for completed/not_completed/skipped/rescheduled.
+6. Strengthen Create -> Timeline -> Completion downstream propagation consistency.
+7. Clarify first-user navigation spine to favor core creation flow before advanced dashboards.
+8. Resolve duplicate/overlapping AI guidance surfaces around Smart Coach/SI Console/Planner prompts.
+9. Consolidate monetization integration paths to one canonical runtime path with guarded compatibility boundaries.
+10. Refresh governance baselines causing false release friction (protected-files/remediation drift signals).
+
+============================================================
+3) TOP 10 SAFEST FIXES
+============================================================
+1. Duplicate recommendation dedupe docs and implementation order alignment (planning-only artifacts first).
+2. Timeline readability and hierarchy improvements that do not alter business rules.
+3. Language and copy consistency cleanup from onboarding and related UX audits.
+4. Protected file baseline/remediation governance cleanup.
+5. CI/release checklist clarity alignment from release-readiness and ALM audits.
+6. Prompt/context consolidation in AI layers without changing model/provider contracts.
+7. Visual/animation polish issues with no effect on domain state.
+8. Media pipeline audit follow-ups that do not alter auth/sync/routing.
+9. Testing plan sequencing updates (additive test architecture priorities before code-risk areas).
+10. Documentation-level dependency maps for creator/timeline/scheduler flows.
+
+============================================================
+4) TOP 10 DANGEROUS FIXES TO DELAY
+============================================================
+1. Supabase schema/policy rewrites tied to core entities before full sync ownership strategy is stabilized.
+2. Auth gate, login provider, or token lifecycle rewrites outside dedicated security phase.
+3. Billing/subscription flow rewrites while dual-path compatibility still in active use.
+4. Provider graph rewrites across routing, startup, and session orchestration in a single pass.
+5. Deep changes to startup initialization order involving Firebase/Supabase/auth.
+6. Direct DB migrations for entity-model gaps before local domain migration plan is complete.
+7. Aggressive deletion of tutorial/legacy paths before migration-safe state consolidation is verified.
+8. Broad AI behavior rewrites that combine prompt, retrieval, orchestration, and UI at once.
+9. Routing-system rewires that combine onboarding, creator, and nexus shells in one deployment.
+10. Simultaneous refactors across creator, timeline, and progression engines without staged tests.
+
+============================================================
+5) DUPLICATE AUDIT RECOMMENDATIONS
+============================================================
+Repeated recommendation cluster A: Onboarding/tutorial overlap and first-user confusion
+- Source audits: chronospark_executive_app_audit_and_plan.txt, tutorial_onboarding_audit.txt, onboarding_language_cleanup_report.txt, flat_tutorial_cleanup_report.txt, chronospark_logic_builder_audit.txt, chronospark_workflow_process_builder_audit.txt
+- Consolidated action: merge state authority and message hierarchy to one canonical onboarding path.
+
+Repeated recommendation cluster B: Domain semantics gaps for goal/routine/note
+- Source audits: chronospark_data_model_domain_audit.txt, creator_core_audit.txt, chronospark_logic_builder_audit.txt, chronospark_integration_builder_audit.txt, timeline_completion_audit.txt
+- Consolidated action: complete first-class lifecycle semantics and routing for non-task entity types.
+
+Repeated recommendation cluster C: Completion flow fan-out and downstream intelligence consistency
+- Source audits: chronospark_integration_builder_audit.txt, chronospark_master_audit_implementation_review.txt, chronospark_ai_model_builder_audit.txt, chronospark_prompt_builder_audit.txt, chronospark_workflow_process_builder_audit.txt
+- Consolidated action: make completion outputs consistently consumable by planner/forecast/console layers.
+
+Repeated recommendation cluster D: Testing depth mismatch (high file count vs real behavior depth)
+- Source audits: chronospark_testing_builder_audit.txt, chronospark_full_testing_builder_audit.txt, chronospark_automation_builder_audit.txt
+- Consolidated action: prioritize behavioral integration tests along core user journey, not only harness/contract coverage.
+
+Repeated recommendation cluster E: Release/process friction and environment governance
+- Source audits: chronospark_deployment_alm_audit.txt, phase_f_release_readiness_audit_log.txt, protected_files_remediation_report_2026-07-31.txt, weekly_crash_triage_report_2026-07-31.txt
+- Consolidated action: harden release hygiene and reduce false-positive blockers.
+
+============================================================
+6) FINAL RECOMMENDED CODING ORDER
+============================================================
+This order is source-constrained and built from audit overlap + dependency chain.
+
+Phase 0: Planning and guardrails (no high-risk rewires)
+- Task title: Consolidate source-of-truth maps for onboarding, creator type-routing, and timeline status handling.
+- Source audit files: chronospark_master_audit_implementation_review.txt, chronospark_executive_app_audit_and_plan.txt, chronospark_integration_builder_audit.txt, chronospark_logic_builder_audit.txt
+- Why it matters: prevents multi-file conflicting edits.
+- Exact problem it solves: fragmented implementation order and accidental cross-layer regressions.
+- Files likely involved: docs planning files first; then controlled touchpoints in app/router/provider files.
+- Risk level: Low
+- Dependency: None
+- Safest next prompt type: Read-only architecture map + dependency-ordered implementation checklist.
+- What not to touch: auth providers, supabase policies, billing logic.
+
+P0 CRITICAL
+
+P0-1
+- Task title: Merge onboarding/tutorial into one canonical first-user flow authority.
+- Source audit files: tutorial_onboarding_audit.txt, chronospark_executive_app_audit_and_plan.txt, onboarding_language_cleanup_report.txt, flat_tutorial_cleanup_report.txt, chronospark_workflow_process_builder_audit.txt
+- Why it matters: first-user success depends on clear guidance and a single progression path.
+- Exact problem it solves: overlapping onboarding systems and conflicting user instructions.
+- Files likely involved: lib/features/onboarding/**, lib/tutorial/**, lib/app/router/**, lib/app/navigation_shell.dart, state onboarding providers.
+- Risk level: Medium
+- Dependency: Phase 0 mapping complete.
+- Safest next prompt type: "Unify onboarding state authority and route gating with migration-safe flags, no auth changes."
+- What not to touch: auth/supabase/fallback login, provider-wide rewrites.
+
+P0-2
+- Task title: Complete goal lifecycle semantics and native handling.
+- Source audit files: chronospark_data_model_domain_audit.txt, creator_core_audit.txt, chronospark_logic_builder_audit.txt, timeline_completion_audit.txt, chronospark_integration_builder_audit.txt
+- Why it matters: goals are central to planner intelligence and long-term progression.
+- Exact problem it solves: incomplete status lifecycle and partial goal-path semantics.
+- Files likely involved: goal entity/usecases/providers, creator goal routing, timeline goal projections.
+- Risk level: Medium-High
+- Dependency: P0-1 complete enough to stabilize first-user pathway.
+- Safest next prompt type: "Implement goal lifecycle state transitions with backward-compatible local migration and targeted tests."
+- What not to touch: DB schema/Supabase table structure during this pass.
+
+P0-3
+- Task title: Make routine and note creation first-class and canonical.
+- Source audit files: chronospark_data_model_domain_audit.txt, creator_core_audit.txt, chronospark_workflow_process_builder_audit.txt, chronospark_logic_builder_audit.txt
+- Why it matters: core flow explicitly includes routine/note creation.
+- Exact problem it solves: routine/note currently partial or routed through task-like fallbacks.
+- Files likely involved: creator form/type selector/submit pipeline, routine/note entities/providers, timeline projection adapters.
+- Risk level: Medium-High
+- Dependency: P0-2 baseline domain semantics aligned.
+- Safest next prompt type: "Route routine/note intents to native domain handlers and verify timeline continuity."
+- What not to touch: auth/session logic, billing/subscription files.
+
+P0-4
+- Task title: Lock in Timeline status transition behavior for completed/not_completed/skipped/rescheduled.
+- Source audit files: timeline_completion_audit.txt, chronospark_full_testing_builder_audit.txt, chronospark_testing_builder_audit.txt, chronospark_integration_builder_audit.txt
+- Why it matters: completion loop is the product heartbeat and feeds downstream systems.
+- Exact problem it solves: incomplete or under-verified transition semantics.
+- Files likely involved: timeline state/actions/providers, completion handlers, integration tests.
+- Risk level: High
+- Dependency: P0-2 and P0-3 semantic normalization.
+- Safest next prompt type: "Add/verify end-to-end timeline transition matrix tests and fix only source-backed regressions."
+- What not to touch: AI logic internals until event contracts are stable.
+
+P1 HIGH
+
+P1-1
+- Task title: Ensure completion events propagate consistently into Ascension/Future Vector/Smart Planner/SI Console.
+- Source audit files: chronospark_ai_model_builder_audit.txt, chronospark_integration_builder_audit.txt, chronospark_prompt_builder_audit.txt, chronospark_master_audit_implementation_review.txt
+- Why it matters: downstream intelligence quality depends on clean completion signal flow.
+- Exact problem it solves: inconsistent fan-out and inference gaps between completion and AI/planning surfaces.
+- Files likely involved: completion event providers, planner/forecast pipeline providers, SI pipeline provider, coach query context builders.
+- Risk level: Medium
+- Dependency: P0-4 stable status transitions.
+- Safest next prompt type: "Trace completion event path to each intelligence surface and close only missing links."
+- What not to touch: model credentials/secrets/supabase policy definitions.
+
+P1-2
+- Task title: Consolidate duplicate AI prompt/context pathways.
+- Source audit files: chronospark_prompt_builder_audit.txt, chronospark_ai_model_builder_audit.txt, chronospark_content_generation_builder_audit.txt
+- Why it matters: reduces contradictory guidance and hallucination-like divergence.
+- Exact problem it solves: duplicated context construction and inconsistent prompt grounding.
+- Files likely involved: AI controllers, prompt builders, SI/Coach adapters.
+- Risk level: Medium
+- Dependency: P1-1 signal consistency.
+- Safest next prompt type: "Consolidate prompt/context assembly behind one canonical builder without changing external model endpoints."
+- What not to touch: auth, routing, database schema.
+
+P1-3
+- Task title: Normalize monetization compatibility pathways.
+- Source audit files: chronospark_database_designer_audit.txt, chronospark_integration_builder_audit.txt, chronospark_security_builder_audit.txt
+- Why it matters: reduces maintenance complexity in subscription-critical path.
+- Exact problem it solves: dual-path runtime ambiguity and harder defect triage.
+- Files likely involved: monetization data sources/repositories/adapters, integration tests.
+- Risk level: High
+- Dependency: core flow stabilized (P0 complete).
+- Safest next prompt type: "Map active vs legacy monetization paths and phase out only redundant adapters with rollback markers."
+- What not to touch: live billing verification backend contracts and production keys.
+
+P1-4
+- Task title: Improve first-user navigation emphasis for Creator-first flow.
+- Source audit files: chronospark_executive_app_audit_and_plan.txt, chronospark_page_builder_audit.txt, chronospark_experience_designer_audit.txt
+- Why it matters: aligns app entry with intended core loop.
+- Exact problem it solves: users land in surfaces that dilute first-action momentum.
+- Files likely involved: shell routing/default tab logic, onboarding completion redirect rules.
+- Risk level: Medium
+- Dependency: P0-1 onboarding authority merged.
+- Safest next prompt type: "Adjust first-session navigation defaults toward Creator while preserving existing route safety checks."
+- What not to touch: auth gate conditions and deep-link security rules.
+
+P2 MEDIUM
+
+P2-1
+- Task title: Upgrade behavior-driven integration test depth for core loop.
+- Source audit files: chronospark_testing_builder_audit.txt, chronospark_full_testing_builder_audit.txt, chronospark_automation_builder_audit.txt
+- Why it matters: prevents false confidence from harness-only tests.
+- Exact problem it solves: mismatch between file count and behavioral coverage quality.
+- Files likely involved: test/integration/**, test/behavior/**, test/features/** harness wrappers.
+- Risk level: Low-Medium
+- Dependency: P0 flow semantics fixed.
+- Safest next prompt type: "Add highest-risk behavior tests for Login->Creator->Create->Timeline->Status transitions first."
+- What not to touch: unrelated production logic during test-depth pass.
+
+P2-2
+- Task title: Timeline readability and hierarchy tuning.
+- Source audit files: timeline_completion_audit.txt, chronospark_page_builder_audit.txt, chronospark_visual_design_audit.txt
+- Why it matters: users must easily parse what to do now vs what happened.
+- Exact problem it solves: dense, mixed timeline cognitive load.
+- Files likely involved: timeline UI widgets/layout/section ordering.
+- Risk level: Low
+- Dependency: P0-4 transition semantics stable.
+- Safest next prompt type: "Refine timeline visual hierarchy and grouping without altering state transitions."
+- What not to touch: provider contracts and completion business rules.
+
+P2-3
+- Task title: Crash/voice/session observability hardening follow-through.
+- Source audit files: weekly_crash_triage_report_2026-07-31.txt, weekly_voice_telemetry_report_2026-07-31.txt, phase_b_crash_observability_audit_log.txt, phase_e_session_health_user_flows_audit_log.txt
+- Why it matters: protects reliability while core-flow changes roll out.
+- Exact problem it solves: reduced visibility into regressions under real user sessions.
+- Files likely involved: telemetry/reporting scripts, logging instrumentation touchpoints.
+- Risk level: Low-Medium
+- Dependency: none strict; parallel-safe.
+- Safest next prompt type: "Audit and close missing observability counters for session, crash, and voice pathways."
+- What not to touch: auth/security semantics.
+
+P2-4
+- Task title: API connector and workflow contract cleanup.
+- Source audit files: chronospark_api_connector_builder_audit.txt, chronospark_workflow_process_builder_audit.txt, chronospark_integration_builder_audit.txt
+- Why it matters: prevents hidden flow breaks across modules.
+- Exact problem it solves: connector/process mismatches around creator->timeline->intelligence.
+- Files likely involved: connector interfaces, workflow orchestration handlers.
+- Risk level: Medium
+- Dependency: P0 semantics mostly stable.
+- Safest next prompt type: "Reconcile connector contracts against workflow map with no auth/db policy changes."
+- What not to touch: startup auth bootstrap and production endpoints.
+
+P3 LOW
+
+P3-1
+- Task title: Deployment ALM parity and staging discipline improvements.
+- Source audit files: chronospark_deployment_alm_audit.txt, phase_f_release_readiness_audit_log.txt
+- Why it matters: improves release confidence and repeatability.
+- Exact problem it solves: uneven automation maturity and staging process drift.
+- Files likely involved: CI workflows, release docs/checklists.
+- Risk level: Low
+- Dependency: none.
+- Safest next prompt type: "Harden release workflow docs and pipeline guards without altering app runtime code."
+- What not to touch: prod signing secrets and live release keys.
+
+P3-2
+- Task title: Performance/media/audio/video polish backlog sequencing.
+- Source audit files: PERFORMANCE_OPTIMIZATION_REPORT.md, chronospark_media_pipeline_builder_audit.txt, chronospark_audio_builder_audit.txt, chronospark_video_builder_audit.txt, chronospark_animation_builder_audit.txt
+- Why it matters: polish and efficiency after core-flow correctness.
+- Exact problem it solves: non-blocking UX/perf debt.
+- Files likely involved: media assets/pipelines, animation/audio/video presentation layers.
+- Risk level: Low-Medium
+- Dependency: P0/P1 user-flow correctness first.
+- Safest next prompt type: "Prioritize top perf/polish wins that do not change core flow state logic."
+- What not to touch: auth, billing, DB, routing.
+
+P3-3
+- Task title: Visual design and experience consistency refinement.
+- Source audit files: chronospark_visual_design_audit.txt, chronospark_experience_designer_audit.txt, chronospark_content_generation_builder_audit.txt
+- Why it matters: improves perceived quality once fundamentals are stable.
+- Exact problem it solves: inconsistency in UX tone and affordances.
+- Files likely involved: UI theme/components/copy and design tokens.
+- Risk level: Low
+- Dependency: P0 onboarding and timeline clarity done.
+- Safest next prompt type: "Apply design consistency pass constrained to style/component layer only."
+- What not to touch: domain logic, providers, auth/session.
+
+============================================================
+DO NOT TOUCH YET
+============================================================
+These are repeatedly flagged as sensitive in source audits and should be deferred outside dedicated phases:
+- Auth/session gate internals (security-critical pathways).
+- Supabase policy/schema rewrites tied to core entities.
+- Firebase/Supabase startup initialization ordering.
+- Billing/subscription verification contracts and live credential paths.
+- Broad provider graph rewrites across routing/startup/state in one pass.
+- AI endpoint/security transport behavior while prompt-context consolidation is underway.
+
+Primary source audits: chronospark_security_builder_audit.txt, chronospark_database_designer_audit.txt, chronospark_deployment_alm_audit.txt, phase_c_ai_supabase_resilience_audit_log.txt, phase_f_release_readiness_audit_log.txt.
+
+============================================================
+7) FIRST PROMPT TO RUN NEXT
+============================================================
+Prompt title: Core-flow-first consolidation kickoff (P0-1)
+
+Prompt text:
+"AUDIT-DRIVEN IMPLEMENTATION PLAN ONLY. Do not edit code yet.
+Using findings from docs/tutorial_onboarding_audit.txt, docs/chronospark_executive_app_audit_and_plan.txt, docs/onboarding_language_cleanup_report.txt, docs/flat_tutorial_cleanup_report.txt, and docs/chronospark_workflow_process_builder_audit.txt, produce a migration-safe implementation plan to unify onboarding/tutorial into one canonical first-user flow authority. Include:
+1) current state map,
+2) target state map,
+3) exact files to change in order,
+4) rollback plan,
+5) test plan focused on Login->Creator->Create->Timeline continuity.
+Do not touch auth, supabase, firebase, billing, or AI logic in this phase." 
+
+============================================================
+SOURCE COVERAGE (all docs audit/report files ingested)
+============================================================
+- docs/chronospark_ai_model_builder_audit.txt
+- docs/chronospark_animation_builder_audit.txt
+- docs/chronospark_api_connector_builder_audit.txt
+- docs/chronospark_app_form_builder_audit.txt
+- docs/chronospark_audio_builder_audit.txt
+- docs/chronospark_audited_execute_plan.txt
+- docs/chronospark_automation_builder_audit.txt
+- docs/chronospark_content_generation_builder_audit.txt
+- docs/chronospark_database_designer_audit.txt
+- docs/chronospark_data_model_domain_audit.txt
+- docs/chronospark_deployment_alm_audit.txt
+- docs/chronospark_executive_app_audit_and_plan.txt
+- docs/chronospark_experience_designer_audit.txt
+- docs/chronospark_full_testing_builder_audit.txt
+- docs/chronospark_integration_builder_audit.txt
+- docs/chronospark_logic_builder_audit.txt
+- docs/chronospark_master_audit_implementation_review.txt
+- docs/chronospark_media_pipeline_builder_audit.txt
+- docs/chronospark_page_builder_audit.txt
+- docs/chronospark_prompt_builder_audit.txt
+- docs/chronospark_security_builder_audit.txt
+- docs/chronospark_speech_system_builder_audit.txt
+- docs/chronospark_testing_builder_audit.txt
+- docs/chronospark_video_builder_audit.txt
+- docs/chronospark_visual_design_audit.txt
+- docs/chronospark_voice_builder_audit.txt
+- docs/chronospark_workflow_process_builder_audit.txt
+- docs/creator_core_audit.txt
+- docs/flat_tutorial_cleanup_report.txt
+- docs/onboarding_language_cleanup_report.txt
+- docs/PERFORMANCE_OPTIMIZATION_REPORT.md
+- docs/phase_a_runtime_install_audit_log.txt
+- docs/phase_b_crash_observability_audit_log.txt
+- docs/phase_c_ai_supabase_resilience_audit_log.txt
+- docs/phase_d_timeline_creator_continuity_audit_log.txt
+- docs/phase_e_session_health_user_flows_audit_log.txt
+- docs/phase_f_release_readiness_audit_log.txt
+- docs/protected_files_remediation_report_2026-07-31.txt
+- docs/timeline_completion_audit.txt
+- docs/tutorial_onboarding_audit.txt
+- docs/weekly_crash_triage_report_2026-07-31.txt
+- docs/weekly_voice_telemetry_report_2026-07-31.txt
+- docs/flowmaps/FLOWMAP_AUDIT.md

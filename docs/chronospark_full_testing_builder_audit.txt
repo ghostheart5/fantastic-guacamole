@@ -1,0 +1,206 @@
+CHRONOSPARK FULL TESTING BUILDER AUDIT
+Mode: Audit Only (Read-Only)
+Target: ChronoSpark Mobile App (Flutter)
+Timestamp: 2026-08-01
+
+1) Executive Verdict
+- Overall state: PARTIALLY SAFE FOR ITERATION, NOT READY FOR FULL CONFIDENCE RELEASE.
+- Strong areas: architecture/release guard coverage, auth service unit coverage, recurrence completion use case coverage, sync queue core unit coverage, strict lint/analyzer posture.
+- Critical gaps: core user journey behavior tests (Creator -> Timeline status transitions -> downstream analytics/planner effects), profile/settings/subscription end-to-end path, many feature test wrappers are meta/harness-level checks rather than behavior validations.
+
+2) Scope and Constraints
+- Reviewed folders/files: test/, integration_test/, lib/, android/, ios/, supabase/, pubspec.yaml, analysis_options.yaml, CI workflows, QA scripts/logs.
+- Audit explicitly did not modify code, tests, providers, auth, Supabase, Firebase, billing, routing, AI/SI logic, or databases.
+
+3) Test Inventory Summary
+- test/ files found: about 157 Dart test files.
+- integration_test/ files found: 1 Dart file.
+- Total observed test files: about 158.
+- Notes: a large subset are contract/release/harness tests; fewer are concrete UI behavior/integration flow tests.
+
+4) Test Inventory by Major Area
+- test/behavior: high count; mostly contract/flow assertions against source wiring and expected semantics.
+- test/release and test/release_guards: strong count; protects build hygiene, source integrity, and regressions in key labels/contracts.
+- test/features/*: many files use shared feature harness wrappers.
+- test/unit: small count but includes high-value recurrence completion logic.
+- test/data/sync and test/data/storage: concrete local data/sync behavior checks.
+- integration_test: single human-like smoke scenario file.
+
+5) Integration Test Status
+- integration_test/human_like_smoke_test.dart is present and real.
+- Covers app launch stability, basic navigation, goal creation UI path, and settings persistence checks.
+- Limitation: one file cannot cover broad end-to-end journey depth across all key flows.
+
+6) Placeholder and Meta-Test Findings
+- Many files under test/features/* call defineFeatureUnitTests() and defineFeatureIntegrationTests().
+- These are wrapper/meta checks driven by feature_test_harness logic.
+- Harness verifies source presence, non-placeholder markers, uniqueness, and no bad imports; it does not deeply execute user behavior.
+
+7) Feature Harness Risk
+- Risk: false confidence. Feature appears "covered" because structure exists, but business behavior can still regress.
+- Conclusion: treat harness-based coverage as structural contract coverage, not user-flow validation.
+
+8) Concrete Coverage: Auth
+- Strong evidence in test/features/auth/supabase_auth_service_test.dart and behavior auth contracts.
+- Includes sign-up/sign-in/session/verification style paths and error handling surfaces.
+- Residual gap: broad multi-provider auth UX paths and full profile bootstrap path still need richer end-to-end validation.
+
+9) Concrete Coverage: Creator Flow
+- Existing creator tests are mostly contract/wiring and limited widget-level checks.
+- Missing depth: true form completion for task/routine/goal/note creation with field validation and schedule variants.
+
+10) Concrete Coverage: Timeline Flow
+- Timeline contract/release tests assert semantics and wiring references.
+- Missing depth: explicit behavior tests for status transitions (Completed, Not Completed, Skipped, Rescheduled) from UI action to persisted state.
+
+11) Concrete Coverage: Completion Logic
+- test/unit/complete_task_usecase_test.dart provides meaningful recurrence behavior coverage.
+- Daily/weekly/monthly recurrence and timing behavior have concrete test evidence.
+- This is a high-value tested core domain use case.
+
+12) Concrete Coverage: Settings and Profile
+- Persistence/contract checks exist.
+- Missing depth: full Profile -> Settings -> Subscription user path with role/plan-state changes and restoration scenarios.
+
+13) Concrete Coverage: Onboarding and Tutorial
+- Tutorial progress and target registry behavior tests exist and are useful.
+- Gaps remain in long-session state transitions across app restarts and cross-feature onboarding interactions.
+
+14) Concrete Coverage: Monetization and Subscription
+- Unit/connector/contract tests exist for adapters/verification paths.
+- Missing depth: real purchase lifecycle flow behavior (pending, success, restore, entitlement update, plan transition) under app-level navigation.
+
+15) Concrete Coverage: AI and SI Console
+- Contract/release checks exist for wiring/prompt structure and safety markers.
+- Missing depth: response quality regression suites, intent robustness, and adversarial prompt safety scenarios under realistic user sequences.
+
+16) Concrete Coverage: Sync, Storage, and Supabase
+- Local sync queue/runner and dispatcher tests are present.
+- Storage and auth service tests exist.
+- Supabase roundtrip integration validation test exists but is opt-in and skipped unless runtime defines are set.
+
+17) Concrete Coverage: Notifications, Audio, Speech
+- Release contract checks exist to ensure boundaries and source assumptions.
+- Missing depth: runtime scheduling, delivery, playback, interruption, and recovery behavior tests.
+
+18) Required Core Journey Coverage Map
+Intended journey:
+Login -> Creator -> Create Task/Routine/Goal/Note -> schedule/frequency -> Timeline -> statuses -> downstream systems -> Profile -> Settings -> Subscriptions
+- Currently complete: NO
+- Currently partially covered: YES (distributed contracts and isolated behavior slices)
+- Critical missing joined-flow tests: YES
+
+19) Missing Flow: Create Task with Frequency Variants
+- Need explicit behavior tests for one-time, daily, weekly, monthly (and any cron-like mode if supported in app).
+- Current recurrence completion tests do not replace create-form + persistence + render validations.
+
+20) Missing Flow: Create Routine / Goal / Note
+- Contract checks indicate source/wiring exists.
+- Missing true create-flow behavior tests per type with validation, save, and timeline visibility assertions.
+
+21) Missing Flow: Timeline Status Transition Matrix
+- Completed: partially covered via domain/usecase and contracts.
+- Not Completed: mostly semantics/contracts, limited behavior proof.
+- Skipped: insufficient explicit behavior tests.
+- Rescheduled: insufficient explicit behavior tests.
+
+22) Missing Flow: Create -> Timeline Integration
+- Need end-to-end behavior tests that start from creator UI action and assert timeline list/status/output impacts.
+- Existing workflow contracts are helpful but not sufficient for release confidence.
+
+23) Missing Flow: Profile -> Settings -> Subscription
+- No robust end-to-end tests found for this full path.
+- This is a release-risk path because billing/plan state and user settings are high-impact.
+
+24) CI Workflow Audit
+- .github/workflows/tests.yml present with build-critical and extended test lanes.
+- release-preflight and additional release workflows present.
+- Good pipeline scaffolding exists; quality of executed assertions is the limiting factor, not pipeline presence.
+
+25) Coverage Tooling Audit
+- coverage.ps1 and tools/coverage_summary.ps1 exist.
+- Coverage reports and grouping are available.
+- Gap: coverage percentage alone can overstate confidence when many tests are structural/harness-driven.
+
+26) Lint and Static Analysis Posture
+- analysis_options.yaml is strict (casts/inference/raw types and lint rules).
+- This is a strong correctness baseline for code quality.
+- Static quality is strong, but runtime behavior confidence still depends on richer flow tests.
+
+27) Mobile Platform Readiness Signals
+- android/ and ios/ trees include testing/build-related assets and runner configs.
+- iOS runner tests are present in ios/RunnerTests.
+- Platform folders exist and look prepared structurally; functional confidence still tied to app-level behavior suite depth.
+
+28) Monkey/Stress/Robot Evidence
+- Monkey-related logs/artifacts/scripts are present (including monkey_log and artifacts logs).
+- Robot test files exist (including test/robot/smoke.robot and feature robot files).
+- Limitation: many robot/monkey artifacts are evidence of runs/logging, not deterministic assertions tied to pass/fail product criteria.
+
+29) Regression Risk Register (Severity-Ordered)
+- CRITICAL: Creator-to-Timeline core journey missing deep behavior test matrix.
+- CRITICAL: Many feature tests are harness/meta style; low behavioral assurance despite high file count.
+- HIGH: Timeline status transitions (Skipped/Rescheduled/Not Completed) insufficiently behavior-tested.
+- HIGH: Profile -> Settings -> Subscription journey lacks end-to-end tests.
+- HIGH: Monetization lifecycle and entitlement transitions not deeply tested in app flow context.
+- HIGH: AI/SI runtime behavior robustness not deeply validated with adversarial scenarios.
+- MEDIUM: Notification/audio/speech runtime lifecycle behavior gaps.
+- MEDIUM: Supabase live roundtrip validation is opt-in, not always-on CI guard.
+
+30) Safe Test-Build Order (Do Next Without Breaking App)
+- Phase 1: Add high-value golden-path integration tests for core journey slices:
+  - Login -> Create Task(one-time) -> Timeline -> Complete.
+  - Login -> Create Goal -> Timeline visibility.
+  - Login -> Create Note/Routine -> Timeline visibility.
+- Phase 2: Add status transition behavior matrix tests:
+  - Complete, Not Completed, Skipped, Rescheduled (with persistence + UI verification).
+- Phase 3: Add frequency and schedule permutations:
+  - Daily/Weekly/Monthly create/save/render/next-occurrence checks from UI level.
+- Phase 4: Add Profile -> Settings -> Subscription end-to-end tests.
+- Phase 5: Expand resilience tests (offline/online sync edges, app resume, retries).
+- Phase 6: Add deterministic monkey/chaos acceptance criteria wrappers around logs.
+
+31) Recommended Test Architecture Strategy
+- Keep existing contract/release tests as fast guard rails.
+- Add behavior-first test layers for product-critical user journeys.
+- Separate test labels/lanes:
+  - fast-contract
+  - widget-behavior
+  - integration-critical
+  - optional-live-cloud
+- Promote critical integration lanes to blocking once stable.
+
+32) Final Readiness Score and Exit Criteria
+- Current confidence score for full intended mobile flow: 5.5/10.
+- Confidence for structural correctness and guard rails: 8/10.
+- Confidence for end-user behavioral correctness across full intended flow: 4.5/10.
+- Release-readiness for broad production confidence: NOT YET.
+- Exit criteria to reach release confidence:
+  - Complete creator->timeline status behavior matrix tests.
+  - Complete profile/settings/subscription end-to-end tests.
+  - Convert key harness-only feature areas into concrete behavior tests.
+  - Keep CI lanes green with newly promoted critical tests.
+
+Appendix A: Key Evidence Files Sample
+- test/features/_support/feature_test_harness.dart
+- integration_test/human_like_smoke_test.dart
+- test/unit/complete_task_usecase_test.dart
+- test/features/auth/supabase_auth_service_test.dart
+- test/integration/supabase_roundtrip_validation_test.dart
+- test/behavior/creator_flow_contract_test.dart
+- test/behavior/timeline_flow_contract_test.dart
+- test/behavior/auth_behavior_contract_test.dart
+- test/behavior/workflow_chain_contract_test.dart
+- test/release/release_readiness_contract_test.dart
+- .github/workflows/tests.yml
+- .github/workflows/release-preflight.yml
+- coverage.ps1
+- tools/coverage_summary.ps1
+- analysis_options.yaml
+- pubspec.yaml
+- test/robot/smoke.robot
+- monkey_log.txt
+
+Appendix B: Audit Notes
+- This report intentionally distinguishes structural contract coverage from concrete product behavior coverage.
+- High test count does not equal high journey confidence when many tests validate wiring rather than user outcomes.

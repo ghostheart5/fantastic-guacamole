@@ -1,15 +1,17 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/settings_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_settings_repository.dart';
 
 class SettingsRepository implements ISettingsRepository {
-  SettingsRepository(this._store);
+  SettingsRepository(this._store, {this._syncDispatcher});
 
   static const String _settingsKey = 'settings_entity_v1';
   final SharedPrefsStore _store;
+  final SyncMutationDispatcher? _syncDispatcher;
 
   @override
   Future<SettingsEntity?> getSettings() async {
@@ -39,8 +41,8 @@ class SettingsRepository implements ISettingsRepository {
   }
 
   @override
-  Future<void> saveSettings(SettingsEntity settings) {
-    return _store.save(
+  Future<void> saveSettings(SettingsEntity settings) async {
+    await _store.save(
       _settingsKey,
       jsonEncode(<String, dynamic>{
         'soundEnabled': settings.soundEnabled,
@@ -48,6 +50,20 @@ class SettingsRepository implements ISettingsRepository {
         'themeMode': settings.themeMode,
         'onboardingComplete': settings.onboardingComplete,
       }),
+    );
+
+    await _syncDispatcher?.enqueueUpsert(
+      tableName: 'settings',
+      recordId: 'default',
+      payload: <String, dynamic>{
+        'id': 'default',
+        'sound_enabled': settings.soundEnabled,
+        'notifications_enabled': settings.notificationsEnabled,
+        'theme_mode': settings.themeMode,
+        'onboarding_complete': settings.onboardingComplete,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+        'deleted_at': null,
+      },
     );
   }
 }

@@ -20,12 +20,12 @@ import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
-  show
-    advancedAudioProfileEnabledProvider,
-    soundEnabledProvider,
-    timelineFirstActionCompletedProvider,
-    timelineFirstActionCompletedStorageKey,
-    timelineFirstActionCompletedStorageKeyForUser;
+    show
+        advancedAudioProfileEnabledProvider,
+        soundEnabledProvider,
+        timelineFirstActionCompletedProvider,
+        timelineFirstActionCompletedStorageKey,
+        timelineFirstActionCompletedStorageKeyForUser;
 import 'package:fantastic_guacamole/state/models/session_score_view.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
@@ -377,12 +377,14 @@ class TaskActions {
     final bool isNotCompleted = normalizedDelayReason == 'not_completed';
     final bool isOverdue = normalizedDelayReason == 'overdue';
     final String logSource = isNotCompleted
-      ? 'task_not_completed'
-      : 'task_delayed';
-    final String eventTitle = isNotCompleted ? 'Task Not Completed' : 'Task Delayed';
+        ? 'task_not_completed'
+        : 'task_delayed';
+    final String eventTitle = isNotCompleted
+        ? 'Task Not Completed'
+        : 'Task Delayed';
     final String eventDetail = isNotCompleted
-      ? '${delayed.title} marked not completed and moved to ${nextSchedule.toLocal().toIso8601String()}.'
-      : '${delayed.title} delayed until ${nextSchedule.toLocal().toIso8601String()}.';
+        ? '${delayed.title} marked not completed and moved to ${nextSchedule.toLocal().toIso8601String()}.'
+        : '${delayed.title} delayed until ${nextSchedule.toLocal().toIso8601String()}.';
     final String lifecycleAction = isNotCompleted ? 'not_completed' : 'delayed';
 
     if (_shouldSuppressTimelineDuplicate(
@@ -396,15 +398,15 @@ class TaskActions {
     await _ref.read(updateTaskUseCaseProvider).call(delayed);
     await _ref
         .read(logsActionsProvider)
-      .addMirroredEntry(source: logSource, message: delayed.title);
+        .addMirroredEntry(source: logSource, message: delayed.title);
     await _ref
         .read(timelineActionsProvider)
         .addMirroredEvent(
           TimelineEventEntity(
             id: 'timeline-task-delayed-${now.microsecondsSinceEpoch}',
             type: TimelineEventType.reflection,
-        title: eventTitle,
-        detail: eventDetail,
+            title: eventTitle,
+            detail: eventDetail,
             timestamp: now,
           ),
         );
@@ -438,9 +440,7 @@ class TaskActions {
     await _bestEffort(
       () => _ref
           .read(localMetricsAccumulatorProvider)
-          .recordAutomationCheckpoint(
-            'task_${lifecycleAction}_event_emitted',
-          ),
+          .recordAutomationCheckpoint('task_${lifecycleAction}_event_emitted'),
     );
     _invalidateTaskGraph(includeDecision: true);
   }
@@ -486,7 +486,11 @@ class TaskActions {
           ),
     );
 
-    _emitTaskLifecycle(taskId: updated.id, title: updated.title, action: 'updated');
+    _emitTaskLifecycle(
+      taskId: updated.id,
+      title: updated.title,
+      action: 'updated',
+    );
     await _bestEffort(
       () => _ref
           .read(localMetricsAccumulatorProvider)
@@ -727,8 +731,7 @@ class TaskActions {
       return;
     }
     final CompletionEventEntity event = CompletionEventEntity(
-      id:
-          'completion-${DateTime.now().microsecondsSinceEpoch}-${task.id}-${eventType.name}',
+      id: 'completion-${DateTime.now().microsecondsSinceEpoch}-${task.id}-${eventType.name}',
       eventType: eventType,
       eventAt: DateTime.now().toUtc(),
       taskId: task.id,
@@ -758,8 +761,7 @@ class TaskActions {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       final String? userId = sb.Supabase.instance.client.auth.currentUser?.id;
-      final String key =
-          (userId == null || userId.trim().isEmpty)
+      final String key = (userId == null || userId.trim().isEmpty)
           ? timelineFirstActionCompletedStorageKey
           : timelineFirstActionCompletedStorageKeyForUser(userId.trim());
       await prefs.setBool(key, true);

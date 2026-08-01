@@ -126,7 +126,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final bool goalDrift =
       goals.isNotEmpty && trajectory.behaviorDivergence >= 40;
 
-    final bool taskAvoidance =
+  final bool taskAvoidance =
       execution.skippedToday >= 2 ||
       (execution.skippedToday + execution.delayedToday) >= 3;
 
@@ -426,7 +426,8 @@ String buildIntegrationSurfaceSnapshot(AppIntegrationSnapshot snapshot) {
   final String syncTag = snapshot.syncErrorMessage == null
       ? 'SYNC OK'
       : 'SYNC WARN';
-  final String stackTag = snapshot.monetizationStatus.stackType.name.toUpperCase();
+  final String stackTag = snapshot.monetizationStatus.stackType.name
+      .toUpperCase();
 
   return '$userTag · SUPABASE ${snapshot.supabaseHealth.badgeLabel.toUpperCase()} · $syncTag · Q ${snapshot.offlineQueueCount} · MONO $stackTag';
 }

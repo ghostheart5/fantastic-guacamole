@@ -1549,4 +1549,3 @@ class _MemoryPatternsPanel extends StatelessWidget {
     );
   }
 }
-

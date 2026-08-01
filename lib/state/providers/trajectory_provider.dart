@@ -26,22 +26,22 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final int lastSessionXp = lastScore?.xp ?? 0;
   final double lastSessionQuality = lastScore?.quality ?? 0.0;
 
-    final int deferralsToday = execution.skippedToday + execution.delayedToday;
-    final int pressureIndex =
+  final int deferralsToday = execution.skippedToday + execution.delayedToday;
+  final int pressureIndex =
       ((pendingTasks * 16) +
-          ((1 - energy) * 32) +
-          ((1 - learningMetrics.momentum) * 18) +
-          (deferralsToday * 6))
+              ((1 - energy) * 32) +
+              ((1 - learningMetrics.momentum) * 18) +
+              (deferralsToday * 6))
           .clamp(0.0, 100.0)
           .round();
 
-    final int behaviorDivergence =
+  final int behaviorDivergence =
       ((learningMetrics.completionRate - learningMetrics.momentum).abs() * 100 +
-          ((1 - execution.completionStability7d) * 20))
+              ((1 - execution.completionStability7d) * 20))
           .clamp(0.0, 100.0)
           .round();
 
-    final String alert = pressureIndex >= 70
+  final String alert = pressureIndex >= 70
       ? 'SI ALERT: load is high, reduce task density and clear deferrals.'
       : pressureIndex >= 40
       ? 'SI ALERT: trajectory is stable but watch drift and delayed items.'

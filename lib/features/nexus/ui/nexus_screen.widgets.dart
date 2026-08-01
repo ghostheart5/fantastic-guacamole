@@ -573,11 +573,11 @@ class _NexusBridgeCard extends StatelessWidget {
         : 'YOUR PROFILE';
 
     final String greeting = !profileReady
-      ? 'Profile setup in progress. Complete setup to sync everything.'
+        ? 'Profile setup in progress. Complete setup to sync everything.'
         : energy >= 0.65
-      ? 'Great energy. Pick one high-impact action.'
+        ? 'Great energy. Pick one high-impact action.'
         : energy >= 0.4
-      ? 'You are in a steady zone. Take one clear next step.'
+        ? 'You are in a steady zone. Take one clear next step.'
         : 'Energy is low. Start with one small win to rebuild momentum.';
 
     return Container(
@@ -1312,4 +1312,3 @@ class _ActionGrid extends ConsumerWidget {
     );
   }
 }
-

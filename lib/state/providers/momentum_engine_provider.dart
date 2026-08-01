@@ -70,7 +70,7 @@ final momentumEngineProvider = Provider<MomentumEngineState>((ref) {
               completionBoost -
               deferralPenalty +
               executionBoost +
-                routineBoost +
+              routineBoost +
               consistencyBonus -
               pressurePenalty)
           .clamp(0, 100);

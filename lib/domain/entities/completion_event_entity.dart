@@ -44,7 +44,8 @@ class CompletionEventEntity {
         (CompletionEventType value) => value.name == json['eventType'],
         orElse: () => CompletionEventType.completed,
       ),
-      eventAt: DateTime.tryParse(json['eventAt']?.toString() ?? '') ??
+      eventAt:
+          DateTime.tryParse(json['eventAt']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
       taskId: json['taskId']?.toString(),
       userId: json['userId']?.toString(),

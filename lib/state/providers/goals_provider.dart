@@ -1754,7 +1754,9 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     );
 
     if (action == _GoalAction.created) {
-      await _bestEffort(() => ref.read(timelineActionsProvider).connectGoal(goal));
+      await _bestEffort(
+        () => ref.read(timelineActionsProvider).connectGoal(goal),
+      );
     } else {
       await _bestEffort(
         () => ref

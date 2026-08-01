@@ -74,7 +74,7 @@ class TutorialContent {
     ),
     TutorialStepContent(
       id: 'trajectory_overview',
-        title: 'FORECAST',
+      title: 'FORECAST',
       description:
           'Read your forecast, choose one action, then branch in Flowmap if you need another path.',
       ctaLabel: 'Open Trajectory',
@@ -105,7 +105,7 @@ class TutorialContent {
       title: 'SI Console',
       description:
           'Use SI Console for deeper planning questions and clearer system guidance.',
-        ctaLabel: 'Open Console',
+      ctaLabel: 'Open Console',
     ),
     TutorialStepContent(
       id: 'progression_overview',
@@ -209,9 +209,9 @@ class TutorialContent {
         'Scan ENERGY and CLARITY first, then choose one concrete next action.',
 
     'smart_coach':
-      'Ask one focused question, then one follow-up question for better precision.',
+        'Ask one focused question, then one follow-up question for better precision.',
     'coach_quick_prompt':
-      'Ask one focused question, then one follow-up question for better precision.',
+        'Ask one focused question, then one follow-up question for better precision.',
 
     'settings_reflection':
         'Set a reflection reminder at a time you can realistically keep daily.',
@@ -228,9 +228,9 @@ class TutorialContent {
         'Read prediction first, then choose one action and open Flowmap if you need branching.',
 
     'creator':
-      'Use Creator when you need direct manual control over tasks, goals, routines, and notes.',
+        'Use Creator when you need direct manual control over tasks, goals, routines, and notes.',
     'creator_workbench':
-      'Use Creator when you need direct manual control over tasks, goals, routines, and notes.',
+        'Use Creator when you need direct manual control over tasks, goals, routines, and notes.',
 
     'logs':
         'Review completed actions first, then inspect recurring patterns before changing strategy.',
@@ -271,9 +271,9 @@ class TutorialContent {
         'Store high-signal memories with enough detail for stronger future coaching context.',
 
     'soul_map':
-      'Use Timeline regularly to review history, detect drift, and course-correct execution.',
+        'Use Timeline regularly to review history, detect drift, and course-correct execution.',
     'soul_map_overview':
-      'Use Timeline regularly to review history, detect drift, and course-correct execution.',
+        'Use Timeline regularly to review history, detect drift, and course-correct execution.',
 
     'timeline':
         'Scan timeline causality before changing direction so course correction is intentional.',

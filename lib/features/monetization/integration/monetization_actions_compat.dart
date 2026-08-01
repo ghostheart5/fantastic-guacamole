@@ -8,11 +8,11 @@ import 'package:fantastic_guacamole/features/monetization/domain/monetization_ca
 import 'package:fantastic_guacamole/features/monetization/models/ai_credit_package.dart'
     as legacy_models;
 import 'package:fantastic_guacamole/features/monetization/models/ai_credit_wallet.dart'
-  as legacy_models;
+    as legacy_models;
 import 'package:fantastic_guacamole/features/monetization/models/subscription_plan.dart'
     as legacy_models;
 import 'package:fantastic_guacamole/features/monetization/models/subscription_status.dart'
-  as legacy_models;
+    as legacy_models;
 import 'package:fantastic_guacamole/features/monetization/services/monetization_connector_actions.dart'
     as legacy_actions;
 
@@ -106,8 +106,8 @@ class FeatureMonetizationActionsCompat implements MonetizationActionsCompat {
 
   @override
   Future<List<MonetizationCreditOption>> fetchCreditOptions() async {
-    final List<feature_models.AiCreditPackage> packs =
-        await _actions.fetchCreditPackages();
+    final List<feature_models.AiCreditPackage> packs = await _actions
+        .fetchCreditPackages();
     return packs
         .map(
           (feature_models.AiCreditPackage pack) => MonetizationCreditOption(
@@ -123,8 +123,8 @@ class FeatureMonetizationActionsCompat implements MonetizationActionsCompat {
 
   @override
   Future<List<MonetizationPlanOption>> fetchPlanOptions() async {
-    final List<feature_models.SubscriptionPlan> plans =
-        await _actions.fetchPlans();
+    final List<feature_models.SubscriptionPlan> plans = await _actions
+        .fetchPlans();
     return plans
         .map(
           (feature_models.SubscriptionPlan plan) => MonetizationPlanOption(
@@ -139,10 +139,10 @@ class FeatureMonetizationActionsCompat implements MonetizationActionsCompat {
 
   @override
   Future<MonetizationStatusSnapshot> fetchStatus() async {
-    final feature_models.UserSubscription? subscription =
-        await _actions.fetchSubscriptionStatus();
-    final feature_models.PremiumEntitlement entitlement =
-        await _actions.fetchPremiumEntitlement();
+    final feature_models.UserSubscription? subscription = await _actions
+        .fetchSubscriptionStatus();
+    final feature_models.PremiumEntitlement entitlement = await _actions
+        .fetchPremiumEntitlement();
     final feature_models.AiCreditWallet? wallet = await _actions.fetchWallet();
     return MonetizationStatusSnapshot(
       planId: subscription?.planId ?? entitlement.planId,
@@ -157,10 +157,12 @@ class FeatureMonetizationActionsCompat implements MonetizationActionsCompat {
   Future<MonetizationPurchaseOutcome> purchaseCreditsByProductId(
     String productId,
   ) async {
-    final List<feature_models.AiCreditPackage> packs =
-        await _actions.fetchCreditPackages();
+    final List<feature_models.AiCreditPackage> packs = await _actions
+        .fetchCreditPackages();
     final feature_models.AiCreditPackage? target = packs
-        .where((feature_models.AiCreditPackage item) => item.productId == productId)
+        .where(
+          (feature_models.AiCreditPackage item) => item.productId == productId,
+        )
         .cast<feature_models.AiCreditPackage?>()
         .firstWhere(
           (feature_models.AiCreditPackage? item) => item != null,
@@ -173,8 +175,7 @@ class FeatureMonetizationActionsCompat implements MonetizationActionsCompat {
         message: 'Credit pack was not found for product id: $productId',
       );
     }
-    final PurchaseResult result =
-        await _actions.purchaseCredits(target);
+    final PurchaseResult result = await _actions.purchaseCredits(target);
     return MonetizationPurchaseOutcome(
       success: result.success,
       productId: result.productId,
@@ -186,10 +187,12 @@ class FeatureMonetizationActionsCompat implements MonetizationActionsCompat {
   Future<MonetizationPurchaseOutcome> purchaseSubscriptionByProductId(
     String productId,
   ) async {
-    final List<feature_models.SubscriptionPlan> plans =
-        await _actions.fetchPlans();
+    final List<feature_models.SubscriptionPlan> plans = await _actions
+        .fetchPlans();
     final feature_models.SubscriptionPlan? target = plans
-        .where((feature_models.SubscriptionPlan item) => item.productId == productId)
+        .where(
+          (feature_models.SubscriptionPlan item) => item.productId == productId,
+        )
         .cast<feature_models.SubscriptionPlan?>()
         .firstWhere(
           (feature_models.SubscriptionPlan? item) => item != null,
@@ -202,8 +205,7 @@ class FeatureMonetizationActionsCompat implements MonetizationActionsCompat {
         message: 'Subscription plan was not found for product id: $productId',
       );
     }
-    final PurchaseResult result =
-        await _actions.purchaseSubscription(target);
+    final PurchaseResult result = await _actions.purchaseSubscription(target);
     return MonetizationPurchaseOutcome(
       success: result.success,
       productId: result.productId,
@@ -262,8 +264,8 @@ class LegacyMonetizationActionsCompat implements MonetizationActionsCompat {
 
   @override
   Future<MonetizationStatusSnapshot> fetchStatus() async {
-    final legacy_models.SubscriptionStatus status =
-        await _actions.fetchSubscriptionStatus();
+    final legacy_models.SubscriptionStatus status = await _actions
+        .fetchSubscriptionStatus();
     final legacy_models.AiCreditWallet wallet = await _actions.fetchWallet();
     return MonetizationStatusSnapshot(
       planId: status.planId,
@@ -280,7 +282,9 @@ class LegacyMonetizationActionsCompat implements MonetizationActionsCompat {
   ) async {
     final legacy_models.AiCreditPackage? target = MonetizationCatalog
         .creditPackages
-        .where((legacy_models.AiCreditPackage item) => item.productId == productId)
+        .where(
+          (legacy_models.AiCreditPackage item) => item.productId == productId,
+        )
         .cast<legacy_models.AiCreditPackage?>()
         .firstWhere(
           (legacy_models.AiCreditPackage? item) => item != null,
@@ -293,8 +297,9 @@ class LegacyMonetizationActionsCompat implements MonetizationActionsCompat {
         message: 'Credit pack was not found for product id: $productId',
       );
     }
-    final PurchaseOperationResult result =
-        await _actions.purchaseCreditsById(target);
+    final PurchaseOperationResult result = await _actions.purchaseCreditsById(
+      target,
+    );
     return MonetizationPurchaseOutcome(
       success: result.success,
       productId: result.productId,
@@ -307,7 +312,9 @@ class LegacyMonetizationActionsCompat implements MonetizationActionsCompat {
     String productId,
   ) async {
     final legacy_models.SubscriptionPlan? target = MonetizationCatalog.plans
-        .where((legacy_models.SubscriptionPlan item) => item.productId == productId)
+        .where(
+          (legacy_models.SubscriptionPlan item) => item.productId == productId,
+        )
         .cast<legacy_models.SubscriptionPlan?>()
         .firstWhere(
           (legacy_models.SubscriptionPlan? item) => item != null,
@@ -320,8 +327,9 @@ class LegacyMonetizationActionsCompat implements MonetizationActionsCompat {
         message: 'Subscription plan was not found for product id: $productId',
       );
     }
-    final PurchaseOperationResult result =
-        await _actions.purchasePlanById(target);
+    final PurchaseOperationResult result = await _actions.purchasePlanById(
+      target,
+    );
     return MonetizationPurchaseOutcome(
       success: result.success,
       productId: result.productId,

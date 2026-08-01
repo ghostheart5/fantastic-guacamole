@@ -15,7 +15,7 @@ import 'package:fantastic_guacamole/features/monetization/services/credit_servic
     as monetization;
 import 'package:fantastic_guacamole/features/monetization/services/entitlement_service.dart';
 import 'package:fantastic_guacamole/features/monetization/services/monetization_connector_actions.dart'
-  as legacy_connector;
+    as legacy_connector;
 import 'package:fantastic_guacamole/features/monetization/services/paywall_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -138,7 +138,9 @@ final creditHistoryProvider =
 final entitlementEventsProvider = FutureProvider<List<EntitlementEvent>>((
   Ref ref,
 ) {
-  return ref.read(monetizationConnectorActionsProvider).fetchEntitlementEvents();
+  return ref
+      .read(monetizationConnectorActionsProvider)
+      .fetchEntitlementEvents();
 });
 
 final paywallProvider = FutureProvider<PaywallContent>((Ref ref) async {
@@ -195,8 +197,8 @@ class PurchaseController extends Notifier<PurchaseControllerState> {
     final PurchaseOperationResult result = await (() async {
       try {
         return await ref
-          .read(monetizationConnectorActionsProvider)
-          .purchasePlanById(plan);
+            .read(monetizationConnectorActionsProvider)
+            .purchasePlanById(plan);
       } on Object {
         return PurchaseOperationResult(
           success: false,
@@ -217,8 +219,8 @@ class PurchaseController extends Notifier<PurchaseControllerState> {
     final PurchaseOperationResult result = await (() async {
       try {
         return await ref
-          .read(monetizationConnectorActionsProvider)
-          .purchaseCreditsById(pack);
+            .read(monetizationConnectorActionsProvider)
+            .purchaseCreditsById(pack);
       } on Object {
         return PurchaseOperationResult(
           success: false,

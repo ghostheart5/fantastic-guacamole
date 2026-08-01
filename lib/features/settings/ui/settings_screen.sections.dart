@@ -304,9 +304,7 @@ class _Section extends StatelessWidget {
         .where((String word) => word.isNotEmpty)
         .toList(growable: false);
     return words
-        .map(
-          (String word) => '${word[0].toUpperCase()}${word.substring(1)}',
-        )
+        .map((String word) => '${word[0].toUpperCase()}${word.substring(1)}')
         .join(' ');
   }
 
@@ -521,35 +519,33 @@ class _MotionProfileTile extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: MotionProfile.values.map((MotionProfile profile) {
-              final bool selected = value == profile;
-              return ChoiceChip(
-                label: Text(labelFor(profile)),
-                selected: selected,
-                onSelected: (_) => onChanged(profile),
-                selectedColor: AppColors.neonCyan.withValues(alpha: 0.16),
-                backgroundColor: Colors.white.withValues(alpha: 0.04),
-                side: BorderSide(
-                  color: selected
-                      ? AppColors.neonCyan.withValues(alpha: 0.55)
-                      : Colors.white.withValues(alpha: 0.16),
-                ),
-                labelStyle: TextStyle(
-                  color: selected ? AppColors.neonCyan : Colors.white60,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              );
-            }).toList(growable: false),
+            children: MotionProfile.values
+                .map((MotionProfile profile) {
+                  final bool selected = value == profile;
+                  return ChoiceChip(
+                    label: Text(labelFor(profile)),
+                    selected: selected,
+                    onSelected: (_) => onChanged(profile),
+                    selectedColor: AppColors.neonCyan.withValues(alpha: 0.16),
+                    backgroundColor: Colors.white.withValues(alpha: 0.04),
+                    side: BorderSide(
+                      color: selected
+                          ? AppColors.neonCyan.withValues(alpha: 0.55)
+                          : Colors.white.withValues(alpha: 0.16),
+                    ),
+                    labelStyle: TextStyle(
+                      color: selected ? AppColors.neonCyan : Colors.white60,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  );
+                })
+                .toList(growable: false),
           ),
           const SizedBox(height: 4),
           const Text(
             'Calm reduces motion intensity. Expressive increases visual emphasis.',
-            style: TextStyle(
-              color: Colors.white38,
-              fontSize: 11,
-              height: 1.35,
-            ),
+            style: TextStyle(color: Colors.white38, fontSize: 11, height: 1.35),
           ),
         ],
       ),

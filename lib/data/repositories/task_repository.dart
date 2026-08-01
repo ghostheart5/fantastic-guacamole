@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/task_entity_mapper.dart';
+import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/models/paged_result.dart';
@@ -11,9 +12,10 @@ import 'package:fantastic_guacamole/domain/models/paged_result.dart';
 /// ChronoSpark TaskRepository
 /// Implements ITaskRepository using `HiveStorage<String>` (JSON-serialised TaskEntity).
 class TaskRepository implements ITaskRepository {
-  TaskRepository({required this._storage});
+  TaskRepository({required this._storage, this._syncDispatcher});
 
   final HiveStorage<String> _storage;
+  final SyncMutationDispatcher? _syncDispatcher;
 
   // ------------------------------------------------------------------
   // ITaskRepository
@@ -61,6 +63,11 @@ class TaskRepository implements ITaskRepository {
   Future<void> saveTask(TaskEntity task) async {
     try {
       await _storage.put(task.id, jsonEncode(TaskEntityMapper.toJson(task)));
+      await _syncDispatcher?.enqueueUpsert(
+        tableName: 'tasks',
+        recordId: task.id,
+        payload: _taskSyncPayload(task),
+      );
     } catch (e) {
       throw StorageException('Failed to save task ${task.id}: $e');
     }
@@ -70,9 +77,17 @@ class TaskRepository implements ITaskRepository {
   Future<void> deleteTask(String id) async {
     try {
       await _storage.delete(id);
+      await _syncDispatcher?.enqueueDelete(tableName: 'tasks', recordId: id);
     } catch (e) {
       throw StorageException('Failed to delete task $id: $e');
     }
+  }
+
+  Map<String, dynamic> _taskSyncPayload(TaskEntity task) {
+    final Map<String, dynamic> payload = TaskEntityMapper.toJson(task);
+    payload['updated_at'] = DateTime.now().toUtc().toIso8601String();
+    payload['deleted_at'] = null;
+    return payload;
   }
 
   Future<List<TaskEntity>> _loadSortedTasks() async {

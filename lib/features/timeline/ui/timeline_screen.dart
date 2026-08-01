@@ -119,7 +119,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       timelineFirstActionCompletedProvider,
     );
     final bool showFirstActionUnlockBanner =
-      hasCreatedFirstItem && !hasCompletedTimelineFirstAction;
+        hasCreatedFirstItem && !hasCompletedTimelineFirstAction;
     final DateTime now = DateTime.now();
 
     final List<TimelineEventEntity> projected = _buildProjectedEvents(
@@ -377,7 +377,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   hasScrollBody: false,
                   child: Center(
                     child: Text(
-                        'No items match this view.\nTry another window, clear filters, or create something in Creator.',
+                      'No items match this view.\nTry another window, clear filters, or create something in Creator.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white38,
@@ -533,45 +533,64 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
 
   Future<void> _completeTask() async {
     final String id = event.relatedId!.trim();
-    await _runTaskAction(() {
-      return ref
-          .read(taskActionsProvider)
-          .completeTask(id, actionSource: 'timeline');
-    }, 'Marked complete.', TimelineEventStatus.completed, 'Completed');
+    await _runTaskAction(
+      () {
+        return ref
+            .read(taskActionsProvider)
+            .completeTask(id, actionSource: 'timeline');
+      },
+      'Marked complete.',
+      TimelineEventStatus.completed,
+      'Completed',
+    );
   }
 
   Future<void> _markNotCompleted() async {
     final String id = event.relatedId!.trim();
-    await _runTaskAction(() {
-      // "Not completed" keeps the item active by moving it forward.
-      return ref
-          .read(taskActionsProvider)
-          .delayTask(
-            id,
-            by: const Duration(days: 1),
-            actionSource: 'timeline',
-            delayReason: 'not_completed',
-          );
-    }, 'Marked not completed and moved to tomorrow.', TimelineEventStatus.active,
-        'Not completed');
+    await _runTaskAction(
+      () {
+        // "Not completed" keeps the item active by moving it forward.
+        return ref
+            .read(taskActionsProvider)
+            .delayTask(
+              id,
+              by: const Duration(days: 1),
+              actionSource: 'timeline',
+              delayReason: 'not_completed',
+            );
+      },
+      'Marked not completed and moved to tomorrow.',
+      TimelineEventStatus.active,
+      'Not completed',
+    );
   }
 
   Future<void> _skipTask() async {
     final String id = event.relatedId!.trim();
-    await _runTaskAction(() {
-      return ref
-          .read(taskActionsProvider)
-          .skipTask(id, actionSource: 'timeline');
-    }, 'Item skipped.', TimelineEventStatus.planned, 'Skipped');
+    await _runTaskAction(
+      () {
+        return ref
+            .read(taskActionsProvider)
+            .skipTask(id, actionSource: 'timeline');
+      },
+      'Item skipped.',
+      TimelineEventStatus.planned,
+      'Skipped',
+    );
   }
 
   Future<void> _rescheduleTask(Duration by) async {
     final String id = event.relatedId!.trim();
-    await _runTaskAction(() {
-      return ref
-          .read(taskActionsProvider)
-          .delayTask(id, by: by, actionSource: 'timeline');
-    }, 'Item rescheduled.', TimelineEventStatus.planned, 'Rescheduled');
+    await _runTaskAction(
+      () {
+        return ref
+            .read(taskActionsProvider)
+            .delayTask(id, by: by, actionSource: 'timeline');
+      },
+      'Item rescheduled.',
+      TimelineEventStatus.planned,
+      'Rescheduled',
+    );
   }
 
   Widget _buildStatusFeedback() {
@@ -868,8 +887,7 @@ class _TimelineActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final VoidCallback tapHandler =
-        enabled && onTap != null ? onTap! : () {};
+    final VoidCallback tapHandler = enabled && onTap != null ? onTap! : () {};
     return SmartPressable(
       onTap: tapHandler,
       child: AnimatedOpacity(
@@ -916,9 +934,7 @@ class _TimelineUnlockBanner extends StatelessWidget {
             AppColors.neonViolet.withValues(alpha: 0.12),
           ],
         ),
-        border: Border.all(
-          color: AppColors.neonCyan.withValues(alpha: 0.42),
-        ),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.42)),
       ),
       child: Row(
         children: [

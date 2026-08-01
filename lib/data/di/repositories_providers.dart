@@ -2,6 +2,10 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
+import 'package:fantastic_guacamole/data/remote/goals_remote_gateway.dart';
+import 'package:fantastic_guacamole/data/remote/habits_remote_gateway.dart';
+import 'package:fantastic_guacamole/data/remote/settings_remote_gateway.dart';
+import 'package:fantastic_guacamole/data/remote/tasks_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/completion_event_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
@@ -27,6 +31,8 @@ import 'package:fantastic_guacamole/data/repositories/task_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/theme_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/timeline_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/workspace_repository.dart';
+import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
+import 'package:fantastic_guacamole/data/sync/sync_queue_store.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
@@ -39,6 +45,7 @@ TaskRepository taskRepository(Ref ref) {
       HiveBoxes.tasks,
       hive: ref.read(hiveStoreProvider),
     ),
+    syncDispatcher: ref.read(syncMutationDispatcherProvider),
   );
 }
 
@@ -47,12 +54,14 @@ final taskRepositoryProvider = Provider<TaskRepository>(taskRepository);
 final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
   return GoalRepository(
     HiveStorage<String>(HiveBoxes.goals, hive: ref.read(hiveStoreProvider)),
+    syncDispatcher: ref.read(syncMutationDispatcherProvider),
   );
 });
 
 final habitRepositoryProvider = Provider<HabitRepository>((Ref ref) {
   return HabitRepository(
     HiveStorage<String>(HiveBoxes.habits, hive: ref.read(hiveStoreProvider)),
+    syncDispatcher: ref.read(syncMutationDispatcherProvider),
   );
 });
 
@@ -165,7 +174,10 @@ final profileRepositoryProvider = Provider<ProfileRepository>((Ref ref) {
 });
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((Ref ref) {
-  return SettingsRepository(ref.read(sharedPrefsStoreProvider));
+  return SettingsRepository(
+    ref.read(sharedPrefsStoreProvider),
+    syncDispatcher: ref.read(syncMutationDispatcherProvider),
+  );
 });
 
 final themeRepositoryProvider = Provider<ThemeRepository>((Ref ref) {
@@ -186,3 +198,39 @@ final firebaseSupabaseBridgeRepositoryProvider =
         store: ref.read(secureStoreProvider),
       );
     });
+
+final syncQueueStoreProvider = Provider<SyncQueueStore>((Ref ref) {
+  return SyncQueueStore(
+    HiveStorage<String>(
+      HiveBoxes.offlineQueue,
+      hive: ref.read(hiveStoreProvider),
+    ),
+  );
+});
+
+final syncMutationDispatcherProvider = Provider<SyncMutationDispatcher>((
+  Ref ref,
+) {
+  return SyncMutationDispatcher(
+    queueStore: ref.read(syncQueueStoreProvider),
+    supabaseClient: ref.read(supabaseClientProvider),
+  );
+});
+
+final tasksRemoteGatewayProvider = Provider<TasksRemoteGateway>((Ref ref) {
+  return TasksRemoteGateway(ref.read(supabaseClientProvider));
+});
+
+final goalsRemoteGatewayProvider = Provider<GoalsRemoteGateway>((Ref ref) {
+  return GoalsRemoteGateway(ref.read(supabaseClientProvider));
+});
+
+final habitsRemoteGatewayProvider = Provider<HabitsRemoteGateway>((Ref ref) {
+  return HabitsRemoteGateway(ref.read(supabaseClientProvider));
+});
+
+final settingsRemoteGatewayProvider = Provider<SettingsRemoteGateway>((
+  Ref ref,
+) {
+  return SettingsRemoteGateway(ref.read(supabaseClientProvider));
+});

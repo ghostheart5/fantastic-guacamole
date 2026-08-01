@@ -25,12 +25,12 @@ import 'package:fantastic_guacamole/data/storage/storage_migration.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show
         OnboardingStatus,
-    creatorFirstItemCreatedProvider,
-    creatorFirstItemCreatedStorageKey,
-    creatorFirstItemCreatedStorageKeyForUser,
-  timelineFirstActionCompletedProvider,
-  timelineFirstActionCompletedStorageKey,
-  timelineFirstActionCompletedStorageKeyForUser,
+        creatorFirstItemCreatedProvider,
+        creatorFirstItemCreatedStorageKey,
+        creatorFirstItemCreatedStorageKeyForUser,
+        timelineFirstActionCompletedProvider,
+        timelineFirstActionCompletedStorageKey,
+        timelineFirstActionCompletedStorageKeyForUser,
         onboardingCompleteProvider,
         onboardingStatusProvider,
         onboardingCompleteStorageKey,
@@ -286,11 +286,11 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
 
     ref.read(onboardingCompleteProvider.notifier).set(result.hasOnboarded);
     ref
-      .read(creatorFirstItemCreatedProvider.notifier)
-      .set(result.hasCreatedFirstItem);
+        .read(creatorFirstItemCreatedProvider.notifier)
+        .set(result.hasCreatedFirstItem);
     ref
-      .read(timelineFirstActionCompletedProvider.notifier)
-      .set(result.hasCompletedTimelineFirstAction);
+        .read(timelineFirstActionCompletedProvider.notifier)
+        .set(result.hasCompletedTimelineFirstAction);
 
     final OnboardingStatus onboardingStatus = result.onboardingResolved
         ? (result.hasOnboarded
@@ -408,11 +408,11 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
 
     ref.read(onboardingCompleteProvider.notifier).set(prefsResult.hasOnboarded);
     ref
-      .read(creatorFirstItemCreatedProvider.notifier)
-      .set(prefsResult.hasCreatedFirstItem);
+        .read(creatorFirstItemCreatedProvider.notifier)
+        .set(prefsResult.hasCreatedFirstItem);
     ref
-      .read(timelineFirstActionCompletedProvider.notifier)
-      .set(prefsResult.hasCompletedTimelineFirstAction);
+        .read(timelineFirstActionCompletedProvider.notifier)
+        .set(prefsResult.hasCompletedTimelineFirstAction);
 
     final OnboardingStatus onboardingStatus = prefsResult.isResolved
         ? (prefsResult.hasOnboarded
@@ -640,7 +640,8 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   return StartupBootstrapResult(
     hasOnboarded: hasOnboarded,
     hasCreatedFirstItem: prefsResult.hasCreatedFirstItem,
-    hasCompletedTimelineFirstAction: prefsResult.hasCompletedTimelineFirstAction,
+    hasCompletedTimelineFirstAction:
+        prefsResult.hasCompletedTimelineFirstAction,
     onboardingResolved: prefsResult.isResolved,
     startupError: startupError,
   );
@@ -1190,11 +1191,11 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
 
     final String canonicalKey = _onboardingCanonicalStateKeyForUser(userId);
     final String firstItemKey = userId == null
-      ? creatorFirstItemCreatedStorageKey
-      : creatorFirstItemCreatedStorageKeyForUser(userId);
+        ? creatorFirstItemCreatedStorageKey
+        : creatorFirstItemCreatedStorageKeyForUser(userId);
     final String timelineFirstActionKey = userId == null
-      ? timelineFirstActionCompletedStorageKey
-      : timelineFirstActionCompletedStorageKeyForUser(userId);
+        ? timelineFirstActionCompletedStorageKey
+        : timelineFirstActionCompletedStorageKeyForUser(userId);
 
     int? canonicalVersion;
 

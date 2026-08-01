@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 
@@ -17,6 +18,7 @@ import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
+import 'package:fantastic_guacamole/state/providers/supabase_sync_queue_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/session_recovery_provider.dart';
@@ -228,10 +230,24 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         }
 
         if (mounted && !_disposed) {
+          _maybeAutoFlushSupabaseQueueOnResume();
           unawaited(_checkRecovery());
         }
         break;
     }
+  }
+
+  void _maybeAutoFlushSupabaseQueueOnResume() {
+    if (!Env.enableCloudSync || !Env.enableSupabaseAutoQueueFlush) {
+      return;
+    }
+
+    final supabaseClient = ref.read(supabaseClientProvider);
+    if (supabaseClient?.auth.currentUser == null) {
+      return;
+    }
+
+    ref.invalidate(flushSupabaseSyncQueueProvider);
   }
 
   Future<void> _saveCurrentState() async {
@@ -340,7 +356,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text('Finish your first setup to continue. Next: $directive.'),
+          content: Text(
+            'Finish your first setup to continue. Next: $directive.',
+          ),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
         ),

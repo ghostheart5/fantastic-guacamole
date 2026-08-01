@@ -46,8 +46,8 @@ class PaywallController extends Notifier<PaywallControllerState> {
     );
 
     final result = await ref
-      .read(monetizationConnectorActionsProvider)
-      .purchaseSubscription(plan);
+        .read(monetizationConnectorActionsProvider)
+        .purchaseSubscription(plan);
 
     state = state.copyWith(
       isBusy: false,

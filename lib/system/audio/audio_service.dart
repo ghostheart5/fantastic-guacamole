@@ -108,7 +108,9 @@ class AudioService {
     double advancedVolume = 0.24,
     bool? advancedProfileEnabled,
   }) async {
-    if (!enabled || !_soundEffectsEnabled || _unavailableAssets.contains(path)) {
+    if (!enabled ||
+        !_soundEffectsEnabled ||
+        _unavailableAssets.contains(path)) {
       return;
     }
 

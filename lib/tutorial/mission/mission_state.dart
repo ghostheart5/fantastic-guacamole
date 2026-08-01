@@ -23,10 +23,7 @@ class MissionCatalog {
 
   static const List<MissionStep> steps = <MissionStep>[
     MissionStep(id: MissionId.createFirstGoal, title: 'Open Creator'),
-    MissionStep(
-      id: MissionId.configureFirstItem,
-      title: 'Choose Frequency',
-    ),
+    MissionStep(id: MissionId.configureFirstItem, title: 'Choose Frequency'),
     MissionStep(
       id: MissionId.askSmartPlannerQuestion,
       title: 'Ask Smart Planner',

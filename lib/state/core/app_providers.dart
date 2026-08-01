@@ -16,11 +16,12 @@ const String onboardingCompleteStorageKey = 'onboarding_complete';
 const String onboardingContentVersionStorageKey = 'onboarding_content_version';
 const String onboardingStepStorageKey = 'onboarding_step_index';
 const String creatorFirstItemCreatedStorageKey =
-  'creator_first_item_created_v1';
+    'creator_first_item_created_v1';
 const String timelineFirstActionCompletedStorageKey =
     'timeline_first_action_completed_v1';
 
 enum OnboardingStatus { unknown, incomplete, complete }
+
 enum MotionProfile { calm, standard, expressive }
 
 String onboardingCompleteStorageKeyForUser(String userId) {

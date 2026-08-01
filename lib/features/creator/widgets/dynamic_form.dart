@@ -298,7 +298,7 @@ class _DynamicFormState extends State<DynamicForm> {
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 12,
-                          letterSpacing: 0.8,
+                        letterSpacing: 0.8,
                         fontWeight: FontWeight.w800,
                         color: AppColors.memoryAmber,
                       ),

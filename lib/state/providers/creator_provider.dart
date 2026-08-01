@@ -69,8 +69,8 @@ class CreatorActions {
     }
 
     await ref
-      .read(taskActionsProvider)
-      .createTask(entity, actionSource: 'creator');
+        .read(taskActionsProvider)
+        .createTask(entity, actionSource: 'creator');
     await _markFirstItemCreated();
     return CreatorSavedKind.task;
   }
@@ -86,23 +86,23 @@ class CreatorActions {
 
     switch (recurrence) {
       case RecurrenceRule.daily:
-        await ref.read(goalsProvider.notifier).addDaily(
-          title: title,
-          description: description,
-        );
+        await ref
+            .read(goalsProvider.notifier)
+            .addDaily(title: title, description: description);
         break;
       case RecurrenceRule.weekly:
-        await ref.read(goalsProvider.notifier).addWeekly(
-          title: title,
-          description: description,
-        );
+        await ref
+            .read(goalsProvider.notifier)
+            .addWeekly(title: title, description: description);
         break;
       case RecurrenceRule.none:
-        await ref.read(goalsProvider.notifier).add(
-          title: title,
-          description: description,
-          targetDate: data.scheduledFor,
-        );
+        await ref
+            .read(goalsProvider.notifier)
+            .add(
+              title: title,
+              description: description,
+              targetDate: data.scheduledFor,
+            );
         break;
     }
   }
@@ -113,8 +113,7 @@ class CreatorActions {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       final String? userId = sb.Supabase.instance.client.auth.currentUser?.id;
-      final String key =
-          (userId == null || userId.trim().isEmpty)
+      final String key = (userId == null || userId.trim().isEmpty)
           ? creatorFirstItemCreatedStorageKey
           : creatorFirstItemCreatedStorageKeyForUser(userId.trim());
       await prefs.setBool(key, true);

@@ -38,13 +38,11 @@ class SettingsScreen extends ConsumerWidget {
         .length;
     final routes = ref.watch(routeSurfaceProvider);
     final soundEnabled = ref.watch(soundEnabledProvider);
-    final advancedAudioEnabled = ref.watch(
-      advancedAudioProfileEnabledProvider,
-    );
+    final advancedAudioEnabled = ref.watch(advancedAudioProfileEnabledProvider);
     final hapticFeedbackEnabled = ref.watch(hapticFeedbackEnabledProvider);
     final motionProfile = ref.watch(motionProfileProvider);
     final bool systemReducedMotion =
-      MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final themeAsync = ref.watch(currentThemeProvider);
     final bool isDarkMode = themeAsync.asData?.value.isDark ?? true;
     final access = ref.watch(appAccessProvider);
@@ -311,9 +309,7 @@ class SettingsScreen extends ConsumerWidget {
                                     );
                                   },
                                   icon: const Icon(Icons.build_circle_outlined),
-                                  label: const Text(
-                                    'Fix notification access',
-                                  ),
+                                  label: const Text('Fix notification access'),
                                 ),
                               ),
                           ],
@@ -338,7 +334,8 @@ class SettingsScreen extends ConsumerWidget {
                     _NeonNavTile(
                       title: 'Billing Center',
                       subtitle: 'Manage your plan and renewal status.',
-                      onTap: () => context.push(RoutePaths.subscriptionManagement),
+                      onTap: () =>
+                          context.push(RoutePaths.subscriptionManagement),
                     ),
                     _NeonNavTile(
                       title: 'Credit History',
@@ -626,9 +623,7 @@ class SettingsScreen extends ConsumerWidget {
       await prefs.remove(onboardingContentVersionStorageKeyForUser(userId));
       await prefs.remove(onboardingStepStorageKeyForUser(userId));
       await prefs.remove(creatorFirstItemCreatedStorageKeyForUser(userId));
-      await prefs.remove(
-        timelineFirstActionCompletedStorageKeyForUser(userId),
-      );
+      await prefs.remove(timelineFirstActionCompletedStorageKeyForUser(userId));
     } on Object {
       // Keep settings actions non-fatal when auth runtime is unavailable.
     }

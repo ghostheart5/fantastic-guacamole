@@ -2,15 +2,17 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
+import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 
 class GoalRepository implements IGoalRepository {
-  GoalRepository(this._store);
+  GoalRepository(this._store, {this._syncDispatcher});
 
   static const String _key = 'goals_v2';
 
   final HiveStorage<String> _store;
+  final SyncMutationDispatcher? _syncDispatcher;
   bool _corruptedSnapshot = false;
   Future<void> _writeQueue = Future<void>.value();
 
@@ -54,6 +56,11 @@ class GoalRepository implements IGoalRepository {
         existing.insert(0, goal);
       }
       await _saveGoalsUnlocked(existing);
+      await _syncDispatcher?.enqueueUpsert(
+        tableName: 'goals',
+        recordId: goal.id,
+        payload: _goalSyncPayload(goal),
+      );
     });
   }
 
@@ -63,6 +70,13 @@ class GoalRepository implements IGoalRepository {
       getGoals();
       _ensureWriteAllowed();
       await _saveGoalsUnlocked(goals);
+      for (final GoalEntity goal in goals) {
+        await _syncDispatcher?.enqueueUpsert(
+          tableName: 'goals',
+          recordId: goal.id,
+          payload: _goalSyncPayload(goal),
+        );
+      }
     });
   }
 
@@ -74,6 +88,7 @@ class GoalRepository implements IGoalRepository {
           .toList(growable: false);
       _ensureWriteAllowed();
       await _saveGoalsUnlocked(next);
+      await _syncDispatcher?.enqueueDelete(tableName: 'goals', recordId: id);
     });
   }
 
@@ -96,5 +111,21 @@ class GoalRepository implements IGoalRepository {
         'Goals storage is corrupted. Repair data before writing to avoid data loss.',
       );
     }
+  }
+
+  Map<String, dynamic> _goalSyncPayload(GoalEntity goal) {
+    return <String, dynamic>{
+      'id': goal.id,
+      'title': goal.title,
+      'description': goal.description,
+      'target_date': goal.targetDate?.toIso8601String(),
+      'color_hex': goal.colorHex,
+      'status': goal.status.name,
+      'completed_at': goal.completedAt?.toIso8601String(),
+      'archived_at': goal.archivedAt?.toIso8601String(),
+      'created_at': goal.createdAt.toUtc().toIso8601String(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+      'deleted_at': null,
+    };
   }
 }

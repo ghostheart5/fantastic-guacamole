@@ -380,9 +380,7 @@ class WorkspaceStoreService {
 
   Future<SIWorkspaceState> _loadSiSeed() async {
     try {
-      final String content = await rootBundle.loadString(
-        AppAssets.dataSiSeed,
-      );
+      final String content = await rootBundle.loadString(AppAssets.dataSiSeed);
       return SIWorkspaceState.fromJson(
         jsonDecode(content) as Map<String, dynamic>,
       );

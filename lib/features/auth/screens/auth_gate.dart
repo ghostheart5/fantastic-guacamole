@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
 import 'package:fantastic_guacamole/features/auth/application/auth_providers.dart';
@@ -7,6 +8,7 @@ import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart'
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/supabase_sync_queue_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -120,6 +122,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   AuthServiceContract? _authService;
   String? _authInitError;
   bool _authReadyTimedOut = false;
+  String? _lastAutoQueueFlushUserId;
 
   @override
   void initState() {
@@ -291,11 +294,31 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 email: user.email ?? '',
               );
             }
+            _maybeAutoFlushSupabaseQueue(user);
             return widget.child;
           },
         );
       },
     );
+  }
+
+  void _maybeAutoFlushSupabaseQueue(User user) {
+    if (!Env.enableCloudSync || !Env.enableSupabaseAutoQueueFlush) {
+      return;
+    }
+
+    final String userId = user.id.trim();
+    if (userId.isEmpty || _lastAutoQueueFlushUserId == userId) {
+      return;
+    }
+
+    _lastAutoQueueFlushUserId = userId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      ref.invalidate(flushSupabaseSyncQueueProvider);
+    });
   }
 
   Future<void> _initializeAuth() async {

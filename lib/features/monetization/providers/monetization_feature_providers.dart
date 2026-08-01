@@ -83,13 +83,17 @@ final subscriptionPlansProvider = FutureProvider<List<SubscriptionPlan>>((
 final currentSubscriptionProvider = FutureProvider<UserSubscription?>((
   Ref ref,
 ) {
-  return ref.watch(monetizationConnectorActionsProvider).fetchSubscriptionStatus();
+  return ref
+      .watch(monetizationConnectorActionsProvider)
+      .fetchSubscriptionStatus();
 });
 
 final premiumEntitlementProvider = FutureProvider<PremiumEntitlement>((
   Ref ref,
 ) {
-  return ref.watch(monetizationConnectorActionsProvider).fetchPremiumEntitlement();
+  return ref
+      .watch(monetizationConnectorActionsProvider)
+      .fetchPremiumEntitlement();
 });
 
 final entitlementTierProvider = Provider<EntitlementTier>((Ref ref) {

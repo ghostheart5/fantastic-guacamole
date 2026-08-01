@@ -39,7 +39,7 @@ List<String> recentResponseSummaries({
       .map(_compactMemorySummary)
       .where((String s) => s.isNotEmpty)
       .toSet();
-    return deduped.take(_maxMemorySummaryCount).toList(growable: false);
+  return deduped.take(_maxMemorySummaryCount).toList(growable: false);
 }
 
 List<String> selectRelevantMemorySummaries({

@@ -292,10 +292,10 @@ class CoachQueryController implements SmartCoachInterface {
     );
     final bool aiStructured = _isStructuredCoachResponse(generated);
     final bool usedFallback =
-      !(generated.isNotEmpty && !aiFallbackDetected && aiStructured);
+        !(generated.isNotEmpty && !aiFallbackDetected && aiStructured);
     final String message = usedFallback
-      ? _buildCoachingMessage(energy, emotion, notes)
-      : generated;
+        ? _buildCoachingMessage(energy, emotion, notes)
+        : generated;
 
     await _persistConversationTurn(
       role: 'user',
@@ -523,10 +523,10 @@ class CoachQueryController implements SmartCoachInterface {
     );
     final bool aiStructured = _isStructuredCoachResponse(generated);
     final bool usedFallback =
-      !(generated.isNotEmpty && !aiFallbackDetected && aiStructured);
+        !(generated.isNotEmpty && !aiFallbackDetected && aiStructured);
     final String response = usedFallback
-      ? _buildFollowUpReply(input, energy, emotion)
-      : generated;
+        ? _buildFollowUpReply(input, energy, emotion)
+        : generated;
     await _persistConversationTurn(
       role: 'user',
       channel: 'follow_up',
@@ -832,7 +832,8 @@ class CoachQueryController implements SmartCoachInterface {
     final String id =
         'coach.$channel.$role.${DateTime.now().microsecondsSinceEpoch}';
     const String retentionLabel = 'short_term_14d';
-    final String label = '[$channel][$role][retention:$retentionLabel] $trimmed';
+    final String label =
+        '[$channel][$role][retention:$retentionLabel] $trimmed';
     try {
       await _ref
           .read(saveCoachMessageUseCaseProvider)

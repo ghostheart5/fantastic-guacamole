@@ -87,9 +87,7 @@ class SmartCoachHero extends ConsumerWidget {
                 child: _MetricTile(
                   label: 'Status',
                   value: coachOnline ? 'Ready' : 'Offline',
-                  color: coachOnline
-                      ? AppColors.neonCyan
-                      : AppColors.recallRed,
+                  color: coachOnline ? AppColors.neonCyan : AppColors.recallRed,
                 ),
               ),
               const SizedBox(width: 8),

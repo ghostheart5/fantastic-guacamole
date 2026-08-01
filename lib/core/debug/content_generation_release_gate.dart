@@ -49,10 +49,7 @@ class ContentGenerationReleaseGate {
       return result;
     }
 
-    return const ContentGenerationReleaseGateResult(
-      passed: true,
-      reason: 'ok',
-    );
+    return const ContentGenerationReleaseGateResult(passed: true, reason: 'ok');
   }
 
   static void _trackBreach({

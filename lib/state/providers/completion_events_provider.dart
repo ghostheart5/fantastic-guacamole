@@ -20,9 +20,9 @@ class CompletionEventActions {
   final Ref _ref;
 
   Future<void> clearAll() async {
-    await _ref.read(completionEventRepositoryProvider).saveEvents(
-      const <CompletionEventEntity>[],
-    );
+    await _ref
+        .read(completionEventRepositoryProvider)
+        .saveEvents(const <CompletionEventEntity>[]);
     _ref.invalidate(completionEventsProvider);
   }
 

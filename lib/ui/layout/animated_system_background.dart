@@ -185,9 +185,7 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
                 child: CustomPaint(
                   painter: _GlowPainter(
                     progress: t,
-                    opacity: t > 0.02
-                        ? 0.35 * overlayOpacity * glowScale
-                        : 0,
+                    opacity: t > 0.02 ? 0.35 * overlayOpacity * glowScale : 0,
                   ),
                 ),
               ),

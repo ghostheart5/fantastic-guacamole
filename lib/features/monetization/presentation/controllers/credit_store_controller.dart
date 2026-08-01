@@ -46,8 +46,8 @@ class CreditStoreController extends Notifier<CreditStoreControllerState> {
     );
 
     final result = await ref
-      .read(monetizationConnectorActionsProvider)
-      .purchaseCredits(pack);
+        .read(monetizationConnectorActionsProvider)
+        .purchaseCredits(pack);
 
     state = state.copyWith(
       isBusy: false,

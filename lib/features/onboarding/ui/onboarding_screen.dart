@@ -225,8 +225,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       if (!mounted) return;
 
       ref.read(onboardingCompleteProvider.notifier).set(false);
-        ref.read(creatorFirstItemCreatedProvider.notifier).set(false);
-        ref.read(timelineFirstActionCompletedProvider.notifier).set(false);
+      ref.read(creatorFirstItemCreatedProvider.notifier).set(false);
+      ref.read(timelineFirstActionCompletedProvider.notifier).set(false);
       ref
           .read(onboardingStatusProvider.notifier)
           .set(OnboardingStatus.incomplete);
@@ -387,10 +387,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             const SizedBox(height: 20),
 
                             // Primary action button
-                            _GradientButton(
-                              label: 'Continue',
-                              onTap: _next,
-                            ),
+                            _GradientButton(label: 'Continue', onTap: _next),
                             const SizedBox(height: 14),
 
                             // Skip link
@@ -544,11 +541,7 @@ class _SlideView extends StatelessWidget {
                             child: Stack(
                               alignment: Alignment.center,
                               children: [
-                                _buildPulseAura(
-                                  context,
-                                  width: 86,
-                                  height: 86,
-                                ),
+                                _buildPulseAura(context, width: 86, height: 86),
                                 Icon(
                                   slide.icon,
                                   color: slide.iconColor,
@@ -935,7 +928,7 @@ class _PersonalizationSlide extends StatelessWidget {
                               const _SignalReveal(
                                 delay: Duration(milliseconds: 220),
                                 child: Text(
-                                    'Create Something, Choose When It Happens, and View Your Timeline.',
+                                  'Create Something, Choose When It Happens, and View Your Timeline.',
                                   style: TextStyle(
                                     color: AppColors.neonCyan,
                                     fontSize: 15,
@@ -968,9 +961,7 @@ class _PersonalizationSlide extends StatelessWidget {
                               const SizedBox(height: 14),
                               const _SignalReveal(
                                 delay: Duration(milliseconds: 420),
-                                child: _StatusLine(
-                                  text: 'Ready To Start',
-                                ),
+                                child: _StatusLine(text: 'Ready To Start'),
                               ),
                             ],
                           ),
