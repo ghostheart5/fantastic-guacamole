@@ -1,0 +1,22 @@
+CHRONOSPARK P2-2 TIMELINE READABILITY/HIERARCHY WAVE 1 REPORT
+Date: 2026-07-31
+Phase: P2-2 Timeline readability and hierarchy tuning
+Status: WAVE 1 APPLIED
+
+Objective
+- Improve timeline scanability with clearer day hierarchy while preserving existing domain behavior.
+
+Wave 1 Runtime Change
+- Updated timeline day grouping to use normalized DateTime day buckets sorted descending.
+- Updated day headers to show relative labels (Today/Yesterday/Tomorrow) where applicable.
+- Added per-day item count next to each day header.
+
+Touched Runtime File
+- lib/features/timeline/ui/timeline_screen.dart
+
+Contract Coverage Added
+- test/release/p22_timeline_readability_hierarchy_contract_test.dart
+
+Safety
+- No changes to auth/supabase/billing/keys/startup-order logic.
+- Existing timeline event filtering, status semantics, and action handlers preserved.

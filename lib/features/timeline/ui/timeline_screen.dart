@@ -174,13 +174,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         })
         .toList(growable: false);
 
-    final Map<String, List<TimelineEventEntity>> grouped =
-        <String, List<TimelineEventEntity>>{};
+    final Map<DateTime, List<TimelineEventEntity>> grouped =
+        <DateTime, List<TimelineEventEntity>>{};
     for (final TimelineEventEntity event in filtered) {
-      final String key = DateTimeFormats.timelineDay(_eventMoment(event));
-      grouped.putIfAbsent(key, () => <TimelineEventEntity>[]).add(event);
+      final DateTime day = _normalizedDay(_eventMoment(event));
+      grouped.putIfAbsent(day, () => <TimelineEventEntity>[]).add(event);
     }
-    final List<String> days = grouped.keys.toList(growable: false);
+    final List<DateTime> days = grouped.keys.toList(growable: false)
+      ..sort((a, b) => b.compareTo(a));
 
     final int overdueCount = filtered
         .where((TimelineEventEntity event) => event.isOverdue)
@@ -392,21 +393,40 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate((ctx, i) {
-                      final String day = days[i];
+                      final DateTime day = days[i];
                       final List<TimelineEventEntity> dayEvents = grouped[day]!;
+                      final String dayLabel = _timelineDayLabel(day, now);
+                      final String itemLabel =
+                          dayEvents.length == 1
+                          ? '1 item'
+                          : '${dayEvents.length} items';
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Text(
-                              day,
-                              style: const TextStyle(
-                                color: Colors.white38,
-                                fontSize: 11,
-                                letterSpacing: 1.5,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  dayLabel,
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 11,
+                                    letterSpacing: 1.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  itemLabel,
+                                  style: const TextStyle(
+                                    color: Colors.white30,
+                                    fontSize: 10,
+                                    letterSpacing: 0.8,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           ...dayEvents.map(
@@ -1234,6 +1254,30 @@ class _Chip extends StatelessWidget {
 
 DateTime _eventMoment(TimelineEventEntity event) =>
     event.dueAt ?? event.timestamp;
+
+DateTime _normalizedDay(DateTime value) =>
+    DateTime(value.year, value.month, value.day);
+
+bool _isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+String _timelineDayLabel(DateTime day, DateTime now) {
+  final DateTime today = _normalizedDay(now);
+  final DateTime yesterday = today.subtract(const Duration(days: 1));
+  final DateTime tomorrow = today.add(const Duration(days: 1));
+
+  if (_isSameDay(day, today)) {
+    return 'Today';
+  }
+  if (_isSameDay(day, yesterday)) {
+    return 'Yesterday';
+  }
+  if (_isSameDay(day, tomorrow)) {
+    return 'Tomorrow';
+  }
+
+  return DateTimeFormats.timelineDay(day);
+}
 
 bool _inWindow({
   required DateTime moment,

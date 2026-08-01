@@ -37,7 +37,9 @@ EXECUTION STATUS UPDATE
 - P2-1 Wave 2 report: docs/chronospark_p21_core_loop_test_depth_wave2_report.txt.
 - P2-1 complete: behavior-depth upgrade delivered with low-risk release contracts.
 - P2-1 verification report: docs/chronospark_p21_completion_verification_report.txt.
-- Next implementation focus: P2-2 timeline readability and hierarchy tuning.
+- P2-2 Wave 1 applied: timeline day hierarchy now uses relative day headers and item counts.
+- P2-2 Wave 1 report: docs/chronospark_p22_timeline_readability_wave1_report.txt.
+- Next implementation focus: P2-2 Wave 2 optional readability polish and closeout verification.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)
