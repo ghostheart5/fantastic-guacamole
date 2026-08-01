@@ -1,0 +1,23 @@
+CHRONOSPARK P2-4 CONNECTOR/WORKFLOW CONTRACT CLEANUP WAVE 1 REPORT
+Date: 2026-07-31
+Phase: P2-4 API connector and workflow contract cleanup
+Status: WAVE 1 APPLIED
+
+Objective
+- Reduce connector/workflow drift risk by locking critical creator->timeline integration boundaries with release contracts.
+
+Wave 1 Change
+- Added release contract coverage for connector/workflow seams:
+  - test/release/p24_connector_workflow_contract_test.dart
+
+Coverage Focus
+- Creator entry routes remain canonical:
+  - creator -> taskActionsProvider.createTask(actionSource: 'creator')
+  - creator -> goalsProvider.notifier pathways
+  - first-item creation marker persistence flow
+- Task/goal fan-out remains wired to timeline/logs/lifecycle events.
+- Timeline connector layer remains usecase-driven and emits lifecycle events via event bus.
+
+Safety
+- No production runtime behavior changes in Wave 1.
+- No auth/supabase policy/startup-order/billing-key modifications.

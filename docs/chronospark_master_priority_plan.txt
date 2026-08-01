@@ -45,7 +45,9 @@ EXECUTION STATUS UPDATE
 - P2-3 Wave 1 report: docs/chronospark_p23_observability_wave1_report.txt.
 - P2-3 complete: crash/voice/session observability hardening follow-through verified.
 - P2-3 verification report: docs/chronospark_p23_completion_verification_report.txt.
-- Next implementation focus: P2-4 API connector and workflow contract cleanup.
+- P2-4 Wave 1 applied: connector/workflow seam contracts expanded for creator-task-goal-timeline boundaries.
+- P2-4 Wave 1 report: docs/chronospark_p24_connector_workflow_wave1_report.txt.
+- Next implementation focus: P2-4 Wave 2 targeted connector cleanup with runtime-safe scope.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)
