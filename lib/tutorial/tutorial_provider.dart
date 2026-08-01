@@ -7,7 +7,6 @@ import 'package:fantastic_guacamole/tutorial/tutorial_controller.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_progress_store.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 final tutorialRepositoryProvider = Provider<TutorialRepository>((ref) {
   return const TutorialRepository();
@@ -32,6 +31,10 @@ class TutorialProgressController extends AsyncNotifier<TutorialProgress> {
   TutorialRepository get _repository => ref.read(tutorialRepositoryProvider);
   TutorialAnalytics get _analytics => ref.read(tutorialAnalyticsProvider);
 
+  bool get _secondaryAssistEnabled {
+    return ref.read(onboardingStatusProvider) == OnboardingStatus.complete;
+  }
+
   @override
   Future<TutorialProgress> build() async {
     return _repository.loadProgressWithVersion(
@@ -40,6 +43,10 @@ class TutorialProgressController extends AsyncNotifier<TutorialProgress> {
   }
 
   Future<void> startTutorial() async {
+    if (!_secondaryAssistEnabled) {
+      return;
+    }
+
     final TutorialProgress current = await _current();
     final TutorialProgress updated = current.start(
       targetVersion: TutorialContent.contentVersion,
@@ -127,10 +134,8 @@ class TutorialProgressController extends AsyncNotifier<TutorialProgress> {
   }
 
   Future<void> replayOnboarding() async {
-    ref.read(onboardingCompleteProvider.notifier).set(false);
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(onboardingCompleteStorageKey, false);
-    await prefs.setInt(onboardingContentVersionStorageKey, 0);
+    // Tutorial replay must stay secondary guidance only and must not own
+    // onboarding progression state.
     await reset();
     _analytics.trackReplayOnboarding();
   }

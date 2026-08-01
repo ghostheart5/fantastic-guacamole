@@ -3,8 +3,13 @@ import 'package:fantastic_guacamole/tutorial/mission/mission_repository.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final missionTutorialEnabledProvider = Provider<bool>((Ref ref) {
+final missionProgressionEnabledProvider = Provider<bool>((Ref ref) {
   return true;
+});
+
+// Backward-compatible alias while mission ownership naming is rolled out.
+final missionTutorialEnabledProvider = Provider<bool>((Ref ref) {
+  return ref.watch(missionProgressionEnabledProvider);
 });
 
 final missionRepositoryProvider = Provider<MissionRepository>((Ref ref) {

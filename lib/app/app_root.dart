@@ -32,8 +32,6 @@ class AppRoot extends ConsumerStatefulWidget {
 }
 
 class _AppRootState extends ConsumerState<AppRoot> {
-  static const int _onboardingContentVersion = 6;
-
   GoRouter? _router;
   bool _activationFinalizationInFlight = false;
   final Set<String> _handledDeepLinks = <String>{};
@@ -229,16 +227,17 @@ class _AppRootState extends ConsumerState<AppRoot> {
       await SharedPrefsService.saveBool(onboardingCompleteStorageKey, true);
       await SharedPrefsService.saveInt(
         onboardingContentVersionStorageKey,
-        _onboardingContentVersion,
+        onboardingContentVersion,
       );
       await SharedPrefsService.saveInt(onboardingStepStorageKey, 0);
       await SharedPrefsService.save(
-        'onboarding_state_v1',
-        jsonEncode(<String, Object?>{
-          'complete': true,
-          'version': _onboardingContentVersion,
-          'updatedAt': DateTime.now().toIso8601String(),
-        }),
+        onboardingCanonicalStateStorageKey,
+        jsonEncode(
+          buildOnboardingCanonicalStatePayload(
+            complete: true,
+            version: onboardingContentVersion,
+          ),
+        ),
       );
 
       if (!mounted) {
