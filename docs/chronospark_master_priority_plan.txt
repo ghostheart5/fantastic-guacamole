@@ -63,7 +63,11 @@ EXECUTION STATUS UPDATE
 - P3-3 Wave 1 report: docs/chronospark_p33_visual_experience_wave1_report.txt.
 - P3-3 complete: visual design and experience consistency refinement verified.
 - P3-3 verification report: docs/chronospark_p33_completion_verification_report.txt.
-- Next implementation focus: roadmap complete through P3 sequencing; continue with new priority intake.
+- P4-0 Wave 1 applied: post-P3 routine/note gap baseline contracts added.
+- P4-0 Wave 1 report: docs/chronospark_p40_post_p3_intake_wave1_report.txt.
+- P4-0 complete: new-priority intake launched with migration-safe kickoff artifacts.
+- P4-0 completion report: docs/chronospark_p40_post_p3_intake_completion_report.txt.
+- Next implementation focus: P4-1 routine/note first-class implementation (Wave 1).
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)

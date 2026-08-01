@@ -1,0 +1,22 @@
+CHRONOSPARK POST-P3 INTAKE WAVE 1 REPORT
+Date: 2026-07-31
+Phase: P4-0 post-P3 priority intake
+Status: WAVE 1 APPLIED
+
+Objective
+- Launch a new execution track after P3 completion by baselining unresolved core-loop semantics around routine/note first-class handling.
+
+Wave 1 Change
+- Added release baseline contract coverage:
+  - test/release/p40_post_p3_routine_note_gap_baseline_contract_test.dart
+
+Why this baseline exists
+- Current creator pathways still collapse routine/note semantics into habit/task-oriented flows.
+- Baseline contracts lock current behavior so future refactors can be measured and validated incrementally.
+
+Safety
+- No runtime behavior changes in Wave 1.
+- No auth/supabase/billing/startup-order/release-key changes.
+
+Next Focus
+- P4-1: routine/note first-class migration-safe implementation planning and wave sequencing.
