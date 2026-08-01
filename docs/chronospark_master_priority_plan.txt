@@ -79,7 +79,10 @@ EXECUTION STATUS UPDATE
 - P4-1 Wave 3 report: docs/chronospark_p43_routine_note_timeline_projection_semantics_wave3_report.txt.
 - P4-1 Wave 3 complete: timeline projection semantics validated with release contracts.
 - P4-1 Wave 3 completion report: docs/chronospark_p43_routine_note_timeline_projection_semantics_completion_report.txt.
-- Next implementation focus: P4-1 closeout verification and P5 priority intake.
+- P4-1 closeout complete: routine/note first-class implementation track closed.
+- P4-1 closeout report: docs/chronospark_p41_routine_note_first_class_phase_closeout_report.txt.
+- P5-0 kickoff plan created: docs/chronospark_p50_priority_intake_kickoff_plan.txt.
+- Next implementation focus: P5-0 intake Wave 1 baseline contracts.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)
