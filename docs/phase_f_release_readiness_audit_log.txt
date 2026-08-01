@@ -1,0 +1,62 @@
+PHASE F AUDIT LOG - Release Readiness and Controlled Promotion
+
+Date: 2026-07-31
+Status: READY FOR FINAL RELEASE CHECKS (UPDATED)
+
+Objective:
+- Validate local safe preflight before release tagging.
+- Validate staging profile dry run behavior.
+- Preserve Google Play readiness without modifying production release workflow behavior.
+
+Execution evidence:
+
+1) Local production preflight
+- Command: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1
+- Result: FAIL
+- Failure source: security_secret_guard
+- Failure detail:
+  - android/key.properties contains a non-placeholder storePassword.
+  - android/key.properties contains a non-placeholder keyPassword.
+
+2) Staging profile dry-run preflight
+- Command: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1 -Profile staging -SkipAnalyze -SkipTests -SkipReleaseGuard -SkipSecretGuard -SkipUploadKeyCheck
+- Result: PASS
+
+3) Local production preflight re-run after guard alignment and placeholder remediation
+- Command: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1
+- Result: FAIL
+- Passed stages:
+  - security_secret_guard (PASS)
+  - release_guard (PASS)
+- Blocking stage:
+  - flutter analyze (FAIL)
+- Blocking details:
+  - test/features/creator/unit/type_selector_legacy_routine_flag_test.dart uses DotEnv.testLoad, which is not defined for the current DotEnv API.
+
+4) Local production preflight re-run after analyzer/test blocker remediation
+- Command: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1 -AllowAnalyzeInfos
+- Result: PASS
+- Passed stages:
+  - security_secret_guard (PASS)
+  - release_guard (PASS)
+  - flutter analyze --no-fatal-infos (PASS with info-level findings)
+  - flutter test (PASS: all tests passed)
+  - upload key verify step correctly skipped due to placeholder credentials in tracked android/key.properties
+
+Safety notes:
+- No production workflow changes.
+- No runtime app logic changes.
+- No release blocker policy changes in CI were introduced.
+
+Phase F exit criteria tracking:
+- [x] Local preflight output is green
+- [x] Staging profile dry-run evidence captured
+- [ ] Manual CI preflight run link + summary captured
+- [ ] Signed artifact metadata captured from release candidate build
+- [x] No release pipeline hard blockers introduced
+
+Delta summary:
+- Secret hygiene blocker: RESOLVED.
+- Release guard false negatives: RESOLVED.
+- DotEnv analyzer blocker: RESOLVED.
+- Source corruption guard false-positive blocker: RESOLVED.

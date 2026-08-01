@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/foundation.dart';
@@ -17,7 +18,7 @@ class NotificationPermissionRecoveryScreen extends ConsumerWidget {
       notificationPermissionStateListenableProvider,
     );
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/settings_bg.jpg',
+      backgroundAssetPath: AppAssets.bgSettings,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

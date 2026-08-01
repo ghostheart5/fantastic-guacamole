@@ -1,6 +1,7 @@
 // Entities
 export 'package:fantastic_guacamole/domain/entities/automation_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';
+export 'package:fantastic_guacamole/domain/entities/completion_event_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/entitlement.dart';
 export 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart'
     hide MemoryCategory, MemoryLink;
@@ -38,6 +39,7 @@ export 'package:fantastic_guacamole/domain/entities/work_window_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/workspace_entity.dart';
 // Interfaces
 export 'package:fantastic_guacamole/domain/interfaces/i_calendar_repository.dart';
+export 'package:fantastic_guacamole/domain/interfaces/i_completion_event_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_entitlement_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_extended_domain_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';

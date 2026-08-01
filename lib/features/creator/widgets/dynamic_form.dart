@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/features/creator/models/creator_workspace_mode.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/type_selector.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
@@ -11,18 +12,24 @@ class DynamicForm extends StatefulWidget {
     super.key,
     required this.onSubmit,
     this.workspaceMode = CreatorWorkspaceMode.tasks,
+    this.preferredType,
     this.taskTitleController,
     this.goalTitleController,
     this.memoryController,
     this.notesController,
+    this.soundEnabled = true,
+    this.advancedAudioEnabled = false,
   });
 
   final Future<void> Function(CreatorFormData data) onSubmit;
   final CreatorWorkspaceMode workspaceMode;
+  final String? preferredType;
   final TextEditingController? taskTitleController;
   final TextEditingController? goalTitleController;
   final TextEditingController? memoryController;
   final TextEditingController? notesController;
+  final bool soundEnabled;
+  final bool advancedAudioEnabled;
 
   @override
   State<DynamicForm> createState() => _DynamicFormState();
@@ -57,6 +64,29 @@ class _DynamicFormState extends State<DynamicForm> {
         widget.goalTitleController ?? TextEditingController();
     _memoryController = widget.memoryController ?? TextEditingController();
     _notesController = widget.notesController ?? TextEditingController();
+
+    final String? preferred = widget.preferredType?.trim();
+    if (preferred != null && preferred.isNotEmpty) {
+      _selectedType = preferred;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant DynamicForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final String? previous = oldWidget.preferredType?.trim().toLowerCase();
+    final String? next = widget.preferredType?.trim();
+    if (next == null || next.isEmpty) {
+      return;
+    }
+    if (next.toLowerCase() == previous) {
+      return;
+    }
+    if (_selectedType != next) {
+      setState(() {
+        _selectedType = next;
+      });
+    }
   }
 
   TextEditingController get _titleController {
@@ -115,6 +145,10 @@ class _DynamicFormState extends State<DynamicForm> {
     if (_submitting) return;
     final title = _titleController.text.trim();
     if (title.isEmpty) {
+      AudioService.playError(
+        widget.soundEnabled,
+        advancedProfileEnabled: widget.advancedAudioEnabled,
+      );
       setState(() => _errorMessage = 'Add a title before creating the entry.');
       return;
     }
@@ -149,6 +183,10 @@ class _DynamicFormState extends State<DynamicForm> {
       });
     } catch (_) {
       if (!mounted) return;
+      AudioService.playError(
+        widget.soundEnabled,
+        advancedProfileEnabled: widget.advancedAudioEnabled,
+      );
       setState(() {
         _errorMessage =
             'The item could not be saved. Your entry is still here. Try again.';

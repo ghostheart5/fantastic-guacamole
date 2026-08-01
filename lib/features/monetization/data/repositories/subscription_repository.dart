@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/features/monetization/data/models/models.dart';
 import 'package:fantastic_guacamole/features/monetization/data/monetization_remote_data_source.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 abstract class SubscriptionRepository {
@@ -13,13 +14,14 @@ class SupabaseSubscriptionRepository implements SubscriptionRepository {
   final sb.SupabaseClient? _client;
 
   static const List<String> _planTables = <String>[
-    'subscription_plans',
     'monetization_subscription_plans',
+    'subscription_plans',
   ];
   static const List<String> _subscriptionTables = <String>[
-    'subscriptions',
     'monetization_subscription_statuses',
+    'subscriptions',
   ];
+  static final Set<String> _loggedFallbackTables = <String>{};
 
   @override
   Future<List<SubscriptionPlan>> getSubscriptionPlans() async {
@@ -31,13 +33,19 @@ class SupabaseSubscriptionRepository implements SubscriptionRepository {
     }
 
     Object? lastError;
-    for (final String table in _planTables) {
+    for (int index = 0; index < _planTables.length; index++) {
+      final String table = _planTables[index];
       try {
         final List<dynamic> rows = await client
             .from(table)
             .select()
             .eq('is_active', true)
             .order('price_micros', ascending: true);
+        _logFallbackIfUsed(
+          canonicalTable: _planTables.first,
+          selectedTable: table,
+          selectedIndex: index,
+        );
         return rows
             .whereType<Map<String, dynamic>>()
             .map(SubscriptionPlan.fromJson)
@@ -64,7 +72,8 @@ class SupabaseSubscriptionRepository implements SubscriptionRepository {
     if (userId == null) return null;
 
     Object? lastError;
-    for (final String table in _subscriptionTables) {
+    for (int index = 0; index < _subscriptionTables.length; index++) {
+      final String table = _subscriptionTables[index];
       try {
         final dynamic row = await client
             .from(table)
@@ -72,6 +81,11 @@ class SupabaseSubscriptionRepository implements SubscriptionRepository {
             .eq('user_id', userId)
             .maybeSingle();
         if (row is Map<String, dynamic>) {
+          _logFallbackIfUsed(
+            canonicalTable: _subscriptionTables.first,
+            selectedTable: table,
+            selectedIndex: index,
+          );
           return UserSubscription.fromJson(row);
         }
       } on Object catch (error) {
@@ -85,5 +99,21 @@ class SupabaseSubscriptionRepository implements SubscriptionRepository {
       );
     }
     return null;
+  }
+
+  void _logFallbackIfUsed({
+    required String canonicalTable,
+    required String selectedTable,
+    required int selectedIndex,
+  }) {
+    if (selectedIndex <= 0) {
+      return;
+    }
+    if (!_loggedFallbackTables.add(selectedTable)) {
+      return;
+    }
+    Logger.warn(
+      'Monetization fallback table in use: $selectedTable (canonical: $canonicalTable).',
+    );
   }
 }

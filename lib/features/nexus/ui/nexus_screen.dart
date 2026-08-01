@@ -69,7 +69,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     final int completedToday = startup.completedToday;
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/nexus_bg.jpg',
+      backgroundAssetPath: AppAssets.bgNexus,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

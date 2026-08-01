@@ -1,0 +1,45 @@
+PHASE A AUDIT LOG - Runtime Install and Launch Reliability
+
+Date: 2026-07-31
+Status: STARTED
+
+Objective:
+- Stabilize Android local runtime install/launch reliability.
+- Reduce false negatives caused by install signature mismatch.
+
+Observed baseline issue:
+- INSTALL_FAILED_UPDATE_INCOMPATIBLE detected in run logs.
+- Error launching application followed failed reinstall attempt.
+
+Evidence references:
+- runlog.txt line 10947 (signature mismatch)
+- runlog.txt line 10985 (failed install retry)
+- runlog.txt line 10986 (error launching app)
+
+Execution changes completed (safe, additive):
+- Updated scripts/android_diagnose_one_click.ps1 to detect INSTALL_FAILED_UPDATE_INCOMPATIBLE.
+- Added one safe uninstall/reinstall retry path when mismatch is detected.
+- Preserved existing behavior for all non-signature install failures.
+
+Safety notes:
+- No production release workflow changes.
+- No app logic changes.
+- No Google Play signing/release pipeline mutation.
+
+Manual verification steps:
+1) Run strict Android runtime gate:
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/strict_android_runtime_gate.ps1 -PackageName com.ghostheart5.chronospark
+2) Confirm logs show either:
+   - direct successful install, or
+   - signature-mismatch recovery followed by successful reinstall.
+3) Confirm app launch succeeds and runtime scan has no app-specific fatal marker.
+
+Phase A exit criteria tracking:
+- [ ] No repeated INSTALL_FAILED_UPDATE_INCOMPATIBLE in current cycle logs
+- [ ] Successful install and launch evidence captured
+- [ ] Runtime gate passes on target device/emulator
+
+Execution update (2026-07-31):
+- Ran scripts/strict_android_runtime_gate.ps1 with package com.ghostheart5.chronospark.
+- Result: No Android device/emulator detected; runtime diagnostics safely skipped.
+- Action: Re-run on active emulator/device to collect install/launch proof and close remaining Phase A criteria.

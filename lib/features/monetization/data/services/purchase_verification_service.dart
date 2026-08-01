@@ -9,10 +9,44 @@ import 'package:http/http.dart' as http;
 
 enum PurchaseVerificationMode { localTest, production }
 
+enum PurchaseVerificationErrorCode {
+  notConfigured,
+  unauthenticated,
+  networkUnavailable,
+  invalidResponse,
+  httpFailure,
+}
+
+class PurchaseVerificationRequest {
+  const PurchaseVerificationRequest({
+    required this.productId,
+    required this.purchaseToken,
+    required this.purchaseType,
+  });
+
+  final String productId;
+  final String purchaseToken;
+  final String purchaseType;
+
+  bool get isValid =>
+      productId.trim().isNotEmpty &&
+      purchaseToken.trim().isNotEmpty &&
+      (purchaseType == 'subscription' || purchaseType == 'inapp');
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'productId': productId,
+      'purchaseToken': purchaseToken,
+      'purchaseType': purchaseType,
+    };
+  }
+}
+
 class PurchaseVerificationResult {
   const PurchaseVerificationResult({
     required this.valid,
     this.error,
+    this.errorCode,
     this.productId,
     this.planId,
     this.creditsGranted,
@@ -22,11 +56,26 @@ class PurchaseVerificationResult {
 
   final bool valid;
   final String? error;
+  final PurchaseVerificationErrorCode? errorCode;
   final String? productId;
   final String? planId;
   final int? creditsGranted;
   final String? orderId;
   final int? expiryTimeMs;
+
+  static PurchaseVerificationResult fromJson(Map<String, dynamic> body) {
+    final bool valid = body['valid'] == true;
+    return PurchaseVerificationResult(
+      valid: valid,
+      error: body['error']?.toString(),
+      productId: body['productId']?.toString(),
+      planId: body['planId']?.toString(),
+      creditsGranted: (body['creditsGranted'] as num?)?.toInt(),
+      orderId: body['orderId']?.toString(),
+      expiryTimeMs: (body['expiryTimeMs'] as num?)?.toInt(),
+      errorCode: valid ? null : PurchaseVerificationErrorCode.httpFailure,
+    );
+  }
 }
 
 class PurchaseVerificationService {
@@ -40,6 +89,19 @@ class PurchaseVerificationService {
     required String purchaseToken,
     required String purchaseType,
   }) async {
+    final PurchaseVerificationRequest request = PurchaseVerificationRequest(
+      productId: productId,
+      purchaseToken: purchaseToken,
+      purchaseType: purchaseType,
+    );
+    if (!request.isValid) {
+      return const PurchaseVerificationResult(
+        valid: false,
+        error: 'Invalid purchase verification payload.',
+        errorCode: PurchaseVerificationErrorCode.invalidResponse,
+      );
+    }
+
     if (mode == PurchaseVerificationMode.localTest) {
       return PurchaseVerificationResult(
         valid: true,
@@ -54,6 +116,7 @@ class PurchaseVerificationService {
       return const PurchaseVerificationResult(
         valid: false,
         error: 'Receipt verification endpoint is not configured.',
+        errorCode: PurchaseVerificationErrorCode.notConfigured,
       );
     }
 
@@ -62,6 +125,7 @@ class PurchaseVerificationService {
       return const PurchaseVerificationResult(
         valid: false,
         error: 'User must be authenticated to verify purchases.',
+        errorCode: PurchaseVerificationErrorCode.unauthenticated,
       );
     }
 
@@ -77,11 +141,7 @@ class PurchaseVerificationService {
                   'Content-Type': 'application/json',
                   'Authorization': 'Bearer $accessToken',
                 },
-                body: jsonEncode(<String, dynamic>{
-                  'productId': productId,
-                  'purchaseToken': purchaseToken,
-                  'purchaseType': purchaseType,
-                }),
+                body: jsonEncode(request.toJson()),
               )
               .timeout(const Duration(seconds: 20));
           if (next.statusCode == 408 ||
@@ -103,6 +163,7 @@ class PurchaseVerificationService {
         valid: false,
         error:
             'Verification temporarily unavailable due to network conditions. Please retry.',
+        errorCode: PurchaseVerificationErrorCode.networkUnavailable,
       );
     }
 
@@ -110,6 +171,7 @@ class PurchaseVerificationService {
       return PurchaseVerificationResult(
         valid: false,
         error: 'Verification failed with status ${response.statusCode}.',
+        errorCode: PurchaseVerificationErrorCode.httpFailure,
       );
     }
 
@@ -120,24 +182,17 @@ class PurchaseVerificationService {
       return const PurchaseVerificationResult(
         valid: false,
         error: 'Verification response could not be parsed.',
+        errorCode: PurchaseVerificationErrorCode.invalidResponse,
       );
     }
     if (decodedBody is! Map<String, dynamic>) {
       return const PurchaseVerificationResult(
         valid: false,
         error: 'Verification response payload is invalid.',
+        errorCode: PurchaseVerificationErrorCode.invalidResponse,
       );
     }
-    final Map<String, dynamic> body = decodedBody;
-    return PurchaseVerificationResult(
-      valid: body['valid'] == true,
-      error: body['error']?.toString(),
-      productId: body['productId']?.toString(),
-      planId: body['planId']?.toString(),
-      creditsGranted: (body['creditsGranted'] as num?)?.toInt(),
-      orderId: body['orderId']?.toString(),
-      expiryTimeMs: (body['expiryTimeMs'] as num?)?.toInt(),
-    );
+    return PurchaseVerificationResult.fromJson(decodedBody);
   }
 }
 

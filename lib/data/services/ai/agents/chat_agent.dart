@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/core/network/retry_executor.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart';
 import 'package:fantastic_guacamole/data/services/ai/agents/ai_agent.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/engine/assistant/chronospark_prompt_architecture.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
 import 'package:fantastic_guacamole/engine/si/ai_response.dart';
@@ -190,12 +191,10 @@ class ChatAgent extends AiAgent {
     AIPersonality personality,
     Map<String, dynamic> context,
   ) {
-    return 'You are ChronoSpark Smart Coach. Be concise, practical, and '
-        'specific to the user context. Answer the newest message directly. '
-        'Use recent conversation history, but do not repeat earlier wording '
-        'or generic motivational slogans. Give one useful insight and one '
-        'clear next action. Never claim to be a therapist or diagnose. '
-        'Personality: ${personality.name}. Context: ${jsonEncode(context)}';
+    return ChronoSparkPromptArchitecture.proxySystemPrompt(
+      personality: personality,
+      context: context,
+    );
   }
 
   Map<String, dynamic> _minimizeProxyContext(Map<String, dynamic> context) {

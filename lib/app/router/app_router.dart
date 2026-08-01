@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/features/monetization/presentation/screens/s
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_recovery_screen.dart';
+import 'package:fantastic_guacamole/features/settings/ui/completion_events_debug_screen.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show OnboardingStatus;
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
@@ -349,6 +350,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.advisor,
         builder: (BuildContext context, GoRouterState state) =>
             const ProductAdvisorScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.completionEvents,
+        builder: (BuildContext context, GoRouterState state) =>
+        const CompletionEventsDebugScreen(),
       ),
 
       // Legacy top-level routes redirect into the secondary hierarchy.

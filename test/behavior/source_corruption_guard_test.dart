@@ -49,6 +49,9 @@ void main() {
 
     test('lib does not contain backup or generated repair drift files', () {
       final offenders = <String>[];
+      final allowedCopyLikeFiles = <String>{
+        'lib/features/si_console/ui/models/si_console_prompt_copy.dart',
+      };
 
       final badNamePattern = RegExp(
         r'(\.bak($|\.)|_bak\.|_copy\.| copy\.|\.old\.|\.corrupt\.|fixed_fixed\.dart$)',
@@ -56,6 +59,10 @@ void main() {
 
       for (final file in dartFilesUnder('lib')) {
         final lower = file.path.toLowerCase();
+
+        if (allowedCopyLikeFiles.contains(lower.replaceAll('\\', '/'))) {
+          continue;
+        }
 
         if (badNamePattern.hasMatch(lower)) {
           offenders.add(file.path);

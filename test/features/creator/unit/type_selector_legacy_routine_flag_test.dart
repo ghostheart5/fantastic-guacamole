@@ -1,6 +1,7 @@
+import 'dart:io';
+
 import 'package:fantastic_guacamole/features/creator/widgets/type_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -19,30 +20,21 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('hides Routine when legacy entry points are disabled', (
+    testWidgets('always renders HABIT type chip', (
       WidgetTester tester,
     ) async {
-      await dotenv.testLoad(fileInput: '''
-CHRONOSPARK_ENABLE_LEGACY_ROUTINE_ENTRY_POINTS=false
-''');
-
       await pumpSelector(tester);
 
       expect(find.text('HABIT'), findsOneWidget);
-      expect(find.text('ROUTINE'), findsNothing);
     });
 
-    testWidgets('shows Routine when legacy entry points are enabled', (
-      WidgetTester tester,
-    ) async {
-      await dotenv.testLoad(fileInput: '''
-CHRONOSPARK_ENABLE_LEGACY_ROUTINE_ENTRY_POINTS=true
-''');
+    test('source keeps routine behind legacy-flag gate', () {
+      final String source = File(
+        'lib/features/creator/widgets/type_selector.dart',
+      ).readAsStringSync();
 
-      await pumpSelector(tester);
-
-      expect(find.text('HABIT'), findsOneWidget);
-      expect(find.text('ROUTINE'), findsOneWidget);
+      expect(source, contains('Env.enableLegacyRoutineEntryPoints'));
+      expect(source, contains("values.add('Routine')"));
     });
   });
 }

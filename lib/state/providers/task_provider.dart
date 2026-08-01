@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
+import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/domain/entities/completion_event_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -18,6 +21,8 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
   show
+    advancedAudioProfileEnabledProvider,
+    soundEnabledProvider,
     timelineFirstActionCompletedProvider,
     timelineFirstActionCompletedStorageKey,
     timelineFirstActionCompletedStorageKeyForUser;
@@ -30,6 +35,7 @@ import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/session_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -211,6 +217,15 @@ class TaskActions {
           'action_source': actionSource,
         },
       );
+      unawaited(
+        _bestEffort(
+          () => _recordCompletionEvent(
+            task: selectedTask!,
+            eventType: CompletionEventType.completed,
+            actionSource: actionSource,
+          ),
+        ),
+      );
       _emitTaskLifecycle(
         taskId: selectedTask.id,
         title: selectedTask.title,
@@ -312,6 +327,16 @@ class TaskActions {
       unawaited(_markTimelineFirstActionCompleted());
     }
 
+    unawaited(
+      _bestEffort(
+        () => _recordCompletionEvent(
+          task: selectedTask!,
+          eventType: CompletionEventType.skipped,
+          actionSource: actionSource,
+        ),
+      ),
+    );
+
     _emitTaskLifecycle(
       taskId: selectedTask.id,
       title: selectedTask.title,
@@ -348,7 +373,9 @@ class TaskActions {
         ? now.add(by)
         : (entity.scheduledFor ?? now).add(by);
     final TaskEntity delayed = entity.copyWith(scheduledFor: nextSchedule);
-    final bool isNotCompleted = delayReason.trim().toLowerCase() == 'not_completed';
+    final String normalizedDelayReason = delayReason.trim().toLowerCase();
+    final bool isNotCompleted = normalizedDelayReason == 'not_completed';
+    final bool isOverdue = normalizedDelayReason == 'overdue';
     final String logSource = isNotCompleted
       ? 'task_not_completed'
       : 'task_delayed';
@@ -388,6 +415,20 @@ class TaskActions {
     if (actionSource == 'timeline') {
       unawaited(_markTimelineFirstActionCompleted());
     }
+    final CompletionEventType eventType = isNotCompleted
+        ? CompletionEventType.notCompleted
+        : isOverdue
+        ? CompletionEventType.overdue
+        : CompletionEventType.rescheduled;
+    unawaited(
+      _bestEffort(
+        () => _recordCompletionEvent(
+          task: _taskFromEntity(delayed),
+          eventType: eventType,
+          actionSource: actionSource,
+        ),
+      ),
+    );
     _emitTaskLifecycle(
       taskId: delayed.id,
       title: delayed.title,
@@ -592,6 +633,16 @@ class TaskActions {
     required DateTime timestamp,
     required bool notify,
   }) async {
+    final bool soundEnabled = _ref.read(soundEnabledProvider);
+    final bool advancedAudioEnabled = _ref.read(
+      advancedAudioProfileEnabledProvider,
+    );
+    await _bestEffort(
+      () => AudioService.playCreate(
+        soundEnabled,
+        advancedProfileEnabled: advancedAudioEnabled,
+      ),
+    );
     await _bestEffort(
       () => _ref.read(localMetricsAccumulatorProvider).recordTaskCreated(),
     );
@@ -665,6 +716,31 @@ class TaskActions {
       );
     }
     await _refreshCoachDecision(notify: notify);
+  }
+
+  Future<void> _recordCompletionEvent({
+    required Task task,
+    required CompletionEventType eventType,
+    required String actionSource,
+  }) async {
+    if (!Env.enableCompletionEventTracking) {
+      return;
+    }
+    final CompletionEventEntity event = CompletionEventEntity(
+      id:
+          'completion-${DateTime.now().microsecondsSinceEpoch}-${task.id}-${eventType.name}',
+      eventType: eventType,
+      eventAt: DateTime.now().toUtc(),
+      taskId: task.id,
+      userId: sb.Supabase.instance.client.auth.currentUser?.id,
+      source: actionSource,
+      metadata: <String, dynamic>{
+        'title': task.title,
+        'priority': task.priority,
+        'difficulty': task.difficulty,
+      },
+    );
+    await _ref.read(completionEventRepositoryProvider).addEvent(event);
   }
 
   Future<void> _bestEffort(Future<void> Function() operation) async {

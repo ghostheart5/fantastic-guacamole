@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/features/monetization/data/repositories/enti
 import 'package:fantastic_guacamole/features/monetization/data/repositories/purchase_repository.dart';
 import 'package:fantastic_guacamole/features/monetization/data/repositories/subscription_repository.dart';
 import 'package:fantastic_guacamole/features/monetization/data/services/ai_credit_service.dart';
+import 'package:fantastic_guacamole/features/monetization/data/services/monetization_connector_actions.dart';
 import 'package:fantastic_guacamole/features/monetization/data/services/paywall_service.dart';
 import 'package:fantastic_guacamole/features/monetization/data/services/premium_access_service.dart';
 import 'package:fantastic_guacamole/features/monetization/data/services/purchase_verification_service.dart';
@@ -47,6 +48,16 @@ final purchaseRepositoryProvider = Provider<PurchaseRepository>((Ref ref) {
   );
 });
 
+final monetizationConnectorActionsProvider =
+    Provider<MonetizationConnectorActions>((Ref ref) {
+      return MonetizationConnectorActions(
+        subscriptionRepository: ref.watch(subscriptionRepositoryProvider),
+        aiCreditRepository: ref.watch(aiCreditRepositoryProvider),
+        entitlementRepository: ref.watch(entitlementRepositoryProvider),
+        purchaseRepository: ref.watch(purchaseRepositoryProvider),
+      );
+    });
+
 final premiumAccessServiceProvider = Provider<PremiumAccessService>((Ref ref) {
   return PremiumAccessService(ref.watch(entitlementRepositoryProvider));
 });
@@ -66,19 +77,19 @@ final paywallServiceProvider = Provider<PaywallService>((Ref ref) {
 final subscriptionPlansProvider = FutureProvider<List<SubscriptionPlan>>((
   Ref ref,
 ) {
-  return ref.watch(subscriptionRepositoryProvider).getSubscriptionPlans();
+  return ref.watch(monetizationConnectorActionsProvider).fetchPlans();
 });
 
 final currentSubscriptionProvider = FutureProvider<UserSubscription?>((
   Ref ref,
 ) {
-  return ref.watch(subscriptionRepositoryProvider).getCurrentSubscription();
+  return ref.watch(monetizationConnectorActionsProvider).fetchSubscriptionStatus();
 });
 
 final premiumEntitlementProvider = FutureProvider<PremiumEntitlement>((
   Ref ref,
 ) {
-  return ref.watch(entitlementRepositoryProvider).getPremiumEntitlement();
+  return ref.watch(monetizationConnectorActionsProvider).fetchPremiumEntitlement();
 });
 
 final entitlementTierProvider = Provider<EntitlementTier>((Ref ref) {
@@ -102,23 +113,23 @@ final hasUltimateTierAccessProvider = Provider<bool>((Ref ref) {
 final aiCreditPackagesProvider = FutureProvider<List<AiCreditPackage>>((
   Ref ref,
 ) {
-  return ref.watch(aiCreditRepositoryProvider).getCreditPackages();
+  return ref.watch(monetizationConnectorActionsProvider).fetchCreditPackages();
 });
 
 final aiCreditWalletProvider = FutureProvider<AiCreditWallet?>((Ref ref) {
-  return ref.watch(aiCreditRepositoryProvider).getWallet();
+  return ref.watch(monetizationConnectorActionsProvider).fetchWallet();
 });
 
 final aiCreditTransactionsProvider = FutureProvider<List<AiCreditTransaction>>((
   Ref ref,
 ) {
-  return ref.watch(aiCreditRepositoryProvider).getTransactions();
+  return ref.watch(monetizationConnectorActionsProvider).fetchTransactions();
 });
 
 final purchaseHistoryProvider = FutureProvider<List<AiCreditPurchase>>((
   Ref ref,
 ) {
-  return ref.watch(aiCreditRepositoryProvider).getPurchaseHistory();
+  return ref.watch(monetizationConnectorActionsProvider).fetchPurchaseHistory();
 });
 
 final premiumAccessProvider = Provider<bool>((Ref ref) {

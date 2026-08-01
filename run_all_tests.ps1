@@ -10,7 +10,11 @@ flutter test test\features
 Write-Host 'Running ChronoSpark Smoke Tests...'
 flutter test test\smoke
 
-Write-Host 'Running Robot Framework Tests...'
-robot test\robot
+if (Get-Command robot -ErrorAction SilentlyContinue) {
+	Write-Host 'Running Robot Framework Tests...'
+	robot test\robot
+} else {
+	Write-Host 'Skipping Robot Framework Tests (robot command not found).'
+}
 
 Write-Host 'All tests completed.'

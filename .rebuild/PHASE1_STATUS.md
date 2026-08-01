@@ -21,7 +21,7 @@ Date: 2026-06-25
   - `SECURITY.md`
   - `README.md`
   - `web/privacy.html`
-  - `assets/legal/privacy_policy.html`
+  - `assets/legal/privacy_policy.txt`
 
 ## Notes
 

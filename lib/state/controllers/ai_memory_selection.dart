@@ -1,6 +1,17 @@
 import 'package:fantastic_guacamole/engine/si/si_response_policy.dart';
 import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
 
+const int _maxMemorySummaryCount = 6;
+const int _maxMemorySummaryChars = 120;
+
+String _compactMemorySummary(String text) {
+  final String normalized = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+  if (normalized.length <= _maxMemorySummaryChars) {
+    return normalized;
+  }
+  return '${normalized.substring(0, _maxMemorySummaryChars)}...';
+}
+
 List<String> recentResponseSummaries({
   required List<SISnapshot> recentSnapshots,
   required Map<String, dynamic>? previousState,
@@ -25,9 +36,10 @@ List<String> recentResponseSummaries({
 
   final Set<String> deduped = summaries
       .map((String s) => responseSummaryFor(s, maxWords: 20))
+      .map(_compactMemorySummary)
       .where((String s) => s.isNotEmpty)
       .toSet();
-  return deduped.take(12).toList(growable: false);
+    return deduped.take(_maxMemorySummaryCount).toList(growable: false);
 }
 
 List<String> selectRelevantMemorySummaries({
@@ -100,7 +112,10 @@ List<String> selectRelevantMemorySummaries({
   }
 
   scored.sort((a, b) => b.score.compareTo(a.score));
-  return scored.take(8).map((entry) => entry.text).toList(growable: false);
+  return scored
+      .take(_maxMemorySummaryCount)
+      .map((entry) => _compactMemorySummary(entry.text))
+      .toList(growable: false);
 }
 
 double _queryOverlapScore(String query, String memory) {

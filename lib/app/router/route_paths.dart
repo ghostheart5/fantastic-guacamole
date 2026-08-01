@@ -24,6 +24,7 @@ class RoutePaths {
   static const progression = '$advancedRoot/progression';
   static const si = '$advancedRoot/si-console';
   static const advisor = '$advancedRoot/advisor';
+  static const completionEvents = '$advancedRoot/completion-events';
 
   // Legal and account routes.
   static const paywall = '/paywall';

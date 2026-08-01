@@ -1,0 +1,463 @@
+CHRONOSPARK APP AUDIO BUILDER AUDIT
+
+AUDIT MODE
+- Read-only assessment only.
+- No code changes applied.
+- Scope reviewed: lib/, assets/, pubspec.yaml.
+- This is a mobile app audio audit, not a website audit.
+
+============================================================
+SECTION 1
+EXECUTIVE AUDIO SUMMARY
+============================================================
+
+Current audio maturity:
+- MODERATE.
+
+Existing audio systems:
+- Central runtime audio playback service exists at lib/system/audio/audio_service.dart.
+- Notification and timeline flows trigger sound via AudioService.
+- Level-up overlay triggers achievement sound.
+- Typing animation triggers low-volume repeated audio ticks.
+- Text-to-speech exists via VoiceService (flutter_tts), mostly for spoken assistant/output surfaces.
+
+Existing sound assets:
+- assets/audio/task_complete.wav
+- assets/audio/focus_start.wav
+- assets/audio/error_soft.wav
+- assets/audio/ai_decision.wav
+
+Missing audio systems:
+- No dedicated audio policy layer for per-event mixing, cooldown categories, or anti-fatigue rules.
+- No explicit haptic feedback wiring found in active Dart runtime paths.
+- No distinct skip, save, or validation-error sound trigger in creator/timeline action paths.
+- No per-surface sound profile (creator vs timeline vs notifications) beyond shared generic cues.
+
+Whether audio supports productivity:
+- Partially yes. Completion and milestone cues help reinforcement.
+- Risk exists where notification and typing sounds may become repetitive without stronger per-context controls.
+
+Verdict:
+- MODERATE
+
+============================================================
+SECTION 2
+AUDIO INVENTORY
+============================================================
+
+Sound effects and audio assets:
+- file path: assets/audio/task_complete.wav
+  purpose: completion/achievement cue
+  trigger: AudioService.playAchievement from completion and level-up paths
+  status: active
+
+- file path: assets/audio/focus_start.wav
+  purpose: milestone/focus-start cue
+  trigger: AudioService.playMilestone for timeline milestone events
+  status: active
+
+- file path: assets/audio/error_soft.wav
+  purpose: soft error cue
+  trigger: no active runtime trigger found in current lib/*.dart paths
+  status: present but unused
+
+- file path: assets/audio/ai_decision.wav
+  purpose: decision/notification/typing cue
+  trigger: AudioService.playNotification and AudioService.playTyping
+  status: active
+
+Audio service and player systems:
+- file path: lib/system/audio/audio_service.dart
+  purpose: central SFX playback with fallback candidates and typing throttle
+  trigger: called by notification provider, timeline provider, typing widget, level-up overlay
+  status: active
+
+- file path: lib/state/controllers/audio_feedback_controller.dart
+  purpose: thin controller wrapper for decision/focus/complete sounds
+  trigger: no active references outside its own file
+  status: defined but currently disconnected
+
+- file path: lib/system/voice/voice_service.dart
+  purpose: spoken output (TTS) for guidance/accessibility style interactions
+  trigger: used by Smart Coach and SI Console screens
+  status: active
+
+- file path: lib/features/home/ui/smart_coach_screen.dart
+  purpose: invokes TTS speak/stop actions
+  trigger: user interactions in coach surface
+  status: active
+
+- file path: lib/features/si_console/ui/si_console_screen.dart
+  purpose: invokes TTS speak/stop actions
+  trigger: user interactions in SI console messages/controls
+  status: active
+
+Dependency and package state (audio/haptics):
+- file path: pubspec.yaml
+  purpose: declares audio/haptic packages
+  trigger: package configuration
+  status:
+  - audioplayers: active (imported/used)
+  - flutter_tts: active (imported/used)
+  - just_audio: declared, no runtime imports found
+  - audio_session: declared, no runtime imports found
+  - vibration: declared, no runtime imports found
+
+Haptic system:
+- file path: lib/**/*.dart (search for HapticFeedback/SystemSound/Vibration)
+  purpose: tactile reinforcement
+  trigger: no explicit runtime calls found
+  status: missing in active implementation
+
+============================================================
+SECTION 3
+CORE WORKFLOW AUDIO AUDIT
+============================================================
+
+Login:
+- sound exists: no explicit login audio trigger found
+- sound missing: yes
+- should have sound: should remain silent by default
+- should remain silent: yes (avoid friction at entry)
+
+Creator:
+- sound exists: no explicit create/save/validation SFX trigger found
+- sound missing: yes
+- should have sound: yes, subtle and optional for create success + validation error
+- should remain silent: routine text entry should stay mostly silent
+
+Save:
+- sound exists: no dedicated save confirm cue found
+- sound missing: yes
+- should have sound: yes, ultra-soft optional one-shot
+- should remain silent: keep silent on autosave/background saves
+
+Timeline:
+- sound exists: milestone sound for specific event categories
+- sound missing: dedicated skip/reschedule cues missing
+- should have sound: yes for completion and major milestones only
+- should remain silent: low-value timeline list operations should stay silent
+
+Completion:
+- sound exists: yes via completion feedback notification + achievement cue
+- sound missing: nuanced completion tiers are missing
+- should have sound: yes, completion cue is appropriate
+- should remain silent: repeated bulk completions should avoid stacking loud cues
+
+Profile:
+- sound exists: no profile-specific cue found
+- sound missing: minimal only
+- should have sound: optional for important account confirmations only
+- should remain silent: yes for normal profile browsing
+
+Settings:
+- sound exists: toggle to enable/disable audio effects exists
+- sound missing: no preview/test sound in settings detected
+- should have sound: optional preview button could help confidence
+- should remain silent: yes for most settings interactions
+
+============================================================
+SECTION 4
+CREATOR AUDIO AUDIT
+============================================================
+
+Recommended moments and current state:
+- task created: missing
+- goal created: missing
+- routine created: missing
+- note created: missing
+- validation error: missing (asset exists but no active trigger found)
+
+Assessment:
+- Creator flow currently lacks direct, contextual SFX reinforcement.
+- This is a major gap because creator actions are high-frequency and emotionally important.
+
+Score 0-100:
+- 18
+
+============================================================
+SECTION 5
+TIMELINE AUDIO AUDIT
+============================================================
+
+Recommended moments and current state:
+- item completed: partially present through mirrored completion feedback and achievement cue
+- item skipped: notification path exists but no distinct skip SFX identity found
+- item rescheduled: no dedicated SFX found
+
+Assessment:
+- Timeline has some reinforcement but not enough differentiation.
+- Users can receive audio cues, but semantic clarity between complete/skip/reschedule is weak.
+
+Score 0-100:
+- 52
+
+============================================================
+SECTION 6
+ASCENSION AUDIO AUDIT
+============================================================
+
+Review:
+- achievement sounds: present (task_complete used in level-up overlay and completion paths)
+- progress sounds: partial (focus_start used for milestone events)
+- streak sounds: no distinct streak-specific sound identity found
+
+Tone classification:
+- premium: partial
+- motivating: yes, but limited variety
+- childish: low risk currently
+- excessive: moderate risk if notification + typing sounds fire too often
+
+Score 0-100:
+- 60
+
+============================================================
+SECTION 7
+SMART PLANNER / SI CONSOLE AUDIO AUDIT
+============================================================
+
+Should audio exist:
+- Recommendation: advanced optional.
+
+Why:
+- These are cognition-heavy surfaces. Constant SFX can hurt concentration.
+- Optional spoken output (already present via TTS) is useful for accessibility and hands-free use.
+- Default should stay subtle/minimal, with explicit user control for voice/audio assist modes.
+
+============================================================
+SECTION 8
+NOTIFICATION AUDIO AUDIT
+============================================================
+
+Review:
+- reminders: scheduling system exists through local notifications
+- routines: notification framework supports reminder behavior
+- scheduled items: supported
+- daily prompts: supported by scheduler patterns
+
+Determine:
+- useful: yes, notification cues can reinforce urgency/completion loops
+- annoying: possible, because shared cue strategy can feel repetitive
+- missing: distinct reminder-category sound identities are missing; haptic companion is missing
+
+============================================================
+SECTION 9
+HAPTIC FEEDBACK AUDIT
+============================================================
+
+Audit result:
+- success actions: no explicit haptic call found
+- completion actions: no explicit haptic call found
+- navigation actions: no explicit haptic call found
+- errors: no explicit haptic call found
+
+Where haptics should exist:
+- success actions: subtle impact for task/goal/routine creation
+- completion actions: slightly stronger impact for completion confirmation
+- navigation actions: minimal selection click for key mode switches only
+- errors: short warning haptic for validation failures and destructive confirmation failures
+
+============================================================
+SECTION 10
+FOCUS AND DISTRACTION ANALYSIS
+============================================================
+
+What supports productivity:
+- Sparse completion and milestone cues that confirm progress quickly.
+- Optional spoken output for accessibility and review contexts.
+- Global audio enable toggle in settings.
+
+What would hurt productivity:
+- Per-keystroke style sounds beyond narrow contexts (typing effect can become fatiguing if overused).
+- Same sound reused for too many different meanings.
+- Loud, long, or melodic cues on routine planner actions.
+- Frequent interruptive notification sound bursts.
+
+============================================================
+SECTION 11
+AUDIO BRANDING AUDIT
+============================================================
+
+Ideal ChronoSpark audio identity:
+- premium: clean transients, low-noise tails, short duration
+- calm: low-mid emphasis, low sharpness, restrained loudness
+- futuristic: subtle synthetic textures, not retro arcade motifs
+- intelligent: semantic mapping (each important action has distinct but related timbre)
+- subtle: micro-cues under 350 ms for most UI events
+
+Should avoid:
+- arcade sounds
+- military sounds
+- alarm overload
+- casino effects
+
+Current fit:
+- Partial fit. Existing assets suggest subtle intent, but system mapping is incomplete and not yet consistently semantic.
+
+============================================================
+SECTION 12
+AUDIO SCORECARD
+============================================================
+
+Scores:
+- Feedback Quality: 62
+- Audio Consistency: 58
+- Productivity Support: 70
+- Completion Feedback: 68
+- Notification Design: 55
+- Haptic Design: 20
+- Brand Fit: 64
+- Premium Feel: 57
+
+Average:
+- 57
+
+============================================================
+SECTION 13
+KEEP / ADD LATER / REMOVE / AVOID
+============================================================
+
+KEEP:
+- Global audio enable toggle.
+- Completion and milestone reinforcement concept.
+- Typing sound throttle logic (anti-spam intent).
+- Short, non-musical cue direction.
+
+ADD LATER:
+- Dedicated creator success cues (task/goal/routine/note).
+- Dedicated soft validation error cue hookup.
+- Distinct skip and reschedule cues.
+- Minimal haptic layer for success/error/completion.
+- Context-aware volume/intensity policy by surface.
+
+REMOVE:
+- No mandatory removal item found now; system is small and manageable.
+
+AVOID:
+- Slot-machine reward cascades.
+- Loud celebratory fanfares for routine actions.
+- Multiple simultaneous cues for one action.
+- Always-on typing/audio loops across non-assistant surfaces.
+
+============================================================
+SECTION 14
+TARGET AUDIO SYSTEM
+============================================================
+
+Design strategy:
+- Keep SFX brief, low-volume, semantically distinct, and optionally disableable.
+- Prioritize completion confidence and error clarity over novelty.
+- Ship changes in small, reversible phases to protect focus and avoid alert fatigue.
+- Default to quiet-first behavior with explicit opt-in for richer feedback.
+
+Cue map:
+- Create Sound:
+  when: explicit user-confirmed create action succeeds (task/goal/routine/note)
+  character: soft upward tick, 120-220 ms
+
+- Complete Sound:
+  when: task completion confirmed and persisted
+  character: clean resolved chime, 180-280 ms
+
+- Skip Sound:
+  when: skip action confirmed
+  character: neutral downward tap, 120-180 ms
+
+- Progress Sound:
+  when: level-up/milestone/streak threshold reached
+  character: compact premium swell, <= 450 ms, strict cooldown
+
+- Error Sound:
+  when: validation or failed action requiring user correction
+  character: soft muted knock, 100-180 ms
+
+- Reminder Sound:
+  when: scheduled reminder fires in foreground handling path
+  character: calm ping, distinct from completion cue
+
+- Haptic Feedback:
+  when:
+  - create success: light impact
+  - completion: medium impact
+  - error: warning vibration
+  - milestone: medium impact + short celebratory pulse
+  constraints: never fire repeatedly in rapid sequences
+
+Safe rollout architecture:
+- Phase A (low risk):
+  - Keep existing completion and milestone cues.
+  - Add error cue mapping only for explicit validation failures.
+  - No new background audio, no music layer.
+
+- Phase B (controlled expansion):
+  - Add distinct create cue and skip cue with strict cooldown.
+  - Add minimal haptic layer for completion and validation error.
+  - Keep reminder sound conservative and category-aware.
+
+- Phase C (optional premium layer):
+  - Add advanced optional audio profile for users who want richer reinforcement.
+  - Keep default profile subtle and productivity-first.
+
+Safety gates per phase:
+- Gate 1: focus protection
+  - No event may trigger more than one SFX and one haptic pulse at once.
+- Gate 2: anti-fatigue
+  - Repeated events must obey cooldown windows.
+- Gate 3: semantic clarity
+  - Complete, skip, error, and reminder cues must be audibly distinct.
+- Gate 4: user control
+  - Respect existing sound enable/disable controls everywhere.
+
+Rollback criteria:
+- Increase in user-reported annoyance, distraction, or perceived noise.
+- Any evidence of overlapping or stacked cues during normal task flow.
+- Any mismatch between event meaning and sound identity.
+
+============================================================
+SECTION 15
+FINAL AUDIO BUILDER VERDICT
+============================================================
+
+Current audio maturity:
+- Moderate
+
+Intended audio maturity:
+- Strong
+
+Biggest audio gap:
+- Missing contextual cue mapping in creator and timeline action details, plus no active haptic layer.
+
+Strongest audio opportunity:
+- Build a consistent semantic cue set for create/complete/skip/error with strict anti-fatigue behavior.
+
+Most important sound to add:
+- Distinct creator success sound for create/save confirmation.
+
+Most important haptic to add:
+- Completion confirmation haptic (medium impact) with cooldown.
+
+Average audio score:
+- 57
+
+Safest next audio improvement:
+- Wire existing error_soft.wav and distinct create/skip cues behind current soundEnabled control, with conservative volume and cooldown.
+
+What should never be added:
+- Casino-style reward chains, alarm-heavy loops, long melodies, or constant high-frequency feedback.
+
+Upgrade verdict:
+- APPROVED WITH CONDITIONS.
+
+Conditions:
+- Keep default experience subtle and productivity-centric.
+- Introduce new cues only through phased rollout with cooldown safeguards.
+- Add haptics as supporting feedback, never as high-frequency noise.
+- Preserve clear semantic mapping (create vs complete vs skip vs error vs reminder).
+
+Target maturity after safe upgrade:
+- STRONG (without becoming game-like or distracting).
+
+Go / No-Go decision for audio upgrade:
+- GO for Phase A immediately.
+- GO for Phase B only after Phase A passes focus/annoyance checks.
+- HOLD Phase C behind explicit user opt-in and stability evidence.

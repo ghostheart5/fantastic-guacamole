@@ -454,12 +454,37 @@ class _SlideView extends StatelessWidget {
 
   final _Slide slide;
 
-  Widget _buildPulseAura({required double width, required double height}) {
+  Widget _buildPulseAura(
+    BuildContext context, {
+    required double width,
+    required double height,
+  }) {
+    MotionProfile motionProfile = MotionProfile.standard;
+    try {
+      motionProfile = ProviderScope.containerOf(
+        context,
+        listen: true,
+      ).read(motionProfileProvider);
+    } on Object {
+      motionProfile = MotionProfile.standard;
+    }
+    final bool reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final bool shouldRepeat = switch (motionProfile) {
+      MotionProfile.calm => false,
+      MotionProfile.standard => true,
+      MotionProfile.expressive => true,
+    };
+    final double sizeScale = switch (motionProfile) {
+      MotionProfile.calm => 0.88,
+      MotionProfile.standard => 1.0,
+      MotionProfile.expressive => 1.08,
+    };
     return Lottie.asset(
       AppAssets.animFocusPulse,
-      width: width,
-      height: height,
-      repeat: true,
+      width: width * sizeScale,
+      height: height * sizeScale,
+      repeat: !reduceMotion && shouldRepeat,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) =>
           SizedBox(width: width, height: height),
@@ -519,7 +544,11 @@ class _SlideView extends StatelessWidget {
                             child: Stack(
                               alignment: Alignment.center,
                               children: [
-                                _buildPulseAura(width: 86, height: 86),
+                                _buildPulseAura(
+                                  context,
+                                  width: 86,
+                                  height: 86,
+                                ),
                                 Icon(
                                   slide.icon,
                                   color: slide.iconColor,
@@ -662,7 +691,7 @@ class _SlideView extends StatelessWidget {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      _buildPulseAura(width: 66, height: 66),
+                      _buildPulseAura(context, width: 66, height: 66),
                       Icon(slide.icon, color: slide.iconColor, size: 32),
                     ],
                   ),
@@ -805,7 +834,7 @@ class _PersonalizationSlide extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'First Setup',
+                'Getting Started',
                 style: TextStyle(
                   color: AppColors.neonCyan,
                   fontSize: 10,
@@ -824,7 +853,7 @@ class _PersonalizationSlide extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.all(14),
                 child: const Text(
-                  'Create Something, Choose When It Happens, then View Your Timeline. You can explore Smart Planner, Forecast, Progress, SI Console, and Profile after setup.',
+                  'Create something, choose when it happens, then view your Timeline. You can explore Smart Planner, Forecast, Progress, SI Console, and Profile after setup.',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
@@ -835,20 +864,20 @@ class _PersonalizationSlide extends StatelessWidget {
               const SizedBox(height: 20),
               const _MissionCheckpointRow(
                 index: '01',
-                title: 'Create Something',
+                title: 'Create One Item',
                 detail: 'Start with a task, routine, note, or goal.',
               ),
               const SizedBox(height: 10),
               const _MissionCheckpointRow(
                 index: '02',
                 title: 'Choose When It Happens',
-                detail: 'Set it as one time, daily, or weekly.',
+                detail: 'Set it for one time, daily, or weekly.',
               ),
               const SizedBox(height: 10),
               const _MissionCheckpointRow(
                 index: '03',
                 title: 'View Your Timeline',
-                detail: 'See your plan in a calendar-style view.',
+                detail: 'See your plan in a simple timeline view.',
               ),
             ],
           ),
@@ -1282,12 +1311,31 @@ class _SignalRevealState extends State<_SignalReveal> {
 
   @override
   Widget build(BuildContext context) {
+    MotionProfile motionProfile = MotionProfile.standard;
+    try {
+      motionProfile = ProviderScope.containerOf(
+        context,
+        listen: true,
+      ).read(motionProfileProvider);
+    } on Object {
+      motionProfile = MotionProfile.standard;
+    }
+    final bool reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduceMotion) {
+      return widget.child;
+    }
+    final Duration duration = switch (motionProfile) {
+      MotionProfile.calm => const Duration(milliseconds: 380),
+      MotionProfile.standard => const Duration(milliseconds: 520),
+      MotionProfile.expressive => const Duration(milliseconds: 620),
+    };
     return AnimatedSlide(
-      duration: const Duration(milliseconds: 520),
+      duration: duration,
       curve: Curves.easeOutCubic,
       offset: _visible ? Offset.zero : const Offset(0, 0.08),
       child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 520),
+        duration: duration,
         curve: Curves.easeOut,
         opacity: _visible ? 1 : 0,
         child: widget.child,
@@ -1324,6 +1372,31 @@ class _HudPulseOverlayState extends State<_HudPulseOverlay>
 
   @override
   Widget build(BuildContext context) {
+    MotionProfile motionProfile = MotionProfile.standard;
+    try {
+      motionProfile = ProviderScope.containerOf(
+        context,
+        listen: true,
+      ).read(motionProfileProvider);
+    } on Object {
+      motionProfile = MotionProfile.standard;
+    }
+    final bool reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduceMotion) {
+      return const SizedBox.shrink();
+    }
+    final Duration cycle = switch (motionProfile) {
+      MotionProfile.calm => const Duration(seconds: 6),
+      MotionProfile.standard => const Duration(seconds: 4),
+      MotionProfile.expressive => const Duration(seconds: 3),
+    };
+    if (_controller.duration != cycle) {
+      _controller.duration = cycle;
+      if (!_controller.isAnimating) {
+        _controller.repeat();
+      }
+    }
     return IgnorePointer(
       child: AnimatedBuilder(
         animation: _controller,
@@ -1416,6 +1489,34 @@ class _StarfieldBackgroundState extends State<_StarfieldBackground>
 
   @override
   Widget build(BuildContext context) {
+    MotionProfile motionProfile = MotionProfile.standard;
+    try {
+      motionProfile = ProviderScope.containerOf(
+        context,
+        listen: true,
+      ).read(motionProfileProvider);
+    } on Object {
+      motionProfile = MotionProfile.standard;
+    }
+    final bool reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduceMotion) {
+      return CustomPaint(
+        painter: _StarPainter(_stars, 0),
+        child: const SizedBox.expand(),
+      );
+    }
+    final Duration cycle = switch (motionProfile) {
+      MotionProfile.calm => const Duration(seconds: 6),
+      MotionProfile.standard => const Duration(seconds: 4),
+      MotionProfile.expressive => const Duration(seconds: 3),
+    };
+    if (_ctrl.duration != cycle) {
+      _ctrl.duration = cycle;
+      if (!_ctrl.isAnimating) {
+        _ctrl.repeat();
+      }
+    }
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, _) => CustomPaint(

@@ -55,8 +55,8 @@ class TutorialContent {
       id: 'coach_quick_prompt',
       title: 'SMART PLANNER',
       description:
-          'Send one focused prompt to get immediate guidance when momentum drops.',
-      ctaLabel: 'Try a Prompt',
+          'Send one focused question to get practical guidance when momentum drops.',
+      ctaLabel: 'Ask for Help',
     ),
     TutorialStepContent(
       id: 'daily_reflection',
@@ -76,7 +76,7 @@ class TutorialContent {
       id: 'trajectory_overview',
         title: 'FORECAST',
       description:
-          'Read your forecast, choose one action, then branch in Flowmap when needed.',
+          'Read your forecast, choose one action, then branch in Flowmap if you need another path.',
       ctaLabel: 'Open Trajectory',
     ),
     TutorialStepContent(
@@ -104,7 +104,7 @@ class TutorialContent {
       id: 'console_overview',
       title: 'SI Console',
       description:
-          'Use SI Console for deeper planning questions and advanced guidance.',
+          'Use SI Console for deeper planning questions and clearer system guidance.',
         ctaLabel: 'Open Console',
     ),
     TutorialStepContent(
@@ -209,9 +209,9 @@ class TutorialContent {
         'Scan ENERGY and CLARITY first, then choose one concrete next action.',
 
     'smart_coach':
-        'Send one focused prompt, then one follow-up question for better precision.',
+      'Ask one focused question, then one follow-up question for better precision.',
     'coach_quick_prompt':
-        'Send one focused prompt, then one follow-up question for better precision.',
+      'Ask one focused question, then one follow-up question for better precision.',
 
     'settings_reflection':
         'Set a reflection reminder at a time you can realistically keep daily.',

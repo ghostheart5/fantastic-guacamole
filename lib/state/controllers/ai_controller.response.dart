@@ -499,10 +499,17 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         intent: intent,
         recommendation: recommendation,
       );
+      final String retentionLabel = switch (memoryType) {
+        'task_recommendation' => 'short_term_30d',
+        'energy_insight' => 'short_term_30d',
+        'status_summary' => 'short_term_14d',
+        _ => 'short_term_14d',
+      };
       final Map<String, dynamic> memoryEvent = <String, dynamic>{
         'timestampUtc': DateTime.now().toUtc().toIso8601String(),
         'type': memoryType,
         'intent': intent.label,
+        'retentionLabel': retentionLabel,
         'summary': _summarizeInteraction(
           input: input ?? '',
           output: recommendation.message,

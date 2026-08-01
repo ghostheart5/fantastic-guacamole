@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/content_generation_analytics.dart';
+import 'package:fantastic_guacamole/core/debug/content_generation_release_gate.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/utils/rate_limiter.dart';
 import 'package:fantastic_guacamole/core/utils/throttle.dart';
@@ -9,8 +11,10 @@ import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_result.dart';
 import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/completion_event_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_detection_service.dart';
@@ -41,6 +45,7 @@ import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
+import 'package:fantastic_guacamole/state/providers/completion_events_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
@@ -54,6 +59,7 @@ import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/state/providers/routines_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';
 import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
@@ -86,6 +92,7 @@ class AIController {
   static const String _neuralDumpKey = 'neural_dump';
 
   Future<AIRecommendation?> sendMessage(String text) async {
+    final Stopwatch requestTimer = Stopwatch()..start();
     final String rawInput = text.trim();
     final String? forcedSurface = _extractForcedSurface(rawInput);
     final String input = _stripLeadingSurfaceCommand(rawInput);
@@ -213,6 +220,13 @@ class AIController {
       input,
       matchedSurfaces,
     );
+    ContentGenerationAnalytics.trackRouteResolved(
+      surface: primarySurface,
+      intent: siIntentCategory,
+      routeType: 'si_console',
+      forcedSurface: forcedSurface != null && forcedSurface.isNotEmpty,
+      matchedSurfaceCount: matchedSurfaces.length,
+    );
     final AIRecommendation? timelineDeterministic =
         _tryDeterministicTimelineResponse(
           input: input,
@@ -229,6 +243,20 @@ class AIController {
           timelineRecommendationCount: timelineRecommendationCount,
         );
     if (timelineDeterministic != null) {
+      requestTimer.stop();
+      ContentGenerationAnalytics.trackResult(
+        surface: primarySurface,
+        routeType: 'deterministic_timeline',
+        usedFallback: false,
+        structured: _isStructuredSIResponse(timelineDeterministic.message),
+        durationMs: requestTimer.elapsedMilliseconds,
+        qualityTag: siIntentCategory,
+      );
+      ContentGenerationReleaseGate.evaluateRequest(
+        surface: primarySurface,
+        durationMs: requestTimer.elapsedMilliseconds,
+        structured: _isStructuredSIResponse(timelineDeterministic.message),
+      );
       return timelineDeterministic;
     }
     final AIRecommendation? trajectoryDeterministic =
@@ -244,6 +272,20 @@ class AIController {
           alert: trajectory.alert,
         );
     if (trajectoryDeterministic != null) {
+      requestTimer.stop();
+      ContentGenerationAnalytics.trackResult(
+        surface: primarySurface,
+        routeType: 'deterministic_trajectory',
+        usedFallback: false,
+        structured: _isStructuredSIResponse(trajectoryDeterministic.message),
+        durationMs: requestTimer.elapsedMilliseconds,
+        qualityTag: siIntentCategory,
+      );
+      ContentGenerationReleaseGate.evaluateRequest(
+        surface: primarySurface,
+        durationMs: requestTimer.elapsedMilliseconds,
+        structured: _isStructuredSIResponse(trajectoryDeterministic.message),
+      );
       return trajectoryDeterministic;
     }
     final AIRecommendation? milestoneDeterministic =
@@ -259,6 +301,20 @@ class AIController {
           upcoming: milestoneUpcoming,
         );
     if (milestoneDeterministic != null) {
+      requestTimer.stop();
+      ContentGenerationAnalytics.trackResult(
+        surface: primarySurface,
+        routeType: 'deterministic_milestone',
+        usedFallback: false,
+        structured: _isStructuredSIResponse(milestoneDeterministic.message),
+        durationMs: requestTimer.elapsedMilliseconds,
+        qualityTag: siIntentCategory,
+      );
+      ContentGenerationReleaseGate.evaluateRequest(
+        surface: primarySurface,
+        durationMs: requestTimer.elapsedMilliseconds,
+        structured: _isStructuredSIResponse(milestoneDeterministic.message),
+      );
       return milestoneDeterministic;
     }
     final AIRecommendation? soulMapDeterministic =
@@ -271,6 +327,20 @@ class AIController {
           comparison: soulMapComparison,
         );
     if (soulMapDeterministic != null) {
+      requestTimer.stop();
+      ContentGenerationAnalytics.trackResult(
+        surface: primarySurface,
+        routeType: 'deterministic_soulmap',
+        usedFallback: false,
+        structured: _isStructuredSIResponse(soulMapDeterministic.message),
+        durationMs: requestTimer.elapsedMilliseconds,
+        qualityTag: siIntentCategory,
+      );
+      ContentGenerationReleaseGate.evaluateRequest(
+        surface: primarySurface,
+        durationMs: requestTimer.elapsedMilliseconds,
+        structured: _isStructuredSIResponse(soulMapDeterministic.message),
+      );
       return soulMapDeterministic;
     }
     final AIRecommendation? coreValuesDeterministic =
@@ -282,6 +352,20 @@ class AIController {
           alignment: coreValuesAlignment,
         );
     if (coreValuesDeterministic != null) {
+      requestTimer.stop();
+      ContentGenerationAnalytics.trackResult(
+        surface: primarySurface,
+        routeType: 'deterministic_values',
+        usedFallback: false,
+        structured: _isStructuredSIResponse(coreValuesDeterministic.message),
+        durationMs: requestTimer.elapsedMilliseconds,
+        qualityTag: siIntentCategory,
+      );
+      ContentGenerationReleaseGate.evaluateRequest(
+        surface: primarySurface,
+        durationMs: requestTimer.elapsedMilliseconds,
+        structured: _isStructuredSIResponse(coreValuesDeterministic.message),
+      );
       return coreValuesDeterministic;
     }
     final AssistantIntent assistantIntent =
@@ -296,6 +380,88 @@ class AIController {
         .map((event) => event.title.trim())
         .where((text) => text.isNotEmpty)
         .toList(growable: false);
+    final List<CompletionEventEntity> completionEvents =
+      _ref.read(completionEventsProvider);
+    final List<RoutineEntity> routines = _ref.read(routinesProvider);
+    final List<Task> scheduledTasks = tasks
+      .where((Task task) => task.scheduledFor != null)
+      .toList(growable: false);
+    final List<RoutineEntity> activeRoutines = routines
+      .where((RoutineEntity routine) => routine.active)
+      .toList(growable: false);
+    final Map<String, dynamic> chronosparkModelContext =
+        contextBuilder.buildChronosparkModelContext(
+          surface: 'si_console',
+          intent: assistantIntent,
+          taskSummaries: tasks
+              .take(3)
+              .map((Task task) => task.title.trim())
+              .where((String title) => title.isNotEmpty)
+              .toList(growable: false),
+          goalSummaries: goals
+              .take(3)
+              .map((goal) => goal.title.trim())
+              .where((String title) => title.isNotEmpty)
+              .toList(growable: false),
+          timelineSummaries: timelineSummaries,
+          memorySummaries: selectedMemorySummaries,
+            completionSummaries: completionEvents
+              .take(3)
+              .map(
+              (CompletionEventEntity event) =>
+                '${event.eventType.name} @ ${event.eventAt.toIso8601String()}',
+              )
+              .toList(growable: false),
+            routineSummaries: activeRoutines
+              .take(3)
+              .map((RoutineEntity routine) => routine.name.trim())
+              .where((String name) => name.isNotEmpty)
+              .toList(growable: false),
+            scheduleSummaries: scheduledTasks
+              .take(3)
+              .map((Task task) => task.title.trim())
+              .where((String title) => title.isNotEmpty)
+              .toList(growable: false),
+          signals: <String, dynamic>{
+            'profile': <String, dynamic>{
+              'name': profile.name,
+              'level': profile.level,
+              'xp': profile.xp,
+              'streak': profile.streak,
+            },
+            'progression': <String, dynamic>{
+              'level': progression.level,
+              'xp': progression.xp,
+              'streak': progression.streak,
+            },
+            'si': <String, dynamic>{
+              'energy': si.energy,
+              'fatigue': si.fatigue,
+              'completedToday': si.completedToday,
+            },
+            'trajectory': <String, dynamic>{
+              'pressure': trajectory.pressureIndex,
+              'momentum': trajectory.momentum,
+              'divergence': trajectory.behaviorDivergence,
+              'prediction': trajectory.predictionOutcome,
+            },
+            'completion': <String, dynamic>{
+              'count': completionEvents.length,
+              'recentCount': completionEvents.take(3).length,
+            },
+            'schedule': <String, dynamic>{
+              'totalTasks': tasks.length,
+              'scheduledTasks': scheduledTasks.length,
+              'density': tasks.isEmpty
+                  ? 0.0
+                  : scheduledTasks.length / tasks.length,
+            },
+            'routines': <String, dynamic>{
+              'count': routines.length,
+              'activeCount': activeRoutines.length,
+            },
+          },
+        );
 
     final Map<String, dynamic> context = <String, dynamic>{
       'source': 'si_console',
@@ -316,6 +482,7 @@ class AIController {
         taskCount: tasks.length,
         goalCount: goals.length,
       ),
+      'chronosparkModel': chronosparkModelContext,
       'name': profile.name,
       'level': profile.level,
       'xp': profile.xp,
@@ -488,7 +655,7 @@ class AIController {
 
     if (recommendation == null ||
         !_isStructuredSIResponse(recommendation.message)) {
-      return _buildStructuredSIFallback(
+      final AIRecommendation fallback = _buildStructuredSIFallback(
         query: input,
         category: siIntentCategory,
         tasks: taskEntities,
@@ -498,8 +665,38 @@ class AIController {
         timelineHealthScore: timelineHealthScore,
         timelineRiskScore: timelineRiskScore,
       );
+      requestTimer.stop();
+      ContentGenerationAnalytics.trackResult(
+        surface: primarySurface,
+        routeType: 'ai_orchestrated',
+        usedFallback: true,
+        structured: _isStructuredSIResponse(fallback.message),
+        durationMs: requestTimer.elapsedMilliseconds,
+        qualityTag: 'structured_fallback',
+      );
+      ContentGenerationReleaseGate.evaluateRequest(
+        surface: primarySurface,
+        durationMs: requestTimer.elapsedMilliseconds,
+        structured: _isStructuredSIResponse(fallback.message),
+      );
+      return fallback;
     }
 
+    requestTimer.stop();
+    ContentGenerationAnalytics.trackResult(
+      surface: primarySurface,
+      routeType: 'ai_orchestrated',
+      usedFallback:
+          recommendation.reasoning?.toLowerCase().contains('fallback') == true,
+      structured: _isStructuredSIResponse(recommendation.message),
+      durationMs: requestTimer.elapsedMilliseconds,
+      qualityTag: siIntentCategory,
+    );
+    ContentGenerationReleaseGate.evaluateRequest(
+      surface: primarySurface,
+      durationMs: requestTimer.elapsedMilliseconds,
+      structured: _isStructuredSIResponse(recommendation.message),
+    );
     return recommendation;
   }
 

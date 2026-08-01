@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/state/providers/predictive_risk_provider.dar
 import 'package:fantastic_guacamole/state/providers/memory_intelligence_provider.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_commands.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_message.dart';
+import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_prompt_copy.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_response_validator.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -285,7 +286,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
         _messages.add(
-          const SIConsoleMessage(
+          SIConsoleMessage(
             text:
               'SI Console guide\n\n'
                 'Signal channels:\n'
@@ -311,14 +312,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 'Operating rules:\n'
                 '- Task creation is Creator-only. Use Creator to create tasks/goals.\n'
                 '- SI Console provides analysis and guidance, not task entry.\n\n'
-                'High-impact strategic prompts:\n'
-                '- "What is my highest-leverage next move?"\n'
-                '- "Show the newest task and the smartest execution order."\n'
-                '- "Analyze trajectory pressure and give one corrective action."\n'
-                '- "Show today\'s biggest risk and three stabilizing moves."\n'
-                '- "Summarize goals drifting off course and the next correction."\n'
-                '- "Compare current self to future self."\n\n'
-                'Tip: pick a command, then ask for risk, prediction, or next move.',
+                '${SIConsolePromptCopy.helpSection()}',
             isUser: false,
             emotion: 'focused',
           ),
@@ -492,7 +486,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           '${explainable.primaryReason}\n\n'
           'Signals:\n$reasons\n\n'
           'Recommended Move:\n${explainable.recommendation}\n\n'
-          'Prompt: "give me the next move and explain the risk"';
+          '${SIConsolePromptCopy.prompt('give me the next move and explain the risk')}';
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -521,7 +515,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           'TRAJECTORY SIMULATION\n\n'
           'Alternate futures generated from current momentum, pressure, recovery, and trajectory signals.\n\n'
           '$futures\n\n'
-          'Prompt: "which future should I choose and what is the next action?"';
+          '${SIConsolePromptCopy.prompt('which future should I choose and what is the next action?')}';
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -619,7 +613,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final String response =
           'FUTURE SELF SIMULATION\n\n'
           '$paths\n\n'
-          'Prompt: "which future path should I choose?"';
+          '${SIConsolePromptCopy.prompt('which future path should I choose?')}';
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -645,7 +639,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           'Score: ${drift.score}%\n\n'
           '${drift.summary}\n\n'
           'Correction:\n${drift.correction}\n\n'
-          'Prompt: "how do I realign with my future self?"';
+          '${SIConsolePromptCopy.prompt('how do I realign with my future self?')}';
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -728,7 +722,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final String response =
           'FUTURE TIMELINE\n\n'
           '$checkpoints\n\n'
-          'Prompt: "which checkpoint matters most right now?"';
+          '${SIConsolePromptCopy.prompt('which checkpoint matters most right now?')}';
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -753,7 +747,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           'Recommended Choice:\n${decision.recommendedChoice}\n\n'
           'Alignment Score: ${decision.alignmentScore}%\n\n'
           'Reason:\n${decision.reason}\n\n'
-          'Prompt: "turn this decision into my next action"';
+          '${SIConsolePromptCopy.prompt('turn this decision into my next action')}';
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -832,7 +826,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final String response =
           'ADAPTIVE REPLANNING\n\n'
           '$scenarios\n\n'
-          'Prompt: "which replan should I use and what should I do first?"';
+          '${SIConsolePromptCopy.prompt('which replan should I use and what should I do first?')}';
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -854,7 +848,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           'Recovery: ${momentum.recovery}\n'
           'Completed Today: ${momentum.completedToday}\n\n'
           'Forecast:\n${momentum.forecast}\n\n'
-          'Prompt: "what should I do next based on momentum?"';
+          '${SIConsolePromptCopy.prompt('what should I do next based on momentum?')}';
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -913,7 +907,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         final String topText = top.isEmpty
             ? 'No active tasks yet.'
             : top.map((t) => '- $t').join('\n');
-        return 'TASK SIGNAL\n\nActive tasks: ${aggregation.tasks.length}\n\nTop tasks:\n$topText\n\nPrompt: "which one should I execute first and why?"';
+        return 'TASK SIGNAL\n\nActive tasks: ${aggregation.tasks.length}\n\nTop tasks:\n$topText\n\n${SIConsolePromptCopy.prompt('which one should I execute first and why?')}';
       case '/goals':
         final List<String> top = aggregation.goals
             .take(3)
@@ -922,12 +916,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         final String topText = top.isEmpty
             ? 'No goals found.'
             : top.map((g) => '- $g').join('\n');
-        return 'GOAL VECTOR\n\nGoals: ${aggregation.goals.length}\n\nTop goals:\n$topText\n\nPrompt: "which goal is drifting and what is the next corrective action?"';
+        return 'GOAL VECTOR\n\nGoals: ${aggregation.goals.length}\n\nTop goals:\n$topText\n\n${SIConsolePromptCopy.prompt('which goal is drifting and what is the next corrective action?')}';
       case '/plan':
         final String blocks = aggregation.planPreview.isEmpty
             ? 'No adaptive blocks generated yet.'
             : aggregation.planPreview.take(3).map((b) => '- $b').join('\n');
-        return 'PLAN PRESSURE\n\nPlan preview blocks: ${aggregation.planPreview.length}\n\nUpcoming blocks:\n$blocks\n\nPrompt: "what should I move or drop to reduce pressure today?"';
+        return 'PLAN PRESSURE\n\nPlan preview blocks: ${aggregation.planPreview.length}\n\nUpcoming blocks:\n$blocks\n\n${SIConsolePromptCopy.prompt('what should I move or drop to reduce pressure today?')}';
       case '/milestones':
         final MilestoneSummary summary = ref.read(milestoneSummaryProvider);
         final List<MilestoneEntity> overdue = ref.read(
@@ -1049,9 +1043,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             'Recommendations: $recommendationCount\n\n'
             'Next deadline: $nextDeadline\n\n'
             'Recent events:\n$eventsText\n\n'
-            'Prompt: "what is overdue, what is next, and am I on track?"';
+            '${SIConsolePromptCopy.prompt('what is overdue, what is next, and am I on track?')}';
       case '/trajectory':
-        return 'FUTURE VECTOR SNAPSHOT\n\nPressure: ${aggregation.trajectory.pressureIndex}\nMomentum: ${(aggregation.trajectory.momentum * 100).round()}%\nDivergence: ${aggregation.trajectory.behaviorDivergence}%\nAlert: ${aggregation.trajectory.alert}\n\nPrompt: "give me one action to improve momentum today."';
+        return 'FUTURE VECTOR SNAPSHOT\n\nPressure: ${aggregation.trajectory.pressureIndex}\nMomentum: ${(aggregation.trajectory.momentum * 100).round()}%\nDivergence: ${aggregation.trajectory.behaviorDivergence}%\nAlert: ${aggregation.trajectory.alert}\n\n${SIConsolePromptCopy.prompt('give me one action to improve momentum today.')}';
       default:
         return 'Module command not recognized.';
     }
@@ -1071,7 +1065,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         'Gap: ${compare.gap}%\n'
         'Stance: ${compare.stance}\n\n'
         'Recommendation:\n${compare.recommendation}\n\n'
-        'Prompt: "compare current self to future self"';
+        '${SIConsolePromptCopy.prompt('compare current self to future self')}';
   }
 
   Future<void> _dispatchQuery(String text) async {
@@ -1143,6 +1137,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final SIConsoleScreenModel? consoleModel = consoleModelAsync.asData?.value;
     final Object? consoleError = consoleModelAsync.asError?.error;
     final String? engineSnapshot = consoleModel?.engineSnapshot;
+    final String? integrationSnapshot = consoleModel?.integrationSnapshot;
     final MediaQueryData mediaQuery = MediaQuery.of(context);
     final double keyboardInset = mediaQuery.viewInsets.bottom;
     final bool keyboardVisible = keyboardInset > 0;
@@ -1196,6 +1191,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                       executionSignals.skippedToday +
                       executionSignals.delayedToday,
                   executionStabilityPercent: executionStabilityPercent,
+                  integrationSnapshot: integrationSnapshot,
                 ),
                 Expanded(
                   child: Stack(
@@ -1271,6 +1267,7 @@ class _Header extends StatelessWidget {
     required this.executionCompletedToday,
     required this.executionDeferralsToday,
     required this.executionStabilityPercent,
+    this.integrationSnapshot,
     this.engineSnapshot,
   });
   final VoidCallback onBack;
@@ -1280,6 +1277,7 @@ class _Header extends StatelessWidget {
   final int executionCompletedToday;
   final int executionDeferralsToday;
   final int executionStabilityPercent;
+  final String? integrationSnapshot;
   final String? engineSnapshot;
 
   @override
@@ -1350,6 +1348,19 @@ class _Header extends StatelessWidget {
                 fontSize: 8,
                 letterSpacing: 1,
                 color: Colors.white54,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          if (integrationSnapshot != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              integrationSnapshot ?? '',
+              style: const TextStyle(
+                fontSize: 8,
+                letterSpacing: 1,
+                color: Colors.white38,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

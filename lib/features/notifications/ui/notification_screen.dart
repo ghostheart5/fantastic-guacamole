@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/core/extensions/date_extensions.dart';
 import 'package:fantastic_guacamole/core/extensions/string_extensions.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
@@ -16,7 +17,7 @@ class NotificationsPage extends ConsumerWidget {
     final List<NotificationEntity> items = ref.watch(notificationProvider);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/nexus_bg.jpg',
+      backgroundAssetPath: AppAssets.bgNexus,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

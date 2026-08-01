@@ -1,0 +1,287 @@
+CHRONOSPARK APP VIDEO BUILDER AUDIT
+
+AUDIT MODE
+- Audit only.
+- No code modified.
+- No files deleted.
+- No files renamed.
+- No formatting changes applied.
+- Scope reviewed: lib/, assets/, pubspec.yaml, android/, ios/.
+- This is a mobile app media-education audit, not a website audit and not a streaming-product audit.
+
+============================================================
+SECTION 1
+EXECUTIVE VIDEO SUMMARY
+============================================================
+
+Current state:
+- ChronoSpark currently does not use real in-app video playback.
+- No mp4, mov, webm, or gif media files were found in the app asset tree.
+- No video player package usage was found in app runtime paths.
+- ChronoSpark does use short motion assets via Lottie JSON animations and static image backgrounds.
+
+Is video needed:
+- Core in-app video is not required for primary workflow execution.
+- Short, optional media can help explain advanced surfaces and reduce first-use confusion.
+
+Where short media would help:
+- Onboarding (first 20-30 seconds of app flow explanation).
+- Creator quick-start (task/routine/goal/note differences).
+- Timeline action model (complete/skip/reschedule semantics).
+- Smart Planner and SI Console orientation (what to ask, what to expect).
+
+Where video should not be used:
+- Critical flow steps that must remain fast and interactive.
+- Any mandatory gate before creating first item.
+- Any screen where video competes with productivity focus.
+
+Verdict:
+OPTIONAL
+
+============================================================
+SECTION 2
+VIDEO / MEDIA INVENTORY
+============================================================
+
+High-confidence findings:
+
+1) assets/animations/focus_pulse.json
+- purpose: short motion effect for focus-start/onboarding-style pulse moments
+- status: active
+- recommendation: keep; use for micro-guidance only
+
+2) assets/animations/level_up.json
+- purpose: achievement/level-up celebratory animation
+- status: active
+- recommendation: keep; no video replacement needed
+
+3) assets/animations/session_complete.json
+- purpose: completion/success motion feedback
+- status: active
+- recommendation: keep; maintain short duration
+
+4) assets/backgrounds/onboarding_screen.jpg
+- purpose: onboarding visual background
+- status: active
+- recommendation: keep; pair with concise text guidance, not long media
+
+5) assets/tutorials/home.json
+- purpose: structured tutorial step definitions (not video)
+- status: unknown or partially wired
+- recommendation: prefer this interactive tutorial model over long videos
+
+6) assets/tutorials/tasks.json
+- purpose: task tutorial step definitions (not video)
+- status: unknown or partially wired
+- recommendation: activate/expand interactive step guidance before adding video
+
+7) pubspec.yaml -> lottie dependency
+- purpose: animation rendering
+- status: active dependency
+- recommendation: continue using motion micro-feedback instead of in-app video for core flow
+
+Not found in reviewed app scope:
+- video files: none found (.mp4, .mov, .webm)
+- gif files: none found
+- dedicated caption/subtitle files: none found
+- in-app preview video assets: none found
+- app tutorial video clips: none found
+
+============================================================
+SECTION 3
+ONBOARDING VIDEO AUDIT
+============================================================
+
+Should onboarding use:
+- short preview clip: optional, only if skippable and under 30 seconds
+- animated walkthrough: recommended (micro animation + interactive steps)
+- captioned explainer: recommended if any clip is introduced
+- no video: acceptable and currently aligned with app behavior
+
+ChronoSpark onboarding teaching goal fit:
+1. Create something
+2. Choose schedule
+3. View Timeline
+4. Mark complete later
+
+Best onboarding media approach:
+- Keep interactive step-by-step onboarding first.
+- Add one optional mini explainer clip only if onboarding drop-off indicates need.
+- Avoid long passive viewing.
+
+============================================================
+SECTION 4
+CREATOR VIDEO EDUCATION AUDIT
+============================================================
+
+Does Creator need video help:
+- Medium-low need.
+- Creator is action-driven and should stay immediate.
+
+Recommendation:
+- short tooltip: yes
+- micro animation: yes (for affordances and type differences)
+- short app preview clip: optional, not default
+- no video: acceptable baseline
+
+Preferred strategy:
+- Use contextual micro guidance for task/routine/goal/note selection.
+- Keep users creating immediately, not watching.
+
+============================================================
+SECTION 5
+TIMELINE VIDEO EDUCATION AUDIT
+============================================================
+
+Timeline education need:
+- Medium need for clarity of status transitions (scheduled/completed/skipped/overdue/rescheduled).
+
+Simplest media approach:
+- Use lightweight help card plus optional 10-20 second captioned mini demo.
+- Prefer static sequence or micro animation showing state transitions.
+- Do not autoplay long clips in Timeline.
+
+Recommendation:
+- Start with no in-screen video.
+- Add optional mini demo entry point if support requests indicate confusion.
+
+============================================================
+SECTION 6
+SMART PLANNER / SI CONSOLE VIDEO AUDIT
+============================================================
+
+Advanced feature media need:
+- no media: acceptable baseline
+- short animated explainer: recommended for first-use orientation
+- help card: strongly recommended
+- captioned mini demo: optional and useful for discovery
+
+Constraint:
+- Media must remain optional.
+- Never imply Smart Planner or SI Console are mandatory to use ChronoSpark.
+
+Recommended approach:
+- Add expandable help cards first.
+- If needed, provide optional captioned mini demos in help surfaces only.
+
+============================================================
+SECTION 7
+CAPTIONS AND ACCESSIBILITY AUDIT
+============================================================
+
+If any clip/demo is added, required accessibility baseline:
+- captions: required
+- transcripts: required for help-center equivalents
+- mute-friendly playback: required (default-muted or explicit mute controls)
+- reduced motion alternative: required for users with motion sensitivity
+- screen reader labels: required on all media controls
+
+Current state:
+- No current in-app video means caption pipeline is not implemented yet.
+- Accessibility work should be planned before any media rollout.
+
+============================================================
+SECTION 8
+PLAY STORE VIDEO / MEDIA READINESS
+============================================================
+
+Readiness assessment:
+- Play Store media strategy is more valuable than in-app video for current product state.
+
+Would benefit from:
+- Play Store app preview video: yes (external store asset)
+- screenshot sequence: yes (high priority)
+- animated feature preview: optional
+- short demo clips: yes, short and captioned
+
+Recommended media story:
+- Creator -> Timeline -> Completion -> Intelligence
+
+Execution notes:
+- Keep preview under 30-45 seconds.
+- Show real interactions, not cinematic filler.
+- Add captions for no-audio contexts.
+
+============================================================
+SECTION 9
+VIDEO RISKS
+============================================================
+
+Primary risks:
+- videos slow onboarding if placed before first action
+- videos replace real interaction if overused
+- videos become outdated as UI evolves
+- videos increase app size if bundled in-app
+- videos distract from productivity-first app intent
+
+Risk controls:
+- make media optional and skippable
+- keep clips short and scoped to one concept
+- store heavier preview assets outside app bundle where possible
+- maintain media refresh checklist per release
+
+============================================================
+SECTION 10
+VIDEO SCORECARD
+============================================================
+
+Scores (0-100):
+- Need for in-app video: 35
+- Onboarding media readiness: 78
+- Creator media need: 55
+- Timeline media need: 58
+- Accessibility readiness: 64
+- Play Store media readiness: 82
+- Risk control: 72
+
+Average:
+- 63
+
+Interpretation:
+- ChronoSpark is better positioned for optional explanatory media than core embedded video.
+
+============================================================
+SECTION 11
+TARGET CHRONOSPARK VIDEO STRATEGY
+============================================================
+
+Ideal strategy:
+- no in-app core video requirement
+- use screenshots and micro animations in-product
+- use Play Store preview video for external acquisition/education
+- use captioned short clips only for optional help/docs and advanced guidance
+
+Target operating model:
+1) Keep primary flow interactive and immediate.
+2) Teach with tooltips, cards, and micro motion first.
+3) Add optional short captioned demo clips only where data shows confusion.
+4) Keep all video non-blocking and easy to dismiss.
+
+============================================================
+SECTION 12
+FINAL VIDEO BUILDER VERDICT
+============================================================
+
+Current video maturity:
+- Low for true video; moderate for animation-assisted education.
+
+Should ChronoSpark use in-app video:
+- Optional only, not as a core feature.
+
+Best video use case:
+- Optional captioned micro demos for advanced feature orientation and external Play Store preview.
+
+Worst video use case:
+- Mandatory onboarding video before first create/schedule action.
+
+Most important caption/accessibility need:
+- Captions + transcript + reduced-motion alternative for any future clip.
+
+Average video readiness score:
+- 63
+
+Safest next media step:
+- Build screenshot-first onboarding/help sequence and one optional captioned 15-30 second demo for Creator -> Timeline flow in docs/help context.
+
+What should not become video-based:
+- Core task/routine/goal creation, schedule confirmation, and daily execution interactions.

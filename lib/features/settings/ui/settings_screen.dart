@@ -12,6 +12,8 @@ import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
+import 'package:fantastic_guacamole/system/audio/audio_service.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -36,6 +38,13 @@ class SettingsScreen extends ConsumerWidget {
         .length;
     final routes = ref.watch(routeSurfaceProvider);
     final soundEnabled = ref.watch(soundEnabledProvider);
+    final advancedAudioEnabled = ref.watch(
+      advancedAudioProfileEnabledProvider,
+    );
+    final hapticFeedbackEnabled = ref.watch(hapticFeedbackEnabledProvider);
+    final motionProfile = ref.watch(motionProfileProvider);
+    final bool systemReducedMotion =
+      MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final themeAsync = ref.watch(currentThemeProvider);
     final bool isDarkMode = themeAsync.asData?.value.isDark ?? true;
     final access = ref.watch(appAccessProvider);
@@ -45,8 +54,12 @@ class SettingsScreen extends ConsumerWidget {
     );
     final bool allowDeletionSupportFallback = !kReleaseMode;
 
+    AudioService.setSoundEffectsEnabled(soundEnabled);
+    AudioService.setAdvancedProfileEnabled(advancedAudioEnabled);
+    AudioService.setHapticsEnabled(hapticFeedbackEnabled);
+
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/settings_bg.jpg',
+      backgroundAssetPath: AppAssets.bgSettings,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -196,9 +209,43 @@ class SettingsScreen extends ConsumerWidget {
                     _NeonToggleTile(
                       title: 'Audio effects',
                       value: soundEnabled,
-                      onChanged: (v) =>
-                          ref.read(soundEnabledProvider.notifier).set(v),
+                      onChanged: (bool enabled) {
+                        ref.read(soundEnabledProvider.notifier).set(enabled);
+                        AudioService.setSoundEffectsEnabled(enabled);
+                      },
                     ),
+                    _NeonToggleTile(
+                      title: 'Advanced audio profile (optional)',
+                      value: advancedAudioEnabled,
+                      onChanged: (bool enabled) {
+                        ref
+                            .read(advancedAudioProfileEnabledProvider.notifier)
+                            .set(enabled);
+                        AudioService.setAdvancedProfileEnabled(enabled);
+                      },
+                    ),
+                    _NeonToggleTile(
+                      title: 'Haptic feedback',
+                      value: hapticFeedbackEnabled,
+                      onChanged: (bool enabled) {
+                        ref
+                            .read(hapticFeedbackEnabledProvider.notifier)
+                            .set(enabled);
+                        AudioService.setHapticsEnabled(enabled);
+                      },
+                    ),
+                    _MotionProfileTile(
+                      value: motionProfile,
+                      onChanged: (MotionProfile value) {
+                        ref.read(motionProfileProvider.notifier).set(value);
+                      },
+                    ),
+                    if (!kReleaseMode)
+                      _NeonStatusTile(
+                        title: 'Motion Debug',
+                        subtitle:
+                            'Profile: ${motionProfile.name.toUpperCase()} | System reduced motion: ${systemReducedMotion ? 'ON' : 'OFF'}',
+                      ),
                     ValueListenableBuilder<bool?>(
                       valueListenable: ref.watch(
                         notificationPermissionListenableProvider,
@@ -383,6 +430,23 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              if (!kReleaseMode) ...[
+                const SizedBox(height: 16),
+                _Section(
+                  label: 'DEVELOPER',
+                  accentColor: AppColors.neonCyan,
+                  child: Column(
+                    children: [
+                      _NeonNavTile(
+                        title: 'Completion Events Inspector',
+                        subtitle:
+                            'Review and clear local completion_events_v1 records.',
+                        onTap: () => context.push(RoutePaths.completionEvents),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),

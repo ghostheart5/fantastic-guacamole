@@ -1,0 +1,453 @@
+CHRONOSPARK APP SECURITY BUILDER AUDIT
+
+AUDIT MODE
+- Read-only assessment only.
+- No code changes applied as part of this audit deliverable.
+- Scope reviewed: lib/, supabase/, android/, ios/, test/, integration_test/, .env, .env.example, firebase_options.dart, google-services.json, GoogleService-Info.plist, key.properties, pubspec.yaml.
+
+============================================================
+SECTION 1
+EXECUTIVE SECURITY SUMMARY
+============================================================
+
+Current posture summary:
+- Overall security maturity: Medium-High.
+- Strong controls exist across transport security, auth gating, secure storage usage, JWT-verified edge functions, and release guards.
+- Main residual risk is configuration drift and credential hygiene, not a core absence of controls.
+
+Top strengths:
+- HTTPS enforcement for critical endpoints.
+- Deep-link trust filtering and app-link constraints.
+- RLS-enabled Supabase tables and ownership policies.
+- Secret guard and release guard scripts in repo.
+- Redaction patterns in runtime logging.
+
+Top risks:
+- Presence of local .env and multiple .bak files under lib/ increase accidental exposure surface.
+- Firebase project keys and identifiers are present in generated client config (common, but still reconnaissance-friendly if combined with weak backend policy).
+- Mock/auth fallback paths must remain strictly non-production.
+
+============================================================
+SECTION 2
+AUTHENTICATION AUDIT
+============================================================
+
+Findings:
+- Auth provider uses Supabase via AuthService with email/password, OAuth Google, OTP, password reset, and session refresh logic.
+- Exponential backoff exists for repeated sign-in failures.
+- Account deletion requires re-authentication and bearer-based secure endpoint call.
+- UnavailableAuthService fails closed when backend is not configured.
+
+Risk notes:
+- Mock and always-authenticated service implementations exist; these are acceptable for non-production but must never be reachable in production flavor.
+
+Rating:
+- 8/10
+
+============================================================
+SECTION 3
+AUTHORIZATION AUDIT
+============================================================
+
+Findings:
+- Route/access guards are provider-driven and include authenticated, onboarding, premium, and admin checks.
+- Supabase ownership checks are implemented via auth.uid()-based policies on audited tables.
+- Edge functions validate caller identity by resolving /auth/v1/user from bearer auth header before sensitive operations.
+
+Risk notes:
+- Any future "tester full access" or mock feature flags must be hard-blocked in production release flavor and CI verified.
+
+Rating:
+- 8/10
+
+============================================================
+SECTION 4
+SUPABASE SECURITY AUDIT
+============================================================
+
+Findings:
+- supabase/config.toml sets verify_jwt=true for ai-proxy, monetization-verify, account-delete.
+- ai-proxy includes origin allowlist, auth validation, and per-user rate limiting.
+- monetization-verify validates auth, applies rate limiting, constrains product IDs, hashes purchase token, and writes through server-side routines.
+- account-delete validates authenticated user identity and user/email match before admin delete.
+
+Risk notes:
+- Service role use in edge functions is expected server-side; strongest defense remains strict function auth checks and minimal secret distribution.
+
+Rating:
+- 8.5/10
+
+============================================================
+SECTION 5
+SECRET MANAGEMENT AUDIT
+============================================================
+
+Findings:
+- .gitignore includes .env, android/key.properties, and keystore patterns.
+- security_secret_guard.ps1 blocks tracked secret files and non-placeholder key.properties passwords.
+- key.properties currently uses placeholder secrets.
+- .env.example and supabase/functions/.env.example document separation between client and server secrets.
+
+Risks:
+- A local .env file exists in workspace. This is normal for development but remains a high-value target; ensure it is never tracked or uploaded in artifacts.
+
+Rating:
+- 8/10
+
+============================================================
+SECTION 6
+LOCAL STORAGE SECURITY AUDIT
+============================================================
+
+Findings:
+- SensitivePrefsStore persists sensitive data via FlutterSecureStorage.
+- SharedPrefsService blocks writes for sensitive-key markers (token/secret/password/credential/auth_session).
+- Local cleanup service removes secure keys, preference keys, and Hive boxes on sign-out/delete.
+- ExpiredSessionCleanup removes stale session and credentials.
+
+Risk notes:
+- LocalIdentityRepository stores identity in SharedPreferences; data is profile-like, but still plaintext at rest vs secure keystore.
+
+Rating:
+- 7.5/10
+
+============================================================
+SECTION 7
+PROFILE DATA PRIVACY AUDIT
+============================================================
+
+Findings:
+- Profile and identity state are compartmentalized across secure and non-secure stores.
+- User cleanup path targets profile-related keys and per-user onboarding markers.
+
+Risk notes:
+- SharedPreferences is not encrypted by default; ensure only low-sensitivity profile metadata remains there.
+
+Rating:
+- 7.5/10
+
+============================================================
+SECTION 8
+TASK / GOAL / ROUTINE / NOTE PRIVACY AUDIT
+============================================================
+
+Findings:
+- Local cleanup flow clears task/goal/routine/timeline-related Hive boxes and workspace artifacts.
+- Supabase policies for user_daily_metrics and storage bucket objects enforce authenticated ownership boundaries in reviewed migrations.
+
+Risk notes:
+- Broad SELECT policy patterns should be reviewed periodically for least-privilege fit as schema grows.
+
+Rating:
+- 7.5/10
+
+============================================================
+SECTION 9
+AI PRIVACY AUDIT
+============================================================
+
+Findings:
+- AI calls route through server-side ai-proxy rather than direct provider key exposure on client.
+- ai-proxy enforces auth + rate limit + allowed origins.
+- Client logs include token/password redaction logic.
+
+Risk notes:
+- Prompt payloads can still carry sensitive user content by design; retention/inspection policy should be explicit in privacy docs.
+
+Rating:
+- 8/10
+
+============================================================
+SECTION 10
+SUBSCRIPTION SECURITY AUDIT
+============================================================
+
+Findings:
+- Purchase verification service enforces authenticated bearer token and HTTPS endpoint parsing.
+- Server-side monetization verify function validates payload shape, product allowlist, rate limits, and purchase token hashing.
+- Monetization schema includes dedicated wallet, purchases, entitlements, and transaction ledgers with RLS enabled.
+
+Risk notes:
+- Billing security quality now depends heavily on server function hardening and operator secret handling.
+
+Rating:
+- 8.5/10
+
+============================================================
+SECTION 11
+ROLE MODEL AUDIT
+============================================================
+
+Findings:
+- App-level role model is primarily authenticated user ownership rather than multi-role admin UI model.
+- Admin-like behavior paths are minimal and mostly runtime-flag gated.
+
+Risk notes:
+- If enterprise multi-role requirements expand, implement explicit role claims and policy-based permission mapping early.
+
+Rating:
+- 7/10
+
+============================================================
+SECTION 12
+DATA CLASSIFICATION MATRIX
+============================================================
+
+Proposed classification:
+- Public: marketing links, static app metadata.
+- Internal: usage counters, anonymous diagnostics.
+- Sensitive: profile identity details, onboarding state, timeline behavior.
+- Restricted: auth sessions, tokens, purchase verification data, server secrets.
+
+Current fit:
+- Restricted data is mostly handled via secure storage and server-side verification paths.
+- Some sensitive profile/identity values remain in SharedPreferences and should stay minimal.
+
+Rating:
+- 7.5/10
+
+============================================================
+SECTION 13
+DLP / DATA LOSS PREVENTION AUDIT
+============================================================
+
+Findings:
+- Redaction exists for emails, bearer tokens, password fields, and common API key patterns.
+- Secret guard script and release contract tests actively scan for leaks and corruption patterns.
+
+Risk notes:
+- DLP currently relies on scripts/tests and developer discipline; no centralized runtime outbound-content DLP layer observed.
+
+Rating:
+- 7/10
+
+============================================================
+SECTION 14
+MOBILE APP SECURITY AUDIT
+============================================================
+
+Android findings:
+- allowBackup=false, fullBackupContent=false, usesCleartextTraffic=false.
+- Explicit permission allowlist enforced by release guard.
+- App links and custom scheme callback are narrowly declared.
+
+iOS findings:
+- Associated domains configured for app links.
+- APNS environment declared as production.
+- Microphone and speech usage descriptions present.
+
+Risk notes:
+- Keep manifest/entitlement changes bound to guard tests to prevent permission creep.
+
+Rating:
+- 8.5/10
+
+============================================================
+SECTION 15
+GOOGLE PLAY SECURITY READINESS
+============================================================
+
+Findings:
+- Build/release guardrails exist (secret guard + release guard + safe preflight).
+- Billing permission present and receipt verification architecture is server-mediated.
+- key.properties placeholders indicate safer repo posture vs committed local credentials.
+
+Risk notes:
+- Final readiness still depends on CI proof, signed artifact metadata capture, and operator process adherence.
+
+Rating:
+- 8/10
+
+============================================================
+SECTION 16
+AUDIT LOGGING & SECURITY EVENTS
+============================================================
+
+Findings:
+- Global error capture wired via runZonedGuarded, FlutterError.onError, and PlatformDispatcher.onError.
+- Crashlytics integration used for non-fatal/fatal reporting on supported platforms.
+- Diagnostic logging exists with category tagging.
+
+Risk notes:
+- Ensure production log verbosity remains constrained; verbose logs should not be enabled in release builds.
+
+Rating:
+- 8/10
+
+============================================================
+SECTION 17
+SECURITY RISK REGISTER
+============================================================
+
+High:
+- Local .env presence in dev machines can leak if operational hygiene fails.
+- Backup-like files under lib/ (.bak variants) increase accidental disclosure/noise surface.
+
+Medium:
+- SharedPreferences storage for some identity/profile state.
+- Mock/auth fallback services exist and depend on strict production gating.
+
+Low:
+- Firebase client config visibility is normal but should be paired with strict backend auth and rules.
+
+============================================================
+SECTION 18
+SECURITY SCORECARD
+============================================================
+
+Category scores:
+- Authentication: 8/10
+- Authorization and RLS posture: 8/10
+- Secret management: 8/10
+- Local data protection: 7.5/10
+- Network/API transport: 8.5/10
+- Mobile platform hardening: 8.5/10
+- Monitoring and incident visibility: 8/10
+
+Weighted overall:
+- 8.0/10
+
+============================================================
+SECTION 19
+KEEP / HARDEN / MONITOR / REMOVE LATER
+============================================================
+
+KEEP:
+- JWT verification on edge functions.
+- HTTPS endpoint parsing and deep-link trust allowlist.
+- Secret guard and release guard scripts.
+
+HARDEN:
+- Minimize identity/profile writes to SharedPreferences.
+- Formalize production flag enforcement checks for mock/tester paths.
+
+MONITOR:
+- Auth failure spikes, token refresh anomalies, purchase verification rejects, account delete failures.
+
+REMOVE LATER:
+- Legacy backup artifacts under lib/ that are not part of runtime source.
+
+============================================================
+SECTION 20
+TARGET CHRONOSPARK SECURITY ARCHITECTURE
+============================================================
+
+Target shape:
+- Client as least-privileged thin app.
+- Edge functions as policy enforcement boundary for monetization and sensitive operations.
+- Supabase RLS as mandatory ownership gate for all user data domains.
+- Centralized security telemetry and alert thresholds for auth, billing, and deletion events.
+
+============================================================
+SECTION 21
+SAFE SECURITY ROADMAP
+============================================================
+
+Near term (1-2 sprints):
+- Add CI assertion that production flavor cannot enable mock login/mode/tester access.
+- Add automated scan to fail when .bak runtime files appear in lib/.
+- Add explicit data classification tags per persistence key.
+
+Mid term (3-6 sprints):
+- Move any non-essential identity/profile material from SharedPreferences to secure storage where practical.
+- Add security event dashboards for failed auth, verify, and delete-account edge flows.
+
+Long term:
+- Add periodic threat model review per major feature family (Creator, Timeline, SI Console, monetization, AI proxy).
+
+============================================================
+SECTION 22
+FINAL SECURITY BUILDER VERDICT
+============================================================
+
+Verdict:
+- APPROVED WITH CONDITIONS.
+
+Rationale:
+- Core security architecture is sound for a mobile SaaS app: strong transport defaults, protected backend edge checks, RLS-backed ownership controls, and meaningful release guards.
+- Remaining issues are mostly operational hardening items and hygiene controls, not architectural blockers.
+
+Conditions before strict production sign-off:
+- Maintain placeholder-only tracked key.properties values.
+- Keep .env untracked and operationally protected.
+- Enforce production gating for mock/tester auth modes in CI.
+- Continue guard/test execution in release preflight pipeline.
+
+End of audit.
+
+============================================================
+SECTION 23
+SAFE EXECUTION SNAPSHOT (CURRENT)
+============================================================
+
+Execution timestamp:
+- 2026-07-31 (local workspace run)
+
+KEEP controls executed now:
+- security_secret_guard.ps1: PASS.
+- release_guard.ps1: PASS.
+- Supabase edge JWT config check: PASS (ai-proxy, monetization-verify, account-delete all verify_jwt=true).
+
+HARDEN controls validated now:
+- Production/mock gating logic present in env resolver pathways (mock login, mock mode, tester access bound by non-production + non-release checks).
+- Auth gateway fallback includes unavailable/closed behavior when backend is not configured or not ready.
+
+MONITOR baseline collected now:
+- Existing runlog/crashlog are build-oriented and not yet a clean security-event stream.
+- Security telemetry should be separated into a dedicated weekly artifact for auth rejects, purchase verify rejects, and account delete failures.
+
+REMOVE LATER inventory (no deletion performed in this run):
+- lib/app/startup/app_bootstrap.dart.bak
+- lib/features/creator/ui/widgets/creator_unified_workbench.dart.bak
+- lib/features/creator/ui/creator_screen.dart.bak
+- lib/features/home/ui/smart_coach_screen.dart.bak
+
+============================================================
+SECTION 24
+SAFE SECURITY OPERATIONS RUNBOOK
+============================================================
+
+Objective:
+- Keep current controls active, harden known weak points, monitor drift, and remove non-runtime artifacts only with evidence and rollback confidence.
+
+Daily (developer machine, non-destructive):
+- powershell -NoProfile -ExecutionPolicy Bypass -File scripts/security_secret_guard.ps1
+
+Per PR (CI-required gates):
+- powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release_guard.ps1
+- powershell -NoProfile -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1 -Profile production -AllowAnalyzeInfos
+
+Weekly (security review cadence):
+- Re-run secret + release guard.
+- Regenerate crash triage/security event report and review for spikes in:
+	- unauthorized/forbidden edge responses,
+	- purchase verify rejects,
+	- account delete failures,
+	- auth refresh error bursts.
+
+Release candidate (strict evidence pack):
+- Capture output from:
+	- scripts/security_secret_guard.ps1
+	- scripts/release_guard.ps1
+	- scripts/safe_release_preflight.ps1 -Profile production
+- Attach evidence file set to release signoff doc.
+
+============================================================
+SECTION 25
+SAFE REMOVE-LATER STRATEGY
+============================================================
+
+Safety policy:
+- Do not delete backup-like files from lib/ in ad-hoc edits.
+- Quarantine candidates first; remove only via reviewed cleanup PR with:
+	- ownership acknowledgement,
+	- no-runtime-reference proof,
+	- post-removal test pass.
+
+Removal phases:
+- Phase R1 (audit): keep inventory list up to date and confirm files are not imported/referenced.
+- Phase R2 (quarantine): move candidates to a non-runtime archive folder outside lib/ with explicit changelog entry.
+- Phase R3 (remove): delete only after one full release cycle without regressions.
+
+Rollback:
+- If regression appears after R2 or R3, restore from VCS immediately and re-open the cleanup item as blocked.

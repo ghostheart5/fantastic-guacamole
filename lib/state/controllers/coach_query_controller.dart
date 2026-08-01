@@ -1,9 +1,12 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/debug/content_generation_analytics.dart';
+import 'package:fantastic_guacamole/core/debug/content_generation_release_gate.dart';
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_detection_service.dart';
+import 'package:fantastic_guacamole/engine/assistant/chronospark_prompt_architecture.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_response_templates.dart';
@@ -15,6 +18,7 @@ import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
+import 'package:fantastic_guacamole/state/providers/completion_events_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
@@ -25,6 +29,7 @@ import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
+import 'package:fantastic_guacamole/state/providers/routines_provider.dart';
 import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
@@ -62,6 +67,7 @@ class CoachQueryController implements SmartCoachInterface {
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
   }) async {
+    final Stopwatch requestTimer = Stopwatch()..start();
     final currentSi = _ref.read(siStateProvider);
     _ref
         .read(siStateProvider.notifier)
@@ -96,6 +102,15 @@ class CoachQueryController implements SmartCoachInterface {
           input: prompt,
           surface: 'smart_coach',
         );
+    ContentGenerationAnalytics.trackRouteResolved(
+      surface: 'smart_coach',
+      intent: assistantIntent.label,
+      routeType: detectedTopic == _CoachTopic.generalChat
+          ? 'ai_orchestrated'
+          : 'deterministic_local',
+      forcedSurface: false,
+      matchedSurfaceCount: 1,
+    );
     final DefaultAssistantContextBuilder contextBuilder =
         const DefaultAssistantContextBuilder();
     final List<String> goalSummaries = _ref
@@ -103,6 +118,15 @@ class CoachQueryController implements SmartCoachInterface {
         .take(3)
         .map((goal) => goal.title.trim())
         .where((title) => title.isNotEmpty)
+        .toList(growable: false);
+    final tasks = _ref.read(tasksProvider).asData?.value ?? const <Task>[];
+    final completionEvents = _ref.read(completionEventsProvider);
+    final routines = _ref.read(routinesProvider);
+    final scheduledTasks = tasks
+        .where((task) => task.scheduledFor != null)
+        .toList(growable: false);
+    final activeRoutines = routines
+        .where((routine) => routine.active)
         .toList(growable: false);
     final List<String> memorySummaries = _ref
         .read(memoriesProvider)
@@ -116,6 +140,64 @@ class CoachQueryController implements SmartCoachInterface {
         .map((event) => event.title.trim())
         .where((text) => text.isNotEmpty)
         .toList(growable: false);
+    final Map<String, dynamic>
+    chronosparkModelContext = contextBuilder.buildChronosparkModelContext(
+      surface: 'smart_coach',
+      intent: assistantIntent,
+      taskSummaries: tasks
+          .take(3)
+          .map((task) => task.title.trim())
+          .where((title) => title.isNotEmpty)
+          .toList(growable: false),
+      goalSummaries: goalSummaries,
+      timelineSummaries: timelineSummaries,
+      memorySummaries: memorySummaries,
+      completionSummaries: completionEvents
+          .take(3)
+          .map(
+            (event) =>
+                '${event.eventType.name} @ ${event.eventAt.toIso8601String()}',
+          )
+          .toList(growable: false),
+      routineSummaries: activeRoutines
+          .take(3)
+          .map((routine) => routine.name.trim())
+          .where((name) => name.isNotEmpty)
+          .toList(growable: false),
+      scheduleSummaries: scheduledTasks
+          .take(3)
+          .map((task) => task.title.trim())
+          .where((title) => title.isNotEmpty)
+          .toList(growable: false),
+      signals: <String, dynamic>{
+        'energy': energy,
+        'emotion': emotion.name,
+        'profile': <String, dynamic>{
+          'name': _ref.read(profileProvider).name,
+          'level': _ref.read(profileProvider).level,
+          'xp': _ref.read(profileProvider).xp,
+          'streak': _ref.read(profileProvider).streak,
+        },
+        'progression': <String, dynamic>{
+          'level': _ref.read(progressionProvider).progress.level,
+          'xp': _ref.read(progressionProvider).progress.xp,
+          'streak': _ref.read(progressionProvider).progress.streak,
+        },
+        'completion': <String, dynamic>{
+          'count': completionEvents.length,
+          'recentCount': completionEvents.take(3).length,
+        },
+        'schedule': <String, dynamic>{
+          'totalTasks': tasks.length,
+          'scheduledTasks': scheduledTasks.length,
+          'density': tasks.isEmpty ? 0.0 : scheduledTasks.length / tasks.length,
+        },
+        'routines': <String, dynamic>{
+          'count': routines.length,
+          'activeCount': activeRoutines.length,
+        },
+      },
+    );
 
     if (detectedTopic != _CoachTopic.generalChat) {
       final Map<String, dynamic> moduleSnapshot = _coachModuleSnapshot(
@@ -143,6 +225,20 @@ class CoachQueryController implements SmartCoachInterface {
         content: message,
       );
       _ref.read(profileProvider.notifier).addXP(10);
+      requestTimer.stop();
+      ContentGenerationAnalytics.trackResult(
+        surface: 'smart_coach',
+        routeType: 'deterministic_local',
+        usedFallback: false,
+        structured: _isStructuredCoachResponse(message),
+        durationMs: requestTimer.elapsedMilliseconds,
+        qualityTag: detectedTopicLabel,
+      );
+      ContentGenerationReleaseGate.evaluateRequest(
+        surface: 'smart_coach',
+        durationMs: requestTimer.elapsedMilliseconds,
+        structured: _isStructuredCoachResponse(message),
+      );
       return CoachCoachingResult(
         prompt: prompt,
         message: message,
@@ -181,6 +277,7 @@ class CoachQueryController implements SmartCoachInterface {
           timelineSummaries: timelineSummaries,
           goalSummaries: goalSummaries,
         ),
+        'chronosparkModel': chronosparkModelContext,
         'reflection': notes,
         'knowledge': knowledge,
         ...moduleSnapshot,
@@ -194,10 +291,11 @@ class CoachQueryController implements SmartCoachInterface {
       reasoning: recommendation?.reasoning,
     );
     final bool aiStructured = _isStructuredCoachResponse(generated);
-    final String message =
-        generated.isNotEmpty && !aiFallbackDetected && aiStructured
-        ? generated
-        : _buildCoachingMessage(energy, emotion, notes);
+    final bool usedFallback =
+      !(generated.isNotEmpty && !aiFallbackDetected && aiStructured);
+    final String message = usedFallback
+      ? _buildCoachingMessage(energy, emotion, notes)
+      : generated;
 
     await _persistConversationTurn(
       role: 'user',
@@ -211,6 +309,20 @@ class CoachQueryController implements SmartCoachInterface {
     );
 
     _ref.read(profileProvider.notifier).addXP(10);
+    requestTimer.stop();
+    ContentGenerationAnalytics.trackResult(
+      surface: 'smart_coach',
+      routeType: 'ai_orchestrated',
+      usedFallback: usedFallback,
+      structured: _isStructuredCoachResponse(message),
+      durationMs: requestTimer.elapsedMilliseconds,
+      qualityTag: aiFallbackDetected ? 'ai_non_actionable' : 'normal',
+    );
+    ContentGenerationReleaseGate.evaluateRequest(
+      surface: 'smart_coach',
+      durationMs: requestTimer.elapsedMilliseconds,
+      structured: _isStructuredCoachResponse(message),
+    );
 
     return CoachCoachingResult(
       prompt: prompt,
@@ -227,6 +339,7 @@ class CoachQueryController implements SmartCoachInterface {
     required String reflection,
     required List<Map<String, String>> history,
   }) async {
+    final Stopwatch requestTimer = Stopwatch()..start();
     final _CoachTopic detectedTopic = _detectTopic(input, emotion: emotion);
     final String detectedTopicLabel = _topicLabel(detectedTopic);
     final AssistantIntent assistantIntent =
@@ -234,6 +347,15 @@ class CoachQueryController implements SmartCoachInterface {
           input: input,
           surface: 'smart_coach',
         );
+    ContentGenerationAnalytics.trackRouteResolved(
+      surface: 'smart_coach_follow_up',
+      intent: assistantIntent.label,
+      routeType: detectedTopic == _CoachTopic.generalChat
+          ? 'ai_orchestrated'
+          : 'deterministic_local',
+      forcedSurface: false,
+      matchedSurfaceCount: 1,
+    );
     final DefaultAssistantContextBuilder contextBuilder =
         const DefaultAssistantContextBuilder();
     final List<String> goalSummaries = _ref
@@ -241,6 +363,15 @@ class CoachQueryController implements SmartCoachInterface {
         .take(3)
         .map((goal) => goal.title.trim())
         .where((title) => title.isNotEmpty)
+        .toList(growable: false);
+    final tasks = _ref.read(tasksProvider).asData?.value ?? const <Task>[];
+    final completionEvents = _ref.read(completionEventsProvider);
+    final routines = _ref.read(routinesProvider);
+    final scheduledTasks = tasks
+        .where((task) => task.scheduledFor != null)
+        .toList(growable: false);
+    final activeRoutines = routines
+        .where((routine) => routine.active)
         .toList(growable: false);
     final List<String> memorySummaries = _ref
         .read(memoriesProvider)
@@ -254,6 +385,64 @@ class CoachQueryController implements SmartCoachInterface {
         .map((event) => event.title.trim())
         .where((text) => text.isNotEmpty)
         .toList(growable: false);
+    final Map<String, dynamic>
+    chronosparkModelContext = contextBuilder.buildChronosparkModelContext(
+      surface: 'smart_coach',
+      intent: assistantIntent,
+      taskSummaries: tasks
+          .take(3)
+          .map((task) => task.title.trim())
+          .where((title) => title.isNotEmpty)
+          .toList(growable: false),
+      goalSummaries: goalSummaries,
+      timelineSummaries: timelineSummaries,
+      memorySummaries: memorySummaries,
+      completionSummaries: completionEvents
+          .take(3)
+          .map(
+            (event) =>
+                '${event.eventType.name} @ ${event.eventAt.toIso8601String()}',
+          )
+          .toList(growable: false),
+      routineSummaries: activeRoutines
+          .take(3)
+          .map((routine) => routine.name.trim())
+          .where((name) => name.isNotEmpty)
+          .toList(growable: false),
+      scheduleSummaries: scheduledTasks
+          .take(3)
+          .map((task) => task.title.trim())
+          .where((title) => title.isNotEmpty)
+          .toList(growable: false),
+      signals: <String, dynamic>{
+        'energy': energy,
+        'emotion': emotion.name,
+        'profile': <String, dynamic>{
+          'name': _ref.read(profileProvider).name,
+          'level': _ref.read(profileProvider).level,
+          'xp': _ref.read(profileProvider).xp,
+          'streak': _ref.read(profileProvider).streak,
+        },
+        'progression': <String, dynamic>{
+          'level': _ref.read(progressionProvider).progress.level,
+          'xp': _ref.read(progressionProvider).progress.xp,
+          'streak': _ref.read(progressionProvider).progress.streak,
+        },
+        'completion': <String, dynamic>{
+          'count': completionEvents.length,
+          'recentCount': completionEvents.take(3).length,
+        },
+        'schedule': <String, dynamic>{
+          'totalTasks': tasks.length,
+          'scheduledTasks': scheduledTasks.length,
+          'density': tasks.isEmpty ? 0.0 : scheduledTasks.length / tasks.length,
+        },
+        'routines': <String, dynamic>{
+          'count': routines.length,
+          'activeCount': activeRoutines.length,
+        },
+      },
+    );
 
     if (detectedTopic != _CoachTopic.generalChat) {
       final String fallbackReply = _buildFollowUpResponse(
@@ -270,6 +459,20 @@ class CoachQueryController implements SmartCoachInterface {
         role: 'assistant',
         channel: 'follow_up',
         content: fallbackReply,
+      );
+      requestTimer.stop();
+      ContentGenerationAnalytics.trackResult(
+        surface: 'smart_coach_follow_up',
+        routeType: 'deterministic_local',
+        usedFallback: false,
+        structured: true,
+        durationMs: requestTimer.elapsedMilliseconds,
+        qualityTag: detectedTopicLabel,
+      );
+      ContentGenerationReleaseGate.evaluateRequest(
+        surface: 'smart_coach_follow_up',
+        durationMs: requestTimer.elapsedMilliseconds,
+        structured: true,
       );
       return fallbackReply;
     }
@@ -305,6 +508,7 @@ class CoachQueryController implements SmartCoachInterface {
           timelineSummaries: timelineSummaries,
           goalSummaries: goalSummaries,
         ),
+        'chronosparkModel': chronosparkModelContext,
         'reflection': reflection,
         'knowledge': knowledge,
         ...moduleSnapshot,
@@ -318,10 +522,11 @@ class CoachQueryController implements SmartCoachInterface {
       reasoning: recommendation?.reasoning,
     );
     final bool aiStructured = _isStructuredCoachResponse(generated);
-    final String response =
-        generated.isNotEmpty && !aiFallbackDetected && aiStructured
-        ? generated
-        : _buildFollowUpReply(input, energy, emotion);
+    final bool usedFallback =
+      !(generated.isNotEmpty && !aiFallbackDetected && aiStructured);
+    final String response = usedFallback
+      ? _buildFollowUpReply(input, energy, emotion)
+      : generated;
     await _persistConversationTurn(
       role: 'user',
       channel: 'follow_up',
@@ -331,6 +536,20 @@ class CoachQueryController implements SmartCoachInterface {
       role: 'assistant',
       channel: 'follow_up',
       content: response,
+    );
+    requestTimer.stop();
+    ContentGenerationAnalytics.trackResult(
+      surface: 'smart_coach_follow_up',
+      routeType: 'ai_orchestrated',
+      usedFallback: usedFallback,
+      structured: _isStructuredCoachResponse(response),
+      durationMs: requestTimer.elapsedMilliseconds,
+      qualityTag: aiFallbackDetected ? 'ai_non_actionable' : 'normal',
+    );
+    ContentGenerationReleaseGate.evaluateRequest(
+      surface: 'smart_coach_follow_up',
+      durationMs: requestTimer.elapsedMilliseconds,
+      structured: _isStructuredCoachResponse(response),
     );
     return response;
   }
@@ -351,16 +570,7 @@ class CoachQueryController implements SmartCoachInterface {
   }
 
   static String _smartCoachPolicy() {
-    return 'You are Smart Coach. '
-        'Identify the user\'s intent category before generating coaching. '
-        'Never respond with generic encouragement alone. '
-        'Detect topics automatically: health usecases like weight loss, weight gain, nutrition, hydration, exercise, running, strength training, energy, fatigue, sleep, and recovery; '
-        'mental usecases like stress, anxiety, burnout, focus, confidence, motivation, discipline, and emotional support; '
-        'productivity usecases like procrastination, deep work, time management, task planning, goal recovery, and habit building; '
-        'life usecases like relationships, career, learning, personal growth, purpose, future self, and decision making; '
-        'plus general chat. '
-        'Respond with this structure: Goal Detected, Insight (cause analysis), Actions, Next Step, Momentum Score, Coach Question. '
-        'Always provide practical actions first and follow-up questions second.';
+    return ChronoSparkPromptArchitecture.smartCoachPolicy();
   }
 
   static bool _isStructuredCoachResponse(String message) {
@@ -621,7 +831,8 @@ class CoachQueryController implements SmartCoachInterface {
     }
     final String id =
         'coach.$channel.$role.${DateTime.now().microsecondsSinceEpoch}';
-    final String label = '[$channel][$role] $trimmed';
+    const String retentionLabel = 'short_term_14d';
+    final String label = '[$channel][$role][retention:$retentionLabel] $trimmed';
     try {
       await _ref
           .read(saveCoachMessageUseCaseProvider)

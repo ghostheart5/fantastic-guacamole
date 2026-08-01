@@ -41,7 +41,7 @@ class GlobalAggregationService {
         'tasks_created': dailySnapshot['tasks_created'],
         'tasks_completed': dailySnapshot['tasks_completed'],
         'momentum_peak': dailySnapshot['momentum_peak'],
-      }, onConflict: 'device_id,date');
+      }, onConflict: 'user_id,date');
     } catch (e) {
       Logger.error('GlobalAggregationService.push failed', e);
     }

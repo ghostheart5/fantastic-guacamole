@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AnimatedSystemBackground extends StatefulWidget {
   const AnimatedSystemBackground({
@@ -80,6 +82,34 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
 
   @override
   Widget build(BuildContext context) {
+    MotionProfile motionProfile = MotionProfile.standard;
+    try {
+      motionProfile = ProviderScope.containerOf(
+        context,
+        listen: true,
+      ).read(motionProfileProvider);
+    } on Object {
+      motionProfile = MotionProfile.standard;
+    }
+
+    final Duration targetDuration = switch (motionProfile) {
+      MotionProfile.calm => const Duration(seconds: 24),
+      MotionProfile.standard => const Duration(seconds: 18),
+      MotionProfile.expressive => const Duration(seconds: 14),
+    };
+    if (_controller.duration != targetDuration) {
+      _controller.duration = targetDuration;
+      if (_isAnimating && !_controller.isAnimating) {
+        _controller.repeat(reverse: true);
+      }
+    }
+
+    final double glowScale = switch (motionProfile) {
+      MotionProfile.calm => 0.65,
+      MotionProfile.standard => 1.0,
+      MotionProfile.expressive => 1.2,
+    };
+
     Color tint(Color color, double opacity) {
       final double clampedOpacity = opacity.clamp(0.0, 1.0);
       return Color.fromRGBO(
@@ -155,7 +185,9 @@ class _AnimatedSystemBackgroundState extends State<AnimatedSystemBackground>
                 child: CustomPaint(
                   painter: _GlowPainter(
                     progress: t,
-                    opacity: t > 0.02 ? 0.35 * overlayOpacity : 0,
+                    opacity: t > 0.02
+                        ? 0.35 * overlayOpacity * glowScale
+                        : 0,
                   ),
                 ),
               ),

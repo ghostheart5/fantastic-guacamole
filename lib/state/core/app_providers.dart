@@ -21,6 +21,7 @@ const String timelineFirstActionCompletedStorageKey =
     'timeline_first_action_completed_v1';
 
 enum OnboardingStatus { unknown, incomplete, complete }
+enum MotionProfile { calm, standard, expressive }
 
 String onboardingCompleteStorageKeyForUser(String userId) {
   return '${onboardingCompleteStorageKey}_$userId';
@@ -45,6 +46,18 @@ String timelineFirstActionCompletedStorageKeyForUser(String userId) {
 final soundEnabledProvider = NotifierProvider<SoundEnabledNotifier, bool>(
   SoundEnabledNotifier.new,
 );
+final advancedAudioProfileEnabledProvider =
+    NotifierProvider<AdvancedAudioProfileEnabledNotifier, bool>(
+      AdvancedAudioProfileEnabledNotifier.new,
+    );
+final hapticFeedbackEnabledProvider =
+    NotifierProvider<HapticFeedbackEnabledNotifier, bool>(
+      HapticFeedbackEnabledNotifier.new,
+    );
+final motionProfileProvider =
+    NotifierProvider<MotionProfileNotifier, MotionProfile>(
+      MotionProfileNotifier.new,
+    );
 final onboardingCompleteProvider =
     NotifierProvider<OnboardingCompleteNotifier, bool>(
       OnboardingCompleteNotifier.new,
@@ -67,6 +80,27 @@ class SoundEnabledNotifier extends Notifier<bool> {
   bool build() => true;
 
   void set(bool value) => state = value;
+}
+
+class AdvancedAudioProfileEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+class HapticFeedbackEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() => true;
+
+  void set(bool value) => state = value;
+}
+
+class MotionProfileNotifier extends Notifier<MotionProfile> {
+  @override
+  MotionProfile build() => MotionProfile.standard;
+
+  void set(MotionProfile value) => state = value;
 }
 
 class OnboardingCompleteNotifier extends Notifier<bool> {

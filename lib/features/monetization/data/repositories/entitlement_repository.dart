@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/features/monetization/data/models/models.dart';
 import 'package:fantastic_guacamole/features/monetization/data/monetization_remote_data_source.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 abstract class EntitlementRepository {
@@ -13,13 +14,14 @@ class SupabaseEntitlementRepository implements EntitlementRepository {
   final sb.SupabaseClient? _client;
 
   static const List<String> _eventTables = <String>[
-    'entitlement_events',
     'monetization_entitlement_events',
+    'entitlement_events',
   ];
   static const List<String> _subscriptionTables = <String>[
-    'subscriptions',
     'monetization_subscription_statuses',
+    'subscriptions',
   ];
+  static final Set<String> _loggedFallbackTables = <String>{};
 
   @override
   Future<List<EntitlementEvent>> getEntitlementEvents({int limit = 30}) async {
@@ -33,7 +35,8 @@ class SupabaseEntitlementRepository implements EntitlementRepository {
     if (userId == null) return const <EntitlementEvent>[];
 
     Object? lastError;
-    for (final String table in _eventTables) {
+    for (int index = 0; index < _eventTables.length; index++) {
+      final String table = _eventTables[index];
       try {
         final List<dynamic> rows = await client
             .from(table)
@@ -41,6 +44,11 @@ class SupabaseEntitlementRepository implements EntitlementRepository {
             .eq('user_id', userId)
             .order('created_at', ascending: false)
             .limit(limit);
+        _logFallbackIfUsed(
+          canonicalTable: _eventTables.first,
+          selectedTable: table,
+          selectedIndex: index,
+        );
         return rows
             .whereType<Map<String, dynamic>>()
             .map(EntitlementEvent.fromJson)
@@ -74,7 +82,8 @@ class SupabaseEntitlementRepository implements EntitlementRepository {
 
     final String userId = client.auth.currentUser!.id;
     Object? lastError;
-    for (final String table in _subscriptionTables) {
+    for (int index = 0; index < _subscriptionTables.length; index++) {
+      final String table = _subscriptionTables[index];
       try {
         final dynamic row = await client
             .from(table)
@@ -82,6 +91,11 @@ class SupabaseEntitlementRepository implements EntitlementRepository {
             .eq('user_id', userId)
             .maybeSingle();
         if (row is Map<String, dynamic>) {
+          _logFallbackIfUsed(
+            canonicalTable: _subscriptionTables.first,
+            selectedTable: table,
+            selectedIndex: index,
+          );
           final String planId = row['plan_id']?.toString() ?? 'free';
           final bool isActive = row['is_active'] == true;
           final bool isPremium = isActive && planId != 'free';
@@ -109,6 +123,22 @@ class SupabaseEntitlementRepository implements EntitlementRepository {
       isActive: false,
       planId: 'free',
       source: 'supabase',
+    );
+  }
+
+  void _logFallbackIfUsed({
+    required String canonicalTable,
+    required String selectedTable,
+    required int selectedIndex,
+  }) {
+    if (selectedIndex <= 0) {
+      return;
+    }
+    if (!_loggedFallbackTables.add(selectedTable)) {
+      return;
+    }
+    Logger.warn(
+      'Monetization fallback table in use: $selectedTable (canonical: $canonicalTable).',
     );
   }
 }

@@ -42,8 +42,20 @@ if (-not (Test-Path $manifest)) {
   )
 
   $permissionMatches = [regex]::Matches($manifestContent, '<uses-permission\s+android:name="([^"]+)"')
+  $removePermissionMatches = [regex]::Matches(
+    $manifestContent,
+    '<uses-permission\s+android:name="([^"]+)"\s+tools:node="remove"\s*/?>'
+  )
+  $removedPermissions = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+  foreach ($rm in $removePermissionMatches) {
+    $null = $removedPermissions.Add($rm.Groups[1].Value)
+  }
+
   foreach ($pm in $permissionMatches) {
     $permissionName = $pm.Groups[1].Value
+    if ($removedPermissions.Contains($permissionName)) {
+      continue
+    }
     if ($allowedPermissions -notcontains $permissionName) {
       Add-Failure "Unexpected Android permission declared: $permissionName"
     }
@@ -66,11 +78,17 @@ if (-not (Test-Path $androidGradle)) {
     Add-Failure 'targetSdk floor must be >= 34.'
   }
 
-  if ($gradleContent -notmatch 'id\("com\.google\.firebase\.crashlytics"\)') {
+  if (
+    $gradleContent -notmatch 'id\("com\.google\.firebase\.crashlytics"\)' -and
+    $gradleContent -notmatch 'apply\(plugin\s*=\s*"com\.google\.firebase\.crashlytics"\)'
+  ) {
     Add-Failure 'android/app/build.gradle.kts must apply Firebase Crashlytics plugin.'
   }
 
-  if ($gradleContent -notmatch 'id\("com\.google\.gms\.google-services"\)') {
+  if (
+    $gradleContent -notmatch 'id\("com\.google\.gms\.google-services"\)' -and
+    $gradleContent -notmatch 'apply\(plugin\s*=\s*"com\.google\.gms\.google-services"\)'
+  ) {
     Add-Failure 'android/app/build.gradle.kts must apply Google services plugin.'
   }
 }
@@ -85,14 +103,28 @@ if (-not (Test-Path $mainEntrypoint)) {
   Add-Failure "Missing main entrypoint: $mainEntrypoint"
 } else {
   $mainContent = Get-Content -Path $mainEntrypoint -Raw
-  if ($mainContent -notmatch 'runZonedGuarded\s*\(') {
-    Add-Failure 'main.dart must wrap startup with runZonedGuarded.'
-  }
-  if ($mainContent -notmatch 'FlutterError\.onError\s*=') {
-    Add-Failure 'main.dart must assign FlutterError.onError for framework crash capture.'
-  }
-  if ($mainContent -notmatch 'PlatformDispatcher\.instance\.onError\s*=') {
-    Add-Failure 'main.dart must assign PlatformDispatcher.instance.onError for isolate/dispatcher crash capture.'
+  $bootstrapPath = Join-Path $root 'lib/app/startup/app_bootstrap.dart'
+  if (Test-Path $bootstrapPath) {
+    $bootstrapContent = Get-Content -Path $bootstrapPath -Raw
+    if ($bootstrapContent -notmatch 'runZonedGuarded\s*\(') {
+      Add-Failure 'app_bootstrap.dart must wrap startup with runZonedGuarded.'
+    }
+    if ($bootstrapContent -notmatch 'FlutterError\.onError\s*=') {
+      Add-Failure 'app_bootstrap.dart must assign FlutterError.onError for framework crash capture.'
+    }
+    if ($bootstrapContent -notmatch 'PlatformDispatcher\.instance\.onError\s*=') {
+      Add-Failure 'app_bootstrap.dart must assign PlatformDispatcher.instance.onError for isolate/dispatcher crash capture.'
+    }
+  } else {
+    if ($mainContent -notmatch 'runZonedGuarded\s*\(') {
+      Add-Failure 'main.dart must wrap startup with runZonedGuarded.'
+    }
+    if ($mainContent -notmatch 'FlutterError\.onError\s*=') {
+      Add-Failure 'main.dart must assign FlutterError.onError for framework crash capture.'
+    }
+    if ($mainContent -notmatch 'PlatformDispatcher\.instance\.onError\s*=') {
+      Add-Failure 'main.dart must assign PlatformDispatcher.instance.onError for isolate/dispatcher crash capture.'
+    }
   }
 }
 

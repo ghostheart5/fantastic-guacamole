@@ -9,7 +9,7 @@ This checklist protects legal/policy/badge files while rebuilding the app.
 - SECURITY.md
 - README.md
 - web/privacy.html
-- assets/legal/privacy_policy.html
+- assets/legal/privacy_policy.txt
 
 ## Integrity Guard
 

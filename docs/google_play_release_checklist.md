@@ -30,7 +30,7 @@ Quick release gate audit: [GOOGLE_PLAY_READINESS_AUDIT.md](GOOGLE_PLAY_READINESS
 - [ ] Place upload keystore at `android/app/key.jks` (not committed)
 
 ## Policy and Legal
-- [x] Privacy policy file at `assets/legal/privacy_policy.html`
+- [x] Privacy policy file at `assets/legal/privacy_policy.txt`
 - [x] Terms of service file at `assets/legal/terms_of_service.html`
 - [x] Support page file added at `web/support/index.html`
 - [x] Host privacy policy at public URL (`https://chronospark.app/privacy/` or equivalent deployed path)

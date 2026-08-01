@@ -1,6 +1,5 @@
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/monetization/data/models/models.dart';
-import 'package:fantastic_guacamole/features/monetization/data/repositories/purchase_repository.dart';
 import 'package:fantastic_guacamole/features/monetization/data/services/analytics_events.dart';
 import 'package:fantastic_guacamole/features/monetization/providers/monetization_feature_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,9 +45,9 @@ class PaywallController extends Notifier<PaywallControllerState> {
       lastSuccess: false,
     );
 
-    final PurchaseResult result = await ref
-        .read(purchaseRepositoryProvider)
-        .purchaseSubscription(plan);
+    final result = await ref
+      .read(monetizationConnectorActionsProvider)
+      .purchaseSubscription(plan);
 
     state = state.copyWith(
       isBusy: false,

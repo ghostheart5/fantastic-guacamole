@@ -488,3 +488,71 @@ class _NeonStatusTile extends StatelessWidget {
     );
   }
 }
+
+class _MotionProfileTile extends StatelessWidget {
+  const _MotionProfileTile({required this.value, required this.onChanged});
+
+  final MotionProfile value;
+  final ValueChanged<MotionProfile> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    String labelFor(MotionProfile profile) {
+      switch (profile) {
+        case MotionProfile.calm:
+          return 'Calm';
+        case MotionProfile.standard:
+          return 'Standard';
+        case MotionProfile.expressive:
+          return 'Expressive';
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Motion profile',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: MotionProfile.values.map((MotionProfile profile) {
+              final bool selected = value == profile;
+              return ChoiceChip(
+                label: Text(labelFor(profile)),
+                selected: selected,
+                onSelected: (_) => onChanged(profile),
+                selectedColor: AppColors.neonCyan.withValues(alpha: 0.16),
+                backgroundColor: Colors.white.withValues(alpha: 0.04),
+                side: BorderSide(
+                  color: selected
+                      ? AppColors.neonCyan.withValues(alpha: 0.55)
+                      : Colors.white.withValues(alpha: 0.16),
+                ),
+                labelStyle: TextStyle(
+                  color: selected ? AppColors.neonCyan : Colors.white60,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              );
+            }).toList(growable: false),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Calm reduces motion intensity. Expressive increases visual emphasis.',
+            style: TextStyle(
+              color: Colors.white38,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

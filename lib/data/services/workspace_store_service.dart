@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:flutter/services.dart';
 
 class CreatorWorkspaceState {
@@ -346,7 +347,7 @@ class WorkspaceStoreService {
   Future<CreatorWorkspaceState> _loadCreatorSeed() async {
     try {
       final String content = await rootBundle.loadString(
-        'assets/data/creator_seed.json',
+        AppAssets.dataCreatorSeed,
       );
       return CreatorWorkspaceState.fromJson(
         jsonDecode(content) as Map<String, dynamic>,
@@ -364,7 +365,7 @@ class WorkspaceStoreService {
   Future<TemporalPlannerState> _loadTemporalSeed() async {
     try {
       final String content = await rootBundle.loadString(
-        'assets/data/temporal_seed.json',
+        AppAssets.dataTemporalSeed,
       );
       return TemporalPlannerState.fromJson(
         jsonDecode(content) as Map<String, dynamic>,
@@ -380,7 +381,7 @@ class WorkspaceStoreService {
   Future<SIWorkspaceState> _loadSiSeed() async {
     try {
       final String content = await rootBundle.loadString(
-        'assets/data/si_seed.json',
+        AppAssets.dataSiSeed,
       );
       return SIWorkspaceState.fromJson(
         jsonDecode(content) as Map<String, dynamic>,

@@ -11,7 +11,10 @@ import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
-    show soundEnabledProvider;
+  show
+    advancedAudioProfileEnabledProvider,
+    hapticFeedbackEnabledProvider,
+    soundEnabledProvider;
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
@@ -397,7 +400,15 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
         event.isLevelUp || event.isGoalComplete || event.isStreak;
     if (isMilestoneEvent) {
       final bool soundEnabled = ref.read(soundEnabledProvider);
-      await AudioService.playMilestone(soundEnabled);
+      final bool advancedAudioEnabled = ref.read(
+        advancedAudioProfileEnabledProvider,
+      );
+      final bool hapticEnabled = ref.read(hapticFeedbackEnabledProvider);
+      await AudioService.playMilestone(
+        soundEnabled,
+        advancedProfileEnabled: advancedAudioEnabled,
+        hapticsEnabled: hapticEnabled,
+      );
     }
     final updated = [event, ...state];
     state = updated.length > _maxEvents

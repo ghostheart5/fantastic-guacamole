@@ -35,6 +35,8 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
   _FakeGoTrueClient(this._authState) : super(url: 'https://example.supabase.co');
 
   final StreamController<sb.AuthState> _authState;
+  bool failNextRefreshSessionWithNetworkError = false;
+  int refreshSessionCallCount = 0;
 
   @override
   Stream<sb.AuthState> get onAuthStateChange => _authState.stream;
@@ -73,6 +75,11 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
 
   @override
   Future<sb.AuthResponse> refreshSession([String? refreshToken]) async {
+    refreshSessionCallCount += 1;
+    if (failNextRefreshSessionWithNetworkError) {
+      failNextRefreshSessionWithNetworkError = false;
+      throw TimeoutException('Transient network timeout during refreshSession');
+    }
     return _buildAuthResponse(userId: 'u-refresh', email: 'refresh@example.com');
   }
 
@@ -160,6 +167,8 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
       expiresIn: 3600,
       refreshToken: 'refresh-$userId',
     );
+    _currentUser = user;
+    _currentSession = session;
     return sb.AuthResponse(user: user, session: session);
   }
 }
@@ -167,10 +176,11 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
 void main() {
   group('AuthService', () {
     late AuthService service;
+    late _FakeGoTrueClient auth;
 
     setUp(() {
       final authState = StreamController<sb.AuthState>.broadcast();
-      final auth = _FakeGoTrueClient(authState);
+      auth = _FakeGoTrueClient(authState);
       final fakeClient = _FakeSupabaseClient(authClient: auth);
       service = AuthService(
         supabaseClient: fakeClient,
@@ -218,6 +228,45 @@ void main() {
     test('getCurrentSessionSnapshot exposes session details without logging secrets', () async {
       final snapshot = await service.getCurrentSessionSnapshot();
       expect(snapshot, isNull);
+    });
+
+    test('transient refresh failure maps to auth-unavailable and next refresh recovers', () async {
+      auth.failNextRefreshSessionWithNetworkError = true;
+
+      await expectLater(
+        () => service.getIdToken(forceRefresh: true),
+        throwsA(
+          isA<FirebaseAuthException>().having(
+            (FirebaseAuthException e) => e.code,
+            'code',
+            'auth-unavailable',
+          ),
+        ),
+      );
+
+      final token = await service.getIdToken(forceRefresh: true);
+      expect(token, 'abc');
+      expect(auth.refreshSessionCallCount, greaterThanOrEqualTo(2));
+    });
+
+    test('session snapshot recovers after transient refresh failure', () async {
+      auth.failNextRefreshSessionWithNetworkError = true;
+
+      await expectLater(
+        () => service.getCurrentSessionSnapshot(forceRefresh: true),
+        throwsA(
+          isA<FirebaseAuthException>().having(
+            (FirebaseAuthException e) => e.code,
+            'code',
+            'auth-unavailable',
+          ),
+        ),
+      );
+
+      final snapshot = await service.getCurrentSessionSnapshot(forceRefresh: true);
+      expect(snapshot, isNotNull);
+      expect(snapshot!.accessToken, 'abc');
+      expect(snapshot.refreshToken, isNotEmpty);
     });
   });
 }

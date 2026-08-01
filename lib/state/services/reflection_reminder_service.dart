@@ -135,6 +135,13 @@ class VoicePermissionService {
   const VoicePermissionService();
 
   Future<bool> requestPermission() async {
-    return false;
+    if (kIsWeb) {
+      return true;
+    }
+
+    final PermissionStatus status = await Permission.microphone.request();
+    return status == PermissionStatus.granted ||
+        status == PermissionStatus.limited ||
+        status == PermissionStatus.provisional;
   }
 }

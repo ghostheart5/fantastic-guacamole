@@ -1,0 +1,1108 @@
+CHRONOSPARK PROMPT BUILDER AUDIT
+Date: 2026-07-31
+Scope: prompt templates, system instructions, user prompt handling, grounding patterns, examples, constraints, tone, output formats, prompt safety, prompt duplication, and app-specific instruction quality.
+Mode: Audit only. No code changes.
+
+============================================================
+SECTION 1: EXECUTIVE PROMPT SUMMARY
+============================================================
+
+Current prompt identity:
+- ChronoSpark has several prompt-like surfaces, but the app is not a pure prompt-driven LLM app.
+- The strongest live prompt systems are Smart Coach, SI Console, the shared chat/proxy system, and the SI/forecast helper outputs.
+- Most prompt behavior is built from deterministic context, structured templates, and heuristic routing rather than a single central base prompt.
+
+Where prompts are defined:
+- Core Smart Coach instruction text lives in lib/state/controllers/coach_query_controller.dart.
+- Shared prompt context builders live in lib/engine/assistant/assistant_context_builder.dart and lib/engine/assistant/assistant_interfaces.dart.
+- The proxy system prompt lives in lib/data/services/ai/agents/chat_agent.dart.
+- Shared response templates live in lib/engine/assistant/assistant_response_templates.dart.
+- SI Console command copy and local prompt examples live in lib/features/si_console/ui/si_console_screen.dart.
+- Tutorial and onboarding prompt-like copy lives in lib/tutorial/tutorial_content.dart and lib/features/onboarding/ui/onboarding_screen.dart.
+- Forecast, planning, and progress guidance strings are spread across lib/state/providers/*, lib/engine/advisor/*, and lib/engine/si/*.
+
+Which features use prompts:
+- Smart Coach / Smart Planner-style guidance.
+- SI Console commands and summaries.
+- Future Vector / trajectory / forecast surfaces.
+- Ascension-like progression, momentum, and identity helpers.
+- Nexus / Home startup directive and summary copy.
+- Tutorial / onboarding guidance and starter hints.
+- Classification, summarization, reminder planning, and recommendation helpers.
+
+Are prompts hardcoded, dynamic, reusable, or scattered:
+- Hardcoded: yes, many user-facing prompt strings are embedded directly in screens and providers.
+- Dynamic: yes, several surfaces build output from live task, goal, timeline, memory, profile, and momentum state.
+- Reusable: partly, especially through assistant_context_builder.dart and assistant_response_templates.dart.
+- Scattered: yes, especially in SI Console commands, forecast helper providers, tutorial copy, and narrative helpers.
+
+Are prompts grounded in real app data:
+- Mostly yes for Smart Coach, SI Console, and forecast helpers.
+- More mixed for onboarding/tutorial copy, which is mostly instructional and not data-grounded.
+- The biggest grounding gap is that several helper outputs feel factual even when they are derived heuristics, not real model inference.
+
+Do prompts produce actionable outputs:
+- Yes, generally.
+- Smart Coach and SI Console usually recommend next actions, but some helper outputs are still explanatory rather than action-producing.
+- Forecast surfaces often recommend one corrective action, which is good.
+
+Does tone match ChronoSpark identity:
+- Mostly yes for the mature surfaces: calm, direct, practical, and strategic.
+- Weakest spots are the onboarding/tutorial and some login branding copy, which can feel more theatrical or militarized than the rest of the app.
+
+Do prompt systems overlap or duplicate each other:
+- Yes.
+- Smart Coach, SI Console, Nexus startup copy, and several forecast helpers all express similar next-action guidance in different formats.
+- The overlap is not necessarily wrong, but it does create repeated language and inconsistent levels of certainty.
+
+Risk of hallucination from missing context:
+- Medium overall.
+- Lower in the local heuristic helpers, higher in the proxy-backed chat path because the prompt can be broad and the model may infer missing app facts.
+- The most important mitigation is consistent context grounding and explicit "data missing" handling.
+
+Overall verdict:
+- REWIRE CONTEXT
+- KEEP the grounded local-first prompt backbone.
+- REFOCUS some surfaces that are more instructional than conversational.
+- MERGE duplicated guidance patterns where possible.
+- REWRITE LATER the most theatrical onboarding copy.
+
+============================================================
+SECTION 2: PROMPT INVENTORY
+============================================================
+
+1) Smart Coach policy and response structure
+- File: lib/state/controllers/coach_query_controller.dart
+- Feature/system: Smart Coach / follow-up coaching
+- Purpose: define the Smart Coach output contract and prevent generic responses
+- Prompt type: system instruction, output format instruction, safety constraint
+- Variables/context inserted: user notes, energy, emotion, task/goals/memories/timeline context, profile, progression, knowledge snapshot
+- Output expected: Goal Detected, Insight, Actions, Next Step, Momentum Score, Coach Question
+- Active/partial/mock/dormant: active
+- Risk level: medium
+- Notes: _smartCoachPolicy() is the clearest prompt contract in the app. _isStructuredCoachResponse() enforces the response shape, which is good for consistency but still allows generic content if context is thin.
+
+2) Smart Coach structured response templates
+- File: lib/engine/assistant/assistant_response_templates.dart
+- Feature/system: Smart Coach and SI summary formatting
+- Purpose: standardize coaching and SI outputs
+- Prompt type: output format instruction, template
+- Variables/context inserted: insight, actions, nextStep, followUp, energy; or query/category/counts/confidence for SI analysis
+- Output expected: compact multi-line advice blocks
+- Active/partial/mock/dormant: active
+- Risk level: low-medium
+- Notes: These templates are reusable, but they are mostly formatting helpers rather than full prompt builders.
+
+3) Shared assistant context builder
+- File: lib/engine/assistant/assistant_context_builder.dart
+- Feature/system: Smart Coach, SI Console, and shared ChronoSpark model context
+- Purpose: normalize the common grounding bundle
+- Prompt type: context template
+- Variables/context inserted: tasks, goals, timeline, memories, completions, routines, schedule, signals
+- Output expected: JSON-like structured context map
+- Active/partial/mock/dormant: active
+- Risk level: medium
+- Notes: This is a strong reuse point and the safest place to centralize future prompt context.
+
+4) Proxy system prompt for the chat agent
+- File: lib/data/services/ai/agents/chat_agent.dart
+- Feature/system: external proxy-backed chat / Smart Coach fallback path
+- Purpose: instruct the remote AI proxy to answer in ChronoSpark style
+- Prompt type: system instruction
+- Variables/context inserted: personality name and minimized context JSON
+- Output expected: concise, practical, specific coaching with one insight and one next action
+- Active/partial/mock/dormant: active when aiProxyEndpoint is configured and token access is allowed
+- Risk level: medium-high
+- Notes: This is the highest hallucination-risk prompt surface because it sends a broad context blob off-device. It does truncate history and minimize context before sending.
+
+5) AI controller request context
+- File: lib/state/controllers/ai_controller.dart
+- Feature/system: AI / SI Console request assembly
+- Purpose: package app state into a routed request
+- Prompt type: context template, request wrapper
+- Variables/context inserted: tasks, goals, memories, logs, notifications, timeline, milestones, trajectory, core values, soul map, profile, progression, completion/schedule/routine signals
+- Output expected: route-ready AI request context
+- Active/partial/mock/dormant: active
+- Risk level: medium
+- Notes: This is mostly context plumbing, not prompt text, but it directly controls what the model sees.
+
+6) Smart Coach user input handling and guided examples
+- File: lib/features/home/ui/smart_coach_screen.dart
+- Feature/system: Smart Coach UI
+- Purpose: collect free-form coaching text and show examples
+- Prompt type: user prompt handling, UI helper prompt, starter example
+- Variables/context inserted: notes, follow-up question, energy, emotion
+- Output expected: user-entered coaching request and follow-up request
+- Active/partial/mock/dormant: active
+- Risk level: medium
+- Notes: The cheat sheet examples are useful and aligned with real app actions, but they are still broad. The "what should I do next?" example is good; the generic feeling examples are weaker.
+
+7) SI Console help text and command guide
+- File: lib/features/si_console/ui/si_console_screen.dart
+- Feature/system: SI Console UI
+- Purpose: explain available commands and prompt the user with example questions
+- Prompt type: UI helper prompt, example prompt, output format instruction
+- Variables/context inserted: current command, current local summaries, aggregation state
+- Output expected: command-based summaries plus prompt suggestions
+- Active/partial/mock/dormant: active
+- Risk level: medium
+- Notes: This is the biggest prompt-copy surface in the app. It contains many prompt examples, some excellent and some repetitive.
+
+8) SI Console command registry
+- File: lib/features/si_console/ui/models/si_console_commands.dart
+- Feature/system: SI Console input validation / command surface
+- Purpose: list the core commands the UI recognizes
+- Prompt type: input validation aid
+- Variables/context inserted: none
+- Output expected: allowed command list
+- Active/partial/mock/dormant: active
+- Risk level: low
+- Notes: This is not a prompt template, but it defines the user-facing command vocabulary.
+
+9) SI Console local summary responses
+- File: lib/features/si_console/ui/si_console_screen.dart
+- Feature/system: local command summaries for tasks, goals, plan, milestones, values, soul map, timeline, trajectory, and future surfaces
+- Purpose: deliver grounded command responses without the AI path
+- Prompt type: output format instruction, example prompt
+- Variables/context inserted: tasks, goals, milestones, core values, soul map, timeline, trajectory
+- Output expected: structured status blocks with a follow-up prompt line
+- Active/partial/mock/dormant: active
+- Risk level: low-medium
+- Notes: The responses are well structured, but the repeated "Prompt: \"...\"" line becomes a duplicated pattern across many commands.
+
+10) Daily command briefing
+- File: lib/state/providers/daily_command_briefing_provider.dart
+- Feature/system: system summary / daily guidance
+- Purpose: summarize focus, momentum, trajectory, energy, warning, recovery, and coach action
+- Prompt type: context template, output helper
+- Variables/context inserted: momentum, replans, trajectory
+- Output expected: short daily briefing text
+- Active/partial/mock/dormant: active
+- Risk level: low-medium
+- Notes: Strong for brevity, but not a true prompt. It is more of a deterministic guidance layer.
+
+11) Explainable SI output
+- File: lib/state/providers/explainable_si_provider.dart
+- Feature/system: explain why the current action is recommended
+- Purpose: justify the chosen move with reasons
+- Prompt type: output helper, explanation template
+- Variables/context inserted: momentum, briefing, recovery state
+- Output expected: primary reason, supporting reasons, recommendation
+- Active/partial/mock/dormant: active
+- Risk level: low-medium
+- Notes: Good explanation format. It should be treated as a rule-based explanation layer, not model reasoning.
+
+12) Adaptive replanning scenarios
+- File: lib/state/providers/adaptive_replanning_provider.dart
+- Feature/system: replanning / recovery guidance
+- Purpose: recommend recovery moves when the day starts late or pressure is high
+- Prompt type: output helper, recommendation template
+- Variables/context inserted: momentum, pressure, energy, deferral state
+- Output expected: scenario title, summary, immediate action, recovery move, daily adjustment, moves
+- Active/partial/mock/dormant: active
+- Risk level: low-medium
+- Notes: Strong actionability. This is one of the safest guidance surfaces.
+
+13) Memory intelligence guidance
+- File: lib/state/providers/memory_intelligence_provider.dart
+- Feature/system: memory-derived learning guidance
+- Purpose: derive recurring win, friction, lesson, and focus suggestion
+- Prompt type: output helper
+- Variables/context inserted: momentum and pressure
+- Output expected: short memory intelligence summary
+- Active/partial/mock/dormant: active
+- Risk level: low
+- Notes: Good as a lightweight explanation layer.
+
+14) Goal success forecast
+- File: lib/state/providers/goal_success_probability_provider.dart
+- Feature/system: goal completion forecast
+- Purpose: estimate goal success likelihood and recommend a correction
+- Prompt type: output helper, prediction summary
+- Variables/context inserted: momentum score, energy, pressure
+- Output expected: probability, summary, recommendation
+- Active/partial/mock/dormant: active
+- Risk level: medium
+- Notes: The probabilities are deterministic heuristics and should not read like empirical model confidence.
+
+15) Trajectory summary / future vector headline
+- File: lib/state/providers/trajectory_provider.dart
+- Feature/system: Future Vector / trajectory engine
+- Purpose: compute pressure, divergence, prediction, and alert text
+- Prompt type: prediction summary, output helper
+- Variables/context inserted: tasks, energy, learning, completion rate, execution stability, session score
+- Output expected: alert plus trajectory values and prediction outcome
+- Active/partial/mock/dormant: active
+- Risk level: medium
+- Notes: Strongly grounded, but the alert wording can sound more certain than the underlying heuristics justify.
+
+16) Future timeline checkpoints
+- File: lib/state/providers/future_timeline_provider.dart
+- Feature/system: Future Vector / future timeline
+- Purpose: produce 7/30/90 day checkpoint predictions
+- Prompt type: prediction summary, output helper
+- Variables/context inserted: future decision engine, identity drift, execution stability
+- Output expected: checkpoint predictions
+- Active/partial/mock/dormant: active
+- Risk level: medium
+- Notes: The wording is directional and should keep an uncertainty tone.
+
+17) Trajectory simulations
+- File: lib/state/providers/trajectory_simulation_provider.dart
+- Feature/system: Future Vector scenario modeling
+- Purpose: generate alternate outcome cards
+- Prompt type: prediction / scenario helper
+- Variables/context inserted: momentum, pressure, briefing, replans
+- Output expected: scenario title, summary, projected values, projected outcome
+- Active/partial/mock/dormant: active
+- Risk level: medium
+- Notes: Good structured output, but it still presents derived scenario labels as if they were model-based forecasts.
+
+18) Future self simulations
+- File: lib/state/providers/future_self_simulator_provider.dart
+- Feature/system: future self / identity simulation
+- Purpose: present alternate future self paths
+- Prompt type: prediction / scenario helper
+- Variables/context inserted: cognitive twin, intelligence fusion
+- Output expected: scenario name, outcome, identity shift, description
+- Active/partial/mock/dormant: active
+- Risk level: medium
+- Notes: Strong branding, but the outputs are ideal for explicit uncertainty labels.
+
+19) Predictive risk cards
+- File: lib/state/providers/predictive_risk_provider.dart
+- Feature/system: risk forecasting
+- Purpose: surface momentum collapse, burnout, and trajectory drift risks
+- Prompt type: prediction summary, mitigation helper
+- Variables/context inserted: momentum and pressure
+- Output expected: risk title, level, summary, mitigation
+- Active/partial/mock/dormant: active
+- Risk level: low-medium
+- Notes: Good user-facing mitigation pattern.
+
+20) Product advisor engine and weekly advisor
+- Files: lib/engine/advisor/product_advisor_engine.dart, lib/engine/advisor/weekly_advisor.dart
+- Feature/system: internal product insights / weekly summary
+- Purpose: summarize usage issues and weekly health
+- Prompt type: output helper, recommendation summary
+- Variables/context inserted: product snapshot counts, momentum chain count
+- Output expected: product insight list and weekly summary sentence
+- Active/partial/mock/dormant: active
+- Risk level: low
+- Notes: These are not user chat prompts, but they are prompt-like summary generators.
+
+21) User narrative engine
+- File: lib/engine/si/si_user_narrative_engine.dart
+- Feature/system: SI narrative / identity story
+- Purpose: create narrative arc, theme, archetype, phase, challenge, progress beat, and next story prompt
+- Prompt type: narrative template, next-action prompt
+- Variables/context inserted: SI context, memory, goals, learning, continuity, intent
+- Output expected: narrative objects with a nextStoryPrompt field
+- Active/partial/mock/dormant: active
+- Risk level: medium
+- Notes: This is one of the more prompt-like systems in the repo. It is highly symbolic and can drift into fluffy language if not grounded in real state.
+
+22) SoulMap reflection prompts
+- File: lib/state/models/soul_map_models.dart
+- Feature/system: SoulMap / identity reflection
+- Purpose: define reflective questions and identity prompts
+- Prompt type: example / reflection prompt / context template
+- Variables/context inserted: dimension-specific identity, purpose, future self, legacy, relationships, reflections
+- Output expected: human reflection questions such as "Why do I exist?" and "Who am I becoming?"
+- Active/partial/mock/dormant: active
+- Risk level: low-medium
+- Notes: These are clear, app-aligned prompts and are some of the best-crafted prompt-like strings in the codebase.
+
+23) Tutorial content and contextual hints
+- File: lib/tutorial/tutorial_content.dart
+- Feature/system: onboarding/tutorial copy
+- Purpose: teach the app flow and suggest starter actions
+- Prompt type: UI helper prompt, starter prompt, contextual hint
+- Variables/context inserted: none; mostly static copy
+- Output expected: short guidance lines and CTA labels
+- Active/partial/mock/dormant: active
+- Risk level: medium
+- Notes: Good alignment with the app workflow, but the copy is still broad and sometimes inconsistent in naming.
+
+24) Onboarding mission / activation analytics copy
+- File: lib/features/onboarding/ui/onboarding_screen.dart
+- Feature/system: onboarding flow
+- Purpose: track setup completion and startup state
+- Prompt type: none to weak prompt-like copy
+- Variables/context inserted: onboarding state, version, timestamp, auth status
+- Output expected: analytics events and routing changes, not user prompts
+- Active/partial/mock/dormant: active
+- Risk level: low
+- Notes: The visible onboarding copy is calmer than the analytics event names. The flagged "mission_zero_activation_started" text is internal analytics, not user-facing prompt copy.
+
+25) Login brand text adjacent to onboarding
+- File: lib/features/auth/ui/login_screen.dart
+- Feature/system: login screen branding
+- Purpose: brand header copy
+- Prompt type: none
+- Variables/context inserted: none
+- Output expected: brand text
+- Active/partial/mock/dormant: active
+- Risk level: low for prompts, medium for tone branding
+- Notes: "TEMPORAL INTELLIGENCE SYSTEM" is not a prompt, but it is relevant to tone/brand consistency.
+
+26) AI agent routing and classification helpers
+- Files: lib/data/services/ai/orchestration/agent_orchestrator.dart, lib/data/services/ai/agents/classification_agent.dart, lib/data/services/ai/agents/planner_agent.dart, lib/data/services/ai/agents/recommendation_agent.dart, lib/data/services/ai/agents/reminder_agent.dart, lib/data/services/ai/agents/summarization_agent.dart
+- Feature/system: AI routing and helper tools
+- Purpose: route requests to planner, recommendation, reminder, summarization, or classification paths
+- Prompt type: classification/extraction helpers, output wrappers
+- Variables/context inserted: prompt, goal, text, reminder, content, tasks, SI state, learning, personality
+- Output expected: label, confidence, summary, recommendation, planned window, etc.
+- Active/partial/mock/dormant: active
+- Risk level: low-medium
+- Notes: These are mostly heuristic wrappers, not true natural-language prompt templates.
+
+27) AI tools
+- Files: lib/data/services/ai/tools/text_summary_tool.dart, lib/data/services/ai/tools/intent_classification_tool.dart, lib/data/services/ai/tools/reminder_planning_tool.dart, lib/data/services/ai/tools/task_research_tool.dart
+- Feature/system: AI helper utilities
+- Purpose: summarize text, classify intent, infer reminder window, rank tasks
+- Prompt type: extraction and summarization helpers
+- Variables/context inserted: content, text, prompt, tasks, query
+- Output expected: summary text, label, confidence, reminder window, findings
+- Active/partial/mock/dormant: active
+- Risk level: low
+- Notes: Deterministic and safe, but the output labels should not be presented as model inference.
+
+28) SI Console screen model
+- File: lib/state/models/si_pipeline_models.dart
+- Feature/system: smart coach / nexus / SI console shared model
+- Purpose: store decision prompts, warnings, and integration snapshot text
+- Prompt type: output schema
+- Variables/context inserted: aggregation, decision, engine snapshot, integration snapshot
+- Output expected: nextAction, coachMessage, suggestedPlanAdjustments, insightPrompts, progressionFeedback, warnings
+- Active/partial/mock/dormant: active
+- Risk level: low-medium
+- Notes: This is a key output schema, not a prompt string, but it determines what the UI can present.
+
+============================================================
+SECTION 3: SMART PLANNER PROMPT AUDIT
+============================================================
+
+What the user types:
+- Free-form notes and follow-up questions in Smart Coach.
+- Examples include "I'm tired", "lose weight", "stressed about work", and "what should I do next?" in lib/features/home/ui/smart_coach_screen.dart.
+
+What system instructions exist:
+- The strongest instruction is _smartCoachPolicy() in lib/state/controllers/coach_query_controller.dart.
+- It says to detect intent category, never respond with generic encouragement alone, and output Goal Detected, Insight, Actions, Next Step, Momentum Score, Coach Question.
+- ChatAgent adds another instruction: "Be concise, practical, and specific to the user context. Answer the newest message directly."
+
+What app context is included:
+- tasks, goals, memories, timeline, profile, progression, energy, emotion, core values, soul map, plan preview, reflection, and knowledge snapshots.
+- The new shared ChronoSpark model context also includes completion, schedule, and routine summaries.
+
+Are tasks included:
+- Yes.
+
+Are routines included:
+- Partially now through shared ChronoSpark model context, but Smart Coach itself still mostly reads tasks and the broader knowledge bundle.
+
+Are goals included:
+- Yes.
+
+Are notes included:
+- Yes, through reflection text and memory summaries.
+
+Are schedule/timeline included:
+- Yes, timeline is included; schedule is indirectly represented via plan preview and scheduled task summaries.
+
+Are completion history included:
+- Partially.
+- It now reaches the shared ChronoSpark model context and SI state, but the main Smart Coach policy still relies more on current context than explicit completion history.
+
+Are profile context included:
+- Yes.
+
+Does the prompt tell the model to produce next actions:
+- Yes.
+
+Can the output become a task/routine/goal/note:
+- Indirectly.
+- The output recommends actions, but the app does not appear to have a direct prompt-to-Creator creation loop from the coaching surface alone.
+
+Does the output route back to Creator or Timeline:
+- Yes in spirit, but only indirectly through recommendations and voice handoff/navigation patterns.
+
+Quality classification:
+- grounded
+- partially grounded
+- not fully actionable as a creation loop
+
+Smart Planner prompt readiness score:
+- 78/100
+
+Why not higher:
+- The policy is strong, but the context bundle is still partially duplicated across surfaces.
+- Some outputs still risk sounding generic if the user's context is thin.
+
+============================================================
+SECTION 4: SI CONSOLE PROMPT AUDIT
+============================================================
+
+What context SI Console prompts actually receive:
+- Aggregated tasks, goals, insights, logs, timeline, memories, notifications, profile, siState, trajectory, core values, soul map, and integration snapshot.
+- The console also has many local command handlers that bypass the AI path and render grounded summaries directly.
+
+Do prompts distinguish known data from unknown data:
+- Partially.
+- Many local command responses say when data is missing or loading.
+- Some helper outputs still present a polished answer even when data depth is shallow.
+
+Do they risk hallucinating app status:
+- Medium risk.
+- The local summaries are grounded, but the response wording can sound more authoritative than the underlying heuristics.
+
+Are outputs structured enough:
+- Yes.
+- The console uses command blocks, headings, prompt lines, and summary sections.
+
+Is tone too technical or too vague:
+- Mostly advanced-user appropriate.
+- The main issue is not technicality; it is repetition and occasional over-dramatization.
+
+Does SI Console fit advanced users:
+- Yes.
+- It is clearly designed as a power-user surface.
+
+SI Console prompt readiness score:
+- 74/100
+
+Why not higher:
+- The command surface is large and somewhat duplicated.
+- Prompt examples are helpful, but some commands echo the same recommendation pattern.
+
+============================================================
+SECTION 5: FUTURE VECTOR PROMPT AUDIT
+============================================================
+
+What data is used:
+- Trajectory summary, momentum engine, future timeline checkpoints, trajectory simulations, goal success forecast, predictive risk, future self simulation, and identity drift.
+- The underlying signals are mostly completion, deferral, pressure, energy, learning, and streak-related heuristics.
+
+What is missing:
+- Explicit schedule density as a first-class input is still weak in the forecast helpers.
+- Routine activity is present in momentum calculations but not consistently exposed in forecast copy.
+- Completion history is represented more as current counts than as rich history.
+
+Are predictions framed with uncertainty:
+- Sometimes.
+- Many outputs are phrased as if they are predictive, but most do not explicitly label themselves as heuristic or approximate.
+
+Do outputs explain why a forecast exists:
+- Partly.
+- SI Console and trajectory cards often include a reason or signal summary.
+- Some provider outputs are just concise forecasts without a visible rationale.
+
+Do outputs recommend a practical corrective action:
+- Yes, generally.
+- This is one of the stronger areas.
+
+Do prompts overstate certainty:
+- Medium risk.
+- Some phrases read as factual prediction rather than heuristic guidance.
+
+Future Vector prompt readiness score:
+- 66/100
+
+Why not higher:
+- The structure is good, but uncertainty language needs to be more explicit.
+- Schedule density, completion history, and routine consistency should be surfaced more directly.
+
+============================================================
+SECTION 6: ASCENSION PROMPT AUDIT
+============================================================
+
+Do prompts exist:
+- Not as a dedicated standalone prompt system.
+- Ascension is mostly implicit in progression, momentum, streak, and identity guidance.
+
+What data they use:
+- Profile, streak, momentum, completion, execution stability, and trajectory.
+
+Is output helpful:
+- Yes, mostly.
+- Progression guidance is practical and tied to actual behavior.
+
+Is output fluff:
+- Somewhat in the narrative layers.
+- The rule-based progress language is good; the symbolic identity language can drift into fluff if overused.
+
+Should it be rule-based instead of prompted:
+- Mostly yes.
+- Ascension is better treated as a grounded progression system than as a free-form prompt surface.
+
+Ascension prompt readiness score:
+- 54/100
+
+Why not higher:
+- There is no dedicated prompt architecture.
+- The surface is fragmented across momentum, progression, identity, and narrative helpers.
+
+============================================================
+SECTION 7: NEXUS / HOME PROMPT AUDIT
+============================================================
+
+What context is used:
+- NexusStartupSummary uses profile, energy, fatigue, completedToday, and emotion.
+- The broader home surface also shows Smart Coach, goal forecast, explainable SI, adaptive replanning, and memory intelligence.
+
+What output format exists:
+- Startup directive sentence plus supporting panels and summary cards.
+
+Does it produce clear action:
+- Yes.
+- The startup directive is direct and action-oriented.
+
+Does it expose advanced intelligence too early:
+- Low-medium risk.
+- The home surface is already quite dense, but the startup summary itself is simple.
+
+Nexus/Home prompt readiness score:
+- 68/100
+
+Why not higher:
+- Good directive quality, but there are several overlapping intelligence layers on the same surface.
+- Some users may see too much strategic language too early.
+
+============================================================
+SECTION 8: ONBOARDING / TUTORIAL PROMPT AND COPY AUDIT
+============================================================
+
+Main findings:
+- Tutorial copy is mostly good: clear, calm, and workflow-aligned.
+- The best lines are the ones that point back to Creator, Timeline, and simple actions.
+- The weakest lines are the ones that feel broad or brand-heavy.
+
+Good examples:
+- "Scan energy, clarity, and momentum in one view, then choose one concrete next step."
+- "Use Creator to build a task, goal, routine, or note when you need direct control."
+- "Review what you created, scheduled, and completed so the next move stays obvious."
+- "Send one focused prompt to get immediate guidance when momentum drops."
+
+Prompt-copy gaps:
+- The tutorial still uses a lot of feature names without telling the user exactly what to do.
+- Some entries are more labels than guidance.
+- The SoulMap hint text and some labels mix concepts a little awkwardly.
+
+Aggressive or confusing language search results:
+- In onboarding, the explicit "mission_zero_activation_started" and "mission_zero_activation_start_failed" phrases are analytics identifiers, not visible user prompts.
+- The visible onboarding copy is relatively calm.
+- The login header text "TEMPORAL INTELLIGENCE SYSTEM" is brand-heavy and slightly sci-fi, though not a prompt.
+
+Should anything be softened:
+- Yes, the branding around mission and temporal intelligence should be softened if the goal is calm, premium, user-first onboarding.
+- The tutorial CTA language is mostly fine.
+
+Recommended replacement style:
+- clear
+- calm
+- practical
+- user-first
+- no forced AI usage
+- no military language
+- no fake urgency
+
+Onboarding/tutorial prompt readiness score:
+- 52/100
+
+Why not higher:
+- The workflow guidance is solid, but the copy is not fully consistent and sometimes leans into branded system language.
+
+============================================================
+SECTION 9: CONTEXT INJECTION AUDIT
+============================================================
+
+Profile context:
+- Available
+- Used by Smart Coach, SI Console, Nexus, momentum, and narrative helpers
+
+Tasks:
+- Available
+- Strongly used across coach, SI Console, trajectory, and planning helpers
+
+Routines:
+- Partial
+- Present in momentum and shared ChronoSpark model context, but not consistently surfaced everywhere
+
+Goals:
+- Available
+- Strongly used across coach, SI Console, and planning helpers
+
+Notes / memories:
+- Available
+- Used by Smart Coach, SI Console, memory intelligence, and narrative helpers
+
+Timeline records:
+- Available
+- Used by coach, SI Console, Future Vector, and Nexus
+
+Schedule dates:
+- Partial
+- Present in tasks, plan preview, and timeline; not always named as "schedule"
+
+Repeat rules:
+- Partial
+- Present in recurring task and routine models, but not consistently exposed in prompt text
+
+Completion history:
+- Partial
+- Stronger in execution signals and timeline/task outcomes than in direct prompt templates
+
+Skipped / missed items:
+- Available in execution signals and trajectory helpers
+
+Subscription / access:
+- Partial
+- Appears in integration/sync/paywall-related context, but not as a central prompt input
+
+Settings / preferences:
+- Partial
+- Available where needed, but not a core prompt source
+
+Current route / screen:
+- Missing as an explicit prompt-context source
+- Mostly inferred from the active feature surface
+
+Flags:
+- Stale context: possible when local summaries are used instead of fresh state.
+- Missing context: completion history and schedule density are still underpowered in several prompt paths.
+- Excessive context: possible in chat/proxy requests because context can become broad.
+- Sensitive context: profile, memories, and account state should be treated as sensitive but not secret.
+- Unstructured context: present in some broad JSON blobs and mixed-string helper outputs.
+- Duplicated context construction: present across Smart Coach, SI Console, and narrative helpers.
+
+============================================================
+SECTION 10: GROUNDING AND HALLUCINATION RISK AUDIT
+============================================================
+
+Prompt instructions that help grounding:
+- Smart Coach policy explicitly asks for practical actions and a clear next action.
+- ChatAgent tells the model to stay concise, practical, and specific to user context.
+- SI Console local command outputs use real app state and often state when data is loading or missing.
+- Forecast helper providers are mostly derived from actual execution and momentum signals.
+
+Prompt instructions that are missing or weak:
+- Several surfaces do not explicitly say "if data is missing, say so."
+- Some heuristic forecast outputs do not clearly label themselves as derived or approximate.
+- There is no universal base instruction saying "do not invent tasks, completion history, or subscription status."
+
+Hallucination risk by feature:
+- Smart Coach: medium
+- SI Console: medium-low
+- Future Vector: medium
+- Ascension/progression: low-medium
+- Nexus/Home: low-medium
+- Onboarding/tutorial: low
+- Classification/reminder/summarization helpers: low
+
+Key risk pattern:
+- The model can infer a plausible next action from sparse context and present it too confidently.
+
+============================================================
+SECTION 11: OUTPUT FORMAT AUDIT
+============================================================
+
+Observed output formats:
+- Plain text coaching blocks
+- Structured bullet lists
+- Heading-based console summaries
+- Short forecast cards
+- Scenario lists
+- JSON-like context maps
+- Command-based status outputs
+- Narrative fields such as nextStoryPrompt
+
+What is parseable:
+- SI Console command outputs are the most parseable.
+- Assistant response templates are reasonably consistent.
+- Some forecast providers output strings that are readable but not machine-friendly.
+
+What can create actions:
+- Smart Coach recommendations
+- SI Console command responses
+- Replanning and trajectory simulations
+- Goal success and risk recommendations
+
+Where output lacks next steps:
+- Some summaries in product/advisor helpers and narrative helpers are descriptive only.
+
+Recommendation:
+- Keep the existing human-readable format but standardize the top-level sections:
+  - Fact / signal
+  - Why it matters
+  - Next action
+  - If missing, say missing
+
+============================================================
+SECTION 12: PROMPT TONE AND BRAND AUDIT
+============================================================
+
+Desired brand tone:
+- intelligent
+- calm
+- premium
+- practical
+- direct
+- encouraging
+- future-tech but not hostile
+- coach-like but not bossy
+
+Tone problems found:
+- Too military or activation-heavy: mostly in naming and analytics identifiers, not in core user prompts.
+- Too sci-fi: some brand copy and login framing.
+- Too vague: some tutorial labels and generic starter text.
+- Too technical: SI Console can be dense, but that is probably intentional.
+- Too motivational without action: some progress language can feel like hype if not anchored to real data.
+- Too verbose: SI Console help text and command outputs are the main offenders.
+- Too robotic: deterministic forecast strings occasionally read this way.
+
+File-level tone notes:
+- lib/tutorial/tutorial_content.dart: best place to soften and simplify.
+- lib/features/auth/ui/login_screen.dart: brand-heavy header copy.
+- lib/features/si_console/ui/si_console_screen.dart: strong but a little crowded.
+- lib/state/providers/future_timeline_provider.dart and related forecast providers: should be more explicitly heuristic and less certain.
+
+============================================================
+SECTION 13: PROMPT REUSABILITY AUDIT
+============================================================
+
+Duplicated instructions:
+- Multiple surfaces say variants of "choose one next action" or "what should I do next."
+- SI Console repeats the same prompt pattern across local commands.
+- Forecast helpers often repeat momentum/pressure/recovery language.
+
+Repeated context descriptions:
+- Tasks, goals, timeline, memories, profile, and momentum are restated in several places.
+
+Hardcoded prompt strings in widgets:
+- Yes, especially in Smart Coach and SI Console screens.
+
+Feature-specific prompts that should share a base instruction:
+- Smart Coach, SI Console, and the proxy chat agent should share more base wording.
+- Forecast helpers should share a common uncertainty/grounding policy.
+
+Missing central prompt templates:
+- A single app-wide base instruction is not yet visible.
+
+Missing versioning:
+- Tutorial content is versioned; prompt templates are not visibly versioned.
+
+Missing tests:
+- No obvious prompt-string snapshot tests were found for the main prompt texts.
+
+Recommendation categories:
+- KEEP the shared assistant context builder.
+- MERGE the repeated next-action wording.
+- EXTRACT LATER a base app instruction.
+- VERSION LATER the major prompt templates.
+- REMOVE LATER duplicated prompt-like copy where it does not add value.
+
+============================================================
+SECTION 14: PROMPT SAFETY AND PRIVACY AUDIT
+============================================================
+
+Secrets in prompts:
+- No secret values were printed in this audit.
+- .env.example contains placeholders only.
+- lib/firebase_options.dart contains generated Firebase config values and should be treated as sensitive config, not prompt content.
+
+Potentially sensitive context entering prompts:
+- profile data
+- memories
+- tasks and goals
+- timeline and completion history
+- account/access state
+- integration snapshot fields
+
+Risk types:
+- Prompt injection from notes/tasks: yes, because free-form user content is routed into coaching and chat paths.
+- Excessive personal context: moderate, especially in chat/proxy mode.
+- Auth tokens: not printed, but chat_agent uses currentSupabaseAccessToken() when proxying in production.
+- API keys: not used directly in prompt text, but env/config files must remain secret-safe.
+
+Safety assessment:
+- Safe/questionable/unsafe/unknown
+- Smart Coach: safe-questionable
+- SI Console: safe-questionable
+- Proxy chat path: questionably safe if context grows too broad
+- Forecast helpers: safe
+
+============================================================
+SECTION 15: PROMPT INPUT VALIDATION AUDIT
+============================================================
+
+Empty prompt handling:
+- Good in AIController and SI Console.
+- Smart Coach trims input and has timeout handling.
+
+Max length:
+- Not visibly enforced in the main prompt-entry UI.
+
+Rate limit:
+- Yes in AIController via throttle.
+
+Unsafe content handling:
+- Crisis detection exists in Smart Coach and SI Console query controller.
+
+Loading state:
+- Yes in UI and SI Console summaries.
+
+Error state:
+- Yes, especially for follow-up timeout and SI Console loading errors.
+
+Retry:
+- Yes in Smart Coach follow-up and SI Console summary helpers.
+
+Cancel:
+- Not a first-class prompt control.
+
+Duplicate submission protection:
+- Partial, through busy flags in UI.
+
+Prompt chips / example prompts:
+- Yes, mainly in tutorial content and SI Console help output.
+
+Gaps:
+- No explicit max-length policy for user text.
+- No obvious prompt-abuse deduping beyond throttle and busy state.
+
+============================================================
+SECTION 16: EXAMPLE PROMPTS AND STARTER CHIPS AUDIT
+============================================================
+
+Good examples already present:
+- "what should I do next?"
+- "which one should I execute first and why?"
+- "what milestone is next, what is overdue, and am I on track?"
+- "give me one action to improve momentum today."
+- "compare current self to future self"
+
+Good chips or starter prompts should continue to look like this:
+- Help me plan today.
+- Turn this goal into a task.
+- What should I do next?
+- What is overdue?
+- Help me recover from missed items.
+- Summarize my week.
+
+Weak examples / overbroad examples:
+- Very generic emotional prompts without app context.
+- Brand-heavy or theatrical starter text.
+- Prompts that do not point back to Creator or Timeline.
+
+Recommendations:
+- Favor prompts that map directly to app actions.
+- Avoid vague demos that sound like a generic chatbot.
+- Make starter prompts route to Creator or Timeline whenever possible.
+
+============================================================
+SECTION 17: PROMPT TESTING AUDIT
+============================================================
+
+What tests exist:
+- There are tests for tutorial content and SI Console contracts.
+- There are provider tests for integration and some state transitions.
+- There are release-contract tests that keep UI/route boundaries intact.
+
+What is missing:
+- No obvious prompt-template snapshot tests for the main Smart Coach policy string.
+- No obvious golden tests for the SI Console help text or local prompt examples.
+- No prompt-specific regression tests for forecast/helper phrasing.
+
+Overall testing gap:
+- The repo tests the surfaces, but not the exact prompt language very deeply.
+
+============================================================
+SECTION 18: PROMPT BUILDER SCORECARD
+============================================================
+
+Smart Planner / Smart Coach prompt quality: 78
+SI Console prompt quality: 74
+Future Vector prompt quality: 66
+Ascension prompt quality: 54
+Nexus/Home prompt quality: 68
+Onboarding copy/prompt quality: 52
+Context grounding: 63
+Hallucination resistance: 61
+Output structure: 72
+Actionability: 70
+Tone / brand fit: 57
+Prompt reusability: 60
+Prompt safety / privacy: 68
+Prompt input validation: 66
+Prompt testing: 44
+Production prompt readiness: 62
+
+Average prompt readiness score: 62.9
+Rounded average: 63/100
+
+============================================================
+SECTION 19: KEEP / REFOCUS / REWRITE LATER / REWIRE CONTEXT / MERGE / REMOVE LATER
+============================================================
+
+KEEP:
+- Smart Coach policy and structured responses in lib/state/controllers/coach_query_controller.dart and lib/engine/assistant/assistant_response_templates.dart
+- Shared assistant context builder in lib/engine/assistant/assistant_context_builder.dart
+- SI Console structured command summaries in lib/features/si_console/ui/si_console_screen.dart
+- SoulMap reflection prompts in lib/state/models/soul_map_models.dart
+
+REFOCUS:
+- Nexus startup directive in lib/state/providers/si_pipeline_provider.dart
+- Daily command briefing and explainable SI output in lib/state/providers/daily_command_briefing_provider.dart and lib/state/providers/explainable_si_provider.dart
+- Product/weekly advisor text in lib/engine/advisor/product_advisor_engine.dart and lib/engine/advisor/weekly_advisor.dart
+
+REWRITE LATER:
+- Tutorial and onboarding copy in lib/tutorial/tutorial_content.dart and lib/features/onboarding/ui/onboarding_screen.dart
+- Repetitive SI Console prompt examples in lib/features/si_console/ui/si_console_screen.dart
+
+REWIRE CONTEXT:
+- Smart Coach and proxy chat context in lib/state/controllers/coach_query_controller.dart and lib/data/services/ai/agents/chat_agent.dart
+- Future Vector and forecast helper text in lib/state/providers/trajectory_provider.dart, lib/state/providers/future_timeline_provider.dart, and related providers
+- Completion / schedule / routine grounding across coach and console surfaces
+
+MERGE:
+- Repeated next-action wording across Smart Coach, SI Console, Nexus, and forecast helpers
+- Overlapping forecast language across trajectory, momentum, and future timeline surfaces
+
+REMOVE LATER:
+- Nothing clearly obsolete or harmful in the core prompt system
+- Only duplicated or theatrical copy should be removed later
+
+UNKNOWN:
+- Any runtime behavior of the external proxy prompt path when context is larger or more emotional than the current static inspection suggests
+
+============================================================
+SECTION 20: TARGET CHRONOSPARK PROMPT ARCHITECTURE
+============================================================
+
+Base app instruction:
+- Define ChronoSpark identity, tone, supported app objects, safety boundaries, and "do not invent app state" rules.
+
+Feature prompt templates:
+- Smart Coach
+- SI Console
+- Future Vector
+- Ascension
+- Nexus/Home
+
+Context builders:
+- user profile context
+- creator records context
+- timeline context
+- completion history context
+- schedule density context
+- subscription/access context
+
+Output schemas:
+- next action recommendation
+- app status summary
+- forecast summary
+- progress insight
+- suggested task/routine/goal/note
+
+Rules:
+- Say when data is missing.
+- Prefer one next action.
+- Route users back to Creator or Timeline.
+- Never invent tasks, completions, or subscriptions.
+- Keep all prompt templates versioned.
+- Make prompt outputs testable.
+- Never include secrets.
+
+============================================================
+SECTION 21: SAFE PROMPT ROADMAP
+============================================================
+
+Phase 1: Inventory all prompts and prompt-like copy
+- Goal: keep a canonical list of instruction text and helper copy.
+- Files likely involved: lib/state/controllers/coach_query_controller.dart, lib/data/services/ai/agents/chat_agent.dart, lib/features/si_console/ui/si_console_screen.dart, lib/tutorial/tutorial_content.dart, lib/state/models/soul_map_models.dart, lib/state/providers/*, lib/engine/advisor/*
+- Supabase involved: no
+- Risk level: low
+- Do not touch: auth, routing, billing, AI logic, Supabase schema/RLS
+- Success criteria: a complete inventory of prompt families and example text
+
+Phase 2: Remove or soften hostile onboarding language
+- Goal: make onboarding and tutorial copy calmer and more user-first.
+- Files likely involved: lib/features/onboarding/ui/onboarding_screen.dart, lib/tutorial/tutorial_content.dart, lib/features/auth/ui/login_screen.dart
+- Supabase involved: no
+- Risk level: low-medium
+- Do not touch: auth flow, routing, setup state, analytics semantics
+- Success criteria: less militarized tone, clearer prompts, no forced AI language
+
+Phase 3: Centralize a base app instruction later
+- Goal: create a reusable base prompt contract for all prompt-driven surfaces.
+- Files likely involved: lib/engine/assistant/*, lib/data/services/ai/agents/chat_agent.dart, lib/state/controllers/coach_query_controller.dart
+- Supabase involved: no
+- Risk level: medium
+- Do not touch: generated output semantics, surface routing, crisis handling
+- Success criteria: one base instruction reused across Smart Coach, SI Console, and proxy chat
+
+Phase 4: Ground Smart Planner in Creator / Timeline data
+- Goal: make Smart Coach prompt context explicitly point to created, scheduled, and completed items.
+- Files likely involved: lib/state/controllers/coach_query_controller.dart, lib/engine/assistant/assistant_context_builder.dart, lib/state/models/si_pipeline_models.dart
+- Supabase involved: no
+- Risk level: medium
+- Do not touch: any creation workflow or routing logic
+- Success criteria: prompts can reference real tasks, routines, goals, notes, schedule, and completion history
+
+Phase 5: Ground SI Console in whole-app status
+- Goal: keep SI Console accurate, concise, and explicit about known vs unknown data.
+- Files likely involved: lib/features/si_console/ui/si_console_screen.dart, lib/state/providers/si_pipeline_provider.dart, lib/state/models/si_pipeline_models.dart
+- Supabase involved: only as a source audit for health / access, not schema changes
+- Risk level: medium
+- Do not touch: local command structure, route wiring, analytics
+- Success criteria: consistent signal/summary wording and fewer duplicate prompt examples
+
+Phase 6: Add completion history to prompts after completion model exists
+- Goal: make completion history a first-class prompt input.
+- Files likely involved: lib/state/providers/completion_events_provider.dart, lib/state/controllers/coach_query_controller.dart, lib/state/providers/trajectory_provider.dart, lib/state/providers/future_timeline_provider.dart
+- Supabase involved: no schema changes
+- Risk level: medium
+- Do not touch: completion persistence or event semantics
+- Success criteria: prompts can explicitly reference completed, skipped, overdue, and rescheduled items
+
+Phase 7: Add structured output formats
+- Goal: standardize AI output into predictable sections or schemas.
+- Files likely involved: lib/engine/assistant/assistant_response_templates.dart, lib/engine/advisor/*, lib/state/providers/*
+- Supabase involved: no
+- Risk level: low-medium
+- Do not touch: existing visible meaning or navigation
+- Success criteria: outputs are easier to render and easier to test
+
+Phase 8: Add prompt tests and mock response tests
+- Goal: protect prompt wording and output contracts from regression.
+- Files likely involved: test/behavior/*, test/coverage_expansion/*, test/release/*
+- Supabase involved: no
+- Risk level: low
+- Do not touch: production prompt semantics unless tests require stable assertions
+- Success criteria: prompt policies, starter copy, and command summaries have regression coverage
+
+============================================================
+SECTION 22: FINAL PROMPT BUILDER VERDICT
+============================================================
+
+FINAL PROMPT BUILDER VERDICT:
+- Current prompt identity: distributed, mostly grounded, mostly deterministic, partially duplicated
+- Intended prompt identity: one calm, premium, actionable prompt system that routes back to Creator and Timeline
+- Biggest prompt quality gap: duplicated guidance and inconsistent prompt structure across surfaces
+- Biggest grounding gap: completion history and schedule density are not equally strong in every prompt path
+- Biggest hallucination risk: proxy-backed chat path with broad context and no universal "do not invent" base instruction
+- Biggest tone problem: onboarding/tutorial and some branding copy are more theatrical than the rest of the app
+- Strongest prompt area: Smart Coach policy plus the structured response templates
+- Weakest prompt area: onboarding/tutorial copy and scattered prompt examples
+- Most important missing context: explicit completion history plus schedule density as first-class prompt inputs
+- Most important missing output format: a shared app-wide response schema with explicit fact / recommendation / next action separation
+- Average prompt readiness score: 63/100
+- Safest next coding pass: centralize shared context and soften the tutorial/onboarding copy later
+- Most dangerous prompt area to modify: the proxy chat system prompt and Smart Coach policy string
+- Files to inspect before coding: lib/state/controllers/coach_query_controller.dart, lib/data/services/ai/agents/chat_agent.dart, lib/engine/assistant/assistant_context_builder.dart, lib/features/si_console/ui/si_console_screen.dart, lib/tutorial/tutorial_content.dart, lib/state/providers/si_pipeline_provider.dart
+- Supabase tables/data sources to verify before coding: none for schema; only runtime health / access sources if prompt grounding needs them
+- External AI/model services to verify before coding: the AI proxy endpoint referenced by CHRONOSPARK_AI_PROXY_ENDPOINT
+- What must not be touched yet: auth, routing, billing, Supabase schema/RLS, Firebase config, environment files, and existing AI logic
+
+END OF REPORT

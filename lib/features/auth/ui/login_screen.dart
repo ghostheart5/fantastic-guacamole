@@ -480,7 +480,7 @@ class _LoginBrandHeader extends StatelessWidget {
         ),
         SizedBox(height: compact ? 8 : 10),
         Text(
-          'TEMPORAL INTELLIGENCE SYSTEM',
+          'ChronoSpark Planning System',
           style: TextStyle(
             color: Colors.white38,
             fontSize: subtitleSize,

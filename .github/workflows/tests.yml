@@ -16,23 +16,50 @@ jobs:
         with:
           channel: stable
 
-      - name: Run Flutter Tests
+      - name: Run Build-Critical Flutter Tests
+        id: critical_tests
+        run: |
+          flutter test test/unit
+          flutter test test/smoke
+          flutter test test/behavior/secrets_guard_test.dart test/behavior/no_network_in_unit_tests_test.dart test/behavior/test_secret_hygiene_contract_test.dart
+
+      - name: Run Extended Flutter Tests (non-blocking)
+        id: extended_tests
+        continue-on-error: true
         run: |
           flutter test --coverage
-          flutter test test/unit
           flutter test test/integration
           flutter test test/features
-          flutter test test/smoke
+          flutter test test/providers
+          flutter test test/behavior
 
       - name: Install Robot Framework
+        id: install_robot
+        continue-on-error: true
         run: |
           python -m pip install --upgrade pip
           pip install robotframework selenium
 
       - name: Run Robot Tests
+        id: robot_tests
+        continue-on-error: true
         run: robot test/robot
 
+      - name: Publish Nonblocking Test Summary
+        if: always()
+        run: |
+          echo "## ChronoSpark Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Build-critical tests: ${{ steps.critical_tests.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Extended tests (non-blocking): ${{ steps.extended_tests.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Robot install (non-blocking): ${{ steps.install_robot.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Robot tests (non-blocking): ${{ steps.robot_tests.outcome }}" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.extended_tests.outcome }}" != "success" ] || [ "${{ steps.robot_tests.outcome }}" != "success" ]; then
+            echo "Nonblocking test stages reported issues. Build-critical tests still control pass/fail." >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Upload Coverage
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: coverage

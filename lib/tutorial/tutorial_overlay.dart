@@ -2,10 +2,12 @@
 
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_controller.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_models.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class TutorialHost extends StatefulWidget {
   const TutorialHost({
@@ -116,13 +118,31 @@ class _PulsePaintState extends State<_PulsePaint>
 
   @override
   Widget build(BuildContext context) {
+    MotionProfile motionProfile = MotionProfile.standard;
+    try {
+      motionProfile = ProviderScope.containerOf(
+        context,
+        listen: true,
+      ).read(motionProfileProvider);
+    } on Object {
+      motionProfile = MotionProfile.standard;
+    }
+    final bool reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final double pulseScale = switch (motionProfile) {
+      MotionProfile.calm => 0.55,
+      MotionProfile.standard => 1.0,
+      MotionProfile.expressive => 1.25,
+    };
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
         return CustomPaint(
           painter: _TutorialPainter(
             target: widget.target,
-            pulse: Curves.easeOut.transform(_controller.value),
+            pulse: reduceMotion
+                ? 0
+                : Curves.easeOut.transform(_controller.value) * pulseScale,
           ),
         );
       },

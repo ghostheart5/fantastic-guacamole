@@ -7,10 +7,12 @@ import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/insights_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
+import 'package:fantastic_guacamole/state/providers/app_integration_actions_provider.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/state/services/app_integration_actions.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -367,6 +369,9 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
   final SoulMapAlignment soulMap = aggregation.soulMap;
   final intelligence = ref.watch(intelligenceStateProvider);
   final latestSnapshot = ref.watch(latestSiSnapshotProvider);
+  final AppIntegrationSnapshot integrationSnapshot = await ref
+      .watch(appIntegrationActionsProvider)
+      .fetchIntegrationSnapshot();
   final Object? state = await ref.watch(siEngineStateProvider.future);
 
   final List<String> chunks = <String>[
@@ -396,6 +401,9 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
   }
 
   final String engineSnapshot = chunks.join(' · ').toUpperCase();
+  final String integrationSurfaceSnapshot = buildIntegrationSurfaceSnapshot(
+    integrationSnapshot,
+  );
 
   final String valuesSnapshot =
       'VALUES ${coreValues.overall}% · LOW ${coreValueTitle(coreValues.mostNeglected).toUpperCase()} ${coreValues.scores[coreValues.mostNeglected]?.score ?? 0}%';
@@ -407,8 +415,28 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
     aggregation: aggregation,
     decision: decision,
     engineSnapshot: '$engineSnapshot · $valuesSnapshot · $soulMapSnapshot',
+    integrationSnapshot: integrationSurfaceSnapshot,
   );
 });
+
+String buildIntegrationSurfaceSnapshot(AppIntegrationSnapshot snapshot) {
+  final String userTag = snapshot.currentUserId == null
+      ? 'ANON'
+      : 'USER ${_shortUserId(snapshot.currentUserId!)}';
+  final String syncTag = snapshot.syncErrorMessage == null
+      ? 'SYNC OK'
+      : 'SYNC WARN';
+  final String stackTag = snapshot.monetizationStatus.stackType.name.toUpperCase();
+
+  return '$userTag · SUPABASE ${snapshot.supabaseHealth.badgeLabel.toUpperCase()} · $syncTag · Q ${snapshot.offlineQueueCount} · MONO $stackTag';
+}
+
+String _shortUserId(String userId) {
+  if (userId.length <= 6) {
+    return userId;
+  }
+  return userId.substring(0, 6);
+}
 
 String _buildMemoryHint(List<MemoryEntity> memories) {
   if (memories.isEmpty) {

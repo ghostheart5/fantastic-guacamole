@@ -185,6 +185,30 @@ Example run:
 - Mock login defaults to `mock@chronospark.app` unless `CHRONOSPARK_MOCK_LOGIN_EMAIL` and `CHRONOSPARK_MOCK_LOGIN_PASSWORD` are supplied.
 - For Google Play upload, build a release AAB with your signed release keystore and verify the bundle version increments before each upload.
 
+## Safe release roadmap (non-breaking)
+
+These checks are additive and do not modify the existing Android release workflow:
+
+1. Run local preflight before tagging a release:
+  - `powershell -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1`
+2. Run manual CI preflight when you want cloud verification:
+  - GitHub Actions -> `Release Preflight (Manual)` -> `Run workflow`
+3. Continue using existing tag-based Android release workflow for Play-ready signed AAB output:
+  - `.github/workflows/android-release.yml`
+
+Optional local fast path if you only want static checks:
+
+- `powershell -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1 -SkipTests`
+
+Optional profile checks (manual, non-breaking):
+
+- Staging profile env validation:
+  - `powershell -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1 -Profile staging -ValidateEnv -SkipAnalyze -SkipTests -SkipReleaseGuard -SkipSecretGuard -SkipUploadKeyCheck`
+- Tester profile env validation:
+  - `powershell -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1 -Profile tester -ValidateEnv -SkipAnalyze -SkipTests -SkipReleaseGuard -SkipSecretGuard -SkipUploadKeyCheck`
+- GitHub Actions manual input now supports `production`, `staging`, and `tester` profiles in `Release Preflight (Manual)` for profile smoke checks.
+- Keep environment variable validation as a local preflight step so release CI stays stable and non-breaking.
+
 ## App links and indexing
 
 - Android App Links are declared for:

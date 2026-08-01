@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,7 +20,7 @@ class SIStateController extends Notifier<SIState> {
 
   Future<void> _loadFromAsset() async {
     try {
-      final String raw = await rootBundle.loadString('assets/data/user.json');
+      final String raw = await rootBundle.loadString(AppAssets.dataUser);
       final Map<String, dynamic> data = jsonDecode(raw) as Map<String, dynamic>;
       state = SIState(
         energy: (data['energy'] as num?)?.toDouble() ?? 0.7,

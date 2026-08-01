@@ -54,6 +54,37 @@ class NotificationActions {
 }
 
 class NotificationNotifier extends Notifier<List<NotificationEntity>> {
+  Future<void> _playCategoryAwareReminderSound(NotificationEntity notification) {
+    final bool soundEnabled = ref.read(soundEnabledProvider);
+    final bool advancedAudioEnabled = ref.read(
+      advancedAudioProfileEnabledProvider,
+    );
+    final String title = notification.title.toLowerCase();
+    final String message = notification.message.toLowerCase();
+    final String combined = '$title $message';
+
+    if (combined.contains('routine') || combined.contains('habit')) {
+      return AudioService.playReminderRoutine(
+        soundEnabled,
+        advancedProfileEnabled: advancedAudioEnabled,
+      );
+    }
+
+    if (combined.contains('daily') ||
+        combined.contains('plan') ||
+        combined.contains('reflection')) {
+      return AudioService.playReminderDaily(
+        soundEnabled,
+        advancedProfileEnabled: advancedAudioEnabled,
+      );
+    }
+
+    return AudioService.playNotification(
+      soundEnabled,
+      advancedProfileEnabled: advancedAudioEnabled,
+    );
+  }
+
   @override
   List<NotificationEntity> build() {
     final notificationRepository = ref.read(
@@ -97,10 +128,12 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     NotificationEntity notification, {
     bool refreshCoach = true,
     bool refreshPlan = true,
+    bool playSound = true,
   }) async {
     await ref.read(scheduleNotificationUseCaseProvider).call(notification);
-    final bool soundEnabled = ref.read(soundEnabledProvider);
-    await AudioService.playNotification(soundEnabled);
+    if (playSound) {
+      await _playCategoryAwareReminderSound(notification);
+    }
     state = <NotificationEntity>[notification, ...state];
 
     if (refreshPlan) {
@@ -141,7 +174,15 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     bool refreshPlan = true,
   }) {
     final bool soundEnabled = ref.read(soundEnabledProvider);
-    AudioService.playAchievement(soundEnabled);
+    final bool advancedAudioEnabled = ref.read(
+      advancedAudioProfileEnabledProvider,
+    );
+    final bool hapticEnabled = ref.read(hapticFeedbackEnabledProvider);
+    AudioService.playAchievement(
+      soundEnabled,
+      advancedProfileEnabled: advancedAudioEnabled,
+      hapticsEnabled: hapticEnabled,
+    );
     return push(
       _notification(
         title: 'Completion',
@@ -149,6 +190,7 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
       ),
       refreshCoach: refreshCoach,
       refreshPlan: refreshPlan,
+      playSound: false,
     );
   }
 
@@ -157,6 +199,14 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     bool refreshCoach = true,
     bool refreshPlan = true,
   }) {
+    final bool soundEnabled = ref.read(soundEnabledProvider);
+    final bool advancedAudioEnabled = ref.read(
+      advancedAudioProfileEnabledProvider,
+    );
+    AudioService.playSkip(
+      soundEnabled,
+      advancedProfileEnabled: advancedAudioEnabled,
+    );
     return push(
       _notification(
         title: 'Task Skipped',
@@ -164,6 +214,7 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
       ),
       refreshCoach: refreshCoach,
       refreshPlan: refreshPlan,
+      playSound: false,
     );
   }
 

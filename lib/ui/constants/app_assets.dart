@@ -60,9 +60,18 @@ class AppAssets {
   static const iconStop = 'assets/icons/stop.svg';
   static const iconStreak = 'assets/icons/streak.svg';
   static const iconTasks = 'assets/icons/tasks.svg';
+  static const iconApp = 'assets/icons/app_icon.png';
+
+  // Overlays
+  static const overlayNoise = 'assets/overlays/noise.png';
 
   // Legal
+  static const legalCodeOfConductHtml = 'assets/legal/code_of_conduct.html';
+  static const legalDeleteAccountHtml = 'assets/legal/delete_account.html';
+  static const legalLicenseHtml = 'assets/legal/license.html';
   static const legalPrivacyTxt = 'assets/legal/privacy_policy.txt';
+  static const legalReadmeHtml = 'assets/legal/readme.html';
+  static const legalSecurityPolicyHtml = 'assets/legal/security_policy.html';
   static const legalTermsHtml = 'assets/legal/terms_of_service.html';
   static const legalTermsTxt = 'assets/legal/terms_of_service.txt';
 }

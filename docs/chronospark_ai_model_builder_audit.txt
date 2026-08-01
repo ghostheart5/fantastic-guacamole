@@ -1,0 +1,1136 @@
+CHRONOSPARK AI / MODEL BUILDER AUDIT
+Date: 2026-07-31
+Scope: AI-powered product behavior, model inputs, prompts, reasoning context, generated outputs, predictions, summaries, classifications, and decision support.
+Mode: Audit only. No code changes.
+
+This audit covers AI surfaces in the mobile app only. It does not modify AI logic, routing, providers, billing, auth, Supabase, or secrets.
+
+============================================================
+SECTION 1: EXECUTIVE AI SUMMARY
+============================================================
+
+Current AI identity:
+- ChronoSpark has a real AI layer, but it is mostly a local-first, heuristics-driven decision-support system with an optional proxy path rather than a fully external LLM app.
+- The strongest live AI surfaces are Smart Coach, SI Console, the AI controller / agent orchestrator layer, and the trajectory / future-forecast stack.
+- AI is used for coaching, summaries, recommendations, forecast narration, intent classification, and structured status reporting.
+
+What currently exists:
+- Smart Coach is active and user-facing in [lib/features/home/ui/smart_coach_screen.dart](lib/features/home/ui/smart_coach_screen.dart) with prompt construction in [lib/state/controllers/coach_query_controller.dart](lib/state/controllers/coach_query_controller.dart).
+- SI Console is active and user-facing in [lib/features/si_console/ui/si_console_screen.dart](lib/features/si_console/ui/si_console_screen.dart) with the main aggregation in [lib/state/providers/si_pipeline_provider.dart](lib/state/providers/si_pipeline_provider.dart).
+- Future Vector exists in practice as the trajectory / forecast stack, with the main screen at [lib/features/trajectory_engine/ui/trajectory_engine_screen.dart](lib/features/trajectory_engine/ui/trajectory_engine_screen.dart) and providers such as [lib/state/providers/trajectory_provider.dart](lib/state/providers/trajectory_provider.dart), [lib/state/providers/future_timeline_provider.dart](lib/state/providers/future_timeline_provider.dart), and [lib/state/providers/future_decision_engine_provider.dart](lib/state/providers/future_decision_engine_provider.dart).
+- Ascension is not a standalone AI feature folder, but progression / momentum / streak logic is active through profile and progression providers.
+- Nexus / Home exposes a lightweight system summary and initial guidance in [lib/features/nexus/ui/nexus_screen.dart](lib/features/nexus/ui/nexus_screen.dart).
+- The AI controller and agent layer are active in [lib/state/controllers/ai_controller.dart](lib/state/controllers/ai_controller.dart) and [lib/data/services/ai/orchestration/agent_orchestrator.dart](lib/data/services/ai/orchestration/agent_orchestrator.dart).
+
+What appears planned or partially wired:
+- Smart Planner exists as a concept and tutorial surface, but not as a dedicated standalone folder or full model-builder surface. Planning is mostly implemented as deterministic weekly/daily providers and SI Console commands.
+- Future Vector is partially wired as forecast / trajectory / simulation / identity drift providers, but not as an external model system.
+- Ascension is primarily a rule-based progression stack rather than a dedicated AI assistant.
+- The AI agent layer has multiple named agents, but most are local heuristics, deterministic summaries, or SIAIService wrappers rather than direct external model calls.
+
+What data AI currently uses:
+- Tasks, goals, memory notes, timeline events, progression state, profile state, learning state, execution signals, trajectory / momentum state, core values, soul map, emotional state, and local conversation history.
+- Smart Coach also uses notes and follow-up text, then writes mirrored memory and timeline emotion check-ins.
+- SI Console uses aggregated app state plus autonomous planner output.
+- Future Vector uses task counts, completion and execution signals, energy, learning metrics, session score, identity drift, and forecast heuristics.
+
+What data AI should use more consistently:
+- Explicit completion history as a first-class signal.
+- Schedule density and actual planned items as a first-class forecasting input.
+- Routine / habit activity as a clear AI input.
+- Subscription / access context only where it changes behavior or explainability.
+- More explicit app-state context for the AI surfaces that currently infer from summaries.
+
+Timing:
+- AI does not appear mandatory during onboarding.
+- The onboarding flow is a setup gate only in [lib/features/onboarding/ui/onboarding_screen.dart](lib/features/onboarding/ui/onboarding_screen.dart).
+- Tutorial content introduces Smart Planner and Forecast later, after Home Overview, which is directionally correct.
+- The risk is not that AI appears too early in onboarding; the larger issue is that some AI surfaces are available before the app has enough real user activity to be maximally grounded.
+
+Overlap:
+- Smart Coach, SI Console, and Future Forecast overlap in “give me the next move” style guidance, but they still have different intended jobs.
+- Some planning and forecast logic is duplicated across Smart Planner labels, SI Console commands, trajectory providers, and coaching fallback text.
+- The overlap is not a correctness bug yet, but it does blur the mental model.
+
+Actionability:
+- Outputs are often actionable, but not consistently action-producing.
+- The best outputs point to a next step, but there is still no consistent create-from-AI loop that turns AI advice directly into a task, routine, goal, or scheduled timeline item.
+
+Verdict:
+REWIRE
+- Keep the grounded local-first AI backbone.
+- Rewire the context pipeline so completion, schedule, and progression become the canonical AI inputs.
+- Simplify overlap between Smart Coach, SI Console, and forecast surfaces.
+
+============================================================
+SECTION 2: AI FEATURE INVENTORY
+============================================================
+
+1) Smart Coach
+- Files:
+  - [lib/features/home/ui/smart_coach_screen.dart](lib/features/home/ui/smart_coach_screen.dart)
+  - [lib/state/controllers/coach_query_controller.dart](lib/state/controllers/coach_query_controller.dart)
+  - [lib/features/home/ui/services/smart_coach_conversation_service.dart](lib/features/home/ui/services/smart_coach_conversation_service.dart)
+  - [lib/features/home/ui/controllers/smart_coach_conversation_controller.dart](lib/features/home/ui/controllers/smart_coach_conversation_controller.dart)
+  - [lib/engine/assistant/assistant_context_builder.dart](lib/engine/assistant/assistant_context_builder.dart)
+  - [lib/engine/assistant/assistant_detection_service.dart](lib/engine/assistant/assistant_detection_service.dart)
+  - [lib/engine/assistant/assistant_response_templates.dart](lib/engine/assistant/assistant_response_templates.dart)
+  - [lib/state/controllers/ai_controller.dart](lib/state/controllers/ai_controller.dart)
+- Purpose: Emotional / productivity coaching and follow-up Q&A.
+- User-facing screen: Yes.
+- Inputs used: energy, emotional state, notes, follow-up text, history, goals, memories, timeline summaries, profile, progression, tasks, logs, insights, notifications, plan preview, core values, soul map.
+- Outputs produced: coaching message, follow-up response, saved notes, mirrored memory, timeline emotion check-in, voice output, XP gain, conversation history.
+- AI/model/service dependency: `CoachQueryController` routes to `AIController` or deterministic structured coaching; `AIController` routes through `AgentOrchestrator` and `SIAIService`.
+- Supabase dependency: Indirect only through access / auth runtime state and optional proxy token; no direct Supabase AI table read.
+- Local data dependency: Strong.
+- Status: Active.
+- Risk level: Medium. It is grounded, but the surface can still drift into generic coaching if context is thin.
+
+2) SI Console
+- Files:
+  - [lib/features/si_console/ui/si_console_screen.dart](lib/features/si_console/ui/si_console_screen.dart)
+  - [lib/state/providers/si_pipeline_provider.dart](lib/state/providers/si_pipeline_provider.dart)
+  - [lib/state/models/si_pipeline_models.dart](lib/state/models/si_pipeline_models.dart)
+- Purpose: Whole-app strategic intelligence and diagnostic console.
+- User-facing screen: Yes.
+- Inputs used: tasks, goals, insights, logs, timeline, memories, notifications, profile, SI state, trajectory, core values, soul map, execution signals, energy, autonomous planners, app flavor, SI engine state, and now a read-only integration snapshot banner.
+- Outputs produced: SI summary, command replies, system status, recommendations, timeline / trajectory / values / soul map snapshots.
+- AI/model/service dependency: Uses SI pipeline and agent-backed response surfaces; not an external LLM dependency by default.
+- Supabase dependency: Indirect only for health / auth / monetization context, not AI content.
+- Local data dependency: Strong.
+- Status: Active.
+- Risk level: Medium-low. Very useful and grounded, but the breadth of context makes overlap and hallucination risk possible if one source goes missing.
+
+3) Future Vector / Future Forecast / Trajectory
+- Files:
+  - [lib/features/trajectory_engine/ui/trajectory_engine_screen.dart](lib/features/trajectory_engine/ui/trajectory_engine_screen.dart)
+  - [lib/state/providers/trajectory_provider.dart](lib/state/providers/trajectory_provider.dart)
+  - [lib/state/providers/momentum_engine_provider.dart](lib/state/providers/momentum_engine_provider.dart)
+  - [lib/state/providers/future_timeline_provider.dart](lib/state/providers/future_timeline_provider.dart)
+  - [lib/state/providers/future_decision_engine_provider.dart](lib/state/providers/future_decision_engine_provider.dart)
+  - [lib/state/providers/trajectory_simulation_provider.dart](lib/state/providers/trajectory_simulation_provider.dart)
+  - [lib/state/providers/goal_success_probability_provider.dart](lib/state/providers/goal_success_probability_provider.dart)
+  - [lib/state/providers/predictive_risk_provider.dart](lib/state/providers/predictive_risk_provider.dart)
+  - [lib/state/providers/identity_drift_provider.dart](lib/state/providers/identity_drift_provider.dart)
+  - [lib/state/providers/future_self_simulator_provider.dart](lib/state/providers/future_self_simulator_provider.dart)
+- Purpose: Forecast / trajectory / risk / next-action interpretation.
+- User-facing screen: Yes, via the trajectory engine screen.
+- Inputs used: tasks, energy, learning, learning metrics, session score, SI state, execution signals, habit state, cognitive twin state, identity drift, future-self simulations, timing / completion signals.
+- Outputs produced: predictions, momentum forecast, pressure / divergence signals, probability estimates, scenario cards, future roadmap, risk / mitigation text.
+- AI/model/service dependency: Primarily deterministic / rule-based, not an external model dependency.
+- Supabase dependency: None observed for forecast generation.
+- Local data dependency: Strong.
+- Status: Active, but mostly deterministic.
+- Risk level: Medium. Strong utility, but the model is not truly probabilistic in an ML sense; it is a structured heuristic forecast.
+
+4) Smart Planner / Planning stack
+- Files:
+  - [lib/state/providers/autonomous_weekly_planner_provider.dart](lib/state/providers/autonomous_weekly_planner_provider.dart)
+  - [lib/state/providers/autonomous_daily_planner_provider.dart](lib/state/providers/autonomous_daily_planner_provider.dart)
+  - [lib/data/services/ai/agents/planner_agent.dart](lib/data/services/ai/agents/planner_agent.dart)
+  - [lib/features/si_console/ui/si_console_screen.dart](lib/features/si_console/ui/si_console_screen.dart)
+  - [lib/tutorial/tutorial_content.dart](lib/tutorial/tutorial_content.dart)
+- Purpose: Provide coaching-like planning directives and daily focus guidance.
+- User-facing screen: No standalone planner screen found. The concept appears in SI Console, tutorial content, and narrative labels.
+- Inputs used: Life OS identity stage, future decision engine, autonomous action provider, momentum / trajectory signals.
+- Outputs produced: weekly directives, daily directives, primary directive, plan focus.
+- AI/model/service dependency: Mostly deterministic providers; the `PlannerAgent` just calls `SIAIService.generate()`.
+- Supabase dependency: None for planning context.
+- Local data dependency: Strong.
+- Status: Partial.
+- Risk level: Medium-high for discoverability, low for safety.
+
+5) Ascension / Progression intelligence
+- Files:
+  - [lib/state/providers/progression_provider.dart](lib/state/providers/progression_provider.dart)
+  - [lib/state/controllers/profile_controller.dart](lib/state/controllers/profile_controller.dart)
+  - [lib/state/providers/momentum_engine_provider.dart](lib/state/providers/momentum_engine_provider.dart)
+  - [lib/state/providers/identity_drift_provider.dart](lib/state/providers/identity_drift_provider.dart)
+- Purpose: Progression, XP, streaks, identity momentum, leveling.
+- User-facing screen: No standalone Ascension screen found.
+- Inputs used: profile state, progression service, completion / learning signals, streaks, momentum, identity drift.
+- Outputs produced: progression state, level, XP, streak, momentum interpretation.
+- AI/model/service dependency: Mostly rule-based.
+- Supabase dependency: None observed.
+- Local data dependency: Strong.
+- Status: Active as progression logic, but not a dedicated AI feature.
+- Risk level: Medium. The logic is stable, but the brand surface is fragmented.
+
+6) Nexus / Home intelligence
+- Files:
+  - [lib/features/nexus/ui/nexus_screen.dart](lib/features/nexus/ui/nexus_screen.dart)
+  - [lib/features/nexus/ui/nexus_screen.widgets.dart](lib/features/nexus/ui/nexus_screen.widgets.dart)
+  - [lib/state/providers/si_pipeline_provider.dart](lib/state/providers/si_pipeline_provider.dart)
+- Purpose: Daily dashboard and system summary.
+- User-facing screen: Yes.
+- Inputs used: profile, SI state, emotion, trajectory, momentum, summary state.
+- Outputs produced: startup directive, narrative summary, bridge cards, route suggestions.
+- AI/model/service dependency: Indirect; it is a summary / navigation surface rather than a model.
+- Supabase dependency: None observed directly.
+- Local data dependency: Strong.
+- Status: Active.
+- Risk level: Low-medium.
+
+7) AI controller / orchestrator layer
+- Files:
+  - [lib/state/controllers/ai_controller.dart](lib/state/controllers/ai_controller.dart)
+  - [lib/state/controllers/ai_controller.providers.dart](lib/state/controllers/ai_controller.providers.dart)
+  - [lib/state/controllers/ai_controller.response.dart](lib/state/controllers/ai_controller.response.dart)
+  - [lib/data/services/ai/orchestration/agent_orchestrator.dart](lib/data/services/ai/orchestration/agent_orchestrator.dart)
+  - [lib/data/services/ai/models/agent_request.dart](lib/data/services/ai/models/agent_request.dart)
+  - [lib/data/services/ai/models/agent_result.dart](lib/data/services/ai/models/agent_result.dart)
+- Purpose: Unified AI request routing and response normalization.
+- User-facing screen: Indirect; drives coach / console behavior.
+- Inputs used: prompt, history, tasks, SI state, learning, profile, memories, timeline, goals, insights, logs, notifications, trajectory, core values, soul map, runtime flags.
+- Outputs produced: `AIRecommendation`, `AgentResult`, execution status, AI input trace, AI response trace, AI agent trace.
+- AI/model/service dependency: `AgentOrchestrator` selects heuristic or local-agent implementations; `ChatAgent` optionally calls an HTTPS proxy; `SIAIService` provides local SI output.
+- Supabase dependency: Only for proxy auth token and runtime gating, not for direct AI content.
+- Local data dependency: Strong.
+- Status: Active.
+- Risk level: Medium. It is the core AI boundary, so mistakes here affect all downstream AI surfaces.
+
+8) AI helper tools and agents
+- Files:
+  - [lib/data/services/ai/agents/chat_agent.dart](lib/data/services/ai/agents/chat_agent.dart)
+  - [lib/data/services/ai/agents/planner_agent.dart](lib/data/services/ai/agents/planner_agent.dart)
+  - [lib/data/services/ai/agents/recommendation_agent.dart](lib/data/services/ai/agents/recommendation_agent.dart)
+  - [lib/data/services/ai/agents/summarization_agent.dart](lib/data/services/ai/agents/summarization_agent.dart)
+  - [lib/data/services/ai/agents/research_agent.dart](lib/data/services/ai/agents/research_agent.dart)
+  - [lib/data/services/ai/agents/reminder_agent.dart](lib/data/services/ai/agents/reminder_agent.dart)
+  - [lib/data/services/ai/agents/classification_agent.dart](lib/data/services/ai/agents/classification_agent.dart)
+  - [lib/data/services/ai/agents/custom_agent.dart](lib/data/services/ai/agents/custom_agent.dart)
+  - [lib/data/services/ai/tools/text_summary_tool.dart](lib/data/services/ai/tools/text_summary_tool.dart)
+  - [lib/data/services/ai/tools/task_research_tool.dart](lib/data/services/ai/tools/task_research_tool.dart)
+  - [lib/data/services/ai/tools/reminder_planning_tool.dart](lib/data/services/ai/tools/reminder_planning_tool.dart)
+  - [lib/data/services/ai/tools/intent_classification_tool.dart](lib/data/services/ai/tools/intent_classification_tool.dart)
+- Purpose: Local agent implementations and non-LLM helper logic.
+- User-facing screen: Indirect.
+- Inputs used: prompt, tasks, context, history, content, query.
+- Outputs produced: message, reasoning, confidence, summary, findings, classification label, reminder window.
+- AI/model/service dependency: Mostly local heuristics and SI fallback.
+- Supabase dependency: None directly.
+- Local data dependency: Strong.
+- Status: Active, but mostly heuristic.
+- Risk level: Low-medium.
+
+9) Memories / context systems
+- Files:
+  - [lib/state/providers/memories_provider.dart](lib/state/providers/memories_provider.dart)
+  - [lib/state/providers/si_memory_provider.dart](lib/state/providers/si_memory_provider.dart)
+  - [lib/state/controllers/ai_controller.dart](lib/state/controllers/ai_controller.dart)
+- Purpose: Memory capture, selection, and snapshot history for AI grounding.
+- User-facing screen: Indirect.
+- Inputs used: memory text, previous snapshots, conversation history.
+- Outputs produced: memory summaries, selected memories, neural dump entries, conversation persistence.
+- AI/model/service dependency: Local AI grounding only.
+- Supabase dependency: None observed.
+- Local data dependency: Strong.
+- Status: Active.
+- Risk level: Medium.
+
+10) Testing and verification surfaces
+- Files:
+  - [test/providers/app_integration_actions_provider_test.dart](test/providers/app_integration_actions_provider_test.dart)
+  - [test/providers/si_pipeline_provider_test.dart](test/providers/si_pipeline_provider_test.dart)
+  - [test/features/trajectory_engine/unit/trajectory_engine_unit_test.dart](test/features/trajectory_engine/unit/trajectory_engine_unit_test.dart)
+  - [test/features/daily_plan/unit/daily_plan_unit_test.dart](test/features/daily_plan/unit/daily_plan_unit_test.dart)
+  - [test/behavior/trajectory_engine_contract_test.dart](test/behavior/trajectory_engine_contract_test.dart)
+- Purpose: Validate AI / planning / forecast surfaces and boundaries.
+- Status: Partial.
+- Risk level: Low. Good signs, but the tests are still more structural than behavioral for the full AI loop.
+
+Dedicated folders requested but not found:
+- [lib/features/smart_planner](lib/features/smart_planner) does not appear as a standalone folder.
+- [lib/features/future_vector](lib/features/future_vector) does not appear as a standalone folder.
+- [lib/features/ascension](lib/features/ascension) does not appear as a standalone folder.
+- The actual implementation lives elsewhere, mainly under Home, SI Console, trajectory engine, and state providers.
+
+============================================================
+SECTION 3: SMART PLANNER / SMART COACH AI AUDIT
+============================================================
+
+What users type:
+- Smart Coach accepts free-form notes and follow-up text in [lib/features/home/ui/smart_coach_screen.dart](lib/features/home/ui/smart_coach_screen.dart).
+- The controller builds a coaching request from energy, emotion, notes, history, and prior saved notes in [lib/state/controllers/coach_query_controller.dart](lib/state/controllers/coach_query_controller.dart).
+- The follow-up flow uses reflection text and recent history.
+
+Where prompt input is handled:
+- UI input is read in [lib/features/home/ui/smart_coach_screen.dart](lib/features/home/ui/smart_coach_screen.dart).
+- Request shaping is done in [lib/state/controllers/coach_query_controller.dart](lib/state/controllers/coach_query_controller.dart) and [lib/features/home/ui/services/smart_coach_conversation_service.dart](lib/features/home/ui/services/smart_coach_conversation_service.dart).
+- The generalized AI routing happens in [lib/state/controllers/ai_controller.dart](lib/state/controllers/ai_controller.dart).
+
+What context is included:
+- Energy and emotion are included explicitly.
+- Goals, memories, timeline summaries, tasks, profile, progress, insights, logs, notifications, plan preview, core values, soul map, and current SI state are included in the broader coach context.
+- Smart Coach also adds a knowledge snapshot with top goals, recent memories, core values alignment, and SoulMap alignment.
+
+Whether tasks are included:
+- Yes, through AIController, coach context, and task counts / task previews.
+
+Whether routines are included:
+- Not explicitly as a first-class AI input in the main coach context.
+- Routines exist in Creator and planning flows, but they are not clearly surfaced as a dedicated AI input in the coach prompt path.
+
+Whether goals are included:
+- Yes.
+
+Whether notes are included:
+- Yes. Notes are the main coaching input, and they are also mirrored into local memory storage when saved.
+
+Whether schedule / timeline is included:
+- Yes, but mostly through timeline summaries and plan preview rather than raw schedule model detail.
+
+Whether completion history is included:
+- Partially. Completion affects progression, momentum, and timeline signals, but there is no single canonical completion-history stream passed as a distinct AI context object.
+
+Whether profile context is included:
+- Yes.
+
+Whether subscription / access context affects behavior:
+- Yes, indirectly. AIController applies credit consumption and paywall behavior, and the chat proxy only sends an auth token when available.
+- The prompt itself does not appear to include rich subscription detail, but runtime AI availability is affected by credits and paywall state.
+
+Whether response is stored:
+- Yes.
+- Smart Coach persists conversation turns and mirrored memory / reflection notes.
+- AIController persists agent trace / response trace / AI state and can append neural dump entries.
+
+Whether response creates app actions:
+- Not directly in the sense of creating a task or scheduled item.
+- It does create side effects: mirrored memory, timeline emotion check-in, XP increase, and stored conversation turns.
+
+Whether response can route back to Creator or Timeline:
+- Not as a direct create action.
+- It can encourage next steps that should be acted on in Creator or Timeline, and the app already has navigation to those surfaces elsewhere.
+
+Classification:
+- useful: Yes.
+- disconnected: No.
+- too generic: Sometimes, if context is sparse or the proxy falls back.
+- partially grounded: Yes.
+- well-grounded: Mostly yes for active users with real data.
+- unknown: The external proxy path remains runtime-dependent.
+
+Smart Planner / Smart Coach readiness score: 68 / 100
+- Strong context and persistence.
+- Weakness: no canonical create-from-AI action and no explicit routine / schedule-first model.
+
+============================================================
+SECTION 4: SI CONSOLE AI AUDIT
+============================================================
+
+What SI Console can actually see:
+- Tasks, goals, logs, timeline, memories, notifications, profile, SI state, trajectory, core values, soul map, execution signals, and autonomous planner directives.
+- It also has engine snapshot text and a compact integration snapshot banner.
+
+What it cannot see well enough yet:
+- Full subscription / billing context in the main SI aggregation.
+- Full settings / permissions context in the main SI aggregation.
+- A canonical completion-history object separated from timeline and learning summaries.
+- Routines as a first-class AI context object.
+
+Whether it uses live app data, mock data, static text, or partial context:
+- Mostly live app data.
+- Some outputs are static / templated, such as command descriptions, fallback lines, and prompt scaffolds.
+- Some forecast and recommendation text is deterministic and rule-based rather than model-generated.
+
+Whether it can summarize actual user status:
+- Yes, very well.
+- It uses current tasks, goals, execution, timeline, trajectory, memories, and values.
+
+Whether it risks hallucinating because context is missing:
+- Low to medium.
+- The data model is broad, but some individual command responses are still template-heavy and may overstate certainty if a signal is empty.
+
+Whether outputs are actionable:
+- Yes, often.
+- The best commands provide a next move, risk summary, or concrete next step.
+- Some commands are mostly informational because they are summaries rather than decision actions.
+
+SI Console readiness score: 82 / 100
+- Strongest AI surface in the app.
+- Main gap: does not yet fully unify settings / subscription / completion as first-class AI context.
+
+============================================================
+SECTION 5: FUTURE VECTOR / PREDICTION MODEL AUDIT
+============================================================
+
+Actual Future Vector surface:
+- The dedicated future / forecast screen is [lib/features/trajectory_engine/ui/trajectory_engine_screen.dart](lib/features/trajectory_engine/ui/trajectory_engine_screen.dart).
+- The core sources are [lib/state/providers/trajectory_provider.dart](lib/state/providers/trajectory_provider.dart), [lib/state/providers/momentum_engine_provider.dart](lib/state/providers/momentum_engine_provider.dart), [lib/state/providers/future_timeline_provider.dart](lib/state/providers/future_timeline_provider.dart), [lib/state/providers/future_decision_engine_provider.dart](lib/state/providers/future_decision_engine_provider.dart), [lib/state/providers/trajectory_simulation_provider.dart](lib/state/providers/trajectory_simulation_provider.dart), [lib/state/providers/goal_success_probability_provider.dart](lib/state/providers/goal_success_probability_provider.dart), [lib/state/providers/predictive_risk_provider.dart](lib/state/providers/predictive_risk_provider.dart), [lib/state/providers/identity_drift_provider.dart](lib/state/providers/identity_drift_provider.dart), and [lib/state/providers/future_self_simulator_provider.dart](lib/state/providers/future_self_simulator_provider.dart).
+
+What inputs currently exist:
+- Task count and task ordering.
+- Energy / fatigue.
+- Learning momentum / completion rate.
+- Completed today / skipped today / delayed today.
+- Session score and quality.
+- Identity drift / cognitive twin mode.
+- Future self simulation text.
+- Daily briefing / adaptive replans for scenario projections.
+
+What inputs are missing:
+- Explicit schedule density from a canonical schedule model.
+- Full completion history as a dedicated stream.
+- Routine / habit consistency as a first-class forecast input everywhere.
+- Goal progress as a direct objective model rather than only through momentum / trajectory.
+- Better separation between planned items and completed items.
+
+Whether predictions are grounded in real behavior:
+- Yes, mostly.
+- They are grounded in task, energy, completion, and drift signals.
+- They are not pure guesswork.
+
+Whether predictions are deterministic or appropriately uncertain:
+- Mostly deterministic and threshold-based.
+- Confidence values exist in some forecast use cases, but these are heuristic confidence values rather than learned probabilities.
+
+Whether outputs explain why the prediction exists:
+- Yes.
+- The forecast screen shows momentum, pressure, divergence, scenarios, roadmap, and risk / mitigation text.
+
+Whether outputs recommend a next action:
+- Yes.
+- This is one of the strongest parts of the current stack.
+
+Future Vector readiness score: 74 / 100
+- Good grounding and explanation.
+- Main weakness: it is more rule-based forecasting than model-driven forecasting.
+
+============================================================
+SECTION 6: ASCENSION / PROGRESSION INTELLIGENCE AUDIT
+============================================================
+
+What increases progression currently:
+- Profile XP / streak changes.
+- Progression service transforms profile into progression state.
+- Smart Coach grants XP in [lib/state/controllers/coach_query_controller.dart](lib/state/controllers/coach_query_controller.dart).
+- Momentum and streak interpretation are driven by profile and completion / execution signals.
+
+Whether progression is based on real events:
+- Yes.
+- It is anchored in profile, task completion, learning state, and execution signals rather than a fictional AI score.
+
+Whether progression is gamified, practical, or unclear:
+- Practical first, lightly gamified second.
+- XP and streak are meaningful, but the feature is still more “progression state” than “AI Ascension model.”
+
+Whether Ascension feeds Smart Planner, Future Vector, or SI Console:
+- Yes, indirectly through profile, progression, momentum, identity drift, and future-self signals.
+
+Whether Ascension should remain AI-assisted or rule-based:
+- Rule-based is the safer default.
+- The current logic is better as a deterministic progression layer with AI interpretation on top, not as a standalone model.
+
+Ascension intelligence readiness score: 54 / 100
+- Strong practical backbone.
+- Weakness: no dedicated surface and no explicit AI assistance boundary.
+
+============================================================
+SECTION 7: AI CONTEXT PIPELINE AUDIT
+============================================================
+
+Desired flow:
+Creator records -> Timeline schedule -> Completion history -> Profile / user preferences -> Smart Planner -> Future Vector -> Ascension -> SI Console
+
+1) Smart Coach
+- Required context: notes, emotion, energy, goals, timeline, memories, profile, progression, current tasks.
+- Available context: strong.
+- Missing context: explicit completion history object, routines, canonical schedule density.
+- Stale context risk: medium if memory / timeline summaries lag.
+- Supabase dependency: low and indirect only.
+- Local state dependency: high.
+- Provider dependency: high.
+- Privacy risk: moderate, because the prompt can include personal reflections and memories.
+
+2) SI Console
+- Required context: whole-app state, progression, execution, future signals, account state if relevant.
+- Available context: strong.
+- Missing context: settings / subscription in the main aggregate.
+- Stale context risk: medium if one source is not invalidated.
+- Supabase dependency: low, mostly health / auth / monetization runtime.
+- Local state dependency: high.
+- Provider dependency: very high.
+- Privacy risk: moderate, because it is the broadest context hub.
+
+3) Future Vector / Forecast
+- Required context: completed items, skipped items, overdue items, routines, schedule density, completion rate, streaks.
+- Available context: tasks, completion signals, momentum, drift, some schedule proxies.
+- Missing context: canonical schedule density and explicit completion history stream.
+- Stale context risk: medium.
+- Supabase dependency: low.
+- Local state dependency: high.
+- Provider dependency: high.
+- Privacy risk: low to moderate.
+
+4) Ascension / Progression
+- Required context: completion, streaks, momentum, goal progress.
+- Available context: good.
+- Missing context: dedicated AI interpretation layer.
+- Stale context risk: low to medium.
+- Supabase dependency: none observed.
+- Local state dependency: high.
+- Provider dependency: medium.
+- Privacy risk: low.
+
+5) Nexus / Home
+- Required context: a compact daily summary of the above.
+- Available context: strong enough.
+- Missing context: deeper session history and explicit AI accountability loops.
+- Stale context risk: low to medium.
+- Supabase dependency: none observed directly.
+- Local state dependency: high.
+- Provider dependency: medium.
+- Privacy risk: low.
+
+============================================================
+SECTION 8: PROMPT / INSTRUCTION AUDIT
+============================================================
+
+Found prompt / instruction sources:
+
+- [lib/state/controllers/coach_query_controller.dart](lib/state/controllers/coach_query_controller.dart)
+  - `_smartCoachPolicy()` is a hardcoded coaching instruction string.
+  - It forces a structured response format: Goal Detected, Insight, Actions, Next Step, Momentum Score, Coach Question.
+  - It explicitly forbids generic encouragement alone.
+  - Safety: it is practical and domain-specific, but it is hardcoded in code rather than externalized.
+
+- [lib/engine/assistant/assistant_response_templates.dart](lib/engine/assistant/assistant_response_templates.dart)
+  - Contains structured response templates for `smartCoachBlock`, `smartCoachFollowUp`, and `siAnalysis`.
+  - The SI analysis template hardcodes the “Current State”, “Priority Task”, “Impact”, “Timeline Effect”, and “Next Actions” format.
+  - It defaults missing action slots to generic phrases.
+
+- [lib/engine/assistant/assistant_context_builder.dart](lib/engine/assistant/assistant_context_builder.dart)
+  - Defines what context is fed to Smart Coach and SI Console.
+  - Variables include energy, emotion, memory summaries, timeline summaries, goal summaries, matched surfaces, taskCount, and goalCount.
+
+- [lib/engine/assistant/assistant_detection_service.dart](lib/engine/assistant/assistant_detection_service.dart)
+  - Heuristic intent detection with labels like health, mental, productivity, life, timeline_query, goal_query, task_query, memory_query, progress_query, analytics_query.
+  - This is prompt routing, not model prompting.
+
+- [lib/data/services/ai/agents/chat_agent.dart](lib/data/services/ai/agents/chat_agent.dart)
+  - `_systemPrompt()` tells the proxy model to be concise, practical, specific, and not to claim to be a therapist.
+  - It includes personality and minimized context, not secrets.
+  - `_minimizeProxyContext()` filters context to a small set of safe keys.
+
+- [lib/state/controllers/ai_controller.dart](lib/state/controllers/ai_controller.dart)
+  - Builds the runtime context for AI routing, including response contracts and grounded app state.
+  - Contains deterministic SI analysis strings and timeline / trajectory / milestone / core values / soul map response scaffolds.
+  - Uses a grounded output policy rather than a free-form prompt-only strategy.
+
+- [lib/data/repositories/feature_flag_repository.dart](lib/data/repositories/feature_flag_repository.dart)
+  - Includes the `settings_reflection_prompt_experiment` variant flag, currently `control`.
+  - This is a feature-toggle / experiment hook rather than a prompt itself.
+
+Potentially missing context in prompt / instruction layers:
+- Explicit routine / habit detail in the smart coaching prompts.
+- Canonical completion-history object separate from timeline summaries.
+- Subscription / account state in most assistant prompts, except runtime flags and credit gating.
+- Direct schedule density in the main chat / coach prompt.
+
+Safety / privacy notes:
+- No raw secret values were found in the repo search.
+- Prompt strings are human-readable and could be overfitted if not maintained.
+- The assistant context is already minimized in the proxy path, which is a good sign.
+
+============================================================
+SECTION 9: AI OUTPUT AUDIT
+============================================================
+
+Output types found:
+- Coaching responses: [lib/state/controllers/coach_query_controller.dart](lib/state/controllers/coach_query_controller.dart), [lib/features/home/ui/smart_coach_screen.dart](lib/features/home/ui/smart_coach_screen.dart)
+- AI recommendations: [lib/state/controllers/ai_controller.dart](lib/state/controllers/ai_controller.dart)
+- SI analysis blocks: [lib/engine/assistant/assistant_response_templates.dart](lib/engine/assistant/assistant_response_templates.dart)
+- Forecast / trajectory summaries: [lib/features/trajectory_engine/ui/trajectory_engine_screen.dart](lib/features/trajectory_engine/ui/trajectory_engine_screen.dart)
+- Forecast / risk cards: [lib/state/providers/trajectory_provider.dart](lib/state/providers/trajectory_provider.dart), [lib/state/providers/trajectory_simulation_provider.dart](lib/state/providers/trajectory_simulation_provider.dart), [lib/state/providers/goal_success_probability_provider.dart](lib/state/providers/goal_success_probability_provider.dart), [lib/state/providers/predictive_risk_provider.dart](lib/state/providers/predictive_risk_provider.dart)
+- Startup directive / dashboard summaries: [lib/state/providers/si_pipeline_provider.dart](lib/state/providers/si_pipeline_provider.dart), [lib/features/nexus/ui/nexus_screen.dart](lib/features/nexus/ui/nexus_screen.dart)
+
+Whether outputs are actionable:
+- Mostly yes.
+- Smart Coach ends in a next step or coach question.
+- SI Console gives concrete next actions or recommendations.
+- Forecast surfaces recommend one visible action.
+- Reminder planning explicitly prepares a reminder window.
+
+Whether outputs link back to Creator or Timeline:
+- Some do indirectly through navigation and narrative guidance.
+- Smart Coach does not directly create a task or schedule item.
+- Creator and Timeline are still the correct follow-through surfaces.
+
+Whether outputs can create or update records:
+- Partially.
+- Smart Coach stores mirrored memory, writes timeline emotion check-ins, and increments XP.
+- AIController can persist AI state, conversation history, neural dump entries, and suggestion feedback.
+- There is no direct AI-to-task creation flow as a standard pattern.
+
+Whether user can trust them:
+- Moderate to high for grounded surfaces.
+- Lower for any fallback / proxy path where the context is thin or heuristic.
+
+Whether user can dismiss / ignore them:
+- Yes, practically, because they are advisory surfaces and do not block the app flow.
+
+============================================================
+SECTION 10: AI ACTIONABILITY AUDIT
+============================================================
+
+Does the good AI action pattern exist?
+- Partially.
+- AI suggests an action.
+- The user can act on it manually.
+- The system then learns from some outcomes.
+- However, there is not yet a consistent create-from-AI flow that turns an AI suggestion into a first-class app object.
+
+What exists today:
+- Smart Coach stores notes, mirrors memory, and logs emotion check-ins.
+- AIController stores AI state and can persist suggestion feedback.
+- Timeline and progression update from real app actions, not from AI alone.
+
+What is missing:
+- A dedicated “accept and create task/routine/goal” action for AI suggestions.
+- A direct AI handoff into Creator that creates a task, routine, goal, or note as a first-class item.
+- A canonical completion feedback loop where AI-created actions are explicitly tracked after completion.
+- A standard timeline handoff that can schedule the AI suggestion automatically or semi-automatically.
+
+Assessment:
+- Good advice exists.
+- The missing piece is action conversion, not advice generation.
+
+============================================================
+SECTION 11: DATA PRIVACY AND AI SAFETY AUDIT
+============================================================
+
+Class: safe with caveats
+
+What user data is sent to AI services:
+- Prompt text.
+- Conversation history.
+- Grounded context objects with tasks, goals, timeline summaries, memory summaries, profile and progression state, and selected runtime flags.
+- In the optional proxy path, a minimized subset of context is posted to the endpoint.
+
+Whether sensitive profile / account / subscription data is included:
+- Profile and some runtime access state can appear in the context.
+- Detailed subscription / billing information is not a dominant prompt input.
+- AI credits and paywall state influence whether queries are allowed.
+
+Whether API keys are exposed:
+- No secret values were found in the repository search.
+- [lib/core/debug/logger.dart](lib/core/debug/logger.dart) is designed to redact key / secret patterns.
+
+Whether prompts include secrets:
+- No evidence found of secret values being embedded in prompts.
+
+Whether Supabase service role keys are exposed:
+- No evidence found in the app client files.
+- [/.env.example](.env.example) explicitly warns not to place `SUPABASE_SECRET_KEY` there.
+
+Whether AI logs are stored:
+- Yes, in conversation state, AI execution status, and neural dump / memory-related state.
+- This is useful, but it means AI traces should be treated as sensitive app history.
+
+Whether user can understand AI data usage:
+- Partially.
+- The app already exposes some contextual guidance, but the exact prompt / proxy boundary is not fully user-visible.
+
+Overall safety judgment:
+- Good local-first posture.
+- Main caution is the optional AI proxy path, because it transmits the current prompt and a minimized context bundle.
+
+============================================================
+SECTION 12: SUPABASE AS AI DATA SOURCE AUDIT
+============================================================
+
+Current state:
+- Supabase is not acting as the primary AI knowledge store.
+- I found no direct AI feature that reads Supabase tables as the main prompt context source.
+
+Supabase uses relevant to AI boundaries:
+- [lib/state/providers/supabase_backend_provider.dart](lib/state/providers/supabase_backend_provider.dart)
+  - Reads `user_daily_metrics` for health checks.
+  - Reads storage bucket `chronospark-sync` for backup / storage checks.
+- [lib/data/services/supabase_client_service.dart](lib/data/services/supabase_client_service.dart)
+  - Initializes the client.
+- [lib/data/services/ai/agents/chat_agent.dart](lib/data/services/ai/agents/chat_agent.dart)
+  - Uses `currentSupabaseAccessToken()` only when proxy auth is needed.
+- Monetization repositories use Supabase-backed data for billing / purchase context, but that is not model context by default.
+
+Tables / data sources observed as AI-adjacent:
+- `user_daily_metrics` is checked for backend health, not AI reasoning.
+- `chronospark-sync` storage bucket is checked for health / backup access, not AI reasoning.
+- Monetization-related tables are relevant for access gating, not for model context.
+
+Fields read for AI purposes:
+- None observed as direct AI prompt inputs from Supabase tables.
+- The AI stack is overwhelmingly local-first.
+
+Missing tables / fields that would improve AI context if the product ever wants to use Supabase for AI input:
+- User-owned progress summaries.
+- Completion aggregates.
+- Cross-device schedule snapshots.
+- Subscription status summaries for explainability.
+
+Important caveat:
+- This audit only identifies AI data-source boundaries.
+- It does not recommend changing Supabase schema or RLS.
+
+============================================================
+SECTION 13: MODEL / SERVICE CONNECTOR AUDIT
+============================================================
+
+1) `AgentOrchestrator`
+- File: [lib/data/services/ai/orchestration/agent_orchestrator.dart](lib/data/services/ai/orchestration/agent_orchestrator.dart)
+- Purpose: Route prompts to chat / research / recommendation / reminder / planning / summarization / classification / custom agents.
+- Input payload shape: prompt, context, preferredAgent, request.
+- Output payload shape: `AgentResult` with selectedAgent, workflow, and normalized payload.
+- Error handling: normalization fills default message / reasoning / emotion / confidence when missing.
+- Secret handling risk: low.
+
+2) `ChatAgent`
+- File: [lib/data/services/ai/agents/chat_agent.dart](lib/data/services/ai/agents/chat_agent.dart)
+- Purpose: Try an optional HTTPS AI proxy; otherwise fall back to SIAIService.
+- Input payload shape: prompt, history, context, personality, tasks, si, learning.
+- Output payload shape: message, reasoning, emotion, confidence, response, status, optional task.
+- Error handling: 15 second timeout, retry executor with 3 attempts, proxy errors fallback to null, then local SI fallback.
+- Secret handling risk: moderate because it can send an auth bearer token to the proxy when available.
+
+3) `SIAIService`
+- File: [lib/engine/si/si_ai_service.dart](lib/engine/si/si_ai_service.dart)
+- Purpose: Local SI execution service and AIResponse generation.
+- Input payload shape: SIInputPacket / text / history / metadata / context / latent inputs.
+- Output payload shape: AIResponse / SIOutputBundle.
+- Error handling: delegated to engine service; no external network dependency by default.
+- Secret handling risk: low.
+
+4) `PlannerAgent`
+- File: [lib/data/services/ai/agents/planner_agent.dart](lib/data/services/ai/agents/planner_agent.dart)
+- Purpose: Planning wrapper around SIAIService.
+- Input payload shape: goal / prompt, tasks, si, learning, personality.
+- Output payload shape: message, reasoning, emotion, confidence, steps.
+- Error handling: inherited from SIAIService path.
+- Secret handling risk: low.
+
+5) `RecommendationAgent`
+- File: [lib/data/services/ai/agents/recommendation_agent.dart](lib/data/services/ai/agents/recommendation_agent.dart)
+- Purpose: Recommendation wrapper around SIAIService.
+- Input payload shape: context, tasks, si, learning, personality.
+- Output payload shape: message, reasoning, emotion, confidence, recommendations.
+- Error handling: inherited from SIAIService path.
+- Secret handling risk: low.
+
+6) `SummarizationAgent`
+- File: [lib/data/services/ai/agents/summarization_agent.dart](lib/data/services/ai/agents/summarization_agent.dart)
+- Purpose: Summary generation with `TextSummaryTool`.
+- Input payload shape: content / prompt.
+- Output payload shape: summary, sentences, words, message, reasoning, emotion, confidence.
+- Error handling: deterministic, minimal.
+- Secret handling risk: low.
+
+7) `ResearchAgent`
+- File: [lib/data/services/ai/agents/research_agent.dart](lib/data/services/ai/agents/research_agent.dart)
+- Purpose: Rank tasks and produce a small local findings payload.
+- Input payload shape: query, tasks.
+- Output payload shape: findings, sources, message, reasoning, confidence.
+- Error handling: deterministic, local-only.
+- Secret handling risk: low.
+
+8) `ReminderAgent`
+- File: [lib/data/services/ai/agents/reminder_agent.dart](lib/data/services/ai/agents/reminder_agent.dart)
+- Purpose: Prepare a reminder window and explain if it is scheduled.
+- Input payload shape: reminder / prompt.
+- Output payload shape: window, scheduled, prepared, message, reasoning, confidence.
+- Error handling: deterministic, local-only.
+- Secret handling risk: low.
+
+9) `ClassificationAgent`
+- File: [lib/data/services/ai/agents/classification_agent.dart](lib/data/services/ai/agents/classification_agent.dart)
+- Purpose: Intent classification using heuristics.
+- Input payload shape: text / prompt.
+- Output payload shape: label, confidence, message, reasoning.
+- Error handling: deterministic, local-only.
+- Secret handling risk: low.
+
+10) `CustomAgent`
+- File: [lib/data/services/ai/agents/custom_agent.dart](lib/data/services/ai/agents/custom_agent.dart)
+- Purpose: Pass-through agent stub.
+- Input payload shape: request.
+- Output payload shape: agent, mode, request, status.
+- Error handling: none beyond stub return.
+- Secret handling risk: low.
+
+11) `IntentClassificationTool`
+- File: [lib/data/services/ai/tools/intent_classification_tool.dart](lib/data/services/ai/tools/intent_classification_tool.dart)
+- Purpose: Keyword / phrase classification.
+- Output payload shape: label, confidence.
+- Error handling: returns chat when no pattern matches.
+- Secret handling risk: low.
+
+12) `TextSummaryTool`
+- File: [lib/data/services/ai/tools/text_summary_tool.dart](lib/data/services/ai/tools/text_summary_tool.dart)
+- Purpose: Simple local summarization.
+- Output payload shape: summary, sentence count, word count.
+- Error handling: empty content returns empty summary.
+- Secret handling risk: low.
+
+13) `TaskResearchTool`
+- File: [lib/data/services/ai/tools/task_research_tool.dart](lib/data/services/ai/tools/task_research_tool.dart)
+- Purpose: Rank tasks by priority / energy requirement.
+- Output payload shape: query, findingCount, findings.
+- Error handling: local-only.
+- Secret handling risk: low.
+
+14) `ReminderPlanningTool`
+- File: [lib/data/services/ai/tools/reminder_planning_tool.dart](lib/data/services/ai/tools/reminder_planning_tool.dart)
+- Purpose: Infer reminder window from prompt text.
+- Output payload shape: window, scheduled, message.
+- Error handling: local-only.
+- Secret handling risk: low.
+
+Overall connector quality:
+- The connector layer is stable and understandable.
+- It is not yet a deep external model integration layer.
+- It is a hybrid of local SI, deterministic heuristics, and optional proxy support.
+
+============================================================
+SECTION 14: AI FEATURE OVERLAP AUDIT
+============================================================
+
+1) Smart Coach vs SI Console
+- Overlap: both surface advice and next-step guidance.
+- Distinct jobs: Smart Coach is personal / emotional / productivity coaching; SI Console is whole-app intelligence and diagnostics.
+- User understanding: mostly clear, but they can still blur together.
+- Recommendation: keep separate UIs, but unify the grounding and response contracts where possible.
+
+2) Smart Planner vs Future Vector
+- Overlap: both generate next-step guidance and future-facing direction.
+- Distinct jobs: Smart Planner should coach what to do now; Future Vector should explain what happens if the user continues the current path.
+- Recommendation: sequence them, do not duplicate them. Planning first, prediction second.
+
+3) Future Vector vs SI Console
+- Overlap: both explain pressure, momentum, trajectory, and likely outcomes.
+- Distinct jobs: Future Vector is a forecast surface; SI Console is an operator / analyst console.
+- Recommendation: keep the forecast in one model and let SI Console summarize it rather than recompute it in parallel.
+
+4) Ascension vs Profile / Progression / Momentum
+- Overlap: all talk about level, XP, streak, and momentum.
+- Distinct jobs: Ascension should remain the interpretation layer, while profile / progression remain the state layer.
+- Recommendation: keep rule-based progression, then let AI interpret it.
+
+5) Nexus / Home vs Smart Coach
+- Overlap: both deliver a daily summary and a suggested next move.
+- Distinct jobs: Nexus is a dashboard; Smart Coach is a conversational support surface.
+- Recommendation: keep both, but ensure the dashboard summary stays short and the coach remains the interactive depth layer.
+
+Overall overlap verdict:
+- The app has useful redundancy, but some surfaces are narrating the same thing in slightly different words.
+- The safest path is to sequence these surfaces rather than merge their jobs blindly.
+
+============================================================
+SECTION 15: AI ONBOARDING ROLE AUDIT
+============================================================
+
+What onboarding currently does:
+- [lib/features/onboarding/ui/onboarding_screen.dart](lib/features/onboarding/ui/onboarding_screen.dart) is a setup gate, not an AI gate.
+- Tutorial content in [lib/tutorial/tutorial_content.dart](lib/tutorial/tutorial_content.dart) introduces Smart Planner, Forecast, Creator, Timeline, SI Console, and Memories after the initial Home overview.
+
+Whether onboarding forces AI:
+- No.
+- There is no evidence that Smart Coach, SI Console, Future Forecast, or any other AI response is required before the user can continue onboarding.
+
+Whether this is good or harmful:
+- Good.
+- The app follows the core principle that AI should support the user after real app activity exists.
+
+What AI should do during onboarding:
+- Explain itself lightly.
+- Offer optional examples.
+- Avoid blocking the user.
+- Stay short and contextual.
+
+What AI should wait to do until after first completion:
+- Deep forecasting.
+- Heavy trajectory warnings.
+- Strong coaching claims.
+- Progress interpretation that depends on repeated behavior.
+
+What AI should never block:
+- First task creation.
+- First goal creation.
+- First timeline review.
+- First completion.
+- First sign-in or setup flow.
+
+Onboarding verdict:
+- Acceptable.
+- It introduces AI concepts without forcing AI interaction.
+
+============================================================
+SECTION 16: AI READINESS SCORECARD
+============================================================
+
+Scores are audit scores, not quality claims.
+
+| Category | Score |
+|---|---:|
+| Smart Planner readiness | 68 |
+| SI Console readiness | 82 |
+| Future Vector readiness | 74 |
+| Ascension intelligence readiness | 54 |
+| Nexus / Home AI readiness | 71 |
+| AI context quality | 80 |
+| Prompt quality | 68 |
+| Output actionability | 64 |
+| Create-from-AI loop | 46 |
+| Timeline handoff | 73 |
+| Completion feedback loop | 77 |
+| Supabase context readiness | 40 |
+| Privacy / safety readiness | 74 |
+| Connector quality | 59 |
+| User trust | 70 |
+| Production AI readiness | 67 |
+
+Average AI readiness score: 66
+
+Interpretation:
+- The app is stronger on grounded context than on direct model-to-action conversion.
+- The weakest areas are create-from-AI, Supabase context, and the unfinished standalone Smart Planner / Ascension surfaces.
+
+============================================================
+SECTION 17: KEEP / REFOCUS / REWIRE / MERGE / REMOVE LATER
+============================================================
+
+KEEP
+- Smart Coach: [lib/features/home/ui/smart_coach_screen.dart](lib/features/home/ui/smart_coach_screen.dart), [lib/state/controllers/coach_query_controller.dart](lib/state/controllers/coach_query_controller.dart)
+  - Reason: strong grounding, useful coaching loop, real memory / timeline side effects.
+  - Risk level: medium.
+  - Next step: keep it conversational and grounded.
+
+- SI Console: [lib/features/si_console/ui/si_console_screen.dart](lib/features/si_console/ui/si_console_screen.dart), [lib/state/providers/si_pipeline_provider.dart](lib/state/providers/si_pipeline_provider.dart)
+  - Reason: best whole-app intelligence surface.
+  - Risk level: medium-low.
+  - Next step: keep it as the central intelligence summary layer.
+
+- Future Forecast / Trajectory: [lib/features/trajectory_engine/ui/trajectory_engine_screen.dart](lib/features/trajectory_engine/ui/trajectory_engine_screen.dart), [lib/state/providers/trajectory_provider.dart](lib/state/providers/trajectory_provider.dart)
+  - Reason: useful forecast surface with real app-state inputs.
+  - Risk level: medium.
+  - Next step: keep it rule-based unless you later introduce a real predictive model.
+
+- Deterministic planning providers: [lib/state/providers/autonomous_weekly_planner_provider.dart](lib/state/providers/autonomous_weekly_planner_provider.dart), [lib/state/providers/autonomous_daily_planner_provider.dart](lib/state/providers/autonomous_daily_planner_provider.dart)
+  - Reason: helpful low-risk plan scaffolding.
+  - Risk level: low.
+  - Next step: keep, but do not let them impersonate a richer model than they are.
+
+REFOCUS
+- Smart Planner branding and discovery
+  - Reason: the product promises a planner, but the actual user surface is fragmented across providers and SI Console.
+  - Risk level: medium.
+  - Next step: make the planning entry point more obvious and more obviously grounded.
+
+- Nexus / Home summary
+  - Reason: good summary surface, but it should remain brief and not compete with the deeper coach or console surfaces.
+  - Risk level: low.
+  - Next step: keep it as a summary, not a second console.
+
+REWIRE
+- Future Vector context pipeline
+  - Reason: needs more explicit completion / schedule / routine grounding.
+  - Risk level: medium.
+  - Next step: wire completion history and schedule density more directly into forecast logic.
+
+- AI actionability loop
+  - Reason: advice exists, but action conversion is weak.
+  - Risk level: medium.
+  - Next step: create a safe accept / create / review loop that hands AI advice back to Creator or Timeline.
+
+- SI aggregation account state
+  - Reason: subscription / settings / sync health are only partially visible.
+  - Risk level: medium.
+  - Next step: wire only the safe summary signals, not raw sensitive data.
+
+MERGE
+- Smart Coach and SI Console response contracts
+  - Reason: both depend on the same app data and can drift into two copies of the same reasoning.
+  - Risk level: medium.
+  - Next step: unify the grounding model, not necessarily the UI.
+
+- Smart Planner with planning / forecast terminology
+  - Reason: planning appears in multiple labels and can confuse users.
+  - Risk level: low-medium.
+  - Next step: sequence rather than duplicate.
+
+REMOVE LATER
+- No explicit dead standalone AI feature folder was found for Smart Planner, Future Vector, or Ascension.
+- The safest “remove later” candidate is not code removal; it is duplicate naming and redundant narrative surfaces.
+
+UNKNOWN
+- External proxy quality and availability.
+- Runtime-only AI proxy behavior behind `CHRONOSPARK_AI_PROXY_ENDPOINT`.
+- Whether any future remote model service will be added behind the proxy.
+
+============================================================
+SECTION 18: TARGET CHRONOSPARK AI MODEL
+============================================================
+
+Ideal AI architecture:
+- AI should be powered by real execution data, not as a replacement for the workflow.
+- AI should be secondary to the core create / schedule / complete loop.
+
+Target AI roles:
+
+Smart Planner
+- Purpose: coaching and next-step assistance.
+- Inputs: tasks, goals, routines, notes, schedule, completion history, energy, profile.
+- Outputs: a small number of concrete next actions.
+- Should not do: replace Creator or Timeline.
+- When it should appear: after the user has at least one real item and at least one completion signal.
+
+Future Vector
+- Purpose: predictions based on schedule, completion, and consistency.
+- Inputs: planned items, completed items, skipped items, overdue items, routines, streaks, schedule density.
+- Outputs: forecast, risk, confidence, explanation, next corrective action.
+- Should not do: overclaim certainty.
+- When it should appear: after the app has enough activity to forecast something meaningful.
+
+Ascension
+- Purpose: practical progress and momentum interpretation.
+- Inputs: completions, streaks, goal progress, consistency, recovery, missed items.
+- Outputs: progression interpretation and encouragement to keep execution steady.
+- Should not do: become a fake RPG layer that hides real progress.
+- When it should appear: after the first real cycle of action and review.
+
+SI Console
+- Purpose: whole-app intelligence and status.
+- Inputs: everything above, plus account state, sync health, and profile context where safe.
+- Outputs: concise system status, warnings, and drill-downs.
+- Should not do: turn into a second Creator.
+- When it should appear: always available, but only after the app has enough context to be meaningful.
+
+Nexus / Home
+- Purpose: daily summary and next best action.
+- Inputs: profile, energy, momentum, trajectory, one or two key alerts.
+- Outputs: short summary and navigation.
+- Should not do: overwhelm the user with AI chatter.
+- When it should appear: immediately after login as a concise summary, not a deep reasoning surface.
+
+============================================================
+SECTION 19: SAFE AI ROADMAP
+============================================================
+
+Phase 1: Audit and document current AI context sources
+- Goal: map what AI actually sees.
+- Dependent features: Smart Coach, SI Console, trajectory / forecast stack, AI controller, agent orchestrator.
+- Files likely involved: [lib/state/controllers/ai_controller.dart](lib/state/controllers/ai_controller.dart), [lib/state/controllers/coach_query_controller.dart](lib/state/controllers/coach_query_controller.dart), [lib/state/providers/si_pipeline_provider.dart](lib/state/providers/si_pipeline_provider.dart), [lib/state/providers/trajectory_provider.dart](lib/state/providers/trajectory_provider.dart).
+- Supabase involved: No direct schema work.
+- Risk level: low.
+- What not to touch: auth, routing, billing, AI logic.
+- Success criteria: clear inventory of inputs / outputs / gaps.
+
+Phase 2: Ensure AI is not mandatory in onboarding
+- Goal: keep AI optional early.
+- Dependent features: onboarding, tutorial, Home / Nexus.
+- Files likely involved: [lib/features/onboarding/ui/onboarding_screen.dart](lib/features/onboarding/ui/onboarding_screen.dart), [lib/tutorial/tutorial_content.dart](lib/tutorial/tutorial_content.dart).
+- Supabase involved: No.
+- Risk level: low.
+- What not to touch: auth and onboarding guards.
+- Success criteria: user can finish onboarding without AI interaction.
+
+Phase 3: Verify Smart Planner can access tasks / goals / routines / notes
+- Goal: make planning grounded.
+- Dependent features: Smart Coach, planner providers, Creator, Timeline.
+- Files likely involved: [lib/state/controllers/coach_query_controller.dart](lib/state/controllers/coach_query_controller.dart), [lib/state/providers/autonomous_weekly_planner_provider.dart](lib/state/providers/autonomous_weekly_planner_provider.dart), [lib/state/providers/autonomous_daily_planner_provider.dart](lib/state/providers/autonomous_daily_planner_provider.dart), [lib/features/creator/ui/creator_screen.dart](lib/features/creator/ui/creator_screen.dart), [lib/features/timeline/ui/timeline_screen.dart](lib/features/timeline/ui/timeline_screen.dart).
+- Supabase involved: No.
+- Risk level: medium.
+- What not to touch: core task / goal persistence.
+- Success criteria: planning surfaces clearly use real user data.
+
+Phase 4: Add completion history as future AI context after completion model exists
+- Goal: make forecasts and coaching reflect actual behavior.
+- Dependent features: completion events, progress, trajectory, SI.
+- Files likely involved: [lib/state/providers/completion_events_provider.dart](lib/state/providers/completion_events_provider.dart), [lib/state/providers/execution_signals_provider.dart](lib/state/providers/execution_signals_provider.dart), [lib/state/providers/trajectory_provider.dart](lib/state/providers/trajectory_provider.dart).
+- Supabase involved: No.
+- Risk level: medium.
+- What not to touch: completion semantics and profile progression rules.
+- Success criteria: completion is a first-class AI input, not only an inferred signal.
+
+Phase 5: Make AI outputs action-oriented and route back to Creator / Timeline
+- Goal: convert advice into next actions.
+- Dependent features: Smart Coach, SI Console, Creator, Timeline.
+- Files likely involved: [lib/state/controllers/ai_controller.dart](lib/state/controllers/ai_controller.dart), [lib/features/home/ui/smart_coach_screen.dart](lib/features/home/ui/smart_coach_screen.dart), [lib/features/creator/ui/creator_screen.dart](lib/features/creator/ui/creator_screen.dart), [lib/features/timeline/ui/timeline_screen.dart](lib/features/timeline/ui/timeline_screen.dart).
+- Supabase involved: No.
+- Risk level: medium.
+- What not to touch: direct task creation behavior unless explicitly adding a safe create-from-AI step.
+- Success criteria: AI suggests an action and the app offers a clean path to record it.
+
+Phase 6: Improve Future Vector with completion and schedule signals
+- Goal: make forecasts more grounded.
+- Dependent features: trajectory engine, timeline, completion, planner.
+- Files likely involved: [lib/features/trajectory_engine/ui/trajectory_engine_screen.dart](lib/features/trajectory_engine/ui/trajectory_engine_screen.dart), [lib/state/providers/trajectory_provider.dart](lib/state/providers/trajectory_provider.dart), [lib/state/providers/future_timeline_provider.dart](lib/state/providers/future_timeline_provider.dart).
+- Supabase involved: No.
+- Risk level: medium.
+- What not to touch: deterministic forecast assumptions without a clear replacement model.
+- Success criteria: forecast explanations clearly reference actual schedule / completion signals.
+
+Phase 7: Improve SI Console with whole-app status
+- Goal: keep SI Console the best top-level intelligence surface.
+- Dependent features: SI pipeline, settings, subscription, sync, profile, completion, forecast.
+- Files likely involved: [lib/state/providers/si_pipeline_provider.dart](lib/state/providers/si_pipeline_provider.dart), [lib/features/si_console/ui/si_console_screen.dart](lib/features/si_console/ui/si_console_screen.dart), [lib/state/providers/supabase_backend_provider.dart](lib/state/providers/supabase_backend_provider.dart).
+- Supabase involved: only as health / auth / access summary if needed.
+- Risk level: medium.
+- What not to touch: route architecture, provider ownership, billing internals.
+- Success criteria: SI Console shows safe, accurate state and does not hallucinate missing context.
+
+Phase 8: Add AI-related tests and privacy checks
+- Goal: keep the AI layer honest.
+- Dependent features: Smart Coach, SI Console, trajectory, agent layer, proxy path.
+- Files likely involved: tests under [test/](test/), especially provider / contract tests.
+- Supabase involved: maybe for auth / proxy behavior verification, but not schema.
+- Risk level: low.
+- What not to touch: production secrets.
+- Success criteria: tests cover context grounding, fallback behavior, and privacy boundaries.
+
+============================================================
+SECTION 20: FINAL AI / MODEL BUILDER VERDICT
+============================================================
+
+FINAL AI BUILDER VERDICT:
+- Current AI identity: Local-first, deterministic-plus-heuristic coaching and forecast stack with an optional proxy path.
+- Intended AI identity: Execution-grounded decision support that becomes more useful after real app activity exists.
+- Biggest AI context gap: No single canonical completion-history / schedule-density stream for all AI surfaces.
+- Biggest AI trust risk: Overstating confidence when a surface falls back to heuristics or partial summaries.
+- Biggest AI timing problem: Forecast and coaching surfaces are available before enough repeated behavior exists.
+- Strongest AI feature: SI Console.
+- Weakest AI feature: Standalone Smart Planner / Ascension surface identity.
+- Most important missing input: Explicit completion history.
+- Most important missing AI output action: Create / accept / route to task, routine, goal, or timeline item.
+- Average AI readiness score: 66.
+- Safest next coding pass: Wire a better completion / schedule summary into AI context without changing model behavior.
+- Most dangerous AI area to modify: The AI controller and agent orchestrator boundary, because it affects every AI surface.
+- Files to inspect before coding:
+  - [lib/state/controllers/ai_controller.dart](lib/state/controllers/ai_controller.dart)
+  - [lib/state/controllers/coach_query_controller.dart](lib/state/controllers/coach_query_controller.dart)
+  - [lib/state/providers/si_pipeline_provider.dart](lib/state/providers/si_pipeline_provider.dart)
+  - [lib/features/si_console/ui/si_console_screen.dart](lib/features/si_console/ui/si_console_screen.dart)
+  - [lib/features/home/ui/smart_coach_screen.dart](lib/features/home/ui/smart_coach_screen.dart)
+  - [lib/features/trajectory_engine/ui/trajectory_engine_screen.dart](lib/features/trajectory_engine/ui/trajectory_engine_screen.dart)
+- Supabase tables / data sources to verify before coding:
+  - `user_daily_metrics`
+  - `chronospark-sync` storage bucket
+  - monetization tables only if the AI access summary needs them
+- External AI services to verify before coding:
+  - The optional HTTPS proxy endpoint from [.env.example](.env.example)
+- What must not be touched yet:
+  - Auth
+  - Google login
+  - Supabase schema
+  - Supabase RLS
+  - Firebase config
+  - AI implementation details
+  - Smart Planner logic
+  - SI Console logic
+  - Future Vector logic
+  - Routing
+  - Providers
+  - Billing / subscription logic
+
+Overall conclusion:
+- ChronoSpark’s AI foundation is real and already useful.
+- The next major improvement is not “more AI”; it is better grounding, cleaner sequencing, and a safer action loop from AI advice back into Creator and Timeline.

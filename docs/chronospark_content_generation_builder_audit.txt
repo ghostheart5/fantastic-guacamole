@@ -1,0 +1,514 @@
+CHRONOSPARK APP CONTENT-GENERATION BUILDER AUDIT
+
+AUDIT MODE
+- Audit only.
+- No code modified.
+- No files deleted.
+- No files renamed.
+- No prompts changed.
+- No new AI features proposed.
+- Scope reviewed: lib/, test/, integration_test/, assets/, supabase/, pubspec.yaml.
+- This is a mobile app content-generation architecture and safety audit.
+
+============================================================
+SECTION 1
+EXECUTIVE SUMMARY
+============================================================
+
+Current maturity:
+- Moderate to strong for a hybrid deterministic + AI-guided content system.
+- Smart Coach and SI Console are grounded in app state and include fallback behavior.
+- Prompt architecture and response contracts exist.
+
+Primary strengths:
+- Structured response policy for Smart Coach.
+- Deterministic command paths in SI Console for critical planning surfaces.
+- Crisis detection policy and user-facing crisis dialog integration.
+- Extensive test inventory with prompt and release guard contracts.
+
+Primary risks:
+- Intent detection is keyword-based and can misclassify nuanced prompts.
+- Prompt/context payload breadth is large and can increase drift/verbosity risk.
+- No explicit policy version tag in generated outputs for forensic traceability.
+- Supabase folder exists but no direct content-generation governance artifacts were observed there.
+
+Overall verdict:
+- SAFE TO UPGRADE, WITH GUARDRAILS.
+
+Overall score:
+- 79/100
+
+============================================================
+SECTION 2
+AUDIT SCOPE AND EVIDENCE
+============================================================
+
+Evidence anchors reviewed:
+- lib/state/controllers/coach_query_controller.dart
+- lib/features/home/ui/smart_coach_screen.dart
+- lib/features/si_console/ui/si_console_screen.dart
+- lib/state/controllers/ai_controller.dart
+- lib/engine/assistant/chronospark_prompt_architecture.dart
+- lib/engine/assistant/assistant_detection_service.dart
+- lib/engine/assistant/assistant_response_templates.dart
+- lib/state/providers/si_pipeline_provider.dart
+- lib/state/providers/momentum_engine_provider.dart
+- lib/state/providers/trajectory_provider.dart
+- lib/state/providers/explainable_si_provider.dart
+- lib/state/providers/daily_command_briefing_provider.dart
+- lib/domain/policies/crisis_detection_policy.dart
+- lib/ui/system/crisis_dialog.dart
+- test/behavior/smart_coach_prompt_contract_test.dart
+- test/behavior/si_console_prompt_contract_test.dart
+- test/release/si_console_release_protection_test.dart
+- integration_test/human_like_smoke_test.dart
+- pubspec.yaml
+- supabase/ (directory presence confirmed)
+
+Out of scope for this audit:
+- Backend LLM infra beyond app-side orchestration.
+- Any code modifications.
+
+============================================================
+SECTION 3
+CONTENT-GENERATION SURFACES INVENTORY
+============================================================
+
+Surface A: Smart Coach (interactive coaching)
+- Inputs: notes, emotion, energy, app history, state snapshots.
+- Outputs: structured coaching block and follow-up responses.
+- Entry points: smart_coach UI and controller pipeline.
+
+Surface B: SI Console (strategic analysis and commands)
+- Inputs: typed prompts and slash commands.
+- Outputs: deterministic command summaries and AI-assisted responses.
+- Entry points: SI Console screen command handler plus AI controller.
+
+Surface C: Trajectory/Future Forecast readouts
+- Inputs: momentum, pressure, divergence, simulations.
+- Outputs: generated summaries and recommendations from providers.
+
+Surface D: Explainability overlays
+- Inputs: momentum engine + daily briefing state.
+- Outputs: "Why this action" rationale blocks and recommendations.
+
+Surface E: Autonomous planning providers
+- Inputs: life OS and future decision providers.
+- Outputs: weekly/daily/focus/review optimization text directives.
+
+============================================================
+SECTION 4
+PIPELINE ARCHITECTURE ASSESSMENT
+============================================================
+
+Observed architecture pattern:
+- Hybrid pipeline.
+- Deterministic state-derived generation is used for many critical responses.
+- AI-assisted generation is invoked for open-ended conversational requests.
+
+Strengths:
+- Controller boundaries are explicit.
+- Data aggregation via providers keeps generation grounded in app state.
+- Fallback logic prevents empty or low-quality AI outputs from leaking directly.
+
+Risks:
+- Multiple layers can make behavior hard to reason about without strong telemetry tags.
+- Large context objects may produce non-essential verbosity.
+
+Assessment:
+- Architecture is directionally strong for a planner product.
+- Needs stronger traceability and tighter response budgets.
+
+Score:
+- 82/100
+
+============================================================
+SECTION 5
+PROMPT GOVERNANCE AND POLICY CONTROLS
+============================================================
+
+Findings:
+- Smart Coach policy enforces structured sections: Goal Detected, Insight, Actions, Next Step, Momentum Score, Coach Question.
+- Proxy prompt emphasizes practical, context-specific outputs and disallows therapy claims.
+- Prompt contract tests validate key policy phrases and invariants.
+
+Risks:
+- Policy quality is high but primarily string-driven.
+- No explicit schema object enforcing section completeness at runtime beyond heuristic checks.
+
+SAFE upgrades (no new AI feature creation):
+- Add policy/version stamp in controller metadata for observability.
+- Add runtime section completeness counter in analytics logs.
+- Keep policy text stable behind contract tests.
+
+Score:
+- 84/100
+
+============================================================
+SECTION 6
+INTENT DETECTION AND ROUTING AUDIT
+============================================================
+
+Findings:
+- Intent detection is deterministic and keyword-based per surface.
+- Smart Coach and SI Console each route through dedicated detection logic.
+- Deterministic SI command handling reduces unnecessary model calls.
+
+Risks:
+- Keyword matching can miss nuanced language and mixed-intent prompts.
+- Confidence values are static constants rather than calibrated against outcomes.
+
+SAFE upgrades:
+- Add lightweight route telemetry on false-positive/false-negative signals using existing analytics infrastructure.
+- Add regression tests for mixed-intent prompts and edge phrasing.
+
+Score:
+- 74/100
+
+============================================================
+SECTION 7
+GROUNDING AND CONTEXT INTEGRITY
+============================================================
+
+Findings:
+- Smart Coach context includes tasks, goals, timeline, memories, completions, routines, and profile/progression signals.
+- SI aggregation composes tasks/goals/insights/logs/memories/timeline/notifications plus source health.
+- Explainable SI and trajectory providers produce transparent state-derived justifications.
+
+Risks:
+- Context breadth can increase stale-snapshot risk under rapid state transitions.
+- No explicit context checksum surfaced to user/debug output.
+
+SAFE upgrades:
+- Emit compact context digest metadata for each generated response.
+- Add stale-source labeling when sourceHealth is degraded.
+
+Score:
+- 81/100
+
+============================================================
+SECTION 8
+RESPONSE QUALITY AND FALLBACK BEHAVIOR
+============================================================
+
+Findings:
+- Smart Coach applies fallback detection for non-actionable AI responses.
+- Structured-response validators gate AI acceptance and revert to deterministic templates when needed.
+- Agent orchestrator normalizes missing fields and marks defaulted outputs.
+
+Risks:
+- Heuristic fallback detection can miss subtle low-quality responses.
+- Defaulted fields may hide repeated upstream weak generations without explicit dashboarding.
+
+SAFE upgrades:
+- Expand quality counters: structured-pass rate, fallback rate, defaultedFields rate.
+- Keep deterministic fallback templates concise and action-focused.
+
+Score:
+- 80/100
+
+============================================================
+SECTION 9
+SAFETY, CRISIS, AND USER PROTECTION
+============================================================
+
+Findings:
+- Crisis keyword policy is centralized and applied in Smart Coach and SI Console.
+- Crisis dialog includes immediate safety resources and emergency guidance.
+- Prompt policy explicitly avoids therapist/diagnostic claims.
+
+Risks:
+- Keyword-only crisis detection may miss euphemistic self-harm language.
+- Current policy is language-specific and likely English-biased.
+
+SAFE upgrades:
+- Expand crisis phrase test matrix and multilingual phrase coverage.
+- Add periodic audit of false negatives from synthetic test prompts.
+
+Score:
+- 76/100
+
+============================================================
+SECTION 10
+SECURITY AND SECRET HYGIENE
+============================================================
+
+Findings:
+- Release tests assert SI Console source has no hard-coded secrets/tokens.
+- No secret-bearing literals were observed in reviewed content-generation files.
+- Provider/controller boundaries reduce direct network coupling in UI generation paths.
+
+Risks:
+- Security posture depends on continued test enforcement and pre-release checks.
+- Supabase directory exists; content-generation secret posture there is not represented in reviewed runtime files.
+
+SAFE upgrades:
+- Keep secret scanning in release gate.
+- Add explicit content-generation security checklist item to release signoff docs.
+
+Score:
+- 85/100
+
+============================================================
+SECTION 11
+PRIVACY AND DATA MINIMIZATION
+============================================================
+
+Findings:
+- Generation uses rich user context including memories, logs, and timeline summaries.
+- Conversation turns are persisted for Smart Coach interaction continuity.
+
+Risks:
+- Broad context can over-share non-essential user signals to generation pipeline.
+- No explicit per-surface context minimization matrix was observed.
+
+SAFE upgrades:
+- Define per-surface minimum-context policy (Smart Coach vs SI Console vs forecast).
+- Add retention labeling for stored conversation turns.
+
+Score:
+- 72/100
+
+============================================================
+SECTION 12
+PERFORMANCE AND RELIABILITY
+============================================================
+
+Findings:
+- Smart Coach requests and follow-ups enforce timeout handling.
+- SI aggregation reports source health states (ready/empty/error).
+- Deterministic provider-driven responses reduce dependency on remote generation for core operations.
+
+Risks:
+- High context composition and multiple provider reads can increase latency variance.
+- Timeout fallbacks exist but user experience consistency can still vary under degraded sources.
+
+SAFE upgrades:
+- Track end-to-end generation latency by surface and route.
+- Add budget targets: p50/p95 response times and fallback-rate thresholds.
+
+Score:
+- 78/100
+
+============================================================
+SECTION 13
+TEST COVERAGE AND RELEASE GUARDS
+============================================================
+
+Findings:
+- Prompt contracts exist for Smart Coach and SI Console prompt copy.
+- Release protection tests exist for SI Console secret hygiene and navigation linkage.
+- Integration smoke test covers opening Smart Planner and safe return.
+- Broad test inventory includes provider, release, behavior, and feature tests.
+
+Gaps:
+- Fewer explicit tests for intent-misclassification edge cases.
+- Limited direct assertions for fallback quality metrics and context minimization.
+
+SAFE upgrades:
+- Add tests for mixed-intent routing.
+- Add tests validating fallback trigger semantics and output section completeness.
+
+Score:
+- 83/100
+
+============================================================
+SECTION 14
+OBSERVABILITY AND OPERATIONS
+============================================================
+
+Findings:
+- Analytics events are present on key user flows (opened/requested/response-rendered).
+- Source health model is available in SI aggregation and can be surfaced.
+- Agent normalization exposes quality and defaulted fields.
+
+Gaps:
+- No unified content-generation operations dashboard definitions observed in repo docs.
+- No explicit SLO/SLA thresholds captured for generation quality and latency.
+
+SAFE upgrades:
+- Define content-generation operational KPIs:
+  - structured_response_pass_rate
+  - fallback_rate
+  - defaulted_fields_rate
+  - timeout_rate
+  - p95_generation_latency_ms
+
+Score:
+- 75/100
+
+============================================================
+SECTION 15
+SUPABASE AND DEPENDENCY POSTURE
+============================================================
+
+Findings:
+- supabase/ directory exists (config/functions/migrations).
+- Reviewed content-generation runtime files are primarily app-side and provider/controller driven.
+- No direct evidence in reviewed generation paths of unsafe secret embedding.
+
+Risks:
+- Cross-surface governance can drift if backend and app prompts/policies diverge over time.
+
+SAFE upgrades:
+- Add periodic parity check between app-side policy strings and backend policy docs/configs.
+- Keep migration/function changes tied to release checklists where generation data paths are affected.
+
+Score:
+- 77/100
+
+============================================================
+SECTION 16
+SCORING SUMMARY
+============================================================
+
+Category scores:
+- Pipeline architecture: 82
+- Prompt governance: 84
+- Intent routing: 74
+- Grounding/context integrity: 81
+- Quality/fallback: 80
+- Safety/crisis: 76
+- Security/secrets: 85
+- Privacy/minimization: 72
+- Performance/reliability: 78
+- Test/release guards: 83
+- Observability/ops: 75
+- Supabase/dependency posture: 77
+
+Weighted total:
+- 79/100
+
+Status:
+- AMBER-GREEN
+- Strong foundation with specific hardening needed in routing calibration, privacy minimization, and ops visibility.
+
+============================================================
+SECTION 17
+SAFE UPGRADE ROADMAP (AUDIT RECOMMENDATIONS ONLY)
+============================================================
+
+SAFE SAFE ROADMAP PRINCIPLES
+- Keep deterministic safety paths active at all times.
+- Ship only measurable hardening, not new generation capabilities.
+- Use gated rollout with explicit stop conditions.
+
+Phase A: Instrument and Measure (safe)
+- Add analytics counters and metadata tags for route, fallback, and response structure quality.
+- Add surface-level latency metrics and timeout-rate reporting.
+
+Phase A gate (must pass before Phase B)
+- Metrics available by surface: smart_coach, si_console, trajectory/future.
+- Baseline captured for 7 days of normal usage.
+- No regression in crash-free sessions for audited surfaces.
+
+Phase B: Routing and Safety Hardening (safe)
+- Expand intent edge-case tests.
+- Expand crisis phrase coverage tests and multilingual phrase corpus.
+
+Phase B gate (must pass before Phase C)
+- Mixed-intent routing tests pass at 100% in CI.
+- Crisis-detection regression suite passes with no critical misses.
+- No increase in timeout_rate versus Phase A baseline.
+
+Phase C: Privacy and Context Minimization (safe)
+- Define explicit minimum context contracts per surface.
+- Add retention labels and audit logging for persisted conversational turns.
+
+Phase C gate (must pass before Phase D)
+- Context payload size reduced or held stable with no quality drop.
+- Stored-conversation retention policy documented and enforced.
+- No new sensitive fields introduced into generation context.
+
+Phase D: Operational Governance and Release Lock (safe)
+- Publish content-generation SLO thresholds and release gate checks.
+- Add policy/version trace IDs for every generated response.
+
+Phase D gate (final pre-release)
+- Release checklist includes: secret scan pass, prompt contract pass, routing tests pass, crisis tests pass, latency budget pass.
+- Go/no-go signoff by engineering owner and product owner.
+
+Stop conditions (automatic hold)
+- fallback_rate rises >20% over baseline for 2 consecutive days.
+- timeout_rate rises >15% over baseline for 2 consecutive days.
+- Any critical crisis-path regression is detected.
+- Any secret-hygiene release test fails.
+
+Rollback conditions (safe rollback)
+- Revert to last known-good release build when any stop condition triggers.
+- Keep deterministic response templates active during rollback.
+
+Non-goals for this roadmap:
+- No new AI features.
+- No prompt rewrites during this audit task.
+- No unsafe expansion of user-data context scope.
+
+============================================================
+SECTION 18
+FINAL VERDICT AND RELEASE READINESS
+============================================================
+
+Final verdict:
+- Content-generation builder is viable and reasonably mature.
+- It is safe to continue with controlled hardening phases.
+
+Release readiness for current state:
+- CONDITIONAL READY.
+
+Final upgrade build readiness checklist (SAFE SAFE)
+- Prompt contract tests pass.
+- Secret hygiene tests pass.
+- Crisis detection and crisis dialog path tests pass.
+- Mixed-intent routing regression tests pass.
+- Fallback and timeout rates are within approved thresholds.
+- Surface-level latency budgets meet SLO targets.
+- Rollback plan is documented and release-tested.
+- Change set introduces no new AI features.
+
+Build readiness state after this audit:
+- READY FOR CONTROLLED UPGRADE EXECUTION.
+- Upgrade must remain phase-gated and stop-condition enforced.
+
+Conditions to maintain readiness:
+- Preserve existing prompt contracts and release secret guards.
+- Add missing operational KPIs and routing edge-case tests.
+- Maintain crisis safety path quality with ongoing phrase coverage audits.
+- Enforce go/no-go signoff at each phase gate.
+
+Audit completion statement:
+- The original audit deliverable was produced as audit-only.
+- Subsequent SAFE upgrade execution status is documented in Section 19.
+
+============================================================
+SECTION 19
+SAFE UPGRADE EXECUTION STATUS (2026-07-31)
+============================================================
+
+Phase A status:
+- Implemented in project code.
+- Added route-resolution and result-quality telemetry for Smart Coach and SI Console content generation.
+- Added duration tracking and fallback/structure tagging for generation outcomes.
+
+Phase B status:
+- Implemented in project code and tests.
+- Mixed-intent routing regression contracts added.
+- Crisis phrase coverage expanded and validated with regression tests.
+
+Phase C status:
+- Implemented in project code.
+- Context minimization tightened via bounded memory-summary count and summary length caps.
+- Retention labels added to persisted content-generation memory events and Smart Coach conversation entries.
+
+Phase D status:
+- Implemented in project code and tests.
+- Added content-generation release gate evaluator for latency and structure contract enforcement.
+- Added release-gate contract tests to protect gating behavior in CI.
+
+Validation status:
+- Focused phase test suites passed after implementation.
+- Existing prompt/release protection tests remained passing in focused runs.
+
+Execution safety confirmation:
+- No secrets added.
+- No prompt text changed.
+- No new AI capabilities introduced.

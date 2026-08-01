@@ -1,0 +1,54 @@
+name: Release Preflight (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Preflight profile
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - staging
+          - tester
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run secret guard
+        shell: pwsh
+        run: ./scripts/security_secret_guard.ps1
+
+      - name: Run release guard
+        shell: pwsh
+        run: ./scripts/release_guard.ps1
+
+      - name: Flutter analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test --concurrency=1
+
+      - name: Profile smoke check (manual, non-blocking)
+        shell: pwsh
+        run: >-
+          ./scripts/safe_release_preflight.ps1
+          -Profile "${{ inputs.profile }}"
+          -SkipAnalyze
+          -SkipTests
+          -SkipReleaseGuard
+          -SkipSecretGuard
+          -SkipUploadKeyCheck

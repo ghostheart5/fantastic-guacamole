@@ -4,9 +4,11 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_event_bridge.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_provider.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_state.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
@@ -23,6 +25,7 @@ class CreatorScreen extends ConsumerStatefulWidget {
 
 class _CreatorScreenState extends ConsumerState<CreatorScreen> {
   CreatorWorkspaceMode _mode = CreatorWorkspaceMode.tasks;
+  String _voicePreferredType = 'Task';
   final TextEditingController _taskTitleController = TextEditingController();
   final TextEditingController _goalTitleController = TextEditingController();
   final TextEditingController _memoryController = TextEditingController();
@@ -67,6 +70,7 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
     final CreatorWorkspaceMode targetMode = handoff.isGoalIntent
         ? CreatorWorkspaceMode.goals
         : CreatorWorkspaceMode.tasks;
+    _voicePreferredType = handoff.preferredType;
     if (targetMode == CreatorWorkspaceMode.goals) {
       _goalTitleController.text = handoff.suggestedTitle;
       _goalTitleController.selection = TextSelection.collapsed(
@@ -81,6 +85,24 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
 
     if (handoff.isMemoryIntent) {
       _memoryController.text = handoff.originalText.trim();
+    }
+
+    final List<String> hints = <String>[
+      if (handoff.scheduleHint != null && handoff.scheduleHint!.trim().isNotEmpty)
+        'Schedule hint: ${handoff.scheduleHint!.trim()}',
+      if (handoff.frequencyHint != null && handoff.frequencyHint!.trim().isNotEmpty)
+        'Frequency hint: ${handoff.frequencyHint!.trim()}',
+    ];
+    if (hints.isNotEmpty) {
+      final String hintBlock = hints.join('\n');
+      if (_notesController.text.trim().isEmpty) {
+        _notesController.text = hintBlock;
+      } else if (!_notesController.text.contains(hintBlock)) {
+        _notesController.text = '${_notesController.text.trim()}\n$hintBlock';
+      }
+      _notesController.selection = TextSelection.collapsed(
+        offset: _notesController.text.length,
+      );
     }
 
     if (_mode != targetMode) {
@@ -98,6 +120,10 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
   @override
   Widget build(BuildContext context) {
     final voiceHandoff = ref.watch(voiceCommandHandoffProvider);
+    final bool soundEnabled = ref.watch(soundEnabledProvider);
+    final bool advancedAudioEnabled = ref.watch(
+      advancedAudioProfileEnabledProvider,
+    );
     final bool missionTutorialEnabled = ref.watch(
       missionTutorialEnabledProvider,
     );
@@ -106,7 +132,7 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
     }
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/creator_bg.jpg',
+      backgroundAssetPath: AppAssets.bgCreator,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -205,10 +231,13 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                 ],
                 DynamicForm(
                   workspaceMode: _mode,
+                  preferredType: _voicePreferredType,
                   taskTitleController: _taskTitleController,
                   goalTitleController: _goalTitleController,
                   memoryController: _memoryController,
                   notesController: _notesController,
+                  soundEnabled: soundEnabled,
+                  advancedAudioEnabled: advancedAudioEnabled,
                   onSubmit: (data) async {
                     final bool shouldAutoOpenTimeline =
                         !ref.read(creatorFirstItemCreatedProvider);

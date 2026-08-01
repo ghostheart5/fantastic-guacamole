@@ -1081,11 +1081,42 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
 class _MicButton extends ConsumerWidget {
   const _MicButton();
 
+  void _trackVoiceEvent(String name, {Map<String, Object?> params = const {}}) {
+    AppAnalytics.track(name, params: params);
+  }
+
+  String _summarizeTimeline(String label, List<dynamic> events) {
+    if (events.isEmpty) {
+      return '$label: no items found.';
+    }
+    final int count = events.length;
+    final List<String> previews = events
+        .take(3)
+        .map((e) {
+          final dynamic value = e;
+          final String title = (value.title ?? '').toString().trim();
+          return title.isEmpty ? 'untitled item' : title;
+        })
+        .toList(growable: false);
+    final String sample = previews.join(', ');
+    return '$label: $count item${count == 1 ? '' : 's'}. Top items: $sample.';
+  }
+
   void _routeVoiceCommand(WidgetRef ref, String spokenText) {
     final result = ref.read(voiceCommandParserProvider).parse(spokenText);
+    _trackVoiceEvent(
+      'voice_command_parsed',
+      params: <String, Object?>{
+        'intent': result.intent.name,
+        'known': result.isKnown,
+        'chars': spokenText.length,
+      },
+    );
 
     if (result.intent == VoiceCommandIntent.createTask ||
         result.intent == VoiceCommandIntent.createGoal ||
+        result.intent == VoiceCommandIntent.createRoutine ||
+        result.intent == VoiceCommandIntent.createNote ||
         result.intent == VoiceCommandIntent.recordMemory) {
       ref.read(voiceCommandHandoffProvider.notifier).setFromResult(result);
     }
@@ -1097,35 +1128,175 @@ class _MicButton extends ConsumerWidget {
     switch (result.intent) {
       case VoiceCommandIntent.createTask:
       case VoiceCommandIntent.createGoal:
+      case VoiceCommandIntent.createRoutine:
+      case VoiceCommandIntent.createNote:
       case VoiceCommandIntent.recordMemory:
       case VoiceCommandIntent.openCreator:
+        _trackVoiceEvent(
+          'voice_command_routed',
+          params: <String, Object?>{
+            'intent': result.intent.name,
+            'route': 'creator',
+            'outcome': 'success',
+          },
+        );
         flow.toCreator();
         return;
+      case VoiceCommandIntent.showToday:
+        flow.toTimeline();
+        final today = ref.read(timelineTodayProvider);
+        _trackVoiceEvent(
+          'voice_timeline_summary',
+          params: <String, Object?>{
+            'intent': result.intent.name,
+            'summary_type': 'today',
+            'item_count': today.length,
+            'outcome': 'success',
+          },
+        );
+        unawaited(
+          ref
+              .read(voiceServiceProvider)
+              .speak(_summarizeTimeline('Today', today)),
+        );
+        return;
+      case VoiceCommandIntent.showOverdue:
+        flow.toTimeline();
+        final overdue = ref.read(timelineFallingBehindProvider);
+        _trackVoiceEvent(
+          'voice_timeline_summary',
+          params: <String, Object?>{
+            'intent': result.intent.name,
+            'summary_type': 'overdue',
+            'item_count': overdue.length,
+            'outcome': 'success',
+          },
+        );
+        unawaited(
+          ref
+              .read(voiceServiceProvider)
+              .speak(_summarizeTimeline('Overdue', overdue)),
+        );
+        return;
+      case VoiceCommandIntent.completeTask:
+      case VoiceCommandIntent.skipTask:
+      case VoiceCommandIntent.moveTaskTomorrow:
+        _trackVoiceEvent(
+          'voice_command_routed',
+          params: <String, Object?>{
+            'intent': result.intent.name,
+            'route': 'timeline',
+            'outcome': 'ui_confirmation_required',
+          },
+        );
+        flow.toTimeline();
+        final String target = result.targetHint?.trim().isNotEmpty == true
+            ? ' for ${result.targetHint!.trim()}'
+            : '';
+        unawaited(
+          ref
+              .read(voiceServiceProvider)
+              .speak(
+                'Opened Timeline$target. For safety, review and confirm this action in the UI.',
+              ),
+        );
+        return;
       case VoiceCommandIntent.showTrajectory:
+        _trackVoiceEvent(
+          'voice_command_routed',
+          params: <String, Object?>{
+            'intent': result.intent.name,
+            'route': 'trajectory',
+            'outcome': 'success',
+          },
+        );
         flow.toTrajectoryEngine();
         return;
       case VoiceCommandIntent.showBriefing:
+        _trackVoiceEvent(
+          'voice_command_routed',
+          params: <String, Object?>{
+            'intent': result.intent.name,
+            'route': 'nexus',
+            'outcome': 'success',
+          },
+        );
         flow.toNexus();
         return;
       case VoiceCommandIntent.nextMove:
       case VoiceCommandIntent.replanDay:
       case VoiceCommandIntent.startFocusSession:
       case VoiceCommandIntent.openCoach:
+        _trackVoiceEvent(
+          'voice_command_routed',
+          params: <String, Object?>{
+            'intent': result.intent.name,
+            'route': 'smart_coach',
+            'outcome': 'success',
+          },
+        );
         flow.toSmartCoach();
         return;
       case VoiceCommandIntent.openTimeline:
+        _trackVoiceEvent(
+          'voice_command_routed',
+          params: <String, Object?>{
+            'intent': result.intent.name,
+            'route': 'timeline',
+            'outcome': 'success',
+          },
+        );
         flow.toTimeline();
         return;
       case VoiceCommandIntent.openProfile:
+        _trackVoiceEvent(
+          'voice_command_routed',
+          params: <String, Object?>{
+            'intent': result.intent.name,
+            'route': 'profile',
+            'outcome': 'success',
+          },
+        );
         flow.toProfile();
         return;
       case VoiceCommandIntent.openProgression:
+        _trackVoiceEvent(
+          'voice_command_routed',
+          params: <String, Object?>{
+            'intent': result.intent.name,
+            'route': 'progression',
+            'outcome': 'success',
+          },
+        );
         flow.toProgression();
         return;
       case VoiceCommandIntent.openSiConsole:
+        _trackVoiceEvent(
+          'voice_command_routed',
+          params: <String, Object?>{
+            'intent': result.intent.name,
+            'route': 'si_console',
+            'outcome': 'success',
+          },
+        );
         flow.toConsole();
         return;
       case VoiceCommandIntent.unknown:
+        _trackVoiceEvent(
+          'voice_command_routed',
+          params: <String, Object?>{
+            'intent': result.intent.name,
+            'route': 'none',
+            'outcome': 'fallback',
+          },
+        );
+        unawaited(
+          ref
+              .read(voiceServiceProvider)
+              .speak(
+                'Voice command not recognized. You can say create task, show today, or open timeline.',
+              ),
+        );
         return;
     }
   }
@@ -1144,14 +1315,33 @@ class _MicButton extends ConsumerWidget {
     final bool listening = voice.isListening;
     return GestureDetector(
       onTap: () async {
+        _trackVoiceEvent(
+          'voice_mic_tapped',
+          params: <String, Object?>{'listening': listening},
+        );
         if (listening) {
           await ref.read(voiceControllerProvider.notifier).stopListening();
           final VoiceState latest = ref.read(voiceControllerProvider);
           final String spokenText = _latestVoiceText(latest);
+          _trackVoiceEvent(
+            'voice_capture_result',
+            params: <String, Object?>{
+              'captured': spokenText.isNotEmpty,
+              'chars': spokenText.length,
+            },
+          );
 
           if (spokenText.isNotEmpty) {
             _routeVoiceCommand(ref, spokenText);
           } else {
+            _trackVoiceEvent(
+              'voice_command_routed',
+              params: <String, Object?>{
+                'intent': 'none',
+                'route': 'none',
+                'outcome': 'no_capture',
+              },
+            );
             unawaited(
               ref
                   .read(voiceServiceProvider)
@@ -1161,7 +1351,34 @@ class _MicButton extends ConsumerWidget {
           return;
         }
 
-        await ref.read(settingsUiActionsProvider).requestVoicePermission();
+        final bool granted = await ref
+            .read(settingsUiActionsProvider)
+            .requestVoicePermission();
+        _trackVoiceEvent(
+          'voice_permission_result',
+          params: <String, Object?>{'granted': granted},
+        );
+        if (!granted) {
+          _trackVoiceEvent(
+            'voice_command_routed',
+            params: <String, Object?>{
+              'intent': 'permission',
+              'route': 'none',
+              'outcome': 'permission_denied',
+            },
+          );
+          if (!context.mounted) {
+            return;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Microphone permission is required for voice commands.',
+              ),
+            ),
+          );
+          return;
+        }
         await ref.read(voiceControllerProvider.notifier).startListening();
 
         if (!context.mounted) {
@@ -1169,6 +1386,13 @@ class _MicButton extends ConsumerWidget {
         }
 
         final VoiceState latest = ref.read(voiceControllerProvider);
+        _trackVoiceEvent(
+          'voice_listening_started',
+          params: <String, Object?>{
+            'error': latest.error ?? '',
+            'available': latest.isAvailable,
+          },
+        );
         final String message =
             latest.error ??
             'Listening. Speak a command, then tap the mic again to route it.';

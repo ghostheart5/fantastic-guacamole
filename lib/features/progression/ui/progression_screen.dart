@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
@@ -23,7 +24,7 @@ class ProgressionScreen extends ConsumerWidget {
     final progress = progression.progress;
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/progression_bg.jpg',
+      backgroundAssetPath: AppAssets.bgProgression,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

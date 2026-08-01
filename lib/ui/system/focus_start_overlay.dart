@@ -1,16 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
+import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 
 Future<void> runFocusStartAnimation(
   BuildContext context, {
   required VoidCallback onStart,
 }) async {
+  final bool reduceMotion =
+      MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+  MotionProfile motionProfile = MotionProfile.standard;
+  try {
+    motionProfile = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(motionProfileProvider);
+  } on Object {
+    motionProfile = MotionProfile.standard;
+  }
+  final Duration transitionDuration = switch (motionProfile) {
+    MotionProfile.calm => const Duration(milliseconds: 140),
+    MotionProfile.standard => const Duration(milliseconds: 180),
+    MotionProfile.expressive => const Duration(milliseconds: 240),
+  };
   await showGeneralDialog<void>(
     context: context,
     barrierLabel: 'Focus start animation',
     barrierDismissible: false,
     barrierColor: const Color(0xCC08101F),
-    transitionDuration: const Duration(milliseconds: 180),
+    transitionDuration: transitionDuration,
     pageBuilder: (_, _, _) => const _FocusStartOverlay(),
     transitionBuilder:
         (
@@ -19,6 +38,9 @@ Future<void> runFocusStartAnimation(
           Animation<double> secondaryAnimation,
           Widget child,
         ) {
+          if (reduceMotion) {
+            return child;
+          }
           final CurvedAnimation curved = CurvedAnimation(
             parent: animation,
             curve: Curves.easeOutCubic,
@@ -50,7 +72,21 @@ class _FocusStartOverlayState extends State<_FocusStartOverlay> {
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(const Duration(milliseconds: 900), _dismiss);
+    MotionProfile motionProfile = MotionProfile.standard;
+    try {
+      motionProfile = ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(motionProfileProvider);
+    } on Object {
+      motionProfile = MotionProfile.standard;
+    }
+    final Duration dismissDelay = switch (motionProfile) {
+      MotionProfile.calm => const Duration(milliseconds: 620),
+      MotionProfile.standard => const Duration(milliseconds: 900),
+      MotionProfile.expressive => const Duration(milliseconds: 1050),
+    };
+    Future<void>.delayed(dismissDelay, _dismiss);
   }
 
   void _dismiss() {
@@ -63,6 +99,8 @@ class _FocusStartOverlayState extends State<_FocusStartOverlay> {
   @override
   Widget build(BuildContext context) {
     final Color primary = Theme.of(context).colorScheme.primary;
+    final bool reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     return Material(
       type: MaterialType.transparency,
@@ -94,11 +132,13 @@ class _FocusStartOverlayState extends State<_FocusStartOverlay> {
               SizedBox(
                 width: 184,
                 height: 184,
-                child: Lottie.asset(
-                  'assets/animations/focus_pulse.json',
-                  repeat: false,
-                  fit: BoxFit.contain,
-                ),
+                child: reduceMotion
+                    ? const SizedBox.shrink()
+                    : Lottie.asset(
+                        AppAssets.animFocusPulse,
+                        repeat: false,
+                        fit: BoxFit.contain,
+                      ),
               ),
               Column(
                 mainAxisSize: MainAxisSize.min,

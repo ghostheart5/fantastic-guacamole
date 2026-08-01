@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/completion_event_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/goal_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/google_play_paywall_repository.dart';
@@ -147,6 +148,12 @@ final logRepositoryProvider = Provider<LogRepository>((Ref ref) {
 
 final calendarRepositoryProvider = Provider<CalendarRepository>((Ref ref) {
   return CalendarRepository(ref.read(secureStoreProvider));
+});
+
+final completionEventRepositoryProvider = Provider<CompletionEventRepository>((
+  Ref ref,
+) {
+  return CompletionEventRepository(ref.read(sensitivePrefsStoreProvider));
 });
 
 final timelineRepositoryProvider = Provider<TimelineRepository>((Ref ref) {

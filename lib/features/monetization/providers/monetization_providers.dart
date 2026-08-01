@@ -14,6 +14,8 @@ import 'package:fantastic_guacamole/features/monetization/services/billing_servi
 import 'package:fantastic_guacamole/features/monetization/services/credit_service.dart'
     as monetization;
 import 'package:fantastic_guacamole/features/monetization/services/entitlement_service.dart';
+import 'package:fantastic_guacamole/features/monetization/services/monetization_connector_actions.dart'
+  as legacy_connector;
 import 'package:fantastic_guacamole/features/monetization/services/paywall_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -49,6 +51,15 @@ final purchaseRepositoryProvider = Provider<PurchaseRepository>((Ref ref) {
   ref.onDispose(repository.dispose);
   return repository;
 });
+
+final monetizationConnectorActionsProvider =
+    Provider<legacy_connector.MonetizationConnectorActions>((Ref ref) {
+      return legacy_connector.MonetizationConnectorActions(
+        subscriptionRepository: ref.watch(subscriptionRepositoryProvider),
+        aiCreditRepository: ref.watch(aiCreditRepositoryProvider),
+        purchaseRepository: ref.watch(purchaseRepositoryProvider),
+      );
+    });
 
 final entitlementServiceProvider = Provider<EntitlementService>((Ref ref) {
   return EntitlementService(ref.watch(subscriptionRepositoryProvider));
@@ -127,7 +138,7 @@ final creditHistoryProvider =
 final entitlementEventsProvider = FutureProvider<List<EntitlementEvent>>((
   Ref ref,
 ) {
-  return ref.read(entitlementServiceProvider).loadEvents();
+  return ref.read(monetizationConnectorActionsProvider).fetchEntitlementEvents();
 });
 
 final paywallProvider = FutureProvider<PaywallContent>((Ref ref) async {
@@ -184,8 +195,8 @@ class PurchaseController extends Notifier<PurchaseControllerState> {
     final PurchaseOperationResult result = await (() async {
       try {
         return await ref
-            .read(purchaseRepositoryProvider)
-            .startSubscriptionPurchase(plan);
+          .read(monetizationConnectorActionsProvider)
+          .purchasePlanById(plan);
       } on Object {
         return PurchaseOperationResult(
           success: false,
@@ -206,8 +217,8 @@ class PurchaseController extends Notifier<PurchaseControllerState> {
     final PurchaseOperationResult result = await (() async {
       try {
         return await ref
-            .read(purchaseRepositoryProvider)
-            .startCreditPurchase(pack);
+          .read(monetizationConnectorActionsProvider)
+          .purchaseCreditsById(pack);
       } on Object {
         return PurchaseOperationResult(
           success: false,
@@ -224,7 +235,9 @@ class PurchaseController extends Notifier<PurchaseControllerState> {
     state = state.copyWith(isBusy: true, activeProductId: '__restore__');
     final PurchaseOperationResult result = await (() async {
       try {
-        return await ref.read(purchaseRepositoryProvider).restorePurchases();
+        return await ref
+            .read(monetizationConnectorActionsProvider)
+            .restorePurchases();
       } on Object {
         return const PurchaseOperationResult(
           success: false,

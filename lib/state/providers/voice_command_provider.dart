@@ -3,7 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 enum VoiceCommandIntent {
   createTask,
   createGoal,
+  createRoutine,
+  createNote,
   recordMemory,
+  showToday,
+  showOverdue,
+  completeTask,
+  skipTask,
+  moveTaskTomorrow,
   startFocusSession,
   replanDay,
   showTrajectory,
@@ -24,12 +31,18 @@ class VoiceCommandResult {
     required this.originalText,
     required this.normalizedText,
     required this.confirmation,
+    this.scheduleHint,
+    this.frequencyHint,
+    this.targetHint,
   });
 
   final VoiceCommandIntent intent;
   final String originalText;
   final String normalizedText;
   final String confirmation;
+  final String? scheduleHint;
+  final String? frequencyHint;
+  final String? targetHint;
 
   bool get isKnown => intent != VoiceCommandIntent.unknown;
 }
@@ -79,6 +92,40 @@ class VoiceCommandParser {
     }
 
     if (_containsAny(normalized, const <String>[
+      'create routine',
+      'new routine',
+      'add routine',
+      'make routine',
+      'create habit',
+      'new habit',
+      'add habit',
+      'make habit',
+    ])) {
+      return _result(
+        intent: VoiceCommandIntent.createRoutine,
+        original: original,
+        normalized: normalized,
+        confirmation: 'Opening Creator for routine creation.',
+        scheduleHint: _extractScheduleHint(original),
+        frequencyHint: _extractFrequencyHint(normalized),
+      );
+    }
+
+    if (_containsAny(normalized, const <String>[
+      'create note',
+      'new note',
+      'add note',
+      'make note',
+    ])) {
+      return _result(
+        intent: VoiceCommandIntent.createNote,
+        original: original,
+        normalized: normalized,
+        confirmation: 'Opening Creator for note capture.',
+      );
+    }
+
+    if (_containsAny(normalized, const <String>[
       'record memory',
       'save memory',
       'remember this',
@@ -89,6 +136,83 @@ class VoiceCommandParser {
         original: original,
         normalized: normalized,
         confirmation: 'Opening Creator for memory capture.',
+        scheduleHint: _extractScheduleHint(original),
+        frequencyHint: _extractFrequencyHint(normalized),
+      );
+    }
+
+    if (_containsAny(normalized, const <String>[
+      'show today',
+      'what is due today',
+      'what\'s due today',
+      'today tasks',
+      'today timeline',
+    ])) {
+      return _result(
+        intent: VoiceCommandIntent.showToday,
+        original: original,
+        normalized: normalized,
+        confirmation: 'Opening Timeline and summarizing what is due today.',
+      );
+    }
+
+    if (_containsAny(normalized, const <String>[
+      'show overdue',
+      'what is overdue',
+      'what\'s overdue',
+      'overdue tasks',
+    ])) {
+      return _result(
+        intent: VoiceCommandIntent.showOverdue,
+        original: original,
+        normalized: normalized,
+        confirmation: 'Opening Timeline and summarizing overdue items.',
+      );
+    }
+
+    if (_containsAny(normalized, const <String>[
+      'mark task complete',
+      'complete task',
+      'mark complete',
+      'done with task',
+    ])) {
+      return _result(
+        intent: VoiceCommandIntent.completeTask,
+        original: original,
+        normalized: normalized,
+        confirmation:
+            'Opening Timeline. For safety, confirm completion in the UI before applying.',
+        targetHint: _extractActionTarget(original),
+      );
+    }
+
+    if (_containsAny(normalized, const <String>[
+      'skip this item',
+      'skip task',
+      'mark task skipped',
+    ])) {
+      return _result(
+        intent: VoiceCommandIntent.skipTask,
+        original: original,
+        normalized: normalized,
+        confirmation:
+            'Opening Timeline. For safety, confirm skip in the UI before applying.',
+        targetHint: _extractActionTarget(original),
+      );
+    }
+
+    if (_containsAny(normalized, const <String>[
+      'move this task to tomorrow',
+      'move task to tomorrow',
+      'reschedule to tomorrow',
+    ])) {
+      return _result(
+        intent: VoiceCommandIntent.moveTaskTomorrow,
+        original: original,
+        normalized: normalized,
+        confirmation:
+            'Opening Timeline. For safety, confirm the reschedule in the UI before applying.',
+        targetHint: _extractActionTarget(original),
       );
     }
 
@@ -260,17 +384,63 @@ class VoiceCommandParser {
     return false;
   }
 
+  String? _extractScheduleHint(String original) {
+    final RegExp match = RegExp(
+      r'\b(tomorrow|today|tonight|next\s+\w+|on\s+[^,.;]+|at\s+\d{1,2}(:\d{2})?\s*(am|pm)?)\b',
+      caseSensitive: false,
+    );
+    final RegExpMatch? found = match.firstMatch(original);
+    return found?.group(0)?.trim();
+  }
+
+  String? _extractFrequencyHint(String normalized) {
+    final List<String> patterns = const <String>[
+      'daily',
+      'every day',
+      'every weekday',
+      'weekly',
+      'every week',
+      'monthly',
+      'every month',
+    ];
+    for (final String pattern in patterns) {
+      if (normalized.contains(pattern)) {
+        return pattern;
+      }
+    }
+    return null;
+  }
+
+  String? _extractActionTarget(String original) {
+    final RegExp target = RegExp(
+      r'\b(?:task|item)\s+(.+)$',
+      caseSensitive: false,
+    );
+    final RegExpMatch? match = target.firstMatch(original.trim());
+    final String? raw = match?.group(1)?.trim();
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+    return raw;
+  }
+
   VoiceCommandResult _result({
     required VoiceCommandIntent intent,
     required String original,
     required String normalized,
     required String confirmation,
+    String? scheduleHint,
+    String? frequencyHint,
+    String? targetHint,
   }) {
     return VoiceCommandResult(
       intent: intent,
       originalText: original,
       normalizedText: normalized,
       confirmation: confirmation,
+      scheduleHint: scheduleHint,
+      frequencyHint: frequencyHint,
+      targetHint: targetHint,
     );
   }
 }

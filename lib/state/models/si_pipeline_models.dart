@@ -167,9 +167,11 @@ class SIConsoleScreenModel {
     required this.aggregation,
     required this.decision,
     required this.engineSnapshot,
+    required this.integrationSnapshot,
   });
 
   final SIStateAggregation aggregation;
   final SIDecisionOutput decision;
   final String engineSnapshot;
+  final String integrationSnapshot;
 }

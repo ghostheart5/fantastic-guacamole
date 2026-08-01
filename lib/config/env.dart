@@ -94,6 +94,11 @@ abstract final class Env {
         'CHRONOSPARK_ENABLE_LEGACY_ROUTINE_ENTRY_POINTS',
         defaultValue: false,
       );
+  static const bool _enableCompletionEventTrackingDefine =
+      bool.fromEnvironment(
+        'CHRONOSPARK_ENABLE_COMPLETION_EVENT_TRACKING',
+        defaultValue: false,
+      );
   static const String _appLinksAndroidSha256Define = String.fromEnvironment(
     'CHRONOSPARK_ANDROID_SHA256_CERT',
     defaultValue: '',
@@ -167,6 +172,10 @@ abstract final class Env {
   static bool get enableLegacyRoutineEntryPoints => _readBool(
     'CHRONOSPARK_ENABLE_LEGACY_ROUTINE_ENTRY_POINTS',
     _enableLegacyRoutineEntryPointsDefine,
+  );
+  static bool get enableCompletionEventTracking => _readBool(
+    'CHRONOSPARK_ENABLE_COMPLETION_EVENT_TRACKING',
+    _enableCompletionEventTrackingDefine,
   );
   static String get appLinksAndroidSha256 => _readString(
     'CHRONOSPARK_ANDROID_SHA256_CERT',

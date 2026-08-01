@@ -47,4 +47,33 @@ class DefaultAssistantContextBuilder implements AssistantContextBuilder {
       'goalCount': goalCount,
     };
   }
+
+  @override
+  Map<String, dynamic> buildChronosparkModelContext({
+    required String surface,
+    required AssistantIntent intent,
+    required List<String> taskSummaries,
+    required List<String> goalSummaries,
+    required List<String> timelineSummaries,
+    required List<String> memorySummaries,
+    List<String> completionSummaries = const <String>[],
+    List<String> routineSummaries = const <String>[],
+    List<String> scheduleSummaries = const <String>[],
+    required Map<String, dynamic> signals,
+  }) {
+    return <String, dynamic>{
+      'surface': surface,
+      'intent': intent.toJson(),
+      'grounded': <String, dynamic>{
+        'tasks': taskSummaries,
+        'goals': goalSummaries,
+        'timeline': timelineSummaries,
+        'memories': memorySummaries,
+        'completions': completionSummaries,
+        'routines': routineSummaries,
+        'schedule': scheduleSummaries,
+      },
+      'signals': signals,
+    };
+  }
 }
