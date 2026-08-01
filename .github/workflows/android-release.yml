@@ -72,7 +72,7 @@ jobs:
 
       - name: Verify upload key fingerprint
         env:
-          EXPECTED_UPLOAD_SHA1: "D6:1A:68:48:43:6D:EE:19:C9:28:A3:77:CE:41:5F:41:24:53:EE:08"
+          EXPECTED_UPLOAD_SHA1: "4A:FF:5A:02:9D:FB:36:CA:C5:F0:22:63:57:EB:67:E8:73:B7:D7:9D"
         run: |
           ACTUAL_SHA1=$(keytool -list -v -keystore android/app/key.jks -storepass "${{ secrets.ANDROID_STORE_PASSWORD }}" -alias "$(awk -F= '$1=="keyAlias" {print $2}' android/key.properties)" 2>/dev/null | awk -F': ' '/SHA1:/{print $2; exit}')
           if [ -z "$ACTUAL_SHA1" ]; then
