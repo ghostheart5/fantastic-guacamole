@@ -1,0 +1,101 @@
+CHRONOSPARK P1-1 COMPLETION PROPAGATION VERIFICATION REPORT
+Date: 2026-07-31
+Phase: P1-1 Completion-event propagation consistency
+Status: COMPLETED
+
+Scope Verified
+- Completion events propagate through lifecycle fan-out invalidation.
+- Completion events refresh immediately after write-path persistence.
+- Future Vector and Ascension intelligence surfaces consume direct completion-event context.
+- SI Console context path remains contract-valid.
+
+============================================================
+1) IMPLEMENTATION SUMMARY (WAVE TRACE)
+============================================================
+Wave 1
+- Added lifecycle fan-out invalidation for completion events.
+- Files:
+  - lib/state/providers/event_bus_provider.dart
+  - test/release/completion_event_propagation_contract_test.dart
+  - phase0_safe_preflight.ps1
+- Commit:
+  - 5691ad7
+
+Wave 2
+- Hardened async ordering race by invalidating completion events provider after persistence.
+- Files:
+  - lib/state/providers/task_provider.dart
+  - test/release/completion_event_propagation_contract_test.dart
+  - phase0_safe_preflight.ps1
+- Commit:
+  - ef59e1c
+
+Wave 3
+- Wired direct completion-event context into Future/Ascension intelligence chain.
+- Files:
+  - lib/state/providers/intelligence_fusion_provider.dart
+  - lib/state/providers/future_timeline_provider.dart
+  - test/release/p11_future_ascension_completion_signal_contract_test.dart
+  - phase0_safe_preflight.ps1
+- Commit:
+  - 9592f80
+
+============================================================
+2) BEHAVIORAL VALIDATION RESULTS
+============================================================
+Preflight safety
+- Command:
+  - .\phase0_safe_preflight.ps1 -IncludeUntracked
+- Result:
+  - PASS (no local changes detected)
+
+Targeted tests run
+- test/release/completion_event_propagation_contract_test.dart
+- test/release/p11_future_ascension_completion_signal_contract_test.dart
+- test/behavior/si_console_contract_test.dart
+
+Result
+- 7 passed, 0 failed
+
+Analyzer state
+- Command:
+  - flutter analyze
+- Result:
+  - Baseline info-level findings only (13), outside P1-1 touched scope.
+  - No new analyzer errors in P1-1 files.
+
+============================================================
+3) PROPAGATION PATHS CONFIRMED
+============================================================
+Path A: Lifecycle fan-out
+- TaskLifecycleEvent and GoalLifecycleEvent now invalidate completionEventsProvider.
+- Ensures completion context readers refresh during lifecycle mutations.
+
+Path B: Write-path race protection
+- Completion event persistence now immediately invalidates completionEventsProvider.
+- Prevents stale reads when lifecycle emit happens before async persistence finishes.
+
+Path C: Future/Ascension context ingestion
+- intelligenceFusionProvider watches completionEventsProvider.
+- futureTimelineProvider watches completionEventsProvider and integrates completion/deferral counts into near-term forecast messaging.
+
+Path D: SI surface compatibility
+- SI Console contract remains passing under targeted behavior tests.
+
+============================================================
+4) SAFETY CONSTRAINT COMPLIANCE
+============================================================
+Confirmed untouched during P1-1:
+- Auth/session token internals
+- Supabase schema/policies
+- Billing/subscription runtime contracts
+- Startup ordering and release-signing secrets
+
+============================================================
+5) P1-1 EXIT VERDICT
+============================================================
+Verdict: PASS
+
+P1-1 completion-event propagation is now event-fan-out safe, write-path race-safe,
+and directly available to Future/Ascension intelligence context surfaces with
+source-backed contract coverage.
