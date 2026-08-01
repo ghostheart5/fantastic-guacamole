@@ -1,0 +1,54 @@
+CHRONOSPARK P0-1 BEHAVIOR VERIFICATION REPORT
+Date: 2026-07-31
+Scope: Login -> Onboarding -> Creator -> Timeline first-action gate continuity
+Status: PASS
+
+Context
+- P0-1 Step 1-4 completed and committed.
+- Verification run focused on route gating and onboarding/tutorial progression continuity.
+
+Test Execution
+1) Initial targeted run
+- Command: runTests(files=[
+  test/release/first_run_funnel_release_contract_test.dart,
+  test/coverage_expansion/provider_state_transitions_test.dart,
+  test/coverage_expansion/route_action_hub_test.dart
+])
+- Result: 7 passed, 1 failed
+- Failure:
+  - test/coverage_expansion/provider_state_transitions_test.dart
+  - Case: tutorial progress provider supports loading success transitions
+  - Cause: Step 3 intentionally requires onboarding complete before tutorial can start.
+
+2) Alignment fix
+- File changed:
+  - test/coverage_expansion/provider_state_transitions_test.dart
+- Change:
+  - Set onboarding status to complete before calling startTutorial().
+- Intent:
+  - Align test with canonical Step 3 rule: tutorial is secondary assist post-onboarding.
+
+3) Re-run targeted suite
+- Command: runTests(files=[
+  test/release/first_run_funnel_release_contract_test.dart,
+  test/coverage_expansion/provider_state_transitions_test.dart,
+  test/coverage_expansion/route_action_hub_test.dart
+])
+- Result: 8 passed, 0 failed
+
+Validated Behaviors
+- Router first-run funnel contract remains enforced:
+  - Creator gate before full navigation.
+  - Timeline first-action gate before unrestricted surfaces.
+- Startup/onboarding state wiring for first-run progression remains present.
+- Tutorial progression starts only when onboarding status is complete.
+- Route surface constants and action hub destination contract remain stable.
+
+Risk Summary
+- No auth/session/token behavior changed during verification.
+- No Supabase/Firebase/billing/release-signing scope touched.
+- Test adjustment reflects intended product behavior introduced in Step 3.
+
+Conclusion
+- P0-1 behavior verification for core first-run funnel is passing under targeted test coverage.
+- System is ready for transition to P0-2 planning/execution under existing safety protocol.

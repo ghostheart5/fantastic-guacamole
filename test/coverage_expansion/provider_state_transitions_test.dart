@@ -142,6 +142,10 @@ void main() {
           tutorialProgressProvider.notifier,
         );
 
+        container
+            .read(onboardingStatusProvider.notifier)
+            .set(OnboardingStatus.complete);
+
         await notifier.startTutorial();
         expect(container.read(tutorialProgressProvider).value?.started, isTrue);
         expect(analytics.startedCount, 1);
