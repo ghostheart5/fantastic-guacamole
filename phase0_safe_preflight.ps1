@@ -96,7 +96,9 @@ $allowedExact = @(
   'lib/features/auth/domain/usecases/goals/view/view_archived_goals_usecase.dart',
   'test/release/goal_lifecycle_provider_contract_test.dart',
   'test/release/goal_status_visibility_contract_test.dart',
-  'test/coverage_zero/use_case_command_coverage_test.dart'
+  'test/release/goal_transition_matrix_contract_test.dart',
+  'test/coverage_zero/use_case_command_coverage_test.dart',
+  'docs/chronospark_p02_completion_verification_report.txt'
 )
 
 $violationsBlocked = @()

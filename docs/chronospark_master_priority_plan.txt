@@ -8,7 +8,9 @@ EXECUTION STATUS UPDATE
 ============================================================
 - P0-1 completed and verified (Steps 1-4 plus targeted behavior verification).
 - P0-2 kickoff planning completed in docs/chronospark_p02_goal_lifecycle_kickoff_plan.txt.
-- Next implementation wave: P0-2 Wave 1 (fix complete-goal semantics to status transition, not delete).
+- P0-2 completed through Waves 1-5 with lifecycle transition and visibility verification.
+- P0-2 completion report: docs/chronospark_p02_completion_verification_report.txt.
+- Next implementation focus: P1-1 completion-event propagation consistency (Ascension/Future Vector/Smart Planner/SI Console).
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)

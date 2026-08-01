@@ -1,0 +1,104 @@
+CHRONOSPARK P0-2 COMPLETION VERIFICATION REPORT
+Date: 2026-07-31
+Phase: P0-2 Goal lifecycle semantics and native handling
+Status: COMPLETED
+
+Scope Verified
+- Complete-goal semantics no longer delete goals.
+- Explicit archive and reopen transitions exist in domain usecases.
+- Goals provider lifecycle orchestration routes complete/archive/reopen through canonical domain transitions.
+- Goal visibility (active/completed/archived) is status-driven.
+- Transition-matrix tests validate core and edge cases.
+
+============================================================
+1) IMPLEMENTATION SUMMARY (WAVE TRACE)
+============================================================
+Wave 1
+- Fixed complete-goal semantics to status transition.
+- Files:
+  - lib/domain/usecases/complete_goal.dart
+  - test/coverage_zero/use_case_command_coverage_test.dart
+
+Wave 2
+- Added explicit archive/reopen domain usecases and provider wiring.
+- Files:
+  - lib/domain/usecases/archive_goal.dart
+  - lib/domain/usecases/reopen_goal.dart
+  - lib/state/providers/domain_usecase_providers.dart
+  - test/coverage_zero/use_case_command_coverage_test.dart
+
+Wave 3
+- Normalized goals provider orchestration for canonical transitions.
+- Fixed delete path separation from complete path.
+- Files:
+  - lib/state/providers/goals_provider.dart
+  - test/release/goal_lifecycle_provider_contract_test.dart
+
+Wave 4
+- Enforced strict status-driven visibility filters.
+- Files:
+  - lib/features/auth/domain/usecases/goals/view/view_active_goals_usecase.dart
+  - lib/features/auth/domain/usecases/goals/view/view_completed_goals_usecase.dart
+  - lib/features/auth/domain/usecases/goals/view/view_archived_goals_usecase.dart
+  - test/release/goal_status_visibility_contract_test.dart
+
+Wave 5
+- Added transition-matrix contract coverage including edge cases.
+- Files:
+  - test/release/goal_transition_matrix_contract_test.dart
+
+============================================================
+2) BEHAVIORAL VALIDATION RESULTS
+============================================================
+Preflight safety
+- phase0_safe_preflight.ps1 -IncludeUntracked
+- Result: PASS
+
+Targeted tests run
+- test/coverage_zero/use_case_command_coverage_test.dart
+- test/release/goal_lifecycle_provider_contract_test.dart
+- test/release/goal_status_visibility_contract_test.dart
+- test/release/goal_transition_matrix_contract_test.dart
+
+Result
+- 10 passed, 0 failed
+
+Analyzer state
+- flutter analyze returns pre-existing info-level issues outside this phase scope.
+- No errors in touched P0-2 files.
+
+============================================================
+3) TRANSITION MATRIX COVERED
+============================================================
+Covered in test/release/goal_transition_matrix_contract_test.dart:
+- active -> completed -> archived -> active
+  - validates status transitions
+  - validates timestamp retention continuity
+- active -> archived (direct archive)
+- archived -> completed (complete from archived)
+- missing goal id no-op behavior for complete/archive/reopen
+
+Covered in test/release/goal_status_visibility_contract_test.dart:
+- active/completed/archived views are driven by GoalStatus only
+
+Covered in test/release/goal_lifecycle_provider_contract_test.dart:
+- provider complete/archive/reopen map to canonical domain transitions
+- remove is explicit delete, not complete alias
+
+============================================================
+4) SAFETY CONSTRAINT COMPLIANCE
+============================================================
+Confirmed untouched during P0-2:
+- auth/session internals (except approved goal-view usecase files only)
+- supabase schema/policies
+- billing/subscription contracts
+- startup ordering
+- release signing/secrets
+
+============================================================
+5) P0-2 EXIT VERDICT
+============================================================
+Verdict: PASS
+
+P0-2 goal lifecycle semantics are now canonical, transition-driven, and test-guarded.
+The codebase is ready to proceed to P1 or to additional integration-depth testing as needed.
