@@ -15,6 +15,8 @@ export 'package:fantastic_guacamole/state/providers/task_provider.dart';
 const String onboardingCompleteStorageKey = 'onboarding_complete';
 const String onboardingContentVersionStorageKey = 'onboarding_content_version';
 const String onboardingStepStorageKey = 'onboarding_step_index';
+const String onboardingCanonicalStateStorageKey = 'onboarding_state_v1';
+const int onboardingContentVersion = 6;
 const String creatorFirstItemCreatedStorageKey =
     'creator_first_item_created_v1';
 const String timelineFirstActionCompletedStorageKey =
@@ -36,12 +38,43 @@ String onboardingStepStorageKeyForUser(String userId) {
   return '${onboardingStepStorageKey}_$userId';
 }
 
+String onboardingCanonicalStateStorageKeyForUser(String? userId) {
+  if (userId == null || userId.trim().isEmpty) {
+    return onboardingCanonicalStateStorageKey;
+  }
+
+  return '${onboardingCanonicalStateStorageKey}_$userId';
+}
+
 String creatorFirstItemCreatedStorageKeyForUser(String userId) {
   return '${creatorFirstItemCreatedStorageKey}_$userId';
 }
 
 String timelineFirstActionCompletedStorageKeyForUser(String userId) {
   return '${timelineFirstActionCompletedStorageKey}_$userId';
+}
+
+OnboardingStatus resolveOnboardingStatus({
+  required bool isResolved,
+  required bool isComplete,
+}) {
+  if (!isResolved) {
+    return OnboardingStatus.unknown;
+  }
+
+  return isComplete ? OnboardingStatus.complete : OnboardingStatus.incomplete;
+}
+
+Map<String, Object?> buildOnboardingCanonicalStatePayload({
+  required bool complete,
+  required int version,
+  DateTime? updatedAt,
+}) {
+  return <String, Object?>{
+    'complete': complete,
+    'version': version,
+    'updatedAt': (updatedAt ?? DateTime.now()).toIso8601String(),
+  };
 }
 
 final soundEnabledProvider = NotifierProvider<SoundEnabledNotifier, bool>(

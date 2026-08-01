@@ -26,7 +26,6 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     with TickerProviderStateMixin {
-  static const int _onboardingContentVersion = 6;
   final PageController _page = PageController();
   int _current = 0;
 
@@ -162,18 +161,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         timelineFirstActionCompletedStorageKey,
         false,
       );
-      await SharedPrefsService.saveIntWithPrefs(
-        prefs,
-        onboardingContentVersionStorageKey,
-        _onboardingContentVersion,
+      await _writeCanonicalOnboardingState(
+        prefs: prefs,
+        complete: false,
+        userId: null,
       );
       final String? userId = _currentSupabaseUserId();
       if (userId != null) {
-        await SharedPrefsService.saveBoolWithPrefs(
-          prefs,
-          onboardingCompleteStorageKeyForUser(userId),
-          false,
-        );
         await SharedPrefsService.saveBoolWithPrefs(
           prefs,
           creatorFirstItemCreatedStorageKeyForUser(userId),
@@ -184,35 +178,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           timelineFirstActionCompletedStorageKeyForUser(userId),
           false,
         );
-        await SharedPrefsService.saveIntWithPrefs(
-          prefs,
-          onboardingContentVersionStorageKeyForUser(userId),
-          _onboardingContentVersion,
+        await _writeCanonicalOnboardingState(
+          prefs: prefs,
+          complete: false,
+          userId: userId,
         );
         await SharedPrefsService.saveIntWithPrefs(
           prefs,
           onboardingStepStorageKeyForUser(userId),
           0,
         );
-        await SharedPrefsService.saveStringWithPrefs(
-          prefs,
-          'onboarding_state_v1_$userId',
-          jsonEncode(<String, Object?>{
-            'complete': false,
-            'version': _onboardingContentVersion,
-            'updatedAt': DateTime.now().toIso8601String(),
-          }),
-        );
       }
-      await SharedPrefsService.saveStringWithPrefs(
-        prefs,
-        'onboarding_state_v1',
-        jsonEncode(<String, Object?>{
-          'complete': false,
-          'version': _onboardingContentVersion,
-          'updatedAt': DateTime.now().toIso8601String(),
-        }),
-      );
       await SharedPrefsService.saveIntWithPrefs(
         prefs,
         onboardingStepStorageKey,
@@ -277,6 +253,39 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     } on Object {
       return 'Creator';
     }
+  }
+
+  Future<void> _writeCanonicalOnboardingState({
+    required SharedPreferences prefs,
+    required bool complete,
+    required String? userId,
+  }) async {
+    final String completeKey = userId == null
+        ? onboardingCompleteStorageKey
+        : onboardingCompleteStorageKeyForUser(userId);
+    final String versionKey = userId == null
+        ? onboardingContentVersionStorageKey
+        : onboardingContentVersionStorageKeyForUser(userId);
+    final String canonicalKey = onboardingCanonicalStateStorageKeyForUser(
+      userId,
+    );
+
+    await SharedPrefsService.saveBoolWithPrefs(prefs, completeKey, complete);
+    await SharedPrefsService.saveIntWithPrefs(
+      prefs,
+      versionKey,
+      onboardingContentVersion,
+    );
+    await SharedPrefsService.saveStringWithPrefs(
+      prefs,
+      canonicalKey,
+      jsonEncode(
+        buildOnboardingCanonicalStatePayload(
+          complete: complete,
+          version: onboardingContentVersion,
+        ),
+      ),
+    );
   }
 
   void _next() {

@@ -25,18 +25,22 @@ import 'package:fantastic_guacamole/data/storage/storage_migration.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show
         OnboardingStatus,
+    buildOnboardingCanonicalStatePayload,
         creatorFirstItemCreatedProvider,
         creatorFirstItemCreatedStorageKey,
         creatorFirstItemCreatedStorageKeyForUser,
+    onboardingCanonicalStateStorageKeyForUser,
         timelineFirstActionCompletedProvider,
         timelineFirstActionCompletedStorageKey,
         timelineFirstActionCompletedStorageKeyForUser,
+    onboardingContentVersion,
         onboardingCompleteProvider,
         onboardingStatusProvider,
         onboardingCompleteStorageKey,
         onboardingCompleteStorageKeyForUser,
         onboardingContentVersionStorageKey,
-        onboardingContentVersionStorageKeyForUser;
+    onboardingContentVersionStorageKeyForUser,
+    resolveOnboardingStatus;
 import 'package:fantastic_guacamole/state/core/state_bootstrap.dart'
     show stateBootstrapProvider;
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
@@ -60,8 +64,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
-
-const int _onboardingContentVersion = 6;
 
 class AppBootstrapper {
   const AppBootstrapper();
@@ -292,11 +294,10 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         .read(timelineFirstActionCompletedProvider.notifier)
         .set(result.hasCompletedTimelineFirstAction);
 
-    final OnboardingStatus onboardingStatus = result.onboardingResolved
-        ? (result.hasOnboarded
-              ? OnboardingStatus.complete
-              : OnboardingStatus.incomplete)
-        : OnboardingStatus.unknown;
+    final OnboardingStatus onboardingStatus = resolveOnboardingStatus(
+      isResolved: result.onboardingResolved,
+      isComplete: result.hasOnboarded,
+    );
 
     ref.read(onboardingStatusProvider.notifier).set(onboardingStatus);
 
@@ -414,11 +415,10 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         .read(timelineFirstActionCompletedProvider.notifier)
         .set(prefsResult.hasCompletedTimelineFirstAction);
 
-    final OnboardingStatus onboardingStatus = prefsResult.isResolved
-        ? (prefsResult.hasOnboarded
-              ? OnboardingStatus.complete
-              : OnboardingStatus.incomplete)
-        : OnboardingStatus.unknown;
+    final OnboardingStatus onboardingStatus = resolveOnboardingStatus(
+      isResolved: prefsResult.isResolved,
+      isComplete: prefsResult.hasOnboarded,
+    );
 
     ref.read(onboardingStatusProvider.notifier).set(onboardingStatus);
   }
@@ -1189,7 +1189,9 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
         ? onboardingContentVersionStorageKey
         : onboardingContentVersionStorageKeyForUser(userId);
 
-    final String canonicalKey = _onboardingCanonicalStateKeyForUser(userId);
+    final String canonicalKey = onboardingCanonicalStateStorageKeyForUser(
+      userId,
+    );
     final String firstItemKey = userId == null
         ? creatorFirstItemCreatedStorageKey
         : creatorFirstItemCreatedStorageKeyForUser(userId);
@@ -1261,7 +1263,7 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
       );
     }
 
-    final int currentOnboardingVersion = _onboardingContentVersion;
+    const int currentOnboardingVersion = onboardingContentVersion;
 
     if (storedOnboardingVersion < currentOnboardingVersion) {
       final bool replayRequired = _requiresOnboardingReplay(
@@ -1298,11 +1300,12 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
     await SharedPrefsService.saveStringWithPrefs(
       prefs,
       canonicalKey,
-      jsonEncode(<String, Object?>{
-        'complete': hasOnboarded,
-        'version': currentOnboardingVersion,
-        'updatedAt': DateTime.now().toIso8601String(),
-      }),
+      jsonEncode(
+        buildOnboardingCanonicalStatePayload(
+          complete: hasOnboarded,
+          version: currentOnboardingVersion,
+        ),
+      ),
     );
 
     final Object? rawFirstItemCreated =
@@ -1399,16 +1402,6 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
       issue: 'Local preferences initialization failed: $error',
     );
   }
-}
-
-const String _onboardingCanonicalStateKey = 'onboarding_state_v1';
-
-String _onboardingCanonicalStateKeyForUser(String? userId) {
-  if (userId == null || userId.trim().isEmpty) {
-    return _onboardingCanonicalStateKey;
-  }
-
-  return '${_onboardingCanonicalStateKey}_$userId';
 }
 
 const Set<int> _onboardingReplayRequiredVersions = <int>{};
