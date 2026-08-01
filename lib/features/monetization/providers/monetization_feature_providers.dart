@@ -74,6 +74,10 @@ final paywallServiceProvider = Provider<PaywallService>((Ref ref) {
   );
 });
 
+final paywallProvider = FutureProvider<PaywallContent>((Ref ref) async {
+  return ref.watch(paywallServiceProvider).load();
+});
+
 final subscriptionPlansProvider = FutureProvider<List<SubscriptionPlan>>((
   Ref ref,
 ) {
@@ -139,3 +143,31 @@ final purchaseHistoryProvider = FutureProvider<List<AiCreditPurchase>>((
 final premiumAccessProvider = Provider<bool>((Ref ref) {
   return ref.watch(hasPremiumTierAccessProvider);
 });
+
+final paywallPromptProvider =
+    NotifierProvider<PaywallPromptNotifier, PaywallPrompt?>(
+      PaywallPromptNotifier.new,
+    );
+
+class PaywallPromptNotifier extends Notifier<PaywallPrompt?> {
+  @override
+  PaywallPrompt? build() => null;
+
+  void set(PaywallPrompt? value) => state = value;
+}
+
+class PaywallPrompt {
+  const PaywallPrompt({
+    required this.title,
+    required this.message,
+    required this.trigger,
+    this.featureId,
+    this.remainingCredits,
+  });
+
+  final String title;
+  final String message;
+  final String trigger;
+  final String? featureId;
+  final int? remainingCredits;
+}

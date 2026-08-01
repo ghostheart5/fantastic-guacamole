@@ -1,4 +1,5 @@
-import 'package:fantastic_guacamole/features/monetization/providers/monetization_providers.dart';
+import 'package:fantastic_guacamole/features/monetization/domain/monetization_catalog.dart';
+import 'package:fantastic_guacamole/features/monetization/providers/monetization_feature_providers.dart';
 import 'package:fantastic_guacamole/features/monetization/widgets/feature_comparison_table.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,9 +16,9 @@ class PlanComparisonScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (Object error, StackTrace stackTrace) =>
             Center(child: Text(error.toString())),
-        data: (content) => Padding(
-          padding: const EdgeInsets.all(16),
-          child: FeatureComparisonTable(rows: content.comparisonRows),
+        data: (_) => const Padding(
+          padding: EdgeInsets.all(16),
+          child: FeatureComparisonTable(rows: MonetizationCatalog.comparisonRows),
         ),
       ),
     );

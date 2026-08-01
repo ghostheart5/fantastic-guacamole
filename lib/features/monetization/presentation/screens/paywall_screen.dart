@@ -3,7 +3,6 @@ import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/monetization/data/models/subscription_plan.dart';
 import 'package:fantastic_guacamole/features/monetization/data/services/analytics_events.dart';
 import 'package:fantastic_guacamole/features/monetization/providers/monetization_feature_providers.dart';
-import 'package:fantastic_guacamole/features/monetization/providers/monetization_providers.dart';
 import 'package:fantastic_guacamole/features/monetization/presentation/controllers/paywall_controller.dart';
 import 'package:fantastic_guacamole/features/monetization/presentation/widgets/credit_balance_widget.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';

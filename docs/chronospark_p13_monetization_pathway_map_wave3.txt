@@ -1,0 +1,36 @@
+CHRONOSPARK P1-3 MONETIZATION PATHWAY MAP WAVE 3
+Date: 2026-07-31
+Phase: P1-3 Monetization compatibility pathway normalization
+Status: WAVE 3 APPLIED
+
+Scope
+- Reduce remaining legacy-provider imports in non-legacy monetization UI surfaces.
+- Preserve existing runtime behavior while routing through feature-stack providers.
+
+Wave 3 Change
+- Added feature-stack equivalents for paywall content and prompt state:
+  - lib/features/monetization/providers/monetization_feature_providers.dart
+    - paywallProvider
+    - paywallPromptProvider
+- Removed legacy provider import dependency from UI surfaces:
+  - lib/features/monetization/presentation/screens/paywall_screen.dart
+  - lib/features/monetization/presentation/plan_comparison_screen.dart
+
+Contract Coverage
+- Expanded: test/release/p13_monetization_stack_normalization_contract_test.dart
+  - Guards against legacy provider imports in targeted UI files.
+  - Verifies feature provider surface exposes paywallProvider and paywallPromptProvider.
+
+Safety
+- No changes to purchase repository implementation, subscription purchase flow,
+  entitlement computation, or wallet mutation semantics.
+- No auth/session/supabase policy edits.
+
+Validation Plan
+- phase0_safe_preflight.ps1 -IncludeUntracked
+- focused release contracts for P1-3
+- flutter analyze baseline check
+
+Exit Note
+- After Wave 1-3, non-legacy monetization surfaces now use canonical feature-stack provider paths.
+- Legacy stack remains available only for explicit compatibility integration where still required.

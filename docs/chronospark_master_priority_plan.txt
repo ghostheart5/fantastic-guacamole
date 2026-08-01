@@ -22,7 +22,9 @@ EXECUTION STATUS UPDATE
 - P1-3 Wave 1 map/report: docs/chronospark_p13_monetization_pathway_map_wave1.txt.
 - P1-3 Wave 2 applied: guard-level monetization utilities migrated from legacy providers to feature providers.
 - P1-3 Wave 2 map/report: docs/chronospark_p13_monetization_pathway_map_wave2.txt.
-- Next implementation focus: P1-3 Wave 3 targeted legacy import reduction on non-legacy UI surfaces.
+- P1-3 Wave 3 applied: non-legacy paywall UI surfaces moved to feature-stack provider imports.
+- P1-3 Wave 3 map/report: docs/chronospark_p13_monetization_pathway_map_wave3.txt.
+- Next implementation focus: P1-3 verification sweep report and closeout checkpoint.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)

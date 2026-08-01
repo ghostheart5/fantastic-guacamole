@@ -39,5 +39,40 @@ void main() {
       expect(text.contains('Future<CreditConsumeResult> consumeCredits('), isTrue);
       expect(text.contains('aiCreditServiceProvider'), isTrue);
     });
+
+    test('paywall and plan comparison UI surfaces no longer import legacy providers', () {
+      final File paywallFile = File(
+        'lib/features/monetization/presentation/screens/paywall_screen.dart',
+      );
+      final File planComparisonFile = File(
+        'lib/features/monetization/presentation/plan_comparison_screen.dart',
+      );
+      final File featureProvidersFile = File(
+        'lib/features/monetization/providers/monetization_feature_providers.dart',
+      );
+
+      expect(paywallFile.existsSync(), isTrue);
+      expect(planComparisonFile.existsSync(), isTrue);
+      expect(featureProvidersFile.existsSync(), isTrue);
+
+      final String paywallText = SourceTestUtils.readText(paywallFile);
+      final String planComparisonText = SourceTestUtils.readText(
+        planComparisonFile,
+      );
+      final String featureProvidersText = SourceTestUtils.readText(
+        featureProvidersFile,
+      );
+
+      expect(
+        paywallText.contains("import 'package:fantastic_guacamole/features/monetization/providers/monetization_providers.dart';"),
+        isFalse,
+      );
+      expect(
+        planComparisonText.contains("import 'package:fantastic_guacamole/features/monetization/providers/monetization_providers.dart';"),
+        isFalse,
+      );
+      expect(featureProvidersText.contains('final paywallProvider = FutureProvider<PaywallContent>('), isTrue);
+      expect(featureProvidersText.contains('final paywallPromptProvider ='), isTrue);
+    });
   });
 }
