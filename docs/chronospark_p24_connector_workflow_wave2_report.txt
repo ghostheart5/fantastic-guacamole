@@ -1,0 +1,26 @@
+CHRONOSPARK P2-4 CONNECTOR/WORKFLOW CONTRACT CLEANUP WAVE 2 REPORT
+Date: 2026-07-31
+Phase: P2-4 API connector and workflow contract cleanup
+Status: WAVE 2 APPLIED
+
+Objective
+- Reduce hidden connector drift by locking provider-boundary expectations against direct network connector usage.
+
+Wave 2 Change
+- Expanded release contract coverage in:
+  - test/release/p24_connector_workflow_contract_test.dart
+
+Coverage Added
+- Verifies core workflow providers remain free from direct:
+  - http client calls
+  - Dio instantiation
+  - Supabase table connector calls via Supabase.instance.client.from(...)
+- Scope:
+  - creator_provider
+  - task_provider
+  - goals_provider
+  - timeline_provider
+
+Safety
+- No production runtime code changes.
+- No auth/supabase policy/startup-order/billing-key modifications.

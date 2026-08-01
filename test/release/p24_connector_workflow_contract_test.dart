@@ -53,5 +53,29 @@ void main() {
       expect(text.contains('TimelineLifecycleEvent('), isTrue);
       expect(text.contains('.read(eventBusProvider)'), isTrue);
     });
+
+    test('core workflow providers avoid direct network connector calls', () {
+      final List<String> providerPaths = <String>[
+        'lib/state/providers/creator_provider.dart',
+        'lib/state/providers/task_provider.dart',
+        'lib/state/providers/goals_provider.dart',
+        'lib/state/providers/timeline_provider.dart',
+      ];
+
+      for (final String path in providerPaths) {
+        final File file = File(path);
+        expect(file.existsSync(), isTrue);
+
+        final String text = SourceTestUtils.readText(file);
+
+        expect(text.contains('http.'), isFalse, reason: 'Direct HTTP usage found in $path');
+        expect(text.contains('Dio('), isFalse, reason: 'Direct Dio usage found in $path');
+        expect(
+          text.contains('Supabase.instance.client.from('),
+          isFalse,
+          reason: 'Direct Supabase table connector usage found in $path',
+        );
+      }
+    });
   });
 }
