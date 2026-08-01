@@ -18,7 +18,7 @@ void main() {
       expect(text.contains("_ => CreatorSavedKind.task"), isTrue);
     });
 
-    test('routine and note intent currently normalize into habit/task pathways', () {
+    test('routine and note intent remain mapped into existing habit/task persistence pathways', () {
       final File creatorProviderFile = File('lib/state/providers/creator_provider.dart');
       expect(creatorProviderFile.existsSync(), isTrue);
 
@@ -26,7 +26,7 @@ void main() {
 
       expect(text.contains("'routine' => 'habit'"), isTrue);
       expect(text.contains("'routine' || 'habit' => RecurrenceRule.daily"), isTrue);
-      expect(text.contains("if (kind == 'note') {"), isTrue);
+      expect(text.contains('Future<void> _createNoteEntry({'), isTrue);
       expect(text.contains('note.toTaskEntity('), isTrue);
       expect(text.contains(".createTask(entity, actionSource: 'creator');"), isTrue);
     });

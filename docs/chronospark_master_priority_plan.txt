@@ -71,7 +71,11 @@ EXECUTION STATUS UPDATE
 - P4-1 Wave 1 report: docs/chronospark_p41_routine_note_first_class_wave1_report.txt.
 - P4-1 Wave 1 complete: migration-safe surface upgrade validated with release contracts.
 - P4-1 Wave 1 completion report: docs/chronospark_p41_routine_note_first_class_completion_report.txt.
-- Next implementation focus: P4-1 Wave 2 runtime routing split for routine/note handlers.
+- P4-1 Wave 2 applied: creator runtime routing split into routine/note/task handler paths.
+- P4-1 Wave 2 report: docs/chronospark_p42_routine_note_runtime_routing_split_wave2_report.txt.
+- P4-1 Wave 2 complete: routing split validated with release contracts and baseline compatibility updates.
+- P4-1 Wave 2 completion report: docs/chronospark_p42_routine_note_runtime_routing_split_completion_report.txt.
+- Next implementation focus: P4-1 Wave 3 timeline projection semantics for routine/note continuity.
 
 ============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)

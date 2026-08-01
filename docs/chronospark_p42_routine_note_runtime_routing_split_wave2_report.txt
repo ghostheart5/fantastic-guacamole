@@ -1,0 +1,27 @@
+CHRONOSPARK P4-1 WAVE 2 RUNTIME ROUTING SPLIT REPORT
+Date: 2026-07-31
+Phase: P4-1 routine/note first-class implementation
+Status: WAVE 2 APPLIED
+
+Objective
+- Split creator runtime routing by requested entry intent (routine, note, default task-like) while preserving existing persistence behavior.
+
+Implemented Changes
+- lib/state/providers/creator_provider.dart
+  - createEntry now dispatches by requested kind:
+    - routine -> _createRoutineEntry
+    - note -> _createNoteEntry
+    - default -> _createTaskEntry
+  - Added dedicated handlers:
+    - _createRoutineEntry (maps to existing habit-backed task persistence)
+    - _createNoteEntry (keeps NoteEntity -> TaskEntity conversion path)
+    - _createTaskEntry (task-like persistence path)
+- Baseline compatibility update:
+  - test/release/p40_post_p3_routine_note_gap_baseline_contract_test.dart adjusted to track persistence-path invariants after routing split.
+
+Contract Coverage Added
+- test/release/p42_routine_note_runtime_routing_split_contract_test.dart
+
+Safety
+- No auth/session/supabase schema/startup-order/billing changes.
+- No timeline projection semantics changes in this wave.

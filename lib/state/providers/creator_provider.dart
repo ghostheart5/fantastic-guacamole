@@ -40,40 +40,73 @@ class CreatorActions {
       return CreatorSavedKind.goal;
     }
 
-    final int priority = _priorityFor(kind: kind, requested: data.priority);
-
-    final TaskEntity entity;
-    if (kind == 'note') {
-      final NoteEntity note = NoteEntity(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        title: data.title,
-        body: data.description,
-        createdAt: DateTime.now(),
-      );
-      entity = note.toTaskEntity(
-        scheduledFor: data.scheduledFor,
-        recurrenceRule: recurrence,
-      );
-    } else {
-      entity = TaskEntity(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        title: data.title,
-        kind: kind,
-        description: data.description,
-        createdAt: DateTime.now(),
-        priority: priority,
-        difficulty: _difficultyFor(kind),
-        energyRequired: _energyRequiredFor(kind),
-        scheduledFor: data.scheduledFor,
-        recurrenceRule: recurrence,
-      );
+    switch (requestedKind.trim().toLowerCase()) {
+      case 'routine':
+        await _createRoutineEntry(data: data, recurrence: recurrence);
+        break;
+      case 'note':
+        await _createNoteEntry(data: data, recurrence: recurrence);
+        break;
+      default:
+        await _createTaskEntry(data: data, kind: kind, recurrence: recurrence);
+        break;
     }
+
+    await _markFirstItemCreated();
+    return _savedKindFor(requestedKind: requestedKind);
+  }
+
+  Future<void> _createRoutineEntry({
+    required CreatorFormData data,
+    required RecurrenceRule recurrence,
+  }) async {
+    await _createTaskEntry(data: data, kind: 'habit', recurrence: recurrence);
+  }
+
+  Future<void> _createNoteEntry({
+    required CreatorFormData data,
+    required RecurrenceRule recurrence,
+  }) async {
+    final NoteEntity note = NoteEntity(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      title: data.title,
+      body: data.description,
+      createdAt: DateTime.now(),
+    );
+
+    final TaskEntity entity = note.toTaskEntity(
+      scheduledFor: data.scheduledFor,
+      recurrenceRule: recurrence,
+    );
 
     await ref
         .read(taskActionsProvider)
         .createTask(entity, actionSource: 'creator');
-    await _markFirstItemCreated();
-    return _savedKindFor(requestedKind: requestedKind);
+  }
+
+  Future<void> _createTaskEntry({
+    required CreatorFormData data,
+    required String kind,
+    required RecurrenceRule recurrence,
+  }) async {
+    final int priority = _priorityFor(kind: kind, requested: data.priority);
+
+    final TaskEntity entity = TaskEntity(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      title: data.title,
+      kind: kind,
+      description: data.description,
+      createdAt: DateTime.now(),
+      priority: priority,
+      difficulty: _difficultyFor(kind),
+      energyRequired: _energyRequiredFor(kind),
+      scheduledFor: data.scheduledFor,
+      recurrenceRule: recurrence,
+    );
+
+    await ref
+        .read(taskActionsProvider)
+        .createTask(entity, actionSource: 'creator');
   }
 
   CreatorSavedKind _savedKindFor({required String requestedKind}) {
