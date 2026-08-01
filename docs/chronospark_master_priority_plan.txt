@@ -4,6 +4,13 @@ Mode: Audit-only consolidation
 Scope: All docs audit/report files
 
 ============================================================
+EXECUTION STATUS UPDATE
+============================================================
+- P0-1 completed and verified (Steps 1-4 plus targeted behavior verification).
+- P0-2 kickoff planning completed in docs/chronospark_p02_goal_lifecycle_kickoff_plan.txt.
+- Next implementation wave: P0-2 Wave 1 (fix complete-goal semantics to status transition, not delete).
+
+============================================================
 PHASE 0 APPLIED SAFETY ACTIONS (EXECUTED)
 ============================================================
 Execution date: 2026-07-31
