@@ -11,6 +11,16 @@ on:
 jobs:
   build-aab:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_GOOGLE_SERVICES_JSON_BASE64_SECRET: ANDROID_GOOGLE_SERVICES_JSON_BASE64
+      ANDROID_GOOGLE_SERVICES_JSON_SECRET: ANDROID_GOOGLE_SERVICES_JSON
+      CHRONOSPARK_SUPABASE_URL_SECRET: CHRONOSPARK_SUPABASE_URL
+      CHRONOSPARK_SUPABASE_ANON_KEY_SECRET: CHRONOSPARK_SUPABASE_ANON_KEY
+      CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT_SECRET: CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT
+      CHRONOSPARK_AI_PROXY_ENDPOINT_SECRET: CHRONOSPARK_AI_PROXY_ENDPOINT
+      CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT_SECRET: CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT
+      CHRONOSPARK_ANDROID_SHA256_CERT_SECRET: CHRONOSPARK_ANDROID_SHA256_CERT
+      CHRONOSPARK_IOS_TEAM_ID_SECRET: CHRONOSPARK_IOS_TEAM_ID
 
     steps:
       - uses: actions/checkout@v5
@@ -77,8 +87,8 @@ jobs:
 
       - name: Configure optional Firebase Android file
         env:
-          GOOGLE_SERVICES_JSON_B64: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON_BASE64 }}
-          GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets[env.ANDROID_GOOGLE_SERVICES_JSON_BASE64_SECRET] }}
+          GOOGLE_SERVICES_JSON: ${{ secrets[env.ANDROID_GOOGLE_SERVICES_JSON_SECRET] }}
         run: |
           if [ -n "$GOOGLE_SERVICES_JSON_B64" ]; then
             echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > android/app/google-services.json
@@ -93,13 +103,13 @@ jobs:
 
       - name: Validate production configuration
         env:
-          SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
-          RECEIPT_ENDPOINT: ${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
-          AI_ENDPOINT: ${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
-          DELETE_ENDPOINT: ${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
-          ANDROID_SHA256: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
-          IOS_TEAM_ID: ${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
+          SUPABASE_URL: ${{ secrets[env.CHRONOSPARK_SUPABASE_URL_SECRET] }}
+          SUPABASE_ANON_KEY: ${{ secrets[env.CHRONOSPARK_SUPABASE_ANON_KEY_SECRET] }}
+          RECEIPT_ENDPOINT: ${{ secrets[env.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT_SECRET] }}
+          AI_ENDPOINT: ${{ secrets[env.CHRONOSPARK_AI_PROXY_ENDPOINT_SECRET] }}
+          DELETE_ENDPOINT: ${{ secrets[env.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT_SECRET] }}
+          ANDROID_SHA256: ${{ secrets[env.CHRONOSPARK_ANDROID_SHA256_CERT_SECRET] }}
+          IOS_TEAM_ID: ${{ secrets[env.CHRONOSPARK_IOS_TEAM_ID_SECRET] }}
         run: |
           [ -n "$SUPABASE_URL" ] || { echo "::error::CHRONOSPARK_SUPABASE_URL is required for release."; exit 1; }
           [ -n "$SUPABASE_ANON_KEY" ] || { echo "::error::CHRONOSPARK_SUPABASE_ANON_KEY is required for release."; exit 1; }
@@ -114,18 +124,18 @@ jobs:
         run: >-
           flutter build appbundle --release
           --dart-define=CHRONOSPARK_APP_FLAVOR=prod
-          --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=${{ env.PROD_READINESS }}
+          --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true
           --dart-define=CHRONOSPARK_ENABLE_MOCK_LOGIN=false
           --dart-define=CHRONOSPARK_ENABLE_MOCK_MODE=false
           --dart-define=CHRONOSPARK_PAYWALL_DISABLED=false
           --dart-define=CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS=false
-          --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }}
-          --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
-          --dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}
-          --dart-define=CHRONOSPARK_AI_PROXY_ENDPOINT=${{ secrets.CHRONOSPARK_AI_PROXY_ENDPOINT }}
-          --dart-define=CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=${{ secrets.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT }}
-          --dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
-          --dart-define=CHRONOSPARK_IOS_TEAM_ID=${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
+          --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets[env.CHRONOSPARK_SUPABASE_URL_SECRET] }}
+          --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets[env.CHRONOSPARK_SUPABASE_ANON_KEY_SECRET] }}
+          --dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=${{ secrets[env.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT_SECRET] }}
+          --dart-define=CHRONOSPARK_AI_PROXY_ENDPOINT=${{ secrets[env.CHRONOSPARK_AI_PROXY_ENDPOINT_SECRET] }}
+          --dart-define=CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=${{ secrets[env.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT_SECRET] }}
+          --dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=${{ secrets[env.CHRONOSPARK_ANDROID_SHA256_CERT_SECRET] }}
+          --dart-define=CHRONOSPARK_IOS_TEAM_ID=${{ secrets[env.CHRONOSPARK_IOS_TEAM_ID_SECRET] }}
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4

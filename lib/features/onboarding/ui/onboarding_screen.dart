@@ -29,27 +29,56 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   final PageController _page = PageController();
   int _current = 0;
 
-  static const _totalPages = 1; // setup gate only
+  static const List<_Slide> _slides = <_Slide>[
+    _Slide(
+      icon: Icons.north_east_rounded,
+      iconColor: AppColors.neonCyan,
+      tag: 'NEXUS',
+      title: 'Scan the signal',
+      subtitle: 'See the current day at a glance',
+      body:
+          'Start in Home to read energy, clarity, and momentum before you decide what to build next.',
+      statusLine: 'HOME OVERVIEW',
+    ),
+    _Slide(
+      icon: Icons.auto_awesome_rounded,
+      iconColor: AppColors.neonViolet,
+      tag: 'SMART PLANNER',
+      title: 'Get guidance fast',
+      subtitle: 'Ask for a practical next move',
+      body:
+          'Use Smart Planner when you want direction, a priority call, or a fast recovery path.',
+      statusLine: 'GUIDANCE MODE',
+    ),
+    _Slide(
+      icon: Icons.event_note_rounded,
+      iconColor: AppColors.memoryAmber,
+      tag: 'CREATOR + TIMELINE',
+      title: 'Create, then review',
+      subtitle: 'Build one item and see it on Timeline',
+      body:
+          'Creator is where you add tasks, routines, goals, and notes. Timeline is where you confirm what is scheduled and done.',
+      statusLine: 'FIRST ACTION LOOP',
+    ),
+  ];
 
-  static const List<_Slide> _slides = <_Slide>[];
+  static int get _totalPages => _slides.length + 1;
 
-    static const String _eventOnboardingStartedLegacy = 'onboarding_started';
-    static const String _eventOnboardingStartedCanonical =
-      'first_setup_started';
-    static const String _eventOnboardingSkippedLegacy = 'onboarding_skipped';
-    static const String _eventOnboardingSkippedCanonical =
-      'first_setup_skipped';
-    static const String _eventOnboardingStepAdvancedLegacy =
+  static const String _eventOnboardingStartedLegacy = 'onboarding_started';
+  static const String _eventOnboardingStartedCanonical = 'first_setup_started';
+  static const String _eventOnboardingSkippedLegacy = 'onboarding_skipped';
+  static const String _eventOnboardingSkippedCanonical = 'first_setup_skipped';
+  static const String _eventOnboardingStepAdvancedLegacy =
       'onboarding_step_advanced';
-    static const String _eventOnboardingStepAdvancedCanonical =
+  static const String _eventOnboardingStepAdvancedCanonical =
       'first_setup_step_advanced';
-    static const String _eventMissionActivationStartedLegacy =
+  static const String _eventMissionActivationStartedLegacy =
       'mission_zero_activation_started';
-    static const String _eventMissionActivationStartedCanonical =
+  static const String _eventMissionActivationStartedCanonical =
       'first_setup_activation_started';
-    static const String _eventMissionActivationStartFailedLegacy =
+  static const String _eventMissionActivationStartFailedLegacy =
       'mission_zero_activation_start_failed';
-    static const String _eventMissionActivationStartFailedCanonical =
+  static const String _eventMissionActivationStartFailedCanonical =
       'first_setup_activation_start_failed';
 
   @override
@@ -395,12 +424,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                   child: landscape
                       ? Row(
                           children: [
-                            Expanded(child: _PhaseIndicator(current: _current)),
+                            Expanded(
+                              child: _PhaseIndicator(
+                                current: _current,
+                                total: _totalPages,
+                              ),
+                            ),
                             const SizedBox(width: 18),
                             SizedBox(
                               width: 220,
                               child: _GradientButton(
-                                label: 'Continue',
+                                label: _current < _totalPages - 1
+                                    ? 'Continue'
+                                    : 'Start Setup',
                                 onTap: _next,
                               ),
                             ),
@@ -435,11 +471,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       : Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            _PhaseIndicator(current: _current),
+                            _PhaseIndicator(
+                              current: _current,
+                              total: _totalPages,
+                            ),
                             const SizedBox(height: 20),
 
                             // Primary action button
-                            _GradientButton(label: 'Continue', onTap: _next),
+                            _GradientButton(
+                              label: _current < _totalPages - 1
+                                  ? 'Continue'
+                                  : 'Start Setup',
+                              onTap: _next,
+                            ),
                             const SizedBox(height: 14),
 
                             // Skip link
@@ -1237,13 +1281,19 @@ class _GradientButton extends StatelessWidget {
 }
 
 class _PhaseIndicator extends StatelessWidget {
-  const _PhaseIndicator({required this.current});
+  const _PhaseIndicator({required this.current, required this.total});
 
   final int current;
+  final int total;
 
   @override
   Widget build(BuildContext context) {
-    const List<String> labels = <String>['GET STARTED'];
+    final List<String> labels = <String>[
+      'HOME',
+      'PLANNER',
+      'CREATOR',
+      'START',
+    ].take(total).toList(growable: false);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -1261,7 +1311,7 @@ class _PhaseIndicator extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Text(
-                  '01',
+                  (i + 1).toString().padLeft(2, '0'),
                   style: TextStyle(
                     color: active
                         ? AppColors.neonCyan

@@ -1,0 +1,413 @@
+CHRONOSPARK NAMING AND TERMINOLOGY CONSISTENCY AUDIT
+Date: 2026-07-31
+Mode: AUDIT ONLY (no runtime code changes)
+Scope inspected: lib/, assets/, docs/
+
+================================================================================
+SUMMARY
+================================================================================
+Goal alignment target:
+- App name: ChronoSpark: Smart Planner
+- Core surfaces: Creator, Timeline, Smart Planner, Future Vector, Ascension,
+  SI Console, Profile, Settings, Subscriptions
+
+Overall naming consistency score: 74 / 100
+
+Why 74:
+- Strong consistency for Creator, Timeline, SI Console, Profile, Settings.
+- Medium drift from required naming direction in active language:
+  Smart Coach vs Smart Planner, Progression vs Ascension, Home vs Nexus.
+- Legacy/militarized terms still present in active code/docs/data:
+  Mission Zero, Activation, Command, Tactical, Protocol.
+
+================================================================================
+1) TERM-BY-TERM FINDINGS
+================================================================================
+
+Term: ChronoSpark / ChronoSpark: Smart Planner
+- Where it appears:
+  - docs and legal assets widely use ChronoSpark branding.
+  - Example: assets/legal/privacy_policy.txt, assets/legal/terms_of_service.txt.
+- Visible user-facing text or code-only:
+  - User-facing + code identifiers.
+- Current meaning:
+  - Product brand.
+- Intended meaning:
+  - Product brand with expanded app title "ChronoSpark: Smart Planner".
+- Confusion risk:
+  - Low.
+- Recommended final name:
+  - Keep "ChronoSpark" and standardize title usage to
+    "ChronoSpark: Smart Planner" in product-facing contexts.
+
+Term: Creator / Create
+- Where it appears:
+  - Active UI route/screen references in lib/features/creator/* and
+    lib/app/navigation_shell.dart.
+  - Assets tutorial references include "Open Task Creator".
+- Visible user-facing text or code-only:
+  - Both.
+- Current meaning:
+  - Entry surface for creating user items.
+- Intended meaning:
+  - Creator = create tasks, routines, goals, notes.
+- Confusion risk:
+  - Low.
+- Recommended final name:
+  - Keep "Creator" and "Create".
+
+Term: Goals / Tasks / Routines / Notes
+- Where it appears:
+  - Active domain and UI throughout lib/state/providers/* and creator/timeline.
+  - assets/data/creator_seed.json includes goals/routines/tasks samples.
+- Visible user-facing text or code-only:
+  - Both.
+- Current meaning:
+  - Core planning entities.
+- Intended meaning:
+  - Same.
+- Confusion risk:
+  - Low.
+- Recommended final name:
+  - Keep all four terms exactly.
+
+Term: Timeline
+- Where it appears:
+  - Active UI: lib/features/timeline/ui/timeline_screen.dart
+  - Navigation: lib/app/navigation_shell.dart
+- Visible user-facing text or code-only:
+  - Both.
+- Current meaning:
+  - Event/activity/time-based execution and status view.
+- Intended meaning:
+  - Scheduled/planned items and completion status.
+- Confusion risk:
+  - Low.
+- Recommended final name:
+  - Keep "Timeline".
+
+Term: Nexus vs Home
+- Where it appears:
+  - lib/app/navigation_shell.dart shows "Nexus" with subtitle "Main home view".
+  - Route naming includes home route concepts in multiple places.
+- Visible user-facing text or code-only:
+  - Both.
+- Current meaning:
+  - Home dashboard / central surface.
+- Intended meaning:
+  - Home = plain functional label; Nexus can remain branded alias.
+- Confusion risk:
+  - Medium.
+- Recommended final name:
+  - Use "Home" as primary label, optionally "Home (Nexus)" during transition.
+
+Term: Smart Coach vs Smart Planner
+- Where it appears:
+  - Active screen file naming and imports: lib/features/home/ui/smart_coach_screen.dart
+  - Navigation logic references AppView.smartCoach.
+- Visible user-facing text or code-only:
+  - Both.
+- Current meaning:
+  - AI guidance/coaching/planning surface.
+- Intended meaning:
+  - Smart Planner = AI guidance.
+- Confusion risk:
+  - High.
+- Recommended final name:
+  - Rename user-facing label to "Smart Planner".
+  - Keep internal compatibility alias only where migration needed.
+
+Term: SI Console
+- Where it appears:
+  - Active screen: lib/features/si_console/ui/si_console_screen.dart
+  - Numerous docs and audits use SI Console as advanced intelligence surface.
+- Visible user-facing text or code-only:
+  - Both.
+- Current meaning:
+  - Advanced whole-app intelligence and diagnostics.
+- Intended meaning:
+  - Same.
+- Confusion risk:
+  - Low.
+- Recommended final name:
+  - Keep "SI Console".
+
+Term: Ascension vs Progression
+- Where it appears:
+  - Active feature paths use progression naming:
+    lib/features/progression/*, AppView.progression.
+  - Docs frequently map Ascension to progression/momentum stack.
+- Visible user-facing text or code-only:
+  - Both.
+- Current meaning:
+  - Level/xp/streak/progress surface.
+- Intended meaning:
+  - Ascension = progress/momentum.
+- Confusion risk:
+  - High.
+- Recommended final name:
+  - Use "Ascension" for user-facing name.
+  - Keep "progression" as technical module term only if needed.
+
+Term: Future Vector vs Forecast / Trajectory Engine
+- Where it appears:
+  - Active feature naming:
+    lib/features/trajectory_engine/ui/trajectory_engine_screen.dart
+  - Docs mention Future Vector but also forecast/trajectory language.
+- Visible user-facing text or code-only:
+  - Both.
+- Current meaning:
+  - Predictive outlook and forward planning model.
+- Intended meaning:
+  - Future Vector = forecasting surface.
+- Confusion risk:
+  - Medium-High.
+- Recommended final name:
+  - Use "Future Vector" as primary UX label.
+  - Keep "trajectory" internal for implementation.
+
+Term: Profile
+- Where it appears:
+  - Active screen: lib/features/profile/ui/profile_screen.dart
+  - Navigation entry in lib/app/navigation_shell.dart.
+- Visible user-facing text or code-only:
+  - Both.
+- Current meaning:
+  - Account identity and personal data surface.
+- Intended meaning:
+  - Profile = account.
+- Confusion risk:
+  - Low.
+- Recommended final name:
+  - Keep "Profile".
+
+Term: Settings
+- Where it appears:
+  - Active screen: lib/features/settings/ui/settings_screen.dart
+  - Navigation and legal references.
+- Visible user-facing text or code-only:
+  - Both.
+- Current meaning:
+  - Preferences and controls.
+- Intended meaning:
+  - Same.
+- Confusion risk:
+  - Low.
+- Recommended final name:
+  - Keep "Settings".
+
+Term: Subscriptions
+- Where it appears:
+  - Docs/legal references and monetization audits.
+  - Example: assets/legal/terms_of_service.html and docs integration audits.
+- Visible user-facing text or code-only:
+  - Mostly user-facing docs + code/docs references.
+- Current meaning:
+  - Premium/payment entitlement layer.
+- Intended meaning:
+  - Same.
+- Confusion risk:
+  - Low.
+- Recommended final name:
+  - Keep "Subscriptions".
+
+Term: Mission Zero
+- Where it appears:
+  - Active onboarding analytics constants in
+    lib/features/onboarding/ui/onboarding_screen.dart
+    (mission_zero_activation_* legacy event keys).
+  - Also appears in docs/history context.
+- Visible user-facing text or code-only:
+  - Mostly code-only today; still discoverable in audits/logging context.
+- Current meaning:
+  - Legacy first-setup metaphor.
+- Intended meaning:
+  - Onboarding/setup flow.
+- Confusion risk:
+  - High.
+- Recommended final name:
+  - Remove from product vocabulary; replace with setup/onboarding terminology.
+
+Term: Activation
+- Where it appears:
+  - Active code in navigation/onboarding flow:
+    _requiredActivationView, _showActivationLockNotice, activation event names.
+- Visible user-facing text or code-only:
+  - Mostly code-only; some user-facing lock notice semantics.
+- Current meaning:
+  - First-setup gating state.
+- Intended meaning:
+  - Onboarding/setup completion state.
+- Confusion risk:
+  - High.
+- Recommended final name:
+  - Replace user-facing wording with "Setup" / "Onboarding".
+
+Term: Protocol
+- Where it appears:
+  - Present in docs/legacy terminology contexts.
+- Visible user-facing text or code-only:
+  - Mostly docs and historical naming.
+- Current meaning:
+  - Rigid process framing.
+- Intended meaning:
+  - Guided setup/process.
+- Confusion risk:
+  - Medium.
+- Recommended final name:
+  - Remove from user-facing product language.
+
+Term: Command
+- Where it appears:
+  - SI/voice and provider naming (for example command providers/models).
+  - Docs reference command parsing and execution surfaces.
+- Visible user-facing text or code-only:
+  - Mostly code/docs; some user-facing risk in console phrasing.
+- Current meaning:
+  - User request/intent/action instruction.
+- Intended meaning:
+  - Action/request/input.
+- Confusion risk:
+  - Medium-High.
+- Recommended final name:
+  - Use "Action" or "Request" in user-facing copy.
+
+Term: Tactical
+- Where it appears:
+  - assets/data/temporal_seed.json includes "Tactical Routine Update".
+- Visible user-facing text or code-only:
+  - Potentially user-facing seeded content.
+- Current meaning:
+  - Militarized tone for routine update.
+- Intended meaning:
+  - Neutral planning update language.
+- Confusion risk:
+  - High.
+- Recommended final name:
+  - Replace with "Routine Update" or "Plan Update".
+
+Term: Planner / Console / Progress / Forecast (generic variants)
+- Where it appears:
+  - Broadly in docs and internal descriptions.
+- Visible user-facing text or code-only:
+  - Both.
+- Current meaning:
+  - Functional descriptors.
+- Intended meaning:
+  - Should map to canonical names (Smart Planner, SI Console, Ascension,
+    Future Vector) to avoid drift.
+- Confusion risk:
+  - Medium.
+- Recommended final name:
+  - Keep generic words only in explanatory copy, not as primary feature labels.
+
+================================================================================
+2) TERMS TO KEEP
+================================================================================
+- ChronoSpark: Smart Planner
+- Creator
+- Create
+- Goals
+- Tasks
+- Routines
+- Notes
+- Timeline
+- Smart Planner
+- SI Console
+- Future Vector
+- Ascension
+- Profile
+- Settings
+- Subscriptions
+
+================================================================================
+3) TERMS TO RENAME
+================================================================================
+- Smart Coach -> Smart Planner
+- Progression -> Ascension (user-facing)
+- Trajectory Engine / Future Forecast -> Future Vector (user-facing)
+- Nexus -> Home (or Home (Nexus) transitional label)
+- Command (user-facing) -> Action or Request
+- Activation (user-facing) -> Setup or Onboarding
+
+================================================================================
+4) TERMS TO REMOVE
+================================================================================
+- Mission Zero
+- Tactical
+- Protocol
+- Interrogate
+- Validation (as user-facing UX word outside technical/legal context)
+- Execution proof
+
+================================================================================
+5) FINAL RECOMMENDED APP VOCABULARY
+================================================================================
+App name:
+- ChronoSpark: Smart Planner
+
+Core surfaces:
+- Home
+- Creator
+- Timeline
+- Smart Planner
+- Future Vector
+- Ascension
+- SI Console
+- Profile
+- Settings
+- Subscriptions
+
+Entity vocabulary:
+- Tasks
+- Goals
+- Routines
+- Notes
+
+Action vocabulary:
+- Create
+- Plan
+- Schedule
+- Review
+- Complete
+- Forecast
+- Progress
+
+Disallowed UX language:
+- Mission Zero
+- Tactical
+- Activation
+- Protocol
+- Command
+- Interrogate
+- Execution proof
+
+================================================================================
+6) HIGHEST-RISK CONFUSING TERMS
+================================================================================
+1. Smart Coach vs Smart Planner
+- Risk: Users may not know if these are separate AI products or the same surface.
+
+2. Progression vs Ascension
+- Risk: Two names for one momentum/progress concept split identity and weaken UX coherence.
+
+3. Future Vector vs Trajectory/Forecast naming mix
+- Risk: Predictive features appear fragmented rather than one clear destination.
+
+4. Nexus vs Home
+- Risk: Home navigation expectations clash with branded naming when not explicitly mapped.
+
+5. Mission Zero / Activation residue
+- Risk: Legacy setup metaphors feel like a different product language and may confuse onboarding expectations.
+
+6. Tactical / Command phrasing
+- Risk: Tone drifts from planner product to militarized/console semantics; can reduce clarity and trust.
+
+================================================================================
+NOTES ON CLASSIFICATION
+================================================================================
+- "Visible user-facing" means labels/copy likely seen in UI, seeded tutorial text, legal pages,
+  or generated content.
+- "Code-only" means internal identifiers, event names, analytics keys, and implementation terms.
+- This audit intentionally includes docs and assets because they influence team language and
+  future copy propagation.
