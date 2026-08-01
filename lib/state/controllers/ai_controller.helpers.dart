@@ -2,6 +2,102 @@ part of 'ai_controller.dart';
 
 int safeInputLength(String? input) => input?.length ?? 0;
 
+List<String> summarizeTimelineTitles(List<TimelineEventEntity> events) {
+  return events
+      .take(3)
+      .map((event) => event.title.trim())
+      .where((text) => text.isNotEmpty)
+      .toList(growable: false);
+}
+
+List<String> summarizeCompletionEvents(
+  List<CompletionEventEntity> completionEvents,
+) {
+  return completionEvents
+      .take(3)
+      .map(
+        (CompletionEventEntity event) =>
+            '${event.eventType.name} @ ${event.eventAt.toIso8601String()}',
+      )
+      .toList(growable: false);
+}
+
+List<String> summarizeRoutineNames(List<RoutineEntity> routines) {
+  return routines
+      .take(3)
+      .map((RoutineEntity routine) => routine.name.trim())
+      .where((String name) => name.isNotEmpty)
+      .toList(growable: false);
+}
+
+List<String> summarizeScheduledTaskTitles(List<Task> tasks) {
+  return tasks
+      .take(3)
+      .map((Task task) => task.title.trim())
+      .where((String title) => title.isNotEmpty)
+      .toList(growable: false);
+}
+
+Map<String, dynamic> buildSIConsoleChronosparkSignals({
+  required String profileName,
+  required int profileLevel,
+  required int profileXp,
+  required int profileStreak,
+  required int progressionLevel,
+  required int progressionXp,
+  required int progressionStreak,
+  required double siEnergy,
+  required double siFatigue,
+  required int siCompletedToday,
+  required int trajectoryPressure,
+  required double trajectoryMomentum,
+  required int trajectoryDivergence,
+  required String? trajectoryPrediction,
+  required List<CompletionEventEntity> completionEvents,
+  required List<Task> tasks,
+  required List<Task> scheduledTasks,
+  required List<RoutineEntity> routines,
+  required List<RoutineEntity> activeRoutines,
+}) {
+  return <String, dynamic>{
+    'profile': <String, dynamic>{
+      'name': profileName,
+      'level': profileLevel,
+      'xp': profileXp,
+      'streak': profileStreak,
+    },
+    'progression': <String, dynamic>{
+      'level': progressionLevel,
+      'xp': progressionXp,
+      'streak': progressionStreak,
+    },
+    'si': <String, dynamic>{
+      'energy': siEnergy,
+      'fatigue': siFatigue,
+      'completedToday': siCompletedToday,
+    },
+    'trajectory': <String, dynamic>{
+      'pressure': trajectoryPressure,
+      'momentum': trajectoryMomentum,
+      'divergence': trajectoryDivergence,
+      'prediction': trajectoryPrediction,
+    },
+    'completion': <String, dynamic>{
+      'count': completionEvents.length,
+      'recentCount': completionEvents.take(3).length,
+    },
+    'schedule': <String, dynamic>{
+      'totalTasks': tasks.length,
+      'scheduledTasks': scheduledTasks.length,
+      'density': tasks.isEmpty ? 0.0 : scheduledTasks.length / tasks.length,
+    },
+    'routines': <String, dynamic>{
+      'count': routines.length,
+      'activeCount': activeRoutines.length,
+    },
+  };
+}
+
 int _aiCreditCost({
   required String? input,
   required AIPersonality personality,

@@ -96,6 +96,8 @@ $allowedExact = @(
   'lib/state/providers/intelligence_fusion_provider.dart',
   'lib/state/providers/future_timeline_provider.dart',
   'lib/state/controllers/coach_query_controller.dart',
+  'lib/state/controllers/ai_controller.dart',
+  'lib/state/controllers/ai_controller.helpers.dart',
   'lib/features/auth/domain/usecases/goals/view/view_active_goals_usecase.dart',
   'lib/features/auth/domain/usecases/goals/view/view_completed_goals_usecase.dart',
   'lib/features/auth/domain/usecases/goals/view/view_archived_goals_usecase.dart',
