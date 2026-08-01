@@ -37,10 +37,6 @@ final _appRouterRefreshListenableProvider =
 class _AppRouterRefreshListenable extends ChangeNotifier {
   _AppRouterRefreshListenable(this._ref) {
     _ref.listen<bool>(authenticatedGuardProvider, (_, _) => notifyListeners());
-    _ref.listen<bool>(
-      onboardingCompleteGuardProvider,
-      (_, _) => notifyListeners(),
-    );
     _ref.listen<OnboardingStatus>(
       onboardingStatusGuardProvider,
       (_, _) => notifyListeners(),
@@ -64,7 +60,6 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
   final Ref _ref;
 
   bool get isAuthenticated => _ref.read(authenticatedGuardProvider);
-  bool get onboardingComplete => _ref.read(onboardingCompleteGuardProvider);
   OnboardingStatus get onboardingStatus =>
       _ref.read(onboardingStatusGuardProvider);
   bool get hasValidProfile => _ref.read(profileCompleteGuardProvider);

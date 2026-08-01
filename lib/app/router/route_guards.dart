@@ -5,12 +5,12 @@ import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     show intelligenceStateProvider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final onboardingCompleteGuardProvider = Provider<bool>(
-  (ref) => ref.watch(onboardingCompleteProvider),
-);
-
 final onboardingStatusGuardProvider = Provider<OnboardingStatus>((ref) {
   return ref.watch(onboardingStatusProvider);
+});
+
+final onboardingCompleteGuardProvider = Provider<bool>((ref) {
+  return ref.watch(onboardingStatusGuardProvider) == OnboardingStatus.complete;
 });
 
 final onboardingResolvedGuardProvider = Provider<bool>((ref) {

@@ -189,7 +189,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           return;
         }
 
-        ref.read(appFlowProvider.notifier).show(widget.initialView);
+        final AppView next = _enforceActivationView(
+          widget.initialView,
+          announceIfLocked: false,
+        );
+        ref.read(appFlowProvider.notifier).show(next);
       });
     }
   }
@@ -314,6 +318,27 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   }
 
   AppView? _requiredActivationView() {
+    final OnboardingStatus onboardingStatus = ref.read(onboardingStatusProvider);
+    if (onboardingStatus == OnboardingStatus.unknown) {
+      return AppView.nexus;
+    }
+
+    if (onboardingStatus == OnboardingStatus.incomplete) {
+      return AppView.creator;
+    }
+
+    final bool hasCreatedFirstItem = ref.read(creatorFirstItemCreatedProvider);
+    if (!hasCreatedFirstItem) {
+      return AppView.creator;
+    }
+
+    final bool hasCompletedTimelineFirstAction = ref.read(
+      timelineFirstActionCompletedProvider,
+    );
+    if (!hasCompletedTimelineFirstAction) {
+      return AppView.timeline;
+    }
+
     return null;
   }
 
