@@ -7,6 +7,7 @@ class SIConsoleCommands {
     '/goals',
     '/milestones',
     '/values',
+    '/identity',
     '/trajectory',
     '/momentum',
     '/timelinefuture',

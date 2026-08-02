@@ -298,6 +298,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '/goals — goal alignment, drift, and strategic priority\n'
                 '/milestones — checkpoint health, risk, and next target\n'
                 '/values — values alignment and neglected value signals\n\n'
+                '/identity — current-vs-future identity alignment and direction\n\n'
                 'FUTURE\n'
                 '/trajectory — current direction, pressure, and likely outcome\n'
                 '/momentum — momentum score, trend, recovery, and forecast\n'
