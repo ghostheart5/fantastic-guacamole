@@ -37,7 +37,7 @@ class TrajectoryEngineScreen extends ConsumerWidget {
         title: const Text('Future Forecast'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         children: <Widget>[
           _Panel(
             title: 'Outlook',
@@ -45,47 +45,19 @@ class TrajectoryEngineScreen extends ConsumerWidget {
               trajectory.predictionOutcome ?? 'Your current path looks stable.',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           _MetricGrid(
             momentumPercent: momentumPercent,
             pressureIndex: trajectory.pressureIndex,
             divergence: trajectory.behaviorDivergence,
             completedTasks: trajectory.completedTasks,
           ),
-          const SizedBox(height: 12),
-
-          _Panel(
-            title: 'What this means',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const <Widget>[
-                Text(
-                  'Your momentum is active.',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Your recent execution supports this path. Keep reinforcing positive habits.',
-                  style: TextStyle(
-                    color: Color(0xFFD8E2FF),
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           _Panel(
             title: 'Momentum',
@@ -96,20 +68,20 @@ class TrajectoryEngineScreen extends ConsumerWidget {
                   momentum.trend,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 22,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   momentum.forecast,
                   style: const TextStyle(
                     color: Color(0xFFD8E2FF),
-                    fontSize: 14,
-                    height: 1.4,
+                    fontSize: 12,
+                    height: 1.35,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
                   'Momentum ${momentum.score}% | Energy ${momentum.energyPercent}% | Pressure ${momentum.pressurePercent}%',
                   style: const TextStyle(
@@ -131,44 +103,65 @@ class TrajectoryEngineScreen extends ConsumerWidget {
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+
+          _Panel(
+            title: 'Forecast Guidance',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Your momentum is active.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Your recent execution supports this path. Keep reinforcing positive habits.',
+                  style: TextStyle(
+                    color: Color(0xFFD8E2FF),
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  trajectory.predictionOutcome ??
+                      'Your current path looks stable.',
+                  style: const TextStyle(
+                    color: Color(0xFFB8C7FF),
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  trajectory.alert.contains('risk')
+                      ? 'Some risk signals are active. Focus on one clear next step today.'
+                      : 'Your current pace supports a positive outcome. Keep your next action small and consistent.',
+                  style: const TextStyle(
+                    color: Color(0xFFB8C7FF),
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
 
           _TrajectorySimulationCard(simulations: simulations),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           _FutureRoadmapCard(
             timeline: futureTimeline,
             drift: identityDrift,
             decision: futureDecision,
           ),
-          const SizedBox(height: 12),
-          _Panel(
-            title: 'Success outlook',
-            child: Text(
-              trajectory.alert.contains('risk')
-                  ? 'Some risk signals are active. Focus on one clear next step today.'
-                  : 'Your current pace supports a positive outcome. Keep your next action small and consistent.',
-              style: const TextStyle(
-                color: Color(0xFFB8C7FF),
-                fontSize: 14,
-                height: 1.35,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          _Panel(
-            title: 'Recommended next steps',
-            child: Text(
-              trajectory.alert,
-              style: const TextStyle(
-                color: Color(0xFFB8C7FF),
-                fontSize: 15,
-                height: 1.35,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -189,14 +182,14 @@ class _TrajectorySimulationCard extends StatelessWidget {
         children: simulations.map((simulation) {
           return Padding(
             padding: EdgeInsets.only(
-              bottom: simulation == simulations.last ? 0 : 12,
+              bottom: simulation == simulations.last ? 0 : 8,
             ),
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: const Color(0xFF10182A),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFF2A3D68)),
               ),
               child: Column(
@@ -206,23 +199,23 @@ class _TrajectorySimulationCard extends StatelessWidget {
                     simulation.title,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     simulation.summary,
                     style: const TextStyle(
                       color: Color(0xFFD8E2FF),
-                      fontSize: 12,
-                      height: 1.35,
+                      fontSize: 11,
+                      height: 1.3,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 6,
+                    runSpacing: 6,
                     children: <Widget>[
                       _ProjectionPill(
                         label: 'Momentum',
@@ -238,13 +231,13 @@ class _TrajectorySimulationCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     simulation.projectedOutcome,
                     style: const TextStyle(
                       color: Color(0xFFB8C7FF),
-                      fontSize: 12,
-                      height: 1.35,
+                      fontSize: 11,
+                      height: 1.3,
                     ),
                   ),
                 ],
@@ -266,7 +259,7 @@ class _ProjectionPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       decoration: BoxDecoration(
         color: const Color(0xFF0D1322),
         borderRadius: BorderRadius.circular(999),
@@ -276,7 +269,7 @@ class _ProjectionPill extends StatelessWidget {
         '$label: $value',
         style: const TextStyle(
           color: Color(0xFF7F91C8),
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -317,29 +310,29 @@ class _FutureRoadmapCard extends StatelessWidget {
             'Decision: ${decision.recommendedChoice}',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
-              height: 1.35,
+              height: 1.3,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             'Alignment ${drift.score}% - ${drift.summary}',
             style: TextStyle(
               color: _driftColor,
-              fontSize: 12,
-              height: 1.4,
+              fontSize: 11,
+              height: 1.3,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           ...timeline.checkpoints.map((FutureTimelineCheckpoint checkpoint) {
             return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: const Color(0xFF10182A),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFF24345B)),
               ),
               child: Column(
@@ -349,31 +342,31 @@ class _FutureRoadmapCard extends StatelessWidget {
                     checkpoint.label,
                     style: const TextStyle(
                       color: Color(0xFF6EE7F9),
-                      fontSize: 10,
-                      letterSpacing: 1.8,
+                      fontSize: 9,
+                      letterSpacing: 1.6,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     checkpoint.prediction,
                     style: const TextStyle(
                       color: Color(0xFFD8E2FF),
-                      fontSize: 12,
-                      height: 1.4,
+                      fontSize: 11,
+                      height: 1.3,
                     ),
                   ),
                 ],
               ),
             );
           }),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             'Correction: ${drift.correction}',
             style: const TextStyle(
               color: Color(0xFFB8C7FF),
-              fontSize: 12,
-              height: 1.35,
+              fontSize: 11,
+              height: 1.3,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -402,14 +395,14 @@ class _MetricGrid extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.35,
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 1.2,
       children: <Widget>[
-        _MetricCard(label: 'VELOCITY', value: '$momentumPercent%'),
+        _MetricCard(label: 'Momentum', value: '$momentumPercent%'),
         _MetricCard(label: 'PRESSURE', value: '$pressureIndex'),
-        _MetricCard(label: 'EVOLUTION', value: '$divergence%'),
-        _MetricCard(label: 'REALIZED', value: '$completedTasks'),
+        _MetricCard(label: 'Alignment', value: '$divergence%'),
+        _MetricCard(label: 'Completed', value: '$completedTasks'),
       ],
     );
   }
@@ -424,10 +417,10 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFF10182A),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFF23345A)),
       ),
       child: Column(
@@ -438,17 +431,17 @@ class _MetricCard extends StatelessWidget {
             label.toUpperCase(),
             style: const TextStyle(
               color: Color(0xFF7F91C8),
-              fontSize: 12,
-              letterSpacing: 1.2,
+              fontSize: 10,
+              letterSpacing: 1.0,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 26,
+              fontSize: 19,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -467,15 +460,15 @@ class _Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: <Color>[Color(0xFF0D1322), Color(0xFF15233F)],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFF24345B)),
         boxShadow: const <BoxShadow>[
-          BoxShadow(color: Color(0x2200FFFF), blurRadius: 20),
+          BoxShadow(color: Color(0x1400FFFF), blurRadius: 8),
         ],
       ),
       child: Column(
@@ -485,12 +478,12 @@ class _Panel extends StatelessWidget {
             title.toUpperCase(),
             style: const TextStyle(
               color: Color(0xFF6EE7F9),
-              fontSize: 12,
-              letterSpacing: 1.4,
+              fontSize: 10,
+              letterSpacing: 1.0,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           child,
         ],
       ),

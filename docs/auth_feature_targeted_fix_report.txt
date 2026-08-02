@@ -1,0 +1,151 @@
+CHRONOSPARK AUTH FEATURE TARGETED FIX REPORT
+Date: 2026-08-01
+Scope: Targeted auth fix pass for audit items 1, 2, 3, and 4.
+
+1. Files inspected
+- analysis_options.yaml
+- lib/features/auth/application/auth_controller.dart
+- lib/features/auth/application/auth_providers.dart
+- lib/features/auth/data/repositories/auth_repository_impl.dart
+- lib/features/auth/data/datasources/supabase_auth_remote_data_source.dart
+- lib/features/auth/data/datasources/secure_store_auth_local_data_source.dart
+- lib/features/auth/screens/auth_gate.dart
+- lib/features/auth/presentation/screens/auth_shell_screen.dart
+- lib/features/auth/ui/login_screen.dart
+- lib/features/auth/domain/core/failure.dart
+- lib/state/providers/auth_provider.dart
+- lib/features/auth/presentation/login_screen.dart
+- lib/features/auth/**/*.bak*
+
+2. Files changed
+- analysis_options.yaml
+- lib/features/auth/application/auth_controller.dart
+- lib/features/auth/data/repositories/auth_repository_impl.dart
+- lib/features/auth/screens/auth_gate.dart
+- docs/auth_feature_targeted_fix_report.txt (added)
+
+3. Backend error passthroughs found
+Found in lib/features/auth/screens/auth_gate.dart before this pass:
+- auth-unavailable returned backendMessage when non-empty
+- operation-failed returned backendMessage when non-empty
+- operation-not-supported returned backendMessage when non-empty
+- missing-password returned backendMessage when non-empty
+- missing-phone returned backendMessage when non-empty
+- missing-verification-code returned backendMessage when non-empty
+- missing-email returned backendMessage when non-empty
+- default branch returned backendMessage when non-empty
+
+4. New safe auth error messages
+Updated friendlyAuthErrorMessage() to return stable user-safe text only.
+Examples now used:
+- "We could not complete sign-in. Please try again."
+- "We could not restore your session. Please sign in again."
+- "Sign-in is temporarily unavailable. Check your connection and try again."
+- "Your account needs attention. Please sign in again."
+- "Authentication could not be completed. Please try again."
+No raw backend/provider message passthrough remains.
+
+5. Whether failure.toString() was removed from user-facing paths
+- Yes.
+- In auth_controller.dart, unknown failure normalization no longer uses failure?.toString() for message.
+- Unknown failures now use: "Authentication could not be completed. Please try again."
+
+6. AuthRepositoryImpl constructor mismatch finding
+- Confirmed mismatch risk existed:
+  - Constructor used private named fields in data/repositories/auth_repository_impl.dart.
+  - Provider call site used public names remoteDataSource/localDataSource in application/auth_providers.dart.
+
+7. Constructor fix applied, if any
+- Applied.
+- AuthRepositoryImpl constructor now accepts:
+  - required AuthRemoteDataSource remoteDataSource
+  - required AuthLocalDataSource localDataSource
+- Then assigns to private fields via initializer list.
+- Repository behavior unchanged.
+
+8. analysis_options.yaml old excludes
+Old list:
+- fantastic-guacamole/**
+- build/**
+- lib/features/nexus/ui/nexus_screen.dart
+
+9. analysis_options.yaml new excludes
+New list:
+- build/**
+- .dart_tool/**
+- ios/Pods/**
+- android/.gradle/**
+- **/*.g.dart
+- **/*.freezed.dart
+- **/*.mocks.dart
+- **/*.bak
+- **/*.bak*
+- .dead_code_archive_*/**
+
+10. Whether broad source-tree analyzer exclusion was removed
+- Yes.
+- Removed: fantastic-guacamole/**
+
+11. .bak file count and samples
+- Count under lib/features/auth/**: 1316
+- Sample paths:
+  - lib/features/auth/auth.dart.bak_htmlclean
+  - lib/features/auth/application/auth_controller.dart.bak_htmlclean
+  - lib/features/auth/application/auth_controller.dart.bak_phase5_auth_runtime_20260726_172613
+  - lib/features/auth/data/datasources/supabase_auth_remote_data_source.dart.bak_htmlclean
+  - lib/features/auth/data/repositories/auth_repository_impl.dart.bak_htmlclean
+
+12. Whether .bak files were imported anywhere
+- No import/use references found in Dart source scan.
+
+13. Empty login presentation file import status
+- File exists: lib/features/auth/presentation/login_screen.dart
+- Content: whitespace only.
+- Import/reference status: no Dart source imports/references found.
+- Active login ownership appears to be lib/features/auth/ui/login_screen.dart.
+
+14. Debug print decision
+- No change in this pass.
+- Existing debugPrint lines in auth_controller.dart were left untouched.
+- Reason: not required to safely fix items 1-4; defer to a separate logging-policy cleanup pass.
+
+15. Confirmation no auth flow architecture changed
+- Confirmed. No auth flow architecture rewrite/refactor was performed.
+- Changes are limited to error-message sanitization, constructor signature alignment, and analyzer exclude narrowing.
+
+16. Confirmation no Supabase/Firebase/Google config/schema/RLS changed
+- Confirmed.
+- No edits to Supabase schema, Supabase RLS, Firebase config, Google cloud config, OAuth IDs/secrets, or migrations.
+- No SQL was run.
+
+17. Analyzer result
+Command run: flutter analyze
+Result after this pass:
+- 2 info-level lints in auth_repository_impl.dart (prefer_initializing_formals)
+- 5 unrelated errors surfaced in lib/features/nexus/ui/nexus_screen.dart (unused_import)
+Analyzer exited with code 1 due unrelated nexus errors.
+
+18. Test results, if tests were run
+Targeted tests run:
+- flutter test test/features/auth/unit/auth_unit_test.dart -> passed
+- flutter test test/features/auth/supabase_auth_service_test.dart -> passed
+- flutter test test/features/auth/integration/auth_integration_test.dart -> passed
+- flutter test test/behavior/auth_behavior_contract_test.dart -> passed
+- flutter test test/release/auth_release_protection_test.dart -> passed
+Overall targeted test result: all requested tests passed.
+
+19. Any unrelated analyzer errors discovered after narrowing excludes
+Yes. Unrelated errors discovered in:
+- lib/features/nexus/ui/nexus_screen.dart
+Errors:
+- unused import goal_entity.dart
+- unused import memory_entity.dart
+- unused import task.dart
+- unused import auth_provider.dart
+- unused import prism_metric_pill.dart
+These were pre-existing/unrelated to auth targeted fix and were not modified in this pass.
+
+Notes on items 5, 6, and 7
+- Item 5 (.bak sprawl): reported only, no deletion/move.
+- Item 6 (debugPrint): reported/deferred, no behavior change.
+- Item 7 (empty presentation login file): reported only, no deletion.

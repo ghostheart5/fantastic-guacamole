@@ -53,10 +53,10 @@ class TutorialContent {
     ),
     TutorialStepContent(
       id: 'coach_quick_prompt',
-      title: 'SMART PLANNER',
+      title: 'SMART PLANNER (OPTIONAL)',
       description:
-          'Send one focused question to get practical guidance when momentum drops.',
-      ctaLabel: 'Ask for Help',
+          'Smart Planner is available after setup when you want practical next-step guidance.',
+      ctaLabel: 'Explore Smart Planner',
     ),
     TutorialStepContent(
       id: 'daily_reflection',
@@ -139,15 +139,15 @@ class TutorialContent {
       id: 'soul_map_overview',
       title: 'TIMELINE',
       description:
-          'Review tasks, goals, and timeline signals so you can spot drift and course-correct cleanly.',
-      ctaLabel: 'Review Signals',
+          'View tasks, goals, and timeline signals so you can see what is scheduled and what needs attention next.',
+      ctaLabel: 'View Timeline',
     ),
     TutorialStepContent(
       id: 'timeline_overview',
-      title: 'Open Timeline',
+      title: 'View Your Timeline',
       description:
-          'Review what you created, scheduled, and completed so the next move stays obvious.',
-      ctaLabel: 'Open Timeline',
+          'See what you created, scheduled, and completed in a planner-style timeline view.',
+      ctaLabel: 'View Timeline',
     ),
   ];
 

@@ -1,0 +1,119 @@
+CHRONOSPARK SETTINGS SCREEN + FEATURE AUDIT
+Date: 2026-08-01
+Scope: Settings screen and connected settings feature wiring (UI, providers, services, notification/account/support surfaces)
+Primary UI file: lib/features/settings/ui/settings_screen.dart
+Related files:
+- lib/features/settings/ui/settings_screen.sections.dart
+- lib/state/providers/settings_ui_provider.dart
+- lib/state/services/reflection_reminder_service.dart
+- lib/state/services/reminder_orchestrator_service.dart
+- lib/data/repositories/settings_repository.dart
+- lib/data/remote/settings_remote_gateway.dart
+- lib/domain/entities/settings_entity.dart
+- lib/domain/usecases/update_settings.dart
+- lib/domain/usecases/get_settings.dart
+- lib/domain/usecases/get_extended_app_settings.dart
+- lib/features/permissions/notification_permission_prompt.dart
+
+FINDINGS (ordered by severity)
+
+[Medium] Audio service settings are applied during build, which creates render-time side effects
+- Location: settings_screen.dart
+- Evidence:
+  - AudioService.setSoundEffectsEnabled(soundEnabled)
+  - AudioService.setAdvancedProfileEnabled(advancedAudioEnabled)
+  - AudioService.setHapticsEnabled(hapticFeedbackEnabled)
+  - These calls happen directly inside SettingsScreen.build().
+- Impact:
+  - Rebuilds can re-apply global audio state even when the user did not change anything.
+  - This couples rendering to side effects and makes the screen harder to reason about.
+  - It increases the chance of hidden behavior during theme, route, or provider-driven rebuilds.
+- Recommendation:
+  - Move audio application into a listener/effect layer or initialize it once from persisted state, rather than mutating globals from build().
+
+[Low] Notification permission state is split across two different listenable sources
+- Location: settings_ui_provider.dart + settings_screen.dart
+- Evidence:
+  - notificationPermissionListenableProvider reads the reflection reminder service permissionListenable.
+  - notificationPermissionStateListenableProvider reads a static ValueNotifier owned by SettingsUiActions.
+  - The screen consumes both granted and detailed permission state in the same prompt flow.
+- Impact:
+  - The detailed state and granted boolean can drift if one source updates and the other does not.
+  - The static notifier is process-wide and not disposed by Riverpod, which is awkward for tests and lifecycle resets.
+- Recommendation:
+  - Collapse notification permission into one source of truth or document the split clearly with explicit refresh semantics.
+
+[Low] The settings screen is intentionally broad, but it concentrates many unrelated responsibilities into one long scroll
+- Location: settings_screen.dart
+- Evidence:
+  - One screen hosts preferences, notification recovery, account actions, support/legal links, and developer-only tooling.
+- Impact:
+  - The feature is functionally complete, but maintenance and visual scanning are harder because the surface area is large.
+  - Future additions may compound the density if they are appended to the same screen.
+- Recommendation:
+  - Keep the current structure, but avoid adding more unrelated controls here unless they clearly belong to the existing account/support/debug groupings.
+
+SETTINGS FEATURE LOGIC / WIRING MAP
+
+1) Core settings flow
+- Source:
+  - settingsUiActionsProvider
+- Responsibilities:
+  - Reflection reminder prefs load/update
+  - Notification permission request/refresh
+  - Reminder automation prefs load/update
+  - System app settings launch
+  - Voice permission request
+
+2) Screen composition
+- Source:
+  - SettingsScreen reads app/theme/audio/access/route surfaces and renders grouped sections.
+- UI sections:
+  - Workspace status hero
+  - App preferences
+  - Account
+  - Support & legal
+  - Developer (non-release only)
+
+3) Notification flow
+- Source:
+  - reflectionReminderServiceProvider and settingsUiActionsProvider
+- UI usage:
+  - NotificationPermissionPrompt
+  - Fix notification access recovery button
+  - Open system settings fallback snackbar
+
+4) Account/support flow
+- Source:
+  - authControllerProvider, routeSurfaceProvider, AppUrls, Env, and account deletion helpers
+- UI usage:
+  - Sign out
+  - Delete account or support fallback
+  - Privacy/terms/support links
+  - Billing and credit history navigation
+
+INPUTS / OUTPUTS SUMMARY
+
+Inputs consumed by Settings screen:
+- Theme state
+- Audio and haptic preference state
+- Motion profile state
+- Notification permission state
+- App access/subscription state
+- Mock-session state
+- Policy/legal availability state
+
+Outputs produced by Settings feature:
+- Preference toggles and reminder updates
+- Notification permission request/open-settings actions
+- Navigation to profile, billing, credit history, plans, support, privacy, terms, and developer tools
+- Sign-out and account deletion support flows
+
+OVERALL ASSESSMENT
+- The Settings screen is feature-complete and the current analyzer state is clean.
+- The main audit concern is not a compile bug, but render-time side effects: global audio configuration is being mutated from build().
+- The second concern is lifecycle cleanliness around notification permission state, which is split across two sources of truth.
+
+VALIDATION
+- get_errors on settings_screen.dart and settings_screen.sections.dart: no errors found.
+- flutter analyze was not rerun for this read-only audit.

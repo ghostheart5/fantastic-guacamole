@@ -47,7 +47,9 @@ class ConnectTimelineToTasksUsecase {
   }
 
   String _projectionTitleFor(String title, String projectionKind) {
-    final String normalizedTitle = title.trim().isEmpty ? 'Task linked' : title.trim();
+    final String normalizedTitle = title.trim().isEmpty
+        ? 'Task linked'
+        : title.trim();
 
     return switch (projectionKind) {
       'routine' => 'Routine: $normalizedTitle',

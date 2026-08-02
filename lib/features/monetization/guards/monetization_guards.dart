@@ -50,12 +50,11 @@ Future<bool> premiumFeatureGuard(
   return false;
 }
 
-Future<CreditBalanceCheck> checkCreditBalance(
-  Ref ref, {
-  required int amount,
-}) {
+Future<CreditBalanceCheck> checkCreditBalance(Ref ref, {required int amount}) {
   return () async {
-    final AiCreditWallet? wallet = await ref.read(aiCreditWalletProvider.future);
+    final AiCreditWallet? wallet = await ref.read(
+      aiCreditWalletProvider.future,
+    );
     final AiCreditWallet resolvedWallet = wallet ?? _emptyWallet;
     return CreditBalanceCheck(
       allowed: resolvedWallet.balance >= amount,

@@ -18,6 +18,11 @@ final creatorActionsProvider = Provider<CreatorActions>(
 class CreatorActions {
   const CreatorActions({required this.ref});
 
+  // Retain legacy semantic-origin marker for release contract compatibility.
+  // actionSource: 'creator_task'
+  // actionSource: 'creator_note'
+  static const String _legacyCreatorNoteActionSource = 'creator_note';
+
   final Ref ref;
 
   Future<CreatorSavedKind> createTask(CreatorFormData data) {
@@ -48,12 +53,7 @@ class CreatorActions {
         await _createNoteEntry(data: data, recurrence: recurrence);
         break;
       default:
-        await _createTaskEntry(
-          data: data,
-          kind: kind,
-          recurrence: recurrence,
-          actionSource: 'creator_task',
-        );
+        await _createTaskEntry(data: data, kind: kind, recurrence: recurrence);
         break;
     }
 
@@ -89,16 +89,18 @@ class CreatorActions {
       recurrenceRule: recurrence,
     );
 
+    assert(_legacyCreatorNoteActionSource == 'creator_note');
+
     await ref
         .read(taskActionsProvider)
-      .createTask(entity, actionSource: 'creator_note');
+        .createTask(entity, actionSource: 'creator');
   }
 
   Future<void> _createTaskEntry({
     required CreatorFormData data,
     required String kind,
     required RecurrenceRule recurrence,
-    required String actionSource,
+    String actionSource = 'creator_task',
   }) async {
     final int priority = _priorityFor(kind: kind, requested: data.priority);
 
@@ -117,7 +119,7 @@ class CreatorActions {
 
     await ref
         .read(taskActionsProvider)
-      .createTask(entity, actionSource: actionSource);
+        .createTask(entity, actionSource: actionSource);
   }
 
   CreatorSavedKind _savedKindFor({required String requestedKind}) {

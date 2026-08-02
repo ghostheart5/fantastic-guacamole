@@ -1,0 +1,100 @@
+CHRONOSPARK FIRST SETUP MISSION STATE FINAL CHECK REPORT
+
+Files inspected
+- lib/tutorial/mission/mission_state.dart
+- lib/tutorial/mission/mission_controller.dart
+- lib/tutorial/mission/mission_provider.dart
+- lib/tutorial/mission/mission_event_bridge.dart
+- lib/tutorial/mission/mission_overlay.dart
+- lib/tutorial/mission/mission_repository.dart
+- lib/app/app_root.dart
+- lib/app/navigation_shell.dart
+- lib/features/creator/ui/creator_screen.dart
+- lib/features/timeline/ui/timeline_screen.dart
+- lib/state/core/app_providers.dart
+- lib/state/providers/creator_provider.dart
+- lib/state/app_state.dart
+
+Active First Setup progression
+- MissionCatalog.progression is currently:
+  - createFirstGoal
+  - configureFirstItem
+  - openTimeline
+- openTimeline activates complete.
+- complete is represented by the completion banner state and can be dismissed to set finished=true.
+
+Whether Smart Planner is required
+- No.
+- Smart Planner is not in the active MissionCatalog.progression list.
+- The legacy askSmartPlannerQuestion enum value still exists for compatibility only.
+- Smart Planner screen progression calls were previously removed from normal Smart Planner use, so First Setup does not require asking Smart Planner anything.
+
+Whether Timeline action is required
+- No.
+- Timeline opening/viewing is enough.
+- timeline_screen.dart marks the setup Timeline gate complete on safe Timeline open through _markTimelineViewedForSetup().
+- Complete/Skip/Reschedule remain optional task actions only.
+
+Whether old askSmartPlannerQuestion users migrate
+- Yes.
+- mission_state.dart normalizes old saved activeMissionId/status for askSmartPlannerQuestion.
+- If old saved progress is active on that step, it is marked completed and advanced safely to:
+  - openTimeline, or
+  - complete if openTimeline was already completed.
+- This prevents existing users from being trapped on the removed required step.
+
+Whether old openActionHub users migrate
+- Yes.
+- mission_state.dart maps the legacy stored name openActionHub to configureFirstItem.
+
+Whether completion banner dismissal sets finished=true
+- Yes.
+- MissionState.dismissCompletionBanner() sets:
+  - MissionId.complete -> dismissed
+  - activeMissionId -> null
+  - finished -> true
+
+Whether AppRoot finalizes onboarding complete
+- Yes.
+- app_root.dart listens to missionStateProvider.
+- When missionState.finished == true, AppRoot calls _finalizeMissionZeroActivation().
+- That method writes onboarding complete state and canonical onboarding persistence.
+
+Whether NavigationShell stops locking after mission finished
+- Yes, effectively through the setup gate flags.
+- NavigationShell locks only while either of these remains false:
+  - creatorFirstItemCreatedProvider
+  - timelineFirstActionCompletedProvider
+- Once create-item and safe-Timeline-open conditions are satisfied, _requiredActivationView() returns null and the shell stops locking navigation.
+- This no longer depends on Smart Planner, SI Console, Future Vector, Ascension, or Timeline task actions.
+
+Whether Creator first item can be task, routine, goal, or note
+- Yes.
+- creator_provider.dart returns supported saved kinds:
+  - task
+  - routine
+  - goal
+  - note
+- creator_screen.dart reports reportFirstItemCreated() for any supported saved kind.
+
+Whether Timeline open is enough to move to complete
+- Yes.
+- mission_controller.dart advances openTimeline to complete.
+- timeline_screen.dart reports reportTimelineOpened() on screen open.
+- timeline_screen.dart also marks the setup Timeline gate complete on safe open.
+
+Files changed
+- lib/tutorial/mission/mission_state.dart
+- docs/first_setup_mission_state_final_check_report.txt
+
+Exact comments or copy changes made
+- Added comments in mission_state.dart explaining:
+  - createFirstGoal is a legacy internal name retained for compatibility and now means "Create Something"
+  - askSmartPlannerQuestion is legacy compatibility only and not part of required first setup
+  - openTimeline completes setup by reaching Timeline, not by requiring a Timeline action
+  - the openTimeline -> complete branch completes first setup by reaching Timeline successfully
+- No visible user-facing copy changes were needed in this pass.
+
+Analyzer result
+- Command: flutter analyze
+- Result: No issues found.

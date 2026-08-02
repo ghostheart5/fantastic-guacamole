@@ -14,6 +14,10 @@ class MissionController {
     return _completeIfActive(current, MissionId.createFirstGoal);
   }
 
+  Future<MissionState> reportFirstItemCreated(MissionState current) {
+    return _completeIfActive(current, MissionId.createFirstGoal);
+  }
+
   Future<MissionState> reportCreatorOpened(MissionState current) {
     return _completeIfActive(current, MissionId.configureFirstItem);
   }

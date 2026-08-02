@@ -1,0 +1,77 @@
+CHRONOSPARK PROFILE PHASE 1: CONNECTED ACCOUNTS REAL STATE FIX REPORT
+Date: 2026-08-01
+
+1. Files changed
+- lib/state/providers/account_connection_provider.dart
+
+2. Old connected account behavior
+- Connected account state was returned as static constants.
+- EMAIL was always marked connected.
+- GOOGLE was always marked disconnected.
+- Values did not read runtime identity/account state.
+
+3. New connected account behavior
+- Connected account state is now derived at runtime from available identity/environment state.
+- EMAIL and GOOGLE statuses are computed each build from current provider data.
+- Static fixed truth has been removed.
+
+4. How EMAIL status is derived
+- Source: identityAccountProvider (ChronoSparkIdentity?).
+- Rule:
+  - If identity exists and identity.email is non-empty after trim: EMAIL = connected.
+  - Otherwise: EMAIL = disconnected.
+- Defensive handling included for:
+  - no identity
+  - identity with empty/missing email
+
+5. How GOOGLE status is derived
+- Source: identityAccountProvider auth provider signal + Env.isSupabaseConfigured.
+- Rule:
+  - If identity.authProvider == ChronoSparkAuthProvider.google: GOOGLE = connected.
+  - Else if Supabase is configured: GOOGLE = pending (unknown-safe; avoids false disconnected claim when no reliable linked-provider signal exists).
+  - Else (Supabase not configured): GOOGLE = disconnected (unavailable in this runtime context).
+
+6. What happens when identity is missing
+- EMAIL resolves to disconnected.
+- GOOGLE resolves to:
+  - pending when Supabase is configured (unknown-safe), or
+  - disconnected when Supabase is not configured.
+
+7. What happens when Supabase is not configured
+- GOOGLE defaults to disconnected/unavailable unless explicitly connected via identity provider signal.
+- No Supabase auth calls were introduced.
+
+8. Whether any auth/login logic was changed
+- No.
+- No auth implementation logic changed.
+- No sign-in/sign-out flow behavior changed.
+
+9. Whether Supabase/Firebase/Google login code was untouched
+- Confirmed untouched.
+- No Supabase implementation files changed.
+- No Firebase files changed.
+- No Google login implementation files changed.
+
+10. Whether Profile UI changed
+- No Profile UI layout or rendering code changed.
+- Provider-only change.
+
+11. Any remaining limitations
+- Current identity model exposes a single active authProvider, not a complete linked-provider list.
+- Because of this, GOOGLE can be confirmed connected only when authProvider is explicitly google.
+- In other configured cases without explicit signal, provider reports pending (unknown-safe) to avoid false disconnected truth.
+
+12. Analyzer result
+- Command: flutter analyze
+- Result: No issues found! (ran in 16.5s)
+
+Success criteria check
+- Connected Accounts no longer uses stale fixed truth: PASS
+- EMAIL status reflects actual available identity/email state: PASS
+- GOOGLE status does not falsely claim connection when unknown: PASS
+- Profile screen still loads (analyzer clean): PASS
+- No auth implementation changed: PASS
+- No Supabase schema changed: PASS
+- No Firebase config changed: PASS
+- No Google login flow changed: PASS
+- No billing/subscription/AI/SI Console code changed: PASS

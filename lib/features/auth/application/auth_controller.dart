@@ -300,8 +300,7 @@ class AuthController extends StateNotifier<AuthState> {
     }
     return AuthFailure(
       code: 'auth-unknown',
-      message:
-          failure?.toString() ?? 'An unknown authentication error occurred.',
+      message: 'Authentication could not be completed. Please try again.',
       details: failure,
     );
   }

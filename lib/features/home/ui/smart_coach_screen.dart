@@ -1,7 +1,4 @@
-import 'package:fantastic_guacamole/state/providers/goal_success_probability_provider.dart';
-import 'package:fantastic_guacamole/state/providers/memory_intelligence_provider.dart';
 import 'dart:async';
-import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/execution_signals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/explainable_si_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_command_provider.dart';
@@ -16,7 +13,6 @@ import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
-import 'package:fantastic_guacamole/tutorial/mission/mission_event_bridge.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -158,11 +154,6 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       _saved = true;
       _gettingCoaching = false;
     });
-
-    unawaited(
-      ref.read(missionEventBridgeProvider).reportSmartCoachQuestionAsked(),
-    );
-
     AppAnalytics.track(
       'smart_coach_response_rendered',
       params: <String, Object?>{'message_length': result.message.length},
@@ -199,7 +190,6 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       await showCrisisDialog(context);
       return;
     }
-    _followUpController.clear();
     setState(() {
       _sendingFollowUp = true;
       _followUpError = null;
@@ -216,12 +206,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
           .timeout(const Duration(seconds: 25));
       if (!mounted) return;
       setState(() {
+        _followUpController.clear();
         _followUps.add(SmartCoachExchange(question: text, answer: reply));
         _sendingFollowUp = false;
       });
-      unawaited(
-        ref.read(missionEventBridgeProvider).reportSmartCoachQuestionAsked(),
-      );
       AppAnalytics.track(
         'smart_coach_followup_response_rendered',
         params: <String, Object?>{'reply_length': reply.length},
@@ -272,9 +260,6 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
         (executionSignals.completionStability7d * 100).round();
     ref.watch(extendedDomainBootstrapProvider);
     final explainable = ref.watch(explainableSIProvider);
-    final adaptiveReplans = ref.watch(adaptiveReplanningProvider);
-    final memoryIntel = ref.watch(memoryIntelligenceProvider);
-    final goalForecast = ref.watch(goalSuccessProbabilityProvider);
     final AsyncValue<SmartCoachScreenModel> smartModelAsync = ref.watch(
       smartCoachScreenModelProvider,
     );
@@ -330,16 +315,9 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     ),
                     const SizedBox(height: 4),
                     const _DisclaimerText(),
-                    const SizedBox(height: 8),
-
-                    const SizedBox(height: 8),
-                    _CoachSyncStatus(
-                      modelAsync: smartModelAsync,
-                      sourceHealth: sourceHealth,
-                    ),
                     const SizedBox(height: 12),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     _CoachPanel(
                       label: 'ENERGY',
                       accentColor: AppColors.neonCyan,
@@ -352,73 +330,85 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                         }),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     _CoachPanel(
                       label: 'EMOTIONAL STATE',
                       accentColor: AppColors.neonViolet,
-                      child: EmotionSelector(
-                        selected: _emotion,
-                        onSelect: (e) {
-                          if (_emotion == e) {
-                            return;
-                          }
-                          setState(() {
-                            _emotion = e;
-                            _saved = false;
-                          });
-                          ref.read(emotionProvider.notifier).set(e);
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _CoachPanel(
-                      label: 'FOCUS CONTEXT',
-                      accentColor: AppColors.neonViolet,
-                      child: TextField(
-                        controller: _notesController,
-                        maxLines: 4,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          height: 1.6,
-                        ),
-                        decoration: const InputDecoration(
-                          hintText:
-                              'Share your current context, friction, or outcome...',
-                          hintStyle: TextStyle(color: Colors.white24),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        onChanged: (_) {
-                          if (_saved) {
-                            setState(() => _saved = false);
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    if (!missionTutorialEnabled) ...[
-                      const _InsightCheatSheet(),
-                      const SizedBox(height: 10),
-                    ],
-                    _AdaptiveReplanningPanel(scenarios: adaptiveReplans),
-                    const SizedBox(height: 10),
-                    _MemoryPatternsPanel(memoryIntel: memoryIntel),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(14),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('GOAL SUCCESS FORECAST'),
+                          const Text(
+                            'Helps Smart Planner adjust the tone and intensity of guidance.',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                              height: 1.35,
+                            ),
+                          ),
                           const SizedBox(height: 6),
-                          const Text('%'),
-                          Text(goalForecast.summary),
-                          Text(goalForecast.recommendation),
+                          EmotionSelector(
+                            selected: _emotion,
+                            onSelect: (e) {
+                              if (_emotion == e) {
+                                return;
+                              }
+                              setState(() {
+                                _emotion = e;
+                                _saved = false;
+                              });
+                              ref.read(emotionProvider.notifier).set(e);
+                            },
+                          ),
                         ],
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    _CoachPanel(
+                      label: 'FOCUS CONTEXT',
+                      accentColor: AppColors.neonViolet,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Add what is on your mind, what feels blocked, or what outcome you want.',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _notesController,
+                            minLines: 3,
+                            maxLines: 4,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              height: 1.6,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText:
+                                  'Share your current context, friction, or outcome...',
+                              hintStyle: TextStyle(color: Colors.white24),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            onChanged: (_) {
+                              if (_saved) {
+                                setState(() => _saved = false);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (!missionTutorialEnabled) ...[
+                      const _InsightCheatSheet(),
+                      const SizedBox(height: 8),
+                    ],
                     const SizedBox(height: 20),
                     HoloButton(
                       label: _gettingCoaching
@@ -639,93 +629,6 @@ class _InsightCheatSheet extends StatelessWidget {
   }
 }
 
-class _AdaptiveReplanningPanel extends StatelessWidget {
-  const _AdaptiveReplanningPanel({required this.scenarios});
-
-  final List<AdaptiveReplanningScenario> scenarios;
-
-  @override
-  Widget build(BuildContext context) {
-    if (scenarios.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final AdaptiveReplanningScenario scenario = scenarios.first;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xEE07111F),
-            AppColors.memoryAmber.withValues(alpha: 0.10),
-            AppColors.neonViolet.withValues(alpha: 0.08),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.memoryAmber.withValues(alpha: 0.28),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.memoryAmber.withValues(alpha: 0.08),
-            blurRadius: 16,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'ADAPTIVE REPLAN',
-            style: TextStyle(
-              color: AppColors.memoryAmber,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            scenario.title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            scenario.immediateAction,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...scenario.moves
-              .take(3)
-              .map(
-                (String move) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    '- $move',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 11,
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-              ),
-        ],
-      ),
-    );
-  }
-}
-
 class _FollowUpBar extends StatelessWidget {
   const _FollowUpBar({
     required this.controller,
@@ -843,10 +746,10 @@ class _CoachPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
@@ -863,25 +766,25 @@ class _CoachPanel extends StatelessWidget {
             children: [
               Container(
                 width: 2,
-                height: 14,
+                height: 12,
                 decoration: BoxDecoration(
                   color: accentColor,
                   borderRadius: BorderRadius.circular(1),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 10,
-                  letterSpacing: 2.5,
+                  letterSpacing: 1.2,
                   color: accentColor,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           child,
         ],
       ),
@@ -912,29 +815,29 @@ class _EnergySlider extends StatelessWidget {
               'CURRENT ENERGY',
               style: TextStyle(
                 color: Colors.white54,
-                fontSize: 11,
-                letterSpacing: 1.5,
+                fontSize: 10,
+                letterSpacing: 1.1,
               ),
             ),
             Text(
               '${(value * 100).round()}%',
               style: TextStyle(
                 color: color,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         SliderTheme(
           data: SliderThemeData(
-            trackHeight: 3,
+            trackHeight: 2.5,
             activeTrackColor: color,
             inactiveTrackColor: Colors.white12,
             thumbColor: color,
             overlayColor: color.withValues(alpha: 0.2),
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
           ),
           child: Slider(value: value, onChanged: onChanged),
         ),
@@ -1445,69 +1348,6 @@ class _MicButton extends ConsumerWidget {
   }
 }
 
-class _CoachSyncStatus extends StatelessWidget {
-  const _CoachSyncStatus({
-    required this.modelAsync,
-    required this.sourceHealth,
-  });
-
-  final AsyncValue<SmartCoachScreenModel> modelAsync;
-  final SISourceHealth? sourceHealth;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool hasTasksError = sourceHealth?.tasks == SISourceStatus.error;
-    final bool hasInsightsError =
-        sourceHealth?.insights == SISourceStatus.error;
-    final String status = modelAsync.isLoading
-        ? 'SYNCING'
-        : modelAsync.hasError || hasTasksError || hasInsightsError
-        ? 'LIMITED'
-        : 'LIVE';
-    final Color accent = switch (status) {
-      'LIVE' => AppColors.neonCyan,
-      'SYNCING' => AppColors.memoryAmber,
-      _ => AppColors.recallRed,
-    };
-    final List<String> issues = <String>[
-      if (hasTasksError) 'tasks',
-      if (hasInsightsError) 'insights',
-      if (modelAsync.hasError) 'model',
-    ];
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.22),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        children: [
-          Text(
-            'COACH LINK: $status',
-            style: TextStyle(
-              color: accent,
-              fontSize: 10,
-              letterSpacing: 1.2,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            issues.isEmpty ? 'all sources ready' : issues.join(', '),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // --- Disclaimer ------------------------------------------------------------
 
 class _DisclaimerText extends StatelessWidget {
@@ -1522,35 +1362,6 @@ class _DisclaimerText extends StatelessWidget {
         fontSize: 10,
         letterSpacing: 0.3,
         height: 1.4,
-      ),
-    );
-  }
-}
-
-class _MemoryPatternsPanel extends StatelessWidget {
-  const _MemoryPatternsPanel({required this.memoryIntel});
-
-  final MemoryIntelligenceState memoryIntel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('RECURRING PATTERNS'),
-          const SizedBox(height: 8),
-          Text('Win: ${memoryIntel.recurringWin}'),
-          const SizedBox(height: 4),
-          Text('Friction: ${memoryIntel.recurringFriction}'),
-          const SizedBox(height: 4),
-          Text('Lesson: ${memoryIntel.lesson}'),
-          const SizedBox(height: 4),
-          Text('Focus: ${memoryIntel.focusSuggestion}'),
-        ],
       ),
     );
   }

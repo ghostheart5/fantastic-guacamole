@@ -25,22 +25,22 @@ import 'package:fantastic_guacamole/data/storage/storage_migration.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show
         OnboardingStatus,
-    buildOnboardingCanonicalStatePayload,
+        buildOnboardingCanonicalStatePayload,
         creatorFirstItemCreatedProvider,
         creatorFirstItemCreatedStorageKey,
         creatorFirstItemCreatedStorageKeyForUser,
-    onboardingCanonicalStateStorageKeyForUser,
+        onboardingCanonicalStateStorageKeyForUser,
         timelineFirstActionCompletedProvider,
         timelineFirstActionCompletedStorageKey,
         timelineFirstActionCompletedStorageKeyForUser,
-    onboardingContentVersion,
+        onboardingContentVersion,
         onboardingCompleteProvider,
         onboardingStatusProvider,
         onboardingCompleteStorageKey,
         onboardingCompleteStorageKeyForUser,
         onboardingContentVersionStorageKey,
-    onboardingContentVersionStorageKeyForUser,
-    resolveOnboardingStatus;
+        onboardingContentVersionStorageKeyForUser,
+        resolveOnboardingStatus;
 import 'package:fantastic_guacamole/state/core/state_bootstrap.dart'
     show stateBootstrapProvider;
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'

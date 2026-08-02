@@ -22,6 +22,7 @@ import 'package:fantastic_guacamole/state/providers/supabase_sync_queue_provider
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/session_recovery_provider.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/system/system_scheduler.dart';
@@ -158,10 +159,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       ref
           .read(appFlowProvider.notifier)
           .show(
-            _enforceActivationView(
-              widget.initialView,
-              announceIfLocked: false,
-            ),
+            _enforceActivationView(widget.initialView, announceIfLocked: false),
           );
       unawaited(_checkRecovery());
     });
@@ -239,6 +237,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         }
 
         if (mounted && !_disposed) {
+          unawaited(
+            ref.read(notificationPermissionProvider.notifier).refresh(),
+          );
           _maybeAutoFlushSupabaseQueueOnResume();
           unawaited(_checkRecovery());
         }
@@ -323,7 +324,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   }
 
   AppView? _requiredActivationView() {
-    final OnboardingStatus onboardingStatus = ref.read(onboardingStatusProvider);
+    final OnboardingStatus onboardingStatus = ref.read(
+      onboardingStatusProvider,
+    );
     if (onboardingStatus == OnboardingStatus.unknown) {
       return AppView.nexus;
     }

@@ -1,0 +1,35 @@
+CHRONOSPARK PROFILE PHASE 2: IDENTITY ACTION ERROR UI REPORT
+Date: 2026-08-01
+
+- files changed
+  - lib/features/profile/ui/profile_screen.dart
+
+- error UI added
+  - _IdentityAccountActionsCard now detects AsyncError via actionState.hasError.
+  - The card shows a compact user-facing message: Account action could not be completed. Try again.
+  - A second short sanitized hint is shown when possible:
+    - Action timed out. Retry when ready.
+    - Action response was invalid. Try again.
+    - A temporary account action error occurred.
+  - No stack traces, tokens, or secrets are shown.
+
+- loading behavior preserved
+  - Yes.
+  - The existing Processing identity action... state remains intact when actionState.isLoading is true.
+
+- actions preserved
+  - Yes.
+  - Initialize, restore, and sign-out buttons remain in place.
+  - Their existing handlers and enable/disable behavior were not changed.
+
+- no auth logic changed
+  - Confirmed.
+  - No auth implementation files were changed.
+  - No sign-in or sign-out flows were modified.
+
+- analyzer result
+  - flutter analyze
+  - Result: No issues found
+
+Additional note
+- The async action provider did not need to change because the Profile UI already had access to AsyncValue and could read the error state directly.

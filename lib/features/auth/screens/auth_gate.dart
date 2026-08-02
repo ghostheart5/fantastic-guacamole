@@ -31,65 +31,48 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
   }
   switch (code) {
     case 'invalid-email':
-      return 'Invalid email format.';
+      return 'Please enter a valid email address.';
     case 'user-not-found':
     case 'wrong-password':
-      return 'Credentials are incorrect.';
+      return 'We could not complete sign-in. Please try again.';
     case 'email-already-in-use':
       return 'An account with this email already exists.';
     case 'weak-password':
-      return 'Password is too weak.';
+      return 'Please choose a stronger password.';
     case 'too-many-requests':
-      return 'Rate limit engaged. Wait, then retry.';
+      return 'Too many attempts. Please wait and try again.';
     case 'network-request-failed':
-      return 'Network link offline. Reconnect and retry.';
+      return 'Sign-in is temporarily unavailable. Check your connection and try again.';
     case 'user-disabled':
-      return 'Account access disabled. Contact support.';
+      return 'Your account needs attention. Please sign in again.';
     case 'user-token-expired':
     case 'invalid-user-token':
-      return 'Session expired. Re-authenticate.';
+      return 'We could not restore your session. Please sign in again.';
     case 'requires-recent-login':
-      return 'Re-authenticate to continue securely.';
+      return 'Your account needs attention. Please sign in again.';
     case 'google-sign-in-cancelled':
     case 'popup-closed-by-user':
       return 'Google sign-in canceled.';
     case 'github-sign-in-cancelled':
       return 'GitHub sign-in canceled.';
     case 'no-current-user':
-      return 'Session ended. Sign in again.';
+      return 'We could not restore your session. Please sign in again.';
     case 'auth-unavailable':
-      return backendMessage.isNotEmpty
-          ? backendMessage
-          : 'Auth backend unavailable in this runtime.';
+      return 'Sign-in is temporarily unavailable. Check your connection and try again.';
     case 'operation-failed':
-      return backendMessage.isNotEmpty
-          ? backendMessage
-          : 'Operation failed. Retry.';
+      return 'We could not complete sign-in. Please try again.';
     case 'operation-not-supported':
-      return backendMessage.isNotEmpty
-          ? backendMessage
-          : 'This operation is unavailable in the current build.';
+      return 'Sign-in is temporarily unavailable. Please try again later.';
     case 'missing-password':
-      return backendMessage.isNotEmpty
-          ? backendMessage
-          : 'Password is required.';
+      return 'Password is required.';
     case 'missing-phone':
-      return backendMessage.isNotEmpty
-          ? backendMessage
-          : 'Phone number is required.';
+      return 'Phone number is required.';
     case 'missing-verification-code':
-      return backendMessage.isNotEmpty
-          ? backendMessage
-          : 'Verification code is required.';
+      return 'Verification code is required.';
     case 'missing-email':
-      return backendMessage.isNotEmpty
-          ? backendMessage
-          : 'Account email is unavailable.';
+      return 'Account email is unavailable.';
     default:
-      if (backendMessage.isNotEmpty) {
-        return backendMessage;
-      }
-      return 'Authentication failed. Retry.';
+      return 'Authentication could not be completed. Please try again.';
   }
 }
 

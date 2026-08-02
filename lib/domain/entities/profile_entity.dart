@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
+
 class ProfileEntity {
   const ProfileEntity({
     this.xp = 0,
@@ -21,18 +23,12 @@ class ProfileEntity {
   }
 
   // Domain logic
-  int get xpToNextLevel => level * 100;
+  int get xpToNextLevel => ProgressionPolicy.xpToNextLevel(xp);
 
   ProfileEntity addXp(int amount) {
     int newXp = xp + amount;
-    int newLevel = level;
-    bool didLevelUp = false;
-
-    while (newXp >= newLevel * 100) {
-      newXp -= newLevel * 100;
-      newLevel++;
-      didLevelUp = true;
-    }
+    final int newLevel = ProgressionPolicy.levelFromXp(newXp);
+    final bool didLevelUp = newLevel > level;
 
     return copyWith(xp: newXp, level: newLevel, leveledUp: didLevelUp);
   }

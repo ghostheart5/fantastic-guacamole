@@ -1,0 +1,66 @@
+CHRONOSPARK SMART PLANNER COMPACT CONTROLS REPORT
+Date: 2026-08-01
+
+1. File changed
+- lib/features/home/ui/smart_coach_screen.dart
+
+2. Which panels were compacted
+- ENERGY panel (_CoachPanel wrapper + _EnergySlider internals)
+- EMOTIONAL STATE panel (_CoachPanel wrapper)
+- FOCUS CONTEXT panel (_CoachPanel wrapper)
+- Inter-panel spacing around these control sections and adjacent blocks
+
+3. Padding changes
+- _CoachPanel container padding changed:
+  - from EdgeInsets.all(16)
+  - to EdgeInsets.fromLTRB(12, 10, 12, 12)
+
+4. Spacing changes
+- Repeated inter-panel gaps reduced:
+  - from SizedBox(height: 10)
+  - to SizedBox(height: 8)
+- _CoachPanel label-to-content gap reduced:
+  - from SizedBox(height: 16)
+  - to SizedBox(height: 10)
+- Label row horizontal spacing reduced:
+  - from SizedBox(width: 8)
+  - to SizedBox(width: 6)
+
+5. Energy slider changes
+- _EnergySlider heading text size/weight compacted:
+  - heading fontSize 11 -> 10
+  - heading letterSpacing 1.5 -> 1.1
+  - percent fontSize 12 -> 11
+- Vertical gap reduced:
+  - SizedBox(height: 6) -> 4
+- Slider visual compacting:
+  - trackHeight 3 -> 2.5
+  - thumb radius 7 -> 6
+- Energy behavior/input handling unchanged.
+
+6. Emotional State changes
+- Panel wrapper compacted via _CoachPanel changes only.
+- EmotionSelector kept intact with no behavior changes.
+
+7. Focus Context changes
+- Panel wrapper compacted via _CoachPanel changes.
+- Text field maxLines reduced from 4 to 3 to reduce panel height while preserving usability.
+- Notes controller/onChanged behavior unchanged.
+
+8. Confirmation no logic changed
+- Confirmed. No Smart Planner behavior logic was changed.
+- Energy state updates, saved-state toggling, and control callbacks are unchanged.
+
+9. Confirmation no provider changes
+- Confirmed. No provider files or provider logic were changed.
+
+10. Confirmation no AI/voice/analytics/coaching behavior changed
+- Confirmed. AI request flow, voice flow, analytics events, and coaching query behavior were not changed.
+
+11. Confirmation no auth/Supabase/Firebase/Google/SI Console/subscription/database files changed
+- Confirmed. None of those systems/files were edited.
+- No SQL was run.
+
+12. Analyzer result
+- Command: flutter analyze
+- Result: No issues found.

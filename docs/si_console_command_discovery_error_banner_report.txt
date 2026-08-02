@@ -1,0 +1,95 @@
+CHRONOSPARK SI CONSOLE COMMAND DISCOVERY + INLINE ERROR FIX REPORT
+Date: 2026-08-01
+Scope: Targeted SI Console UI cleanup only
+Status: PASS
+
+1. Files changed
+- lib/features/si_console/ui/si_console_screen.dart
+- lib/features/si_console/ui/models/si_console_commands.dart
+
+2. Old visible command chip list
+- /help
+- /status
+- /tasks
+- /goals
+- /plan
+- /timeline
+- /trajectory
+
+3. New visible command chip list
+- /help
+- /status
+- /tasks
+- /goals
+- /plan
+- /timeline
+- /trajectory
+- /momentum
+- /milestones
+- /values
+- /soulmap
+- /simulate
+- /risk
+- /replan
+
+4. Commands supported by _handleLocalCommand but not exposed as chips
+- /weekly
+- /daily
+- /focus
+- /review
+- /optimize
+- /success
+- /future
+- /identity
+- /paths
+- /evolution
+- /timelinefuture
+- /decision
+- /twin
+- /fusion
+- /lessons
+- /patterns
+
+5. Whether /help copy was updated
+- No.
+- The existing /help text already lists the broader supported command surface, including the trajectory, future, identity, replan, momentum, risk, and simulation paths.
+
+6. How inline provider error banner works
+- When siConsoleScreenModelProvider has an error and there are already messages in the console, the screen now shows a compact inline banner above the message list.
+- When there are no messages, the existing full ErrorView remains unchanged.
+
+7. Where inline error banner appears
+- It appears at the top of the message area, above the existing conversation list, inside the console content stack.
+- It does not block the input bar or existing messages.
+
+8. Retry behavior
+- The inline banner uses the same retry action as the empty-state error view behavior: ref.invalidate(siConsoleScreenModelProvider).
+- The banner exposes a compact Retry action so users can refresh the console model without losing the current conversation.
+
+9. Confirmation raw errors/secrets are not shown in inline banner
+- Confirmed.
+- The inline banner uses generic copy only and does not render consoleError.toString().
+- No stack traces or secrets are exposed in the banner.
+
+10. Confirmation command handler behavior unchanged
+- Confirmed.
+- _handleLocalCommand() was not changed.
+- Runtime local command behavior remains the same.
+
+11. Confirmation AI/SI provider logic unchanged
+- Confirmed.
+- aiControllerProvider and siConsoleScreenModelProvider logic were not modified.
+- SI pipeline, trajectory, momentum, and future-vector provider logic were not changed.
+
+12. Confirmation auth/Supabase/Firebase/Google/billing/subscription/database files untouched
+- Confirmed.
+- No auth, Supabase, Firebase, Google login, billing, subscription, or database files were modified.
+- No SQL was run.
+
+13. Analyzer result
+- flutter analyze: PASS
+
+OVERALL ASSESSMENT
+- The visible command shortcuts are now closer to the actual SI Console command surface and are easier to discover.
+- The console now preserves full empty-state error handling while also surfacing later provider failures inline when the conversation already exists.
+- The targeted pass stayed within the requested UI-only scope.

@@ -16,8 +16,12 @@ class EndSession {
     if (prog != null) {
       final ProgressionEntity current =
           await prog.getProgression() ?? const ProgressionEntity();
+      final int newXp = current.xp + ProgressionPolicy.sessionXp;
       await prog.saveProgression(
-        current.copyWith(xp: current.xp + ProgressionPolicy.sessionXp),
+        current.copyWith(
+          xp: newXp,
+          level: ProgressionPolicy.levelFromXp(newXp),
+        ),
       );
     }
   }

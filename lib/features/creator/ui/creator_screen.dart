@@ -31,6 +31,13 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
   final TextEditingController _notesController = TextEditingController();
   DateTime? _lastAppliedHandoffAt;
 
+  bool _isSupportedFirstItemKind(CreatorSavedKind kind) {
+    return kind == CreatorSavedKind.task ||
+        kind == CreatorSavedKind.routine ||
+        kind == CreatorSavedKind.goal ||
+        kind == CreatorSavedKind.note;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -246,12 +253,22 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                     final savedKind = await ref
                         .read(creatorActionsProvider)
                         .createEntry(data);
+
+                    bool missionProgressReported = true;
                     if (missionTutorialEnabled &&
-                        savedKind == CreatorSavedKind.goal) {
-                      await ref
-                          .read(missionEventBridgeProvider)
-                          .reportGoalCreated();
+                        _isSupportedFirstItemKind(savedKind)) {
+                      try {
+                        await ref
+                            .read(missionEventBridgeProvider)
+                            .reportFirstItemCreated();
+                        await ref
+                            .read(missionEventBridgeProvider)
+                            .reportCreatorOpened();
+                      } on Object {
+                        missionProgressReported = false;
+                      }
                     }
+
                     if (savedKind == CreatorSavedKind.task ||
                         savedKind == CreatorSavedKind.routine ||
                         savedKind == CreatorSavedKind.note) {
@@ -270,7 +287,7 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                         ..showSnackBar(
                           SnackBar(
                             content: Text(
-                              shouldAutoOpenTimeline
+                              shouldAutoOpenTimeline && missionProgressReported
                                   ? 'First item created. Reviewing it on your timeline...'
                                   : 'Item saved.',
                             ),
@@ -288,7 +305,7 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                           ),
                         );
 
-                      if (shouldAutoOpenTimeline) {
+                      if (shouldAutoOpenTimeline && missionProgressReported) {
                         // First successful create should immediately reinforce
                         // the Create -> Timeline review loop.
                         ref.read(appFlowProvider.notifier).toTimeline();
@@ -318,18 +335,38 @@ class _CreatorMissionPanel extends ConsumerWidget {
       error: (_, _) => const SizedBox.shrink(),
       data: (MissionState missionState) {
         final MissionId? activeMissionId = missionState.activeMissionId;
-        String? badge;
         String? title;
+        String? body;
+        List<String> steps = const <String>[];
+        String? note;
 
         if (activeMissionId == MissionId.createFirstGoal) {
-          badge = 'STEP 1';
-          title = 'Create your first item in Creator.';
+          title = 'Create Something';
+          body =
+              'Start by creating one task, habit, note, or goal. Add a title, choose when it happens, then tap Create item.';
+          steps = const <String>[
+            '1. Choose a type',
+            '2. Add a title',
+            '3. Pick one-time, every day, or every week',
+            '4. Schedule it if needed',
+            '5. Tap Create item',
+          ];
+          note = 'After saving, ChronoSpark will show it on your Timeline.';
         } else if (activeMissionId == MissionId.configureFirstItem) {
-          badge = 'STEP 2';
-          title = 'Add timing details, then save it.';
+          title = 'Choose When It Happens';
+          body =
+              'Pick one-time, every day, or every week. Add a schedule date if this item belongs on your Timeline.';
+          steps = const <String>[
+            '1. Confirm the item type',
+            '2. Check the title',
+            '3. Choose one-time, daily, or weekly',
+            '4. Schedule it if needed',
+            '5. Tap Create item',
+          ];
+          note = 'After saving, ChronoSpark will show it on your Timeline.';
         }
 
-        if (badge == null || title == null) {
+        if (title == null || body == null) {
           return const SizedBox.shrink();
         }
 
@@ -346,9 +383,9 @@ class _CreatorMissionPanel extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                badge,
-                style: const TextStyle(
+              const Text(
+                'FIRST SETUP',
+                style: TextStyle(
                   color: AppColors.neonCyan,
                   fontSize: 10,
                   letterSpacing: 1.8,
@@ -360,10 +397,45 @@ class _CreatorMissionPanel extends ConsumerWidget {
                 title,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              const SizedBox(height: 8),
+              Text(
+                body,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...steps.map(
+                (String step) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    step,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              if (note != null) ...<Widget>[
+                const SizedBox(height: 6),
+                Text(
+                  note,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ],
           ),
         );

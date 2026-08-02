@@ -1,0 +1,71 @@
+CHRONOSPARK CREATOR FIRST SETUP GUIDANCE REPORT
+Date: 2026-08-01
+
+1. Files changed
+- lib/features/creator/ui/creator_screen.dart
+- docs/creator_first_setup_guidance_report.txt
+
+2. Where the guidance panel was added
+- Existing first-setup guidance panel in Creator was updated in place.
+- Placement remains above DynamicForm in CreatorScreen.
+
+3. When the panel appears
+- It appears only when missionTutorialEnabledProvider is true.
+- It renders only for these active mission IDs from missionStateProvider:
+  - MissionId.createFirstGoal
+  - MissionId.configureFirstItem
+- It does not render for other mission states.
+
+4. Exact copy added
+- For MissionId.createFirstGoal:
+  - Title: Create Something
+  - Body: Start by creating one task, habit, note, or goal. Add a title, choose when it happens, then tap Create item.
+  - Steps:
+    - 1. Choose a type
+    - 2. Add a title
+    - 3. Pick one-time, every day, or every week
+    - 4. Schedule it if needed
+    - 5. Tap Create item
+  - Footer: After saving, ChronoSpark will show it on your Timeline.
+
+- For MissionId.configureFirstItem:
+  - Title: Choose When It Happens
+  - Body: Pick one-time, every day, or every week. Add a schedule date if this item belongs on your Timeline.
+  - Steps:
+    - 1. Confirm the item type
+    - 2. Check the title
+    - 3. Choose one-time, daily, or weekly
+    - 4. Schedule it if needed
+    - 5. Tap Create item
+  - Footer: After saving, ChronoSpark will show it on your Timeline.
+
+5. Confirmation visible guidance says task, habit, note, or goal
+- Confirmed. The create-first-step panel body explicitly says: task, habit, note, or goal.
+
+6. Confirmation Routine was not added to visible guidance
+- Confirmed. Routine is not mentioned in the updated guidance copy.
+
+7. Confirmation no save logic changed
+- Confirmed. DynamicForm submit behavior and CreatorScreen onSubmit behavior were unchanged.
+
+8. Confirmation no provider logic changed
+- Confirmed. No provider logic was changed.
+
+9. Confirmation no mission logic changed
+- Confirmed. mission_state.dart and mission provider logic were not changed.
+
+10. Confirmation no routes changed
+- Confirmed. No routing behavior or route definitions were changed.
+
+11. Confirmation no auth/Supabase/Firebase/Google/AI/SI Console/subscription/database code changed
+- Confirmed. None of those systems were changed in this pass.
+- No SQL was run.
+
+12. Whether TypeSelector already supports Task/Habit/Note/Goal
+- Yes. TypeSelector includes Task, Habit, Note, and Goal by default.
+- TypeSelector can include Routine only when Env.enableLegacyRoutineEntryPoints is enabled.
+- TypeSelector behavior was not modified.
+
+13. Analyzer result
+- Command: flutter analyze
+- Result: No issues found.

@@ -10,23 +10,23 @@ import 'package:fantastic_guacamole/features/auth/data/datasources/auth_remote_d
 
 class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
-    required this._remoteDataSource,
-    required this._localDataSource,
+    required this.remoteDataSource,
+    required this.localDataSource,
   });
 
-  final AuthRemoteDataSource _remoteDataSource;
-  final AuthLocalDataSource _localDataSource;
+  final AuthRemoteDataSource remoteDataSource;
+  final AuthLocalDataSource localDataSource;
 
   @override
   Stream<Result<AuthSessionEntity?>> watchSession() async* {
     await for (final AuthSessionEntity? session
-        in _remoteDataSource.watchSession()) {
+        in remoteDataSource.watchSession()) {
       try {
         if (session == null) {
-          await _localDataSource.clearSession();
+          await localDataSource.clearSession();
           yield const Result<AuthSessionEntity?>.success(null);
         } else {
-          await _localDataSource.cacheSession(session);
+          await localDataSource.cacheSession(session);
           yield Result<AuthSessionEntity?>.success(session);
         }
       } catch (error) {
@@ -44,14 +44,14 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<AuthSessionEntity?>> getCurrentSession() async {
     try {
-      final AuthSessionEntity? session = await _remoteDataSource
+      final AuthSessionEntity? session = await remoteDataSource
           .getCurrentSession();
       if (session == null) {
-        final AuthSessionEntity? cached = await _localDataSource
+        final AuthSessionEntity? cached = await localDataSource
             .getCachedSession();
         return Result<AuthSessionEntity?>.success(cached);
       }
-      await _localDataSource.cacheSession(session);
+      await localDataSource.cacheSession(session);
       return Result<AuthSessionEntity?>.success(session);
     } catch (error) {
       return Result<AuthSessionEntity?>.failure(
@@ -82,7 +82,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required EmailAddress email,
     required PasswordValue password,
   }) => _wrapSession(
-    () => _remoteDataSource.signInWithEmail(email: email, password: password),
+    () => remoteDataSource.signInWithEmail(email: email, password: password),
   );
 
   @override
@@ -90,41 +90,41 @@ class AuthRepositoryImpl implements AuthRepository {
     required EmailAddress email,
     required PasswordValue password,
   }) => _wrapSession(
-    () => _remoteDataSource.signUpWithEmail(email: email, password: password),
+    () => remoteDataSource.signUpWithEmail(email: email, password: password),
   );
 
   @override
   Future<Result<AuthSessionEntity?>> signInWithGoogle() =>
-      _wrapSession(_remoteDataSource.signInWithGoogle);
+      _wrapSession(remoteDataSource.signInWithGoogle);
 
   @override
   Future<Result<void>> sendPasswordReset({required EmailAddress email}) {
-    return _wrapVoid(() => _remoteDataSource.sendPasswordReset(email: email));
+    return _wrapVoid(() => remoteDataSource.sendPasswordReset(email: email));
   }
 
   @override
   Future<Result<void>> sendEmailVerification() {
-    return _wrapVoid(_remoteDataSource.sendEmailVerification);
+    return _wrapVoid(remoteDataSource.sendEmailVerification);
   }
 
   @override
   Future<Result<void>> refreshSession() {
-    return _wrapVoid(_remoteDataSource.refreshSession);
+    return _wrapVoid(remoteDataSource.refreshSession);
   }
 
   @override
   Future<Result<void>> signOut() {
     return _wrapVoid(() async {
-      await _remoteDataSource.signOut();
-      await _localDataSource.clearSession();
+      await remoteDataSource.signOut();
+      await localDataSource.clearSession();
     });
   }
 
   @override
   Future<Result<void>> deleteAccount({required PasswordValue password}) {
     return _wrapVoid(() async {
-      await _remoteDataSource.deleteAccount(password: password);
-      await _localDataSource.clearSession();
+      await remoteDataSource.deleteAccount(password: password);
+      await localDataSource.clearSession();
     });
   }
 
@@ -134,10 +134,10 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final AuthSessionEntity? session = await action();
       if (session == null) {
-        await _localDataSource.clearSession();
+        await localDataSource.clearSession();
         return const Result<AuthSessionEntity?>.success(null);
       }
-      await _localDataSource.cacheSession(session);
+      await localDataSource.cacheSession(session);
       return Result<AuthSessionEntity?>.success(session);
     } catch (error) {
       return Result<AuthSessionEntity?>.failure(

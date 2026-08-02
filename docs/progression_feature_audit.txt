@@ -1,0 +1,148 @@
+CHRONOSPARK PROGRESSION SCREEN + FEATURE AUDIT
+Date: 2026-08-01
+Scope: Progression screen and connected progression data flow (UI, providers, services, controllers, domain progression paths).
+Primary UI file: lib/features/progression/ui/progression_screen.dart
+Related files:
+- lib/features/progression/widgets/level_card.dart
+- lib/features/progression/widgets/streak_card.dart
+- lib/features/progression/widgets/weekly_summary_card.dart
+- lib/state/providers/progression_provider.dart
+- lib/state/services/progression_service.dart
+- lib/state/models/progression_state.dart
+- lib/state/controllers/profile_controller.dart
+- lib/state/providers/domain_usecase_providers.dart
+- lib/domain/entities/progression_entity.dart
+- lib/domain/policies/progression_policy.dart
+- lib/domain/usecases/complete_task.dart
+- lib/domain/usecases/start_session.dart
+- lib/domain/usecases/end_session.dart
+- lib/domain/usecases/update_xp.dart
+- lib/domain/usecases/update_level.dart
+- lib/domain/usecases/update_streak.dart
+- lib/data/repositories/progression_repository.dart
+- lib/features/auth/domain/usecases/progression/view_progression_usecase.dart
+- lib/features/auth/domain/usecases/progression/view_progression_path_usecase.dart
+- lib/features/auth/domain/usecases/progression/view_progression_history_usecase.dart
+- lib/features/auth/domain/usecases/progression/generate_progression_summary_usecase.dart
+
+FINDINGS (ordered by severity)
+
+[High] Progression level math is split across incompatible rules, so the screen can display different progression truth depending on which write path last ran
+- Location: profile_controller.dart, progression_policy.dart, progression_entity.dart, complete_task.dart, start_session.dart, end_session.dart, update_xp.dart, update_level.dart
+- Evidence:
+  - ProfileController.addXP() computes level as (newXP ~/ 50) + 1.
+  - ProgressionEntity.addXp() uses cumulative thresholds with a while loop.
+  - ProgressionPolicy.levelFromXp() uses a sqrt-based banding model.
+  - Several domain usecases update XP or level independently via saveProgression/current.copyWith(...) rather than a single canonical progression calculation.
+- Impact:
+  - Level, XP, and level progress can drift depending on which code path wrote last.
+  - The Progression screen can present one coherent-looking UI built on inconsistent underlying rules.
+  - Any downstream card that trusts level/xp/streak can become misleading.
+- Recommendation:
+  - Pick one progression formula and route all write paths through it.
+  - Recompute derived level consistently whenever XP changes.
+
+[Medium] The XP Vector chart fabricates history when no real history exists
+- Location: progression_screen.dart
+- Evidence:
+  - _XpProgressChartCard._buildXpPoints() generates a synthetic 6-point ramp when learning history is empty.
+- Impact:
+  - The chart can imply recorded progression checkpoints that were never captured.
+  - Users may interpret the fallback as historical data rather than a visual placeholder.
+- Recommendation:
+  - Label the empty-history state explicitly or render a true placeholder/flat baseline instead of synthetic progression points.
+
+[Medium] Progression feature has dormant/placeholder API surfaces that are not wired into the screen
+- Location: features/auth/domain/usecases/progression/* and data/repositories/progression_repository.dart
+- Evidence:
+  - ViewProgressionUsecase, ViewProgressionPathUsecase, ViewProgressionHistoryUsecase, and GenerateProgressionSummaryUsecase are empty stubs.
+  - There is both a Hive-backed ProgressionRepository and a profile-backed domainProgressionRepositoryProvider, but the screen uses the profile-backed derived state path.
+- Impact:
+  - The feature surface suggests progression-specific domain behavior that does not actually exist yet.
+  - Future changes can accidentally target the wrong persistence path or assume a completed API.
+- Recommendation:
+  - Remove or implement the stub usecases, and document the intended single source of progression truth.
+
+[Low] ProgressionState advertises loading/error but the service always returns a settled state
+- Location: progression_state.dart, progression_service.dart
+- Evidence:
+  - ProgressionState includes loading and error fields.
+  - ProgressionService.fromProfile() always returns loading: false and error: null.
+- Impact:
+  - The contract implies async/error handling that does not exist.
+  - This adds maintenance ambiguity without providing user-facing value.
+- Recommendation:
+  - Either wire real loading/error semantics or simplify the state model.
+
+PROFILE/PROGRESSION LOGIC / WIRING MAP
+
+1) Screen composition
+- Source:
+  - ProgressionScreen reads progressionProvider, momentumEngineProvider, trajectorySummaryProvider, milestonesProvider, learningHistorySnapshotsProvider, and profileProvider indirectly through cards.
+- UI sections:
+  - Weekly review summary
+  - XP vector chart
+  - Level card
+  - Streak card
+  - Momentum engine card
+  - Progress signals card
+  - Milestones card
+  - Narrative card
+
+2) Progression state flow
+- Source:
+  - progressionProvider -> ProgressionService.fromProfile(profile)
+- Mapping:
+  - profileProvider -> ProgressionState(progress: UserProgress(...), loading: false)
+- UI usage:
+  - LevelCard and StreakCard consume UserProgress
+  - XP chart consumes current profile.xp plus learning history snapshots
+
+3) Domain write flow
+- Source:
+  - complete_task.dart, start_session.dart, end_session.dart, update_xp.dart, update_level.dart, update_streak.dart
+- Current pattern:
+  - Domain usecases read progression via repository and write back with copyWith(...) updates.
+  - XP is often incremented directly without recalculating derived level.
+  - Level and streak may be updated separately in different code paths.
+
+4) Repository layering
+- Source:
+  - data/repositories/progression_repository.dart
+  - state/providers/domain_usecase_providers.dart::_ProfileBackedProgressionRepository
+- Current pattern:
+  - A Hive-backed repository exists.
+  - The domain provider used by the app maps progression persistence onto ProfileController state instead.
+
+INPUTS / OUTPUTS SUMMARY
+
+Inputs consumed by Progression screen:
+- Profile progression fields (xp, level, streak, longestStreak)
+- Momentum engine summary
+- Trajectory summary
+- Milestones and learning history snapshots
+- Derived narrative data
+
+Outputs produced by Progression feature:
+- Navigation back to Nexus
+- Visual progress cards and charts
+- Progression state persistence through profile-backed repository mapping
+
+USECASES / SERVICE SURFACES INVOLVED
+- ProgressionService: derives UI progression state from profile state
+- ProfileController: owns the underlying persisted progression snapshot
+- Domain progression usecases: update xp/level/streak through repository writes
+- ProgressionPolicy and ProgressionEntity: define progression math, but not all write paths use them consistently
+
+OVERALL ASSESSMENT
+- The Progression screen is polished and readable, and its UI composition is strong.
+- The main product risk is not rendering, but correctness: progression math is not canonical across the stack.
+- The next most visible issue is the synthetic XP chart fallback, which can imply real historical data when none exists.
+
+PRIORITY NEXT FIXES (recommended order)
+1) Unify progression math behind one canonical leveling function and use it everywhere XP changes.
+2) Replace the synthetic XP chart fallback with an explicit empty-state treatment.
+3) Either implement or remove the dormant progression-specific usecases and document the intended repository path.
+
+ANALYZER RESULT
+- Not run: audit-only report generated without code changes.

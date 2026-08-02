@@ -81,7 +81,7 @@ class CoachQueryController implements SmartCoachInterface {
     required List<Map<String, String>> history,
     required String? previousSavedNotes,
   }) async {
-    final Stopwatch requestTimer = Stopwatch()..start();
+    final Stopwatch requestStopwatch = Stopwatch()..start();
     final currentSi = _ref.read(siStateProvider);
     _ref
         .read(siStateProvider.notifier)
@@ -137,8 +137,8 @@ class CoachQueryController implements SmartCoachInterface {
     final List<String> goalSummaries = assistantContext.goalSummaries;
     final List<String> memorySummaries = assistantContext.memorySummaries;
     final List<String> timelineSummaries = assistantContext.timelineSummaries;
-    final Map<String, dynamic>
-    chronosparkModelContext = assistantContext.chronosparkModelContext;
+    final Map<String, dynamic> chronosparkModelContext =
+        assistantContext.chronosparkModelContext;
 
     if (detectedTopic != _CoachTopic.generalChat) {
       final Map<String, dynamic> moduleSnapshot = _coachModuleSnapshot(
@@ -166,18 +166,18 @@ class CoachQueryController implements SmartCoachInterface {
         content: message,
       );
       _ref.read(profileProvider.notifier).addXP(10);
-      requestTimer.stop();
+      requestStopwatch.stop();
       ContentGenerationAnalytics.trackResult(
         surface: 'smart_coach',
         routeType: 'deterministic_local',
         usedFallback: false,
         structured: _isStructuredCoachResponse(message),
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         qualityTag: detectedTopicLabel,
       );
       ContentGenerationReleaseGate.evaluateRequest(
         surface: 'smart_coach',
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         structured: _isStructuredCoachResponse(message),
       );
       return CoachCoachingResult(
@@ -246,18 +246,18 @@ class CoachQueryController implements SmartCoachInterface {
     );
 
     _ref.read(profileProvider.notifier).addXP(10);
-    requestTimer.stop();
+    requestStopwatch.stop();
     ContentGenerationAnalytics.trackResult(
       surface: 'smart_coach',
       routeType: 'ai_orchestrated',
       usedFallback: usedFallback,
       structured: _isStructuredCoachResponse(message),
-      durationMs: requestTimer.elapsedMilliseconds,
+      durationMs: requestStopwatch.elapsedMilliseconds,
       qualityTag: aiFallbackDetected ? 'ai_non_actionable' : 'normal',
     );
     ContentGenerationReleaseGate.evaluateRequest(
       surface: 'smart_coach',
-      durationMs: requestTimer.elapsedMilliseconds,
+      durationMs: requestStopwatch.elapsedMilliseconds,
       structured: _isStructuredCoachResponse(message),
     );
 
@@ -276,7 +276,7 @@ class CoachQueryController implements SmartCoachInterface {
     required String reflection,
     required List<Map<String, String>> history,
   }) async {
-    final Stopwatch requestTimer = Stopwatch()..start();
+    final Stopwatch requestStopwatch = Stopwatch()..start();
     final _CoachTopic detectedTopic = _detectTopic(input, emotion: emotion);
     final String detectedTopicLabel = _topicLabel(detectedTopic);
     final AssistantIntent assistantIntent =
@@ -305,8 +305,8 @@ class CoachQueryController implements SmartCoachInterface {
     final List<String> goalSummaries = assistantContext.goalSummaries;
     final List<String> memorySummaries = assistantContext.memorySummaries;
     final List<String> timelineSummaries = assistantContext.timelineSummaries;
-    final Map<String, dynamic>
-    chronosparkModelContext = assistantContext.chronosparkModelContext;
+    final Map<String, dynamic> chronosparkModelContext =
+        assistantContext.chronosparkModelContext;
 
     if (detectedTopic != _CoachTopic.generalChat) {
       final String fallbackReply = _buildFollowUpResponse(
@@ -324,18 +324,18 @@ class CoachQueryController implements SmartCoachInterface {
         channel: 'follow_up',
         content: fallbackReply,
       );
-      requestTimer.stop();
+      requestStopwatch.stop();
       ContentGenerationAnalytics.trackResult(
         surface: 'smart_coach_follow_up',
         routeType: 'deterministic_local',
         usedFallback: false,
         structured: true,
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         qualityTag: detectedTopicLabel,
       );
       ContentGenerationReleaseGate.evaluateRequest(
         surface: 'smart_coach_follow_up',
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         structured: true,
       );
       return fallbackReply;
@@ -397,18 +397,18 @@ class CoachQueryController implements SmartCoachInterface {
       channel: 'follow_up',
       content: response,
     );
-    requestTimer.stop();
+    requestStopwatch.stop();
     ContentGenerationAnalytics.trackResult(
       surface: 'smart_coach_follow_up',
       routeType: 'ai_orchestrated',
       usedFallback: usedFallback,
       structured: _isStructuredCoachResponse(response),
-      durationMs: requestTimer.elapsedMilliseconds,
+      durationMs: requestStopwatch.elapsedMilliseconds,
       qualityTag: aiFallbackDetected ? 'ai_non_actionable' : 'normal',
     );
     ContentGenerationReleaseGate.evaluateRequest(
       surface: 'smart_coach_follow_up',
-      durationMs: requestTimer.elapsedMilliseconds,
+      durationMs: requestStopwatch.elapsedMilliseconds,
       structured: _isStructuredCoachResponse(response),
     );
     return response;

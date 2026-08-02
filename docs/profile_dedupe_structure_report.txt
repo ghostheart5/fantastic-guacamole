@@ -1,0 +1,62 @@
+CHRONOSPARK PROFILE SCREEN DEDUPE + STRUCTURE PASS REPORT
+Date: 2026-08-01
+Scope: Targeted Profile UI cleanup only
+Status: PASS
+
+1. File changed
+- lib/features/profile/ui/profile_screen.dart
+
+2. Duplicate blocks found
+- Duplicate Settings access appeared in ProfileHeader and the Account hub card.
+- The Account hub card overlapped with billing/settings purpose already covered elsewhere.
+- The rendered progress summary card overlapped with the progress metric cards and the Momentum snapshot.
+
+3. Duplicate Settings button decision
+- Removed the duplicate Settings button from the Account hub card.
+- Settings remains available through ProfileHeader only.
+
+4. Whether Account hub was renamed or simplified
+- Simplified and renamed to Billing.
+- Body copy changed to: Manage subscription and billing options.
+- Billing center button was kept.
+
+5. Whether _OperatorStatusCard is still rendered
+- No.
+- The class remains in the file for later cleanup, but it is not rendered in the screen.
+
+6. Whether Progress metrics remained
+- Yes.
+- Level, XP, and Streak metric cards remain visible.
+
+7. Whether Momentum card remained
+- Yes.
+- The Momentum snapshot remains visible and unchanged in behavior.
+
+8. Copy changes made
+- Replaced Account hub copy with Billing-focused copy.
+- Changed Billing card body text to subscription and billing wording.
+- Changed identity action button labels from INITIALIZE LOCAL IDENTITY to CREATE LOCAL IDENTITY and from SIGN OUT LOCAL IDENTITY to SIGN OUT LOCAL.
+- Removed visible Operator wording from the rendered Profile UI.
+
+9. Confirmation settings route still exists through ProfileHeader
+- Confirmed.
+- ProfileHeader still receives onOpenSettings wired to appFlowProvider.toSettings().
+
+10. Confirmation billing route still exists
+- Confirmed.
+- Billing center still uses context.push(RoutePaths.subscriptionManagement).
+
+11. Confirmation identity actions still work
+- Confirmed.
+- Initialize/create local identity, restore local identity, and sign out local identity callbacks were left unchanged.
+
+12. Confirmation provider logic unchanged
+- Confirmed.
+- profileViewStateProvider, momentumEngineProvider, identityAccountStatusProvider, identityAccountActionsProvider, accountSecurityProvider, accountConnectionProvider, appFlowProvider, and RoutePaths.subscriptionManagement were not changed.
+
+13. Confirmation auth/Supabase/Firebase/Google/AI/SI Console/subscription/database files untouched
+- Confirmed.
+- Only lib/features/profile/ui/profile_screen.dart was edited in this pass.
+
+14. Analyzer result
+- flutter analyze: PASS

@@ -93,6 +93,14 @@ class SupabaseAiCreditRepository implements AiCreditRepository {
             .select()
             .eq('user_id', userId)
             .maybeSingle();
+        if (row == null) {
+          _logFallbackIfUsed(
+            canonicalTable: _walletTables.first,
+            selectedTable: table,
+            selectedIndex: index,
+          );
+          return null;
+        }
         if (row is Map<String, dynamic>) {
           _logFallbackIfUsed(
             canonicalTable: _walletTables.first,

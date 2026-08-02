@@ -1,0 +1,48 @@
+CHRONOSPARK SMART PLANNER CONTROL CLARITY REPORT
+Date: 2026-08-01
+
+1. File changed
+- lib/features/home/ui/smart_coach_screen.dart
+
+2. Emotional State helper copy added
+- Added helper text inside the EMOTIONAL STATE panel:
+  - "Helps Smart Planner adjust the tone and intensity of guidance."
+- Style kept compact and low dominance:
+  - color: Colors.white54
+  - fontSize: 11
+  - height: 1.35
+
+3. Focus Context helper copy added
+- Added helper text inside the FOCUS CONTEXT panel above the text field:
+  - "Add what is on your mind, what feels blocked, or what outcome you want."
+- Style kept compact and low dominance:
+  - color: Colors.white54
+  - fontSize: 11
+  - height: 1.35
+
+4. Focus Context minLines/maxLines outcome
+- Text field changed from:
+  - maxLines: 3
+- To:
+  - minLines: 3
+  - maxLines: 4
+- Controller and onChanged behavior were kept intact.
+
+5. Confirmation no behavior changed
+- Confirmed. Emotional state selection logic was not changed.
+- Confirmed. Focus context input/update logic was not changed.
+- Confirmed. Save invalidation behavior (_saved = false) remains unchanged.
+
+6. Confirmation no provider logic changed
+- Confirmed. No provider logic or provider files were changed.
+
+7. Confirmation no AI/coaching/voice/analytics logic changed
+- Confirmed. No AI request flow, coaching query logic, voice logic, or analytics event behavior changed.
+
+8. Confirmation no auth/Supabase/Firebase/Google/SI Console/subscription/database files changed
+- Confirmed. None of those systems/files were edited.
+- No SQL was run.
+
+9. Analyzer result
+- Command: flutter analyze
+- Result: No issues found.

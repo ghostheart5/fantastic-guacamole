@@ -27,11 +27,48 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 part 'settings_screen.sections.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _syncAudioSettings();
+    });
+  }
+
+  void _syncAudioSettings() {
+    AudioService.setSoundEffectsEnabled(ref.read(soundEnabledProvider));
+    AudioService.setAdvancedProfileEnabled(
+      ref.read(advancedAudioProfileEnabledProvider),
+    );
+    AudioService.setHapticsEnabled(ref.read(hapticFeedbackEnabledProvider));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<bool>(
+      soundEnabledProvider,
+      (_, next) => AudioService.setSoundEffectsEnabled(next),
+    );
+    ref.listen<bool>(
+      advancedAudioProfileEnabledProvider,
+      (_, next) => AudioService.setAdvancedProfileEnabled(next),
+    );
+    ref.listen<bool>(
+      hapticFeedbackEnabledProvider,
+      (_, next) => AudioService.setHapticsEnabled(next),
+    );
+
     ref.watch(extended_domain.extendedDomainBootstrapProvider);
     final int legalPoliciesCount = ref
         .watch(extended_domain.privacyPoliciesProvider)
@@ -47,14 +84,11 @@ class SettingsScreen extends ConsumerWidget {
     final bool isDarkMode = themeAsync.asData?.value.isDark ?? true;
     final access = ref.watch(appAccessProvider);
     final hasMockSession = ref.watch(mockAuthSessionProvider);
+    final notificationPermission = ref.watch(notificationPermissionProvider);
     final bool accountDeletionConfigured = _hasSecureHttpsEndpoint(
       Env.accountDeleteEndpoint,
     );
     final bool allowDeletionSupportFallback = !kReleaseMode;
-
-    AudioService.setSoundEffectsEnabled(soundEnabled);
-    AudioService.setAdvancedProfileEnabled(advancedAudioEnabled);
-    AudioService.setHapticsEnabled(hapticFeedbackEnabled);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgSettings,
@@ -244,77 +278,61 @@ class SettingsScreen extends ConsumerWidget {
                         subtitle:
                             'Profile: ${motionProfile.name.toUpperCase()} | System reduced motion: ${systemReducedMotion ? 'ON' : 'OFF'}',
                       ),
-                    ValueListenableBuilder<bool?>(
-                      valueListenable: ref.watch(
-                        notificationPermissionListenableProvider,
-                      ),
-                      builder: (context, granted, _) {
-                        final String subtitle = switch (granted) {
-                          true => 'Granted',
-                          false => 'Denied (reminders are off)',
-                          null => 'Checking notification access',
-                        };
-                        return _NeonStatusTile(
-                          title: 'Notifications',
-                          subtitle: subtitle,
-                        );
+                    _NeonStatusTile(
+                      title: 'Notifications',
+                      subtitle: switch (notificationPermission.granted) {
+                        true => 'Granted',
+                        false => 'Denied (reminders are off)',
+                        null => 'Checking notification access',
                       },
                     ),
                     const SizedBox(height: 8),
-                    ValueListenableBuilder<NotificationPermissionState>(
-                      valueListenable: ref.watch(
-                        notificationPermissionStateListenableProvider,
-                      ),
-                      builder: (context, permissionState, _) {
-                        final bool? granted = ref
-                            .watch(notificationPermissionListenableProvider)
-                            .value;
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            NotificationPermissionPrompt(
-                              permissionGranted: granted,
-                              permissionState: permissionState,
-                              onRequestPermission: () async {
-                                final NotificationPermissionState
-                                state = await ref
-                                    .read(settingsUiActionsProvider)
-                                    .requestNotificationPermissionDetailed();
-                                return state ==
-                                    NotificationPermissionState.granted;
-                              },
-                              onOpenSystemSettings: () async {
-                                final bool opened = await ref
-                                    .read(settingsUiActionsProvider)
-                                    .openSystemAppSettings();
-                                if (!context.mounted || opened) {
-                                  return;
-                                }
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Open your device app settings and enable notifications for ChronoSpark.',
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            if (granted == false)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    context.push(
-                                      RoutePaths.notificationPermissionRecovery,
-                                    );
-                                  },
-                                  icon: const Icon(Icons.build_circle_outlined),
-                                  label: const Text('Fix notification access'),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        NotificationPermissionPrompt(
+                          permissionGranted: notificationPermission.granted,
+                          permissionState:
+                              notificationPermission.permissionState,
+                          onRequestPermission: () async {
+                            final NotificationPermissionSnapshot state =
+                                await ref
+                                    .read(
+                                      notificationPermissionProvider.notifier,
+                                    )
+                                    .requestPermission();
+                            return state.isGranted;
+                          },
+                          onOpenSystemSettings: () async {
+                            final bool opened = await ref
+                                .read(settingsUiActionsProvider)
+                                .openSystemAppSettings();
+                            if (!context.mounted || opened) {
+                              return;
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Open your device app settings and enable notifications for ChronoSpark.',
                                 ),
                               ),
-                          ],
-                        );
-                      },
+                            );
+                          },
+                        ),
+                        if (notificationPermission.granted == false)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                context.push(
+                                  RoutePaths.notificationPermissionRecovery,
+                                );
+                              },
+                              icon: const Icon(Icons.build_circle_outlined),
+                              label: const Text('Fix notification access'),
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),

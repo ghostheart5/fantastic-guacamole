@@ -2,8 +2,11 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
-import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:flutter/services.dart';
+
+const String _creatorSeedAssetPath = 'assets/data/creator_seed.json';
+const String _temporalSeedAssetPath = 'assets/data/temporal_seed.json';
+const String _siSeedAssetPath = 'assets/data/si_seed.json';
 
 class CreatorWorkspaceState {
   const CreatorWorkspaceState({
@@ -346,9 +349,7 @@ class WorkspaceStoreService {
 
   Future<CreatorWorkspaceState> _loadCreatorSeed() async {
     try {
-      final String content = await rootBundle.loadString(
-        AppAssets.dataCreatorSeed,
-      );
+      final String content = await rootBundle.loadString(_creatorSeedAssetPath);
       return CreatorWorkspaceState.fromJson(
         jsonDecode(content) as Map<String, dynamic>,
       );
@@ -365,7 +366,7 @@ class WorkspaceStoreService {
   Future<TemporalPlannerState> _loadTemporalSeed() async {
     try {
       final String content = await rootBundle.loadString(
-        AppAssets.dataTemporalSeed,
+        _temporalSeedAssetPath,
       );
       return TemporalPlannerState.fromJson(
         jsonDecode(content) as Map<String, dynamic>,
@@ -380,7 +381,7 @@ class WorkspaceStoreService {
 
   Future<SIWorkspaceState> _loadSiSeed() async {
     try {
-      final String content = await rootBundle.loadString(AppAssets.dataSiSeed);
+      final String content = await rootBundle.loadString(_siSeedAssetPath);
       return SIWorkspaceState.fromJson(
         jsonDecode(content) as Map<String, dynamic>,
       );

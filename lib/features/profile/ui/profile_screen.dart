@@ -35,7 +35,7 @@ class ProfileScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             children: [
               ProfileHeader(
                 name: data.name,
@@ -44,23 +44,21 @@ class ProfileScreen extends ConsumerWidget {
                 onOpenSettings: () =>
                     ref.read(appFlowProvider.notifier).toSettings(),
               ),
-
-              const SizedBox(height: 16),
-
+              const SizedBox(height: 12),
               _IdentityAccountCard(status: identityStatus),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _AccountSecurityCard(security: accountSecurity),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _ConnectedAccountsCard(connections: accountConnections),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _IdentityAccountActionsCard(
                 status: identityStatus,
-                isBusy: identityActionState.isLoading,
+                actionState: identityActionState,
                 onInitialize: () => ref
                     .read(identityAccountActionsProvider.notifier)
                     .initializeLocalIdentity(
                       displayName: data.name.trim().isEmpty
-                          ? 'Operator'
+                          ? 'Profile'
                           : data.name.trim(),
                     ),
                 onRestore: () => ref
@@ -70,14 +68,12 @@ class ProfileScreen extends ConsumerWidget {
                     .read(identityAccountActionsProvider.notifier)
                     .signOutLocalIdentity(),
               ),
-
-              const SizedBox(height: 12),
-
+              const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                 decoration: BoxDecoration(
                   color: const Color(0xAA07111F),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: AppColors.neonViolet.withValues(alpha: 0.24),
                   ),
@@ -86,7 +82,7 @@ class ProfileScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Account hub',
+                      'Billing',
                       style: TextStyle(
                         color: AppColors.neonViolet,
                         fontSize: 10,
@@ -94,58 +90,32 @@ class ProfileScreen extends ConsumerWidget {
                         letterSpacing: 0.8,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     const Text(
-                      'Manage account details, settings, and billing in one place.',
+                      'Manage subscription and billing options.',
                       style: TextStyle(
                         color: Colors.white70,
-                        fontSize: 12,
-                        height: 1.35,
+                        fontSize: 11,
+                        height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () =>
-                                ref.read(appFlowProvider.notifier).toSettings(),
-                            icon: const Icon(Icons.settings_outlined, size: 18),
-                            label: const Text('Settings'),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () =>
-                                context.push(RoutePaths.subscriptionManagement),
-                            icon: const Icon(Icons.credit_card, size: 18),
-                            label: const Text('Billing center'),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            context.push(RoutePaths.subscriptionManagement),
+                        icon: const Icon(Icons.credit_card, size: 18),
+                        label: const Text('Billing center'),
+                      ),
                     ),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              const Text(
-                'Profile',
-                style: TextStyle(
-                  color: AppColors.neonCyan,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8,
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
+              const SizedBox(height: 12),
               Wrap(
-                spacing: 10,
-                runSpacing: 10,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   _MetricCard(
                     label: 'Level',
@@ -164,35 +134,25 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-
-              const SizedBox(height: 20),
-
-              _OperatorStatusCard(
-                level: data.level,
-                xp: data.xp,
-                streak: data.streak,
-              ),
-
-              const SizedBox(height: 20),
-
+              const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
                       const Color(0xEE07111F),
-                      AppColors.neonCyan.withValues(alpha: 0.10),
-                      AppColors.neonViolet.withValues(alpha: 0.08),
+                      AppColors.neonCyan.withValues(alpha: 0.08),
+                      AppColors.neonViolet.withValues(alpha: 0.06),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: AppColors.neonCyan.withValues(alpha: 0.25),
+                    color: AppColors.neonCyan.withValues(alpha: 0.20),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.neonCyan.withValues(alpha: 0.08),
-                      blurRadius: 18,
+                      color: AppColors.neonCyan.withValues(alpha: 0.05),
+                      blurRadius: 8,
                     ),
                   ],
                 ),
@@ -200,33 +160,33 @@ class ProfileScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Momentum trend',
+                      'Momentum',
                       style: TextStyle(
                         color: AppColors.neonCyan,
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      momentum.trend,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
+                      momentum.trend,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
                       momentum.forecast,
                       style: const TextStyle(
                         color: Colors.white70,
-                        fontSize: 13,
-                        height: 1.4,
+                        fontSize: 11,
+                        height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Text(
                       'Momentum ${momentum.score}%  ·  Energy ${momentum.energyPercent}%  ·  Pressure ${momentum.pressurePercent}%',
                       style: const TextStyle(
@@ -235,7 +195,7 @@ class ProfileScreen extends ConsumerWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       'Recovery: ${momentum.recovery}',
                       style: const TextStyle(
@@ -269,11 +229,11 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 104,
-      padding: const EdgeInsets.all(14),
+      width: 96,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xAA07111F),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -282,7 +242,7 @@ class _MetricCard extends StatelessWidget {
             value,
             style: TextStyle(
               color: color,
-              fontSize: 22,
+              fontSize: 19,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -291,8 +251,8 @@ class _MetricCard extends StatelessWidget {
             label,
             style: const TextStyle(
               color: Colors.white54,
-              fontSize: 10,
-              letterSpacing: 1.5,
+              fontSize: 9,
+              letterSpacing: 1.0,
             ),
           ),
         ],
@@ -301,6 +261,7 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _OperatorStatusCard extends StatelessWidget {
   const _OperatorStatusCard({
     required this.level,
@@ -317,51 +278,51 @@ class _OperatorStatusCard extends StatelessWidget {
       return 'Elite rhythm established';
     }
     if (streak >= 7) {
-      return 'Momentum system online';
+      return 'Strong rhythm established';
     }
     if (xp > 0) {
-      return 'Operator growth active';
+      return 'Progress active';
     }
-    return 'Profile system initializing';
+    return 'Profile ready';
   }
 
   String get _signal {
     if (level >= 10) {
-      return 'Advanced operator tier detected.';
+      return 'Advanced progress level reached.';
     }
     if (streak >= 7) {
-      return 'Consistency is building a stronger future path.';
+      return 'Consistency is building stronger momentum.';
     }
-    return 'Complete actions to strengthen your profile signal.';
+    return 'Complete actions to strengthen your progress.';
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             const Color(0xEE07111F),
-            AppColors.neonCyan.withValues(alpha: 0.12),
-            AppColors.neonViolet.withValues(alpha: 0.10),
+            AppColors.neonCyan.withValues(alpha: 0.08),
+            AppColors.neonViolet.withValues(alpha: 0.06),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.20)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.neonCyan.withValues(alpha: 0.08),
-            blurRadius: 20,
+            color: AppColors.neonCyan.withValues(alpha: 0.05),
+            blurRadius: 8,
           ),
         ],
       ),
       child: Row(
         children: [
           Container(
-            width: 58,
-            height: 58,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.neonCyan.withValues(alpha: 0.10),
@@ -370,37 +331,37 @@ class _OperatorStatusCard extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.neonCyan.withValues(alpha: 0.18),
-                  blurRadius: 18,
+                  color: AppColors.neonCyan.withValues(alpha: 0.12),
+                  blurRadius: 8,
                 ),
               ],
             ),
             child: const Icon(
               Icons.person_pin_circle_rounded,
               color: AppColors.neonCyan,
-              size: 30,
+              size: 24,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'OPERATOR STATUS',
+                  'Progress status',
                   style: TextStyle(
                     color: AppColors.neonCyan,
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: 2,
+                    letterSpacing: 1.2,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   _status,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -409,8 +370,8 @@ class _OperatorStatusCard extends StatelessWidget {
                   _signal,
                   style: const TextStyle(
                     color: Colors.white60,
-                    fontSize: 12,
-                    height: 1.35,
+                    fontSize: 11,
+                    height: 1.3,
                   ),
                 ),
               ],
@@ -431,21 +392,21 @@ class _IdentityAccountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             const Color(0xEE07111F),
-            AppColors.neonViolet.withValues(alpha: 0.10),
-            AppColors.neonCyan.withValues(alpha: 0.08),
+            AppColors.neonViolet.withValues(alpha: 0.08),
+            AppColors.neonCyan.withValues(alpha: 0.06),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.28)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.20)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.neonViolet.withValues(alpha: 0.08),
-            blurRadius: 18,
+            color: AppColors.neonViolet.withValues(alpha: 0.05),
+            blurRadius: 8,
           ),
         ],
       ),
@@ -453,49 +414,49 @@ class _IdentityAccountCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'IDENTITY ACCOUNT',
+            'Account identity',
             style: TextStyle(
               color: AppColors.neonViolet,
               fontSize: 10,
               fontWeight: FontWeight.w900,
-              letterSpacing: 2.2,
+              letterSpacing: 1.2,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             status.displayName,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 20,
+              fontSize: 17,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             status.accountLabel,
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
+              letterSpacing: 1.0,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             'Sync: ${status.syncLabel}',
             style: const TextStyle(
               color: Colors.white54,
-              fontSize: 12,
-              height: 1.35,
+              fontSize: 11,
+              height: 1.3,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             status.emailLabel,
             style: const TextStyle(
               color: Colors.white38,
               fontSize: 11,
-              height: 1.35,
+              height: 1.3,
             ),
           ),
         ],
@@ -539,19 +500,19 @@ class _AccountSecurityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             const Color(0xEE07111F),
-            _accent.withValues(alpha: 0.10),
-            AppColors.neonViolet.withValues(alpha: 0.06),
+            _accent.withValues(alpha: 0.08),
+            AppColors.neonViolet.withValues(alpha: 0.05),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _accent.withValues(alpha: 0.28)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _accent.withValues(alpha: 0.20)),
         boxShadow: [
-          BoxShadow(color: _accent.withValues(alpha: 0.08), blurRadius: 18),
+          BoxShadow(color: _accent.withValues(alpha: 0.05), blurRadius: 8),
         ],
       ),
       child: Column(
@@ -563,32 +524,32 @@ class _AccountSecurityCard extends StatelessWidget {
               color: _accent,
               fontSize: 10,
               fontWeight: FontWeight.w900,
-              letterSpacing: 2.0,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            security.summary,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              height: 1.35,
+              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: 8),
           Text(
+            security.summary,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
             security.recommendation,
             style: const TextStyle(
               color: Colors.white70,
-              fontSize: 12,
-              height: 1.4,
+              fontSize: 11,
+              height: 1.3,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               _SecurityChip(
                 label: 'EMAIL',
@@ -640,7 +601,7 @@ class _SecurityChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(999),
@@ -650,9 +611,9 @@ class _SecurityChip extends StatelessWidget {
         '$label $value',
         style: TextStyle(
           color: color,
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: FontWeight.w800,
-          letterSpacing: 1.1,
+          letterSpacing: 0.8,
         ),
       ),
     );
@@ -662,43 +623,48 @@ class _SecurityChip extends StatelessWidget {
 class _IdentityAccountActionsCard extends StatelessWidget {
   const _IdentityAccountActionsCard({
     required this.status,
-    required this.isBusy,
+    required this.actionState,
     required this.onInitialize,
     required this.onRestore,
     required this.onSignOut,
   });
 
   final IdentityAccountStatus status;
-  final bool isBusy;
+  final AsyncValue<void> actionState;
   final VoidCallback onInitialize;
   final VoidCallback onRestore;
   final VoidCallback onSignOut;
 
   @override
   Widget build(BuildContext context) {
+    final bool isBusy = actionState.isLoading;
+    final bool hasError = actionState.hasError;
+    final String? errorLabel = hasError
+        ? _safeErrorLabel(actionState.error)
+        : null;
     final String primaryLabel = status.hasIdentity
-        ? 'SIGN OUT LOCAL IDENTITY'
-        : 'INITIALIZE LOCAL IDENTITY';
+        ? 'SIGN OUT LOCAL'
+        : 'CREATE LOCAL IDENTITY';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             const Color(0xEE07111F),
-            AppColors.memoryAmber.withValues(alpha: 0.10),
-            AppColors.neonCyan.withValues(alpha: 0.06),
+            AppColors.memoryAmber.withValues(alpha: 0.08),
+            AppColors.neonCyan.withValues(alpha: 0.05),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.memoryAmber.withValues(alpha: 0.28),
+          color: AppColors.memoryAmber.withValues(alpha: 0.20),
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.memoryAmber.withValues(alpha: 0.08),
-            blurRadius: 18,
+            color: AppColors.memoryAmber.withValues(alpha: 0.05),
+            blurRadius: 8,
           ),
         ],
       ),
@@ -711,24 +677,37 @@ class _IdentityAccountActionsCard extends StatelessWidget {
               color: AppColors.memoryAmber,
               fontSize: 10,
               fontWeight: FontWeight.w900,
-              letterSpacing: 2.2,
+              letterSpacing: 1.4,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             isBusy
-                ? 'Processing identity action...'
-                : 'Local identity bridge ready.',
+                ? 'Updating account...'
+                : hasError
+                ? 'Account action failed. Try again.'
+                : 'Local identity ready.',
             style: const TextStyle(
               color: Colors.white70,
-              fontSize: 12,
-              height: 1.4,
+              fontSize: 11,
+              height: 1.3,
             ),
           ),
-          const SizedBox(height: 12),
+          if (errorLabel != null) ...<Widget>[
+            const SizedBox(height: 4),
+            Text(
+              errorLabel,
+              style: const TextStyle(
+                color: Colors.white38,
+                fontSize: 11,
+                height: 1.3,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               _IdentityActionButton(
                 label: primaryLabel,
@@ -750,6 +729,21 @@ class _IdentityAccountActionsCard extends StatelessWidget {
       ),
     );
   }
+
+  String? _safeErrorLabel(Object? error) {
+    if (error == null) {
+      return null;
+    }
+
+    final String typeName = error.runtimeType.toString();
+    if (typeName.contains('TimeoutException')) {
+      return 'Action timed out. Retry when ready.';
+    }
+    if (typeName.contains('FormatException')) {
+      return 'Action response was invalid. Try again.';
+    }
+    return 'A temporary account action error occurred.';
+  }
 }
 
 class _IdentityActionButton extends StatelessWidget {
@@ -768,7 +762,7 @@ class _IdentityActionButton extends StatelessWidget {
     return SmartPressable(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(999),
@@ -778,9 +772,9 @@ class _IdentityActionButton extends StatelessWidget {
           label,
           style: TextStyle(
             color: color,
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: FontWeight.w900,
-            letterSpacing: 1.1,
+            letterSpacing: 0.8,
           ),
         ),
       ),
@@ -845,21 +839,21 @@ class _ConnectedAccountsCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             const Color(0xEE07111F),
-            AppColors.neonCyan.withValues(alpha: 0.08),
-            AppColors.neonViolet.withValues(alpha: 0.08),
+            AppColors.neonCyan.withValues(alpha: 0.06),
+            AppColors.neonViolet.withValues(alpha: 0.06),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.24)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.18)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.neonCyan.withValues(alpha: 0.07),
-            blurRadius: 18,
+            color: AppColors.neonCyan.withValues(alpha: 0.05),
+            blurRadius: 8,
           ),
         ],
       ),
@@ -867,39 +861,36 @@ class _ConnectedAccountsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'CONNECTED ACCOUNTS',
+            'Connected accounts',
             style: TextStyle(
               color: AppColors.neonCyan,
               fontSize: 10,
               fontWeight: FontWeight.w900,
-              letterSpacing: 2.2,
+              letterSpacing: 1.2,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             '$connectedCount connected identity ${connectedCount == 1 ? 'source' : 'sources'}',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
-              height: 1.35,
+              height: 1.3,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           ...visibleConnections.map((AccountConnection connection) {
             final Color accent = _colorFor(connection.status);
 
             return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 6),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 9,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: accent.withValues(alpha: 0.22)),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: accent.withValues(alpha: 0.20)),
                 ),
                 child: Row(
                   children: [
@@ -910,7 +901,7 @@ class _ConnectedAccountsCard extends StatelessWidget {
                           color: accent,
                           fontSize: 11,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 1.2,
+                          letterSpacing: 1.0,
                         ),
                       ),
                     ),
@@ -920,7 +911,7 @@ class _ConnectedAccountsCard extends StatelessWidget {
                         color: accent,
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
+                        letterSpacing: 0.8,
                       ),
                     ),
                   ],

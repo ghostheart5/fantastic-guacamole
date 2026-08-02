@@ -1,0 +1,73 @@
+CHRONOSPARK PROGRESSION WRITE MAP
+Date: 2026-08-01
+Scope: Places where XP, level, streak, and longest streak are modified across the progression/profile stack.
+
+INTENDED CANONICAL FORMULA
+- Intended canonical progression formula appears to be the ProgressionPolicy / UserProgress model:
+  - levelFromXp(xp) = floor(sqrt(xp / 100)) + 1
+  - xpForLevel(level) = (level - 1)^2 * 100
+  - levelProgressFraction(xp) and xpToNextLevel(xp) derive from that same banded model
+- Evidence for intent:
+  - lib/domain/policies/progression_policy.dart defines the explicit level math and comments it as the level model.
+  - lib/state/models/user_progress.dart uses ProgressionPolicy.xpForLevel(), xpToNextLevel(), and levelProgressFraction().
+  - The Progression screen UI consumes UserProgress.
+- Important caveat:
+  - The actual write paths are not fully aligned with that intended formula.
+  - ProfileController.addXP() uses a linear rollover rule.
+  - ProgressionEntity.addXp() uses a cumulative threshold rule.
+  - Several domain usecases update XP without recomputing derived level.
+
+PROGRESSION WRITE MAP
+
+| File | Method | XP Logic | Level Logic | Streak Logic |
+| --- | --- | --- | --- | --- |
+| lib/state/controllers/profile_controller.dart | addXP(int amount) | Adds amount to state.xp, then persists via _save() | Computes newLevel = (newXP ~/ 50) + 1 | Updates streak via _streakLogic.update(...); updates longestStreak from updated.longest |
+| lib/state/controllers/profile_controller.dart | incrementStreak() | No XP change | No level change | Updates streak via _streakLogic.update(...); updates longestStreak from updated.longest |
+| lib/state/controllers/profile_controller.dart | resetStreak() | No XP change | No level change | Sets streak to 0; preserves longestStreak |
+| lib/state/controllers/profile_controller.dart | setProgressionSnapshot({xp, level, streak}) | Sets safeXp directly | Sets safeLevel directly | Sets safeStreak directly; longestStreak = max(current longestStreak, safeStreak) |
+| lib/state/providers/domain_usecase_providers.dart | _ProfileBackedProgressionRepository.getProgression() | Reads profile.xp | Reads profile.level | Reads profile.streak | 
+| lib/state/providers/domain_usecase_providers.dart | _ProfileBackedProgressionRepository.saveProgression(ProgressionEntity progression) | Writes progression.xp into ProfileController via setProgressionSnapshot | Writes progression.level into ProfileController via setProgressionSnapshot | Writes progression.streak into ProfileController via setProgressionSnapshot |
+| lib/domain/usecases/complete_task.dart | call(String id) | Reads current progression, then saves current.xp + ProgressionPolicy.taskXp | Does not recompute level; copies existing level forward | No streak change |
+| lib/domain/usecases/start_session.dart | call(SessionEntity session) | Reads current progression, then saves current.xp + ProgressionPolicy.sessionXp | Does not recompute level; copies existing level forward | No streak change |
+| lib/domain/usecases/end_session.dart | call(String sessionId, DateTime endedAt) | Reads current progression, then saves current.xp + ProgressionPolicy.sessionXp | Does not recompute level; copies existing level forward | No streak change |
+| lib/domain/usecases/update_xp.dart | call(int xp) | Replaces XP with supplied value | Does not recompute level; copies existing level forward | No streak change |
+| lib/domain/usecases/update_level.dart | call(int level) | No XP change | Replaces level with supplied value | No streak change |
+| lib/domain/usecases/update_streak.dart | call(int streak) | No XP change | No level change | Replaces streak with supplied value |
+| lib/dev/test_data_generator.dart | test-data path calling addXP(2400) | Drives ProfileController.addXP() with test XP | Uses ProfileController.addXP() formula | Indirectly updates streak only if addXP path’s streak logic runs, otherwise no explicit streak write |
+| lib/state/controllers/coach_query_controller.dart | XP award call sites around follow-up / coaching flow | Calls profileProvider.notifier.addXP(10) | Delegates to ProfileController.addXP() | Delegates to ProfileController.addXP() |
+| lib/state/providers/goals_provider.dart | reward/celebration/progression award call sites | Calls profileProvider.notifier.addXP(reward.xp) / addXP(bonusXp) / addXP(progressionXp) | Delegates to ProfileController.addXP() | Delegates to ProfileController.addXP() |
+| lib/state/providers/task_provider.dart | completion reward path | Calls profileProvider.notifier.addXP(score.xp) | Delegates to ProfileController.addXP() | Delegates to ProfileController.addXP() |
+| lib/state/providers/timeline_provider.dart | completion award path | Calls profileProvider.notifier.addXP(10) | Delegates to ProfileController.addXP() | Delegates to ProfileController.addXP() |
+
+NOTES ON LONGEST STREAK
+- Longest streak is only directly modified in lib/state/controllers/profile_controller.dart.
+- It is updated in:
+  - addXP(int amount)
+  - incrementStreak()
+  - setProgressionSnapshot({xp, level, streak})
+- No other direct longestStreak write paths were found in the inspected progression stack.
+
+CANONICALITY ASSESSMENT
+- Most likely intended canonical formula: ProgressionPolicy / UserProgress banded model.
+- Why that is the best-supported intent:
+  - The Progression screen’s visual math uses UserProgress.
+  - UserProgress derives progress from ProgressionPolicy.
+  - ProgressionPolicy is the only place with an explicit documented leveling formula.
+- Why it is not yet canonical in implementation:
+  - ProfileController.addXP() uses a different formula.
+  - ProfileEntity.addXp() uses yet another formula.
+  - Domain usecases often mutate XP without recalculating level.
+  - Repository bridging can persist whatever profile state last wrote, even if level is stale.
+
+RISK SUMMARY
+- XP can be incremented through multiple front doors, but level can be computed by different formulas depending on which layer handled the write.
+- Streak and longest streak are much more localized, with ProfileController acting as the primary writer.
+- The biggest correctness risk is XP-to-level drift, not streak drift.
+
+RECOMMENDED SINGLE SOURCE OF TRUTH
+- Use one progression formula everywhere XP changes.
+- Recompute level from XP at the same boundary in every writer.
+- Keep streak and longestStreak owned by ProfileController unless a dedicated progression domain service becomes the sole writer.
+
+ANALYZER RESULT
+- Not run: report-only request, no code changes made.

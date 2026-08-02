@@ -1,0 +1,277 @@
+CHRONOSPARK INTERACTIVE TUTORIAL REBUILD SPEC
+Planning-Only Artifact (No Code Changes)
+
+1) Objective And Scope
+Objective:
+Rebuild the interactive tutorial so first-time users can complete setup without routing loops, blocked dialogs, stale targets, or conflicting tutorial systems.
+
+Scope included:
+- Onboarding intro slides and setup handoff
+- Mission progression overlay (first setup guidance)
+- Generic JSON tutorial engine and card-based assist hints
+- Trigger/event wiring across Creator and Timeline for required setup flow
+- Optional post-setup discovery surfaces (Smart Planner, Future Vector, Ascension, SI Console, Profile, Settings, Subscriptions)
+- Completion logic and replay/reset behavior
+
+Scope excluded:
+- Auth provider architecture rewrites
+- Supabase/Firebase integration changes
+- Billing/AI domain changes unrelated to onboarding/tutorial flow
+
+2) Product Language Standard (Required Rename Direction)
+Current naming includes mixed tactical language and legacy labels. Rebuild must use simple product language across UI copy, analytics labels, and docs.
+
+Required language direction:
+- "Onboarding" -> "First Setup"
+- "Mission Zero" -> "First Setup Journey"
+- "Open Creator" remains acceptable
+- "Smart Planner" is acceptable only as an optional post-setup discovery feature. It must not be required to complete First Setup.
+- "Open Timeline" remains acceptable
+- "Mark Complete" -> "Finish Setup"
+
+Forbidden style in user-facing copy:
+- Militarized, combat, or command language
+- Jargon-heavy identity text that hides task intent
+
+3) System Classification (What Exists Now)
+A) Active + Visible + Safe (currently running in user experience)
+- lib/features/onboarding/ui/onboarding_screen.dart
+- lib/tutorial/mission/mission_overlay.dart
+- lib/tutorial/mission/mission_provider.dart
+- lib/tutorial/mission/mission_controller.dart
+- lib/tutorial/mission/mission_event_bridge.dart
+- lib/features/creator/ui/creator_screen.dart (mission event emissions)
+- lib/features/timeline/ui/timeline_screen.dart (timeline-open event)
+- lib/app/app_root.dart (global mount of mission overlay)
+
+B) Active + Mostly Hidden (running but secondary)
+- lib/tutorial/tutorial_provider.dart
+- lib/tutorial/tutorial_repository.dart
+- lib/tutorial/tutorial_progress_store.dart
+- lib/tutorial/tutorial_reset_service.dart
+
+C) Dormant/Unused In Primary Flow
+- lib/tutorial/tutorial_overlay.dart (generic pulse overlay host)
+- lib/tutorial/tutorial_target_registry.dart (target registration system)
+- assets/tutorials/home.json
+- assets/tutorials/tasks.json
+
+D) Archive/Legacy (not runtime active, candidate reference only)
+- .dead_code_archive_20260725_163247/**
+
+E) Dangerous (if re-enabled without rebuild)
+- Generic overlay path using global tap interception and target IDs from stale JSON
+- Any simultaneous enablement of mission overlay + generic overlay on same routes
+
+4) UX Breakpoint Findings
+F1. Multiple tutorial paradigms coexist:
+- Mission overlay is route-level and globally mounted.
+- Generic JSON overlay/cards exist as separate systems.
+Impact: conceptual drift, duplicate ownership, inconsistent trigger semantics.
+
+F2. Stale target dependency risk:
+- home.json and tasks.json reference targetId values that may not match current widget IDs in runtime trees.
+Impact: invisible highlights, non-advancing steps, phantom blockers.
+
+F3. Global overlay interference risk:
+- Mission overlay is globally stacked via app root.
+- Current implementation suppresses under modal/route constraints, but this depends on route safety checks and can regress.
+Impact: dialogs/date pickers can become visually or interactionally blocked if guard logic drifts.
+
+F4. Progress model split is intentional but easy to misuse:
+- Intro completion state is separate from first-win progression state.
+Impact: if future rebuild merges these incorrectly, onboarding loops can return.
+
+5) Issue Matrix (Path / Impact / Risk / Decision)
+1.
+Path: lib/features/onboarding/ui/onboarding_screen.dart
+Impact: controls setup completion state and first route handoff
+Risk: High (routing regressions if semantics changed)
+Decision: KEEP CORE FLOW, REWRITE COPY + STATE CONTRACT DOCS
+
+2.
+Path: lib/tutorial/mission/mission_overlay.dart
+Impact: persistent setup guidance and completion banner UX
+Risk: High (global overlay can block interactions if checks regress)
+Decision: REWRITE (harden gating + explicit route ownership map)
+
+3.
+Path: lib/tutorial/mission/mission_state.dart
+Impact: canonical first-setup progression model
+Risk: Medium
+Decision: KEEP MODEL, RENAME USER-FACING TITLES, LOCK EVENT CONTRACTS
+
+4.
+Path: lib/tutorial/mission/mission_event_bridge.dart
+Impact: bridges UI actions to progression
+Risk: Medium
+Decision: KEEP, ADD EVENT CONTRACT TESTS IN REBUILD PHASE
+
+5.
+Path: lib/features/creator/ui/creator_screen.dart
+Impact: progression event emission for create/configure steps
+Risk: Medium
+Decision: KEEP, REWRITE EVENT DEFINITIONS TO EXPLICIT REAL-WORLD ACTIONS
+
+6.
+Path: lib/features/timeline/ui/timeline_screen.dart
+Impact: progression event emission for timeline-open step
+Risk: Low/Medium
+Decision: KEEP
+
+7.
+Path: lib/tutorial/tutorial_overlay.dart
+Impact: full-screen pulse/tutorial blocker engine
+Risk: High if activated with stale targets
+Decision: DISABLE (short term), DELETE-LATER unless re-architected
+
+8.
+Path: lib/tutorial/tutorial_target_registry.dart
+Impact: target resolution infrastructure for generic overlay
+Risk: Medium (fragile coupling to widget tree)
+Decision: DISABLE (short term), DELETE-LATER unless validated in new system
+
+9.
+Path: assets/tutorials/home.json
+Impact: legacy scripted steps with target references
+Risk: High (target drift)
+Decision: REWRITE FULLY OR RETIRE
+
+10.
+Path: assets/tutorials/tasks.json
+Impact: legacy scripted tasks tutorial
+Risk: Medium/High (expected input strings and target drift)
+Decision: REWRITE FULLY OR RETIRE
+
+11.
+Path: lib/tutorial/widgets/micro_tutorial_card.dart
+Impact: secondary assist card UI
+Risk: Low
+Decision: KEEP AS OPTIONAL NON-BLOCKING HELP SURFACE
+
+12.
+Path: .dead_code_archive_20260725_163247/**
+Impact: historical snapshots only
+Risk: Low runtime, Medium confusion
+Decision: KEEP ARCHIVE READ-ONLY, EXCLUDE FROM FUTURE ACTIVE TUTORIAL OWNERSHIP
+
+6) Event Reality Map (Real Vs Fake Triggers)
+A) Real triggers currently wired to runtime actions
+- Goal/item creation action -> mission create-first-goal progression
+- Creator opened/configured action -> mission configure step progression
+- Timeline screen open -> mission timeline step progression
+- Timeline first action completion flag set by timeline action sources (complete/skip/delay)
+
+Post-setup optional discovery triggers (must not gate setup completion)
+- Smart Planner question asked event path exists in mission bridge/provider
+- SI Console interactions
+- Future Vector interactions
+- Ascension interactions
+- Profile/Settings/Subscriptions discovery actions
+
+B) Missing or unreliable trigger contracts
+- Generic JSON targetId taps/inputs are not guaranteed current
+- Expected input literal matching (example: specific typed phrase) is brittle
+- Cross-route trigger ownership is not centrally declared
+
+C) Fake/legacy trigger risk areas
+- Any JSON step relying on non-existent targetId in current widget tree
+- Generic overlay steps that require target taps on screens where target registration is absent
+
+D) Completion state reality
+- Mission completion model and completion banner behavior are implemented.
+- Completion step is not blocked by missing model/UI in current architecture.
+
+7) Desired End-State Architecture
+Single source of truth:
+- First Setup Journey owns progression state and primary guidance.
+- Optional contextual hints (cards/snack hints) remain secondary and non-blocking.
+
+Hard rules:
+- Never run two blocking tutorial overlays at once.
+- Any global overlay must publish explicit allowlist routes.
+- Modal/dialog/date-picker safety checks are mandatory and test-covered.
+- Trigger contracts must map to real UI events, not brittle string-only assumptions.
+- First Setup must be completed through real Creator and Timeline actions.
+- Smart Planner must not block setup.
+- SI Console must not block setup.
+- Future Vector must not block setup.
+- Ascension must not block setup.
+- Advanced intelligence features should appear after the first item is created and visible.
+
+User outcome target:
+- User can finish first setup in one uninterrupted path:
+  First Setup -> Build Your First Plan -> Create Something -> Choose When It Happens -> View Timeline -> Finish Setup.
+
+8) Phased Implementation Plan (Risk / Success / Rollback)
+Phase 1: Contract Freeze And Inventory Lock
+- Actions: freeze event names, step IDs, and route ownership map in docs/tests.
+- Risk: low
+- Success criteria: all setup events documented with exact source and consumer.
+- Rollback: revert to current stable event constants if drift appears.
+
+Phase 2: Copy And Naming Normalization
+- Actions: replace user-facing militarized/legacy terms with product language standard.
+- Risk: low
+- Success criteria: no tactical language in setup/tutorial UX.
+- Rollback: restore previous labels via copy map.
+
+Phase 3: Overlay Ownership Consolidation
+- Actions: keep mission overlay as only blocking setup layer; generic overlay disabled by default.
+- Risk: medium
+- Success criteria: dialogs/date pickers remain interactive on all setup routes.
+- Rollback: route-level kill switch for overlay rendering.
+
+Phase 4: Trigger Reliability Hardening
+- Actions: map each step to concrete runtime signals; remove brittle expected-value dependencies.
+- Risk: medium
+- Success criteria: step progression advances from real user actions in emulator/manual checks.
+- Rollback: fallback to manual next-step controls for affected steps.
+
+Phase 5: Completion And Replay Integrity
+- Actions: verify finish-state persistence, reset/replay entry points, and no onboarding loop regressions.
+- Risk: medium
+- Success criteria: users can complete setup, dismiss completion, and replay safely.
+- Rollback: force current canonical completion write path and disable replay toggle until fixed.
+
+Phase 6: Cleanup Legacy Systems
+- Actions: retire or quarantine unused JSON/overlay paths after validation window.
+- Risk: medium
+- Success criteria: one clear tutorial ownership path remains.
+- Rollback: re-enable archived secondary system behind explicit debug flag only.
+
+9) Validation And Audit Gates
+Gate A: Routing integrity
+- No redirect loop between onboarding, login, and creator.
+- First setup completion never regresses to incomplete without explicit reset.
+
+Gate B: Overlay safety
+- Opening picker/dialog/bottom sheet while setup active does not block interaction.
+- Overlay suppresses correctly on disallowed routes.
+
+Gate C: Event integrity
+- Each setup step has at least one verified real event source.
+- No step depends on stale target IDs from deprecated JSON.
+
+Gate D: Completion integrity
+- Completion banner appears when expected and can dismiss persistently.
+- Replay/reset path clears and replays journey without corrupting intro gate state.
+
+Gate E: Copy quality
+- User-facing language follows simple product naming set in Section 2.
+
+10) Final Recommendations
+Primary recommendation:
+Adopt Mission/First Setup Journey as canonical progression engine and demote legacy JSON-target overlay to optional/non-blocking or deprecate fully.
+
+Secondary recommendation:
+Keep micro-tutorial cards as contextual assist only, never as blocking progression gates.
+
+Operational recommendation:
+Ship rebuild behind staged rollout flags with a one-command rollback path for overlay rendering and event progression.
+
+Decision summary:
+- KEEP: onboarding screen core flow, mission state/controller/event bridge, timeline and creator event sources, optional micro cards
+- REWRITE: mission overlay guard contracts and all user-facing setup terminology
+- DISABLE (short term): generic blocking tutorial overlay + stale JSON target-driven flow
+- DELETE-LATER: legacy generic overlay/target registry and outdated tutorial JSON if no validated use remains after rebuild

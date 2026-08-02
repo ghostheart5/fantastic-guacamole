@@ -1,0 +1,82 @@
+CHRONOSPARK TIMELINE TUTORIAL LOCK FIX REPORT
+
+1. Files changed
+- lib/features/creator/ui/creator_screen.dart
+- lib/features/timeline/ui/timeline_screen.dart
+- lib/tutorial/mission/mission_state.dart
+- docs/timeline_tutorial_lock_fix_report.txt
+
+2. Root cause found
+- Full first-setup unlock was still gated by timelineFirstActionCompletedProvider.
+- That flag was only set by real Timeline task actions in task_provider.dart when actionSource == 'timeline'.
+- Timeline action chips only render when the event has a relatedId and is one of:
+  - TimelineEventType.task
+  - TimelineEventType.deadline
+  - event.phase == 'task'
+- Because of that, users could be sent to Timeline with a valid first item but no available Complete/Skip/Reschedule controls.
+- A second blocker existed in mission progression:
+  - required progression still included askSmartPlannerQuestion before openTimeline
+  - Creator save was not advancing the configure-first-item step after a successful save
+- Result: setup could remain locked even after the first item was created and Timeline was opened.
+
+3. Whether Timeline action requirement was removed, softened, or kept
+- Softened for first setup.
+- First setup no longer requires Complete/Skip/Reschedule to unlock navigation.
+- Timeline actions remain available for real actionable task-style Timeline items.
+
+4. Whether first setup can finish without Complete/Skip/Reschedule
+- Yes.
+- First setup can now complete after:
+  - first item is successfully created
+  - Creator save advances the create/configure setup steps
+  - Timeline is opened safely
+- Timeline open now satisfies the first-setup Timeline gate.
+
+5. Whether Timeline action events are now reported correctly
+- Yes.
+- Existing task action flow still sets timelineFirstActionCompletedProvider for Timeline-origin actions in task_provider.dart.
+- Timeline screen now also reuses the existing mission timeline-open signal after a successful Timeline task action, so setup progression is not left behind if the initial open event was missed.
+
+6. What item types are actionable on Timeline
+- task:
+  actionable only when it appears as a Timeline event with relatedId and task-style action support
+  in current code this is typically a projected deadline/task-style event
+- routine:
+  actionable only if it becomes a task-style Timeline event with relatedId and scheduling that produces a projected actionable item
+- goal:
+  not actionable with Complete/Skip/Reschedule in current Timeline UI
+- note:
+  actionable only if it is converted into a scheduled task-style Timeline event with relatedId and produces a projected actionable item
+
+7. What item types are view-only on Timeline
+- goal events are view-only in the current Timeline action row logic
+- any task/routine/note without a task-style actionable Timeline event is view-only
+- any Timeline item missing relatedId is view-only
+- any Timeline item not typed/phased as task/deadline/task-phase is view-only for these controls
+
+8. Whether Smart Planner/SI Console/Future Vector/Ascension were untouched
+- Smart Planner was not made mandatory.
+- SI Console was untouched.
+- Future Vector was untouched.
+- Ascension was untouched.
+
+9. Whether auth/Supabase/Firebase/Google/subscriptions/database schema were untouched
+- Auth untouched.
+- Firebase untouched.
+- Google login untouched.
+- Subscriptions untouched.
+- Database schema untouched.
+- No SQL was run.
+- No router redirect logic was changed.
+
+10. Analyzer result
+- Command: flutter analyze
+- Result: No issues found.
+
+Behavior summary
+- Creating a task can continue first setup.
+- Creating a routine can continue first setup.
+- Creating a goal can continue first setup.
+- Creating a note can continue first setup.
+- Timeline no longer blocks first setup when action buttons are unavailable.
+- Complete/Skip/Reschedule still work for real actionable task-style Timeline items.

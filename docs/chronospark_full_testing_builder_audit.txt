@@ -148,17 +148,18 @@ Login -> Creator -> Create Task/Routine/Goal/Note -> schedule/frequency -> Timel
 - MEDIUM: Supabase live roundtrip validation is opt-in, not always-on CI guard.
 
 30) Safe Test-Build Order (Do Next Without Breaking App)
-- Phase 1: Add high-value golden-path integration tests for core journey slices:
-  - Login -> Create Task(one-time) -> Timeline -> Complete.
+- Phase 1: Add high-value golden-path integration tests for core journey slices.
+  - Login -> Create Task (one-time) -> Timeline -> Complete.
   - Login -> Create Goal -> Timeline visibility.
   - Login -> Create Note/Routine -> Timeline visibility.
-- Phase 2: Add status transition behavior matrix tests:
+- Phase 2: Add a status-transition behavior matrix.
   - Complete, Not Completed, Skipped, Rescheduled (with persistence + UI verification).
-- Phase 3: Add frequency and schedule permutations:
-  - Daily/Weekly/Monthly create/save/render/next-occurrence checks from UI level.
+- Phase 3: Add frequency and schedule permutations.
+  - Daily/Weekly/Monthly create/save/render/next-occurrence checks from the UI level.
 - Phase 4: Add Profile -> Settings -> Subscription end-to-end tests.
-- Phase 5: Expand resilience tests (offline/online sync edges, app resume, retries).
-- Phase 6: Add deterministic monkey/chaos acceptance criteria wrappers around logs.
+- Phase 5: Expand resilience coverage.
+  - Offline/online sync edges, app resume, retries.
+- Phase 6: Add deterministic monkey/chaos acceptance-criteria wrappers around logs.
 
 31) Recommended Test Architecture Strategy
 - Keep existing contract/release tests as fast guard rails.

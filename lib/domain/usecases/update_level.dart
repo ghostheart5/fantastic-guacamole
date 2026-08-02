@@ -9,6 +9,7 @@ class UpdateLevel {
   Future<ProgressionEntity> call(int level) async {
     final ProgressionEntity current =
         await repository.getProgression() ?? const ProgressionEntity();
+    // Direct level updates are manual/admin-style and may intentionally diverge from XP-derived level.
     final ProgressionEntity updated = current.copyWith(level: level);
     await repository.saveProgression(updated);
     return updated;

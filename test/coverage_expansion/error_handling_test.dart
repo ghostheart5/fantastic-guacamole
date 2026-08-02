@@ -9,15 +9,15 @@ void main() {
     test('friendlyAuthErrorMessage maps known codes to safe messages', () {
       expect(
         friendlyAuthErrorMessage('invalid-email'),
-        'Invalid email format.',
+        'Please enter a valid email address.',
       );
       expect(
         friendlyAuthErrorMessage('network-request-failed'),
-        'Network link offline. Reconnect and retry.',
+        'Sign-in is temporarily unavailable. Check your connection and try again.',
       );
       expect(
         friendlyAuthErrorMessage('user-token-expired'),
-        'Session expired. Re-authenticate.',
+        'We could not restore your session. Please sign in again.',
       );
       expect(
         friendlyAuthErrorMessage('missing-password'),
@@ -30,7 +30,7 @@ void main() {
       () {
         expect(
           friendlyAuthErrorMessage('something-unexpected'),
-          'Authentication failed. Retry.',
+          'Authentication could not be completed. Please try again.',
         );
       },
     );

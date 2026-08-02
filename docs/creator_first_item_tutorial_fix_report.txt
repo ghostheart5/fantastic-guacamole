@@ -1,0 +1,60 @@
+CHRONOSPARK CREATOR FIRST ITEM TUTORIAL FIX REPORT
+
+Summary
+Targeted fix applied to remove the Creator first-item tutorial blocker where setup progression only advanced for goal creation.
+
+Files Changed
+- lib/features/creator/ui/creator_screen.dart
+- lib/tutorial/mission/mission_event_bridge.dart
+- lib/tutorial/mission/mission_controller.dart
+- lib/tutorial/mission/mission_provider.dart
+- docs/creator_first_item_tutorial_fix_report.txt
+
+Exact Bug Found
+- Creator tutorial copy says: "Create your first item in Creator."
+- Runtime progression advanced only when:
+  missionTutorialEnabled && savedKind == CreatorSavedKind.goal
+- Result: creating task/routine/note did not advance first setup mission step, but UI flow still moved toward Timeline, causing a setup lock mismatch.
+
+Old Behavior
+- First setup creation step advanced only for CreatorSavedKind.goal.
+- CreatorSavedKind.task/routine/note did not report completion for the first setup create step.
+- Auto-navigation toward Timeline could happen while mission progression remained incomplete.
+
+New Behavior
+- Added generic first-item progression API:
+  - reportFirstItemCreated
+- Creator now reports first-item completion after any supported successful create kind.
+- Auto-navigation to Timeline now happens only when both are true:
+  - first item auto-open condition is true
+  - mission progress event was reported successfully
+
+SavedKind Values That Now Advance First Setup
+- CreatorSavedKind.task
+- CreatorSavedKind.routine
+- CreatorSavedKind.goal
+- CreatorSavedKind.note
+
+Compatibility
+- reportGoalCreated was kept for backward compatibility.
+- New reportFirstItemCreated was added alongside it.
+
+Timeline Auto-Navigation Status
+- Still present.
+- Guarded so it only auto-navigates after mission progress reporting succeeds.
+
+Scope Safety Confirmation
+- No router redirect logic changed.
+- No auth code changed.
+- No Supabase code changed.
+- No Firebase code changed.
+- No Google login code changed.
+- No AI logic changed.
+- No SI Console logic changed.
+- No subscription code changed.
+- No database schema changed.
+- No SQL run.
+
+Analyzer Result
+- Command: flutter analyze
+- Result: No issues found.

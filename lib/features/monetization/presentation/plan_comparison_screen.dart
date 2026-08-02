@@ -18,7 +18,9 @@ class PlanComparisonScreen extends ConsumerWidget {
             Center(child: Text(error.toString())),
         data: (_) => const Padding(
           padding: EdgeInsets.all(16),
-          child: FeatureComparisonTable(rows: MonetizationCatalog.comparisonRows),
+          child: FeatureComparisonTable(
+            rows: MonetizationCatalog.comparisonRows,
+          ),
         ),
       ),
     );

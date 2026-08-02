@@ -29,7 +29,7 @@ class ProgressionScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -79,7 +79,7 @@ class ProgressionScreen extends ConsumerWidget {
                             ),
                           ),
                           const Text(
-                            'Levels, streaks, and momentum',
+                            'Track growth, streaks, and consistency',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -93,21 +93,21 @@ class ProgressionScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 16),
                 const WeeklySummaryCard(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 const _XpProgressChartCard(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 LevelCard(progress: progress),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 StreakCard(progress: progress),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 const _ProgressSignalsCard(),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 _MomentumEngineCard(momentum: momentum),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 const _MilestonesCard(),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 const _NarrativeCard(),
               ],
             ),
@@ -137,34 +137,34 @@ class _MomentumEngineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             const Color(0xEE050D1A),
-            _accent.withValues(alpha: 0.12),
-            AppColors.neonViolet.withValues(alpha: 0.07),
+            _accent.withValues(alpha: 0.08),
+            AppColors.neonViolet.withValues(alpha: 0.05),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _accent.withValues(alpha: 0.26)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _accent.withValues(alpha: 0.20)),
         boxShadow: [
-          BoxShadow(color: _accent.withValues(alpha: 0.08), blurRadius: 18),
+          BoxShadow(color: _accent.withValues(alpha: 0.05), blurRadius: 8),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'MOMENTUM ENGINE',
+            'Momentum',
             style: TextStyle(
               fontSize: 10,
-              letterSpacing: 2.5,
+              letterSpacing: 1.4,
               color: AppColors.neonCyan,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -172,39 +172,39 @@ class _MomentumEngineCard extends StatelessWidget {
                 '${momentum.score}%',
                 style: TextStyle(
                   color: _accent,
-                  fontSize: 32,
+                  fontSize: 26,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Padding(
-                padding: const EdgeInsets.only(bottom: 5),
+                padding: const EdgeInsets.only(bottom: 3),
                 child: Text(
                   momentum.trend.toUpperCase(),
                   style: TextStyle(
                     color: _accent,
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: 1.8,
+                    letterSpacing: 1.4,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             momentum.forecast,
             style: const TextStyle(
               color: Colors.white70,
-              fontSize: 13,
-              height: 1.45,
+              fontSize: 12,
+              height: 1.35,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               _MomentumChip(
                 label: 'ENERGY',
@@ -258,9 +258,9 @@ class _MomentumChip extends StatelessWidget {
         '$label $value',
         style: TextStyle(
           color: color,
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: FontWeight.w800,
-          letterSpacing: 1.1,
+          letterSpacing: 0.8,
         ),
       ),
     );
@@ -276,21 +276,21 @@ class _ProgressSignalsCard extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             const Color(0xEE050D1A),
-            AppColors.neonCyan.withValues(alpha: 0.10),
-            AppColors.neonViolet.withValues(alpha: 0.08),
+            AppColors.neonCyan.withValues(alpha: 0.07),
+            AppColors.neonViolet.withValues(alpha: 0.05),
           ],
         ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.24)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.18)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.neonCyan.withValues(alpha: 0.08),
-            blurRadius: 18,
+            color: AppColors.neonCyan.withValues(alpha: 0.05),
+            blurRadius: 8,
           ),
         ],
       ),
@@ -309,23 +309,23 @@ class _ProgressSignalsCard extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                'MOMENTUM MATRIX',
+                'Progress signals',
                 style: TextStyle(
                   fontSize: 10,
-                  letterSpacing: 2.5,
+                  letterSpacing: 1.4,
                   color: AppColors.neonCyan,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
           _SignalRow(label: 'Momentum', value: signals.momentum),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           _SignalRow(label: 'Consistency', value: signals.consistency),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           _SignalRow(label: 'Load', value: signals.load),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           _SignalRow(label: 'Direction', value: signals.direction),
         ],
       ),
@@ -366,7 +366,7 @@ class _SignalRow extends StatelessWidget {
           label,
           style: const TextStyle(
             color: Colors.white38,
-            fontSize: 12,
+            fontSize: 11,
             letterSpacing: 0.5,
           ),
         ),
@@ -374,7 +374,7 @@ class _SignalRow extends StatelessWidget {
           value,
           style: TextStyle(
             color: _valueColor(),
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
           ),
@@ -392,21 +392,21 @@ class _NarrativeCard extends ConsumerWidget {
     final narrative = ref.watch(narrativeProvider);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             const Color(0xEE050D1A),
-            AppColors.neonViolet.withValues(alpha: 0.12),
-            AppColors.memoryAmber.withValues(alpha: 0.06),
+            AppColors.neonViolet.withValues(alpha: 0.08),
+            AppColors.memoryAmber.withValues(alpha: 0.04),
           ],
         ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.26)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.18)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.neonViolet.withValues(alpha: 0.08),
-            blurRadius: 18,
+            color: AppColors.neonViolet.withValues(alpha: 0.05),
+            blurRadius: 8,
           ),
         ],
       ),
@@ -414,22 +414,22 @@ class _NarrativeCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'EVOLUTION PATH',
+            'Progress story',
             style: TextStyle(
               fontSize: 9,
-              letterSpacing: 2.5,
+              letterSpacing: 1.4,
               color: AppColors.neonViolet,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             narrative.summary,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
-              height: 1.4,
+              height: 1.35,
             ),
           ),
           const SizedBox(height: 6),
@@ -437,8 +437,8 @@ class _NarrativeCard extends ConsumerWidget {
             narrative.trajectory,
             style: const TextStyle(
               color: Colors.white54,
-              fontSize: 12,
-              height: 1.4,
+              fontSize: 11,
+              height: 1.35,
             ),
           ),
         ],
@@ -462,40 +462,77 @@ class _XpProgressChartCard extends ConsumerWidget {
     final profile = ref.watch(profileProvider);
     final history = ref.watch(learningHistorySnapshotsProvider);
     final List<_XpPoint> points = _buildXpPoints(profile.xp, history);
-    final int start = points.isEmpty ? profile.xp : points.first.xp;
-    final int end = points.isEmpty ? profile.xp : points.last.xp;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.memoryAmber.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'XP VECTOR',
+            'XP progress',
             style: TextStyle(
               fontSize: 10,
-              letterSpacing: 2.5,
+              letterSpacing: 1.4,
               color: AppColors.memoryAmber,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            'Last ${points.length} checkpoints | ${end - start >= 0 ? '+' : ''}${end - start} XP',
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 110,
-            width: double.infinity,
-            child: CustomPaint(painter: _XpLineChartPainter(points: points)),
-          ),
+          if (points.isEmpty) ...<Widget>[
+            const Text(
+              'No XP history recorded yet.',
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Chart waiting for the first recorded checkpoint.',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Complete a task, session, or goal to start the progression trail.',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...<Widget>[
+            Text(
+              'Last ${points.length} checkpoints | ${points.last.xp - points.first.xp >= 0 ? '+' : ''}${points.last.xp - points.first.xp} XP',
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 96,
+              width: double.infinity,
+              child: CustomPaint(painter: _XpLineChartPainter(points: points)),
+            ),
+          ],
         ],
       ),
     );
@@ -530,16 +567,7 @@ class _XpProgressChartCard extends ConsumerWidget {
     }
 
     if (completedByDay.isEmpty) {
-      final int base = math.max(0, currentXp - 60);
-      return List<_XpPoint>.generate(6, (int index) {
-        final DateTime day = DateTime(
-          now.year,
-          now.month,
-          now.day,
-        ).subtract(Duration(days: 5 - index));
-        final double t = index / 5;
-        return _XpPoint(day, (base + ((currentXp - base) * t)).round());
-      });
+      return const <_XpPoint>[];
     }
 
     final List<MapEntry<String, int>> sorted = completedByDay.entries.toList(
@@ -654,11 +682,11 @@ class _MilestonesCard extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.15)),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.14)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -675,10 +703,10 @@ class _MilestonesCard extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                'CHECKPOINT VAULT',
+                'Milestones',
                 style: TextStyle(
                   fontSize: 10,
-                  letterSpacing: 2.5,
+                  letterSpacing: 1.4,
                   color: AppColors.neonViolet,
                   fontWeight: FontWeight.w700,
                 ),
@@ -690,10 +718,10 @@ class _MilestonesCard extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           if (active.isEmpty)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
+              padding: EdgeInsets.symmetric(vertical: 10),
               child: Text(
                 'No active milestones. Plan your next checkpoint.',
                 style: TextStyle(color: Colors.white38, fontSize: 12),
@@ -704,7 +732,7 @@ class _MilestonesCard extends ConsumerWidget {
                 .take(3)
                 .map(
                   (MilestoneEntity m) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       children: [
                         Expanded(

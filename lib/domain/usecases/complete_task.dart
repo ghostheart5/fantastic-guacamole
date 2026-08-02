@@ -53,8 +53,12 @@ class CompleteTask {
     if (prog != null) {
       final ProgressionEntity current =
           await prog.getProgression() ?? const ProgressionEntity();
+      final int newXp = current.xp + ProgressionPolicy.taskXp;
       await prog.saveProgression(
-        current.copyWith(xp: current.xp + ProgressionPolicy.taskXp),
+        current.copyWith(
+          xp: newXp,
+          level: ProgressionPolicy.levelFromXp(newXp),
+        ),
       );
     }
 

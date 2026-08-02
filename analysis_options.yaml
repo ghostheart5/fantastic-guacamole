@@ -2,9 +2,16 @@ include: package:flutter_lints/flutter.yaml
 avoid_importing_flutter: true
 analyzer:
   exclude:
-    - fantastic-guacamole/**
     - build/**
-    - lib/features/nexus/ui/nexus_screen.dart
+    - .dart_tool/**
+    - ios/Pods/**
+    - android/.gradle/**
+    - '**/*.g.dart'
+    - '**/*.freezed.dart'
+    - '**/*.mocks.dart'
+    - '**/*.bak'
+    - '**/*.bak*'
+    - '.dead_code_archive_*/**'
   errors:
     avoid_relative_lib_imports: error
     implementation_imports: error

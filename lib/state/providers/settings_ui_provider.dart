@@ -1,18 +1,13 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SettingsUiActions {
   SettingsUiActions(this._ref);
-
-  static final ValueNotifier<NotificationPermissionState>
-  _notificationPermissionStateListenable =
-      ValueNotifier<NotificationPermissionState>(
-        NotificationPermissionState.unknown,
-      );
 
   final Ref _ref;
 
@@ -33,34 +28,6 @@ class SettingsUiActions {
 
   Future<void> setReflectionReminderTime({required TimeOfDay time}) async {
     await _reminderService.setTime(time: time);
-  }
-
-  Future<bool> requestNotificationPermission() {
-    return requestNotificationPermissionDetailed().then(
-      (NotificationPermissionState state) =>
-          state == NotificationPermissionState.granted,
-    );
-  }
-
-  ValueListenable<NotificationPermissionState>
-  get notificationPermissionStateListenable {
-    return _notificationPermissionStateListenable;
-  }
-
-  Future<NotificationPermissionState>
-  requestNotificationPermissionDetailed() async {
-    final NotificationPermissionState state = await _reminderService
-        .requestNotificationPermissionDetailed();
-    _notificationPermissionStateListenable.value = state;
-    return state;
-  }
-
-  Future<NotificationPermissionState>
-  refreshNotificationPermissionState() async {
-    final NotificationPermissionState state = await _reminderService
-        .getNotificationPermissionState();
-    _notificationPermissionStateListenable.value = state;
-    return state;
   }
 
   ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {
@@ -114,16 +81,67 @@ final settingsUiActionsProvider = Provider<SettingsUiActions>((Ref ref) {
   return SettingsUiActions(ref);
 });
 
-final notificationPermissionListenableProvider =
-    Provider<ValueListenable<bool?>>((ref) {
-      return ref.read(reflectionReminderServiceProvider).permissionListenable;
-    });
+@immutable
+class NotificationPermissionSnapshot {
+  const NotificationPermissionSnapshot({
+    required this.granted,
+    required this.permissionState,
+  });
 
-final notificationPermissionStateListenableProvider =
-    Provider<ValueListenable<NotificationPermissionState>>((ref) {
-      final SettingsUiActions actions = ref.read(settingsUiActionsProvider);
-      return actions.notificationPermissionStateListenable;
-    });
+  final bool? granted;
+  final NotificationPermissionState permissionState;
+
+  bool get isGranted => granted == true;
+
+  const NotificationPermissionSnapshot.unknown()
+    : granted = null,
+      permissionState = NotificationPermissionState.unknown;
+}
+
+class NotificationPermissionNotifier
+    extends Notifier<NotificationPermissionSnapshot> {
+  ReflectionReminderService get _reminderService {
+    return ref.read(reflectionReminderServiceProvider);
+  }
+
+  @override
+  NotificationPermissionSnapshot build() {
+    final bool? granted = _reminderService.permissionListenable.value;
+    unawaited(refresh());
+    return NotificationPermissionSnapshot(
+      granted: granted,
+      permissionState: granted == null
+          ? NotificationPermissionState.unknown
+          : (granted
+                ? NotificationPermissionState.granted
+                : NotificationPermissionState.denied),
+    );
+  }
+
+  Future<NotificationPermissionSnapshot> requestPermission() async {
+    await _reminderService.requestNotificationPermissionDetailed();
+    return refresh();
+  }
+
+  Future<NotificationPermissionSnapshot> refresh() async {
+    final bool? granted = _reminderService.permissionListenable.value;
+    final NotificationPermissionState permissionState = await _reminderService
+        .getNotificationPermissionState();
+    final NotificationPermissionSnapshot snapshot =
+        NotificationPermissionSnapshot(
+          granted: granted,
+          permissionState: permissionState,
+        );
+    state = snapshot;
+    return snapshot;
+  }
+}
+
+final notificationPermissionProvider =
+    NotifierProvider<
+      NotificationPermissionNotifier,
+      NotificationPermissionSnapshot
+    >(NotificationPermissionNotifier.new);
 
 class VoicePermissionStatusNotifier extends Notifier<bool?> {
   @override

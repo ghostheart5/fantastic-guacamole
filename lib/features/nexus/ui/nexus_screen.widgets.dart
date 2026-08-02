@@ -736,7 +736,7 @@ class _CoreSignalsStrip extends StatelessWidget {
             children: [
               const Expanded(
                 child: Text(
-                  'System summary',
+                  'Planning summary',
                   style: TextStyle(
                     color: AppColors.neonViolet,
                     fontSize: 10,
@@ -868,10 +868,10 @@ class _DependencyMesh extends ConsumerWidget {
     final String? syncDetail = modelAsync.isLoading
         ? null
         : modelAsync.hasError
-        ? 'Mission sync failure: ${modelErrorSummary ?? 'unknown error'}'
+        ? 'Planning sync issue: ${modelErrorSummary ?? 'unknown error'}'
         : sourceIssues.isEmpty
         ? null
-        : 'Signal drift detected in ${sourceIssues.join(', ')}.';
+        : 'Signal mismatch detected in ${sourceIssues.join(', ')}.';
     final DateTime now = DateTime.now();
     final String syncTime =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
@@ -890,7 +890,7 @@ class _DependencyMesh extends ConsumerWidget {
         const Padding(
           padding: EdgeInsets.only(bottom: 10),
           child: Text(
-            'CORE SYSTEMS ONLINE',
+            'Connected signals',
             style: TextStyle(
               color: AppColors.neonCyan,
               fontSize: 10,
@@ -917,10 +917,10 @@ class _DependencyMesh extends ConsumerWidget {
               headline:
                   decision?.coachMessage ?? 'No active coaching advice yet.',
               detail: modelAsync.hasError
-                  ? 'Strategic signal degraded. Reopen linked systems or retry after sync.'
+                  ? 'Planning signal is limited. Reopen linked systems or retry after sync.'
                   : (decision?.nextAction.trim().isNotEmpty ?? false)
                   ? 'Next action: ${decision!.nextAction}'
-                  : 'Strategic guidance is routed into Nexus.',
+                  : 'Planning guidance is available in Nexus.',
             ),
             _DependencyCard(
               label: 'Ascension',
@@ -1302,7 +1302,7 @@ class _ActionGrid extends ConsumerWidget {
                     ref.read(appFlowProvider.notifier).toTrajectoryEngine(),
               ),
               actionButton(
-                label: 'Strategic Intelligence',
+                label: 'Planning overview',
                 onTap: () => ref.read(appFlowProvider.notifier).toConsole(),
               ),
             ],

@@ -3,7 +3,6 @@ import 'package:fantastic_guacamole/state/services/reflection_reminder_service.d
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,10 +12,7 @@ class NotificationPermissionRecoveryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ValueListenable<NotificationPermissionState>
-    permissionStateListenable = ref.watch(
-      notificationPermissionStateListenableProvider,
-    );
+    final notificationPermission = ref.watch(notificationPermissionProvider);
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgSettings,
       child: Scaffold(
@@ -65,28 +61,22 @@ class NotificationPermissionRecoveryScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                ValueListenableBuilder<NotificationPermissionState>(
-                  valueListenable: permissionStateListenable,
-                  builder: (context, state, _) {
-                    if (state ==
-                        NotificationPermissionState.permanentlyDenied) {
-                      return const Text(
-                        'Permission is permanently denied. Open system settings to re-enable notifications.',
-                        style: TextStyle(color: Colors.white70, height: 1.4),
-                      );
-                    }
-
-                    return FilledButton.icon(
-                      onPressed: () async {
-                        await ref
-                            .read(settingsUiActionsProvider)
-                            .requestNotificationPermissionDetailed();
-                      },
-                      icon: const Icon(Icons.notifications_active_outlined),
-                      label: const Text('Request Permission Again'),
-                    );
-                  },
-                ),
+                if (notificationPermission.permissionState ==
+                    NotificationPermissionState.permanentlyDenied)
+                  const Text(
+                    'Permission is permanently denied. Open system settings to re-enable notifications.',
+                    style: TextStyle(color: Colors.white70, height: 1.4),
+                  )
+                else
+                  FilledButton.icon(
+                    onPressed: () async {
+                      await ref
+                          .read(notificationPermissionProvider.notifier)
+                          .requestPermission();
+                    },
+                    icon: const Icon(Icons.notifications_active_outlined),
+                    label: const Text('Request Permission Again'),
+                  ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: () async {

@@ -1,0 +1,53 @@
+CHRONOSPARK SMART PLANNER HERO CARD COMPACT REDESIGN REPORT
+Date: 2026-08-01
+
+1. File changed
+- lib/features/home/ui/widgets/smart_coach_hero.dart
+
+2. What made the old block too large
+- Large outer padding (20 on all sides).
+- Large border radius (24) and stronger glow.
+- Large metric row with 3 expanded dashboard-style cards.
+- Taller coach message typography and spacing.
+- Next action rendered as a larger secondary content block.
+
+3. Padding changes
+- Hero container: EdgeInsets.all(20) -> EdgeInsets.fromLTRB(12, 10, 12, 12).
+- Header/metric chip paddings reduced for denser vertical layout.
+
+4. Border radius changes
+- Hero container: BorderRadius.circular(24) -> BorderRadius.circular(16).
+
+5. Shadow/glow changes
+- Hero glow: blurRadius 14, spreadRadius 0 -> blurRadius 6, spreadRadius -2.
+
+6. Metric tile or pill changes
+- Replaced large expanded metric card row with compact chip-style metrics in the same data flow.
+- Metrics still shown:
+  - Tasks
+  - Action
+- Status remains visible in compact header pill.
+- Done/Defers/Stability header pills retained but reduced in visual weight (smaller padding/font).
+
+7. Coach message sizing changes
+- fontSize: 16 -> 14
+- height: 1.15 -> 1.3
+- fontWeight: w700 -> w600
+- Added maxLines: 3 and overflow: TextOverflow.ellipsis to prevent hero growth.
+- Next action section converted to compact highlighted row/card with smaller typography and maxLines control.
+
+8. Confirmation no logic changed
+- Confirmed. No behavior or data logic was changed.
+- No input parameters were renamed or removed.
+- Back button behavior unchanged.
+
+9. Confirmation no providers changed
+- Confirmed. No provider files or provider logic changed.
+
+10. Confirmation no auth/Supabase/Firebase/Google/AI/SI Console/voice/subscription/database files changed
+- Confirmed. None of those systems/files were edited in this pass.
+- No SQL was run.
+
+11. Analyzer result
+- Command: flutter analyze
+- Result: No issues found.

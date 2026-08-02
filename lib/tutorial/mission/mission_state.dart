@@ -1,9 +1,15 @@
 import 'package:flutter/foundation.dart';
 
 enum MissionId {
+  // Legacy internal name retained for compatibility. This step now means
+  // "Create Something" and accepts task, routine, goal, or note creation.
   createFirstGoal,
   configureFirstItem,
+  // Legacy compatibility-only step retained so older saved progress can be
+  // migrated safely. It is no longer part of required first setup.
   askSmartPlannerQuestion,
+  // Reaching Timeline completes the setup flow. It does not require a
+  // complete/skip/reschedule Timeline action.
   openTimeline,
   complete,
 }
@@ -22,20 +28,22 @@ class MissionCatalog {
   const MissionCatalog._();
 
   static const List<MissionStep> steps = <MissionStep>[
-    MissionStep(id: MissionId.createFirstGoal, title: 'Open Creator'),
-    MissionStep(id: MissionId.configureFirstItem, title: 'Choose Frequency'),
+    MissionStep(id: MissionId.createFirstGoal, title: 'Create Something'),
+    MissionStep(
+      id: MissionId.configureFirstItem,
+      title: 'Choose When It Happens',
+    ),
     MissionStep(
       id: MissionId.askSmartPlannerQuestion,
-      title: 'Ask Smart Planner',
+      title: 'Optional after setup',
     ),
-    MissionStep(id: MissionId.openTimeline, title: 'Open Timeline'),
-    MissionStep(id: MissionId.complete, title: 'Mark Complete'),
+    MissionStep(id: MissionId.openTimeline, title: 'View Your Timeline'),
+    MissionStep(id: MissionId.complete, title: 'Setup complete.'),
   ];
 
   static const List<MissionId> progression = <MissionId>[
     MissionId.createFirstGoal,
     MissionId.configureFirstItem,
-    MissionId.askSmartPlannerQuestion,
     MissionId.openTimeline,
   ];
 
@@ -117,6 +125,7 @@ class MissionState {
     next[id] = MissionStatus.completed;
 
     if (id == MissionId.openTimeline) {
+      // First setup completes by reaching Timeline successfully.
       next[MissionId.complete] = MissionStatus.active;
       return copyWith(statuses: next, activeMissionId: MissionId.complete);
     }
@@ -190,11 +199,53 @@ class MissionState {
     final bool started = json['started'] == true;
     final bool finished = json['finished'] == true;
 
+    final _MissionStateCompatibility compatibility =
+        _normalizeLegacySmartPlannerStep(
+          statuses: statuses,
+          activeMissionId: activeMissionId,
+        );
+
     return MissionState(
-      statuses: statuses,
-      activeMissionId: activeMissionId,
+      statuses: compatibility.statuses,
+      activeMissionId: compatibility.activeMissionId,
       started: started,
       finished: finished,
+    );
+  }
+
+  static _MissionStateCompatibility _normalizeLegacySmartPlannerStep({
+    required Map<MissionId, MissionStatus> statuses,
+    required MissionId? activeMissionId,
+  }) {
+    final Map<MissionId, MissionStatus> normalizedStatuses =
+        Map<MissionId, MissionStatus>.from(statuses);
+
+    final MissionStatus smartPlannerStatus =
+        normalizedStatuses[MissionId.askSmartPlannerQuestion] ??
+        MissionStatus.locked;
+    MissionId? normalizedActiveMissionId = activeMissionId;
+
+    if (smartPlannerStatus == MissionStatus.active ||
+        activeMissionId == MissionId.askSmartPlannerQuestion) {
+      normalizedStatuses[MissionId.askSmartPlannerQuestion] =
+          MissionStatus.completed;
+
+      if (normalizedStatuses[MissionId.openTimeline] ==
+          MissionStatus.completed) {
+        normalizedStatuses[MissionId.complete] = MissionStatus.active;
+      } else {
+        normalizedStatuses[MissionId.openTimeline] = MissionStatus.active;
+      }
+
+      normalizedActiveMissionId =
+          normalizedStatuses[MissionId.openTimeline] == MissionStatus.completed
+          ? MissionId.complete
+          : MissionId.openTimeline;
+    }
+
+    return _MissionStateCompatibility(
+      statuses: normalizedStatuses,
+      activeMissionId: normalizedActiveMissionId,
     );
   }
 
@@ -211,4 +262,14 @@ class MissionState {
         .cast<MissionId?>()
         .firstWhere((MissionId? value) => value != null, orElse: () => null);
   }
+}
+
+class _MissionStateCompatibility {
+  const _MissionStateCompatibility({
+    required this.statuses,
+    required this.activeMissionId,
+  });
+
+  final Map<MissionId, MissionStatus> statuses;
+  final MissionId? activeMissionId;
 }

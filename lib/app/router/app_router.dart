@@ -171,6 +171,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           (loginMode == 'recovery' ||
               loginMode == 'verify-email' ||
               loginMode == 'auth-callback');
+
+      if (kDebugMode) {
+        debugPrint(
+          'CHRONOSPARK_ROUTER_REDIRECT: location=$location '
+          'auth=$isAuthenticated '
+          'onboardingStatus=$onboardingStatus '
+          'onboardingComplete=$onboardingComplete '
+          'profile=$hasValidProfile',
+        );
+      }
       final bool allowMissionActivationSurface =
           location == RoutePaths.home ||
           location == RoutePaths.shell ||

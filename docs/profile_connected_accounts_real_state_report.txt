@@ -1,0 +1,100 @@
+CHRONOSPARK PROFILE PHASE 1: CONNECTED ACCOUNTS REAL STATE FIX REPORT
+Date: 2026-08-01
+
+1. Files inspected
+- lib/state/providers/account_connection_provider.dart
+- lib/state/providers/identity_account_provider.dart
+- lib/state/providers/identity_account_actions_provider.dart
+- lib/state/providers/account_security_provider.dart
+- lib/features/auth/domain/models/chronospark_identity.dart
+- lib/features/auth/data/repositories/local_identity_repository.dart
+- lib/features/profile/ui/profile_screen.dart
+- lib/state/app_state.dart
+- lib/config/env.dart
+
+Note: the requested lib/core/env/env.dart path does not exist in this workspace; the actual environment config file is lib/config/env.dart.
+
+2. Files changed
+- None in this pass.
+- The connected-accounts provider was already runtime-derived in the current workspace state, so no additional code edit was required for this report-only pass.
+
+3. Old hard-coded behavior
+- The audit finding originally identified a static const AccountConnectionState.
+- That old behavior always implied fixed account truth instead of reading identity/runtime state.
+- In practice, that meant the UI could present EMAIL as connected and GOOGLE as disconnected regardless of actual state.
+
+4. New runtime-derived behavior
+- accountConnectionProvider now reads identityAccountProvider at runtime.
+- EMAIL status is derived from whether a real identity exists and whether the identity contains a usable email.
+- GOOGLE status is derived only from reliable provider metadata when available.
+- If Google cannot be verified from the current identity model, the provider does not pretend it is connected.
+
+5. How EMAIL status is derived
+- Source: identityAccountProvider / ChronoSparkIdentity.
+- Rule:
+  - If identity exists and identity.email.trim().isNotEmpty, EMAIL is connected.
+  - Otherwise EMAIL is disconnected.
+- Labels are adjusted to stay truthful:
+  - No identity available
+  - Identity missing email
+  - Primary Identity
+
+6. How GOOGLE status is derived
+- Source: ChronoSparkIdentity.authProvider plus Env.isSupabaseConfigured as a safe environment check.
+- Rule:
+  - If authProvider is ChronoSparkAuthProvider.google, GOOGLE is connected.
+  - If no reliable Google signal exists, GOOGLE is not claimed as connected.
+  - When Supabase is configured but no Google signal is present, the provider uses a pending/unknown-safe outcome rather than a false connected claim.
+- Comment in the provider clarifies that Google is only marked connected with an explicit provider signal.
+
+7. What happens when identity is missing
+- EMAIL is disconnected.
+- GOOGLE is disconnected or pending/unknown-safe depending on the environment path and the current provider state.
+- No auth mutation is triggered.
+
+8. What happens when email is missing
+- EMAIL is disconnected.
+- The label becomes Identity missing email.
+- No logging, secrets, or user email output is produced.
+
+9. What happens when Google provider metadata is unavailable
+- GOOGLE is not marked connected.
+- The provider returns a safe disconnected/pending outcome instead of inventing a connection.
+- This preserves accuracy and avoids false trust signals.
+
+10. Whether Profile UI changed
+- No.
+- The Profile screen layout and card arrangement were left unchanged.
+- The existing Connected Accounts card already handles runtime connection statuses without redesign.
+
+11. Whether auth implementation was untouched
+- Yes.
+- No auth implementation files were changed.
+- No sign-in, sign-out, or identity mutation behavior was added.
+
+12. Whether Google login implementation was untouched
+- Yes.
+- No Google login implementation files were changed.
+- No Google sign-in flow was called or modified.
+
+13. Whether Supabase/Firebase/schema/RLS were untouched
+- Yes.
+- No Supabase schema or RLS changes.
+- No Firebase changes.
+- No database schema changes.
+- No SQL was run.
+
+14. Remaining limitations
+- The current identity model only exposes a single active authProvider, not a full linked-provider list.
+- That means Google can only be confirmed when the provider metadata explicitly says google.
+- If future requirements need a richer linked-accounts matrix, that would require broader auth-model work, which was intentionally not done here.
+
+15. Analyzer result
+- Command: flutter analyze
+- Result: No issues found
+
+Summary
+- The Connected Accounts section now relies on runtime identity/account state instead of a static truth table.
+- EMAIL reflects real available identity/email state.
+- GOOGLE is never falsely claimed as connected when no reliable signal exists.
+- The Profile screen remains structurally unchanged.

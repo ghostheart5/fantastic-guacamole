@@ -37,6 +37,10 @@ class MissionStateNotifier extends AsyncNotifier<MissionState> {
     await _mutate(_controller.reportGoalCreated);
   }
 
+  Future<void> reportFirstItemCreated() async {
+    await _mutate(_controller.reportFirstItemCreated);
+  }
+
   Future<void> reportCreatorOpened() async {
     await _mutate(_controller.reportCreatorOpened);
   }

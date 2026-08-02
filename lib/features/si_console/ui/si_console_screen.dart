@@ -1205,23 +1205,101 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                                   ref.invalidate(siConsoleScreenModelProvider);
                                 },
                               )
-                            : ListView.builder(
-                                controller: _scroll,
-                                padding: EdgeInsets.fromLTRB(
-                                  16,
-                                  8,
-                                  16,
-                                  composerReservedHeight + composerBottomInset,
-                                ),
-                                itemCount: _messages.length + (_typing ? 1 : 0),
-                                itemBuilder: (context, i) {
-                                  if (_typing && i == _messages.length) {
-                                    return _TypingIndicator(
-                                      animation: _typingAnim,
-                                    );
-                                  }
-                                  return _BubbleTile(msg: _messages[i]);
-                                },
+                            : Column(
+                                children: [
+                                  if (consoleError != null)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        14,
+                                        6,
+                                        14,
+                                        0,
+                                      ),
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.fromLTRB(
+                                          10,
+                                          8,
+                                          10,
+                                          8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF2A1620),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.redAccent.withValues(
+                                              alpha: 0.35,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'SI context is limited right now.',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                  SizedBox(height: 3),
+                                                  Text(
+                                                    'Some intelligence data could not refresh.',
+                                                    style: TextStyle(
+                                                      color: Colors.white70,
+                                                      fontSize: 10,
+                                                      height: 1.3,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            TextButton(
+                                              onPressed: () {
+                                                ref.invalidate(
+                                                  siConsoleScreenModelProvider,
+                                                );
+                                              },
+                                              child: const Text('Retry'),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: ListView.builder(
+                                      controller: _scroll,
+                                      padding: EdgeInsets.fromLTRB(
+                                        14,
+                                        consoleError != null ? 6 : 6,
+                                        14,
+                                        composerReservedHeight +
+                                            composerBottomInset,
+                                      ),
+                                      itemCount:
+                                          _messages.length + (_typing ? 1 : 0),
+                                      itemBuilder: (context, i) {
+                                        if (_typing && i == _messages.length) {
+                                          return _TypingIndicator(
+                                            animation: _typingAnim,
+                                          );
+                                        }
+                                        return _BubbleTile(msg: _messages[i]);
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
                       ),
                       Positioned(
@@ -1284,7 +1362,7 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool compact = MediaQuery.sizeOf(context).width < 760;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Colors.white10)),
       ),
@@ -1299,19 +1377,19 @@ class _Header extends StatelessWidget {
                 child: const Icon(
                   Icons.arrow_back_ios,
                   color: Colors.white54,
-                  size: 18,
+                  size: 16,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Container(
-                width: 8,
-                height: 8,
+                width: 7,
+                height: 7,
                 decoration: const BoxDecoration(
                   color: Colors.greenAccent,
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
@@ -1341,7 +1419,7 @@ class _Header extends StatelessWidget {
             ],
           ),
           if (engineSnapshot != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
               engineSnapshot ?? '',
               style: const TextStyle(
@@ -1354,7 +1432,7 @@ class _Header extends StatelessWidget {
             ),
           ],
           if (integrationSnapshot != null) ...[
-            const SizedBox(height: 2),
+            const SizedBox(height: 1),
             Text(
               integrationSnapshot ?? '',
               style: const TextStyle(
@@ -1366,10 +1444,10 @@ class _Header extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Wrap(
-            spacing: 6,
-            runSpacing: 6,
+            spacing: 4,
+            runSpacing: 4,
             children: <Widget>[
               _ExecutionPill(
                 label: 'DONE',
@@ -1388,17 +1466,17 @@ class _Header extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Wrap(
-            spacing: 6,
-            runSpacing: 6,
+            spacing: 4,
+            runSpacing: 4,
             children: [
               GestureDetector(
                 onTap: onSpeakSummary,
                 child: Container(
                   padding: EdgeInsets.symmetric(
-                    horizontal: compact ? 7 : 8,
-                    vertical: 3,
+                    horizontal: compact ? 6 : 7,
+                    vertical: 2,
                   ),
                   decoration: BoxDecoration(
                     color: AppColors.neonCyan.withValues(alpha: 0.10),
@@ -1412,14 +1490,14 @@ class _Header extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.summarize_rounded,
-                        size: 11,
+                        size: 10,
                         color: AppColors.neonCyan,
                       ),
-                      SizedBox(width: 4),
+                      SizedBox(width: 3),
                       Text(
                         'RECAP',
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 7,
                           letterSpacing: 1,
                           fontWeight: FontWeight.w700,
                           color: AppColors.neonCyan,
@@ -1433,8 +1511,8 @@ class _Header extends StatelessWidget {
                 onTap: onSpeakAccessibility,
                 child: Container(
                   padding: EdgeInsets.symmetric(
-                    horizontal: compact ? 6 : 7,
-                    vertical: 3,
+                    horizontal: compact ? 5 : 6,
+                    vertical: 2,
                   ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.06),
@@ -1446,14 +1524,14 @@ class _Header extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.accessibility_new_rounded,
-                        size: 11,
+                        size: 10,
                         color: Colors.white70,
                       ),
-                      SizedBox(width: 4),
+                      SizedBox(width: 3),
                       Text(
                         'A11Y',
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 7,
                           letterSpacing: 1,
                           fontWeight: FontWeight.w700,
                           color: Colors.white70,
@@ -1485,7 +1563,7 @@ class _ExecutionPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
@@ -1495,8 +1573,8 @@ class _ExecutionPill extends StatelessWidget {
         '$label $value',
         style: TextStyle(
           color: color,
-          fontSize: 8,
-          letterSpacing: 0.8,
+          fontSize: 7,
+          letterSpacing: 0.6,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -1517,7 +1595,7 @@ class _BubbleTile extends ConsumerWidget {
     final bool isUser = msg.isUser;
     final String? emotion = msg.emotion;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: isUser
@@ -1526,7 +1604,7 @@ class _BubbleTile extends ConsumerWidget {
         children: [
           if (!isUser) ...[
             _SIAvatar(emotion: msg.emotion),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
           ],
           Flexible(
             child: Column(
@@ -1534,8 +1612,8 @@ class _BubbleTile extends ConsumerWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
+                    horizontal: 12,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     color: isUser
@@ -1576,8 +1654,8 @@ class _BubbleTile extends ConsumerWidget {
                         ),
                         animate: false,
                         style: TextStyle(
-                          fontSize: 13,
-                          height: 1.55,
+                          fontSize: 12,
+                          height: 1.45,
                           color: isUser ? Colors.white70 : Colors.white,
                           fontFamily: isUser ? null : 'monospace',
                         ),
@@ -1586,15 +1664,15 @@ class _BubbleTile extends ConsumerWidget {
                   ),
                 ),
                 if (!isUser) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   GestureDetector(
                     onTap: () => unawaited(
                       ref.read(voiceServiceProvider).speak(msg.text),
                     ),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
+                        horizontal: 8,
+                        vertical: 3,
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.neonCyan.withValues(alpha: 0.08),
@@ -1609,14 +1687,14 @@ class _BubbleTile extends ConsumerWidget {
                           Icon(
                             Icons.volume_up_rounded,
                             color: AppColors.neonCyan,
-                            size: 12,
+                            size: 11,
                           ),
-                          SizedBox(width: 4),
+                          SizedBox(width: 3),
                           Text(
                             'SPEAK',
                             style: TextStyle(
                               color: AppColors.neonCyan,
-                              fontSize: 9,
+                              fontSize: 8,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1,
                             ),
@@ -1660,8 +1738,8 @@ class _SIAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 28,
-      height: 28,
+      width: 24,
+      height: 24,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: const Color(0xFF0A1520),
@@ -1674,7 +1752,7 @@ class _SIAvatar extends StatelessWidget {
         child: Text(
           'SI',
           style: TextStyle(
-            fontSize: 8,
+            fontSize: 7,
             fontWeight: FontWeight.bold,
             letterSpacing: 1,
             color: _color,
@@ -1709,7 +1787,7 @@ class _EmotionTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
         color: _color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
@@ -1718,7 +1796,7 @@ class _EmotionTag extends StatelessWidget {
       child: Text(
         emotion.toUpperCase(),
         style: TextStyle(
-          fontSize: 8,
+          fontSize: 7,
           letterSpacing: 1.5,
           color: _color,
           fontWeight: FontWeight.w600,
@@ -1739,14 +1817,14 @@ class _TypingIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           const _SIAvatar(),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: const Color(0xFF0D1A2A),
               borderRadius: const BorderRadius.only(
@@ -1826,10 +1904,10 @@ class _InputBar extends StatelessWidget {
 
         return Container(
           padding: EdgeInsets.fromLTRB(
-            16,
-            effectiveCompact ? 8 : 10,
-            16,
-            effectiveCompact ? 10 : 16,
+            14,
+            effectiveCompact ? 7 : 9,
+            14,
+            effectiveCompact ? 8 : 12,
           ),
           decoration: const BoxDecoration(
             border: Border(top: BorderSide(color: Colors.white10)),
@@ -1845,12 +1923,12 @@ class _InputBar extends StatelessWidget {
                     'Signal channels',
                     style: TextStyle(
                       color: Colors.white38,
-                      fontSize: 10,
-                      letterSpacing: 1.2,
+                      fontSize: 9,
+                      letterSpacing: 1.1,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 5),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -1865,8 +1943,8 @@ class _InputBar extends StatelessWidget {
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 5,
+                                    horizontal: 9,
+                                    vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
                                     color: AppColors.neonCyan.withValues(
@@ -1883,8 +1961,9 @@ class _InputBar extends StatelessWidget {
                                     command,
                                     style: const TextStyle(
                                       color: AppColors.neonCyan,
-                                      fontSize: 11,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.w700,
+                                      letterSpacing: 2.4,
                                     ),
                                   ),
                                 ),
@@ -1894,7 +1973,7 @@ class _InputBar extends StatelessWidget {
                           .toList(growable: false),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                 ],
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -1906,7 +1985,7 @@ class _InputBar extends StatelessWidget {
                         maxLines: 1,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 14,
+                          fontSize: 13,
                         ),
                         cursorColor: AppColors.neonCyan,
                         textCapitalization: TextCapitalization.sentences,
@@ -1914,13 +1993,13 @@ class _InputBar extends StatelessWidget {
                           hintText: 'Ask about your future direction...',
                           hintStyle: const TextStyle(
                             color: Colors.white24,
-                            fontSize: 13,
+                            fontSize: 12,
                           ),
                           filled: true,
                           fillColor: const Color(0xFF0A1520),
                           contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
+                            horizontal: 14,
+                            vertical: 10,
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24),
@@ -1944,12 +2023,12 @@ class _InputBar extends StatelessWidget {
                         onSubmitted: (_) => onSend(),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     GestureDetector(
                       onTap: onSend,
                       child: Container(
-                        width: 44,
-                        height: 44,
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppColors.neonCyan.withValues(alpha: 0.12),
@@ -1960,7 +2039,7 @@ class _InputBar extends StatelessWidget {
                         child: const Icon(
                           Icons.send_rounded,
                           color: AppColors.neonCyan,
-                          size: 18,
+                          size: 16,
                         ),
                       ),
                     ),

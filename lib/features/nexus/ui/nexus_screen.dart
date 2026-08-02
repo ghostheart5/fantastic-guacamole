@@ -1,20 +1,15 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/features/auth/application/auth_providers.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
-import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
-import 'package:fantastic_guacamole/theme/widgets/prism_metric_pill.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -163,7 +158,7 @@ class _DeferredIntelligenceBootCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'STRATEGIC INTELLIGENCE',
+            'Planning overview',
             style: TextStyle(
               color: AppColors.neonCyan,
               fontSize: 10,
@@ -210,7 +205,7 @@ class _DeferredDependencyBootCard extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.22),
       ),
       child: const Text(
-        'Core systems are linking in the background.',
+        'Loading your planning signals.',
         style: TextStyle(color: Colors.white60, fontSize: 11),
       ),
     );
@@ -247,10 +242,10 @@ class _DeferredIntelligenceSection extends ConsumerWidget {
         ? 'Stable Growth Arc'
         : completedTasks > 0
         ? 'Early Growth Signal'
-        : 'Growth Engine Priming';
+        : 'Progress starting';
     final String narrativeSummary = completedTasks > 0
         ? 'Momentum is active. Keep the next action small and immediate.'
-        : 'No completed actions yet. Start with one clear task to establish narrative continuity.';
+        : 'No completed actions yet. Start with one clear task to establish planning consistency.';
     final int soulContinuityPct =
         ((((1 - fatigue) * 0.55) + (trajectoryMomentum * 0.45)).clamp(
                   0.0,

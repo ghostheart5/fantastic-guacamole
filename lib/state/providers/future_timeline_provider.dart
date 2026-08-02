@@ -27,17 +27,17 @@ final futureTimelineProvider = Provider<FutureTimelineState>((ref) {
   final decision = ref.watch(futureDecisionEngineProvider);
   final drift = ref.watch(identityDriftProvider);
   final execution = ref.watch(executionSignalsProvider);
-    final completionEvents = ref.watch(completionEventsProvider);
+  final completionEvents = ref.watch(completionEventsProvider);
   final int stabilityPercent = (execution.completionStability7d * 100).round();
-    final int completedCount = completionEvents
+  final int completedCount = completionEvents
       .where((event) => event.eventType == CompletionEventType.completed)
       .length;
-    final int deferralCount = completionEvents
+  final int deferralCount = completionEvents
       .where(
-      (event) =>
-        event.eventType == CompletionEventType.skipped ||
-        event.eventType == CompletionEventType.notCompleted ||
-        event.eventType == CompletionEventType.overdue,
+        (event) =>
+            event.eventType == CompletionEventType.skipped ||
+            event.eventType == CompletionEventType.notCompleted ||
+            event.eventType == CompletionEventType.overdue,
       )
       .length;
 

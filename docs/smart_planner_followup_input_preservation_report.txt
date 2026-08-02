@@ -1,0 +1,90 @@
+CHRONOSPARK SMART PLANNER FOLLOW-UP INPUT PRESERVATION FIX REPORT
+Date: 2026-08-01
+
+1. File changed
+- lib/features/home/ui/smart_coach_screen.dart
+
+2. Root cause
+- In _sendFollowUp(), _followUpController.clear() was executed before the async follow-up request completed.
+- If requestFollowUp() timed out or threw, the typed follow-up text had already been removed.
+
+3. Old behavior
+- User types follow-up.
+- _sendFollowUp() reads trimmed text.
+- Controller was immediately cleared.
+- Request runs.
+- On timeout/error, _followUpError is shown but typed input is already lost.
+
+4. New behavior
+- User types follow-up.
+- _sendFollowUp() reads trimmed text into local final text.
+- Request runs with _sendingFollowUp=true.
+- Controller is cleared only after successful reply is received and applied.
+- On timeout/error, typed input remains available for retry.
+
+5. Whether controller is cleared only after success
+- Yes.
+- _followUpController.clear() was moved from pre-request path to success path (inside setState after reply).
+
+6. Timeout behavior
+- Preserved timeout duration and message.
+- On TimeoutException:
+  - _sendingFollowUp set false.
+  - _followUpError set to: Follow-up timed out. Try a shorter prompt.
+  - Follow-up input text is preserved (not cleared early).
+
+7. Generic error behavior
+- Preserved generic error handling.
+- On catch:
+  - _sendingFollowUp set false.
+  - _followUpError set to: Follow-up could not be sent. Try again.
+  - ErrorBoundary capture remains.
+  - Follow-up input text is preserved (not cleared early).
+
+8. Crisis-check behavior confirmation
+- Confirmed unchanged.
+- coach.detectsCrisis(text) still triggers crisis dialog and returns without sending.
+
+9. Analytics preservation confirmation
+- Confirmed unchanged.
+- smart_coach_followup_requested remains before request.
+- smart_coach_followup_response_rendered remains after successful reply render.
+
+10. Voice output preservation confirmation
+- Confirmed unchanged.
+- unawaited(_speakVoice(reply)) remains on success.
+
+11. Confirmation no AI logic changed
+- Confirmed.
+- No changes to CoachQueryController/requestFollowUp logic or AI generation behavior.
+
+12. Confirmation no provider logic changed
+- Confirmed.
+- No provider files or provider behavior were modified.
+
+13. Confirmation no auth/Supabase/Firebase/Google/SI Console/subscription/database files changed
+- Confirmed.
+- No auth files changed.
+- No Supabase files changed.
+- No Firebase files changed.
+- No Google login files changed.
+- No SI Console logic files changed.
+- No subscription files changed.
+- No database schema or SQL changes.
+
+14. Analyzer result
+- Command: flutter analyze
+- Result: No issues found! (ran in 17.7s)
+
+Success criteria check
+- User follow-up text is not lost on timeout: PASS
+- User follow-up text is not lost on request error: PASS
+- Follow-up input clears after successful response: PASS
+- Follow-up success still adds conversation bubble: PASS
+- Follow-up success still speaks reply: PASS
+- Follow-up analytics still fire: PASS
+- Crisis behavior still works: PASS
+- No Smart Planner logic rewrite: PASS
+- No AI logic changes: PASS
+- No provider changes: PASS
+- No unrelated file changes: PASS

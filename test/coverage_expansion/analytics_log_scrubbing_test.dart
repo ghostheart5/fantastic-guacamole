@@ -45,7 +45,7 @@ void main() {
         'wrong-password',
         rawMessage: sensitive,
       );
-      expect(safeKnown, 'Credentials are incorrect.');
+      expect(safeKnown, 'We could not complete sign-in. Please try again.');
       expect(safeKnown.contains('pw1234'), isFalse);
       expect(safeKnown.contains('@chronospark.app'), isFalse);
 
@@ -53,7 +53,7 @@ void main() {
         'too-many-requests',
         rawMessage: sensitive,
       );
-      expect(safeRateLimit, 'Rate limit engaged. Wait, then retry.');
+      expect(safeRateLimit, 'Too many attempts. Please wait and try again.');
       expect(safeRateLimit.contains('pw1234'), isFalse);
     });
 

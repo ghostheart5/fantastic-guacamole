@@ -92,7 +92,7 @@ class AIController {
   static const String _neuralDumpKey = 'neural_dump';
 
   Future<AIRecommendation?> sendMessage(String text) async {
-    final Stopwatch requestTimer = Stopwatch()..start();
+    final Stopwatch requestStopwatch = Stopwatch()..start();
     final String rawInput = text.trim();
     final String? forcedSurface = _extractForcedSurface(rawInput);
     final String input = _stripLeadingSurfaceCommand(rawInput);
@@ -243,18 +243,18 @@ class AIController {
           timelineRecommendationCount: timelineRecommendationCount,
         );
     if (timelineDeterministic != null) {
-      requestTimer.stop();
+      requestStopwatch.stop();
       ContentGenerationAnalytics.trackResult(
         surface: primarySurface,
         routeType: 'deterministic_timeline',
         usedFallback: false,
         structured: _isStructuredSIResponse(timelineDeterministic.message),
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         qualityTag: siIntentCategory,
       );
       ContentGenerationReleaseGate.evaluateRequest(
         surface: primarySurface,
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         structured: _isStructuredSIResponse(timelineDeterministic.message),
       );
       return timelineDeterministic;
@@ -272,18 +272,18 @@ class AIController {
           alert: trajectory.alert,
         );
     if (trajectoryDeterministic != null) {
-      requestTimer.stop();
+      requestStopwatch.stop();
       ContentGenerationAnalytics.trackResult(
         surface: primarySurface,
         routeType: 'deterministic_trajectory',
         usedFallback: false,
         structured: _isStructuredSIResponse(trajectoryDeterministic.message),
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         qualityTag: siIntentCategory,
       );
       ContentGenerationReleaseGate.evaluateRequest(
         surface: primarySurface,
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         structured: _isStructuredSIResponse(trajectoryDeterministic.message),
       );
       return trajectoryDeterministic;
@@ -301,18 +301,18 @@ class AIController {
           upcoming: milestoneUpcoming,
         );
     if (milestoneDeterministic != null) {
-      requestTimer.stop();
+      requestStopwatch.stop();
       ContentGenerationAnalytics.trackResult(
         surface: primarySurface,
         routeType: 'deterministic_milestone',
         usedFallback: false,
         structured: _isStructuredSIResponse(milestoneDeterministic.message),
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         qualityTag: siIntentCategory,
       );
       ContentGenerationReleaseGate.evaluateRequest(
         surface: primarySurface,
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         structured: _isStructuredSIResponse(milestoneDeterministic.message),
       );
       return milestoneDeterministic;
@@ -327,18 +327,18 @@ class AIController {
           comparison: soulMapComparison,
         );
     if (soulMapDeterministic != null) {
-      requestTimer.stop();
+      requestStopwatch.stop();
       ContentGenerationAnalytics.trackResult(
         surface: primarySurface,
         routeType: 'deterministic_soulmap',
         usedFallback: false,
         structured: _isStructuredSIResponse(soulMapDeterministic.message),
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         qualityTag: siIntentCategory,
       );
       ContentGenerationReleaseGate.evaluateRequest(
         surface: primarySurface,
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         structured: _isStructuredSIResponse(soulMapDeterministic.message),
       );
       return soulMapDeterministic;
@@ -352,18 +352,18 @@ class AIController {
           alignment: coreValuesAlignment,
         );
     if (coreValuesDeterministic != null) {
-      requestTimer.stop();
+      requestStopwatch.stop();
       ContentGenerationAnalytics.trackResult(
         surface: primarySurface,
         routeType: 'deterministic_values',
         usedFallback: false,
         structured: _isStructuredSIResponse(coreValuesDeterministic.message),
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         qualityTag: siIntentCategory,
       );
       ContentGenerationReleaseGate.evaluateRequest(
         surface: primarySurface,
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         structured: _isStructuredSIResponse(coreValuesDeterministic.message),
       );
       return coreValuesDeterministic;
@@ -417,27 +417,27 @@ class AIController {
           routines: routines,
           activeRoutines: activeRoutines,
         );
-    final Map<String, dynamic>
-    chronosparkModelContext = contextBuilder.buildChronosparkModelContext(
-      surface: 'si_console',
-      intent: assistantIntent,
-      taskSummaries: tasks
-          .take(3)
-          .map((Task task) => task.title.trim())
-          .where((String title) => title.isNotEmpty)
-          .toList(growable: false),
-      goalSummaries: goals
-          .take(3)
-          .map((goal) => goal.title.trim())
-          .where((String title) => title.isNotEmpty)
-          .toList(growable: false),
-      timelineSummaries: timelineSummaries,
-      memorySummaries: selectedMemorySummaries,
-      completionSummaries: completionSummaries,
-      routineSummaries: routineSummaries,
-      scheduleSummaries: scheduleSummaries,
-      signals: chronosparkSignals,
-    );
+    final Map<String, dynamic> chronosparkModelContext = contextBuilder
+        .buildChronosparkModelContext(
+          surface: 'si_console',
+          intent: assistantIntent,
+          taskSummaries: tasks
+              .take(3)
+              .map((Task task) => task.title.trim())
+              .where((String title) => title.isNotEmpty)
+              .toList(growable: false),
+          goalSummaries: goals
+              .take(3)
+              .map((goal) => goal.title.trim())
+              .where((String title) => title.isNotEmpty)
+              .toList(growable: false),
+          timelineSummaries: timelineSummaries,
+          memorySummaries: selectedMemorySummaries,
+          completionSummaries: completionSummaries,
+          routineSummaries: routineSummaries,
+          scheduleSummaries: scheduleSummaries,
+          signals: chronosparkSignals,
+        );
 
     final Map<String, dynamic> context = <String, dynamic>{
       'source': 'si_console',
@@ -641,36 +641,36 @@ class AIController {
         timelineHealthScore: timelineHealthScore,
         timelineRiskScore: timelineRiskScore,
       );
-      requestTimer.stop();
+      requestStopwatch.stop();
       ContentGenerationAnalytics.trackResult(
         surface: primarySurface,
         routeType: 'ai_orchestrated',
         usedFallback: true,
         structured: _isStructuredSIResponse(fallback.message),
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         qualityTag: 'structured_fallback',
       );
       ContentGenerationReleaseGate.evaluateRequest(
         surface: primarySurface,
-        durationMs: requestTimer.elapsedMilliseconds,
+        durationMs: requestStopwatch.elapsedMilliseconds,
         structured: _isStructuredSIResponse(fallback.message),
       );
       return fallback;
     }
 
-    requestTimer.stop();
+    requestStopwatch.stop();
     ContentGenerationAnalytics.trackResult(
       surface: primarySurface,
       routeType: 'ai_orchestrated',
       usedFallback:
           recommendation.reasoning?.toLowerCase().contains('fallback') == true,
       structured: _isStructuredSIResponse(recommendation.message),
-      durationMs: requestTimer.elapsedMilliseconds,
+      durationMs: requestStopwatch.elapsedMilliseconds,
       qualityTag: siIntentCategory,
     );
     ContentGenerationReleaseGate.evaluateRequest(
       surface: primarySurface,
-      durationMs: requestTimer.elapsedMilliseconds,
+      durationMs: requestStopwatch.elapsedMilliseconds,
       structured: _isStructuredSIResponse(recommendation.message),
     );
     return recommendation;

@@ -1,0 +1,215 @@
+CHRONOSPARK FULL FEATURE-FOLDER AUDIT
+Date: 2026-08-01
+Scope: lib/features/** (all feature folders), inter-feature connections, and overall feature-folder health.
+Auditor: GitHub Copilot (GPT-5.3-Codex)
+Method: Static folder/code scan only (no SQL, no architecture rewrite).
+
+============================================================
+A) PER-FEATURE AUDITS (EACH FEATURE SEPARATELY)
+============================================================
+
+1) FEATURE: admin
+- Active Dart files: 1
+- Backup files (.bak*): 3
+- Feature test files detected: 2
+- Risk-pattern hits in active Dart: 0
+- Audit finding: Active runtime surface is small and currently low-risk; backup artifacts are present in source tree.
+- Recommendation: Keep runtime file stable, move .bak artifacts outside lib/ during cleanup pass.
+
+2) FEATURE: auth
+- Active Dart files: 1312
+- Backup files (.bak*): 1316
+- Feature test files detected: 4
+- Risk-pattern hits in active Dart: 84
+- Audit finding: Largest and highest-complexity feature area; many catch/exception/debug lines by volume; major backup sprawl.
+- Recommendation: Keep targeted hardening strategy (error sanitization/log policy/testing) and continue reducing source-tree backup artifacts.
+
+3) FEATURE: creator
+- Active Dart files: 13
+- Backup files (.bak*): 38
+- Feature test files detected: 4
+- Risk-pattern hits in active Dart: 37
+- Audit finding: UI feedback and snack-bar heavy interactions; backup artifact volume is high relative to active file count.
+- Recommendation: Add/keep focused UI behavior tests and clean backup artifacts outside runtime source tree.
+
+4) FEATURE: emotion
+- Active Dart files: 1
+- Backup files (.bak*): 0
+- Feature test files detected: 1
+- Risk-pattern hits in active Dart: 0
+- Audit finding: Small and clean runtime footprint with dedicated test present.
+- Recommendation: Maintain current test coverage and keep feature lean.
+
+5) FEATURE: home
+- Active Dart files: 10
+- Backup files (.bak*): 34
+- Feature test files detected: 0
+- Risk-pattern hits in active Dart: 12
+- Audit finding: Contains timeout/catch handling and broad runtime responsibilities; no direct feature test match detected in this scan.
+- Recommendation: Add/expand targeted tests around error/fallback pathways and reduce backup-file clutter.
+
+6) FEATURE: monetization
+- Active Dart files: 64
+- Backup files (.bak*): 60
+- Feature test files detected: 3
+- Risk-pattern hits in active Dart: 142
+- Audit finding: High exception/throw density in data layer and heavy logic surface.
+- Recommendation: Keep tests focused on error normalization and guard rails; avoid exposing raw backend details.
+
+7) FEATURE: nexus
+- Active Dart files: 2
+- Backup files (.bak*): 17
+- Feature test files detected: 3
+- Risk-pattern hits in active Dart: 5
+- Audit finding: Runtime files are few but heavily central in user flow; some user-facing error handling paths exist.
+- Recommendation: Preserve stable error copy and keep import/dependency hygiene tight.
+
+8) FEATURE: notifications
+- Active Dart files: 2
+- Backup files (.bak*): 3
+- Feature test files detected: 0
+- Risk-pattern hits in active Dart: 0
+- Audit finding: Small footprint; no immediate pattern-based risk surfaced.
+- Recommendation: Add at least one focused behavior test if notification flows expand.
+
+9) FEATURE: onboarding
+- Active Dart files: 1
+- Backup files (.bak*): 2
+- Feature test files detected: 0
+- Risk-pattern hits in active Dart: 8
+- Audit finding: Contains debug/error handling instrumentation and callback/error pathways.
+- Recommendation: Keep user-facing errors sanitized and add onboarding-flow smoke tests.
+
+10) FEATURE: paywall
+- Active Dart files: 2
+- Backup files (.bak*): 2
+- Feature test files detected: 0
+- Risk-pattern hits in active Dart: 0
+- Audit finding: Small footprint; no high-risk patterns detected by this scan.
+- Recommendation: Add minimal snapshot/behavior tests if monetization UI logic grows.
+
+11) FEATURE: permissions
+- Active Dart files: 6
+- Backup files (.bak*): 6
+- Feature test files detected: 0
+- Risk-pattern hits in active Dart: 0
+- Audit finding: Moderate footprint with no immediate pattern-based alerts.
+- Recommendation: Add focused permission-state transition tests.
+
+12) FEATURE: profile
+- Active Dart files: 4
+- Backup files (.bak*): 11
+- Feature test files detected: 3
+- Risk-pattern hits in active Dart: 3
+- Audit finding: Includes runtime type/error-string handling logic; moderate backup clutter.
+- Recommendation: Keep error-copy sanitization consistent and avoid runtimeType/toString-derived user messaging.
+
+13) FEATURE: progression
+- Active Dart files: 5
+- Backup files (.bak*): 13
+- Feature test files detected: 4
+- Risk-pattern hits in active Dart: 1
+- Audit finding: Low pattern-risk density with reasonable test presence.
+- Recommendation: Maintain existing test posture and trim backups outside runtime tree.
+
+14) FEATURE: settings
+- Active Dart files: 3
+- Backup files (.bak*): 17
+- Feature test files detected: 3
+- Risk-pattern hits in active Dart: 22
+- Audit finding: Frequent user feedback/error handling operations; notable backup clutter.
+- Recommendation: Keep stable user-safe errors and add focused tests for failure notifications.
+
+15) FEATURE: si_console
+- Active Dart files: 5
+- Backup files (.bak*): 25
+- Feature test files detected: 3
+- Risk-pattern hits in active Dart: 3
+- Audit finding: High shared-state dependency and complex feature interactions.
+- Recommendation: Preserve strict message sanitization and continue targeted behavior tests.
+
+16) FEATURE: timeline
+- Active Dart files: 1
+- Backup files (.bak*): 11
+- Feature test files detected: 3
+- Risk-pattern hits in active Dart: 11
+- Audit finding: Single active UI surface with many feedback/snackbar paths.
+- Recommendation: Keep message consistency and regression tests around timeline actions.
+
+17) FEATURE: trajectory_engine
+- Active Dart files: 1
+- Backup files (.bak*): 15
+- Feature test files detected: 3
+- Risk-pattern hits in active Dart: 0
+- Audit finding: Small runtime surface but high backup-to-active ratio.
+- Recommendation: Prioritize archive cleanup of backup artifacts.
+
+============================================================
+B) CONNECTIONS BETWEEN FEATURES (INTER-FEATURE AUDIT)
+============================================================
+
+Direct feature-to-feature import edges detected (source -> target):
+- settings -> auth (1)
+- settings -> permissions (1)
+- profile -> auth (1)
+- home -> emotion (1)
+- nexus -> auth (1)
+
+Connection observations:
+- Direct feature-to-feature imports are limited and relatively controlled.
+- Auth acts as a shared dependency hub for multiple runtime features.
+- Home depends on Emotion selector directly (expected UI composition link).
+
+Shared-layer dependency intensity (imports from state/domain/core):
+- Highest state import density: si_console (34), home (16), auth (8), trajectory_engine (7), creator/profile/settings (7 each).
+- Highest domain import density: auth (372), timeline (3), creator/settings/si_console/progression/notifications/home (1-2).
+- Highest core import density: monetization (15), auth/notifications/onboarding/si_console (2), home/timeline/paywall (1).
+
+Connection risk assessment:
+- Main systemic coupling risk is not direct feature-to-feature imports, but shared-state concentration.
+- Features with high shared-state dependency (especially si_console, home, auth) deserve tighter regression coverage and explicit contract tests.
+
+============================================================
+C) OVERALL AUDIT FOR ENTIRE FEATURE FOLDER
+============================================================
+
+Overall totals (from this scan):
+- Feature folders audited: 17
+- Active Dart files across features: 1433
+- Backup artifacts (.bak*) across features: 1573
+- Pattern hits (heuristic risk markers): 328
+
+Overall findings:
+- Strengths:
+- Direct feature-to-feature imports are low and mostly intentional.
+- Multiple critical features already have dedicated tests (auth, progression, timeline, nexus, settings, profile, monetization).
+- Analyzer baseline currently clean after recent targeted cleanup.
+
+- Risks:
+- Backup artifact sprawl remains the largest structural hygiene issue (1573 .bak* files in feature tree).
+- Complexity hotspot is auth by absolute size and dependency volume.
+- Additional hotspots by heuristic pattern volume: monetization, auth, creator, settings.
+- Several feature folders still show no direct feature-test matches in this scan (home, notifications, onboarding, paywall, permissions).
+
+Priority recommendations (targeted and safe):
+1) Backup hygiene program:
+- Move .bak artifacts out of lib/features into archive locations in controlled batches.
+- Keep runtime source tree strictly production-focused.
+
+2) Test coverage expansion for under-covered folders:
+- Add focused tests for home, onboarding, notifications, paywall, permissions.
+- Keep tests narrow and behavior-based (error copy, fallback, interaction contracts).
+
+3) Shared-state contract hardening:
+- Add contract tests for cross-feature/shared-provider interactions, especially si_console/home/auth paths.
+
+4) Error-message safety consistency:
+- Continue replacing raw exception/backend passthroughs with stable user-safe copy in user-facing surfaces.
+
+Audit constraints honored in this pass:
+- No production code logic changed.
+- No SQL or schema operations.
+- No file deletions.
+- Audit artifact generated in root audit.txt as requested.
+
+END OF REPORT

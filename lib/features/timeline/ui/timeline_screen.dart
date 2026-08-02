@@ -1,10 +1,6 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
-import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/detect_timeline_conflict_usecase.dart';
-import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/detect_timeline_risk_usecase.dart';
-import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/forecast_timeline_outcomes_usecase.dart';
-import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/show_timeline_on_track_usecase.dart';
-import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/suggest_timeline_adjustments_usecase.dart';
-import 'package:fantastic_guacamole/features/auth/domain/usecases/misc/surface_timeline_warnings_usecase.dart';
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
@@ -14,11 +10,12 @@ import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_event_bridge.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
-import 'package:fantastic_guacamole/theme/widgets/prism_metric_pill.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 enum _TimelineWindow { today, week, month, year, all }
 
@@ -45,6 +42,27 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   _TimelineWindow _window = _TimelineWindow.week;
   _TimelineFocus _focus = _TimelineFocus.all;
   String _query = '';
+  bool _showMoreFilters = false;
+
+  Future<void> _markTimelineViewedForSetup() async {
+    if (!ref.read(creatorFirstItemCreatedProvider) ||
+        ref.read(timelineFirstActionCompletedProvider)) {
+      return;
+    }
+
+    ref.read(timelineFirstActionCompletedProvider.notifier).set(true);
+
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? userId = sb.Supabase.instance.client.auth.currentUser?.id;
+      final String key = (userId == null || userId.trim().isEmpty)
+          ? timelineFirstActionCompletedStorageKey
+          : timelineFirstActionCompletedStorageKeyForUser(userId.trim());
+      await prefs.setBool(key, true);
+    } on Object {
+      // Do not block first-setup completion if local persistence is unavailable.
+    }
+  }
 
   @override
   void initState() {
@@ -53,6 +71,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       if (!mounted) {
         return;
       }
+      unawaited(_markTimelineViewedForSetup());
       ref.read(missionEventBridgeProvider).reportTimelineOpened();
     });
   }
@@ -60,56 +79,11 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   @override
   Widget build(BuildContext context) {
     final List<TimelineEventEntity> baseEvents = ref.watch(timelineProvider);
-    final TimelineRiskResult timelineRiskResult = ref.watch(
-      timelineRiskResultProvider,
-    );
-    final TimelineOnTrackResult onTrackResult = ref.watch(
-      timelineOnTrackResultProvider,
-    );
-    final List<TimelineConflict> timelineConflicts = ref.watch(
-      timelineConflictProvider,
-    );
-    final List<TimelineForecastResult> timelineForecasts = ref.watch(
-      timelineForecastProvider,
-    );
-    final List<TimelineWarning> timelineWarnings = ref.watch(
-      timelineWarningsProvider,
-    );
-    final List<TimelineAdjustment> timelineAdjustments = ref.watch(
-      timelineAdjustmentsProvider,
-    );
-    final List<TimelineEventEntity> dueNextEvents = ref.watch(
-      timelineDueNextProvider,
-    );
-    final List<TimelineEventEntity> fallingBehindEvents = ref.watch(
-      timelineFallingBehindProvider,
-    );
-    final List<TimelineEventEntity> timelineActivity = ref.watch(
-      timelineActivityProvider,
-    );
-    final List<TimelineEventEntity> timelineDeadlines = ref.watch(
-      timelineDeadlinesProvider,
-    );
     final List<TimelineEventEntity> timelineCompletedEvents = ref.watch(
       timelineCompletedEventsProvider,
     );
-    final List<TimelineEventEntity> prioritizedTimelineItems = ref.watch(
-      timelinePrioritizedItemsProvider,
-    );
     final List<TimelineEventEntity> todayTimelineEvents = ref.watch(
       timelineTodayProvider,
-    );
-    final List<TimelineEventEntity> weekTimelineEvents = ref.watch(
-      timelineThisWeekProvider,
-    );
-    final List<TimelineEventEntity> monthTimelineEvents = ref.watch(
-      timelineThisMonthProvider,
-    );
-    final List<TimelineEventEntity> yearTimelineEvents = ref.watch(
-      timelineThisYearProvider,
-    );
-    final List<TimelineEventEntity> lifeJourneyTimelineEvents = ref.watch(
-      timelineLifeJourneyProvider,
     );
     final List<GoalEntity> goals = ref.watch(goalsProvider);
     final List<Task> tasks =
@@ -173,6 +147,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               event.detail.toLowerCase().contains(q);
         })
         .toList(growable: false);
+    final bool hasActionableTimelineItem = filtered.any(
+      _isActionableTimelineEvent,
+    );
 
     final Map<DateTime, List<TimelineEventEntity>> grouped =
         <DateTime, List<TimelineEventEntity>>{};
@@ -189,24 +166,6 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final int upcomingCount = filtered
         .where((TimelineEventEntity event) => event.isUpcoming)
         .length;
-    final int milestoneCount = filtered
-        .where((TimelineEventEntity event) => event.isMilestone)
-        .length;
-    final int riskCount = filtered
-        .where((TimelineEventEntity event) => event.isRisk)
-        .length;
-    final int recommendationCount = filtered
-        .where((TimelineEventEntity event) => event.isRecommendation)
-        .length;
-
-    final int healthScore = _computeHealthScore(
-      overdueCount: overdueCount,
-      riskCount: riskCount,
-      milestoneCount: milestoneCount,
-      upcomingCount: upcomingCount,
-    );
-    final int riskScore = 100 - healthScore;
-    final TimelineEventEntity? nextDeadline = _nearestUpcoming(filtered, now);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgProgression,
@@ -264,7 +223,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                             ),
                           ),
                           const Text(
-                            'Review saved items, deadlines, and signals',
+                            'Review your scheduled items and progress',
                             style: TextStyle(
                               fontSize: 10,
                               letterSpacing: 0.5,
@@ -282,41 +241,19 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                    child: _TimelineUnlockBanner(),
+                    child: _TimelineUnlockBanner(
+                      hasActionableTimelineItem: hasActionableTimelineItem,
+                    ),
                   ),
                 ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: _TimelineIntelligenceStrip(
-                    title: 'Planner signals',
-                    subtitle: 'Primary story first, context second.',
-                    healthScore: healthScore,
-                    riskScore: riskScore,
-                    overdueCount: overdueCount,
-                    upcomingCount: upcomingCount,
-                    milestoneCount: milestoneCount,
-                    riskCount: riskCount,
-                    recommendationCount: recommendationCount,
-                    nextDeadline: dueNextEvents.isNotEmpty
-                        ? dueNextEvents.first
-                        : nextDeadline,
-                    connectedRiskScore: timelineRiskResult.riskScore,
-                    conflictCount: timelineConflicts.length,
-                    forecastCount: timelineForecasts.length,
-                    warningCount: timelineWarnings.length,
-                    adjustmentCount: timelineAdjustments.length,
-                    fallingBehindCount: fallingBehindEvents.length,
-                    activityCount: timelineActivity.length,
-                    deadlineCount: timelineDeadlines.length,
-                    completedCount: timelineCompletedEvents.length,
-                    prioritizedCount: prioritizedTimelineItems.length,
+                  child: _TodaySummaryCard(
                     todayCount: todayTimelineEvents.length,
-                    weekCount: weekTimelineEvents.length,
-                    monthCount: monthTimelineEvents.length,
-                    yearCount: yearTimelineEvents.length,
-                    lifeJourneyCount: lifeJourneyTimelineEvents.length,
-                    isOnTrack: onTrackResult.isOnTrack,
+                    upcomingCount: upcomingCount,
+                    overdueCount: overdueCount,
+                    completedCount: timelineCompletedEvents.length,
                   ),
                 ),
               ),
@@ -365,25 +302,71 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: _FocusChips(
-                    selected: _focus,
-                    onSelect: (_TimelineFocus value) =>
-                        setState(() => _focus = value),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      const Text(
+                        'Window',
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 10,
+                          letterSpacing: 0.8,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      SmartPressable(
+                        onTap: () => setState(
+                          () => _showMoreFilters = !_showMoreFilters,
+                        ),
+                        child: Text(
+                          _showMoreFilters ? 'Hide filters' : 'More filters',
+                          style: const TextStyle(
+                            color: AppColors.neonCyan,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
+              if (_showMoreFilters) ...<Widget>[
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                    child: _FocusChips(
+                      selected: _focus,
+                      onSelect: (_TimelineFocus value) =>
+                          setState(() => _focus = value),
+                    ),
+                  ),
+                ),
+              ],
               const SliverToBoxAdapter(child: SizedBox(height: 8)),
               if (filtered.isEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Text(
-                      'No items match this view.\nTry another window, clear filters, or create something in Creator.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 14,
-                        height: 1.6,
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xAA091427),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      child: const Text(
+                        'No items match this view.\n\nTry another window, clear filters, or create something in Creator.\n\nCreate a task, routine, goal, or note in Creator, then schedule it to see it here.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white60,
+                          fontSize: 13,
+                          height: 1.5,
+                        ),
                       ),
                     ),
                   ),
@@ -396,8 +379,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       final DateTime day = days[i];
                       final List<TimelineEventEntity> dayEvents = grouped[day]!;
                       final String dayLabel = _timelineDayLabel(day, now);
-                      final String itemLabel =
-                          dayEvents.length == 1
+                      final String itemLabel = dayEvents.length == 1
                           ? '1 item'
                           : '${dayEvents.length} items';
                       return Column(
@@ -438,6 +420,12 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                     }, childCount: days.length),
                   ),
                 ),
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: _TimelineHelperPanel(),
+                ),
+              ),
             ],
           ),
         ),
@@ -490,15 +478,7 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
   }
 
   bool get _canExecuteTaskAction {
-    if (event.relatedId == null || event.relatedId!.trim().isEmpty) {
-      return false;
-    }
-    if (_isCompleted) {
-      return false;
-    }
-    return event.type == TimelineEventType.deadline ||
-        event.type == TimelineEventType.task ||
-        event.phase == 'task';
+    return _isActionableTimelineEvent(event) && !_isCompleted;
   }
 
   Future<void> _runTaskAction(
@@ -519,6 +499,7 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
           _lastActionLabel = actionLabel;
         });
       }
+      await ref.read(missionEventBridgeProvider).reportTimelineOpened();
       if (!mounted) {
         return;
       }
@@ -942,6 +923,10 @@ class _TimelineActionChip extends StatelessWidget {
 }
 
 class _TimelineUnlockBanner extends StatelessWidget {
+  const _TimelineUnlockBanner({required this.hasActionableTimelineItem});
+
+  final bool hasActionableTimelineItem;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -966,27 +951,226 @@ class _TimelineUnlockBanner extends StatelessWidget {
               color: AppColors.neonCyan.withValues(alpha: 0.18),
             ),
             child: const Icon(
-              Icons.lock_open_rounded,
+              Icons.event_note_rounded,
               color: AppColors.neonCyan,
               size: 16,
             ),
           ),
           const SizedBox(width: 10),
           const Expanded(
-            child: Text(
-              'Take one timeline action (Complete, Skip, or Reschedule) to unlock full navigation.',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                height: 1.35,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Your item is on Timeline',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Review what you created here. Tasks can be completed, skipped, or rescheduled when those actions are available.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _TodaySummaryCard extends StatelessWidget {
+  const _TodaySummaryCard({
+    required this.todayCount,
+    required this.upcomingCount,
+    required this.overdueCount,
+    required this.completedCount,
+  });
+
+  final int todayCount;
+  final int upcomingCount;
+  final int overdueCount;
+  final int completedCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xAA091427),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'Today at a glance',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _SummaryPill(label: 'Today', value: '$todayCount planned'),
+              _SummaryPill(label: 'Upcoming', value: '$upcomingCount'),
+              _SummaryPill(label: 'Overdue', value: '$overdueCount'),
+              _SummaryPill(label: 'Completed', value: '$completedCount'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryPill extends StatelessWidget {
+  const _SummaryPill({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineHelperPanel extends ConsumerWidget {
+  const _TimelineHelperPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0x8A081225),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'Need help with Timeline?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Timeline shows scheduled tasks, routines, goals, and notes. Use it to review what is planned, what is overdue, and what has been completed.',
+            style: TextStyle(color: Colors.white70, fontSize: 11, height: 1.35),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _InlineNavChip(
+                label: 'Open Creator',
+                onTap: () => ref.read(appFlowProvider.notifier).toCreator(),
+              ),
+              _InlineNavChip(
+                label: 'Open Smart Planner',
+                onTap: () => ref.read(appFlowProvider.notifier).toSmartCoach(),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineNavChip extends StatelessWidget {
+  const _InlineNavChip({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SmartPressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: AppColors.neonViolet.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.neonViolet.withValues(alpha: 0.28),
+          ),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+bool _isActionableTimelineEvent(TimelineEventEntity event) {
+  final String? relatedId = event.relatedId;
+  if (relatedId == null || relatedId.trim().isEmpty) {
+    return false;
+  }
+
+  return event.type == TimelineEventType.deadline ||
+      event.type == TimelineEventType.task ||
+      event.phase == 'task';
 }
 
 class _TimelineStatusBadge extends StatelessWidget {
@@ -1013,143 +1197,6 @@ class _TimelineStatusBadge extends StatelessWidget {
           letterSpacing: 0.3,
         ),
       ),
-    );
-  }
-}
-
-class _TimelineIntelligenceStrip extends StatelessWidget {
-  const _TimelineIntelligenceStrip({
-    required this.title,
-    required this.subtitle,
-    required this.healthScore,
-    required this.riskScore,
-    required this.overdueCount,
-    required this.upcomingCount,
-    required this.milestoneCount,
-    required this.riskCount,
-    required this.recommendationCount,
-    required this.nextDeadline,
-    required this.connectedRiskScore,
-    required this.conflictCount,
-    required this.forecastCount,
-    required this.warningCount,
-    required this.adjustmentCount,
-    required this.fallingBehindCount,
-    required this.activityCount,
-    required this.deadlineCount,
-    required this.completedCount,
-    required this.prioritizedCount,
-    required this.todayCount,
-    required this.weekCount,
-    required this.monthCount,
-    required this.yearCount,
-    required this.lifeJourneyCount,
-    required this.isOnTrack,
-  });
-
-  final String title;
-  final String subtitle;
-  final int healthScore;
-  final int riskScore;
-  final int overdueCount;
-  final int upcomingCount;
-  final int milestoneCount;
-  final int riskCount;
-  final int recommendationCount;
-  final TimelineEventEntity? nextDeadline;
-  final int connectedRiskScore;
-  final int conflictCount;
-  final int forecastCount;
-  final int warningCount;
-  final int adjustmentCount;
-  final int fallingBehindCount;
-  final int activityCount;
-  final int deadlineCount;
-  final int completedCount;
-  final int prioritizedCount;
-  final int todayCount;
-  final int weekCount;
-  final int monthCount;
-  final int yearCount;
-  final int lifeJourneyCount;
-  final bool isOnTrack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xAA07111F),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-              height: 1.3,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _StatPill(label: 'HEALTH', value: '$healthScore%'),
-              _StatPill(label: 'RISK', value: '$riskScore%'),
-              _StatPill(label: 'OVERDUE', value: '$overdueCount'),
-              _StatPill(label: 'UPCOMING', value: '$upcomingCount'),
-              _StatPill(label: 'MILES', value: '$milestoneCount'),
-              _StatPill(label: 'RISKS', value: '$riskCount'),
-              _StatPill(label: 'RECS', value: '$recommendationCount'),
-              _StatPill(label: 'C-RISK', value: '$connectedRiskScore%'),
-              _StatPill(label: 'CONFLICTS', value: '$conflictCount'),
-              _StatPill(label: 'FCST', value: '$forecastCount'),
-              _StatPill(label: 'WARN', value: '$warningCount'),
-              _StatPill(label: 'ADJUST', value: '$adjustmentCount'),
-              _StatPill(label: 'BEHIND', value: '$fallingBehindCount'),
-              _StatPill(label: 'TRACK', value: isOnTrack ? 'YES' : 'NO'),
-            ],
-          ),
-          if (nextDeadline != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Next deadline: ${nextDeadline!.title} (${DateTimeFormats.dateShort(nextDeadline!.dueAt ?? nextDeadline!.timestamp)})',
-              style: const TextStyle(color: Colors.white60, fontSize: 11),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _StatPill extends StatelessWidget {
-  const _StatPill({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return PrismMetricPill(
-      label: label,
-      value: value,
-      color: AppColors.neonCyan,
     );
   }
 }
@@ -1439,33 +1486,4 @@ List<TimelineEventEntity> _buildIntelligenceEvents({
     );
   }
   return out;
-}
-
-int _computeHealthScore({
-  required int overdueCount,
-  required int riskCount,
-  required int milestoneCount,
-  required int upcomingCount,
-}) {
-  final int penalty =
-      (overdueCount * 12) + (riskCount * 10) + (upcomingCount > 6 ? 8 : 0);
-  final int bonus = (milestoneCount * 3).clamp(0, 18);
-  return (100 - penalty + bonus).clamp(0, 100);
-}
-
-TimelineEventEntity? _nearestUpcoming(
-  List<TimelineEventEntity> events,
-  DateTime now,
-) {
-  final List<TimelineEventEntity> candidates =
-      events
-          .where((TimelineEventEntity event) {
-            final DateTime? due = event.dueAt;
-            return due != null && due.isAfter(now) && !event.isOverdue;
-          })
-          .toList(growable: false)
-        ..sort(
-          (a, b) => (a.dueAt ?? a.timestamp).compareTo(b.dueAt ?? b.timestamp),
-        );
-  return candidates.isEmpty ? null : candidates.first;
 }

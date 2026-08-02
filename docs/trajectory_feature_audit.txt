@@ -1,0 +1,123 @@
+CHRONOSPARK TRAJECTORY SCREEN + FEATURE AUDIT
+Date: 2026-08-01
+Scope: Trajectory engine screen and connected trajectory / forecast providers
+Primary UI file: lib/features/trajectory_engine/ui/trajectory_engine_screen.dart
+Related files:
+- lib/state/providers/trajectory_provider.dart
+- lib/state/providers/trajectory_simulation_provider.dart
+- lib/state/providers/trajectory_drift_provider.dart
+- lib/state/providers/future_timeline_provider.dart
+- lib/state/providers/future_decision_engine_provider.dart
+- lib/state/providers/identity_drift_provider.dart
+- lib/state/providers/cognitive_twin_provider.dart
+- lib/state/providers/intelligence_fusion_provider.dart
+- lib/state/providers/execution_signals_provider.dart
+- lib/state/models/trajectory_summary_view.dart
+- lib/state/providers/task_provider.dart
+- lib/state/providers/completion_events_provider.dart
+- lib/state/providers/momentum_engine_provider.dart
+
+FINDINGS (ordered by severity)
+
+[Medium] Trajectory summary collapses loading or error task state into a zero-like calm forecast
+- Location: trajectory_provider.dart + trajectory_engine_screen.dart
+- Evidence:
+  - trajectorySummaryProvider computes pendingTasks with tasksAsync.maybeWhen(data: ..., orElse: () => 0).
+  - predictionTitle also falls back to null when tasksProvider is not in data state.
+  - The screen immediately renders outlook, pressure, divergence, and alert text from this summary without any loading or error distinction.
+- Impact:
+  - While tasks are still loading, or if tasks fail to load, the screen can present a calm or empty-looking forecast as if the trajectory were genuinely low pressure.
+  - That can mask data availability problems and make the forecast less trustworthy.
+- Recommendation:
+  - Preserve loading/error semantics in TrajectorySummaryView or gate the screen until tasks data has settled.
+  - If an empty forecast is intentional, label it explicitly as unknown/unavailable rather than zero-pressure.
+
+[Low] The screen is projection-heavy and can read like multiple forecasts restating the same underlying state
+- Location: trajectory_engine_screen.dart + future_timeline_provider.dart + trajectory_simulation_provider.dart + identity_drift_provider.dart + future_decision_engine_provider.dart
+- Evidence:
+  - The screen combines Outlook, What this means, Momentum, Scenarios, Future roadmap, Success outlook, and Recommended next steps.
+  - futureTimelineProvider, trajectorySimulationProvider, identityDriftProvider, and futureDecisionEngineProvider are all deterministic derivations of the same live state signals.
+  - Most panels restate momentum / drift / pressure in different wording rather than exposing distinct trajectory sources.
+- Impact:
+  - The feature can feel more predictive than informational because several panels summarize the same current state in parallel.
+  - Users may interpret the feature as a historical trajectory engine, even though the content is mostly synthesized projection copy.
+- Recommendation:
+  - Keep the projection layer if that is intentional, but label it clearly as forecast/simulation content and avoid adding more duplicated narrative panels.
+  - If product intent is a true trajectory history feature, introduce a persisted history source instead of only derived forecast text.
+
+TRAJECTORY FEATURE LOGIC / WIRING MAP
+
+1) Core summary flow
+- Source:
+  - trajectorySummaryProvider
+- Inputs:
+  - tasksProvider
+  - profileProvider
+  - energyProvider
+  - learningProvider
+  - learningMetricsProvider
+  - sessionScoreProvider
+  - siStateProvider
+  - executionSignalsProvider
+- Outputs:
+  - pending tasks, pressure, divergence, alert, and prediction context
+
+2) Projection / forecast flow
+- Source:
+  - futureDecisionEngineProvider
+  - identityDriftProvider
+  - futureTimelineProvider
+  - trajectorySimulationProvider
+- Inputs:
+  - cognitiveTwinProvider
+  - intelligenceFusionProvider
+  - executionSignalsProvider
+  - completionEventsProvider
+  - futureSelfSimulatorProvider
+- Outputs:
+  - recommended action, identity drift summary, future checkpoints, and scenario cards
+
+3) Execution signal flow
+- Source:
+  - executionSignalsProvider
+- Inputs:
+  - logsProvider entries
+- Outputs:
+  - today and 7-day creation/completion/skipped/delayed counts
+  - completion stability and deferral pressure
+
+4) Identity / recommendation flow
+- Source:
+  - cognitiveTwinProvider
+  - intelligenceFusionProvider
+  - futureSelfSimulatorProvider
+- Outputs:
+  - operating mode, threat/opportunity narrative, best action, correction guidance, and future self identity shift
+
+INPUTS / OUTPUTS SUMMARY
+
+Inputs consumed by Trajectory screen:
+- Task list state
+- Profile level / streak
+- Energy and learning metrics
+- Session score
+- SI state
+- Completion event history
+- Logs / execution signals
+- Identity drift / cognitive twin / intelligence fusion signals
+
+Outputs produced by Trajectory feature:
+- Future forecast copy and summary metrics
+- Momentum and pressure panels
+- Simulation cards
+- Future timeline checkpoints
+- Drift and decision guidance
+
+OVERALL ASSESSMENT
+- The Trajectory screen is structurally healthy and analyzer-clean in the current workspace.
+- The main correctness risk is that the summary provider collapses non-data states into zero-like forecast values, which can hide loading or failure states.
+- The main product-design risk is that several panels are synthesized projections of the same underlying state, so the screen can be read as a richer historical trajectory system than it actually is.
+
+VALIDATION
+- Read-only audit only.
+- No code changes were made.

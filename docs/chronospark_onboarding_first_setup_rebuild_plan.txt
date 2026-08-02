@@ -1,0 +1,359 @@
+CHRONOSPARK ONBOARDING + FIRST SETUP REBUILD PLAN
+Planning Only. No Code Changes.
+
+1. Current Onboarding Problems
+- Current onboarding is larger than the actual product needs.
+- It still presents three concept slides plus a separate setup/personalization screen instead of a minimal product introduction.
+- Slide 1 focuses on Home/Nexus rather than the product's primary first-win flow.
+- Slide 2 introduces Smart Planner too early, even though Smart Planner is optional and should not be required before first setup is complete.
+- Slide 3 is closer to the real flow, but the full onboarding still over-explains secondary surfaces before the user completes a first successful plan.
+- The current onboarding implementation still uses older naming internally, including legacy mission activation event names, which increases conceptual drift between product intent and setup behavior.
+
+2. Current Tutorial Problems
+- The current first-setup guidance is still driven by a global bottom overlay rather than lightweight contextual help.
+- The overlay is safer than before, but it remains a global mounted tutorial surface and still creates product complexity that is larger than the actual onboarding goal.
+- Timeline setup completion is currently tied to a flag originally named for "first action completed," even though setup now treats Timeline opening/viewing as sufficient.
+- Generic tutorial systems still exist in the repo as dormant or secondary infrastructure:
+  - lib/tutorial/tutorial_overlay.dart
+  - lib/tutorial/tutorial_target_registry.dart
+  - lib/tutorial/widgets/micro_tutorial_card.dart
+  - lib/tutorial/widgets/show_me_again_button.dart
+- There is currently no reusable non-blocking contextual helper drawer.
+
+3. Current Mission Problems
+- Product behavior has already moved away from Smart Planner as a required setup step, but the mission/tutorial implementation still carries legacy mission naming and step inventory.
+- Internal enum/value names still reference goal-only or mission-oriented semantics:
+  - createFirstGoal
+  - askSmartPlannerQuestion
+- Current visible setup copy says "Create your first item," but internal naming still suggests goal-specific ownership.
+- The current lock model still relies on two low-level booleans:
+  - creatorFirstItemCreatedProvider
+  - timelineFirstActionCompletedProvider
+- Even though Timeline open is now treated as sufficient, the flag name still implies action-based completion and should be clarified in the rebuild.
+- The global MissionOverlay remains the active required setup guidance system, which conflicts with the requested non-blocking helper-drawer direction.
+
+4. Proposed 2-Slide Onboarding
+Goal:
+Replace the current large onboarding with exactly two slides and a single action button.
+
+Slide 1
+Title:
+Build Your First Plan
+
+Body:
+Create tasks, routines, goals, and notes.
+
+Choose when they happen.
+
+View everything on your Timeline.
+
+ChronoSpark helps turn plans into progress.
+
+Slide 2
+Title:
+Smarter Planning When You Need It
+
+Body:
+Smart Planner helps you decide what to focus on next.
+
+SI Console helps you understand your goals, progress, and planning signals.
+
+Use them when you want extra guidance.
+
+Primary button:
+Start Setup
+
+Expected implementation result:
+- Remove the current Nexus/Home-first framing from onboarding.
+- Remove Smart Planner as a setup requirement while keeping it visible as optional value.
+- Remove the extra personalization-style setup slide from onboarding.
+- Preserve current onboarding completion persistence and auth-adjacent safety behavior, but simplify the visible flow.
+
+5. Proposed First Setup Flow
+Required first-setup flow only:
+- Create Something
+- Choose When It Happens
+- View Timeline
+- You're Ready
+
+Step 1
+Title:
+Create Something
+Message:
+Create a task, routine, goal, or note.
+
+Step 2
+Title:
+Choose When It Happens
+Message:
+Set it as:
+- one time
+- every day
+- every week
+
+Step 3
+Title:
+View Timeline
+Message:
+Your item is now visible in Timeline.
+
+Step 4
+Title:
+You're Ready
+Message:
+Setup complete.
+
+You can now use:
+- Timeline
+- Smart Planner
+- SI Console
+- Future Vector
+- Ascension
+- Profile
+- Settings
+
+Flow rule:
+- First setup should end after a successful create and a safe Timeline view/open.
+- No task completion, skip, reschedule, Smart Planner question, SI Console action, Future Vector action, or Ascension action should be required.
+
+6. How Task/Routine/Goal/Note Creation Advances Setup
+Required product rule:
+- Any real created item must satisfy first setup creation.
+
+Implementation direction:
+- Continue using the generic first-item-created setup event already introduced.
+- Keep support for these created kinds:
+  - task
+  - routine
+  - goal
+  - note
+- Creator save should continue to advance the create-item setup step.
+- Creator save should continue to advance the choose-when/save step only after a real successful save.
+- Unsupported or failed saves must not advance setup.
+
+Current code surfaces involved:
+- lib/features/creator/ui/creator_screen.dart
+- lib/state/providers/creator_provider.dart
+- lib/tutorial/mission/mission_event_bridge.dart
+- lib/tutorial/mission/mission_controller.dart
+- lib/tutorial/mission/mission_provider.dart
+- lib/tutorial/mission/mission_state.dart
+
+Recommended product cleanup in rebuild phase:
+- Keep compatibility if enum renaming is risky in the first pass.
+- Later rename internal step ownership away from goal-only wording so internal naming matches visible behavior.
+
+7. How Timeline Completes Setup
+Required product rule:
+- Timeline opening must be enough.
+- Do not require complete/skip/reschedule actions.
+
+Implementation direction:
+- First setup should complete when the user safely reaches Timeline after creating an item.
+- If reliable "item visible" detection exists, use it.
+- If reliable visibility detection is still not available across all item types, safe Timeline open remains acceptable as the completion trigger.
+- Timeline action chips remain available only for real actionable task-style items.
+- Goals, notes, and non-actionable items remain view-only when existing data models do not support task actions.
+
+Current code surfaces involved:
+- lib/features/timeline/ui/timeline_screen.dart
+- lib/state/providers/task_provider.dart
+- lib/app/navigation_shell.dart
+- lib/tutorial/mission/mission_overlay.dart
+
+Recommended rebuild cleanup:
+- Replace action-oriented completion naming with view-oriented setup naming once safe.
+- Move setup completion language fully toward "view Timeline" rather than "take one timeline action."
+
+8. How Smart Planner Becomes Optional
+Required product rule:
+- Smart Planner is optional and post-setup.
+
+Implementation direction:
+- Keep Smart Planner screen behavior unchanged:
+  - coaching
+  - follow-ups
+  - voice output
+  - analytics
+  - crisis detection
+  - AI request flow
+- Keep Smart Planner reachable after setup and available as discovery/help content.
+- Remove any remaining required onboarding/setup dependency on Smart Planner events.
+- Retain compatibility migration for users who were previously saved on the old Smart Planner mission step.
+
+Current code surfaces involved:
+- lib/features/home/ui/smart_coach_screen.dart
+- lib/tutorial/mission/mission_event_bridge.dart
+- lib/tutorial/mission/mission_provider.dart
+- lib/tutorial/mission/mission_controller.dart
+- lib/tutorial/mission/mission_state.dart
+
+9. How SI Console Becomes Optional
+Required product rule:
+- SI Console is optional and post-setup.
+
+Implementation direction:
+- Do not add SI Console to required onboarding or first-setup progression.
+- Expose SI Console in post-setup helper content only.
+- Keep existing SI Console product logic, analytics, voice, and intelligence behavior untouched.
+
+Likely affected visible surfaces only:
+- Onboarding copy
+- First-setup completion content
+- Helper drawer destination list
+
+No required logic ownership should be added to SI Console.
+
+10. Helper Drawer Architecture
+Goal:
+Replace giant or blocking tutorials with a reusable, non-blocking contextual helper drawer.
+
+Behavior
+Collapsed state:
+- Need Help?
+
+Expanded sections:
+- Build Your First Plan
+  - Create a task, routine, goal, or note.
+  - [Open Creator]
+
+- View Timeline
+  - See scheduled work and upcoming items.
+  - [Open Timeline]
+
+- Smart Planner
+  - Get recommendations and guidance.
+  - [Open Smart Planner]
+
+- SI Console
+  - Ask questions about your plans and progress.
+  - [Open SI Console]
+
+Required properties:
+- non-blocking
+- dismissible
+- optional
+- reusable on multiple screens
+- never traps user
+- never disables navigation
+- no overlays
+- no forced progression
+- no mission locks
+
+Recommended architecture:
+- Build a reusable glass-panel helper drawer widget under a neutral shared UI location, for example:
+  - lib/ui/widgets/
+  - or lib/tutorial/widgets/ if the team wants it near help surfaces
+- Feed it simple contextual section models rather than route-specific logic inside the widget.
+- Render it inline or docked within screen layouts, not as a global blocking overlay.
+- Allow each screen to pass only the sections that make sense for that surface.
+
+Candidate screens:
+- Creator
+- Timeline
+- Smart Planner
+- SI Console
+- Future Vector
+- Ascension
+- Profile
+- Settings
+
+11. Exact Files To Change
+Primary implementation files:
+- lib/features/onboarding/ui/onboarding_screen.dart
+- lib/tutorial/mission/mission_state.dart
+- lib/tutorial/mission/mission_overlay.dart
+- lib/tutorial/mission/mission_controller.dart
+- lib/tutorial/mission/mission_provider.dart
+- lib/tutorial/mission/mission_event_bridge.dart
+- lib/features/creator/ui/creator_screen.dart
+- lib/features/timeline/ui/timeline_screen.dart
+- lib/app/navigation_shell.dart
+
+Likely new helper-drawer files:
+- one reusable helper drawer widget file
+- one small helper content model/config file if needed
+
+Possible copy-only follow-up surfaces:
+- lib/tutorial/tutorial_content.dart
+- screen-level empty-state/help text where setup wording still references older concepts
+
+12. Exact Files NOT To Change
+Do not change:
+- Auth files
+- Supabase integration files
+- Firebase files
+- Google login files
+- Billing/subscription files
+- AI logic files
+- Smart Planner request/controller logic
+- SI Console logic files
+- Future Vector logic files
+- Ascension logic files
+- Voice system files
+- Analytics infrastructure/events
+- Notification system files
+- Database schema files
+- RLS policy files
+
+Examples of current files to leave untouched unless a compile dependency forces a trivial import cleanup:
+- auth feature code
+- Supabase bootstrapping and client config
+- Firebase config and runtime code
+- CoachQueryController and AI request pipelines
+- SI Console engine and screen logic
+- voice service implementation
+- subscription/paywall logic
+- database migration/schema definitions
+
+13. Safe Implementation Phases
+Phase 1: Onboarding copy and structure reduction
+- Replace the current 3-slide plus personalization onboarding with exactly 2 slides.
+- Keep the current persistence, completion write path, and auth-safe setup transition behavior intact.
+- Validate onboarding render flow only.
+
+Phase 2: First setup state normalization
+- Align setup steps to:
+  - createFirstItem
+  - configureFirstItem
+  - openTimeline/reviewTimeline
+  - complete
+- Preserve compatibility for older saved mission/setup progress.
+- Validate fresh-user and returning-user state migration.
+
+Phase 3: Timeline completion simplification
+- Ensure Timeline opening or safe Timeline view completes setup.
+- Keep task action controls only where supported.
+- Validate task, routine, goal, and note flows individually.
+
+Phase 4: Remove blocking guidance dependency
+- De-emphasize or retire global blocking setup overlay behavior.
+- Keep setup status visible without trapping the user.
+- Validate no modal/dialog interference and no navigation lock regressions.
+
+Phase 5: Introduce helper drawer
+- Add non-blocking reusable helper drawer.
+- Start on Creator and Timeline first.
+- Expand to Smart Planner, SI Console, Future Vector, Ascension, Profile, and Settings only after the base pattern is stable.
+
+Phase 6: Cleanup and terminology alignment
+- Remove remaining visible mission/tactical framing.
+- Rename internal types only if safe and only after behavior is stable.
+- Preserve compatibility aliases where needed.
+
+14. Rollback Plan
+If any phase regresses setup completion or routing safety:
+- Keep the current onboarding persistence and completion write path.
+- Revert visible onboarding structure changes without touching auth or router behavior.
+- Re-enable the last known working setup completion gate:
+  - Creator first item created
+  - safe Timeline open
+- Keep compatibility migration code for older saved states even if later UI work is rolled back.
+- Roll back helper drawer introduction independently from onboarding/setup logic.
+- Do not couple helper drawer release with critical onboarding completion logic.
+
+Recommended rollback order:
+1. Roll back helper drawer UI only.
+2. Roll back overlay presentation changes if needed.
+3. Keep first-item and safe-Timeline completion fixes in place.
+4. Preserve Smart Planner and SI Console as optional setup-independent surfaces.
