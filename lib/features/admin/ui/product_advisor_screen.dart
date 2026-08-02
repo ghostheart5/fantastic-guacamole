@@ -44,16 +44,23 @@ class ProductAdvisorScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(20),
           children: [
             insightsAsync.when(
-              data: (insights) => _InsightsList(
-                insights: insights
-                    .map(
+              data: (state) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (state.isFallback)
+                    _FallbackWarningTile(message: state.warningMessage),
+                  _InsightsList(
+                    insights: state.insights
+                        .map(
                       (insight) => _InsightView(
                         issue: insight.issue,
                         cause: insight.cause,
                         recommendation: insight.recommendation,
                       ),
                     )
-                    .toList(growable: false),
+                        .toList(growable: false),
+                  ),
+                ],
               ),
               loading: () => const Center(
                 child: Padding(
@@ -61,7 +68,7 @@ class ProductAdvisorScreen extends ConsumerWidget {
                   child: CircularProgressIndicator(color: AppColors.neonCyan),
                 ),
               ),
-              error: (e, _) => _ErrorTile(message: e.toString()),
+              error: (_, _) => const _ErrorTile(),
             ),
             const SizedBox(height: 16),
             _RefreshButton(
@@ -234,16 +241,44 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _ErrorTile extends StatelessWidget {
-  const _ErrorTile({required this.message});
-  final String message;
+  const _ErrorTile();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
       child: Text(
-        'Error: $message',
-        style: const TextStyle(color: Colors.red, fontSize: 12),
+        'Unable to load advisor insights.\nTry refreshing or check logs for details.',
+        style: TextStyle(color: Colors.red, fontSize: 12, height: 1.4),
+      ),
+    );
+  }
+}
+
+class _FallbackWarningTile extends StatelessWidget {
+  const _FallbackWarningTile({this.message});
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.neonCyan.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        message ??
+            'Advisor insights are running in fallback mode.\nSome source data could not be loaded.',
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          height: 1.4,
+        ),
       ),
     );
   }

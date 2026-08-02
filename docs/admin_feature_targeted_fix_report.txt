@@ -1,0 +1,97 @@
+CHRONOSPARK ADMIN FEATURE TARGETED FIX REPORT
+Date: 2026-08-01
+Scope: Targeted fix pass for admin advisor behavior and UI error sanitization only.
+
+1. Files inspected
+- lib/state/providers/advisor_provider.dart
+- lib/features/admin/ui/product_advisor_screen.dart
+- lib/engine/advisor/product_advisor_engine.dart
+- lib/state/providers/optimization_provider.dart
+- lib/state/controllers/momentum_controller.dart
+- lib/state/state/momentum_state.dart
+- test/features/admin/** (none existed before this pass)
+- lib/features/admin/ui/*.bak*
+
+2. Files changed
+- lib/state/providers/advisor_provider.dart
+- lib/features/admin/ui/product_advisor_screen.dart
+- test/features/admin/product_advisor_screen_test.dart (added)
+- test/features/admin/product_insights_provider_test.dart (added)
+- docs/admin_feature_targeted_fix_report.txt (added)
+
+3. Old provider fallback behavior
+- productInsightsProvider used try/catch and on any exception returned synthetic fallback insights directly.
+- Failure state was not surfaced to UI/state consumers, so fallback could appear like healthy output.
+
+4. New provider fallback/degraded behavior
+- Added ProductInsightsState wrapper with fields:
+  - insights
+  - isFallback
+  - warningMessage
+- productInsightsProvider now returns ProductInsightsState.
+- On normal path: returns insights with isFallback=false.
+- On failure path: returns fallback insights with isFallback=true and warningMessage set to:
+  "Advisor insights are running in fallback mode. Some source data could not be loaded."
+- Provider now logs failure via dart:developer log (name: advisor_provider) without exposing raw details in UI.
+
+5. How degraded/fallback state is surfaced in UI
+- ProductAdvisorScreen now reads ProductInsightsState from productInsightsProvider.
+- When isFallback is true, screen shows a compact warning tile above insights:
+  "Advisor insights are running in fallback mode.\nSome source data could not be loaded."
+- Insights still render below warning (screen remains usable).
+
+6. Whether fallback output is still available
+- Yes. Fallback insights are still returned and rendered when provider source data fails.
+
+7. Whether raw error strings were removed from UI
+- Yes. Raw exception rendering was removed from ProductAdvisorScreen error branch.
+
+8. New stable error copy
+- "Unable to load advisor insights.\nTry refreshing or check logs for details."
+
+9. Logging/telemetry behavior, if any
+- Added safe provider-side developer log call in catch block:
+  - message: productInsightsProvider fallback mode triggered
+  - logger name: advisor_provider
+  - includes error + stackTrace for diagnostics
+- No new logging framework introduced.
+
+10. .bak files found
+- lib/features/admin/ui/product_advisor_screen.dart.bak_htmlclean
+- lib/features/admin/ui/product_advisor_screen.dart.bak_advisor_visual_amp_20260726_134247
+- lib/features/admin/ui/product_advisor_screen.dart.bak_advisor_cleanup1_20260726_134136
+
+11. Whether .bak files were imported anywhere
+- No import/use references were found for the listed .bak files.
+
+12. Test files added, if any
+- test/features/admin/product_advisor_screen_test.dart
+  - verifies stable error copy is shown and raw exception strings are not shown
+  - verifies fallback warning is shown and insights still render
+- test/features/admin/product_insights_provider_test.dart
+  - simulates snapshot failure and verifies degraded fallback state is exposed
+
+13. Recommended tests not added, if too risky
+- Not required for this pass. Added focused tests were low-risk and sufficient for requested behavior.
+
+14. Confirmation admin route guards were untouched
+- Confirmed for this pass: no admin route guard files were edited.
+
+15. Confirmation auth/Supabase/Firebase/Google/billing/subscription/AI/SI Console/database files were untouched
+- Confirmed for this pass: no edits were made by this pass to auth, Google login, Supabase, Firebase, billing, subscriptions, AI logic, SI Console logic, Smart Planner logic, router guards, or database schema files.
+
+16. Analyzer result
+- Command: flutter analyze
+- Result: No issues found.
+
+17. Test result, if tests were run
+- Ran targeted tests only:
+  - test/features/admin/product_advisor_screen_test.dart
+  - test/features/admin/product_insights_provider_test.dart
+- Result summary: 3 passed, 0 failed.
+
+Cleanup recommendation for item 3 (.bak files)
+- Keep current .bak files untouched in this pass.
+- Later cleanup recommendation:
+  - move .bak files outside lib/ source tree into a dedicated archive folder, or
+  - delete after verifying git history/backup retention.

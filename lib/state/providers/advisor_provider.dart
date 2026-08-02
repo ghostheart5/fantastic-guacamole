@@ -7,25 +7,51 @@ import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
+import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final productInsightsProvider = FutureProvider<List<ProductInsight>>((
+class ProductInsightsState {
+  const ProductInsightsState({
+    required this.insights,
+    this.isFallback = false,
+    this.warningMessage,
+  });
+
+  final List<ProductInsight> insights;
+  final bool isFallback;
+  final String? warningMessage;
+}
+
+final productInsightsProvider = FutureProvider<ProductInsightsState>((
   ref,
 ) async {
   try {
     final accumulator = ref.read(localMetricsAccumulatorProvider);
     final snapshot = await accumulator.snapshot();
     final momentum = ref.watch(momentumProvider);
-    return const ProductAdvisorEngine().fromSnapshot(
-      snapshot,
-      momentum.chainCount,
+    return ProductInsightsState(
+      insights: const ProductAdvisorEngine().fromSnapshot(
+        snapshot,
+        momentum.chainCount,
+      ),
     );
-  } catch (_) {
-    return const ProductAdvisorEngine().analyze(
-      nextSeen: 0,
-      started: 0,
-      completed: 0,
-      momentumPeak: 0,
+  } catch (error, stackTrace) {
+    developer.log(
+      'productInsightsProvider fallback mode triggered',
+      name: 'advisor_provider',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    return ProductInsightsState(
+      insights: const ProductAdvisorEngine().analyze(
+        nextSeen: 0,
+        started: 0,
+        completed: 0,
+        momentumPeak: 0,
+      ),
+      isFallback: true,
+      warningMessage:
+          'Advisor insights are running in fallback mode. Some source data could not be loaded.',
     );
   }
 });
@@ -33,8 +59,10 @@ final productInsightsProvider = FutureProvider<List<ProductInsight>>((
 final weeklySummaryProvider = FutureProvider<String>((ref) async {
   try {
     final snapshot = await ref.read(localMetricsAccumulatorProvider).snapshot();
-    final insights = await ref.watch(productInsightsProvider.future);
-    final String baseline = const WeeklyAdvisor().summarize(insights);
+    final insightsState = await ref.watch(productInsightsProvider.future);
+    final String baseline = const WeeklyAdvisor().summarize(
+      insightsState.insights,
+    );
 
     final trajectory = ref.watch(trajectorySummaryProvider);
     final int timelineHealth = ref.watch(timelineHealthScoreProvider);
