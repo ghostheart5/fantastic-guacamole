@@ -397,7 +397,7 @@ class _MetricGrid extends StatelessWidget {
       crossAxisCount: 2,
       mainAxisSpacing: 8,
       crossAxisSpacing: 8,
-      childAspectRatio: 1.2,
+      childAspectRatio: 1.7,
       children: <Widget>[
         _MetricCard(label: 'Momentum', value: '$momentumPercent%'),
         _MetricCard(label: 'PRESSURE', value: '$pressureIndex'),
@@ -417,10 +417,10 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: const Color(0xFF10182A),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFF23345A)),
       ),
       child: Column(
@@ -431,17 +431,17 @@ class _MetricCard extends StatelessWidget {
             label.toUpperCase(),
             style: const TextStyle(
               color: Color(0xFF7F91C8),
-              fontSize: 10,
+              fontSize: 9,
               letterSpacing: 1.0,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 19,
+              fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
           ),

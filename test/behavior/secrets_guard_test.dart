@@ -51,6 +51,9 @@ void main() {
           text = SourceTestUtils.readUtf8Strict(file);
         } on FormatException {
           continue;
+        } on FileSystemException {
+          // Skip transiently locked or unreadable files produced by toolchains.
+          continue;
         }
         if (tokenPattern.hasMatch(text)) {
           offenders.add(path);
