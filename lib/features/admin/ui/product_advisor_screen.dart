@@ -52,12 +52,12 @@ class ProductAdvisorScreen extends ConsumerWidget {
                   _InsightsList(
                     insights: state.insights
                         .map(
-                      (insight) => _InsightView(
-                        issue: insight.issue,
-                        cause: insight.cause,
-                        recommendation: insight.recommendation,
-                      ),
-                    )
+                          (insight) => _InsightView(
+                            issue: insight.issue,
+                            cause: insight.cause,
+                            recommendation: insight.recommendation,
+                          ),
+                        )
                         .toList(growable: false),
                   ),
                 ],
