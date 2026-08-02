@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/state/providers/memory_intelligence_provider
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_commands.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_message.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_prompt_copy.dart';
+import 'package:fantastic_guacamole/features/si_console/ui/models/si_response_frame.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_response_validator.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -27,6 +28,7 @@ import 'package:fantastic_guacamole/state/providers/execution_signals_provider.d
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_simulation_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
 import 'package:fantastic_guacamole/state/providers/adaptive_replanning_provider.dart';
 import 'package:fantastic_guacamole/state/providers/cognitive_twin_provider.dart';
 import 'package:fantastic_guacamole/state/providers/future_self_simulator_provider.dart';
@@ -289,29 +291,32 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           SIConsoleMessage(
             text:
                 'SI Console guide\n\n'
-                'Signal channels:\n'
-                '- /tasks: inspect active tasks and next actions\n'
-                '- /goals: summarize goals and drift\n'
-                '- /milestones: summarize checkpoint health, risk, and next target\n'
-                '- /values: show core values alignment and neglected value\n'
-                '- /soulmap: analyze identity, purpose, and life direction\n'
-                '- /soulmap compare: compare current self to future self\n'
-                '- /plan: summarize schedule and next blocks\n'
-                '- /timeline: summarize recent milestones/events\n'
-                '- /trajectory: summarize momentum, pressure, and prediction\n'
-                '- /momentum: show unified momentum score, trend, recovery, and forecast\n\n'
-                '- /timelinefuture: show the projected future timeline\n'
-                '- /paths: show alternative future paths\n'
-                '- /evolution: show identity evolution state\n'
-                '- /roadmap: show future checkpoints\n\n'
-                '- /weekly: show autonomous weekly directives\n'
-                '- /daily: show autonomous daily directives\n'
-                '- /focus: show autonomous focus block recommendation\n'
-                '- /review: show autonomous review and tomorrow adjustment\n'
-                '- /optimize: show autonomous life optimization state\n\n'
+                'SI Console reads signals across your tasks, goals, habits, notes, milestones, timeline, momentum, values, and future trajectory systems.\n\n'
+                'Use signal channels when you want a focused readout:\n\n'
+                'ANALYZE\n'
+                '/tasks — active task pressure, next actions, and execution risks\n'
+                '/goals — goal alignment, drift, and strategic priority\n'
+                '/milestones — checkpoint health, risk, and next target\n'
+                '/values — values alignment and neglected value signals\n\n'
+                'FUTURE\n'
+                '/trajectory — current direction, pressure, and likely outcome\n'
+                '/momentum — momentum score, trend, recovery, and forecast\n'
+                '/timelinefuture — projected future timeline\n'
+                '/paths — alternative future paths\n'
+                '/roadmap — future checkpoints and next strategic target\n\n'
+                'AUTONOMY\n'
+                '/daily — autonomous daily directive\n'
+                '/weekly — autonomous weekly directive\n'
+                '/focus — recommended focus block\n'
+                '/review — review signal and tomorrow adjustment\n'
+                '/optimize — life optimization state\n\n'
+                'SYSTEM\n'
+                '/status — cross-system synchronization and execution state\n'
+                '/help — guide and command surface\n\n'
                 'Operating rules:\n'
-                '- Task creation is Creator-only. Use Creator to create tasks/goals.\n'
-                '- SI Console provides analysis and guidance, not task entry.\n\n'
+                '- SI Console analyzes and guides.\n'
+                '- Creator creates tasks, goals, habits, and notes.\n'
+                '- SI Console should explain why a move matters, not just list data.\n\n'
                 '${SIConsolePromptCopy.helpSection()}',
             isUser: false,
             emotion: 'focused',
@@ -324,16 +329,25 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
     if (normalized == '/weekly' || normalized == 'weekly') {
       final weekly = ref.read(autonomousWeeklyPlannerProvider);
+      final momentum = ref.read(momentumEngineProvider);
+      final List<String> evidence = <String>[
+        'Weekly theme is ${weekly.theme}.',
+        'Primary directive is ${weekly.primaryDirective}.',
+        'Momentum trend is ${momentum.trend} at ${momentum.score}%.',
+      ];
 
-      final String directives = weekly.directives
-          .map((d) => '- ${d.title}\n  ${d.reason}')
-          .join('\n\n');
-
-      final String response =
-          'AUTONOMOUS WEEKLY PLAN\n\n'
-          'Theme: ${weekly.theme}\n\n'
-          'Primary Directive:\n${weekly.primaryDirective}\n\n'
-          'Directives:\n$directives';
+      final String response = SIResponseFrame.build(
+        signal:
+            'Weekly execution direction is anchored to ${weekly.primaryDirective}.',
+        whyItMatters:
+            'This matters because weekly focus quality determines whether daily effort compounds or fragments.',
+        evidence: evidence,
+        tradeoff:
+            'Narrow weekly focus improves completion reliability, but it can reduce flexibility for side opportunities.',
+        recommendedMove:
+            'Commit this week to one primary directive and protect execution blocks around it.',
+        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -348,15 +362,27 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
     if (normalized == '/daily' || normalized == 'daily') {
       final daily = ref.read(autonomousDailyPlannerProvider);
+      final momentum = ref.read(momentumEngineProvider);
+      final String topDirective = daily.directives.isEmpty
+          ? daily.focus
+          : daily.directives.first.title;
+      final List<String> evidence = <String>[
+        'Daily focus is ${daily.focus}.',
+        'Top directive is $topDirective.',
+        'Pressure is ${momentum.pressurePercent}% and energy is ${momentum.energyPercent}%.',
+      ];
 
-      final String directives = daily.directives
-          .map((d) => '- [P${d.priority}] ${d.title}\n  ${d.reason}')
-          .join('\n\n');
-
-      final String response =
-          'AUTONOMOUS DAILY PLAN\n\n'
-          'Focus:\n${daily.focus}\n\n'
-          'Directives:\n$directives';
+      final String response = SIResponseFrame.build(
+        signal: 'Daily directive load is centered on ${daily.focus}.',
+        whyItMatters:
+            'This matters because today\'s execution pattern directly influences tomorrow\'s momentum stability.',
+        evidence: evidence,
+        tradeoff:
+            'Pushing all directives may increase output now, but overload risk rises if pressure stays elevated.',
+        recommendedMove:
+            'Execute the top directive first, then reassess pressure before adding secondary work.',
+        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -371,13 +397,25 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
     if (normalized == '/focus' || normalized == 'focus') {
       final focusBlock = ref.read(autonomousFocusSchedulerProvider);
+      final momentum = ref.read(momentumEngineProvider);
+      final List<String> evidence = <String>[
+        'Recommended block is ${focusBlock.title}.',
+        'Intensity is ${focusBlock.intensity.name} for ${focusBlock.durationMinutes} minutes.',
+        'Momentum ${momentum.score}% with pressure ${momentum.pressurePercent}%.',
+      ];
 
-      final String response =
-          'AUTONOMOUS FOCUS SCHEDULER\n\n'
-          'Block:\n${focusBlock.title}\n\n'
-          'Intensity: ${focusBlock.intensity.name}\n'
-          'Duration: ${focusBlock.durationMinutes} minutes\n\n'
-          'Reason:\n${focusBlock.reason}';
+      final String response = SIResponseFrame.build(
+        signal:
+            'Focus scheduling recommends a ${focusBlock.intensity.name} execution block.',
+        whyItMatters:
+            'This matters because focus block calibration protects momentum without triggering avoidable fatigue.',
+        evidence: evidence,
+        tradeoff:
+            'A deeper block can accelerate progress, but the wrong intensity can increase pressure and reduce consistency.',
+        recommendedMove:
+            'Run ${focusBlock.durationMinutes} minutes on ${focusBlock.title}, then decide whether to extend or recover.',
+        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -392,13 +430,23 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
     if (normalized == '/review' || normalized == 'review') {
       final review = ref.read(autonomousReviewProvider);
+      final momentum = ref.read(momentumEngineProvider);
+      final List<String> evidence = <String>[
+        'Review score is ${review.score}%.',
+        'Alignment signal: ${review.alignment}.',
+        'Momentum trend is ${momentum.trend}.',
+      ];
 
-      final String response =
-          'AUTONOMOUS REVIEW\n\n'
-          'Score: ${review.score}%\n'
-          'Alignment: ${review.alignment}\n\n'
-          '${review.summary}\n\n'
-          'Tomorrow Adjustment:\n${review.tomorrowAdjustment}';
+      final String response = SIResponseFrame.build(
+        signal: 'Review signals ${review.summary.toLowerCase()}',
+        whyItMatters:
+            'This matters because your next-day setup should be driven by execution quality, not intention alone.',
+        evidence: evidence,
+        tradeoff:
+            'Ignoring adjustment preserves comfort now, but drift risk compounds across consecutive days.',
+        recommendedMove: review.tomorrowAdjustment,
+        confidenceSignal: SIResponseFrame.signalBandFromPercent(review.score),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -413,13 +461,26 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
     if (normalized == '/optimize' || normalized == 'optimize') {
       final optimization = ref.read(autonomousLifeOptimizationProvider);
+      final momentum = ref.read(momentumEngineProvider);
+      final List<String> evidence = <String>[
+        'Optimization score is ${optimization.optimizationScore}%.',
+        'Primary adjustment is ${optimization.primaryAdjustment}.',
+        'Momentum score is ${momentum.score}% with trend ${momentum.trend}.',
+      ];
 
-      final String response =
-          'AUTONOMOUS LIFE OPTIMIZATION\n\n'
-          'Optimization Score: ${optimization.optimizationScore}%\n\n'
-          'Primary Adjustment:\n${optimization.primaryAdjustment}\n\n'
-          'Reason:\n${optimization.reason}\n\n'
-          'Next Directive:\n${optimization.nextDirective}';
+      final String response = SIResponseFrame.build(
+        signal:
+            'Optimization state points to ${optimization.primaryAdjustment} as the highest-leverage adjustment.',
+        whyItMatters:
+            'This matters because system-level optimization determines whether effort converts into repeatable progress.',
+        evidence: evidence,
+        tradeoff:
+            'Maintaining current mode preserves routine, but unresolved structural drag can suppress future gains.',
+        recommendedMove: optimization.nextDirective,
+        confidenceSignal: SIResponseFrame.signalBandFromPercent(
+          optimization.optimizationScore,
+        ),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -437,31 +498,25 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final String status = (aggregation == null)
           ? 'INTELLIGENCE STATUS\n\n'
                 'Model is still initializing. Retry /status in a second.\n'
-                'If this persists, use /tasks or /plan to warm providers.'
-          : 'INTELLIGENCE STATUS\n\n'
-                'Synchronized surfaces:\n'
-                '- tasks: ${aggregation.tasks.length}\n'
-                '- goals: ${aggregation.goals.length}\n'
-                '- logs: ${aggregation.logs.length}\n'
-                '- memories: ${aggregation.memories.length}\n'
-                '- notifications: ${aggregation.notifications.length}\n'
-                '- timeline: ${aggregation.timeline.length}\n'
-                '- milestones: ${ref.read(milestonesProvider).asData?.value.length ?? 0}\n'
-                '- core values overall: ${ref.read(coreValuesAlignmentProvider).overall}%\n'
-                '- soulmap overall: ${ref.read(soulMapAlignmentProvider).overall}%\n'
-                '- plan preview blocks: ${aggregation.planPreview.length}\n\n'
-                'Future vector:\n'
-                '- pressure: ${aggregation.trajectory.pressureIndex}\n'
-                '- momentum: ${(aggregation.trajectory.momentum * 100).round()}%\n'
-                '- divergence: ${aggregation.trajectory.behaviorDivergence}%\n\n'
-                'Momentum Engine:\n'
-                '- score: ${momentum.score}%\n'
-                '- trend: ${momentum.trend}\n'
-                '- energy: ${momentum.energyPercent}%\n'
-                '- pressure: ${momentum.pressurePercent}%\n'
-                '- recovery: ${momentum.recovery}\n'
-                '- forecast: ${momentum.forecast}\n\n'
-                'Use /tasks, /goals, /milestones, /values, /soulmap, /soulmap compare, /plan, /timeline, /trajectory, /momentum, /briefing for module-specific responses.';
+            'If this persists, use /tasks or /trajectory to warm providers.'
+          : SIResponseFrame.build(
+              signal:
+                  'System synchronization is active with momentum at ${momentum.score}% (${momentum.trend}).',
+              whyItMatters:
+                  'This matters because decision reliability depends on both state freshness and cross-system coherence.',
+              evidence: <String>[
+                'Tasks ${aggregation.tasks.length}, goals ${aggregation.goals.length}, timeline ${aggregation.timeline.length}.',
+                'Milestones ${ref.read(milestonesProvider).asData?.value.length ?? 0}, memories ${aggregation.memories.length}.',
+                'Pressure ${aggregation.trajectory.pressureIndex}, divergence ${aggregation.trajectory.behaviorDivergence}%, energy ${momentum.energyPercent}%.',
+              ],
+              tradeoff:
+                  'Broad context gives stronger strategic reads, but weak or sparse surfaces reduce precision in edge cases.',
+              recommendedMove:
+                  'Use /trajectory for direction, /momentum for execution state, then /daily for immediate action sequencing.',
+              confidenceSignal: SIResponseFrame.signalBandFromPercent(
+                momentum.score,
+              ),
+            );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -528,12 +583,26 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     }
     if (normalized == '/success' || normalized == 'success') {
       final forecast = ref.read(goalSuccessProbabilityProvider);
+      final momentum = ref.read(momentumEngineProvider);
 
-      final response =
-          'GOAL SUCCESS FORECAST\n\n'
-          'Probability: ${forecast.probability}%\n\n'
-          '${forecast.summary}\n\n'
-          '${forecast.recommendation}';
+      final String confidenceSignal = SIResponseFrame.signalBandFromPercent(
+        forecast.probability,
+      );
+
+      final response = SIResponseFrame.build(
+        signal: 'Goal completion signal is currently $confidenceSignal.',
+        whyItMatters:
+            'This matters because execution momentum only compounds when goal direction remains viable.',
+        evidence: <String>[
+          forecast.summary,
+          'Momentum trend is ${momentum.trend} at ${momentum.score}%.',
+        ],
+        tradeoff:
+            'Committing to current direction preserves momentum, but unresolved blockers can still reduce completion reliability.',
+        recommendedMove: forecast.recommendation,
+        confidenceSignal:
+            '$confidenceSignal based on current momentum and goal state signals.',
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -547,6 +616,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     }
     if (normalized == '/risk' || normalized == 'risk') {
       final riskState = ref.read(predictiveRiskProvider);
+      final momentum = ref.read(momentumEngineProvider);
 
       final risks = riskState.risks
           .map(
@@ -557,9 +627,21 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           )
           .join('\n\n');
 
-      final response =
-          'PREDICTIVE RISK ENGINE\n\n'
-          '$risks';
+      final response = SIResponseFrame.build(
+        signal: 'Predictive risk pressure is active across current execution.',
+        whyItMatters:
+            'The risk signal matters because pressure can silently degrade trajectory quality before output visibly drops.',
+        evidence: <String>[
+          'Momentum trend is ${momentum.trend} with pressure ${momentum.pressurePercent}%.',
+          '${riskState.risks.length} risk lanes flagged by the risk engine.',
+          risks,
+        ],
+        tradeoff:
+            'Aggressive execution can increase short-term throughput, but unresolved risk raises the chance of momentum collapse.',
+        recommendedMove:
+            'Apply the top mitigation first, then re-evaluate momentum before adding new commitments.',
+        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -576,13 +658,22 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         normalized == '/patterns' ||
         normalized == 'patterns') {
       final memoryIntel = ref.read(memoryIntelligenceProvider);
+      final momentum = ref.read(momentumEngineProvider);
 
-      final response =
-          'MEMORY INTELLIGENCE\n\n'
-          'Recurring Win:\n${memoryIntel.recurringWin}\n\n'
-          'Recurring Friction:\n${memoryIntel.recurringFriction}\n\n'
-          'Lesson:\n${memoryIntel.lesson}\n\n'
-          'Focus Suggestion:\n${memoryIntel.focusSuggestion}';
+      final response = SIResponseFrame.build(
+        signal: 'Memory intelligence shows repeat patterns in your execution loop.',
+        whyItMatters:
+            'This matters because recurring friction compounds faster than isolated mistakes when momentum is under load.',
+        evidence: <String>[
+          'Recurring win: ${memoryIntel.recurringWin}',
+          'Recurring friction: ${memoryIntel.recurringFriction}',
+          'Momentum trend is ${momentum.trend}.',
+        ],
+        tradeoff:
+            'Ignoring pattern friction preserves short-term speed, but increases long-term drift and rework.',
+        recommendedMove: memoryIntel.focusSuggestion,
+        confidenceSignal: 'Signal is moderate from recurring historical patterns.',
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -599,6 +690,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         normalized == '/future self' ||
         normalized == 'future self simulation') {
       final simulations = ref.read(futureSelfSimulatorProvider);
+      final momentum = ref.read(momentumEngineProvider);
 
       final String paths = simulations
           .map(
@@ -610,10 +702,21 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           )
           .join('\n\n');
 
-      final String response =
-          'FUTURE SELF SIMULATION\n\n'
-          '$paths\n\n'
-          '${SIConsolePromptCopy.prompt('which future path should I choose?')}';
+      final String response = SIResponseFrame.build(
+        signal: 'Future simulations show multiple viable identity trajectories.',
+        whyItMatters:
+            'This matters because current execution momentum determines which future path becomes dominant.',
+        evidence: <String>[
+          'Generated ${simulations.length} future path simulations.',
+          'Momentum trend is ${momentum.trend} at ${momentum.score}%.',
+          paths,
+        ],
+        tradeoff:
+            'A single-lane focus accelerates one outcome, but reduces optionality if conditions change.',
+        recommendedMove:
+            'Choose one primary path for execution and preserve one smaller exploratory action.',
+        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -630,16 +733,27 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         normalized == 'identity' ||
         normalized == '/alignment' ||
         normalized == 'alignment' ||
+        normalized == '/direction' ||
+        normalized == 'direction' ||
         normalized == 'identity drift') {
       final drift = ref.read(identityDriftProvider);
+      final momentum = ref.read(momentumEngineProvider);
 
-      final String response =
-          'IDENTITY DRIFT\n\n'
-          'Alignment: ${drift.alignment.name}\n'
-          'Score: ${drift.score}%\n\n'
-          '${drift.summary}\n\n'
-          'Correction:\n${drift.correction}\n\n'
-          '${SIConsolePromptCopy.prompt('how do I realign with my future self?')}';
+      final String response = SIResponseFrame.build(
+        signal: 'Identity alignment is ${drift.alignment.name} with ${drift.score}% score.',
+        whyItMatters:
+            'This matters because strategic consistency depends on alignment between current behavior and future direction.',
+        evidence: <String>[
+          drift.summary,
+          'Momentum trend is ${momentum.trend}.',
+          'Correction signal: ${drift.correction}',
+        ],
+        tradeoff:
+            'Staying misaligned can preserve immediate comfort, but increases long-term direction drift.',
+        recommendedMove:
+            'Apply the correction signal to your next execution block today.',
+        confidenceSignal: SIResponseFrame.signalBandFromPercent(drift.score),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -661,13 +775,30 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         normalized == '/lifepaths' ||
         normalized == 'lifepaths') {
       final paths = ref.read(alternativeLifePathsProvider);
+      final momentum = ref.read(momentumEngineProvider);
+      final trajectory = ref.read(trajectorySummaryProvider);
 
-      final response =
-          'ALTERNATIVE LIFE PATHS\n\n'
-          '${paths.map((p) => '${p.name}\n'
-              'Probability: ${p.probability}%\n'
-              '${p.description}\n'
-              'Tradeoff: ${p.tradeoff}').join('\n\n')}';
+      final response = SIResponseFrame.build(
+      signal:
+        'Alternative path signals show multiple strategic lanes, with different risk and flexibility profiles.',
+      whyItMatters:
+        'This matters because future optionality depends on whether current momentum is concentrated or diversified.',
+      evidence: <String>[
+        'Momentum trend is ${momentum.trend}.',
+        'Trajectory pressure is ${trajectory.pressureIndex}.',
+        paths
+          .map(
+          (p) =>
+            '${p.name}: ${p.description} Tradeoff: ${p.tradeoff}',
+          )
+          .join(' | '),
+      ],
+      tradeoff:
+        'A narrow path can improve completion speed, while broader exploration preserves optionality but slows compounding.',
+      recommendedMove:
+        'Advance one primary path and schedule one path-opening action this week.',
+      confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -710,6 +841,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         normalized == '/futurepath' ||
         normalized == 'futurepath') {
       final timeline = ref.read(futureTimelineProvider);
+      final momentum = ref.read(momentumEngineProvider);
+      final trajectory = ref.read(trajectorySummaryProvider);
+      final bool roadmapView =
+        normalized == '/roadmap' || normalized == 'roadmap';
 
       final String checkpoints = timeline.checkpoints
           .map(
@@ -719,10 +854,25 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           )
           .join('\n\n');
 
-      final String response =
-          'FUTURE TIMELINE\n\n'
-          '$checkpoints\n\n'
-          '${SIConsolePromptCopy.prompt('which checkpoint matters most right now?')}';
+      final String response = SIResponseFrame.build(
+      signal: roadmapView
+        ? 'Roadmap view generated from future timeline signals.'
+        : 'Projected timeline sequence shows the next strategic checkpoints.',
+      whyItMatters:
+        'This matters because future reliability depends on translating long-range direction into near-range checkpoints.',
+      evidence: <String>[
+        'Timeline model generated ${timeline.checkpoints.length} checkpoints.',
+        'Momentum trend is ${momentum.trend} at ${momentum.score}%.',
+        'Current pressure index is ${trajectory.pressureIndex}.',
+        checkpoints,
+      ],
+      tradeoff:
+        'Checkpoint discipline improves predictability, but overplanning can reduce adaptive response to new signals.',
+      recommendedMove: roadmapView
+        ? 'Prioritize the nearest checkpoint with one concrete action block this week.'
+        : 'Protect the next checkpoint window before adding non-critical work.',
+      confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -741,13 +891,26 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         normalized == 'future decision' ||
         normalized == 'best decision') {
       final decision = ref.read(futureDecisionEngineProvider);
+      final momentum = ref.read(momentumEngineProvider);
 
-      final String response =
-          'FUTURE DECISION ENGINE\n\n'
-          'Recommended Choice:\n${decision.recommendedChoice}\n\n'
-          'Alignment Score: ${decision.alignmentScore}%\n\n'
-          'Reason:\n${decision.reason}\n\n'
-          '${SIConsolePromptCopy.prompt('turn this decision into my next action')}';
+      final String response = SIResponseFrame.build(
+        signal:
+            'Future decision engine points to ${decision.recommendedChoice} as the strongest move.',
+        whyItMatters:
+            'This matters because directional alignment quality determines whether effort compounds or stalls.',
+        evidence: <String>[
+          'Alignment score is ${decision.alignmentScore}%.',
+          decision.reason,
+          'Momentum trend is ${momentum.trend}.',
+        ],
+        tradeoff:
+            'Committing early improves decisiveness, but bypassing validation can increase downstream correction cost.',
+        recommendedMove:
+            'Translate this choice into one concrete task and execute it in the next focus block.',
+        confidenceSignal: SIResponseFrame.signalBandFromPercent(
+          decision.alignmentScore,
+        ),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -761,17 +924,25 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     }
     if (normalized == '/twin' ||
         normalized == 'twin' ||
-        normalized == '/future self' ||
-        normalized == 'future self' ||
         normalized == 'best version') {
       final twin = ref.read(cognitiveTwinProvider);
+      final momentum = ref.read(momentumEngineProvider);
 
-      final response =
-          'COGNITIVE TWIN\n\n'
-          'Identity Statement:\n${twin.identityStatement}\n\n'
-          'Best Action:\n${twin.bestAction}\n\n'
-          'Warning:\n${twin.warning}\n\n'
-          'Coaching Message:\n${twin.coachingMessage}';
+      final response = SIResponseFrame.build(
+        signal: 'Cognitive twin mode is ${twin.mode.name}.',
+        whyItMatters:
+            'This matters because your operating mode changes the type of action that will actually convert into progress.',
+        evidence: <String>[
+          'Identity statement: ${twin.identityStatement}',
+          'Best action: ${twin.bestAction}',
+          'Warning signal: ${twin.warning}',
+          'Momentum trend is ${momentum.trend}.',
+        ],
+        tradeoff:
+            'Following mode-aware guidance increases precision, but may feel slower than high-intensity forcing when pressure rises.',
+        recommendedMove: twin.coachingMessage,
+        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -785,11 +956,24 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     }
     if (normalized == '/fusion' || normalized == 'fusion') {
       final explainable = ref.read(explainableSIProvider);
+      final momentum = ref.read(momentumEngineProvider);
 
-      final String response =
-          'STRATEGIC FUSION SUMMARY\n\n'
-          'Primary reason:\n${explainable.primaryReason}\n\n'
-          'Recommendation:\n${explainable.recommendation}';
+      final String response = SIResponseFrame.build(
+        signal: 'Strategic fusion indicates a concentrated next-move signal.',
+        whyItMatters:
+            'This matters because fused signals reduce noise across modules and improve decision quality.',
+        evidence: <String>[
+          explainable.primaryReason,
+          'Momentum trend is ${momentum.trend}.',
+          ...explainable.reasons
+              .take(3)
+              .map((reason) => '${reason.label}: ${reason.detail}'),
+        ],
+        tradeoff:
+            'Signal fusion improves coherence, but weak source quality can still limit precision.',
+        recommendedMove: explainable.recommendation,
+        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -822,11 +1006,24 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                       '  Daily adjustment: ${scenario.dailyAdjustment}',
                 )
                 .join('\n\n');
+            final momentum = ref.read(momentumEngineProvider);
 
-      final String response =
-          'ADAPTIVE REPLANNING\n\n'
-          '$scenarios\n\n'
-          '${SIConsolePromptCopy.prompt('which replan should I use and what should I do first?')}';
+            final String response = SIResponseFrame.build(
+            signal:
+              'Adaptive replanning signals are ${replans.isEmpty ? 'limited' : 'active'} for current execution pressure.',
+            whyItMatters:
+              'This matters because same-day course correction often prevents multi-day momentum collapse.',
+            evidence: <String>[
+              'Momentum trend is ${momentum.trend} with pressure ${momentum.pressurePercent}%.',
+              scenarios,
+            ],
+            tradeoff:
+              'Replanning reduces trajectory risk, but excessive replanning can create hesitation and execution delay.',
+            recommendedMove: replans.isEmpty
+              ? 'Run one focused block on the highest-leverage task and reassess after completion.'
+              : replans.first.immediateAction,
+            confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+            );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -839,16 +1036,23 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     }
     if (normalized == '/momentum' || normalized == 'momentum') {
       final momentum = ref.read(momentumEngineProvider);
-      final String response =
-          'MOMENTUM ENGINE STATUS\n\n'
-          'Score: ${momentum.score}%\n'
-          'Trend: ${momentum.trend}\n'
-          'Energy: ${momentum.energyPercent}%\n'
-          'Pressure: ${momentum.pressurePercent}%\n'
-          'Recovery: ${momentum.recovery}\n'
-          'Completed Today: ${momentum.completedToday}\n\n'
-          'Forecast:\n${momentum.forecast}\n\n'
-          '${SIConsolePromptCopy.prompt('what should I do next based on momentum?')}';
+      final String response = SIResponseFrame.build(
+        signal:
+            'Momentum is ${momentum.trend.toLowerCase()} at ${momentum.score}% with ${momentum.recovery.toLowerCase()} recovery state.',
+        whyItMatters:
+            'The momentum signal matters because it captures whether current effort is compounding or leaking.',
+        evidence: <String>[
+          'Energy ${momentum.energyPercent}% and pressure ${momentum.pressurePercent}%.',
+          'Completed today: ${momentum.completedToday}.',
+          'Forecast: ${momentum.forecast}',
+        ],
+        tradeoff:
+            'Pushing through pressure can boost short-term output, but sustained load can trigger recovery debt.',
+        recommendedMove: momentum.isDeclining
+            ? 'Stabilize with one clear completion before opening new work.'
+            : 'Use current momentum to complete one high-leverage task now.',
+        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -868,18 +1072,20 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         command == '/goals' ||
         command == '/milestones' ||
         command == '/values' ||
-        command == '/soulmap' ||
+        command == '/identity' ||
         command == '/plan' ||
         command == '/timeline' ||
         command == '/trajectory') {
-      final bool compareSoulMap = normalized.startsWith('/soulmap compare');
+      final bool compareIdentity =
+          normalized.startsWith('/identity compare') ||
+          normalized.startsWith('identity compare');
       final String response = _localSurfaceSummary(command, aggregation);
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
         _messages.add(
           SIConsoleMessage(
-            text: compareSoulMap
-                ? _localSoulMapCompareSummary(aggregation)
+            text: compareIdentity
+                ? _localIdentityCompareSummary(aggregation)
                 : response,
             isUser: false,
             emotion: 'focused',
@@ -898,30 +1104,71 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       return 'SI is still loading module data. Retry the command in a second.';
     }
 
+    final momentum = ref.read(momentumEngineProvider);
+
     switch (command) {
       case '/tasks':
         final List<String> top = aggregation.tasks
             .take(3)
             .map((t) => t.title)
             .toList(growable: false);
-        final String topText = top.isEmpty
-            ? 'No active tasks yet.'
-            : top.map((t) => '- $t').join('\n');
-        return 'TASK SIGNAL\n\nActive tasks: ${aggregation.tasks.length}\n\nTop tasks:\n$topText\n\n${SIConsolePromptCopy.prompt('which one should I execute first and why?')}';
+        return SIResponseFrame.build(
+          signal:
+              'Task pressure is ${aggregation.tasks.isEmpty ? 'minimal' : 'active'} with ${aggregation.tasks.length} active tasks.',
+          whyItMatters:
+              'This matters because task load without execution focus creates fragmentation before momentum visibly drops.',
+          evidence: <String>[
+            'Top active tasks: ${top.isEmpty ? 'none available' : top.join(' | ')}',
+            'Momentum trend is ${momentum.trend} at ${momentum.score}%.',
+            'Future pressure index is ${aggregation.trajectory.pressureIndex}.',
+          ],
+          tradeoff:
+              'Keeping many tasks open preserves optionality, but reduces decisive execution throughput.',
+          recommendedMove:
+              'Execute one highest-leverage task now and defer lower-impact items until completion is logged.',
+          confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+        );
       case '/goals':
         final List<String> top = aggregation.goals
             .take(3)
             .map((g) => g.title)
             .toList(growable: false);
-        final String topText = top.isEmpty
-            ? 'No goals found.'
-            : top.map((g) => '- $g').join('\n');
-        return 'GOAL VECTOR\n\nGoals: ${aggregation.goals.length}\n\nTop goals:\n$topText\n\n${SIConsolePromptCopy.prompt('which goal is drifting and what is the next corrective action?')}';
+        return SIResponseFrame.build(
+          signal:
+              'Goal direction is ${aggregation.signals.goalDrift ? 'showing drift' : 'currently stable'} across ${aggregation.goals.length} goals.',
+          whyItMatters:
+              'This matters because goals only compound when execution and trajectory stay aligned over time.',
+          evidence: <String>[
+            'Top goals: ${top.isEmpty ? 'none available' : top.join(' | ')}',
+            'Behavior divergence is ${aggregation.trajectory.behaviorDivergence}%.',
+            'Task avoidance signal: ${aggregation.signals.taskAvoidance ? 'active' : 'not dominant'}.',
+          ],
+          tradeoff:
+              'Holding many concurrent goals can preserve ambition, but weakens execution density on priority outcomes.',
+          recommendedMove:
+              'Prioritize one goal for the next execution block and delay non-critical goal moves today.',
+          confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+        );
       case '/plan':
         final String blocks = aggregation.planPreview.isEmpty
             ? 'No adaptive blocks generated yet.'
             : aggregation.planPreview.take(3).map((b) => '- $b').join('\n');
-        return 'PLAN PRESSURE\n\nPlan preview blocks: ${aggregation.planPreview.length}\n\nUpcoming blocks:\n$blocks\n\n${SIConsolePromptCopy.prompt('what should I move or drop to reduce pressure today?')}';
+        return SIResponseFrame.build(
+          signal:
+              'Plan pressure is ${aggregation.planPreview.isEmpty ? 'uncertain' : 'visible'} from current adaptive blocks.',
+          whyItMatters:
+              'This matters because plan structure determines whether momentum is protected or leaked through context switching.',
+          evidence: <String>[
+            'Plan preview block count: ${aggregation.planPreview.length}.',
+            'Upcoming blocks: $blocks',
+            'Pressure index: ${aggregation.trajectory.pressureIndex}.',
+          ],
+          tradeoff:
+              'Dense scheduling increases perceived progress, but can amplify execution drag under high pressure.',
+          recommendedMove:
+              'Keep only the highest-leverage block fixed and re-sequence the rest after first completion.',
+          confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+        );
       case '/milestones':
         final MilestoneSummary summary = ref.read(milestoneSummaryProvider);
         final List<MilestoneEntity> overdue = ref.read(
@@ -940,26 +1187,27 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                       '${item.title} (${item.completionPercent.round()}%)',
                 )
                 .toList(growable: false);
-        final String topText = topMilestones.isEmpty
-            ? 'No milestones created yet.'
-            : topMilestones.map((String item) => '- $item').join('\n');
-        return 'CHECKPOINT SIGNAL\n\n'
-            'Total: ${summary.total}\n'
-            'Active: ${summary.active}\n'
-            'Completed: ${summary.completed}\n'
-            'Overdue: ${summary.overdue}\n'
-            'Upcoming: ${summary.upcoming}\n'
-            'Health: ${summary.healthScore}%\n'
-            'Momentum: ${summary.momentumScore}%\n'
-            'Risk: ${summary.riskScore}%\n\n'
-            'Closest: ${summary.closestMilestone?.title ?? 'No milestone'}\n'
-            'Highest Priority: ${summary.highestPriority?.title ?? 'No milestone'}\n'
-            'Next: ${summary.nextMilestone?.title ?? 'No upcoming milestone'}\n\n'
-            'Overdue list: ${overdue.take(2).map((MilestoneEntity m) => m.title).join(' | ').trim().isEmpty ? 'None' : overdue.take(2).map((MilestoneEntity m) => m.title).join(' | ')}\n'
-            'Upcoming list: ${upcoming.take(2).map((MilestoneEntity m) => m.title).join(' | ').trim().isEmpty ? 'None' : upcoming.take(2).map((MilestoneEntity m) => m.title).join(' | ')}\n'
-            'Top risk: ${risks.isEmpty ? 'None' : '${risks.first.milestone.title} - ${risks.first.reason}'}\n\n'
-            'Top milestones:\n$topText\n\n'
-            'Prompt: "what milestone is next, what is overdue, and am I on track?"';
+        return SIResponseFrame.build(
+          signal:
+              'Milestone health is ${summary.healthScore}% with ${summary.overdue} overdue checkpoints.',
+          whyItMatters:
+              'This matters because checkpoint quality is the bridge between strategic goals and daily execution reality.',
+          evidence: <String>[
+            'Active ${summary.active}, completed ${summary.completed}, upcoming ${summary.upcoming}.',
+            'Top risk: ${risks.isEmpty ? 'none flagged' : '${risks.first.milestone.title} - ${risks.first.reason}'}',
+            'Top milestones: ${topMilestones.isEmpty ? 'none available' : topMilestones.join(' | ')}',
+            'Closest checkpoint: ${summary.closestMilestone?.title ?? 'none'}; next: ${summary.nextMilestone?.title ?? 'none'}.',
+            'Overdue list: ${overdue.take(2).map((MilestoneEntity m) => m.title).join(' | ').trim().isEmpty ? 'none' : overdue.take(2).map((MilestoneEntity m) => m.title).join(' | ')}',
+            'Upcoming list: ${upcoming.take(2).map((MilestoneEntity m) => m.title).join(' | ').trim().isEmpty ? 'none' : upcoming.take(2).map((MilestoneEntity m) => m.title).join(' | ')}',
+          ],
+          tradeoff:
+              'Driving only near checkpoints increases short-term closure, but can hide drift in deeper milestones.',
+          recommendedMove:
+              'Recover the highest-risk overdue checkpoint first, then protect the next milestone window.',
+          confidenceSignal: SIResponseFrame.signalBandFromPercent(
+            summary.healthScore,
+          ),
+        );
       case '/values':
         final CoreValuesAlignment values = ref.read(
           coreValuesAlignmentProvider,
@@ -970,15 +1218,30 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   '${coreValueTitle(value)}: ${values.scores[value]?.score ?? 0}%',
             )
             .toList(growable: false);
-        return 'VALUES ALIGNMENT\n\n'
-            '${rows.join('\n')}\n\n'
-            'Strongest: ${coreValueTitle(values.strongest)}\n'
-            'Most Neglected: ${coreValueTitle(values.mostNeglected)}\n'
-            'Overall: ${values.overall}%\n\n'
-            'Recommended Action:\n'
-            '${values.recommendations.firstWhere((String line) => line.toLowerCase().contains('schedule one action'), orElse: () => 'Schedule one action this week aligned to your neglected value.')}\n\n'
-            'Prompt: "analyze my life by core values alignment"';
-      case '/soulmap':
+        return SIResponseFrame.build(
+          signal:
+              'Values alignment is ${values.overall}% with strongest signal in ${coreValueTitle(values.strongest)}.',
+          whyItMatters:
+              'This matters because values drift degrades strategic trust even when task output appears healthy.',
+          evidence: <String>[
+            rows.join(' | '),
+            'Most neglected value is ${coreValueTitle(values.mostNeglected)}.',
+            'Goal drift signal is ${aggregation.signals.goalDrift ? 'active' : 'not dominant'}.',
+          ],
+          tradeoff:
+              'Over-optimizing for output can improve speed now, but it increases identity mismatch if neglected values persist.',
+          recommendedMove:
+              values.recommendations.firstWhere(
+                (String line) =>
+                    line.toLowerCase().contains('schedule one action'),
+                orElse: () =>
+                    'Schedule one action this week aligned to your neglected value.',
+              ),
+          confidenceSignal: SIResponseFrame.signalBandFromPercent(
+            values.overall,
+          ),
+        );
+      case '/identity':
         final SoulMapAlignment soulMap = ref.read(soulMapAlignmentProvider);
         final int purpose =
             soulMap.scores[SoulMapDimension.purpose]?.score ?? 0;
@@ -996,16 +1259,25 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           orElse: () =>
               'Schedule one concrete action this week to strengthen $weakest.',
         );
-        return 'IDENTITY SIGNAL\n\n'
-            'Purpose Alignment: $purpose%\n'
-            'Identity Alignment: $identity%\n'
-            'Values Alignment: $values%\n'
-            'Future Self Progress: $futureSelf%\n\n'
-            'Strongest Area:\n$strongest\n\n'
-            'Weakest Area:\n$weakest\n\n'
-            'Recommendation:\n$action\n\n'
-            'Tip: run /soulmap compare to compare current self vs future self.\n\n'
-            'Prompt: "analyze my life"';
+        final int identityScore = ((purpose + identity + values + futureSelf) /
+            4)
+          .round();
+        return SIResponseFrame.build(
+          signal:
+            'Identity direction signal is mixed with strongest area in $strongest and weakest in $weakest.',
+          whyItMatters:
+            'This matters because identity alignment determines whether future trajectory feels coherent or conflicted.',
+          evidence: <String>[
+          'Purpose $purpose%, identity $identity%, values $values%, future self $futureSelf%.',
+          'Momentum trend is ${momentum.trend}.',
+          'Task avoidance signal is ${aggregation.signals.taskAvoidance ? 'active' : 'not dominant'}.',
+          ],
+          tradeoff:
+            'Leaning only on strengths preserves confidence, but unresolved weak dimensions can slow long-term evolution.',
+          recommendedMove:
+            '$action Use /identity compare to inspect current-vs-future direction gap.',
+          confidenceSignal: SIResponseFrame.signalBandFromPercent(identityScore),
+        );
       case '/timeline':
         final int healthScore = ref.read(timelineHealthScoreProvider);
         final int riskScore = ref.read(timelineRiskScoreProvider);
@@ -1030,28 +1302,49 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             .take(3)
             .map((e) => '${e.shortLabel}: ${e.title}')
             .toList(growable: false);
-        final String eventsText = events.isEmpty
-            ? 'No timeline events yet.'
-            : events.map((e) => '- $e').join('\n');
-        return 'TEMPORAL SNAPSHOT\n\n'
-            'Events: ${aggregation.timeline.length}\n'
-            'Health: $healthScore%\n'
-            'Risk: $riskScore%\n'
-            'Overdue: $overdueCount\n'
-            'Upcoming: $upcomingCount\n'
-            'Risk events: $riskEventsCount\n'
-            'Recommendations: $recommendationCount\n\n'
-            'Next deadline: $nextDeadline\n\n'
-            'Recent events:\n$eventsText\n\n'
-            '${SIConsolePromptCopy.prompt('what is overdue, what is next, and am I on track?')}';
+        return SIResponseFrame.build(
+          signal:
+              'Timeline health is $healthScore% with $overdueCount overdue items and risk score $riskScore%.',
+          whyItMatters:
+              'This matters because timeline pressure reveals delivery friction earlier than end-state outcomes.',
+          evidence: <String>[
+            'Events ${aggregation.timeline.length}, upcoming $upcomingCount, risk events $riskEventsCount.',
+            'Recommendations active: $recommendationCount.',
+            'Next deadline: $nextDeadline.',
+            'Recent events: ${events.isEmpty ? 'none available' : events.join(' | ')}',
+          ],
+          tradeoff:
+              'Ignoring timeline friction can protect short-term comfort, but increases future compression and miss risk.',
+          recommendedMove:
+              'Recover one overdue item or protect the next deadline block before adding new scope.',
+          confidenceSignal: SIResponseFrame.signalBandFromPercent(healthScore),
+        );
       case '/trajectory':
-        return 'FUTURE VECTOR SNAPSHOT\n\nPressure: ${aggregation.trajectory.pressureIndex}\nMomentum: ${(aggregation.trajectory.momentum * 100).round()}%\nDivergence: ${aggregation.trajectory.behaviorDivergence}%\nAlert: ${aggregation.trajectory.alert}\n\n${SIConsolePromptCopy.prompt('give me one action to improve momentum today.')}';
+        final int momentumPercent =
+            (aggregation.trajectory.momentum * 100).round();
+        return SIResponseFrame.build(
+          signal:
+              'Future trajectory is ${aggregation.trajectory.pressureIndex >= 70 ? 'under pressure' : 'currently stable'} with momentum at $momentumPercent%.',
+          whyItMatters:
+              'This matters because trajectory quality reflects whether today\'s behavior supports tomorrow\'s outcomes.',
+          evidence: <String>[
+            'Pressure ${aggregation.trajectory.pressureIndex}, divergence ${aggregation.trajectory.behaviorDivergence}%.',
+            'Momentum engine trend: ${momentum.trend} (${momentum.score}%).',
+            'Alert signal: ${aggregation.trajectory.alert}',
+            'Goals active: ${aggregation.goals.length}; milestones active: ${ref.read(milestonesProvider).asData?.value.length ?? 0}.',
+          ],
+          tradeoff:
+              'Short-term acceleration can increase immediate progress, but unmanaged pressure raises drift and recovery cost.',
+          recommendedMove:
+              'Protect one high-leverage execution block and remove one low-impact commitment today.',
+          confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+        );
       default:
         return 'Module command not recognized.';
     }
   }
 
-  String _localSoulMapCompareSummary(SIStateAggregation? aggregation) {
+  String _localIdentityCompareSummary(SIStateAggregation? aggregation) {
     if (aggregation == null) {
       return 'SI is still loading module data. Retry the command in a second.';
     }
@@ -1059,13 +1352,24 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final SoulMapFutureSelfComparison compare = ref.read(
       soulMapFutureSelfComparisonProvider,
     );
-    return 'CURRENT SELF VS FUTURE SELF\n\n'
-        'Current Self Alignment: ${compare.currentSelfAlignment}%\n'
-        'Future Self Readiness: ${compare.futureSelfReadiness}%\n'
-        'Gap: ${compare.gap}%\n'
-        'Stance: ${compare.stance}\n\n'
-        'Recommendation:\n${compare.recommendation}\n\n'
-        '${SIConsolePromptCopy.prompt('compare current self to future self')}';
+    return SIResponseFrame.build(
+      signal:
+          'Current-vs-future identity gap is ${compare.gap}% with stance ${compare.stance}.',
+      whyItMatters:
+          'This matters because unresolved gap increases strategic drift even when daily execution appears active.',
+      evidence: <String>[
+        'Current alignment: ${compare.currentSelfAlignment}%.',
+        'Future readiness: ${compare.futureSelfReadiness}%.',
+        'Gap recommendation: ${compare.recommendation}',
+      ],
+      tradeoff:
+          'Maintaining current mode preserves familiarity, but can delay identity convergence and long-range consistency.',
+      recommendedMove:
+          'Apply the gap recommendation to the next high-leverage action today.',
+      confidenceSignal: SIResponseFrame.signalBandFromPercent(
+        compare.currentSelfAlignment,
+      ),
+    );
   }
 
   Future<void> _dispatchQuery(String text) async {
@@ -1108,7 +1412,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _messages.add(
           const SIConsoleMessage(
             text:
-                'Full intelligence context lock failed for that request. Retry, or target a signal channel directly: tasks, goals, milestones, values, soulmap, plan, timeline, or trajectory.',
+                'Full intelligence context lock failed for that request. Retry, or target a signal channel directly: tasks, goals, milestones, values, identity, timeline, or trajectory.',
             isUser: false,
             emotion: 'cautious',
           ),

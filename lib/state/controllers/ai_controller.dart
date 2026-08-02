@@ -317,7 +317,7 @@ class AIController {
       );
       return milestoneDeterministic;
     }
-    final AIRecommendation? soulMapDeterministic =
+    final AIRecommendation? identityDeterministic =
         _tryDeterministicSoulMapResponse(
           input: input,
           forcedSurface: forcedSurface,
@@ -326,22 +326,22 @@ class AIController {
           alignment: soulMapAlignment,
           comparison: soulMapComparison,
         );
-    if (soulMapDeterministic != null) {
+    if (identityDeterministic != null) {
       requestStopwatch.stop();
       ContentGenerationAnalytics.trackResult(
         surface: primarySurface,
-        routeType: 'deterministic_soulmap',
+        routeType: 'deterministic_identity',
         usedFallback: false,
-        structured: _isStructuredSIResponse(soulMapDeterministic.message),
+        structured: _isStructuredSIResponse(identityDeterministic.message),
         durationMs: requestStopwatch.elapsedMilliseconds,
         qualityTag: siIntentCategory,
       );
       ContentGenerationReleaseGate.evaluateRequest(
         surface: primarySurface,
         durationMs: requestStopwatch.elapsedMilliseconds,
-        structured: _isStructuredSIResponse(soulMapDeterministic.message),
+        structured: _isStructuredSIResponse(identityDeterministic.message),
       );
-      return soulMapDeterministic;
+      return identityDeterministic;
     }
     final AIRecommendation? coreValuesDeterministic =
         _tryDeterministicCoreValuesResponse(
@@ -478,7 +478,7 @@ class AIController {
         'plan',
         'flowmap',
         'emotions',
-        'soulmap',
+        'identity',
         'timeline',
         'milestones',
         'values',
@@ -540,7 +540,7 @@ class AIController {
           'current': emotion.name,
           'fatigue': si.fatigue,
         },
-        'soulmap': soulState.toJson(),
+        'identity': soulState.toJson(),
         'timeline': <String, dynamic>{
           'count': timelineEvents.length,
           'healthScore': timelineHealthScore,
@@ -576,7 +576,7 @@ class AIController {
           'momentum': trajectory.momentum,
           'prediction': trajectory.predictionOutcome,
         },
-        'soulMapAlignment': <String, dynamic>{
+        'identityAlignment': <String, dynamic>{
           'overall': soulMapAlignment.overall,
           'strongest': soulMapDimensionTitle(soulMapAlignment.strongest),
           'weakest': soulMapDimensionTitle(soulMapAlignment.weakest),
@@ -586,7 +586,7 @@ class AIController {
           ),
           'recommendations': soulMapAlignment.recommendations,
         },
-        'soulMapComparison': <String, dynamic>{
+        'identityComparison': <String, dynamic>{
           'currentSelfAlignment': soulMapComparison.currentSelfAlignment,
           'futureSelfReadiness': soulMapComparison.futureSelfReadiness,
           'gap': soulMapComparison.gap,
@@ -761,9 +761,7 @@ class AIController {
       'plan': <String>['plan', 'schedule', 'calendar', 'time block'],
       'flowmap': <String>['flowmap', 'map', 'dependency', 'path'],
       'emotions': <String>['emotion', 'mood', 'energy', 'fatigue', 'feel'],
-      'soulmap': <String>[
-        'soul map',
-        'soulmap',
+      'identity': <String>[
         'analyze my life',
         'who am i becoming',
         'future self',
@@ -826,8 +824,9 @@ class AIController {
       '/flow': 'flowmap',
       '/emotions': 'emotions',
       '/emotion': 'emotions',
-      '/soulmap': 'soulmap',
-      '/soul': 'soulmap',
+      '/identity': 'identity',
+      '/alignment': 'identity',
+      '/direction': 'identity',
       '/timeline': 'timeline',
       '/milestones': 'milestones',
       '/values': 'values',
@@ -887,8 +886,6 @@ class AIController {
       return 'Milestone Query';
     }
     if (hasAny(<String>[
-      'soul map',
-      'soulmap',
       'analyze my life',
       'who am i becoming',
       'future self',
@@ -959,7 +956,7 @@ class AIController {
     if (matchedSurfaces.contains('milestones')) {
       return 'Milestone Query';
     }
-    if (matchedSurfaces.contains('soulmap')) {
+    if (matchedSurfaces.contains('identity')) {
       return 'Life Query';
     }
     if (matchedSurfaces.contains('values')) {
@@ -1065,7 +1062,7 @@ class AIController {
         '1. ${timelineOverdueCount > 0 ? 'Close one overdue item today.' : 'Protect timeline by completing the next deadline item.'}\n'
         '2. ${timelineUpcomingCount > 0 ? 'Pre-plan the next upcoming deadline block.' : 'Create one upcoming deadline anchor.'}\n'
         '3. ${timelineRiskEventsCount > 0 ? 'Apply one timeline recommendation to reduce risk.' : 'Record a milestone after completion to keep timeline fidelity high.'}\n\n'
-        'Confidence: 94%';
+        'Confidence signal: strong from timeline health, risk, and schedule activity signals.';
 
     return AIRecommendation(
       message: output,
@@ -1170,7 +1167,7 @@ class AIController {
         '1. $nextAction1\n'
         '2. $nextAction2\n'
         '3. $nextAction3\n\n'
-        'Confidence: 93%';
+        'Confidence signal: moderate to strong from pressure, momentum, and divergence signals.';
 
     return AIRecommendation(
       message: output,
@@ -1277,7 +1274,7 @@ class AIController {
         'Milestones: ${topMilestones.isEmpty ? 'None yet.' : topMilestones}\n'
         'Overdue list: ${overdueNames.isEmpty ? 'None' : overdueNames}\n'
         'Upcoming list: ${upcomingNames.isEmpty ? 'None' : upcomingNames}\n\n'
-        'Confidence: 94%';
+        'Confidence signal: strong from milestone health, risk, and checkpoint activity.';
 
     return AIRecommendation(
       message: output,
@@ -1357,7 +1354,7 @@ class AIController {
         '1. ${alignment.recommendations.firstWhere((String item) => item.toLowerCase().contains('schedule one action'), orElse: () => 'Schedule one action this week aligned to the neglected value.')}\n'
         '2. Use the guiding question for $neglected before your next major decision.\n'
         '3. Preserve momentum in $strongest while reducing the gap in $neglected.\n\n'
-        'Confidence: 95%';
+        'Confidence signal: strong from values alignment coverage, but directional rather than certain.';
 
     return AIRecommendation(
       message: output,
@@ -1428,7 +1425,7 @@ class AIController {
     if (compareMode) {
       final String compareOutput =
           'SI ANALYSIS\n\n'
-          'Query: SoulMap Current vs Future Self\n\n'
+          'Query: Identity Direction Current vs Future\n\n'
           'Current State:\n'
           '- Current Self Alignment: ${comparison.currentSelfAlignment}%\n'
           '- Future Self Readiness: ${comparison.futureSelfReadiness}%\n'
@@ -1439,13 +1436,13 @@ class AIController {
           'Timeline Effect: Gap reduction compounds identity consistency over 1/5/10 year horizons.\n\n'
           'Next Actions:\n'
           '1. ${comparison.recommendation}\n'
-          '2. Define one 1-year and one 5-year future-self outcome in SoulMap profile.\n'
+          '2. Define one 1-year and one 5-year future-self outcome in your identity direction profile.\n'
           '3. Audit your current top goal for alignment before quitting or recommitting.\n\n'
-          'Confidence: 95%';
+          'Confidence signal: strong from current-vs-future alignment gap signals.';
 
       return AIRecommendation(
         message: compareOutput,
-        reasoning: 'si_console_soulmap_compare_deterministic',
+        reasoning: 'si_console_identity_compare_deterministic',
         emotion: 'focused',
         confidence: 0.95,
       );
@@ -1453,27 +1450,27 @@ class AIController {
 
     final String output =
         'SI ANALYSIS\n\n'
-        'Query: SoulMap Analysis\n\n'
+        'Query: Identity Direction Analysis\n\n'
         'Current State:\n'
         '- Purpose Alignment: $purpose%\n'
         '- Identity Alignment: $identity%\n'
         '- Values Alignment: $values%\n'
         '- Future Self Progress: $futureSelf%\n'
-        '- Overall SoulMap: ${alignment.overall}%\n'
+        '- Overall Identity Alignment: ${alignment.overall}%\n'
         '- Strongest Area: $strongest\n'
         '- Weakest Area: $weakest\n\n'
         'Priority Task: Execute one decision today that strengthens $weakest.\n'
         'Impact: ${alignment.overall >= 70 ? 'Medium' : 'High'}\n'
-        'Timeline Effect: SoulMap aligns goals, values, and identity into one life direction compass.\n\n'
+        'Timeline Effect: Identity alignment connects goals, values, and future direction into one decision compass.\n\n'
         'Next Actions:\n'
         '1. $recommendation\n'
         '2. Test one active goal against your Future Self before committing or quitting.\n'
         '3. Protect your strongest area ($strongest) while repairing $weakest.\n\n'
-        'Confidence: 95%';
+        'Confidence signal: moderate to strong from identity, values, and future-self alignment signals.';
 
     return AIRecommendation(
       message: output,
-      reasoning: 'si_console_soulmap_deterministic',
+      reasoning: 'si_console_identity_deterministic',
       emotion: 'focused',
       confidence: 0.95,
     );
@@ -1488,15 +1485,13 @@ class AIController {
     final String lowered = input.toLowerCase();
     bool hasAny(List<String> values) => values.any(lowered.contains);
 
-    final bool forced = forcedSurface == 'soulmap';
-    final bool surface = matchedSurfaces.contains('soulmap');
+    final bool forced = forcedSurface == 'identity';
+    final bool surface = matchedSurfaces.contains('identity');
     final bool categoryMatch = category == 'Life Query';
     final bool asks = hasAny(<String>[
       'analyze my life',
       'compare current self to future self',
       'current self vs future self',
-      'soul map',
-      'soulmap',
       'who am i becoming',
       'future self',
       'life direction',

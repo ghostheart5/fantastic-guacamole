@@ -25,16 +25,16 @@ final autonomousReviewProvider = Provider<AutonomousReviewState>((ref) {
   final int score = ((drift.score * 0.7) + 30).clamp(0, 100).toInt();
 
   final String summary = score >= 80
-      ? 'Execution remained strongly aligned with Life OS objectives.'
+      ? 'Execution remained strongly aligned with ${lifeOs.primaryAction} and current identity direction.'
       : score >= 60
-      ? 'Execution was mostly aligned but can improve.'
-      : 'Execution drifted from intended direction.';
+      ? 'Execution was mostly aligned, but daily focus drift appeared under load.'
+      : 'Execution drifted from intended direction and needs immediate narrowing.';
 
   final String tomorrowAdjustment = score >= 80
-      ? 'Continue current operating mode.'
+      ? 'Continue the same operating mode and preserve one high-focus block.'
       : score >= 60
-      ? 'Protect focus and reduce context switching.'
-      : 'Simplify commitments and rebuild momentum.';
+      ? 'Reduce context switching and execute the top directive before opening new work.'
+      : 'Simplify commitments, recover pressure, and restart with one definitive completion.';
 
   return AutonomousReviewState(
     score: score,

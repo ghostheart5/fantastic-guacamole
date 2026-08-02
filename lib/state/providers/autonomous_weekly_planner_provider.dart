@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/state/providers/future_decision_engine_provider.dart';
 import 'package:fantastic_guacamole/state/providers/life_os_provider.dart';
+import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class WeeklyDirective {
@@ -24,6 +25,7 @@ class AutonomousWeeklyPlan {
 final autonomousWeeklyPlannerProvider = Provider<AutonomousWeeklyPlan>((ref) {
   final lifeOs = ref.watch(lifeOSProvider);
   final decision = ref.watch(futureDecisionEngineProvider);
+  final momentum = ref.watch(momentumEngineProvider);
 
   return AutonomousWeeklyPlan(
     theme: lifeOs.identityStage,
@@ -31,15 +33,20 @@ final autonomousWeeklyPlannerProvider = Provider<AutonomousWeeklyPlan>((ref) {
     directives: <WeeklyDirective>[
       WeeklyDirective(
         title: decision.recommendedChoice,
-        reason: 'Highest alignment with current future-self trajectory.',
+        reason:
+            'Highest alignment with current direction signal and momentum trend ${momentum.trend.toLowerCase()}.',
       ),
-      const WeeklyDirective(
-        title: 'Protect focus blocks',
-        reason: 'Preserve identity alignment and execution consistency.',
+      WeeklyDirective(
+        title: momentum.pressurePercent >= 65
+            ? 'Reduce execution pressure before scaling output'
+            : 'Protect execution depth on the primary directive',
+        reason:
+            'Pressure is ${momentum.pressurePercent}% and energy is ${momentum.energyPercent}%, so weekly reliability depends on correct load calibration.',
       ),
-      const WeeklyDirective(
-        title: 'Review trajectory',
-        reason: 'Ensure direction remains aligned with Life OS mission.',
+      WeeklyDirective(
+        title: 'Re-check trajectory against ${lifeOs.nextMilestone}',
+        reason:
+            'Direction remains valid only if weekly execution still supports the next checkpoint.',
       ),
     ],
   );

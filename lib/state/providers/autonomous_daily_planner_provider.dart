@@ -29,14 +29,16 @@ final autonomousDailyPlannerProvider = Provider<AutonomousDailyPlan>((ref) {
     focus: action.title,
     directives: <DailyDirective>[
       DailyDirective(title: action.title, reason: action.reason, priority: 100),
-      const DailyDirective(
-        title: 'Protect focus time',
-        reason: 'Support weekly directive execution.',
-        priority: 90,
+      DailyDirective(
+        title: 'Protect one uninterrupted focus block',
+        reason:
+            'Daily stability should reinforce weekly theme ${weekly.theme} and reduce execution fragmentation.',
+        priority: action.priority >= 90 ? 92 : 84,
       ),
       DailyDirective(
-        title: 'Review progress',
-        reason: weekly.primaryDirective,
+        title: 'Audit progress against primary directive',
+        reason:
+            'The active weekly directive is ${weekly.primaryDirective}, so daily completion should be measured against it.',
         priority: 70,
       ),
     ],
