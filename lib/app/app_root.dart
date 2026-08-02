@@ -113,27 +113,31 @@ class _AppRootState extends ConsumerState<AppRoot> {
           children: [
             appChild,
             if (startupBannerMessage.isNotEmpty)
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: SafeArea(
-                  minimum: const EdgeInsets.all(16),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.redAccent.withValues(alpha: 0.35),
+              IgnorePointer(
+                // Keep diagnostics visible without blocking taps on page controls.
+                ignoring: true,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: SafeArea(
+                    minimum: const EdgeInsets.all(16),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.redAccent.withValues(alpha: 0.35),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        startupBannerMessage,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
+                        child: Text(
+                          startupBannerMessage,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ),
