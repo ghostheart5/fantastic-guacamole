@@ -1,0 +1,15 @@
+appId: com.ghostheart.chronospark
+---
+- launchApp
+- runFlow: _login_if_needed.yaml
+
+- assertVisible: "Quick actions"
+- tapOn: "Profile"
+- assertVisible: "Billing"
+
+# Profile settings icon in the header (top-right)
+- tapOn:
+    point: "93%,8%"
+
+- assertVisible: "Settings"
+- assertVisible: "Workspace status"

@@ -243,6 +243,14 @@ class _AppRootState extends ConsumerState<AppRoot> {
           ),
         ),
       );
+      await SharedPrefsService.saveBool(
+        creatorFirstItemCreatedStorageKey,
+        true,
+      );
+      await SharedPrefsService.saveBool(
+        timelineFirstActionCompletedStorageKey,
+        true,
+      );
 
       if (!mounted) {
         return;
@@ -252,9 +260,11 @@ class _AppRootState extends ConsumerState<AppRoot> {
       ref
           .read(onboardingStatusProvider.notifier)
           .set(OnboardingStatus.complete);
+      ref.read(creatorFirstItemCreatedProvider.notifier).set(true);
+      ref.read(timelineFirstActionCompletedProvider.notifier).set(true);
 
       if (GoRouter.maybeOf(context) != null) {
-        context.go(RoutePaths.creator);
+        context.go(RoutePaths.home);
       }
     } finally {
       _activationFinalizationInFlight = false;

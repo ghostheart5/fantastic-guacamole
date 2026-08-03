@@ -16,6 +16,7 @@ import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final goalsProvider = NotifierProvider<GoalsNotifier, List<GoalEntity>>(
@@ -1824,9 +1825,32 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     );
 
     if (action == _GoalAction.created) {
+      final String timelineEventId =
+          'timeline-goal-created-${now.microsecondsSinceEpoch}';
       await _bestEffort(
-        () => ref.read(timelineActionsProvider).connectGoal(goal),
+        () => ref
+            .read(timelineActionsProvider)
+            .addMirroredEvent(
+              TimelineEventEntity(
+                id: timelineEventId,
+                type: TimelineEventType.goal,
+                title: goal.title.trim().isEmpty
+                    ? 'Goal linked'
+                    : goal.title.trim(),
+                detail: (goal.description ?? 'Goal connected to timeline.')
+                    .trim(),
+                timestamp: now,
+                status: TimelineEventStatus.active,
+                dueAt: goal.targetDate,
+                relatedId: goal.id,
+              ),
+            ),
       );
+      if (kDebugMode) {
+        debugPrint(
+          'CHRONOSPARK_GOAL_TIMELINE_EVENT_EMITTED: goal_id=${goal.id} timeline_event_id=$timelineEventId action=$actionName',
+        );
+      }
     } else {
       await _bestEffort(
         () => ref

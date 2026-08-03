@@ -67,5 +67,6 @@ void main() {
       expect(hardFailures, isEmpty);
     },
     skip: !runLive || !hasConfig,
+    tags: <String>['live'],
   );
 }

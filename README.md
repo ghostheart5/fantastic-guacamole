@@ -1,229 +1,107 @@
-# fantastic-guacamole
+# ChronoSpark
 
-## Badges
-
-[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
-[![Dart](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/dart.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/dart.yml)
+[![Flutter](https://img.shields.io/badge/Flutter-3.12%2B-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-Supported-3DDC84?logo=android&logoColor=white)](android/)
-[![Build Status](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/main.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/main.yml)
-[![CodeQL](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/codeql.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/codeql.yml)
-[![Security](https://img.shields.io/badge/Security-Best%20Practices-blue)](https://github.com/ghostheart5/fantastic-guacamole/security)
 
-ChronoSpark is a Flutter-based second brain for task planning, adaptive learning, time-blocking, and AI-driven decision support.
+ChronoSpark is the product experience behind fantastic-guacamole: a Flutter-based personal operating system for planning, reflection, and focused execution. It blends adaptive task intelligence, temporal planning, creator workflows, and premium coaching surfaces into a single futuristic daily planner.
 
-For the full architecture and subsystem reference, see [CHRONOSPARK.md](CHRONOSPARK.md).
-For the dependency direction contract, see [docs/LAYER_FLOW.md](docs/LAYER_FLOW.md).
-For SI Console capability validation, see [docs/SI_CONSOLE_AUDIT.md](docs/SI_CONSOLE_AUDIT.md).
-For timeline and milestone capability validation, see [docs/TIMELINE_MILESTONE_AUDIT.md](docs/TIMELINE_MILESTONE_AUDIT.md).
-For core values and SoulMap capability validation, see [docs/CORE_VALUES_SOULMAP_AUDIT.md](docs/CORE_VALUES_SOULMAP_AUDIT.md).
-For error handling capability validation, see [docs/ERROR_HANDLING_AUDIT.md](docs/ERROR_HANDLING_AUDIT.md).
-For UI and UX capability validation, see [docs/UI_UX_AUDIT.md](docs/UI_UX_AUDIT.md).
-For Google Play release-gate validation, see [docs/GOOGLE_PLAY_READINESS_AUDIT.md](docs/GOOGLE_PLAY_READINESS_AUDIT.md).
-For security and privacy validation, see [docs/SECURITY_PRIVACY_AUDIT.md](docs/SECURITY_PRIVACY_AUDIT.md).
-For subscription and paywall validation, see [docs/SUBSCRIPTION_PAYWALL_AUDIT.md](docs/SUBSCRIPTION_PAYWALL_AUDIT.md).
-For file and placeholder cleanup tracking, see [docs/FILE_PLACEHOLDER_AUDIT.md](docs/FILE_PLACEHOLDER_AUDIT.md).
-For build verification commands, see [docs/BUILD_AUDIT_COMMANDS.md](docs/BUILD_AUDIT_COMMANDS.md).
-For the master release checklist, see [docs/FINAL_AUDIT_SCORECARD.md](docs/FINAL_AUDIT_SCORECARD.md).
+## What this app does
 
-## Highlights
+- Helps you shape the day around priorities, momentum, and context
+- Supports timeline-based planning, milestone tracking, and temporal ops
+- Offers creator workflows for structured entries and richer planning loops
+- Surfaces SI guidance and coaching insights when you need decision support
+- Includes subscription-aware flows for premium capabilities and local-first persistence
 
-- Material 3 Flutter UI with custom glassmorphic components
-- Local persistence with `SharedPreferences`
-- Adaptive task ranking and SI decision support
-- Temporal Ops and SI Console premium trial gating
-- Subscription tiers: Base, Premium, Ultimate
+## Quick start
 
-## Development
+### Prerequisites
 
-- `flutter analyze`
-- `flutter test`
-- `flutter run -d windows`
+- Flutter SDK 3.12 or newer
+- A device or emulator for Android, Windows, or web
 
-## Generate test coverage (PowerShell)
+### Install and run
 
-Run this inside your project root (ChronoSpark):
+```bash
+git clone <repo-url>
+cd fantastic-guacamole
+flutter pub get
+cp .env.example .env
+flutter run -d <device>
+```
 
-```powershell
+For Windows local runs, this is also a common entry point:
+
+```bash
+flutter run -d windows
+```
+
+## Configuration
+
+The app reads runtime values from [.env](.env.example) and supports a few build-time defines for Supabase, OAuth, and feature flags. At minimum, configure:
+
+- CHRONOSPARK_SUPABASE_URL
+- CHRONOSPARK_SUPABASE_ANON_KEY
+- CHRONOSPARK_OAUTH_REDIRECT_URL
+- CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL
+
+See [.env.example](.env.example) for the expected shape.
+
+## Supabase ownership contract
+
+ChronoSpark uses a strict platform boundary to avoid Firebase/Supabase overlap:
+
+- Auth/session owner: Supabase Auth
+- Primary app data owner: Supabase Postgres
+- Cloud file/backup owner: Supabase Storage (`chronospark-sync` bucket)
+- Serverless owner: Supabase Edge Functions
+- Notifications/telemetry owner: Firebase (FCM, Analytics, Crashlytics)
+
+### Supabase sync precedence contract
+
+To keep restore behavior deterministic across devices:
+
+- `syncToCloud` replays queued Supabase row mutations first, then uploads a backup snapshot.
+- `restoreFromCloud` treats the downloaded snapshot as canonical for local state.
+- After a successful restore, pending Supabase mutation queue entries are cleared to prevent replaying stale pre-restore writes.
+
+## Development commands
+
+```bash
+flutter analyze
+flutter test
 flutter test --coverage
 ```
 
-This creates:
+Useful test and quality commands:
 
-```text
-coverage/lcov.info
+```bash
+flutter test test/golden
+flutter test integration_test/patrol_smoke_test.dart
 ```
 
-That file contains line-by-line coverage for every Dart file.
+Coverage output can be turned into HTML with:
 
-## 2. Convert coverage into an HTML report
-
-If you have `lcov` installed:
-
-```powershell
+```bash
 genhtml coverage/lcov.info -o coverage/html
 ```
 
-This produces:
+## Documentation map
 
-```text
-coverage/html/index.html
-```
+- Architecture reference: [CHRONOSPARK.md](CHRONOSPARK.md)
+- Layering and dependency direction: [docs/LAYER_FLOW.md](docs/LAYER_FLOW.md)
+- Build and release checks: [docs/BUILD_AUDIT_COMMANDS.md](docs/BUILD_AUDIT_COMMANDS.md)
+- Release scorecard: [docs/FINAL_AUDIT_SCORECARD.md](docs/FINAL_AUDIT_SCORECARD.md)
+- Additional audits and planning notes live in [docs](docs)
 
-Open it in your browser and you'll see:
+## Project structure
 
-- each folder
-- each file
-- percentage covered
-- which lines are tested
-- which lines are missed
+- [lib](lib) contains the app implementation and feature modules
+- [assets](assets) holds animations, icons, fonts, tutorial content, and seed data
+- [supabase](supabase) contains edge function and integration assets
+- [test](test) and [integration_test](integration_test) hold automated coverage and smoke tests
 
-## 3. Open the coverage report directly from PowerShell
+## License
 
-```powershell
-Start-Process .\coverage\html\index.html
-```
-
-## 4. Coverage for a specific folder (example: domain)
-
-```powershell
-flutter test --coverage; genhtml coverage/lcov.info --ignore-errors source -o coverage/html --prefix lib/domain
-```
-
-## 5. See coverage numbers in the terminal
-
-```powershell
-lcov --summary coverage/lcov.info
-```
-
-This prints:
-
-```text
-lines......: 82.3% (1234 of 1498)
-functions..: 76.1%
-branches...: 68.4%
-```
-
-## 6. VS Code integration
-
-Install extension:
-
-```text
-Dart: Coverage
-```
-
-Then run:
-
-```powershell
-flutter test --coverage
-```
-
-VS Code will show green/red bars next to each file.
-
-## Integration setup (Supabase, Firebase, Google, GitHub)
-
-- Supabase is required for auth/session in production-style runs:
-  - `--dart-define=CHRONOSPARK_SUPABASE_URL=https://<project-ref>.supabase.co`
-  - `--dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=<anon-key>`
-- Local `.env` support is enabled too:
-  - Put the same values in [/.env](.env) or copy [/.env.example](.env.example)
-  - The app loads `.env` at startup and the Android build scripts read it as a fallback
-  - This root `.env` is for Flutter client/runtime values only. Do not place `SUPABASE_SECRET_KEY` in it.
-- Supabase Edge Functions in this repo do not need `npm install @supabase/server`.
-  - Hosted Edge Functions inject their Supabase auth/admin environment automatically.
-  - For local function development or any non-Edge server runtime, copy [supabase/functions/.env.example](supabase/functions/.env.example) to a local-only `supabase/functions/.env` and keep `SUPABASE_SECRET_KEY` there.
-- OAuth callback config:
-  - `--dart-define=CHRONOSPARK_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback`
-  - `--dart-define=CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback`
-- Android custom-scheme callback:
-  - `chronospark://auth-callback`
-  - Add the matching intent filter in `android/app/src/main/AndroidManifest.xml`
-- Supabase redirect allowlist:
-  - `chronospark://auth-callback`
-  - `http://localhost:3000`
-  - `http://localhost:8080`
-  - `https://chronospark.ai`
-  - `https://www.chronospark.ai`
-- Firebase is bootstrapped from generated options in `lib/firebase_options.dart`.
-  - Re-run FlutterFire CLI if you switch Firebase projects.
-- Google and GitHub sign-in are routed through Supabase OAuth in app auth flow.
-  - Configure Google and GitHub providers in Supabase Auth, and use matching callback URLs in both provider dashboards.
-
-Supabase Auth console checklist:
-
-1. Open Supabase Dashboard -> Authentication -> Providers.
-2. Enable Google provider.
-3. Paste the Google OAuth Client ID and Client Secret from Google Cloud.
-4. Enable GitHub provider.
-5. Paste the GitHub OAuth App Client ID and Client Secret from GitHub Developer Settings.
-6. Add these redirect URLs in Authentication -> URL Configuration:
-   - `chronospark://auth-callback`
-   - `http://localhost:3000`
-   - `http://localhost:8080`
-   - `https://chronospark.ai`
-   - `https://www.chronospark.ai`
-7. Use `chronospark://auth-callback` for Android custom-scheme callback testing.
-8. Keep `CHRONOSPARK_OAUTH_REDIRECT_URL` and `CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL` aligned with the same callback route.
-
-Local PowerShell setup:
-
-1. Copy [scripts/chronospark_env.example.ps1](scripts/chronospark_env.example.ps1) to a local-only file outside git tracking.
-2. Fill in your real Supabase, OAuth, and release values.
-3. Dot-source that file before running the guarded build scripts, or set the same variables in your shell session.
-
-Example run:
-
-- `flutter run --dart-define=CHRONOSPARK_SUPABASE_URL=https://<project-ref>.supabase.co --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=<anon-key> --dart-define=CHRONOSPARK_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback --dart-define=CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback`
-
-## Android release and tester access
-
-- Play Store production builds should be built from the production flavor with release signing.
-- Mock login is intentionally disabled in production. It is only available in non-production builds when `CHRONOSPARK_ENABLE_MOCK_LOGIN=true` or `CHRONOSPARK_ENABLE_MOCK_MODE=true` is passed.
-- Tester builds should use the QA flavor so the app treats them as non-production.
-- Typical tester launch command:
-  - `flutter run -d emulator-5554 --dart-define=CHRONOSPARK_APP_FLAVOR=qa --dart-define=CHRONOSPARK_ENABLE_MOCK_LOGIN=true --dart-define=CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS=true --dart-define=CHRONOSPARK_ENABLE_CLOUD_SYNC=false`
-- Mock login defaults to `mock@chronospark.app` unless `CHRONOSPARK_MOCK_LOGIN_EMAIL` and `CHRONOSPARK_MOCK_LOGIN_PASSWORD` are supplied.
-- For Google Play upload, build a release AAB with your signed release keystore and verify the bundle version increments before each upload.
-
-## Safe release roadmap (non-breaking)
-
-These checks are additive and do not modify the existing Android release workflow:
-
-1. Run local preflight before tagging a release:
-  - `powershell -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1`
-2. Run manual CI preflight when you want cloud verification:
-  - GitHub Actions -> `Release Preflight (Manual)` -> `Run workflow`
-3. Continue using existing tag-based Android release workflow for Play-ready signed AAB output:
-  - `.github/workflows/android-release.yml`
-
-Optional local fast path if you only want static checks:
-
-- `powershell -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1 -SkipTests`
-
-Optional profile checks (manual, non-breaking):
-
-- Staging profile env validation:
-  - `powershell -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1 -Profile staging -ValidateEnv -SkipAnalyze -SkipTests -SkipReleaseGuard -SkipSecretGuard -SkipUploadKeyCheck`
-- Tester profile env validation:
-  - `powershell -ExecutionPolicy Bypass -File scripts/safe_release_preflight.ps1 -Profile tester -ValidateEnv -SkipAnalyze -SkipTests -SkipReleaseGuard -SkipSecretGuard -SkipUploadKeyCheck`
-- GitHub Actions manual input now supports `production`, `staging`, and `tester` profiles in `Release Preflight (Manual)` for profile smoke checks.
-- Keep environment variable validation as a local preflight step so release CI stays stable and non-breaking.
-
-## App links and indexing
-
-- Android App Links are declared for:
-  - `https://ghostheart5.github.io/fantastic-guacamole/app/*`
-  - `https://chronospark.app/app/*`
-  - `https://www.chronospark.app/app/*`
-- Digital association files are in `web/.well-known/`.
-- Replace the placeholder values in:
-  - `web/.well-known/assetlinks.json`
-  - `web/.well-known/apple-app-site-association`
-  before production rollout.
-- For production enforcement, set:
-  - `--dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true`
-  - `--dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=https://<your-domain>/monetization-verify`
-  - `--dart-define=CHRONOSPARK_AI_PROXY_ENDPOINT=https://<your-domain>/ai-proxy`
-  - `--dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=<release-cert-sha256>`
-  - `--dart-define=CHRONOSPARK_IOS_TEAM_ID=<apple-team-id>`
-- Security note: keep provider API secrets on your backend only; mobile/web clients now use authenticated user tokens for AI and receipt verification requests.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

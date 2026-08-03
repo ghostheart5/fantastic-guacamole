@@ -283,11 +283,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
               ? 'SI recommendation unavailable right now. Retry sync or create one task manually.'
               : 'No active recommendation yet. Capture one task or tap GET INSIGHT.');
     final bool hasCoachMessage = effectiveCoachMessage.trim().isNotEmpty;
-    final double keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgHome,
       child: Scaffold(
-        resizeToAvoidBottomInset: true,
+        resizeToAvoidBottomInset: false,
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: Column(
@@ -551,17 +550,21 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
           ),
         ),
         bottomNavigationBar: hasCoachMessage
-            ? AnimatedPadding(
-                duration: const Duration(milliseconds: 140),
-                curve: Curves.easeOut,
-                padding: EdgeInsets.only(bottom: keyboardInset),
-                child: _FollowUpBar(
+            ? Builder(
+                builder: (context) => AnimatedPadding(
+                  duration: const Duration(milliseconds: 140),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom,
+                  ),
+                  child: _FollowUpBar(
                   controller: _followUpController,
                   onSend: _sendFollowUp,
                   sending: _sendingFollowUp,
                   errorText: _followUpError,
                 ),
-              )
+              ),
+            )
             : null,
       ),
     );

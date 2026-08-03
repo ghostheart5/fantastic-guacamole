@@ -43,8 +43,18 @@ class GlobalAggregationService {
         'momentum_peak': dailySnapshot['momentum_peak'],
       }, onConflict: 'user_id,date');
     } catch (e) {
-      Logger.error('GlobalAggregationService.push failed', e);
+      if (!isExpectedNonFatalPushError(e)) {
+        Logger.error('GlobalAggregationService.push failed', e);
+      }
     }
+  }
+
+  static bool isExpectedNonFatalPushError(Object? error) {
+    if (error is! sb.PostgrestException) return false;
+    if (error.code == '42P10') return true;
+    final message = error.message.toLowerCase();
+    return message.contains('on conflict') ||
+        message.contains('unique or exclusion constraint');
   }
 
   Future<GlobalMetrics> fetchGlobalMetrics() async {

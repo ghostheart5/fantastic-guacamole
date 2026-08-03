@@ -20,12 +20,12 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('always renders HABIT type chip', (
+    testWidgets('always renders DAILY RHYTHM type chip', (
       WidgetTester tester,
     ) async {
       await pumpSelector(tester);
 
-      expect(find.text('HABIT'), findsOneWidget);
+      expect(find.text('DAILY RHYTHM'), findsOneWidget);
     });
 
     test('source keeps routine behind legacy-flag gate', () {

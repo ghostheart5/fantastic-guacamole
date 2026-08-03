@@ -26,7 +26,7 @@ abstract final class Env {
   );
   static const bool _enableMockLoginDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_MOCK_LOGIN',
-    defaultValue: true,
+    defaultValue: false,
   );
   static const bool _enableMockModeDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_MOCK_MODE',

@@ -13,6 +13,7 @@ class ConnectTimelineToTasksUsecase {
     final DateTime now = DateTime.now();
     final String eventId = 'task_link_${task.id}_${now.microsecondsSinceEpoch}';
     final String projectionKind = _projectionKindFor(task.kind);
+    final TimelineEventType eventType = _eventTypeFor(projectionKind);
 
     final TimelineEventStatus status = task.isCompleted
         ? TimelineEventStatus.completed
@@ -22,7 +23,7 @@ class ConnectTimelineToTasksUsecase {
 
     final TimelineEventEntity event = TimelineEventEntity(
       id: eventId,
-      type: TimelineEventType.task,
+      type: eventType,
       title: _projectionTitleFor(task.title, projectionKind),
       detail: _projectionDetailFor(task.description, projectionKind),
       timestamp: now,
@@ -46,13 +47,22 @@ class ConnectTimelineToTasksUsecase {
     return (kind ?? '').trim().toLowerCase();
   }
 
+  TimelineEventType _eventTypeFor(String projectionKind) {
+    return switch (projectionKind) {
+      'habit' => TimelineEventType.habit,
+      'routine' => TimelineEventType.habit,
+      'note' => TimelineEventType.task,
+      _ => TimelineEventType.task,
+    };
+  }
+
   String _projectionTitleFor(String title, String projectionKind) {
     final String normalizedTitle = title.trim().isEmpty
         ? 'Task linked'
         : title.trim();
 
     return switch (projectionKind) {
-      'routine' => 'Routine: $normalizedTitle',
+      'routine' || 'habit' => 'Habit: $normalizedTitle',
       'note' => 'Note: $normalizedTitle',
       _ => normalizedTitle,
     };
@@ -65,7 +75,7 @@ class ConnectTimelineToTasksUsecase {
     }
 
     return switch (projectionKind) {
-      'routine' => 'Routine connected to timeline.',
+      'routine' || 'habit' => 'Habit connected to timeline.',
       'note' => 'Note connected to timeline.',
       _ => 'Task connected to timeline.',
     };

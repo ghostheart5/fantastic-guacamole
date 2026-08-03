@@ -28,7 +28,8 @@ void main() {
       expect(text.contains("'routine' || 'habit' => RecurrenceRule.daily"), isTrue);
       expect(text.contains('Future<void> _createNoteEntry({'), isTrue);
       expect(text.contains('note.toTaskEntity('), isTrue);
-      expect(text.contains(".createTask(entity, actionSource: 'creator');"), isTrue);
+      expect(text.contains("_legacyCreatorNoteActionSource = 'creator_note'"), isTrue);
+      expect(text.contains('.createTask(entity, actionSource: _legacyCreatorNoteActionSource);'), isTrue);
     });
 
     test('creator form still exposes routine and note through shared task-oriented form flow', () {

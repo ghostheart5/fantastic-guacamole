@@ -2,10 +2,12 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
+import 'package:fantastic_guacamole/data/sync/sync_operation.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
@@ -130,6 +132,11 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
         .set('Cloud restore failed or no backup was available.');
     return false;
   }
+
+  // Restore treats cloud backup as canonical; stale queued row-level mutations
+  // are dropped to avoid replaying pre-restore local edits over restored state.
+  await ref.read(syncQueueStoreProvider).overwrite(const <SyncOperation>[]);
+
   ref.read(syncErrorMessageProvider.notifier).set(null);
   ref.invalidate(tasksProvider);
   ref.invalidate(profileProvider);

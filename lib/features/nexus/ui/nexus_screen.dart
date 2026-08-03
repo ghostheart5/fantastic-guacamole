@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/features/auth/application/auth_providers.dart';
+import 'package:fantastic_guacamole/features/nexus/ui/models/nexus_daily_briefing.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';

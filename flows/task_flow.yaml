@@ -1,0 +1,17 @@
+appId: com.ghostheart.chronospark
+---
+- launchApp
+- runFlow: _login_if_needed.yaml
+
+- assertVisible: "Quick actions"
+- tapOn: "Creator"
+- assertVisible: "Creator"
+
+- tapOn: "Tasks"
+- tapOn: "TASK"
+- tapOn: "Item title *"
+- eraseText
+- inputText: "Ship Milestone"
+
+- tapOn: "Create item"
+- assertVisible: "REVIEW TIMELINE"

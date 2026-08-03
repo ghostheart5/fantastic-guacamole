@@ -21,7 +21,12 @@ void main() {
 
       final String text = SourceTestUtils.readText(creatorProviderFile);
 
-      expect(text.contains('final String requestedKind = _kindFor(data, mode);'), isTrue);
+      expect(
+        text.contains(
+          'final String requestedKind = _normalizeRequestedKind(_kindFor(data, mode));',
+        ),
+        isTrue,
+      );
       expect(text.contains('return _savedKindFor(requestedKind: requestedKind);'), isTrue);
       expect(text.contains("'routine' => CreatorSavedKind.routine"), isTrue);
       expect(text.contains("'note' => CreatorSavedKind.note"), isTrue);

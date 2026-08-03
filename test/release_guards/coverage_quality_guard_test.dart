@@ -63,7 +63,8 @@ void main() {
         }
 
         final bool pumpsWidget = content.contains('pumpWidget(');
-        final bool hasExpectation = content.contains('expect(');
+        final bool hasExpectation =
+            content.contains('expect(') || content.contains('expectLater(');
         if (pumpsWidget && !hasExpectation) {
           issues.add('$normalized pumps widgets without assertions.');
         }

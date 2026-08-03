@@ -21,7 +21,6 @@ class TrajectoryEngineScreen extends ConsumerWidget {
     final futureTimeline = ref.watch(futureTimelineProvider);
     final identityDrift = ref.watch(identityDriftProvider);
     final futureDecision = ref.watch(futureDecisionEngineProvider);
-    final int momentumPercent = (trajectory.momentum * 100).round();
 
     return Scaffold(
       backgroundColor: const Color(0xFF070A12),
@@ -50,14 +49,6 @@ class TrajectoryEngineScreen extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          _MetricGrid(
-            momentumPercent: momentumPercent,
-            pressureIndex: trajectory.pressureIndex,
-            divergence: trajectory.behaviorDivergence,
-            completedTasks: trajectory.completedTasks,
-          ),
-          const SizedBox(height: 8),
 
           _Panel(
             title: 'Momentum',
@@ -81,7 +72,7 @@ class TrajectoryEngineScreen extends ConsumerWidget {
                     height: 1.35,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   'Momentum ${momentum.score}% | Energy ${momentum.energyPercent}% | Pressure ${momentum.pressurePercent}%',
                   style: const TextStyle(
@@ -90,7 +81,7 @@ class TrajectoryEngineScreen extends ConsumerWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(
                   'Recovery: ${momentum.recovery}',
                   style: const TextStyle(
@@ -118,12 +109,12 @@ class TrajectoryEngineScreen extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 const Text(
                   'Your recent execution supports this path. Keep reinforcing positive habits.',
                   style: TextStyle(
                     color: Color(0xFFD8E2FF),
-                    fontSize: 12,
+                    fontSize: 14,
                     height: 1.35,
                   ),
                 ),
@@ -133,18 +124,18 @@ class TrajectoryEngineScreen extends ConsumerWidget {
                       'Your current path looks stable.',
                   style: const TextStyle(
                     color: Color(0xFFB8C7FF),
-                    fontSize: 12,
+                    fontSize: 14,
                     height: 1.35,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(
                   trajectory.alert.contains('risk')
                       ? 'Some risk signals are active. Focus on one clear next step today.'
                       : 'Your current pace supports a positive outcome. Keep your next action small and consistent.',
                   style: const TextStyle(
                     color: Color(0xFFB8C7FF),
-                    fontSize: 12,
+                    fontSize: 14,
                     height: 1.35,
                   ),
                 ),
@@ -203,12 +194,12 @@ class _TrajectorySimulationCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     simulation.summary,
                     style: const TextStyle(
                       color: Color(0xFFD8E2FF),
-                      fontSize: 11,
+                      fontSize: 12,
                       height: 1.3,
                     ),
                   ),
@@ -236,7 +227,7 @@ class _TrajectorySimulationCard extends StatelessWidget {
                     simulation.projectedOutcome,
                     style: const TextStyle(
                       color: Color(0xFFB8C7FF),
-                      fontSize: 11,
+                      fontSize: 12,
                       height: 1.3,
                     ),
                   ),
@@ -269,7 +260,7 @@ class _ProjectionPill extends StatelessWidget {
         '$label: $value',
         style: const TextStyle(
           color: Color(0xFF7F91C8),
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -347,12 +338,12 @@ class _FutureRoadmapCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     checkpoint.prediction,
                     style: const TextStyle(
                       color: Color(0xFFD8E2FF),
-                      fontSize: 11,
+                      fontSize: 12,
                       height: 1.3,
                     ),
                   ),
@@ -360,89 +351,14 @@ class _FutureRoadmapCard extends StatelessWidget {
               ),
             );
           }),
-          const SizedBox(height: 3),
+          const SizedBox(height: 6),
           Text(
             'Correction: ${drift.correction}',
             style: const TextStyle(
               color: Color(0xFFB8C7FF),
-              fontSize: 11,
+              fontSize: 12,
               height: 1.3,
               fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricGrid extends StatelessWidget {
-  const _MetricGrid({
-    required this.momentumPercent,
-    required this.pressureIndex,
-    required this.divergence,
-    required this.completedTasks,
-  });
-
-  final int momentumPercent;
-  final int pressureIndex;
-  final int divergence;
-  final int completedTasks;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 1.7,
-      children: <Widget>[
-        _MetricCard(label: 'Momentum', value: '$momentumPercent%'),
-        _MetricCard(label: 'PRESSURE', value: '$pressureIndex'),
-        _MetricCard(label: 'Alignment', value: '$divergence%'),
-        _MetricCard(label: 'Completed', value: '$completedTasks'),
-      ],
-    );
-  }
-}
-
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: const Color(0xFF10182A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF23345A)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Text(
-            label.toUpperCase(),
-            style: const TextStyle(
-              color: Color(0xFF7F91C8),
-              fontSize: 9,
-              letterSpacing: 1.0,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
             ),
           ),
         ],

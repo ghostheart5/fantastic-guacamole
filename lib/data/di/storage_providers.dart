@@ -8,13 +8,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
+const bool _isTestBuild = bool.fromEnvironment('FLUTTER_TEST');
+
 final flutterSecureStorageProvider = Provider<FlutterSecureStorage>(
   (Ref ref) => const FlutterSecureStorage(),
 );
 
 final secureStoreProvider = Provider<SecureStore>((Ref ref) {
   return SecureStore(
-    backend: Env.isMockMode
+    backend: Env.isMockMode || _isTestBuild
         ? InMemorySecureStoreBackend()
         : RealSecureStoreBackend(
             storage: ref.read(flutterSecureStorageProvider),

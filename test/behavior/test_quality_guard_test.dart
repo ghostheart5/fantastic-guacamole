@@ -71,6 +71,10 @@ void main() {
           continue;
         }
 
+        if (path.endsWith('/flutter_test_config.dart')) {
+          continue;
+        }
+
         final String text = SourceTestUtils.readText(file);
         final bool hasAssertion = assertionTokens.any(text.contains);
         if (!hasAssertion) {
@@ -79,6 +83,38 @@ void main() {
       }
 
       expect(offenders, isEmpty, reason: 'Test files without concrete assertions: $offenders');
+    });
+
+    test('major UI surfaces have at least one golden visual test', () {
+      final List<String> requiredUiFolders = <String>[
+        'package:fantastic_guacamole/features/auth/ui/',
+        'package:fantastic_guacamole/features/settings/ui/',
+        'package:fantastic_guacamole/features/trajectory_engine/ui/',
+        'package:fantastic_guacamole/ui/widgets/',
+      ];
+
+      final List<File> goldenTests = SourceTestUtils
+          .dartFilesUnder('test/golden')
+          .where((File file) => file.path.endsWith('_golden_test.dart'))
+          .toList(growable: false);
+
+      final String combinedGoldenSource = goldenTests
+          .map(SourceTestUtils.readText)
+          .join('\n');
+
+      final List<String> missingFolders = <String>[];
+      for (final String folder in requiredUiFolders) {
+        if (!combinedGoldenSource.contains(folder)) {
+          missingFolders.add(folder);
+        }
+      }
+
+      expect(
+        missingFolders,
+        isEmpty,
+        reason:
+            'Missing golden visual tests for major UI folders: $missingFolders',
+      );
     });
   });
 }

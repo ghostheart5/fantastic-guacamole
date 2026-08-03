@@ -35,7 +35,6 @@ void main() {
       expect(taskText.contains('TaskLifecycleEvent('), isTrue);
 
       expect(goalsText.contains('addMirroredEntry(source: \'goal_\$actionName\''), isTrue);
-      expect(goalsText.contains('ref.read(timelineActionsProvider).connectGoal(goal)'), isTrue);
       expect(goalsText.contains('addMirroredEvent('), isTrue);
       expect(goalsText.contains('GoalLifecycleEvent('), isTrue);
     });

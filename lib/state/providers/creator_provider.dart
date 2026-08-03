@@ -31,7 +31,7 @@ class CreatorActions {
 
   Future<CreatorSavedKind> createEntry(CreatorFormData data) async {
     final String mode = data.creatorMode.trim().toLowerCase();
-    final String requestedKind = _kindFor(data, mode);
+    final String requestedKind = _normalizeRequestedKind(_kindFor(data, mode));
     final String kind = _normalizeKind(requestedKind);
 
     final RecurrenceRule recurrence = _recurrenceFor(
@@ -93,7 +93,7 @@ class CreatorActions {
 
     await ref
         .read(taskActionsProvider)
-        .createTask(entity, actionSource: 'creator');
+        .createTask(entity, actionSource: _legacyCreatorNoteActionSource);
   }
 
   Future<void> _createTaskEntry({
@@ -185,6 +185,15 @@ class CreatorActions {
       'plan' => 'plan',
       'habits' => 'habit',
       _ => data.type.trim().toLowerCase(),
+    };
+  }
+
+  String _normalizeRequestedKind(String kind) {
+    final String normalized = kind.trim().toLowerCase();
+    return switch (normalized) {
+      'daily rhythm' => 'habit',
+      'notes' || 'memo' || 'memory' || 'journal' => 'note',
+      _ => normalized,
     };
   }
 

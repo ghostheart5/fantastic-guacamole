@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract class SharedPrefsStore {
@@ -45,6 +46,9 @@ class SharedPrefsService {
   static Future<void>? _initFuture;
   static Object? _initError;
   static bool _didLogInitialized = false;
+  static bool _useMemoryFallback = false;
+  static final Map<String, Object?> _memoryStore = <String, Object?>{};
+  static const bool _isTestBuild = bool.fromEnvironment('FLUTTER_TEST');
   static const List<String> _sensitiveKeyMarkers = <String>[
     'token',
     'secret',
@@ -54,8 +58,19 @@ class SharedPrefsService {
   ];
 
   static Future<void> init() async {
+    if (_isTestBuild) {
+      _useMemoryFallback = true;
+      _initError = null;
+      _prefs = null;
+      if (!_didLogInitialized) {
+        Logger.log('SharedPrefsService', 'Initialized in-memory test fallback');
+        _didLogInitialized = true;
+      }
+      return;
+    }
+
     final SharedPreferences? existing = _prefs;
-    if (existing != null) {
+    if (existing != null || _useMemoryFallback) {
       return;
     }
 
@@ -73,12 +88,26 @@ class SharedPrefsService {
           Logger.log('SharedPrefsService', 'Initialized');
           _didLogInitialized = true;
         }
+      } on MissingPluginException catch (error) {
+        _useMemoryFallback = true;
+        _initError = error;
+        _prefs = null;
+        if (!_didLogInitialized) {
+          Logger.warn(
+            'SharedPrefsService unavailable; using in-memory fallback: $error',
+          );
+          _didLogInitialized = true;
+        }
       } on Object catch (error) {
         _initError = error;
-        Logger.error(
-          'SharedPrefsService initialization failed. Using degraded storage mode.',
-          error,
-        );
+        _useMemoryFallback = true;
+        _prefs = null;
+        if (!_didLogInitialized) {
+          Logger.warn(
+            'SharedPrefsService initialization failed; using in-memory fallback: $error',
+          );
+          _didLogInitialized = true;
+        }
       } finally {
         _initFuture = null;
       }
@@ -97,6 +126,10 @@ class SharedPrefsService {
     }
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
+      if (_useMemoryFallback) {
+        _memoryStore[key] = value;
+        return;
+      }
       if (_initError != null) {
         Logger.warn(
           'SharedPrefsService save skipped due to initialization failure: $_initError',
@@ -113,6 +146,10 @@ class SharedPrefsService {
     await init();
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
+      if (_useMemoryFallback) {
+        _memoryStore[key] = value;
+        return;
+      }
       throw StateError(
         'SharedPrefsService storage is unavailable for saveBool($key).',
       );
@@ -124,6 +161,10 @@ class SharedPrefsService {
     await init();
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
+      if (_useMemoryFallback) {
+        _memoryStore[key] = value;
+        return;
+      }
       throw StateError(
         'SharedPrefsService storage is unavailable for saveInt($key).',
       );
@@ -134,6 +175,10 @@ class SharedPrefsService {
   static String? load(String key) {
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
+      if (_useMemoryFallback) {
+        final Object? value = _memoryStore[key];
+        return value is String ? value : null;
+      }
       if (_initFuture == null) {
         unawaited(init());
       }
@@ -145,6 +190,11 @@ class SharedPrefsService {
   static Map<String, String> getAll() {
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
+      if (_useMemoryFallback) {
+        return _memoryStore.map<String, String>((String key, Object? value) {
+          return MapEntry(key, value?.toString() ?? '');
+        });
+      }
       if (_initFuture == null) {
         unawaited(init());
       }
@@ -165,6 +215,10 @@ class SharedPrefsService {
     await init();
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
+      if (_useMemoryFallback) {
+        _memoryStore.remove(key);
+        return;
+      }
       if (_initError != null) {
         Logger.warn(
           'SharedPrefsService delete skipped due to initialization failure: $_initError',
@@ -181,6 +235,10 @@ class SharedPrefsService {
     await init();
     final SharedPreferences? prefs = _prefs;
     if (prefs == null) {
+      if (_useMemoryFallback) {
+        _memoryStore.clear();
+        return;
+      }
       if (_initError != null) {
         Logger.warn(
           'SharedPrefsService clear skipped due to initialization failure: $_initError',

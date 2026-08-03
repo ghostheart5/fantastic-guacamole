@@ -69,8 +69,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(completeCalls, greaterThanOrEqualTo(0));
-      expect(dismissCalls, greaterThanOrEqualTo(0));
+      expect(completeCalls, 1);
+      expect(dismissCalls, 1);
     });
   });
 }

@@ -151,9 +151,10 @@ class CoachQueryController implements SmartCoachInterface {
         energy: energy,
         input: prompt,
       );
-      final String message = contextLock.isEmpty
+      final String baseMessage = contextLock.isEmpty
           ? structuredMessage
           : '$structuredMessage\n\n$contextLock';
+      final String message = _appendTodaysFocusAnchors(baseMessage);
 
       await _persistConversationTurn(
         role: 'user',
@@ -233,6 +234,7 @@ class CoachQueryController implements SmartCoachInterface {
     final String message = usedFallback
         ? _buildCoachingMessage(energy, emotion, notes)
         : generated;
+    final String enrichedMessage = _appendTodaysFocusAnchors(message);
 
     await _persistConversationTurn(
       role: 'user',
@@ -242,7 +244,7 @@ class CoachQueryController implements SmartCoachInterface {
     await _persistConversationTurn(
       role: 'assistant',
       channel: 'coach',
-      content: message,
+      content: enrichedMessage,
     );
 
     _ref.read(profileProvider.notifier).addXP(10);
@@ -251,7 +253,7 @@ class CoachQueryController implements SmartCoachInterface {
       surface: 'smart_coach',
       routeType: 'ai_orchestrated',
       usedFallback: usedFallback,
-      structured: _isStructuredCoachResponse(message),
+      structured: _isStructuredCoachResponse(enrichedMessage),
       durationMs: requestStopwatch.elapsedMilliseconds,
       qualityTag: aiFallbackDetected ? 'ai_non_actionable' : 'normal',
     );
@@ -263,7 +265,7 @@ class CoachQueryController implements SmartCoachInterface {
 
     return CoachCoachingResult(
       prompt: prompt,
-      message: message,
+      message: enrichedMessage,
       savedNotes: savedNotes,
     );
   }
@@ -673,6 +675,15 @@ class CoachQueryController implements SmartCoachInterface {
               .map((goal) => goal.title)
               .toList(growable: false),
         },
+        'routines': <String, dynamic>{
+          'count': _ref.read(routinesProvider).length,
+          'active': _ref
+              .read(routinesProvider)
+              .where((routine) => routine.active)
+              .take(5)
+              .map((routine) => routine.name)
+              .toList(growable: false),
+        },
         'insights': <String, dynamic>{
           'count': insightsBundle.items.length,
           'summary': insightsBundle.summary,
@@ -788,6 +799,7 @@ class CoachQueryController implements SmartCoachInterface {
       'ChronoSpark context lock:',
       describeSource('tasks', 'Tasks'),
       describeSource('goals', 'Goals'),
+      describeSource('routines', 'Habits'),
       describeSource('timeline', 'Timeline'),
       describeSource('memories', 'Memories'),
       describeSource('insights', 'Insights'),
@@ -1351,6 +1363,27 @@ class CoachQueryController implements SmartCoachInterface {
       return _CoachTopic.productivity;
     }
     if (hasAny(<String>[
+          'organized',
+          'organised',
+          'cleaned',
+          'decluttered',
+          'tidied',
+          'reset',
+          'finished',
+          'completed',
+        ]) &&
+        hasAny(<String>[
+          'living room',
+          'bedroom',
+          'kitchen',
+          'home',
+          'house',
+          'apartment',
+          'room',
+        ])) {
+      return _CoachTopic.habits;
+    }
+    if (hasAny(<String>[
       'relationships',
       'relationship',
       'partner',
@@ -1754,6 +1787,48 @@ class CoachQueryController implements SmartCoachInterface {
       followUp: followUp,
       energy: energy,
     );
+  }
+
+  String _appendTodaysFocusAnchors(String message) {
+    final String trimmed = message.trim();
+    if (trimmed.isEmpty || trimmed.contains('Today\'s focus anchors:')) {
+      return trimmed;
+    }
+
+    final List<Task> tasks =
+        _ref.read(tasksProvider).asData?.value ?? const <Task>[];
+    final List<String> goalTitles = _ref
+        .read(goalsProvider)
+        .where((goal) => goal.isActive)
+        .map((goal) => goal.title.trim())
+        .where((title) => title.isNotEmpty)
+        .take(1)
+        .toList(growable: false);
+    final List<String> habitTitles = _ref
+        .read(routinesProvider)
+        .where((routine) => routine.active)
+        .map((routine) => routine.name.trim())
+        .where((title) => title.isNotEmpty)
+        .take(1)
+        .toList(growable: false);
+    final List<String> noteTitles = tasks
+        .where((task) => (task.kind ?? '').trim().toLowerCase() == 'note')
+        .map((task) => task.title.trim())
+        .where((title) => title.isNotEmpty)
+        .take(1)
+        .toList(growable: false);
+
+    final String goalAnchor = goalTitles.isEmpty
+        ? 'Lock one meaningful goal for this week and move it today.'
+        : '${goalTitles.first} (advance it today)';
+    final String habitAnchor = habitTitles.isEmpty
+        ? 'Choose one daily rhythm and protect your streak.'
+        : '${habitTitles.first} (show up once today)';
+    final String noteAnchor = noteTitles.isEmpty
+        ? 'Capture one win note so your progress becomes visible.'
+        : '${noteTitles.first} (log one insight after you act)';
+
+    return '$trimmed\n\nToday\'s focus mission:\n- Goal lock: $goalAnchor\n- Habit streak: $habitAnchor\n- Note signal: $noteAnchor\n\nYou already have momentum. Execute one move now.';
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/features/auth/application/auth_providers.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
+import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart'
@@ -85,6 +86,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final access = ref.watch(appAccessProvider);
     final hasMockSession = ref.watch(mockAuthSessionProvider);
     final notificationPermission = ref.watch(notificationPermissionProvider);
+    final voicePermissionStatus = ref.watch(voicePermissionStatusProvider);
     final bool accountDeletionConfigured = _hasSecureHttpsEndpoint(
       Env.accountDeleteEndpoint,
     );
@@ -140,9 +142,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: 24,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
+                              letterSpacing: 1.1,
                               color: Colors.white,
                             ),
                           ),
@@ -162,11 +164,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 26),
 
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
@@ -203,7 +205,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       'Settings are ready',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -211,9 +213,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Text(
                       'Manage app controls, account access, and support links here.',
                       style: TextStyle(
-                        color: Colors.white60,
-                        fontSize: 12,
-                        height: 1.35,
+                        color: Colors.white70,
+                        fontSize: 13,
+                        height: 1.4,
                       ),
                     ),
                   ],
@@ -334,10 +336,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    VoicePermissionPrompt(
+                      permissionGranted: voicePermissionStatus,
+                      onRequestPermission: () async {
+                        final bool granted = await ref
+                            .read(settingsUiActionsProvider)
+                            .requestVoicePermission();
+                        ref
+                            .read(voicePermissionStatusProvider.notifier)
+                            .set(granted);
+                        return granted;
+                      },
+                      onOpenSystemSettings: () async {
+                        final bool opened = await ref
+                            .read(settingsUiActionsProvider)
+                            .openSystemAppSettings();
+                        if (!context.mounted || opened) {
+                          return;
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Open your device app settings and enable microphone access for ChronoSpark.',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    const _ReflectionReminderSection(),
+                    const SizedBox(height: 12),
+                    const _ReminderAutomationSection(),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
 
               _Section(
                 label: 'ACCOUNT',
@@ -395,7 +429,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
 
               _Section(
                 label: 'SUPPORT & LEGAL',

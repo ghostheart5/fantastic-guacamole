@@ -20,7 +20,7 @@ class _NexusHeader extends ConsumerWidget {
         return Padding(
           padding: EdgeInsets.fromLTRB(
             ultraCompact ? 12 : 20,
-            16,
+            18,
             ultraCompact ? 12 : 20,
             0,
           ),
@@ -58,9 +58,9 @@ class _NexusHeader extends ConsumerWidget {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        'Home',
+                        'NEXUS',
                         style: TextStyle(
-                          fontSize: ultraCompact ? 22 : (compact ? 26 : 28),
+                          fontSize: ultraCompact ? 24 : (compact ? 28 : 30),
                           fontWeight: FontWeight.w900,
                           letterSpacing: ultraCompact
                               ? 3.2
@@ -69,13 +69,13 @@ class _NexusHeader extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 6),
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
                         'Today\'s overview',
                         style: TextStyle(
-                          fontSize: ultraCompact ? 6 : (compact ? 7 : 8),
+                          fontSize: ultraCompact ? 8 : (compact ? 9 : 10),
                           letterSpacing: ultraCompact
                               ? 1.3
                               : (compact ? 2.0 : 2.4),
@@ -110,7 +110,7 @@ class _NexusHeader extends ConsumerWidget {
                         Text(
                           'Ready',
                           style: TextStyle(
-                            fontSize: ultraCompact ? 6 : (compact ? 7 : 8),
+                            fontSize: ultraCompact ? 8 : (compact ? 9 : 10),
                             letterSpacing: ultraCompact
                                 ? 0.8
                                 : (compact ? 1.4 : 2),
@@ -120,14 +120,14 @@ class _NexusHeader extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
                     Text(
                       'Level | streak | focus',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: ultraCompact ? 8 : (compact ? 9 : 10),
-                        color: Colors.white38,
+                        fontSize: ultraCompact ? 10 : (compact ? 11 : 12),
+                        color: Colors.white60,
                         letterSpacing: ultraCompact ? 0.3 : 1,
                       ),
                     ),
@@ -580,6 +580,12 @@ class _NexusBridgeCard extends StatelessWidget {
         ? 'You are in a steady zone. Take one clear next step.'
         : 'Energy is low. Start with one small win to rebuild momentum.';
 
+    final NexusDailyBriefing briefing = NexusDailyBriefing.build(
+      profileReady: profileReady,
+      energy: energy,
+      completedToday: completedToday,
+    );
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
@@ -633,6 +639,41 @@ class _NexusBridgeCard extends StatelessWidget {
               color: Colors.white54,
               fontSize: ultraCompact ? 9 : 10,
               letterSpacing: ultraCompact ? 0.8 : 1.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Today at a glance',
+            style: TextStyle(
+              color: AppColors.neonCyan,
+              fontSize: ultraCompact ? 8 : 9,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Risk • ${briefing.risk}',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: ultraCompact ? 10 : 11,
+              height: 1.35,
+            ),
+          ),
+          Text(
+            'Opening • ${briefing.opening}',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: ultraCompact ? 10 : 11,
+              height: 1.35,
+            ),
+          ),
+          Text(
+            'Next • ${briefing.nextMove}',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: ultraCompact ? 10 : 11,
+              height: 1.35,
             ),
           ),
         ],

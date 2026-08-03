@@ -176,7 +176,6 @@ class _DynamicFormState extends State<DynamicForm> {
       _titleController.clear();
       _detailController.clear();
       setState(() {
-        _selectedType = 'Task';
         _priority = 3;
         _scheduledFor = null;
         _recurrenceRule = RecurrenceRule.none;
@@ -230,9 +229,10 @@ class _DynamicFormState extends State<DynamicForm> {
             maxLines: _selectedType.toLowerCase() == 'note' ? 5 : 3,
           ),
           const SizedBox(height: 20),
-          TypeSelector(
-            selected: _selectedType,
-            onSelect: (t) => setState(() {
+          RepaintBoundary(
+            child: TypeSelector(
+              selected: _selectedType,
+              onSelect: (t) => setState(() {
               _selectedType = t;
               final String kind = t.trim().toLowerCase();
               if ((kind == 'routine' || kind == 'habit') &&
@@ -240,7 +240,10 @@ class _DynamicFormState extends State<DynamicForm> {
                 _recurrenceRule = RecurrenceRule.daily;
               }
             }),
+            ),
           ),
+          const SizedBox(height: 12),
+          _QuickCheatSheet(selectedType: _selectedType),
           const SizedBox(height: 20),
           _PriorityPicker(
             value: _priority,
@@ -372,6 +375,64 @@ class _DynamicFormState extends State<DynamicForm> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _QuickCheatSheet extends StatelessWidget {
+  const _QuickCheatSheet({required this.selectedType});
+
+  final String selectedType;
+
+  @override
+  Widget build(BuildContext context) {
+    final String normalized = selectedType.trim().toLowerCase();
+    final String heading = normalized == 'habit'
+        ? 'Daily rhythm = repeatable rhythm'
+        : normalized == 'goal'
+        ? 'Goal = bigger outcome'
+        : normalized == 'note'
+        ? 'Note = capture context'
+        : 'Task = one next action';
+
+    final String body = normalized == 'habit'
+        ? 'Use daily rhythms for the small repeatable actions that shape your day.'
+        : normalized == 'goal'
+        ? 'Use goals when you want a longer outcome to work toward.'
+        : normalized == 'note'
+        ? 'Use notes for context, ideas, or reminders you want to keep nearby.'
+        : 'Use tasks for concrete actions you can finish soon.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            heading,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            body,
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

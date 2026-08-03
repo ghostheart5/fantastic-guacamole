@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/features/creator/models/creator_workspace_mode.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
+import 'package:fantastic_guacamole/features/creator/widgets/first_run_tutorial_overlay.dart';
+import 'package:fantastic_guacamole/state/providers/first_run_tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_event_bridge.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_provider.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_state.dart';
@@ -25,6 +29,7 @@ class CreatorScreen extends ConsumerStatefulWidget {
 class _CreatorScreenState extends ConsumerState<CreatorScreen> {
   CreatorWorkspaceMode _mode = CreatorWorkspaceMode.tasks;
   String _voicePreferredType = 'Task';
+  late final FirstRunTutorialController _tutorialController;
   final TextEditingController _taskTitleController = TextEditingController();
   final TextEditingController _goalTitleController = TextEditingController();
   final TextEditingController _memoryController = TextEditingController();
@@ -41,6 +46,8 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
   @override
   void initState() {
     super.initState();
+    _tutorialController = FirstRunTutorialController();
+    _tutorialController.addListener(_handleTutorialStateChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -49,6 +56,16 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
         ref.read(missionEventBridgeProvider).reportCreatorOpened();
       }
     });
+    unawaited(_startTutorialIfNeeded());
+  }
+
+  Future<void> _startTutorialIfNeeded() async {
+    final bool hasCreatedFirstItem = ref.read(creatorFirstItemCreatedProvider);
+    if (hasCreatedFirstItem) {
+      await _tutorialController.complete();
+      return;
+    }
+    await _tutorialController.start();
   }
 
   TextEditingController get _titleController {
@@ -60,11 +77,20 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
 
   @override
   void dispose() {
+    _tutorialController.removeListener(_handleTutorialStateChanged);
+    _tutorialController.dispose();
     _taskTitleController.dispose();
     _goalTitleController.dispose();
     _memoryController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  void _handleTutorialStateChanged() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 
   void _applyVoiceHandoff(VoiceCommandHandoff handoff) {
@@ -123,6 +149,16 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
         });
       });
     }
+  }
+
+  void _setQuickEntryType(String type) {
+    final String normalized = type.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    setState(() {
+      _voicePreferredType = normalized;
+    });
   }
 
   @override
@@ -210,9 +246,9 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 22,
+                                fontSize: 24,
                                 fontWeight: FontWeight.w800,
-                                letterSpacing: 1,
+                                letterSpacing: 0.9,
                                 color: Colors.white,
                               ),
                             ),
@@ -222,9 +258,9 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 0.5,
-                              color: Colors.white38,
+                              fontSize: 12,
+                              letterSpacing: 0.4,
+                              color: Colors.white60,
                             ),
                           ),
                         ],
@@ -232,89 +268,221 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 22),
                 if (missionTutorialEnabled) ...[
                   const _CreatorMissionPanel(),
                   const SizedBox(height: 16),
                 ],
-                DynamicForm(
-                  workspaceMode: _mode,
-                  preferredType: _voicePreferredType,
-                  taskTitleController: _taskTitleController,
-                  goalTitleController: _goalTitleController,
-                  memoryController: _memoryController,
-                  notesController: _notesController,
-                  soundEnabled: soundEnabled,
-                  advancedAudioEnabled: advancedAudioEnabled,
-                  onSubmit: (data) async {
-                    final bool shouldAutoOpenTimeline = !ref.read(
-                      creatorFirstItemCreatedProvider,
-                    );
-                    final savedKind = await ref
-                        .read(creatorActionsProvider)
-                        .createEntry(data);
-
-                    bool missionProgressReported = true;
-                    if (missionTutorialEnabled &&
-                        _isSupportedFirstItemKind(savedKind)) {
-                      try {
-                        await ref
-                            .read(missionEventBridgeProvider)
-                            .reportFirstItemCreated();
-                        await ref
-                            .read(missionEventBridgeProvider)
-                            .reportCreatorOpened();
-                      } on Object {
-                        missionProgressReported = false;
-                      }
-                    }
-
-                    if (savedKind == CreatorSavedKind.task ||
-                        savedKind == CreatorSavedKind.routine ||
-                        savedKind == CreatorSavedKind.note) {
-                      await ref
-                          .read(localMetricsAccumulatorProvider)
-                          .recordTaskCreated();
-                    }
-                    ref.invalidate(tasksProvider);
-                    ref.invalidate(goalProgressProvider);
-
-                    if (context.mounted) {
-                      final ScaffoldMessengerState messenger =
-                          ScaffoldMessenger.of(context);
-                      messenger
-                        ..hideCurrentSnackBar()
-                        ..showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              shouldAutoOpenTimeline && missionProgressReported
-                                  ? 'First item created. Reviewing it on your timeline...'
-                                  : 'Item saved.',
-                            ),
-                            duration: const Duration(seconds: 2),
-                            behavior: SnackBarBehavior.floating,
-                            action: SnackBarAction(
-                              label: 'REVIEW TIMELINE',
-                              onPressed: () {
-                                if (!context.mounted) {
-                                  return;
-                                }
-                                ref.read(appFlowProvider.notifier).toTimeline();
-                              },
-                            ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF050D1A),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.neonCyan.withValues(alpha: 0.16),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'QUICK ENTRY',
+                        style: TextStyle(
+                          fontSize: 11,
+                          letterSpacing: 1.1,
+                          color: AppColors.neonCyan,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 9,
+                        runSpacing: 9,
+                        children: [
+                          _QuickEntryChip(
+                            label: 'Task',
+                            selected: _voicePreferredType == 'Task',
+                            onTap: () => _setQuickEntryType('Task'),
                           ),
+                          _QuickEntryChip(
+                            label: 'Daily rhythm',
+                            selected: _voicePreferredType == 'Habit',
+                            onTap: () => _setQuickEntryType('Habit'),
+                          ),
+                          _QuickEntryChip(
+                            label: 'Note',
+                            selected: _voicePreferredType == 'Note',
+                            onTap: () => _setQuickEntryType('Note'),
+                          ),
+                          _QuickEntryChip(
+                            label: 'Goal',
+                            selected: _voicePreferredType == 'Goal',
+                            onTap: () => _setQuickEntryType('Goal'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Stack(
+                  children: [
+                    DynamicForm(
+                      workspaceMode: _mode,
+                      preferredType: _voicePreferredType,
+                      taskTitleController: _taskTitleController,
+                      goalTitleController: _goalTitleController,
+                      memoryController: _memoryController,
+                      notesController: _notesController,
+                      soundEnabled: soundEnabled,
+                      advancedAudioEnabled: advancedAudioEnabled,
+                      onSubmit: (data) async {
+                        final bool shouldAutoOpenTimeline = !ref.read(
+                          creatorFirstItemCreatedProvider,
                         );
+                        final savedKind = await ref
+                            .read(creatorActionsProvider)
+                            .createEntry(data);
 
-                      if (shouldAutoOpenTimeline && missionProgressReported) {
-                        // First successful create should immediately reinforce
-                        // the Create -> Timeline review loop.
-                        ref.read(appFlowProvider.notifier).toTimeline();
-                      }
-                    }
-                  },
+                        if (_tutorialController.state.isActive) {
+                          await _tutorialController.next();
+                        }
+
+                        bool missionProgressReported = true;
+                        if (missionTutorialEnabled &&
+                            _isSupportedFirstItemKind(savedKind)) {
+                          try {
+                            await ref
+                                .read(missionEventBridgeProvider)
+                                .reportFirstItemCreated();
+                            await ref
+                                .read(missionEventBridgeProvider)
+                                .reportCreatorOpened();
+                          } on Object {
+                            missionProgressReported = false;
+                          }
+                        }
+
+                        if (savedKind == CreatorSavedKind.task ||
+                            savedKind == CreatorSavedKind.routine ||
+                            savedKind == CreatorSavedKind.note) {
+                          await ref
+                              .read(localMetricsAccumulatorProvider)
+                              .recordTaskCreated();
+                        }
+                        ref.invalidate(tasksProvider);
+                        ref.invalidate(goalProgressProvider);
+
+                        if (context.mounted) {
+                          final String saveMessage = switch (savedKind) {
+                            CreatorSavedKind.note => 'Note saved.',
+                            CreatorSavedKind.routine => 'Habit saved.',
+                            CreatorSavedKind.goal => 'Goal saved.',
+                            CreatorSavedKind.task => 'Task saved.',
+                          };
+                          final ScaffoldMessengerState messenger =
+                              ScaffoldMessenger.of(context);
+                          messenger
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  shouldAutoOpenTimeline &&
+                                          missionProgressReported
+                                      ? 'First item created. Reviewing it on your timeline...'
+                                      : saveMessage,
+                                ),
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                                action: SnackBarAction(
+                                  label: 'REVIEW TIMELINE',
+                                  onPressed: () {
+                                    if (!context.mounted) {
+                                      return;
+                                    }
+                                    ref
+                                        .read(appFlowProvider.notifier)
+                                        .toTimeline();
+                                  },
+                                ),
+                              ),
+                            );
+
+                          if (shouldAutoOpenTimeline &&
+                              missionProgressReported) {
+                            ref.read(appFlowProvider.notifier).toTimeline();
+                          }
+                        }
+                      },
+                    ),
+                    if (_tutorialController.state.isActive)
+                      FirstRunTutorialOverlay(
+                        controller: _tutorialController,
+                        title: switch (_tutorialController.state.currentStep) {
+                          0 => 'Create your first item',
+                          1 => 'Save the item',
+                          _ => 'Review it on your timeline',
+                        },
+                        body: switch (_tutorialController.state.currentStep) {
+                          0 =>
+                            'Start with one small task or habit. The goal is a safe first step.',
+                          1 => 'Tap save to place it into your system.',
+                          _ =>
+                            'Your first item will be reviewed on the timeline next.',
+                        },
+                        primaryLabel: _tutorialController.state.currentStep == 0
+                            ? 'Next'
+                            : _tutorialController.state.currentStep == 1
+                            ? 'Next'
+                            : 'Finish',
+                      ),
+                  ],
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickEntryChip extends StatelessWidget {
+  const _QuickEntryChip({
+    required this.label,
+    required this.onTap,
+    required this.selected,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SmartPressable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.neonCyan.withValues(alpha: 0.14)
+              : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected
+                ? AppColors.neonCyan.withValues(alpha: 0.45)
+                : Colors.white.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 10,
+            letterSpacing: 1.2,
+            fontWeight: FontWeight.w700,
+            color: selected ? AppColors.neonCyan : Colors.white60,
           ),
         ),
       ),
@@ -343,7 +511,7 @@ class _CreatorMissionPanel extends ConsumerWidget {
         if (activeMissionId == MissionId.createFirstGoal) {
           title = 'Create Something';
           body =
-              'Start by creating one task, habit, note, or goal. Add a title, choose when it happens, then tap Create item.';
+              'Start by creating one task, daily rhythm, note, or goal. Add a title, choose when it happens, then tap Create item.';
           steps = const <String>[
             '1. Choose a type',
             '2. Add a title',

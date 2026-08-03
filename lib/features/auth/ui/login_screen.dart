@@ -93,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           // Background image
@@ -237,9 +237,7 @@ class _PortraitLoginContent extends StatelessWidget {
     final bool compact = width < 390;
     return Positioned.fill(
       child: SafeArea(
-        child: AnimatedPadding(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
+        child: Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.viewInsetsOf(context).bottom,
           ),
@@ -340,9 +338,7 @@ class _LandscapeLoginContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: SafeArea(
-        child: AnimatedPadding(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
+        child: Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.viewInsetsOf(context).bottom,
           ),

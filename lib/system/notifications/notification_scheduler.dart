@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+const bool _isTestBuild = bool.fromEnvironment('FLUTTER_TEST');
+
 enum NotificationScheduleResult {
   scheduled,
   skippedNotInitialized,
@@ -55,6 +57,15 @@ class NotificationScheduler {
   );
 
   Future<bool> init({bool requestPermissions = false}) async {
+    if (_isTestBuild) {
+      _initialized = false;
+      _permissionGranted = false;
+      permissionGrantedListenable.value = false;
+      Logger.log('Notifications', 'Local notifications skipped in test build.');
+      RuntimeDiagnostics.record('Local notifications skipped in test build.');
+      return false;
+    }
+
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
       _initialized = true;
       _permissionGranted = false;

@@ -40,7 +40,8 @@ class EmotionSelector extends StatelessWidget {
       children: EmotionalState.values.map((state) {
         final isSelected = state == selected;
         final color = _colorFor(state);
-        return SmartPressable(
+        return RepaintBoundary(
+          child: SmartPressable(
           onTap: () => onSelect(state),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
@@ -66,6 +67,7 @@ class EmotionSelector extends StatelessWidget {
               ),
             ),
           ),
+        ),
         );
       }).toList(),
     );

@@ -1,0 +1,19 @@
+appId: com.ghostheart.chronospark
+---
+- runFlow:
+    when:
+      visible: "ENTER SYSTEM"
+    commands:
+      - tapOn: "Email address"
+      - eraseText
+      - inputText: "journey@example.com"
+      - tapOn: "Password"
+      - eraseText
+      - inputText: "Password123"
+      - tapOn: "ENTER SYSTEM"
+
+- runFlow:
+    when:
+      visible: "TEST ACCESS | LOGIN"
+    commands:
+      - tapOn: "TEST ACCESS | LOGIN"

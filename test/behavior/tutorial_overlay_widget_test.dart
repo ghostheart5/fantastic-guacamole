@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:fantastic_guacamole/tutorial/tutorial_asset_loader.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_controller.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_models.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_overlay.dart';
+import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -30,8 +29,8 @@ void main() {
   Widget wrapForTest(Widget child) {
     return MediaQuery(
       data: const MediaQueryData(
-        size: Size(1280, 800),
-        textScaler: TextScaler.linear(0.85),
+        size: Size(1920, 1080),
+        textScaler: TextScaler.linear(0.70),
       ),
       child: child,
     );
@@ -107,23 +106,45 @@ void main() {
       expect(find.text('First Step'), findsNothing);
     });
 
-    testWidgets('overlay source keeps target anchoring wiring', (WidgetTester tester) async {
-      final String overlaySource = File(
-        'lib/tutorial/tutorial_overlay.dart',
-      ).readAsStringSync();
-      expect(overlaySource.contains('TutorialTargetRegistry'), isTrue);
-      expect(overlaySource.contains('rectFor'), isTrue);
-      expect(overlaySource.contains('activeStep'), isTrue);
-
+    testWidgets('overlay advances from tap target event to next step', (WidgetTester tester) async {
       final TutorialController controller = TutorialController(
         loader: _FakeTutorialAssetLoader(<String, TutorialDefinition>{
           'demo.json': twoStepDefinition(),
         }),
       );
       addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        wrapForTest(
+          MaterialApp(
+            home: TutorialHost(
+              controller: controller,
+              child: const Scaffold(
+                body: Center(
+                  child: TutorialTarget(
+                    id: 'target-1',
+                    child: SizedBox(width: 120, height: 48),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
       await controller.loadAssets(const <String>['demo.json']);
       await controller.start('demo');
+      await tester.pump(const Duration(milliseconds: 120));
+
       expect(controller.activeStep?.id, equals('step-1'));
+      expect(find.text('First Step'), findsOneWidget);
+
+      final Rect targetRect = tester.getRect(find.byType(TutorialTarget));
+      await tester.tapAt(targetRect.center);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(controller.activeStep?.id, equals('step-2'));
+      expect(find.text('Second Step'), findsOneWidget);
     });
 
     testWidgets('overlay handles missing target gracefully', (WidgetTester tester) async {

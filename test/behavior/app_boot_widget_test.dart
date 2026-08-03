@@ -18,7 +18,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.byType(MaterialApp), findsOneWidget);
-      expect(find.byType(BottomNavigationBar), findsNothing);
+      expect(find.byType(AppRoot), findsOneWidget);
     });
 
     test('Nexus entry screen widget is constructible for home surface contract', () {

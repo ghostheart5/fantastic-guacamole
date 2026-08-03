@@ -21,6 +21,13 @@ class TypeSelector extends StatelessWidget {
     return values;
   }
 
+  String _displayLabel(String type) {
+    if (type == 'Habit') {
+      return 'Daily rhythm';
+    }
+    return type;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -54,7 +61,8 @@ class TypeSelector extends StatelessWidget {
           runSpacing: 8,
           children: _types().map((type) {
             final isSelected = type == selected;
-            return SmartPressable(
+            return RepaintBoundary(
+              child: SmartPressable(
               onTap: () => onSelect(type),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
@@ -82,7 +90,7 @@ class TypeSelector extends StatelessWidget {
                       : null,
                 ),
                 child: Text(
-                  type.toUpperCase(),
+                  _displayLabel(type).toUpperCase(),
                   style: TextStyle(
                     fontSize: 10,
                     letterSpacing: 1.5,
@@ -91,6 +99,7 @@ class TypeSelector extends StatelessWidget {
                   ),
                 ),
               ),
+            ),
             );
           }).toList(),
         ),

@@ -1,7 +1,6 @@
 import 'package:fantastic_guacamole/state/providers/goal_success_probability_provider.dart';
 import 'package:fantastic_guacamole/state/providers/predictive_risk_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memory_intelligence_provider.dart';
-import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_commands.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_message.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_prompt_copy.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_response_frame.dart';
@@ -19,7 +18,6 @@ import 'package:fantastic_guacamole/state/controllers/si_console_query_controlle
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
-import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/explainable_si_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -43,7 +41,6 @@ import 'package:fantastic_guacamole/state/providers/autonomous_focus_scheduler_p
 import 'package:fantastic_guacamole/state/providers/autonomous_review_provider.dart';
 import 'package:fantastic_guacamole/state/providers/autonomous_life_optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
-import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -77,6 +74,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   final List<SIConsoleMessage> _messages = [];
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  final FocusNode _inputFocus = FocusNode();
   late final VoiceService _voiceService;
   bool _typing = false;
   late final AnimationController _typingAnim;
@@ -151,9 +149,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     // Greeting after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _addSI(
-        'SI Console is ready.\n'
-        'I can help with tasks, goals, timeline, momentum, and planning context. '
-        'Ask a question, or type "help" to see the available commands.',
+        'Mission control is aligned.\n'
+        'I can help with priorities, risk, momentum, and the next best move. '
+        'Ask a question, or tap a mission channel to jump straight to the signal.',
         emotion: 'confident',
       );
     });
@@ -164,6 +162,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _typingAnim.dispose();
     _input.dispose();
     _scroll.dispose();
+    _inputFocus.dispose();
     unawaited(_voiceService.stop());
     unawaited(_goalEventSubscription?.cancel());
     unawaited(_taskEventSubscription?.cancel());
@@ -177,6 +176,18 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       ),
     );
     _scrollToBottom();
+  }
+
+  void _insertCommand(String command) {
+    _input
+      ..text = '$command '
+      ..selection = TextSelection.collapsed(offset: command.length + 1);
+    FocusScope.of(context).requestFocus(_inputFocus);
+  }
+
+  void _runMissionChannel(String command) {
+    _insertCommand(command);
+    _send();
   }
 
   Future<void> _showAccessibilityGuide() async {
@@ -314,10 +325,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 'SYSTEM\n'
                 '/status — cross-system synchronization and execution state\n'
                 '/help — guide and command surface\n\n'
-                'Operating rules:\n'
-                '- SI Console analyzes and guides.\n'
-                '- Creator creates tasks, goals, habits, and notes.\n'
-                '- SI Console should explain why a move matters, not just list data.\n\n'
                 '${SIConsolePromptCopy.helpSection()}',
             isUser: false,
             emotion: 'focused',
@@ -338,16 +345,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       ];
 
       final String response = SIResponseFrame.build(
-        signal:
-            'Weekly execution direction is anchored to ${weekly.primaryDirective}.',
-        whyItMatters:
-            'This matters because weekly focus quality determines whether daily effort compounds or fragments.',
         evidence: evidence,
-        tradeoff:
-            'Narrow weekly focus improves completion reliability, but it can reduce flexibility for side opportunities.',
         recommendedMove:
             'Commit this week to one primary directive and protect execution blocks around it.',
-        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
       );
 
       _safeSetState(() {
@@ -374,15 +374,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       ];
 
       final String response = SIResponseFrame.build(
-        signal: 'Daily directive load is centered on ${daily.focus}.',
-        whyItMatters:
-            'This matters because today\'s execution pattern directly influences tomorrow\'s momentum stability.',
         evidence: evidence,
-        tradeoff:
-            'Pushing all directives may increase output now, but overload risk rises if pressure stays elevated.',
         recommendedMove:
             'Execute the top directive first, then reassess pressure before adding secondary work.',
-        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
       );
 
       _safeSetState(() {
@@ -406,16 +400,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       ];
 
       final String response = SIResponseFrame.build(
-        signal:
-            'Focus scheduling recommends a ${focusBlock.intensity.name} execution block.',
-        whyItMatters:
-            'This matters because focus block calibration protects momentum without triggering avoidable fatigue.',
         evidence: evidence,
-        tradeoff:
-            'A deeper block can accelerate progress, but the wrong intensity can increase pressure and reduce consistency.',
         recommendedMove:
             'Run ${focusBlock.durationMinutes} minutes on ${focusBlock.title}, then decide whether to extend or recover.',
-        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
       );
 
       _safeSetState(() {
@@ -439,14 +426,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       ];
 
       final String response = SIResponseFrame.build(
-        signal: 'Review signals ${review.summary.toLowerCase()}',
-        whyItMatters:
-            'This matters because your next-day setup should be driven by execution quality, not intention alone.',
         evidence: evidence,
-        tradeoff:
-            'Ignoring adjustment preserves comfort now, but drift risk compounds across consecutive days.',
         recommendedMove: review.tomorrowAdjustment,
-        confidenceSignal: SIResponseFrame.signalBandFromPercent(review.score),
       );
 
       _safeSetState(() {
@@ -470,17 +451,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       ];
 
       final String response = SIResponseFrame.build(
-        signal:
-            'Optimization state points to ${optimization.primaryAdjustment} as the highest-leverage adjustment.',
-        whyItMatters:
-            'This matters because system-level optimization determines whether effort converts into repeatable progress.',
         evidence: evidence,
-        tradeoff:
-            'Maintaining current mode preserves routine, but unresolved structural drag can suppress future gains.',
         recommendedMove: optimization.nextDirective,
-        confidenceSignal: SIResponseFrame.signalBandFromPercent(
-          optimization.optimizationScore,
-        ),
       );
 
       _safeSetState(() {
@@ -499,24 +471,15 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final String status = (aggregation == null)
           ? 'INTELLIGENCE STATUS\n\n'
                 'Model is still initializing. Retry /status in a second.\n'
-            'If this persists, use /tasks or /trajectory to warm providers.'
+                'If this persists, use /tasks or /trajectory to warm providers.'
           : SIResponseFrame.build(
-              signal:
-                  'System synchronization is active with momentum at ${momentum.score}% (${momentum.trend}).',
-              whyItMatters:
-                  'This matters because decision reliability depends on both state freshness and cross-system coherence.',
               evidence: <String>[
                 'Tasks ${aggregation.tasks.length}, goals ${aggregation.goals.length}, timeline ${aggregation.timeline.length}.',
                 'Milestones ${ref.read(milestonesProvider).asData?.value.length ?? 0}, memories ${aggregation.memories.length}.',
                 'Pressure ${aggregation.trajectory.pressureIndex}, divergence ${aggregation.trajectory.behaviorDivergence}%, energy ${momentum.energyPercent}%.',
               ],
-              tradeoff:
-                  'Broad context gives stronger strategic reads, but weak or sparse surfaces reduce precision in edge cases.',
               recommendedMove:
                   'Use /trajectory for direction, /momentum for execution state, then /daily for immediate action sequencing.',
-              confidenceSignal: SIResponseFrame.signalBandFromPercent(
-                momentum.score,
-              ),
             );
 
       _safeSetState(() {
@@ -586,23 +549,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final forecast = ref.read(goalSuccessProbabilityProvider);
       final momentum = ref.read(momentumEngineProvider);
 
-      final String confidenceSignal = SIResponseFrame.signalBandFromPercent(
-        forecast.probability,
-      );
-
       final response = SIResponseFrame.build(
-        signal: 'Goal completion signal is currently $confidenceSignal.',
-        whyItMatters:
-            'This matters because execution momentum only compounds when goal direction remains viable.',
         evidence: <String>[
           forecast.summary,
           'Momentum trend is ${momentum.trend} at ${momentum.score}%.',
         ],
-        tradeoff:
-            'Committing to current direction preserves momentum, but unresolved blockers can still reduce completion reliability.',
         recommendedMove: forecast.recommendation,
-        confidenceSignal:
-            '$confidenceSignal based on current momentum and goal state signals.',
       );
 
       _safeSetState(() {
@@ -629,19 +581,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           .join('\n\n');
 
       final response = SIResponseFrame.build(
-        signal: 'Predictive risk pressure is active across current execution.',
-        whyItMatters:
-            'The risk signal matters because pressure can silently degrade trajectory quality before output visibly drops.',
         evidence: <String>[
           'Momentum trend is ${momentum.trend} with pressure ${momentum.pressurePercent}%.',
           '${riskState.risks.length} risk lanes flagged by the risk engine.',
           risks,
         ],
-        tradeoff:
-            'Aggressive execution can increase short-term throughput, but unresolved risk raises the chance of momentum collapse.',
         recommendedMove:
             'Apply the top mitigation first, then re-evaluate momentum before adding new commitments.',
-        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
       );
 
       _safeSetState(() {
@@ -662,18 +608,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final momentum = ref.read(momentumEngineProvider);
 
       final response = SIResponseFrame.build(
-        signal: 'Memory intelligence shows repeat patterns in your execution loop.',
-        whyItMatters:
-            'This matters because recurring friction compounds faster than isolated mistakes when momentum is under load.',
         evidence: <String>[
           'Recurring win: ${memoryIntel.recurringWin}',
           'Recurring friction: ${memoryIntel.recurringFriction}',
           'Momentum trend is ${momentum.trend}.',
         ],
-        tradeoff:
-            'Ignoring pattern friction preserves short-term speed, but increases long-term drift and rework.',
         recommendedMove: memoryIntel.focusSuggestion,
-        confidenceSignal: 'Signal is moderate from recurring historical patterns.',
       );
 
       _safeSetState(() {
@@ -704,19 +644,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           .join('\n\n');
 
       final String response = SIResponseFrame.build(
-        signal: 'Future simulations show multiple viable identity trajectories.',
-        whyItMatters:
-            'This matters because current execution momentum determines which future path becomes dominant.',
         evidence: <String>[
           'Generated ${simulations.length} future path simulations.',
           'Momentum trend is ${momentum.trend} at ${momentum.score}%.',
           paths,
         ],
-        tradeoff:
-            'A single-lane focus accelerates one outcome, but reduces optionality if conditions change.',
         recommendedMove:
             'Choose one primary path for execution and preserve one smaller exploratory action.',
-        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
       );
 
       _safeSetState(() {
@@ -741,19 +675,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final momentum = ref.read(momentumEngineProvider);
 
       final String response = SIResponseFrame.build(
-        signal: 'Identity alignment is ${drift.alignment.name} with ${drift.score}% score.',
-        whyItMatters:
-            'This matters because strategic consistency depends on alignment between current behavior and future direction.',
         evidence: <String>[
           drift.summary,
           'Momentum trend is ${momentum.trend}.',
           'Correction signal: ${drift.correction}',
         ],
-        tradeoff:
-            'Staying misaligned can preserve immediate comfort, but increases long-term direction drift.',
         recommendedMove:
             'Apply the correction signal to your next execution block today.',
-        confidenceSignal: SIResponseFrame.signalBandFromPercent(drift.score),
       );
 
       _safeSetState(() {
@@ -780,25 +708,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final trajectory = ref.read(trajectorySummaryProvider);
 
       final response = SIResponseFrame.build(
-      signal:
-        'Alternative path signals show multiple strategic lanes, with different risk and flexibility profiles.',
-      whyItMatters:
-        'This matters because future optionality depends on whether current momentum is concentrated or diversified.',
-      evidence: <String>[
-        'Momentum trend is ${momentum.trend}.',
-        'Trajectory pressure is ${trajectory.pressureIndex}.',
-        paths
-          .map(
-          (p) =>
-            '${p.name}: ${p.description} Tradeoff: ${p.tradeoff}',
-          )
-          .join(' | '),
-      ],
-      tradeoff:
-        'A narrow path can improve completion speed, while broader exploration preserves optionality but slows compounding.',
-      recommendedMove:
-        'Advance one primary path and schedule one path-opening action this week.',
-      confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+        evidence: <String>[
+          'Momentum trend is ${momentum.trend}.',
+          'Trajectory pressure is ${trajectory.pressureIndex}.',
+          paths.map((p) => '${p.name}: ${p.description}').join(' | '),
+        ],
+        recommendedMove:
+            'Advance one primary path and schedule one path-opening action this week.',
       );
 
       _safeSetState(() {
@@ -845,7 +761,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final momentum = ref.read(momentumEngineProvider);
       final trajectory = ref.read(trajectorySummaryProvider);
       final bool roadmapView =
-        normalized == '/roadmap' || normalized == 'roadmap';
+          normalized == '/roadmap' || normalized == 'roadmap';
 
       final String checkpoints = timeline.checkpoints
           .map(
@@ -856,23 +772,15 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
           .join('\n\n');
 
       final String response = SIResponseFrame.build(
-      signal: roadmapView
-        ? 'Roadmap view generated from future timeline signals.'
-        : 'Projected timeline sequence shows the next strategic checkpoints.',
-      whyItMatters:
-        'This matters because future reliability depends on translating long-range direction into near-range checkpoints.',
-      evidence: <String>[
-        'Timeline model generated ${timeline.checkpoints.length} checkpoints.',
-        'Momentum trend is ${momentum.trend} at ${momentum.score}%.',
-        'Current pressure index is ${trajectory.pressureIndex}.',
-        checkpoints,
-      ],
-      tradeoff:
-        'Checkpoint discipline improves predictability, but overplanning can reduce adaptive response to new signals.',
-      recommendedMove: roadmapView
-        ? 'Prioritize the nearest checkpoint with one concrete action block this week.'
-        : 'Protect the next checkpoint window before adding non-critical work.',
-      confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
+        evidence: <String>[
+          'Timeline model generated ${timeline.checkpoints.length} checkpoints.',
+          'Momentum trend is ${momentum.trend} at ${momentum.score}%.',
+          'Current pressure index is ${trajectory.pressureIndex}.',
+          checkpoints,
+        ],
+        recommendedMove: roadmapView
+            ? 'Prioritize the nearest checkpoint with one concrete action block this week.'
+            : 'Protect the next checkpoint window before adding non-critical work.',
       );
 
       _safeSetState(() {
@@ -895,22 +803,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final momentum = ref.read(momentumEngineProvider);
 
       final String response = SIResponseFrame.build(
-        signal:
-            'Future decision engine points to ${decision.recommendedChoice} as the strongest move.',
-        whyItMatters:
-            'This matters because directional alignment quality determines whether effort compounds or stalls.',
         evidence: <String>[
           'Alignment score is ${decision.alignmentScore}%.',
           decision.reason,
           'Momentum trend is ${momentum.trend}.',
         ],
-        tradeoff:
-            'Committing early improves decisiveness, but bypassing validation can increase downstream correction cost.',
         recommendedMove:
             'Translate this choice into one concrete task and execute it in the next focus block.',
-        confidenceSignal: SIResponseFrame.signalBandFromPercent(
-          decision.alignmentScore,
-        ),
       );
 
       _safeSetState(() {
@@ -930,19 +829,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final momentum = ref.read(momentumEngineProvider);
 
       final response = SIResponseFrame.build(
-        signal: 'Cognitive twin mode is ${twin.mode.name}.',
-        whyItMatters:
-            'This matters because your operating mode changes the type of action that will actually convert into progress.',
         evidence: <String>[
           'Identity statement: ${twin.identityStatement}',
           'Best action: ${twin.bestAction}',
           'Warning signal: ${twin.warning}',
           'Momentum trend is ${momentum.trend}.',
         ],
-        tradeoff:
-            'Following mode-aware guidance increases precision, but may feel slower than high-intensity forcing when pressure rises.',
         recommendedMove: twin.coachingMessage,
-        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
       );
 
       _safeSetState(() {
@@ -960,9 +853,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       final momentum = ref.read(momentumEngineProvider);
 
       final String response = SIResponseFrame.build(
-        signal: 'Strategic fusion indicates a concentrated next-move signal.',
-        whyItMatters:
-            'This matters because fused signals reduce noise across modules and improve decision quality.',
         evidence: <String>[
           explainable.primaryReason,
           'Momentum trend is ${momentum.trend}.',
@@ -970,10 +860,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
               .take(3)
               .map((reason) => '${reason.label}: ${reason.detail}'),
         ],
-        tradeoff:
-            'Signal fusion improves coherence, but weak source quality can still limit precision.',
         recommendedMove: explainable.recommendation,
-        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
       );
 
       _safeSetState(() {
@@ -1007,24 +894,17 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                       '  Daily adjustment: ${scenario.dailyAdjustment}',
                 )
                 .join('\n\n');
-            final momentum = ref.read(momentumEngineProvider);
+      final momentum = ref.read(momentumEngineProvider);
 
-            final String response = SIResponseFrame.build(
-            signal:
-              'Adaptive replanning signals are ${replans.isEmpty ? 'limited' : 'active'} for current execution pressure.',
-            whyItMatters:
-              'This matters because same-day course correction often prevents multi-day momentum collapse.',
-            evidence: <String>[
-              'Momentum trend is ${momentum.trend} with pressure ${momentum.pressurePercent}%.',
-              scenarios,
-            ],
-            tradeoff:
-              'Replanning reduces trajectory risk, but excessive replanning can create hesitation and execution delay.',
-            recommendedMove: replans.isEmpty
-              ? 'Run one focused block on the highest-leverage task and reassess after completion.'
-              : replans.first.immediateAction,
-            confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
-            );
+      final String response = SIResponseFrame.build(
+        evidence: <String>[
+          'Momentum trend is ${momentum.trend} with pressure ${momentum.pressurePercent}%.',
+          scenarios,
+        ],
+        recommendedMove: replans.isEmpty
+            ? 'Run one focused block on the highest-leverage task and reassess after completion.'
+            : replans.first.immediateAction,
+      );
 
       _safeSetState(() {
         _messages.add(SIConsoleMessage(text: text, isUser: true));
@@ -1038,21 +918,14 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     if (normalized == '/momentum' || normalized == 'momentum') {
       final momentum = ref.read(momentumEngineProvider);
       final String response = SIResponseFrame.build(
-        signal:
-            'Momentum is ${momentum.trend.toLowerCase()} at ${momentum.score}% with ${momentum.recovery.toLowerCase()} recovery state.',
-        whyItMatters:
-            'The momentum signal matters because it captures whether current effort is compounding or leaking.',
         evidence: <String>[
           'Energy ${momentum.energyPercent}% and pressure ${momentum.pressurePercent}%.',
           'Completed today: ${momentum.completedToday}.',
           'Forecast: ${momentum.forecast}',
         ],
-        tradeoff:
-            'Pushing through pressure can boost short-term output, but sustained load can trigger recovery debt.',
         recommendedMove: momentum.isDeclining
             ? 'Stabilize with one clear completion before opening new work.'
             : 'Use current momentum to complete one high-leverage task now.',
-        confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
       );
 
       _safeSetState(() {
@@ -1114,20 +987,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             .map((t) => t.title)
             .toList(growable: false);
         return SIResponseFrame.build(
-          signal:
-              'Task pressure is ${aggregation.tasks.isEmpty ? 'minimal' : 'active'} with ${aggregation.tasks.length} active tasks.',
-          whyItMatters:
-              'This matters because task load without execution focus creates fragmentation before momentum visibly drops.',
           evidence: <String>[
             'Top active tasks: ${top.isEmpty ? 'none available' : top.join(' | ')}',
             'Momentum trend is ${momentum.trend} at ${momentum.score}%.',
             'Future pressure index is ${aggregation.trajectory.pressureIndex}.',
           ],
-          tradeoff:
-              'Keeping many tasks open preserves optionality, but reduces decisive execution throughput.',
           recommendedMove:
               'Execute one highest-leverage task now and defer lower-impact items until completion is logged.',
-          confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
         );
       case '/goals':
         final List<String> top = aggregation.goals
@@ -1135,40 +1001,26 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             .map((g) => g.title)
             .toList(growable: false);
         return SIResponseFrame.build(
-          signal:
-              'Goal direction is ${aggregation.signals.goalDrift ? 'showing drift' : 'currently stable'} across ${aggregation.goals.length} goals.',
-          whyItMatters:
-              'This matters because goals only compound when execution and trajectory stay aligned over time.',
           evidence: <String>[
             'Top goals: ${top.isEmpty ? 'none available' : top.join(' | ')}',
             'Behavior divergence is ${aggregation.trajectory.behaviorDivergence}%.',
             'Task avoidance signal: ${aggregation.signals.taskAvoidance ? 'active' : 'not dominant'}.',
           ],
-          tradeoff:
-              'Holding many concurrent goals can preserve ambition, but weakens execution density on priority outcomes.',
           recommendedMove:
               'Prioritize one goal for the next execution block and delay non-critical goal moves today.',
-          confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
         );
       case '/plan':
         final String blocks = aggregation.planPreview.isEmpty
             ? 'No adaptive blocks generated yet.'
             : aggregation.planPreview.take(3).map((b) => '- $b').join('\n');
         return SIResponseFrame.build(
-          signal:
-              'Plan pressure is ${aggregation.planPreview.isEmpty ? 'uncertain' : 'visible'} from current adaptive blocks.',
-          whyItMatters:
-              'This matters because plan structure determines whether momentum is protected or leaked through context switching.',
           evidence: <String>[
             'Plan preview block count: ${aggregation.planPreview.length}.',
             'Upcoming blocks: $blocks',
             'Pressure index: ${aggregation.trajectory.pressureIndex}.',
           ],
-          tradeoff:
-              'Dense scheduling increases perceived progress, but can amplify execution drag under high pressure.',
           recommendedMove:
               'Keep only the highest-leverage block fixed and re-sequence the rest after first completion.',
-          confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
         );
       case '/milestones':
         final MilestoneSummary summary = ref.read(milestoneSummaryProvider);
@@ -1189,10 +1041,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 )
                 .toList(growable: false);
         return SIResponseFrame.build(
-          signal:
-              'Milestone health is ${summary.healthScore}% with ${summary.overdue} overdue checkpoints.',
-          whyItMatters:
-              'This matters because checkpoint quality is the bridge between strategic goals and daily execution reality.',
           evidence: <String>[
             'Active ${summary.active}, completed ${summary.completed}, upcoming ${summary.upcoming}.',
             'Top risk: ${risks.isEmpty ? 'none flagged' : '${risks.first.milestone.title} - ${risks.first.reason}'}',
@@ -1201,13 +1049,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             'Overdue list: ${overdue.take(2).map((MilestoneEntity m) => m.title).join(' | ').trim().isEmpty ? 'none' : overdue.take(2).map((MilestoneEntity m) => m.title).join(' | ')}',
             'Upcoming list: ${upcoming.take(2).map((MilestoneEntity m) => m.title).join(' | ').trim().isEmpty ? 'none' : upcoming.take(2).map((MilestoneEntity m) => m.title).join(' | ')}',
           ],
-          tradeoff:
-              'Driving only near checkpoints increases short-term closure, but can hide drift in deeper milestones.',
           recommendedMove:
               'Recover the highest-risk overdue checkpoint first, then protect the next milestone window.',
-          confidenceSignal: SIResponseFrame.signalBandFromPercent(
-            summary.healthScore,
-          ),
         );
       case '/values':
         final CoreValuesAlignment values = ref.read(
@@ -1220,69 +1063,29 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             )
             .toList(growable: false);
         return SIResponseFrame.build(
-          signal:
-              'Values alignment is ${values.overall}% with strongest signal in ${coreValueTitle(values.strongest)}.',
-          whyItMatters:
-              'This matters because values drift degrades strategic trust even when task output appears healthy.',
           evidence: <String>[
             rows.join(' | '),
             'Most neglected value is ${coreValueTitle(values.mostNeglected)}.',
             'Goal drift signal is ${aggregation.signals.goalDrift ? 'active' : 'not dominant'}.',
           ],
-          tradeoff:
-              'Over-optimizing for output can improve speed now, but it increases identity mismatch if neglected values persist.',
-          recommendedMove:
-              values.recommendations.firstWhere(
-                (String line) =>
-                    line.toLowerCase().contains('schedule one action'),
-                orElse: () =>
-                    'Schedule one action this week aligned to your neglected value.',
-              ),
-          confidenceSignal: SIResponseFrame.signalBandFromPercent(
-            values.overall,
+          recommendedMove: values.recommendations.firstWhere(
+            (String line) => line.toLowerCase().contains('schedule one action'),
+            orElse: () =>
+                'Schedule one action this week aligned to your neglected value.',
           ),
         );
       case '/identity':
-        final SoulMapAlignment soulMap = ref.read(soulMapAlignmentProvider);
-        final int purpose =
-            soulMap.scores[SoulMapDimension.purpose]?.score ?? 0;
-        final int identity =
-            soulMap.scores[SoulMapDimension.identity]?.score ?? 0;
-        final int values =
-            soulMap.scores[SoulMapDimension.coreValues]?.score ?? 0;
-        final int futureSelf =
-            soulMap.scores[SoulMapDimension.futureSelf]?.score ?? 0;
-        final String strongest = soulMapDimensionTitle(soulMap.strongest);
-        final String weakest = soulMapDimensionTitle(soulMap.weakest);
-        final String action = soulMap.recommendations.firstWhere(
-          (String line) =>
-              line.toLowerCase().contains('schedule one concrete action'),
-          orElse: () =>
-              'Schedule one concrete action this week to strengthen $weakest.',
-        );
-        final int identityScore = ((purpose + identity + values + futureSelf) /
-            4)
-          .round();
+        final drift = ref.read(identityDriftProvider);
         return SIResponseFrame.build(
-          signal:
-            'Identity direction signal is mixed with strongest area in $strongest and weakest in $weakest.',
-          whyItMatters:
-            'This matters because identity alignment determines whether future trajectory feels coherent or conflicted.',
           evidence: <String>[
-          'Purpose $purpose%, identity $identity%, values $values%, future self $futureSelf%.',
-          'Momentum trend is ${momentum.trend}.',
-          'Task avoidance signal is ${aggregation.signals.taskAvoidance ? 'active' : 'not dominant'}.',
+            drift.summary,
+            'Momentum trend is ${momentum.trend}.',
+            'Correction signal: ${drift.correction}',
           ],
-          tradeoff:
-            'Leaning only on strengths preserves confidence, but unresolved weak dimensions can slow long-term evolution.',
           recommendedMove:
-            '$action Use /identity compare to inspect current-vs-future direction gap.',
-          confidenceSignal: SIResponseFrame.signalBandFromPercent(identityScore),
+              'Apply the correction signal to your next execution block today.',
         );
       case '/timeline':
-        final int healthScore = ref.read(timelineHealthScoreProvider);
-        final int riskScore = ref.read(timelineRiskScoreProvider);
-        final int overdueCount = ref.read(timelineOverdueProvider).length;
         final int upcomingCount = ref.read(timelineUpcomingProvider).length;
         final int riskEventsCount = ref.read(timelineRiskEventsProvider).length;
         final int recommendationCount = ref
@@ -1304,41 +1107,25 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             .map((e) => '${e.shortLabel}: ${e.title}')
             .toList(growable: false);
         return SIResponseFrame.build(
-          signal:
-              'Timeline health is $healthScore% with $overdueCount overdue items and risk score $riskScore%.',
-          whyItMatters:
-              'This matters because timeline pressure reveals delivery friction earlier than end-state outcomes.',
           evidence: <String>[
             'Events ${aggregation.timeline.length}, upcoming $upcomingCount, risk events $riskEventsCount.',
             'Recommendations active: $recommendationCount.',
             'Next deadline: $nextDeadline.',
             'Recent events: ${events.isEmpty ? 'none available' : events.join(' | ')}',
           ],
-          tradeoff:
-              'Ignoring timeline friction can protect short-term comfort, but increases future compression and miss risk.',
           recommendedMove:
               'Recover one overdue item or protect the next deadline block before adding new scope.',
-          confidenceSignal: SIResponseFrame.signalBandFromPercent(healthScore),
         );
       case '/trajectory':
-        final int momentumPercent =
-            (aggregation.trajectory.momentum * 100).round();
         return SIResponseFrame.build(
-          signal:
-              'Future trajectory is ${aggregation.trajectory.pressureIndex >= 70 ? 'under pressure' : 'currently stable'} with momentum at $momentumPercent%.',
-          whyItMatters:
-              'This matters because trajectory quality reflects whether today\'s behavior supports tomorrow\'s outcomes.',
           evidence: <String>[
             'Pressure ${aggregation.trajectory.pressureIndex}, divergence ${aggregation.trajectory.behaviorDivergence}%.',
             'Momentum engine trend: ${momentum.trend} (${momentum.score}%).',
             'Alert signal: ${aggregation.trajectory.alert}',
             'Goals active: ${aggregation.goals.length}; milestones active: ${ref.read(milestonesProvider).asData?.value.length ?? 0}.',
           ],
-          tradeoff:
-              'Short-term acceleration can increase immediate progress, but unmanaged pressure raises drift and recovery cost.',
           recommendedMove:
               'Protect one high-leverage execution block and remove one low-impact commitment today.',
-          confidenceSignal: SIResponseFrame.signalBandFromPercent(momentum.score),
         );
       default:
         return 'Module command not recognized.';
@@ -1350,26 +1137,14 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       return 'SI is still loading module data. Retry the command in a second.';
     }
 
-    final SoulMapFutureSelfComparison compare = ref.read(
-      soulMapFutureSelfComparisonProvider,
-    );
+    final drift = ref.read(identityDriftProvider);
     return SIResponseFrame.build(
-      signal:
-          'Current-vs-future identity gap is ${compare.gap}% with stance ${compare.stance}.',
-      whyItMatters:
-          'This matters because unresolved gap increases strategic drift even when daily execution appears active.',
       evidence: <String>[
-        'Current alignment: ${compare.currentSelfAlignment}%.',
-        'Future readiness: ${compare.futureSelfReadiness}%.',
-        'Gap recommendation: ${compare.recommendation}',
+        drift.summary,
+        'Correction signal: ${drift.correction}',
       ],
-      tradeoff:
-          'Maintaining current mode preserves familiarity, but can delay identity convergence and long-range consistency.',
       recommendedMove:
-          'Apply the gap recommendation to the next high-leverage action today.',
-      confidenceSignal: SIResponseFrame.signalBandFromPercent(
-        compare.currentSelfAlignment,
-      ),
+          'Apply the correction signal to the next high-leverage action today.',
     );
   }
 
@@ -1441,16 +1216,20 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final consoleModelAsync = ref.watch(siConsoleScreenModelProvider);
     final SIConsoleScreenModel? consoleModel = consoleModelAsync.asData?.value;
     final Object? consoleError = consoleModelAsync.asError?.error;
+    final momentum = ref.watch(momentumEngineProvider);
     final String? engineSnapshot = consoleModel?.engineSnapshot;
     final String? integrationSnapshot = consoleModel?.integrationSnapshot;
-    final MediaQueryData mediaQuery = MediaQuery.of(context);
-    final double keyboardInset = mediaQuery.viewInsets.bottom;
+    final double keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final bool keyboardVisible = keyboardInset > 0;
     final double composerBottomInset = keyboardInset > 0
         ? keyboardInset
-        : mediaQuery.padding.bottom;
+        : MediaQuery.paddingOf(context).bottom;
     final double composerMaxHeight = keyboardVisible ? 120 : 220;
     final double composerReservedHeight = composerMaxHeight;
+    final bool isLowSignalData =
+        (seededQueryCount < 3) &&
+        (consoleModel?.aggregation.tasks.isEmpty ?? true) &&
+        (consoleModel?.aggregation.goals.isEmpty ?? true);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgSiConsole,
@@ -1593,14 +1372,38 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                                             composerBottomInset,
                                       ),
                                       itemCount:
-                                          _messages.length + (_typing ? 1 : 0),
+                                          1 +
+                                          _messages.length +
+                                          (_typing ? 1 : 0),
                                       itemBuilder: (context, i) {
-                                        if (_typing && i == _messages.length) {
+                                        if (i == 0) {
+                                          return _MissionControlPanel(
+                                            executionCompletedToday:
+                                                executionSignals.completedToday,
+                                            executionDeferralsToday:
+                                                executionSignals.skippedToday +
+                                                executionSignals.delayedToday,
+                                            executionStabilityPercent:
+                                                executionStabilityPercent,
+                                            momentumScore: momentum.score,
+                                            pressurePercent:
+                                                momentum.pressurePercent,
+                                            energyPercent:
+                                                momentum.energyPercent,
+                                            isLowSignalData: isLowSignalData,
+                                            onQuickCommand: _runMissionChannel,
+                                          );
+                                        }
+                                        final int messageIndex = i - 1;
+                                        if (_typing &&
+                                            i == _messages.length + 1) {
                                           return _TypingIndicator(
                                             animation: _typingAnim,
                                           );
                                         }
-                                        return _BubbleTile(msg: _messages[i]);
+                                        return _BubbleTile(
+                                          msg: _messages[messageIndex],
+                                        );
                                       },
                                     ),
                                   ),
@@ -1619,6 +1422,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                             ),
                             child: _InputBar(
                               controller: _input,
+                              focusNode: _inputFocus,
                               onSend: _send,
                               compact: keyboardVisible,
                             ),
@@ -1882,6 +1686,232 @@ class _ExecutionPill extends StatelessWidget {
           letterSpacing: 0.6,
           fontWeight: FontWeight.w700,
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mission control panel
+// ---------------------------------------------------------------------------
+
+class _MissionControlPanel extends StatelessWidget {
+  const _MissionControlPanel({
+    required this.executionCompletedToday,
+    required this.executionDeferralsToday,
+    required this.executionStabilityPercent,
+    required this.momentumScore,
+    required this.pressurePercent,
+    required this.energyPercent,
+    required this.isLowSignalData,
+    required this.onQuickCommand,
+  });
+
+  final int executionCompletedToday;
+  final int executionDeferralsToday;
+  final int executionStabilityPercent;
+  final int momentumScore;
+  final int pressurePercent;
+  final int energyPercent;
+  final bool isLowSignalData;
+  final ValueChanged<String> onQuickCommand;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> commands = const <String>[
+      '/daily',
+      '/focus',
+      '/risk',
+      '/trajectory',
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF08111D),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.neonCyan.withValues(alpha: 0.08),
+              blurRadius: 18,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'MISSION CONTROL',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.8,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Goals, habits, tasks, and momentum',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontSize: 10,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isLowSignalData
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : AppColors.neonCyan.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: isLowSignalData
+                          ? Colors.white.withValues(alpha: 0.2)
+                          : AppColors.neonCyan.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Text(
+                    isLowSignalData ? 'SIGNAL WARMING' : 'LIVE',
+                    style: TextStyle(
+                      color: isLowSignalData
+                          ? Colors.white70
+                          : AppColors.neonCyan,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                _SignalCard(
+                  label: 'DONE',
+                  value: '$executionCompletedToday',
+                  color: const Color(0xFF7AF7C4),
+                ),
+                _SignalCard(
+                  label: 'DEFERS',
+                  value: '$executionDeferralsToday',
+                  color: const Color(0xFFFFB86B),
+                ),
+                _SignalCard(
+                  label: 'STABILITY',
+                  value: '$executionStabilityPercent%',
+                  color: AppColors.neonViolet,
+                ),
+                _SignalCard(
+                  label: 'ENERGY',
+                  value: '$energyPercent%',
+                  color: AppColors.neonCyan,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: commands
+                  .map((command) {
+                    final String selectedCommand = command;
+                    return GestureDetector(
+                      onTap: () => onQuickCommand(selectedCommand),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.neonCyan.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: AppColors.neonCyan.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Text(
+                          selectedCommand,
+                          style: const TextStyle(
+                            color: AppColors.neonCyan,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.4,
+                          ),
+                        ),
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SignalCard extends StatelessWidget {
+  const _SignalCard({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 7,
+              letterSpacing: 0.6,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2187,17 +2217,13 @@ class _InputBar extends StatelessWidget {
   const _InputBar({
     required this.controller,
     required this.onSend,
+    this.focusNode,
     this.compact = false,
   });
   final TextEditingController controller;
   final VoidCallback onSend;
+  final FocusNode? focusNode;
   final bool compact;
-
-  void _insertCommand(String command) {
-    controller
-      ..text = '$command '
-      ..selection = TextSelection.collapsed(offset: command.length + 1);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -2223,69 +2249,13 @@ class _InputBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!effectiveCompact) ...[
-                  const Text(
-                    'Signal channels',
-                    style: TextStyle(
-                      color: Colors.white38,
-                      fontSize: 9,
-                      letterSpacing: 1.1,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: SIConsoleCommands.values
-                          .map(
-                            (command) => Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: GestureDetector(
-                                onTap: () {
-                                  _insertCommand(command);
-                                  onSend();
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 9,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.neonCyan.withValues(
-                                      alpha: 0.08,
-                                    ),
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(
-                                      color: AppColors.neonCyan.withValues(
-                                        alpha: 0.28,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    command,
-                                    style: const TextStyle(
-                                      color: AppColors.neonCyan,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 2.4,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                ],
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: TextField(
                         controller: controller,
+                        focusNode: focusNode,
                         minLines: 1,
                         maxLines: 1,
                         style: const TextStyle(
@@ -2295,7 +2265,8 @@ class _InputBar extends StatelessWidget {
                         cursorColor: AppColors.neonCyan,
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
-                          hintText: 'Ask about your future direction...',
+                          hintText:
+                              'Ask about momentum, risk, or your next move...',
                           hintStyle: const TextStyle(
                             color: Colors.white24,
                             fontSize: 12,

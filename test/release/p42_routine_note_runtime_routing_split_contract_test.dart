@@ -38,7 +38,7 @@ void main() {
 
       expect(text.contains('Future<void> _createNoteEntry({'), isTrue);
       expect(text.contains('final TaskEntity entity = note.toTaskEntity('), isTrue);
-      expect(text.contains(".createTask(entity, actionSource: 'creator');"), isTrue);
+      expect(text.contains('.createTask(entity, actionSource: _legacyCreatorNoteActionSource);'), isTrue);
     });
   });
 }

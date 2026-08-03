@@ -43,6 +43,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   _TimelineFocus _focus = _TimelineFocus.all;
   String _query = '';
   bool _showMoreFilters = false;
+  Timer? _searchDebounce;
 
   Future<void> _markTimelineViewedForSetup() async {
     if (!ref.read(creatorFirstItemCreatedProvider) ||
@@ -74,6 +75,12 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       unawaited(_markTimelineViewedForSetup());
       ref.read(missionEventBridgeProvider).reportTimelineOpened();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
   }
 
   @override
@@ -262,7 +269,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                   child: TextField(
-                    onChanged: (String value) => setState(() => _query = value),
+                    onChanged: (String value) {
+                      _searchDebounce?.cancel();
+                      _searchDebounce = Timer(
+                        const Duration(milliseconds: 180),
+                        () { if (mounted) setState(() => _query = value); },
+                      );
+                    },
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: 'Search timeline...',

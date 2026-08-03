@@ -47,7 +47,7 @@ class NotificationPermissionPrompt extends StatelessWidget {
             title,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -56,8 +56,8 @@ class NotificationPermissionPrompt extends StatelessWidget {
             'Enable notifications to receive scheduled focus and reflection reminders.',
             style: TextStyle(
               color: Colors.white70,
-              fontSize: 12.5,
-              height: 1.35,
+              fontSize: 13.5,
+              height: 1.4,
             ),
           ),
           const SizedBox(height: 10),

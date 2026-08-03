@@ -77,41 +77,40 @@ class HiveService {
     _secureStore ??= store;
   }
 
-  static Future<void> init() async {
+  static Future<void> init({bool warmupBoxes = false}) async {
     if (_initialized) return;
 
     await Hive.initFlutter();
     HiveAdapters.registerAll();
 
-    final SecureStore? store = _secureStore;
-    if (store != null) {
-      _cipher = await _loadOrCreateCipher(store);
+    if (warmupBoxes) {
+      final SecureStore? store = _secureStore;
+      if (store != null) {
+        _cipher = await _loadOrCreateCipher(store);
+      }
+
+      const List<String> criticalBoxes = <String>[
+        HiveBoxes.tasks,
+        HiveBoxes.goals,
+        HiveBoxes.habits,
+        HiveBoxes.progression,
+      ];
+
+      const List<String> secondaryBoxes = <String>[
+        HiveBoxes.dailyPlans,
+        HiveBoxes.offlineQueue,
+        HiveBoxes.notifications,
+        HiveBoxes.timeline,
+        HiveBoxes.cache,
+      ];
+
+      final List<Future<void>> warmupFutures = <Future<void>>[
+        ...criticalBoxes.map((String box) => _openBoxWithTelemetry(box)),
+        ...secondaryBoxes.map((String box) => _openBoxWithTelemetry(box)),
+      ];
+
+      await Future.wait(warmupFutures, eagerError: false);
     }
-
-    const List<String> criticalBoxes = <String>[
-      HiveBoxes.tasks,
-      HiveBoxes.goals,
-      HiveBoxes.habits,
-      HiveBoxes.progression,
-    ];
-
-    const List<String> secondaryBoxes = <String>[
-      HiveBoxes.dailyPlans,
-      HiveBoxes.offlineQueue,
-      HiveBoxes.notifications,
-      HiveBoxes.timeline,
-      HiveBoxes.cache,
-    ];
-
-    for (final String box in criticalBoxes) {
-      await _openBoxWithTelemetry(box);
-    }
-
-    // Open remaining boxes in parallel after critical boxes to reduce startup wall-time.
-    await Future.wait(
-      secondaryBoxes.map(_openBoxWithTelemetry),
-      eagerError: true,
-    );
 
     _initialized = true;
     Logger.log('HiveService', 'Initialized');
@@ -176,7 +175,7 @@ class HiveService {
     debugPrint('CHRONOSPARK_HIVE_BOX_OPEN_START: $box');
 
     try {
-      await _openBoxInternal<dynamic>(box).timeout(const Duration(seconds: 6));
+      await _openBoxInternal<dynamic>(box).timeout(const Duration(seconds: 3));
 
       boxStopwatch.stop();
       debugPrint(
@@ -187,7 +186,6 @@ class HiveService {
       debugPrint(
         'CHRONOSPARK_HIVE_BOX_OPEN_FAILED: $box in ${boxStopwatch.elapsedMilliseconds}ms: $error',
       );
-      rethrow;
     }
   }
 

@@ -1,6 +1,7 @@
 param(
   [switch]$IncludeAndroidRuntime,
   [switch]$IncludeCoverage,
+  [switch]$IncludePerformance,
   [switch]$RequireAndroidDevice,
   [string]$AndroidPackageName = 'com.ghostheart5.chronospark'
 )
@@ -50,6 +51,12 @@ Run-Step -Name 'Architecture check' -Action {
 
 Run-Step -Name 'Release guard' -Action {
   powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/release_guard.ps1')
+}
+
+if ($IncludePerformance) {
+  Run-Step -Name 'Performance tests' -Action {
+    flutter test test/performance --concurrency=1
+  }
 }
 
 if ($IncludeAndroidRuntime) {

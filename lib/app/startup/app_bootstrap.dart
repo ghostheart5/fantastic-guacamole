@@ -14,6 +14,7 @@ import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/observers/riverpod_observer.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart';
 import 'package:fantastic_guacamole/data/services/supabase_client_service.dart';
+import 'package:fantastic_guacamole/firebase_options.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart'
     show supabaseClientProvider;
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart'
@@ -65,6 +66,8 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+const bool _isTestBuild = bool.fromEnvironment('FLUTTER_TEST');
+
 class AppBootstrapper {
   const AppBootstrapper();
 
@@ -72,9 +75,27 @@ class AppBootstrapper {
     runZonedGuarded(() async {
       WidgetsFlutterBinding.ensureInitialized();
       await _loadDotEnv();
+      await _initializeFirebaseEarlyForCrashHooks();
       FirebaseMessagingBootstrap.configureBackgroundHandler();
       _runApp();
     }, _handleUncaughtZoneError);
+  }
+
+  Future<void> _initializeFirebaseEarlyForCrashHooks() async {
+    if (Env.isMockMode || Firebase.apps.isNotEmpty) {
+      return;
+    }
+
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } on Object catch (error) {
+      Logger.warn('Early Firebase init skipped before app bootstrap: $error');
+      RuntimeDiagnostics.record(
+        'Early Firebase init skipped before app bootstrap: $error',
+      );
+    }
   }
 
   void _runApp() {
@@ -433,8 +454,9 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
         <({String stage, Future<String?> Function() action, Duration timeout})>[
           (
             stage: 'push_notifications_deferred',
-            action: () =>
-                _initMessagingSafe(isMockMode: intelligence.flags.mockMode),
+            action: () => _isTestBuild
+                ? Future<String?>.value(null)
+                : _initMessagingSafe(isMockMode: intelligence.flags.mockMode),
             timeout: const Duration(seconds: 12),
           ),
           (
@@ -446,9 +468,11 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
           ),
           (
             stage: 'notifications_deferred',
-            action: () => _initNotificationSchedulerSafe(
-              isMockMode: intelligence.flags.mockMode,
-            ),
+            action: () => _isTestBuild
+                ? Future<String?>.value(null)
+                : _initNotificationSchedulerSafe(
+                    isMockMode: intelligence.flags.mockMode,
+                  ),
             timeout: const Duration(seconds: 10),
           ),
           (
@@ -669,6 +693,17 @@ Future<void> _configureLocalTimezone() async {
 Future<String?> _validateAccountDeletionEndpointSafe({
   required bool enforce,
 }) async {
+  if (!enforce) {
+    Logger.log(
+      'Startup',
+      'Account deletion endpoint check skipped outside production enforcement.',
+    );
+    RuntimeDiagnostics.record(
+      'Account deletion endpoint check skipped outside production enforcement.',
+    );
+    return null;
+  }
+
   final String endpoint = Env.accountDeleteEndpoint.trim();
 
   if (endpoint.isEmpty) {
@@ -1180,6 +1215,8 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
         .timeout(const Duration(seconds: 6));
 
     final String? userId = _currentSupabaseUserId();
+    final bool hasAuthenticatedUser =
+        userId != null && userId.trim().isNotEmpty;
 
     final String completeKey = userId == null
         ? onboardingCompleteStorageKey
@@ -1308,14 +1345,17 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
       ),
     );
 
-    final Object? rawFirstItemCreated =
-        prefs.get(firstItemKey) ?? prefs.get(creatorFirstItemCreatedStorageKey);
+    final Object? rawFirstItemCreated = hasAuthenticatedUser
+        ? prefs.get(firstItemKey)
+        : (prefs.get(firstItemKey) ??
+              prefs.get(creatorFirstItemCreatedStorageKey));
     final bool? coercedFirstItemCreated = _coercePrefsBool(rawFirstItemCreated);
     final bool firstItemCreatedWasCorrupt =
         rawFirstItemCreated != null && coercedFirstItemCreated == null;
 
     if (coercedFirstItemCreated == null) {
-      // Existing onboarded users are treated as already initialized.
+      // Existing onboarded authenticated users should not inherit anonymous
+      // first-item lock state after signing in.
       hasCreatedFirstItem = hasOnboarded;
       await SharedPrefsService.saveBoolWithPrefs(
         prefs,
@@ -1333,9 +1373,10 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
       }
     }
 
-    final Object? rawTimelineFirstAction =
-        prefs.get(timelineFirstActionKey) ??
-        prefs.get(timelineFirstActionCompletedStorageKey);
+    final Object? rawTimelineFirstAction = hasAuthenticatedUser
+        ? prefs.get(timelineFirstActionKey)
+        : (prefs.get(timelineFirstActionKey) ??
+              prefs.get(timelineFirstActionCompletedStorageKey));
     final bool? coercedTimelineFirstAction = _coercePrefsBool(
       rawTimelineFirstAction,
     );

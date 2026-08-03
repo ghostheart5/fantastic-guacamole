@@ -15,7 +15,7 @@ void main() {
       final String text = SourceTestUtils.readText(connectUsecaseFile);
 
       expect(text.contains('final String projectionKind = _projectionKindFor(task.kind);'), isTrue);
-      expect(text.contains("'routine' => 'Routine: \$normalizedTitle'"), isTrue);
+      expect(text.contains("'routine' || 'habit' => 'Habit: \$normalizedTitle'"), isTrue);
       expect(text.contains("'note' => 'Note: \$normalizedTitle'"), isTrue);
     });
 
@@ -27,7 +27,7 @@ void main() {
 
       final String text = SourceTestUtils.readText(connectUsecaseFile);
 
-      expect(text.contains("'routine' => 'Routine connected to timeline.'"), isTrue);
+      expect(text.contains("'routine' || 'habit' => 'Habit connected to timeline.'"), isTrue);
       expect(text.contains("'note' => 'Note connected to timeline.'"), isTrue);
       expect(text.contains("_ => 'Task connected to timeline.'"), isTrue);
     });
