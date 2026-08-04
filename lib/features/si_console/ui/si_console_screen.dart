@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -61,6 +62,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   late final AnimationController _typingAnim;
   StreamSubscription<GoalLifecycleEvent>? _goalEventSubscription;
 
+  /// Captured in [initState] because `ref` cannot be read from [dispose] —
+  /// the element is already deactivated by then and Riverpod throws.
+  late final VoiceService _voiceService;
+
   void _runAfterBuild(VoidCallback action) {
     if (!mounted) return;
     final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
@@ -82,6 +87,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   void initState() {
     super.initState();
     AppAnalytics.track('si_opened');
+    _voiceService = ref.read(voiceServiceProvider);
     _goalEventSubscription = ref.read(eventBusProvider).on<GoalLifecycleEvent>().listen((event) {
       if (!mounted) {
         return;
@@ -116,7 +122,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _typingAnim.dispose();
     _input.dispose();
     _scroll.dispose();
-    unawaited(ref.read(voiceServiceProvider).stop());
+    unawaited(_voiceService.stop());
     unawaited(_goalEventSubscription?.cancel());
     super.dispose();
   }

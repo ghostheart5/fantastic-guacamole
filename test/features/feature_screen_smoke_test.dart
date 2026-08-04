@@ -176,7 +176,10 @@ class _StaticTimelineNotifier extends TimelineNotifier {
       type: TimelineEventType.goalComplete,
       title: 'Completed sprint review',
       detail: 'Closed the review loop for the weekly plan.',
-      timestamp: DateTime.utc(2026, 7, 7, 9, 30),
+      // Must be relative to now: TimelineScreen defaults to the "week" window,
+      // so a hardcoded date silently stops matching once it ages out and the
+      // test fails for a reason that has nothing to do with the screen.
+      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
     ),
   ];
 }
