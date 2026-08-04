@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console
+///
+/// Must leave the domain only via SiPolicy.sanitize.
 class SiDecisionEntity {
   const SiDecisionEntity({
     this.selectedTaskId,

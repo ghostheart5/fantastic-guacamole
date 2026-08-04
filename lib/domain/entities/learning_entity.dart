@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Learning/adaptation
+///
+/// Adaptive weights consumed by LearningPolicy.
 class LearningEntity {
   const LearningEntity({
     this.effortWeight = 1.0,

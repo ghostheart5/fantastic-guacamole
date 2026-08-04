@@ -1,3 +1,8 @@
+import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
+
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Progression
+///
+/// Domain profile model; ProfileController is the shipping profile state.
 class ProfileEntity {
   const ProfileEntity({
     this.xp = 0,
@@ -6,6 +11,8 @@ class ProfileEntity {
     this.leveledUp = false,
   });
 
+  /// Cumulative lifetime XP. [ProgressionPolicy] is the single source of truth
+  /// for turning this into a level.
   final int xp;
   final int level;
   final int streak;
@@ -21,21 +28,24 @@ class ProfileEntity {
   }
 
   // Domain logic
-  int get xpToNextLevel => level * 100;
+  int get xpToNextLevel => ProgressionPolicy.xpToNextLevel(xp);
 
-  ProfileEntity addXp(int amount) {
-    int newXp = xp + amount;
-    int newLevel = level;
-    bool didLevelUp = false;
-
-    while (newXp >= newLevel * 100) {
-      newXp -= newLevel * 100;
-      newLevel++;
-      didLevelUp = true;
+  /// Canonical XP award. Mirrors [ProgressionEntity.awardXp] and additionally
+  /// reports whether the award crossed a level threshold.
+  ProfileEntity awardXp(int amount) {
+    if (amount < 0) {
+      throw ArgumentError.value(amount, 'amount', 'XP award cannot be negative');
     }
-
-    return copyWith(xp: newXp, level: newLevel, leveledUp: didLevelUp);
+    final int newXp = xp + amount;
+    final int newLevel = ProgressionPolicy.levelFromXp(newXp);
+    return copyWith(xp: newXp, level: newLevel, leveledUp: newLevel > level);
   }
+
+  @Deprecated(
+    'Used a per-level XP reset curve that conflicted with ProgressionPolicy. '
+    'Use awardXp, which keeps XP cumulative and derives level from the policy.',
+  )
+  ProfileEntity addXp(int amount) => awardXp(amount);
 
   ProfileEntity incrementStreak() => copyWith(streak: streak + 1);
 

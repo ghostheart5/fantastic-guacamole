@@ -4,6 +4,9 @@ import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/learning_policy.dart';
 
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Learning/adaptation
+///
+/// Registered as skipTaskUseCaseProvider; task-skip UI not built yet.
 class SkipTask {
   SkipTask(this.taskRepository, this.learningRepository, {this.siRepo});
 

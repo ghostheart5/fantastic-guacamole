@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Flowmap
+///
+/// Not exported from domain.dart; imported directly.
 class FlowmapNode {
   const FlowmapNode({
     required this.id,

@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Memories
 enum MemoryCategory {
   userPreference,
   goal,

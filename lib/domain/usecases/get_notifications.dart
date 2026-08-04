@@ -1,6 +1,9 @@
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Notifications
+///
+/// No provider yet; notification list UI not built.
 class GetNotifications {
   GetNotifications(this.repository);
 

@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Subscriptions/paywall
 class PaywallPlan {
   const PaywallPlan({
     required this.id,

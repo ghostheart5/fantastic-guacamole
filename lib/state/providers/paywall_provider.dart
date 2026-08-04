@@ -7,7 +7,11 @@ import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
+import 'package:fantastic_guacamole/domain/usecases/cancel_subscription.dart';
+import 'package:fantastic_guacamole/domain/usecases/check_entitlement.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_available_plans.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_paywall_config.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_user_subscription_state.dart';
 import 'package:fantastic_guacamole/domain/usecases/restore_purchases.dart';
 import 'package:fantastic_guacamole/domain/usecases/start_subscription.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
@@ -39,6 +43,23 @@ final startSubscriptionUseCaseProvider = Provider<StartSubscription>((ref) {
 
 final restorePurchasesUseCaseProvider = Provider<RestorePurchases>((ref) {
   return RestorePurchases(ref.read(paywallRepositoryProvider));
+});
+
+final cancelSubscriptionUseCaseProvider = Provider<CancelSubscription>((ref) {
+  return CancelSubscription(ref.read(paywallRepositoryProvider));
+});
+
+final getPaywallConfigUseCaseProvider = Provider<GetPaywallConfig>((ref) {
+  return GetPaywallConfig(ref.read(paywallRepositoryProvider));
+});
+
+final getUserSubscriptionStateUseCaseProvider =
+    Provider<GetUserSubscriptionState>((ref) {
+      return GetUserSubscriptionState(ref.read(paywallRepositoryProvider));
+    });
+
+final checkEntitlementUseCaseProvider = Provider<CheckEntitlement>((ref) {
+  return CheckEntitlement(ref.read(paywallRepositoryProvider));
 });
 
 final paywallActionsProvider = Provider<PaywallActions>((ref) {

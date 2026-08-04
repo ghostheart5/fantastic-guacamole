@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Future automation
+///
+/// Reusable block templates. Not yet referenced.
 enum TemplateStatus { draft, active, archived }
 
 class TemplateEntity {

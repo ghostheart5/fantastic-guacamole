@@ -21,7 +21,7 @@ void main() {
       progressionRepository = _FakeProgressionRepository();
     });
 
-    test('starts valid session and awards XP', () async {
+    test('starts valid session and awards no XP (EndSession owns that)', () async {
       final SessionEntity session = SessionEntity(
         id: 'session-1',
         taskId: 'task-1',
@@ -29,13 +29,13 @@ void main() {
         plannedDuration: const Duration(minutes: 20),
       );
 
-      await StartSession(
-        sessionRepository,
-        progressionRepo: progressionRepository,
-      ).call(session);
+      await StartSession(sessionRepository).call(session);
 
       expect(sessionRepository.started.single.id, 'session-1');
-      expect(progressionRepository.progression?.xp, 25);
+      // Session XP is awarded only on a valid EndSession. Awarding here too
+      // double-paid every session and made XP farmable.
+      expect(progressionRepository.progression, isNull);
+      expect(progressionRepository.saveCount, 0);
     });
 
     test('throws when session duration is too short', () async {
@@ -93,6 +93,9 @@ class _FakeSessionRepository implements ISessionRepository {
   Future<void> endSession(String sessionId, DateTime endedAt) async {}
 
   @override
+  Future<SessionEntity?> getSessionById(String sessionId) async => null;
+
+  @override
   Future<List<SessionEntity>> getSessionsForTask(String taskId) async =>
       <SessionEntity>[];
 
@@ -110,12 +113,14 @@ class _FakeSessionRepository implements ISessionRepository {
 
 class _FakeProgressionRepository implements IProgressionRepository {
   ProgressionEntity? progression;
+  int saveCount = 0;
 
   @override
   Future<ProgressionEntity?> getProgression() async => progression;
 
   @override
   Future<void> saveProgression(ProgressionEntity progression) async {
+    saveCount++;
     this.progression = progression;
   }
 }

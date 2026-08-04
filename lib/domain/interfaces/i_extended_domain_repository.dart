@@ -1,5 +1,9 @@
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
 
+/// CHRONOSPARK-CLASS: EXPERIMENTAL | Feature: SI Console / extended domain
+///
+/// Backs the placeholder taxonomy. Implemented by ExtendedDomainService in
+/// lib/state.
 abstract class IExtendedDomainRepository {
   Future<void> initialize();
 

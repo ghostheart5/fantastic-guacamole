@@ -39,7 +39,13 @@ final goalProgressProvider = FutureProvider.family<GoalProgressView, String>((
 class GoalsNotifier extends Notifier<List<GoalEntity>> {
   @override
   List<GoalEntity> build() {
-    final List<GoalEntity> goals = ref.read(getGoalsUseCaseProvider).call();
+    // Completed goals are retained in storage (CompleteGoal no longer deletes)
+    // but stay out of the active list, preserving the previous UI behaviour.
+    final List<GoalEntity> goals = ref
+        .read(getGoalsUseCaseProvider)
+        .call()
+        .where((GoalEntity goal) => !goal.isCompleted)
+        .toList(growable: false);
     final reminders = ref.read(reminderOrchestratorServiceProvider);
     Future<void>(() async {
       await reminders.syncGoalReminders(goals);

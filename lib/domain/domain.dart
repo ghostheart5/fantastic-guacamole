@@ -1,3 +1,33 @@
+// ChronoSpark domain barrel.
+//
+// READ THIS BEFORE "CLEANING UP" ANYTHING IN lib/domain.
+//
+// ChronoSpark has a deliberately large domain layer because the product is
+// built around Smart Planner, SI Console, adaptive learning, sessions,
+// progression, goals, workspace, calendar, subscriptions and automation.
+// A file having no callers does NOT mean it is dead code — a lot of this is
+// planned architecture that ships ahead of its UI.
+//
+// Every file under lib/domain carries a classification banner:
+//
+//     /// CHRONOSPARK-CLASS: <CLASS> | Feature: <feature>
+//
+// where <CLASS> is one of:
+//   SHIPPING     — used by production behaviour. Must stay wired, tested,
+//                  policy-gated and input-validated.
+//   PLANNED      — intentionally kept for a ChronoSpark feature that is built
+//                  or partially built but not yet surfaced in UI. Do not
+//                  delete. Do not wire until the matching feature exists.
+//   EXPERIMENTAL — exploratory. Keep, but never treat as shipping behaviour.
+//   LEGACY       — older shape retained for compatibility/migration. Needs a
+//                  migration plan, not a delete.
+//   DEPRECATED   — no new call sites; retained so imports/migrations keep
+//                  working.
+//
+// To audit: `rg "CHRONOSPARK-CLASS: PLANNED" lib/domain`
+//
+// This barrel intentionally exports PLANNED and EXPERIMENTAL surfaces.
+
 // Entities
 export 'package:fantastic_guacamole/domain/entities/automation_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';

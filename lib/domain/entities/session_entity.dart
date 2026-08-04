@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Sessions/focus
+///
+/// Wired through data + domain; focus-session UI not built yet.
 class SessionEntity {
   const SessionEntity({
     required this.id,

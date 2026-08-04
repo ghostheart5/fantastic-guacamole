@@ -69,13 +69,16 @@ void main() {
         await DeleteGoal(repository).call(goal.id);
         expect(GetGoals(repository).call(), isEmpty);
 
+        // CompleteGoal marks the goal done — it must NOT delete it.
         await CreateGoal(repository).call(goal);
-        await CompleteGoal(repository).call(goal.id);
-        expect(GetGoals(repository).call(), isEmpty);
-        expect(
-          repository.deletedGoalIds,
-          containsAll(<String>['goal-1', 'goal-1']),
-        );
+        await CompleteGoal(
+          repository,
+        ).call(goal.id, completedAt: DateTime.utc(2026, 7, 6));
+        final GoalEntity completed = GetGoals(repository).call().single;
+        expect(completed.id, 'goal-1');
+        expect(completed.isCompleted, isTrue);
+        expect(completed.completedAt, DateTime.utc(2026, 7, 6));
+        expect(repository.deletedGoalIds, <String>['goal-1']);
 
         await SaveGoals(repository).call(<GoalEntity>[goal, updated]);
         expect(

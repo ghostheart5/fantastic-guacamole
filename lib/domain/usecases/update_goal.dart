@@ -1,6 +1,9 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
+///
+/// Resolved by GoalsNotifier.update.
 class UpdateGoal {
   const UpdateGoal(this._repository);
 

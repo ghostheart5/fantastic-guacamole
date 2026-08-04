@@ -5,10 +5,12 @@ import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_extended_domain_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_calendar_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_flowmap_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_identity_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_insight_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_learning_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_log_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
@@ -17,14 +19,20 @@ import 'package:fantastic_guacamole/domain/interfaces/i_profile_repository.dart'
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_project_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_session_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_settings_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_subtask_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_theme_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_workspace_repository.dart';
+import 'package:fantastic_guacamole/domain/usecases/add_calendar_entry.dart';
 import 'package:fantastic_guacamole/domain/usecases/add_insight.dart';
 import 'package:fantastic_guacamole/domain/usecases/add_log_entry.dart';
 import 'package:fantastic_guacamole/domain/usecases/add_timeline_event.dart';
+import 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart';
+import 'package:fantastic_guacamole/domain/usecases/award_xp.dart';
 import 'package:fantastic_guacamole/domain/usecases/cancel_notification.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_task.dart';
@@ -41,10 +49,12 @@ import 'package:fantastic_guacamole/domain/usecases/delete_project.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_routine.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_subtask.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_task.dart';
+import 'package:fantastic_guacamole/domain/usecases/end_session.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_insight_from_event.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_si_decision.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_all_themes.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_analytics_metrics.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_calendar_entries.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_coach_messages.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_current_theme.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_extended_app_settings.dart';
@@ -60,11 +70,18 @@ import 'package:fantastic_guacamole/domain/usecases/get_profile.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_progression.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_projects.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_routines.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_settings.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_si_queries_extended.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_subtasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_timeline_events.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_user_level.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_workspace.dart';
+import 'package:fantastic_guacamole/domain/usecases/hydrate_si_state.dart';
+import 'package:fantastic_guacamole/domain/usecases/pause_session.dart';
+import 'package:fantastic_guacamole/domain/usecases/remove_calendar_entry.dart';
 import 'package:fantastic_guacamole/domain/usecases/remove_timeline_event.dart';
+import 'package:fantastic_guacamole/domain/usecases/resume_session.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_analytics_metric.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_coach_message.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_extended_app_setting.dart';
@@ -80,13 +97,19 @@ import 'package:fantastic_guacamole/domain/usecases/save_subtasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_theme.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/schedule_notification.dart';
+import 'package:fantastic_guacamole/domain/usecases/skip_task.dart';
+import 'package:fantastic_guacamole/domain/usecases/start_session.dart';
 import 'package:fantastic_guacamole/domain/usecases/switch_theme.dart';
+import 'package:fantastic_guacamole/domain/usecases/switch_workspace.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_goal.dart';
+import 'package:fantastic_guacamole/domain/usecases/update_learning_state.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_level.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_plan.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_project.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_routine.dart';
+import 'package:fantastic_guacamole/domain/usecases/update_settings.dart';
+import 'package:fantastic_guacamole/domain/usecases/update_si_state.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_streak.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_subtask.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_task.dart';
@@ -166,6 +189,29 @@ final domainIdentityRepositoryProvider = Provider<IIdentityRepository>((ref) {
 
 final domainSiRepositoryProvider = Provider<ISiRepository>((ref) {
   return _SiRepositoryAdapter(ref);
+});
+
+// --- Interface bindings that were previously exposed only as concrete types.
+// Without these the use cases below could not be constructed at all.
+
+final domainCalendarRepositoryProvider = Provider<ICalendarRepository>((ref) {
+  return ref.read(calendarRepositoryProvider);
+});
+
+final domainSessionRepositoryProvider = Provider<ISessionRepository>((ref) {
+  return ref.read(sessionRepositoryProvider);
+});
+
+final domainSettingsRepositoryProvider = Provider<ISettingsRepository>((ref) {
+  return ref.read(settingsRepositoryProvider);
+});
+
+final domainWorkspaceRepositoryProvider = Provider<IWorkspaceRepository>((ref) {
+  return ref.read(workspaceRepositoryProvider);
+});
+
+final domainLearningRepositoryProvider = Provider<ILearningRepository>((ref) {
+  return ref.read(learningRepositoryProvider);
 });
 
 final extendedDomainRepositoryProvider = Provider<IExtendedDomainRepository>((
@@ -543,6 +589,109 @@ final updateXpUseCaseProvider = Provider<UpdateXp>((ref) {
 
 final updateLevelUseCaseProvider = Provider<UpdateLevel>((ref) {
   return UpdateLevel(ref.read(domainProgressionRepositoryProvider));
+});
+
+/// The single persisted XP-award path. Prefer this over [updateXpUseCaseProvider],
+/// which sets XP absolutely and exists for restore/import only.
+final awardXpUseCaseProvider = Provider<AwardXp>((ref) {
+  return AwardXp(ref.read(domainProgressionRepositoryProvider));
+});
+
+/// Level/progress read model derived from [ProgressionPolicy].
+final getUserLevelUseCaseProvider = Provider<GetUserLevel>((ref) {
+  return GetUserLevel();
+});
+
+// --- Session lifecycle.
+
+final startSessionUseCaseProvider = Provider<StartSession>((ref) {
+  return StartSession(
+    ref.read(domainSessionRepositoryProvider),
+    generateSiDecision: ref.read(generateSiDecisionUseCaseProvider),
+  );
+});
+
+final endSessionUseCaseProvider = Provider<EndSession>((ref) {
+  return EndSession(
+    ref.read(domainSessionRepositoryProvider),
+    progressionRepo: ref.read(domainProgressionRepositoryProvider),
+  );
+});
+
+final pauseSessionUseCaseProvider = Provider<PauseSession>((ref) {
+  return PauseSession(ref.read(domainSessionRepositoryProvider));
+});
+
+final resumeSessionUseCaseProvider = Provider<ResumeSession>((ref) {
+  return ResumeSession(ref.read(domainSessionRepositoryProvider));
+});
+
+// --- Settings and workspace.
+
+final getSettingsUseCaseProvider = Provider<GetSettings>((ref) {
+  return GetSettings(ref.read(domainSettingsRepositoryProvider));
+});
+
+final updateSettingsUseCaseProvider = Provider<UpdateSettings>((ref) {
+  return UpdateSettings(ref.read(domainSettingsRepositoryProvider));
+});
+
+final getWorkspaceUseCaseProvider = Provider<GetWorkspace>((ref) {
+  return GetWorkspace(ref.read(domainWorkspaceRepositoryProvider));
+});
+
+final switchWorkspaceUseCaseProvider = Provider<SwitchWorkspace>((ref) {
+  return SwitchWorkspace(ref.read(domainWorkspaceRepositoryProvider));
+});
+
+// --- Calendar (domain path).
+
+final getCalendarEntriesUseCaseProvider = Provider<GetCalendarEntries>((ref) {
+  return GetCalendarEntries(ref.read(domainCalendarRepositoryProvider));
+});
+
+final addCalendarEntryUseCaseProvider = Provider<AddCalendarEntry>((ref) {
+  return AddCalendarEntry(ref.read(domainCalendarRepositoryProvider));
+});
+
+final removeCalendarEntryUseCaseProvider = Provider<RemoveCalendarEntry>((ref) {
+  return RemoveCalendarEntry(ref.read(domainCalendarRepositoryProvider));
+});
+
+// --- SI state.
+
+final hydrateSiStateUseCaseProvider = Provider<HydrateSiState>((ref) {
+  return HydrateSiState(ref.read(domainSiRepositoryProvider));
+});
+
+final updateSiStateUseCaseProvider = Provider<UpdateSiState>((ref) {
+  return UpdateSiState(ref.read(domainSiRepositoryProvider));
+});
+
+// --- Learning loop.
+//
+// PLANNED: the repository is real and bound, but nothing invokes
+// ApplyLearningFeedback automatically yet. See LearningRepository.
+
+final applyLearningFeedbackUseCaseProvider = Provider<ApplyLearningFeedback>((
+  ref,
+) {
+  return ApplyLearningFeedback(
+    ref.read(domainLearningRepositoryProvider),
+    siRepo: ref.read(domainSiRepositoryProvider),
+  );
+});
+
+final updateLearningStateUseCaseProvider = Provider<UpdateLearningState>((ref) {
+  return UpdateLearningState(ref.read(domainLearningRepositoryProvider));
+});
+
+final skipTaskUseCaseProvider = Provider<SkipTask>((ref) {
+  return SkipTask(
+    ref.read(domainTaskRepositoryProvider),
+    ref.read(domainLearningRepositoryProvider),
+    siRepo: ref.read(domainSiRepositoryProvider),
+  );
 });
 
 final getTimelineEventsUseCaseProvider = Provider<GetTimelineEvents>((ref) {

@@ -1,5 +1,8 @@
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Notifications
+///
+/// Bound to NotificationsRepository.
 abstract class INotificationRepository {
   Future<List<NotificationEntity>> getNotifications();
   Future<void> scheduleNotification(NotificationEntity notification);

@@ -1,6 +1,9 @@
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Memories
+///
+/// Resolved by memoriesProvider.
 class SaveMemory {
   const SaveMemory(this._repository);
 

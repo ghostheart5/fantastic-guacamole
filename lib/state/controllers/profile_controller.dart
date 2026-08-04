@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 import 'package:fantastic_guacamole/state/models/streak.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
@@ -130,6 +131,9 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   void addXP(int amount) {
+    if (amount < 0) {
+      throw ArgumentError.value(amount, 'amount', 'XP award cannot be negative');
+    }
     final DateTime now = DateTime.now();
     final bool streakBroke = _streakLogic.didBreak(
       Streak(
@@ -140,7 +144,8 @@ class ProfileController extends Notifier<ProfileState> {
       now,
     );
     final int newXP = state.xp + amount;
-    final int newLevel = (newXP ~/ 50) + 1;
+    // ProgressionPolicy is the single source of truth for the level curve.
+    final int newLevel = ProgressionPolicy.levelFromXp(newXP);
     final bool didLevelUp = newLevel > state.level;
     final updated = _streakLogic.update(
       Streak(

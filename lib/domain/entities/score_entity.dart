@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Progression
+///
+/// Scoring surface for future progression analytics. Not yet referenced.
 enum ScoreStatus { provisional, validated, archived }
 
 class ScoreEntity {
