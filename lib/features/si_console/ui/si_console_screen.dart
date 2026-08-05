@@ -194,9 +194,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       },
     );
     unawaited(
-      ref
-          .read(voiceServiceProvider)
-          .speakAccessibilityHint(surface: 'SI Console', controls: controls),
+      _voiceService.speakAccessibilityHint(
+        surface: 'SI Console',
+        controls: controls,
+      ),
     );
   }
 

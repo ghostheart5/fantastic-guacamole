@@ -9,6 +9,15 @@ class VoiceService {
   static bool _initialized = false;
   static bool _isSpeaking = false;
 
+  /// Serialises [speak] so two utterances cannot interleave.
+  ///
+  /// `awaitSpeakCompletion(true)` means `_tts.speak` does not complete until
+  /// the utterance finishes, so two rapid taps previously issued
+  /// stop/speak(A)/stop/speak(B) with A's completer still pending — the
+  /// documented route to an orphaned completer on Android. Every call site is
+  /// fire-and-forget, so nothing else rate-limited them.
+  static Future<void> _speakQueue = Future<void>.value();
+
   bool get isSpeaking => _isSpeaking;
 
   Future<void> speak(String text) async {
@@ -19,12 +28,18 @@ class VoiceService {
     if (!await _ensureInitialized()) {
       return;
     }
-    try {
-      await _tts.stop();
-      await _tts.speak(value);
-    } catch (_) {
-      // Do not crash UI flows when TTS is unavailable.
-    }
+    // Chain onto the previous utterance rather than racing it. Errors are
+    // absorbed so one bad utterance cannot poison the queue for the session.
+    final Future<void> queued = _speakQueue.then((_) async {
+      try {
+        await _tts.stop();
+        await _tts.speak(value);
+      } catch (_) {
+        // Do not crash UI flows when TTS is unavailable.
+      }
+    });
+    _speakQueue = queued.catchError((Object _) {});
+    return queued;
   }
 
   Future<void> speakSummary({

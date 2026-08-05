@@ -1,5 +1,7 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
+import 'package:fantastic_guacamole/engine/planning/calendar_service.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/day_overview_card.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/day_selector.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/plan_header.dart';
@@ -81,6 +83,44 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     }
   }
 
+  // Memo for the generated day plan. build() runs on every task-completion
+  // setState, every day-chip tap and every energy tick, and each run
+  // regenerated the whole plan — producing structurally identical blocks with
+  // new millisecond-derived ids, which also defeated downstream diffing.
+  List<TimeBlock>? _cachedPlan;
+  Object? _cachedPlanKey;
+
+  /// Returns the adaptive plan, regenerating only when its inputs change.
+  ///
+  /// The key covers task identity/ordering and the energy bucket. Energy is
+  /// bucketed to two decimals because the raw value drifts continuously and
+  /// sub-percent changes do not alter the ranking meaningfully.
+  List<TimeBlock> _adaptivePlanFor({
+    required CalendarService calendarService,
+    required List<Task> tasks,
+    required double energy,
+  }) {
+    final String key = <String>[
+      energy.toStringAsFixed(2),
+      for (final Task task in tasks)
+        '${task.id}:${task.priority}:${task.difficulty}:${task.energyRequired}:'
+            '${task.scheduledFor?.toIso8601String() ?? ''}:'
+            '${task.recurrenceRule.name}',
+    ].join('|');
+
+    final List<TimeBlock>? cached = _cachedPlan;
+    if (cached != null && _cachedPlanKey == key) {
+      return cached;
+    }
+    final List<TimeBlock> generated = calendarService.generateAdaptivePlan(
+      tasks: tasks,
+      energy: energy,
+    );
+    _cachedPlan = generated;
+    _cachedPlanKey = key;
+    return generated;
+  }
+
   @override
   Widget build(BuildContext context) {
     final tasksAsync = ref.watch(tasksProvider);
@@ -125,8 +165,11 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               ),
             ),
             data: (tasks) {
-              final List<TimeBlock> allBlocks = calendarService
-                  .generateAdaptivePlan(tasks: tasks, energy: energy);
+              final List<TimeBlock> allBlocks = _adaptivePlanFor(
+                calendarService: calendarService,
+                tasks: tasks,
+                energy: energy,
+              );
               final List<TimeBlock> blocks = allBlocks
                   .where((block) => (block.start.weekday - 1) == _selectedDay)
                   .toList(growable: false);

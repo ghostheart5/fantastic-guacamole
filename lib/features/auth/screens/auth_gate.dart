@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
@@ -272,6 +273,16 @@ class _AuthGateState extends ConsumerState<AuthGate> {
       const int maxInitAttempts = 3;
 
       for (int attempt = 0; attempt < maxInitAttempts; attempt++) {
+        if (attempt > 0) {
+          // Force the providers to rebuild. authServiceProvider is a plain
+          // (non-autoDispose) Provider that reads supabaseClientProvider with
+          // `read`, not `watch`, so it caches its result on first read. Without
+          // invalidating, every retry returned the identical cached instance
+          // and the loop could never recover from a first-attempt failure — it
+          // just slept 700ms and reported the same error.
+          container.invalidate(supabaseClientProvider);
+          container.invalidate(authServiceProvider);
+        }
         final AuthServiceContract authService = container.read(authServiceProvider);
         _authService = authService;
 

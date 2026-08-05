@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 
@@ -48,8 +49,22 @@ class RemoteConfigService {
         final RemoteConfigValue value = remoteConfig.getValue(key);
         _values[key] = value.asString();
       }
-    } finally {
+      // Latch only on success. Setting this in a `finally` meant a single
+      // failed fetch permanently disabled remote config for the whole process
+      // lifetime — the app could never pick up a flag change without a
+      // restart — and the exception propagated to callers, where it surfaced
+      // as an AsyncError that was silently discarded.
       _firebaseSnapshotApplied = true;
+    } on Object catch (error, stackTrace) {
+      Logger.errorCategory(
+        'RemoteConfig',
+        'Remote config fetch failed; keeping defaults and allowing retry.',
+        error,
+        stackTrace,
+      );
+      // Deliberately not rethrown: setDefaults has already run, so the app has
+      // usable values. Leaving _firebaseSnapshotApplied false lets the next
+      // call retry.
     }
   }
 

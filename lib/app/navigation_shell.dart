@@ -23,6 +23,7 @@ import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
+import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
@@ -30,6 +31,7 @@ import 'package:fantastic_guacamole/state/providers/session_recovery_provider.da
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/preference_service.dart';
+import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/system/system_scheduler.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
@@ -121,7 +123,63 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       if (!mounted) return;
       unawaited(_restoreLastOpenedTab(widget.initialView));
       _checkRecovery();
+      unawaited(_handleNotificationLaunch());
     });
+    NotificationScheduler.tappedPayloadListenable.addListener(
+      _onNotificationTapped,
+    );
+  }
+
+  /// Routes a notification tap that arrived while the app was running.
+  void _onNotificationTapped() {
+    final String? payload =
+        NotificationScheduler.tappedPayloadListenable.value;
+    if (payload == null || !mounted) {
+      return;
+    }
+    NotificationScheduler.tappedPayloadListenable.value = null;
+    _routeNotificationPayload(payload);
+  }
+
+  /// Routes a cold launch that came from a notification tap.
+  Future<void> _handleNotificationLaunch() async {
+    final String? payload = await NotificationScheduler()
+        .consumeLaunchPayload();
+    if (payload == null || !mounted) {
+      return;
+    }
+    _routeNotificationPayload(payload);
+  }
+
+  /// Maps a notification payload (the domain notification id) to a screen.
+  ///
+  /// Ids are namespaced by the services that create them; anything
+  /// unrecognised falls back to the notifications list rather than being
+  /// dropped, which is what happened before — no response handler existed at
+  /// all, so a tap only ever opened the app on whatever tab it was last on.
+  void _routeNotificationPayload(String payload) {
+    final AppFlowController flow = ref.read(appFlowProvider.notifier);
+    if (payload.startsWith('goal_reminder_')) {
+      flow.toGoals();
+      return;
+    }
+    if (payload.startsWith('daily_planning_reminder')) {
+      flow.toPlan();
+      return;
+    }
+    if (payload.startsWith('habit_reminder')) {
+      flow.toTasks();
+      return;
+    }
+    if (payload.startsWith('reflection_reminder')) {
+      flow.toLogs();
+      return;
+    }
+    if (payload.startsWith('streak_break_recovery_')) {
+      flow.toProgression();
+      return;
+    }
+    flow.toLogs();
   }
 
   Future<void> _restoreLastOpenedTab(AppView fallbackView) async {
@@ -140,6 +198,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    NotificationScheduler.tappedPayloadListenable.removeListener(
+      _onNotificationTapped,
+    );
     _systemScheduler.shutdown();
     _dataHygieneScheduler.shutdown();
     _energySubscription.close();
@@ -169,6 +230,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       case AppLifecycleState.detached:
         _systemScheduler.shutdown();
         _dataHygieneScheduler.shutdown();
+        unawaited(_stopVoicePlayback());
         unawaited(_saveCurrentState());
         break;
       case AppLifecycleState.paused:
@@ -178,6 +240,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           _systemScheduler.pause();
           _dataHygieneScheduler.pause();
         }
+        // Otherwise a long SI response or coach summary keeps speaking over
+        // whatever the user does next after backgrounding the app.
+        unawaited(_stopVoicePlayback());
         unawaited(_saveCurrentState());
         break;
       case AppLifecycleState.resumed:
@@ -187,6 +252,17 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         }
         unawaited(_checkRecovery());
         break;
+    }
+  }
+
+  Future<void> _stopVoicePlayback() async {
+    if (!mounted) {
+      return;
+    }
+    try {
+      await ref.read(voiceServiceProvider).stop();
+    } on Object {
+      // Never let a TTS engine failure interfere with lifecycle handling.
     }
   }
 
