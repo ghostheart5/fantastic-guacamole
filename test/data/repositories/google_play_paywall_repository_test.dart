@@ -239,6 +239,11 @@ void main() {
       expect(state.isActive, isTrue);
       expect(state.status, 'active');
       expect(state.planId, 'monthly');
+      // Monthly plans keep the monthly window, not the annual one.
+      final Duration monthlyWindow = state.renewalDate!.difference(
+        DateTime.now(),
+      );
+      expect(monthlyWindow.inDays, lessThan(40));
       expect(billing.completePurchaseCalls, 1);
 
       repository.dispose();
@@ -348,6 +353,12 @@ void main() {
 
       expect(state.status, 'restored');
       expect(state.planId, 'annual');
+      // An annual plan must not be given a monthly local validity window, or
+      // the subscriber loses access ~11 months early.
+      final Duration annualWindow = state.renewalDate!.difference(
+        DateTime.now(),
+      );
+      expect(annualWindow.inDays, greaterThan(300));
       expect(billing.restoreCalls, 1);
       expect(billing.completePurchaseCalls, 1);
 

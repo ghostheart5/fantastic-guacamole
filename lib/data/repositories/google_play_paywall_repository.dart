@@ -23,6 +23,19 @@ const Map<String, String> _kProductIds = <String, String>{
 };
 const String _kPrefsKey = 'paywall_subscription_state_v1';
 
+/// Local validity window per plan.
+///
+/// The renewal date gates local re-entitlement on launch, so an annual
+/// subscriber given a 30-day window would be locked out ~11 months early.
+const Duration _kMonthlyPeriod = Duration(days: 30);
+const Duration _kAnnualPeriod = Duration(days: 365);
+
+DateTime _renewalDateFor(String? planId) {
+  return DateTime.now().add(
+    planId == 'annual' ? _kAnnualPeriod : _kMonthlyPeriod,
+  );
+}
+
 abstract class BillingClient {
   Stream<List<PurchaseDetails>> get purchaseStream;
   Future<ProductDetailsResponse> queryProductDetails(Set<String> ids);
@@ -312,7 +325,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
         status: 'unlocked_for_testing',
         source: 'testing_mode',
         planId: planId,
-        renewalDate: DateTime.now().add(const Duration(days: 30)),
+        renewalDate: _renewalDateFor(planId),
         isTesting: true,
       );
       return _state;
@@ -376,7 +389,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
         status: 'unlocked_for_testing',
         source: 'testing_mode',
         planId: _state.planId ?? 'annual',
-        renewalDate: DateTime.now().add(const Duration(days: 30)),
+        renewalDate: _renewalDateFor(_state.planId ?? 'annual'),
         isTesting: true,
       );
       return _state;
@@ -432,7 +445,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
                 : 'active',
             source: 'google_play',
             planId: planId,
-            renewalDate: DateTime.now().add(const Duration(days: 30)),
+            renewalDate: _renewalDateFor(planId),
           );
           await _persistState();
           _pending[purchase.productID]?.complete(_state);

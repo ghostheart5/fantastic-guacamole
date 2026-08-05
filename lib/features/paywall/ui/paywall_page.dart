@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -72,9 +73,9 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
           .startSubscription(planId);
-      ref
-          .read(runtimePremiumAccessProvider.notifier)
-          .set(subscription.isActive);
+      await ref
+          .read(entitlementProvider.notifier)
+          .applyPurchaseResult(subscription);
       ref.invalidate(paywallSubscriptionProvider);
       ref.invalidate(aiCreditWalletProvider);
       if (!mounted) {
@@ -126,9 +127,9 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
       final SubscriptionState subscription = await ref
           .read(paywallActionsProvider)
           .restorePurchases();
-      ref
-          .read(runtimePremiumAccessProvider.notifier)
-          .set(subscription.isActive);
+      await ref
+          .read(entitlementProvider.notifier)
+          .applyPurchaseResult(subscription);
       ref.invalidate(paywallSubscriptionProvider);
       ref.invalidate(aiCreditWalletProvider);
       if (!mounted) {

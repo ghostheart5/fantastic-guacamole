@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/features/paywall/ui/paywall_page.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
@@ -78,7 +79,18 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('AI credits exhausted'), findsOneWidget);
 
-    container.read(runtimePremiumAccessProvider.notifier).set(true);
+    // Premium is granted by the entitlement owner, not by a standalone flag.
+    await container
+        .read(entitlementProvider.notifier)
+        .applyPurchaseResult(
+          SubscriptionState(
+            isActive: true,
+            status: 'active',
+            source: 'google_play',
+            planId: 'monthly',
+            renewalDate: DateTime.now().add(const Duration(days: 30)),
+          ),
+        );
     final AiCreditWallet premiumWallet = await credit.loadWallet(premium: true);
     final AiCreditSpendResult premiumSpend = await credit.spend(
       premium: true,
