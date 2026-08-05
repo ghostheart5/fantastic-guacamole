@@ -64,6 +64,28 @@ class CreditService {
     return AiCreditSpendResult(wallet: updated, allowed: true);
   }
 
+  /// Returns credits taken by [spend] for work that produced no result.
+  ///
+  /// Credits are debited before the request is issued, so a timeout, a proxy
+  /// failure, or a superseded request would otherwise bill the user for a
+  /// response they never received. The refund is clamped to the wallet
+  /// allowance so a repeated refund cannot mint credits.
+  Future<AiCreditWallet> refund({
+    required bool premium,
+    required int amount,
+  }) async {
+    final AiCreditWallet wallet = await loadWallet(premium: premium);
+    if (amount <= 0) {
+      return wallet;
+    }
+    final AiCreditWallet updated = wallet.copyWith(
+      balance: (wallet.balance + amount).clamp(0, wallet.allowance),
+      updatedAt: DateTime.now(),
+    );
+    await _save(updated);
+    return updated;
+  }
+
   Future<void> refill({required bool premium}) async {
     await _save(_createWallet(premium: premium, now: DateTime.now()));
   }

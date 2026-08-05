@@ -36,10 +36,19 @@ class SiPolicy {
   }
 
   static bool isSupportedAndSafe(SiDecisionEntity decision) {
-    final String text =
-        '${decision.rationale} ${decision.action} ${decision.reasoningTrace}'
-            .toLowerCase();
-    return !_unsafeClaims.any(text.contains);
+    return !containsUnsupportedClaim(
+      '${decision.rationale} ${decision.action} ${decision.reasoningTrace}',
+    );
+  }
+
+  /// Whether [text] contains a claim ChronoSpark is not permitted to make.
+  ///
+  /// Exposed so free-form assistant text can be held to the same standard as a
+  /// [SiDecisionEntity]. Model output previously bypassed this list entirely —
+  /// `sanitize` only ever saw decisions, never generated prose.
+  static bool containsUnsupportedClaim(String text) {
+    final String lowered = text.toLowerCase();
+    return _unsafeClaims.any(lowered.contains);
   }
 
   /// Rationale used when a decision is withheld for containing an unsupported
