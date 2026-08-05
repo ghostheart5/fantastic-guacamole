@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart'
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
+import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart'
@@ -49,6 +50,7 @@ class SettingsScreen extends ConsumerWidget {
     final bool reflectionTutorialEnabled = ref.watch(
       featureFlagEnabledProvider('daily_reflection_tutorial_enabled'),
     );
+    final bool? voicePermissionGranted = ref.watch(voicePermissionStatusProvider);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/settings_bg.jpg',
@@ -176,6 +178,32 @@ class SettingsScreen extends ConsumerWidget {
                               ),
                             );
                           },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    VoicePermissionPrompt(
+                      permissionGranted: voicePermissionGranted,
+                      onRequestPermission: () async {
+                        final bool granted = await ref
+                            .read(settingsUiActionsProvider)
+                            .requestVoicePermission();
+                        ref.read(voicePermissionStatusProvider.notifier).set(granted);
+                        return granted;
+                      },
+                      onOpenSystemSettings: () async {
+                        final bool opened = await ref
+                            .read(settingsUiActionsProvider)
+                            .openSystemAppSettings();
+                        if (!context.mounted || opened) {
+                          return;
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Open your device app settings and enable microphone access for ChronoSpark.',
+                            ),
+                          ),
                         );
                       },
                     ),

@@ -5,7 +5,6 @@ import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.da
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
-import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
@@ -386,7 +385,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                                   emotion: _emotion,
                                 ),
                                 const _VoiceAccessibilityButton(),
-                                const _MicButton(),
+                                _MicButton(
+                                  onRecognized: (String text) =>
+                                      _followUpController.text = text,
+                                ),
                               ],
                             ),
                           ],
@@ -947,28 +949,41 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
 }
 
 class _MicButton extends ConsumerWidget {
-  const _MicButton();
+  const _MicButton({required this.onRecognized});
+
+  final ValueChanged<String> onRecognized;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final VoiceState voice = ref.watch(voiceControllerProvider);
     final bool listening = voice.isListening;
+
+    // Recognized speech populates the follow-up box for explicit review and
+    // send - it is never auto-sent or routed as a command.
+    ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
+      final bool stoppedListening =
+          (previous?.isListening ?? false) && !next.isListening;
+      if (stoppedListening && next.recognizedText.trim().isNotEmpty) {
+        onRecognized(next.recognizedText.trim());
+        ref.read(voiceControllerProvider.notifier).clearRecognizedText();
+      }
+    });
+
     return GestureDetector(
       onTap: () async {
         if (listening) {
           await ref.read(voiceControllerProvider.notifier).stopListening();
-        } else {
-          await ref.read(settingsUiActionsProvider).requestVoicePermission();
-          await ref.read(voiceControllerProvider.notifier).startListening();
-          if (!context.mounted) {
-            return;
-          }
-          final String message =
-              ref.read(voiceControllerProvider).error ??
-              'Voice input is not available in this build. First step: type your request in Focus Context and tap GET INSIGHT.';
+          return;
+        }
+        await ref.read(voiceControllerProvider.notifier).startListening();
+        if (!context.mounted) {
+          return;
+        }
+        final String? error = ref.read(voiceControllerProvider).error;
+        if (error != null) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text(message)));
+          ).showSnackBar(SnackBar(content: Text(error)));
         }
       },
       child: Container(

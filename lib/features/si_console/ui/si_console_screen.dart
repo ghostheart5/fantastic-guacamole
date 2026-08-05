@@ -1053,7 +1053,7 @@ class _TypingIndicator extends StatelessWidget {
 // Input bar
 // ---------------------------------------------------------------------------
 
-class _InputBar extends StatelessWidget {
+class _InputBar extends ConsumerWidget {
   const _InputBar({required this.controller, required this.onSend, this.compact = false});
   final TextEditingController controller;
   final VoidCallback onSend;
@@ -1076,7 +1076,21 @@ class _InputBar extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final VoiceState voice = ref.watch(voiceControllerProvider);
+    final bool listening = voice.isListening;
+
+    // Recognized speech populates the query box for explicit review and
+    // send - it is never auto-sent or routed as a command.
+    ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
+      final bool stoppedListening =
+          (previous?.isListening ?? false) && !next.isListening;
+      if (stoppedListening && next.recognizedText.trim().isNotEmpty) {
+        controller.text = next.recognizedText.trim();
+        ref.read(voiceControllerProvider.notifier).clearRecognizedText();
+      }
+    });
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool forceCompact = constraints.hasBoundedHeight && constraints.maxHeight < 150;
@@ -1184,6 +1198,40 @@ class _InputBar extends StatelessWidget {
                           ),
                         ),
                         onSubmitted: (_) => onSend(),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: () async {
+                        if (listening) {
+                          await ref
+                              .read(voiceControllerProvider.notifier)
+                              .stopListening();
+                          return;
+                        }
+                        await ref
+                            .read(voiceControllerProvider.notifier)
+                            .startListening();
+                      },
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: listening
+                              ? AppColors.neonCyan.withValues(alpha: 0.22)
+                              : AppColors.neonCyan.withValues(alpha: 0.12),
+                          border: Border.all(
+                            color: AppColors.neonCyan.withValues(
+                              alpha: listening ? 0.6 : 0.4,
+                            ),
+                          ),
+                        ),
+                        child: Icon(
+                          listening ? Icons.mic : Icons.mic_none_rounded,
+                          color: AppColors.neonCyan,
+                          size: 18,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),

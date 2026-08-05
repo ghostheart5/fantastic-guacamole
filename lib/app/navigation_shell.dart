@@ -32,6 +32,7 @@ import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/preference_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
+import 'package:fantastic_guacamole/system/voice/audio_interruption_service.dart';
 import 'package:fantastic_guacamole/system/system_scheduler.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
@@ -54,6 +55,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   final PreferenceService _preferenceService = PreferenceService();
   late final SystemScheduler _systemScheduler;
   late final DataHygieneScheduler _dataHygieneScheduler;
+  late final AudioInterruptionService _audioInterruptionService;
   late final ProviderSubscription<double> _energySubscription;
   late final ProviderSubscription<LearningState> _learningSubscription;
   late final ProviderSubscription<AppView> _viewSubscription;
@@ -87,6 +89,18 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     _dataHygieneScheduler = ref.read(dataHygieneSchedulerProvider);
     if (!_isFlutterTestBinding) {
       _dataHygieneScheduler.start();
+    }
+    _audioInterruptionService = ref.read(audioInterruptionServiceProvider);
+    if (!_isFlutterTestBinding) {
+      unawaited(
+        _audioInterruptionService.start(
+          onInterruptionBegin: _stopVoicePlayback,
+          // A wired headset's removal doesn't affect the device's own mic, so
+          // only TTS needs to stop here — otherwise it would suddenly route
+          // to the speaker.
+          onBecomingNoisy: () => ref.read(voiceServiceProvider).stop(),
+        ),
+      );
     }
     _energySubscription = ref.listenManual<double>(energyProvider, (_, _) {
       ref.invalidate(aiDecisionProvider);
@@ -203,6 +217,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     );
     _systemScheduler.shutdown();
     _dataHygieneScheduler.shutdown();
+    unawaited(_audioInterruptionService.stop());
     _energySubscription.close();
     _learningSubscription.close();
     _viewSubscription.close();
@@ -263,6 +278,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       await ref.read(voiceServiceProvider).stop();
     } on Object {
       // Never let a TTS engine failure interfere with lifecycle handling.
+    }
+    try {
+      // An open mic session must not survive the app being backgrounded.
+      await ref.read(voiceControllerProvider.notifier).stopListening();
+    } on Object {
+      // Never let an STT engine failure interfere with lifecycle handling.
     }
   }
 
