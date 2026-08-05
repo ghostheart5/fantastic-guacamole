@@ -67,8 +67,25 @@ class NotificationScheduler {
     await androidPlugin?.createNotificationChannel(_channel);
 
     if (!requestPermissions) {
-      _permissionGranted =
-          await androidPlugin?.areNotificationsEnabled() ?? false;
+      // Query the platform we are actually on. This previously read
+      // `androidPlugin?.areNotificationsEnabled() ?? false`, so on iOS/macOS —
+      // where androidPlugin is null — it always resolved to false and every
+      // later schedule() call silently skipped. Goal, habit and daily-planning
+      // reminders never scheduled on iOS as a result.
+      if (androidPlugin != null) {
+        _permissionGranted = await androidPlugin.areNotificationsEnabled() ??
+            false;
+      } else if (iosPlugin != null) {
+        _permissionGranted =
+            (await iosPlugin.checkPermissions())?.isAlertEnabled ?? false;
+      } else if (macosPlugin != null) {
+        _permissionGranted =
+            (await macosPlugin.checkPermissions())?.isAlertEnabled ?? false;
+      } else {
+        // No supported local-notification implementation on this platform
+        // (desktop/web). Nothing to schedule against.
+        _permissionGranted = false;
+      }
       permissionGrantedListenable.value = _permissionGranted;
       return _permissionGranted;
     }
@@ -115,6 +132,13 @@ class NotificationScheduler {
   Future<bool> requestPermissions() => init(requestPermissions: true);
 
   Future<void> schedule(NotificationEntity notification) async {
+    if (!notification.isEnabled) {
+      // In-app-only entries (task completion/skip feedback and similar
+      // transient toasts) are persisted for the in-app notification list but
+      // must never reach the OS. Without this guard every task interaction
+      // posted a real system notification one second later.
+      return;
+    }
     if (!_initialized) {
       Logger.warn(
         'Skipped schedule because notification scheduler is not initialized.',
