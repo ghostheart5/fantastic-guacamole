@@ -25,6 +25,13 @@ jobs:
         with:
           channel: stable
 
+      # .env is declared as a Flutter asset in pubspec.yaml and must exist on
+      # the CI runner before flutter pub get runs. It is git-ignored, so we
+      # create it from the checked-in example file. No secrets are committed —
+      # every value in .env.example is blank or a safe local-dev default.
+      - name: Create .env for CI
+        run: cp .env.example .env
+
       - name: Install dependencies
         run: flutter pub get
 
