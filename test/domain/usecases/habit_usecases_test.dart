@@ -5,9 +5,7 @@ import 'package:fantastic_guacamole/domain/usecases/habit_usecases.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeHabitRepository implements IHabitRepository {
-  _FakeHabitRepository([this.stored = const <HabitRecord>[]]);
-
-  List<HabitRecord> stored;
+  List<HabitRecord> stored = const <HabitRecord>[];
   int saveCount = 0;
 
   @override

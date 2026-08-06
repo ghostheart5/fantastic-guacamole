@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
+import 'package:fantastic_guacamole/domain/usecases/analyze_plan_context.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_adaptive_plan.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/day_overview_card.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/day_selector.dart';
@@ -126,6 +127,8 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     final tasksAsync = ref.watch(tasksProvider);
     final energy = ref.watch(energyProvider);
     final generateAdaptivePlan = ref.read(generateAdaptivePlanUseCaseProvider);
+    final analyzePlanContext = ref.read(analyzePlanContextUseCaseProvider);
+    final recommendNextBlock = ref.read(recommendNextBlockUseCaseProvider);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/plan_bg.jpg',
@@ -174,6 +177,21 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                   .where((block) => (block.start.weekday - 1) == _selectedDay)
                   .toList(growable: false);
 
+              // Load/capacity for the selected day, and unplanned work across
+              // the whole plan (a task scheduled on another day is not
+              // "unplanned" just because it is absent from today).
+              final PlanContext dayContext = analyzePlanContext(
+                blocks: blocks,
+                tasks: tasks,
+                energy: energy,
+              );
+              final PlanContext planContext = analyzePlanContext(
+                blocks: allBlocks,
+                tasks: tasks,
+                energy: energy,
+              );
+              final TimeBlock? nextBlock = recommendNextBlock(blocks: blocks);
+
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -198,8 +216,19 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                     child: DayOverviewCard(
                       blocksCount: blocks.length,
                       energy: energy,
+                      plannedMinutes: dayContext.plannedMinutes,
+                      unplannedTaskCount: planContext.unplannedTaskCount,
                     ),
                   ),
+                  if (dayContext.isOverloaded) ...[
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      child: _OverloadedDayBanner(
+                        plannedMinutes: dayContext.plannedMinutes,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Expanded(
                     child: blocks.isEmpty
@@ -254,6 +283,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                               blocks: blocks,
                               onCompleteTask: _completePlannedTask,
                               completingTaskIds: _completingTaskIds,
+                              highlightedBlockId: nextBlock?.id,
                             ),
                           ),
                   ),
@@ -262,6 +292,50 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Shown when [AnalyzePlanContext] reports the selected day exceeds its
+/// planned-minutes threshold, so an overloaded day is visible before the user
+/// works through it.
+class _OverloadedDayBanner extends StatelessWidget {
+  const _OverloadedDayBanner({required this.plannedMinutes});
+
+  final int plannedMinutes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.memoryAmber.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.memoryAmber.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: AppColors.memoryAmber,
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Heavy day: ${DayOverviewCard.formatMinutes(plannedMinutes)} '
+              'scheduled. Consider moving lower-priority work.',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
