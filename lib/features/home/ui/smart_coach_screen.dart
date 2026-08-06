@@ -819,7 +819,7 @@ class _VoiceSummaryButton extends ConsumerWidget {
         ref
             .read(voiceServiceProvider)
             .speakSummary(
-              title: 'Smart Coach voice summary',
+              title: 'Smart Planner voice summary',
               points: <String>[
                 'Energy is ${(energy * 100).round()} percent',
                 'Emotion state is ${emotion.name}',
@@ -904,7 +904,7 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
           ref
               .read(voiceServiceProvider)
               .speakAccessibilityHint(
-                surface: 'Smart Coach',
+                surface: 'Smart Planner',
                 controls: const <String>[
                   'Adjust energy slider to set intensity',
                   'Select emotional state to tune guidance',

@@ -140,7 +140,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       'Type a prompt in the input field, then tap send.',
       'Use Summary to hear recent assistant responses.',
       'Use Speak on assistant bubbles to read aloud.',
-      'Use Back to return to Smart Coach.',
+      'Use Back to return to Smart Planner.',
     ];
     await showModalBottomSheet<void>(
       context: context,
@@ -184,7 +184,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
                 Text(
-                  '4. Back returns to Smart Coach',
+                  '4. Back returns to Smart Planner',
                   style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],

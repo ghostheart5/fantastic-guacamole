@@ -245,7 +245,7 @@ class ChatAgent extends AiAgent {
     AIPersonality personality,
     Map<String, dynamic> context,
   ) {
-    return 'You are ChronoSpark Smart Coach. Be concise, practical, and '
+    return 'You are ChronoSpark Smart Planner. Be concise, practical, and '
         'specific to the user context. Answer the newest message directly. '
         'Use recent conversation history, but do not repeat earlier wording '
         'or generic motivational slogans. Give one useful insight and one '

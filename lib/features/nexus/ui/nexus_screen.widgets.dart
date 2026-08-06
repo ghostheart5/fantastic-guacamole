@@ -1134,7 +1134,7 @@ class _ActionGrid extends ConsumerWidget {
           SizedBox(height: ultraCompact ? 10 : 12),
           if (compact) ...[
             HoloButton(
-              label: 'Smart Coach',
+              label: 'Smart Planner',
               onTap: () => ref.read(appFlowProvider.notifier).toSmartCoach(),
             ),
             const SizedBox(height: 10),
@@ -1170,7 +1170,7 @@ class _ActionGrid extends ConsumerWidget {
               children: [
                 Expanded(
                   child: HoloButton(
-                    label: 'Smart Coach',
+                    label: 'Smart Planner',
                     onTap: () => ref.read(appFlowProvider.notifier).toSmartCoach(),
                   ),
                 ),

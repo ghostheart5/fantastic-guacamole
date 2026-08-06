@@ -46,7 +46,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       title: 'LIFE GUIDANCE',
       subtitle: 'Adaptive personal coaching',
       body:
-          'Smart Coach reads your emotional state, energy signature, and behavior patterns to generate practical guidance. This is not a checklist bot. It is your strategy layer.',
+          'Smart Planner reads your emotional state, energy signature, and behavior patterns to generate practical guidance. This is not a checklist bot. It is your strategy layer.',
     ),
     _Slide(
       icon: Icons.timer_rounded,

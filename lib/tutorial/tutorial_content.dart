@@ -132,7 +132,7 @@ class TutorialContent {
       id: 'memories_overview',
       title: 'MEMORIES',
       description:
-          'Capture high-signal memory notes so Smart Coach can reason with real context.',
+          'Capture high-signal memory notes so Smart Planner can reason with real context.',
       ctaLabel: 'Save Memory',
     ),
     TutorialStepContent(
@@ -173,7 +173,7 @@ class TutorialContent {
     AcademyTrack(
       title: 'Intelligence',
       lessons: <AcademyLesson>[
-        AcademyLesson(title: 'Smart Coach'),
+        AcademyLesson(title: 'Smart Planner'),
         AcademyLesson(title: 'Recommendations'),
         AcademyLesson(title: 'Analytics'),
       ],

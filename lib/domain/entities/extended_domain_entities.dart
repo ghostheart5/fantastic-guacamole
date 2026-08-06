@@ -11,7 +11,7 @@ class LightweightEntity {
   final String? label;
 }
 
-// Smart Coach Entities
+// Smart Planner Entities
 class CoachMessage extends LightweightEntity {
   const CoachMessage({required super.id, super.label});
 }

@@ -679,8 +679,8 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
       SnackBar(
         content: Text(
           completedCount > 0
-              ? 'Tutorial restarted on Smart Coach.'
-              : 'Tutorial started on Smart Coach.',
+              ? 'Tutorial restarted on Smart Planner.'
+              : 'Tutorial started on Smart Planner.',
         ),
         duration: const Duration(seconds: 2),
       ),

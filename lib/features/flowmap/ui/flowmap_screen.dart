@@ -806,7 +806,7 @@ class _FlowTemplate {
 
 const List<_FlowTemplate> _flowTemplates = <_FlowTemplate>[
   _FlowTemplate(
-    feature: 'Smart Coach',
+    feature: 'Smart Planner',
     overview:
         'Turn user prompts into grounded coaching output with context and memory.',
     trigger: 'User submits coaching message',
@@ -816,7 +816,7 @@ const List<_FlowTemplate> _flowTemplates = <_FlowTemplate>[
     repository: 'tasks/goals/memory/log repositories',
     dataSource: 'Hive local + synced remote state',
     services: 'analytics, error capture, optional voice output',
-    output: 'Coach advice + next action on Smart Coach UI',
+    output: 'Coach advice + next action on Smart Planner UI',
     savedData: 'coach query/response context',
     errors: 'AI failure, partial context failure',
     fallback: 'Deterministic coaching guidance with reduced context',
