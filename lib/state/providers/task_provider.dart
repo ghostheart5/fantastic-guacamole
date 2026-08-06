@@ -44,15 +44,17 @@ final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
     primaryInstinct: si.fatigue >= 0.75 ? 'safety_first' : 'progress_first',
   );
   final List<TaskEntity> candidates = TaskFilter.bySiState(tasks, siState);
-  final List<RankedTask> ranked = const TaskRanker().rank(
-    candidates,
-    learning: learning,
-    energy: si.energy,
-    fatigue: si.fatigue,
-    priorityScale: optimization.nextActionAggressiveness,
-    difficultyScale: optimization.taskDifficultyScale,
-    siState: siState,
-  );
+  final List<RankedTask> ranked = ref
+      .read(scoreTasksUseCaseProvider)
+      .call(
+        candidates,
+        learning: learning,
+        energy: si.energy,
+        fatigue: si.fatigue,
+        priorityScale: optimization.nextActionAggressiveness,
+        difficultyScale: optimization.taskDifficultyScale,
+        siState: siState,
+      );
   return ranked.map((RankedTask item) => _taskFromEntity(item.task)).toList();
 });
 

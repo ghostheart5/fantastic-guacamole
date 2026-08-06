@@ -1,7 +1,10 @@
+import 'package:fantastic_guacamole/data/repositories/habit_repository.dart'
+    show HabitRecord;
 import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/usecases/assemble_si_decision_output.dart';
 import 'package:fantastic_guacamole/domain/usecases/extract_si_signals.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
@@ -35,6 +38,15 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     data: (List<FlowmapNode> nodes) => nodes,
     orElse: () => const <FlowmapNode>[],
   );
+  // Habits feed Smart Planner and SI. Read non-blocking: if habit storage has
+  // not resolved (or failed), aggregation continues with none rather than
+  // stalling the whole SI pipeline on it.
+  final List<HabitRecord> habits = ref
+      .watch(habitsProvider)
+      .maybeWhen(
+        data: (List<HabitRecord> value) => value,
+        orElse: () => const <HabitRecord>[],
+      );
 
   final List<String> planPreview = ref
       .read(generateAdaptivePlanUseCaseProvider)
@@ -78,6 +90,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     trajectory: trajectory,
     coreValues: coreValues,
     soulMap: soulMap,
+    habits: habits,
     signals: SISignalExtraction(
       friction: signals.friction,
       overwhelm: signals.overwhelm,
@@ -136,81 +149,46 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
   final CoreValueType strongestValue = coreValues.strongest;
   final int neglectedScore = coreValues.scores[neglectedValue]?.score ?? 0;
 
-  final List<String> warnings = <String>[
-    if (aggregation.signals.overwhelm) 'Overwhelm risk is elevated.',
-    if (aggregation.signals.goalDrift)
-      'Goal drift detected in recent trajectory.',
-    if (aggregation.signals.taskAvoidance) 'Task avoidance pattern detected.',
-    if (aggregation.signals.emotionalStrain)
-      'Emotional strain detected (${aggregation.signals.emotion}).',
-    if (timelineOverdueCount > 0)
-      'Timeline has $timelineOverdueCount overdue item${timelineOverdueCount == 1 ? '' : 's'}.',
-    if (timelineRiskEventsCount > 0)
-      'Timeline risk signals active ($timelineRiskEventsCount).',
-    if (timelineHealthScore < 70)
-      'Timeline health is $timelineHealthScore% with elevated risk $timelineRiskScore%.',
-    if (neglectedScore < 60)
-      'Core value drift detected in ${coreValueTitle(neglectedValue)} ($neglectedScore%).',
-  ];
-
-  final String nextAction =
-      nextTask?.title ??
-      (aggregation.tasks.isEmpty
-          ? 'Capture one high-value task.'
-          : aggregation.tasks.first.title);
-
-  final List<String> planAdjustments = <String>[
-    if (aggregation.signals.overwhelm)
-      'Reduce today to one critical task block.',
-    if (aggregation.tasks.length > 5)
-      'Split remaining tasks into tomorrow queue.',
-    if (aggregation.planPreview.isEmpty)
-      'Generate a 3-block adaptive plan for today.',
-    if (timelineOverdueCount > 0)
-      'Resolve one overdue timeline item before adding new commitments.',
-    if (timelineUpcomingCount >= 5)
-      'Pre-plan upcoming deadlines now to prevent rollover pressure.',
-    'Schedule one action that strengthens ${coreValueTitle(neglectedValue)}.',
-  ];
-
-  final List<String> insightPrompts = <String>[
-    if (aggregation.signals.friction)
-      'What is creating the most friction right now?',
-    if (aggregation.signals.goalDrift) 'Which goal has drifted and why?',
-    if (aggregation.signals.emotionalStrain)
-      'What would reduce emotional load in the next hour?',
-    if (aggregation.signals.emotionalStability)
-      'How can you convert this stable state into one decisive action?',
-    if (aggregation.memories.isNotEmpty)
-      'What memory should inform this decision?',
-    if (timelineOverdueCount > 0)
-      'Which overdue timeline item should be recovered first?',
-    if (timelineUpcomingCount > 0)
-      'What is the next timeline deadline this week?',
-    if (timelineRecommendationCount > 0)
-      'What timeline recommendation should be applied now?',
-    'How do we strengthen ${coreValueTitle(neglectedValue)} this week?',
-  ];
-
-  final String progressionFeedback = aggregation.profile.streak >= 7
-      ? 'Streak momentum is strong. Protect it with one decisive completion.'
-      : aggregation.profile.streak >= 3
-      ? 'Consistency is building. Keep the chain alive today.'
-      : 'Rebuild momentum with one immediate win.';
-
-  final String memoryHint = _buildMemoryHint(aggregation.memories);
-
-  final String coachMessage = warnings.isEmpty
-      ? 'Trajectory is stable (timeline health $timelineHealthScore%). Strongest value is ${coreValueTitle(strongestValue)}. Execute the next action and keep momentum. $memoryHint'
-      : 'Signals show pressure (timeline risk $timelineRiskScore%). Reinforce ${coreValueTitle(neglectedValue)} with one focused action now.';
+  // Decision rules live in the domain layer; this provider supplies the
+  // already-derived signals and counts and maps the result to the view model.
+  final SiDecisionDraft draft = ref
+      .read(assembleSiDecisionOutputUseCaseProvider)
+      .call(
+        friction: aggregation.signals.friction,
+        overwhelm: aggregation.signals.overwhelm,
+        goalDrift: aggregation.signals.goalDrift,
+        taskAvoidance: aggregation.signals.taskAvoidance,
+        emotionalStrain: aggregation.signals.emotionalStrain,
+        emotionalStability: aggregation.signals.emotionalStability,
+        emotion: aggregation.signals.emotion,
+        timelineHealthScore: timelineHealthScore,
+        timelineRiskScore: timelineRiskScore,
+        timelineOverdueCount: timelineOverdueCount,
+        timelineUpcomingCount: timelineUpcomingCount,
+        timelineRiskEventsCount: timelineRiskEventsCount,
+        timelineRecommendationCount: timelineRecommendationCount,
+        neglectedValueLabel: coreValueTitle(neglectedValue),
+        strongestValueLabel: coreValueTitle(strongestValue),
+        neglectedValueScore: neglectedScore,
+        nextTaskTitle: nextTask?.title,
+        firstTaskTitle: aggregation.tasks.isEmpty
+            ? null
+            : aggregation.tasks.first.title,
+        taskCount: aggregation.tasks.length,
+        planPreviewIsEmpty: aggregation.planPreview.isEmpty,
+        hasMemories: aggregation.memories.isNotEmpty,
+        memoryHint: _buildMemoryHint(aggregation.memories),
+        streak: aggregation.profile.streak,
+        activeHabitCount: aggregation.activeHabitCount,
+      );
 
   return SIDecisionOutput(
-    nextAction: nextAction,
-    coachMessage: coachMessage,
-    suggestedPlanAdjustments: planAdjustments,
-    insightPrompts: insightPrompts,
-    progressionFeedback: progressionFeedback,
-    warnings: warnings,
+    nextAction: draft.nextAction,
+    coachMessage: draft.coachMessage,
+    suggestedPlanAdjustments: draft.suggestedPlanAdjustments,
+    insightPrompts: draft.insightPrompts,
+    progressionFeedback: draft.progressionFeedback,
+    warnings: draft.warnings,
   );
 });
 

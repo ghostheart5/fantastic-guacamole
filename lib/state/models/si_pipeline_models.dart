@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/data/repositories/habit_repository.dart'
+    show HabitRecord;
 import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
@@ -53,6 +55,7 @@ class SIStateAggregation {
     required this.signals,
     required this.coreValues,
     required this.soulMap,
+    this.habits = const <HabitRecord>[],
   });
 
   final List<Task> tasks;
@@ -70,6 +73,13 @@ class SIStateAggregation {
   final SISignalExtraction signals;
   final CoreValuesAlignment coreValues;
   final SoulMapAlignment soulMap;
+
+  /// Habits available to Smart Planner and SI. Empty when habit storage has not
+  /// resolved yet, so aggregation never blocks on it.
+  final List<HabitRecord> habits;
+
+  int get activeHabitCount =>
+      habits.where((HabitRecord habit) => habit.active).length;
 }
 
 class SIDecisionOutput {

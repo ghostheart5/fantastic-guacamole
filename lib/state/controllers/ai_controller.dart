@@ -12,7 +12,6 @@ import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
-import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_detection_service.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
@@ -296,8 +295,6 @@ class AIController {
           input: input,
           surface: 'si_console',
         );
-    final DefaultAssistantContextBuilder contextBuilder =
-        const DefaultAssistantContextBuilder();
     final List<String> timelineSummaries = timelineEvents
         .take(3)
         .map((event) => event.title.trim())
@@ -314,15 +311,17 @@ class AIController {
       'forcedSurface': forcedSurface,
       'responseContract': _responseContract(primarySurface, matchedSurfaces),
       'assistantIntent': assistantIntent.toJson(),
-      'assistantContext': contextBuilder.buildSIConsoleContext(
-        input: input,
-        intent: assistantIntent,
-        matchedSurfaces: matchedSurfaces,
-        memorySummaries: selectedMemorySummaries,
-        timelineSummaries: timelineSummaries,
-        taskCount: tasks.length,
-        goalCount: goals.length,
-      ),
+      'assistantContext': _ref
+          .read(assembleSiContextUseCaseProvider)
+          .call(
+            input: input,
+            intent: assistantIntent,
+            matchedSurfaces: matchedSurfaces,
+            memorySummaries: selectedMemorySummaries,
+            timelineSummaries: timelineSummaries,
+            taskCount: tasks.length,
+            goalCount: goals.length,
+          ),
       'name': profile.name,
       'level': profile.level,
       'xp': profile.xp,
