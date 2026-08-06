@@ -1,12 +1,17 @@
 import 'package:fantastic_guacamole/config/app_flavor.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 abstract final class Env {
   static const String appName = 'ChronoSpark';
-  static const String privacyPolicyUrl = 'https://chronospark.app/privacy';
-  static const String termsOfServiceUrl = 'https://chronospark.app/terms';
-  static const String supportUrl = 'https://chronospark.app/support';
+
+  // Legal/support URLs have a single source of truth in [AppUrls], which is
+  // what every live screen opens. These forward to it; they previously
+  // declared chronospark.app paths that disagreed with the URLs actually used.
+  static const String privacyPolicyUrl = AppUrls.privacy;
+  static const String termsOfServiceUrl = AppUrls.terms;
+  static const String supportUrl = AppUrls.support;
   static const String supportEmail = 'support@chronospark.app';
   static const String _appFlavorDefine = String.fromEnvironment(
     'CHRONOSPARK_APP_FLAVOR',
