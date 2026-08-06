@@ -113,7 +113,7 @@ abstract final class Env {
   static String get appFlavor =>
       _readRiskString('CHRONOSPARK_APP_FLAVOR', _appFlavorDefine);
   static bool get enableVerboseLogs =>
-      _readBool('CHRONOSPARK_VERBOSE_LOGS', _enableVerboseLogsDefine);
+      _readRiskBool('CHRONOSPARK_VERBOSE_LOGS', _enableVerboseLogsDefine);
   static bool get enableCrashReporting => _readBool(
     'CHRONOSPARK_ENABLE_CRASH_REPORTING',
     _enableCrashReportingDefine,
@@ -124,8 +124,10 @@ abstract final class Env {
       _readRiskBool('CHRONOSPARK_ENABLE_MOCK_LOGIN', _enableMockLoginDefine);
   static bool get enableMockMode =>
       _readRiskBool('CHRONOSPARK_ENABLE_MOCK_MODE', _enableMockModeDefine);
-  static bool get enablePaywallDisabled =>
-      _readRiskBool('CHRONOSPARK_PAYWALL_DISABLED', _enablePaywallDisabledDefine);
+  static bool get enablePaywallDisabled => _readRiskBool(
+    'CHRONOSPARK_PAYWALL_DISABLED',
+    _enablePaywallDisabledDefine,
+  );
   static bool get enableTesterFullAccess => _readRiskBool(
     'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
     _enableTesterFullAccessDefine,

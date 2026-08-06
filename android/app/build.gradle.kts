@@ -11,13 +11,31 @@ val keystorePropertiesFile = rootProject.file("key.properties")
 val googleServicesJsonFile = project.file("google-services.json")
 val hasGoogleServicesJson = googleServicesJsonFile.exists()
 
+// Detect whether this is a release build so we can gate Firebase config.
+// isReleaseBuild is true when the Gradle task list includes any Release task,
+// which covers assembleRelease, bundleRelease, and their variants.
+val isReleaseBuild = gradle.startParameter.taskNames.any {
+    it.contains("Release", ignoreCase = true)
+}
+
 if (hasGoogleServicesJson) {
     // Apply Firebase plugins only when Android firebase config is available.
     apply(plugin = "com.google.gms.google-services")
     apply(plugin = "com.google.firebase.crashlytics")
+} else if (isReleaseBuild) {
+    // Release builds without google-services.json ship without Crashlytics.
+    // With minification on, any crash that does reach you will be unreadable.
+    // Fail loudly here so the missing config is caught before the artifact
+    // is uploaded rather than after it ships silently broken.
+    error(
+        "google-services.json is required for release builds. " +
+            "Ensure the ANDROID_GOOGLE_SERVICES_JSON_BASE64 secret is set in CI " +
+            "and the file is decoded before Gradle runs.",
+    )
 } else {
     logger.lifecycle(
-        "google-services.json was not found at ${googleServicesJsonFile.path}. Skipping Firebase Gradle plugins for this build.",
+        "google-services.json was not found at ${googleServicesJsonFile.path}. " +
+            "Skipping Firebase Gradle plugins for this non-release build.",
     )
 }
 
@@ -103,7 +121,11 @@ android {
 
 dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
-    implementation("com.android.billingclient:billing:6.0.1")
+    // Billing Library version is intentionally NOT pinned here.
+    // in_app_purchase_android manages its own billing dependency; an explicit
+    // pin either duplicates or overrides what the plugin expects, which can
+    // cause a Play upload rejection (v6 is below the v7+ floor) or a
+    // runtime NoSuchMethodError in release builds only.
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
 
