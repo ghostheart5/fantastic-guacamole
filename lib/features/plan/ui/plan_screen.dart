@@ -1,7 +1,7 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
-import 'package:fantastic_guacamole/engine/planning/calendar_service.dart';
+import 'package:fantastic_guacamole/domain/usecases/generate_adaptive_plan.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/day_overview_card.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/day_selector.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/plan_header.dart';
@@ -96,7 +96,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
   /// bucketed to two decimals because the raw value drifts continuously and
   /// sub-percent changes do not alter the ranking meaningfully.
   List<TimeBlock> _adaptivePlanFor({
-    required CalendarService calendarService,
+    required GenerateAdaptivePlan generateAdaptivePlan,
     required List<Task> tasks,
     required double energy,
   }) {
@@ -112,7 +112,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     if (cached != null && _cachedPlanKey == key) {
       return cached;
     }
-    final List<TimeBlock> generated = calendarService.generateAdaptivePlan(
+    final List<TimeBlock> generated = generateAdaptivePlan(
       tasks: tasks,
       energy: energy,
     );
@@ -125,7 +125,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
   Widget build(BuildContext context) {
     final tasksAsync = ref.watch(tasksProvider);
     final energy = ref.watch(energyProvider);
-    final calendarService = ref.read(calendarServiceProvider);
+    final generateAdaptivePlan = ref.read(generateAdaptivePlanUseCaseProvider);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/plan_bg.jpg',
@@ -166,7 +166,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
             ),
             data: (tasks) {
               final List<TimeBlock> allBlocks = _adaptivePlanFor(
-                calendarService: calendarService,
+                generateAdaptivePlan: generateAdaptivePlan,
                 tasks: tasks,
                 energy: energy,
               );

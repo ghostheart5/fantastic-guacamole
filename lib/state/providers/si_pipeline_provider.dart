@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/usecases/extract_si_signals.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
@@ -36,49 +37,31 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   );
 
   final List<String> planPreview = ref
-      .read(calendarServiceProvider)
-      .generateAdaptivePlan(tasks: tasks, energy: energy)
+      .read(generateAdaptivePlanUseCaseProvider)
+      .call(tasks: tasks, energy: energy)
       .take(3)
       .map((block) => block.title)
       .toList(growable: false);
 
-  final bool friction = trajectory.pressureIndex >= 60 || energy < 0.35;
-  final bool overwhelm =
-      trajectory.pressureIndex >= 75 || trajectory.behaviorDivergence >= 50;
-  final String streakHealth = profile.streak >= 10
-      ? 'strong'
-      : profile.streak >= 3
-      ? 'stable'
-      : 'fragile';
-  final bool goalDrift =
-      goals.isNotEmpty && trajectory.behaviorDivergence >= 40;
-  final bool taskAvoidance =
-      logs.where((entry) => entry.source == 'task_skipped').length >= 2;
-  final bool emotionalStrain =
-      emotion == EmotionalState.anxious ||
-      emotion == EmotionalState.scattered ||
-      emotion == EmotionalState.negative ||
-      emotion == EmotionalState.fatigued;
-  final bool emotionalStability =
-      emotion == EmotionalState.calm ||
-      emotion == EmotionalState.focused ||
-      emotion == EmotionalState.positive;
-  final Set<String> patterns = <String>{};
-  if (insights.summary.toLowerCase().contains('overload')) {
-    patterns.add('overload_pattern');
-  }
-  if (flowmapNodes.any((node) => node.tags.contains('insight'))) {
-    patterns.add('insight_linked_flow');
-  }
-  if (flowmapNodes.any((node) => node.tags.contains('goal'))) {
-    patterns.add('goal_pressure_pattern');
-  }
-  if (emotionalStrain) {
-    patterns.add('emotional_strain');
-  }
-  if (emotionalStability) {
-    patterns.add('emotional_stability');
-  }
+  // Signal thresholds live in the domain layer so this provider orchestrates
+  // rather than owning core SI logic.
+  final SiSignals signals = ref
+      .read(extractSiSignalsUseCaseProvider)
+      .call(
+        pressureIndex: trajectory.pressureIndex.toDouble(),
+        behaviorDivergence: trajectory.behaviorDivergence.toDouble(),
+        energy: energy,
+        streak: profile.streak,
+        hasGoals: goals.isNotEmpty,
+        skippedTaskCount: logs
+            .where((entry) => entry.source == 'task_skipped')
+            .length,
+        emotion: emotion.name,
+        insightsSummary: insights.summary,
+        flowmapTags: <String>[
+          for (final FlowmapNode node in flowmapNodes) ...node.tags,
+        ],
+      );
 
   return SIStateAggregation(
     tasks: tasks,
@@ -96,15 +79,15 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     coreValues: coreValues,
     soulMap: soulMap,
     signals: SISignalExtraction(
-      friction: friction,
-      overwhelm: overwhelm,
-      streakHealth: streakHealth,
-      goalDrift: goalDrift,
-      taskAvoidance: taskAvoidance,
-      emotion: emotion.name,
-      emotionalStrain: emotionalStrain,
-      emotionalStability: emotionalStability,
-      emotionalPatterns: patterns.toList(growable: false),
+      friction: signals.friction,
+      overwhelm: signals.overwhelm,
+      streakHealth: signals.streakHealth,
+      goalDrift: signals.goalDrift,
+      taskAvoidance: signals.taskAvoidance,
+      emotion: signals.emotion,
+      emotionalStrain: signals.emotionalStrain,
+      emotionalStability: signals.emotionalStability,
+      emotionalPatterns: signals.emotionalPatterns,
     ),
   );
 });

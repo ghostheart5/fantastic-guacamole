@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_extended_domain_reposito
 import 'package:fantastic_guacamole/domain/interfaces/i_calendar_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_flowmap_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_identity_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_insight_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_learning_repository.dart';
@@ -31,7 +32,9 @@ import 'package:fantastic_guacamole/domain/usecases/add_calendar_entry.dart';
 import 'package:fantastic_guacamole/domain/usecases/add_insight.dart';
 import 'package:fantastic_guacamole/domain/usecases/add_log_entry.dart';
 import 'package:fantastic_guacamole/domain/usecases/add_timeline_event.dart';
+import 'package:fantastic_guacamole/domain/usecases/analyze_plan_context.dart';
 import 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart';
+import 'package:fantastic_guacamole/domain/usecases/assemble_si_context.dart';
 import 'package:fantastic_guacamole/domain/usecases/award_xp.dart';
 import 'package:fantastic_guacamole/domain/usecases/cancel_notification.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_goal.dart';
@@ -50,6 +53,8 @@ import 'package:fantastic_guacamole/domain/usecases/delete_routine.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_subtask.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/end_session.dart';
+import 'package:fantastic_guacamole/domain/usecases/extract_si_signals.dart';
+import 'package:fantastic_guacamole/domain/usecases/generate_adaptive_plan.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_insight_from_event.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_si_decision.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_all_themes.dart';
@@ -74,6 +79,7 @@ import 'package:fantastic_guacamole/domain/usecases/get_settings.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_si_queries_extended.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_subtasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
+import 'package:fantastic_guacamole/domain/usecases/habit_usecases.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_user_level.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_workspace.dart';
@@ -81,6 +87,7 @@ import 'package:fantastic_guacamole/domain/usecases/hydrate_si_state.dart';
 import 'package:fantastic_guacamole/domain/usecases/pause_session.dart';
 import 'package:fantastic_guacamole/domain/usecases/remove_calendar_entry.dart';
 import 'package:fantastic_guacamole/domain/usecases/remove_timeline_event.dart';
+import 'package:fantastic_guacamole/domain/usecases/recommend_next_block.dart';
 import 'package:fantastic_guacamole/domain/usecases/resume_session.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_analytics_metric.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_coach_message.dart';
@@ -97,6 +104,7 @@ import 'package:fantastic_guacamole/domain/usecases/save_subtasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_theme.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/schedule_notification.dart';
+import 'package:fantastic_guacamole/domain/usecases/score_tasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/skip_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/start_session.dart';
 import 'package:fantastic_guacamole/domain/usecases/switch_theme.dart';
@@ -114,8 +122,10 @@ import 'package:fantastic_guacamole/domain/usecases/update_streak.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_subtask.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_xp.dart';
+import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
+import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
 import 'package:fantastic_guacamole/state/services/extended_domain_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -569,6 +579,71 @@ final createPlanUseCaseProvider = Provider<CreatePlan>((ref) {
 
 final updatePlanUseCaseProvider = Provider<UpdatePlan>((ref) {
   return UpdatePlan(ref.read(domainPlanRepositoryProvider));
+});
+
+// --- Smart Planner: shipping path ----------------------------------------
+// These wrap the engine rules rather than reimplementing them, giving the
+// shipping planner a domain surface. The persisted-plan use cases above stay a
+// separate path with no consumer.
+
+final generateAdaptivePlanUseCaseProvider = Provider<GenerateAdaptivePlan>((
+  ref,
+) {
+  return GenerateAdaptivePlan(ref.read(calendarServiceProvider));
+});
+
+final analyzePlanContextUseCaseProvider = Provider<AnalyzePlanContext>((ref) {
+  return const AnalyzePlanContext();
+});
+
+final recommendNextBlockUseCaseProvider = Provider<RecommendNextBlock>((ref) {
+  return const RecommendNextBlock();
+});
+
+final scoreTasksUseCaseProvider = Provider<ScoreTasks>((ref) {
+  return const ScoreTasks();
+});
+
+// --- SI Console ------------------------------------------------------------
+
+final extractSiSignalsUseCaseProvider = Provider<ExtractSiSignals>((ref) {
+  return const ExtractSiSignals();
+});
+
+final assembleSiContextUseCaseProvider = Provider<AssembleSiContext>((ref) {
+  return const AssembleSiContext(DefaultAssistantContextBuilder());
+});
+
+// --- Habits ---------------------------------------------------------------
+// Habits previously went straight from provider to repository, unlike every
+// other CRUD surface. These give it the same domain path.
+
+final domainHabitRepositoryProvider = Provider<IHabitRepository>((ref) {
+  return ref.read(habitRepositoryProvider);
+});
+
+final getHabitsUseCaseProvider = Provider<GetHabits>((ref) {
+  return GetHabits(ref.read(domainHabitRepositoryProvider));
+});
+
+final createHabitUseCaseProvider = Provider<CreateHabit>((ref) {
+  return CreateHabit(ref.read(domainHabitRepositoryProvider));
+});
+
+final toggleHabitUseCaseProvider = Provider<ToggleHabit>((ref) {
+  return ToggleHabit(ref.read(domainHabitRepositoryProvider));
+});
+
+final updateHabitUseCaseProvider = Provider<UpdateHabit>((ref) {
+  return UpdateHabit(ref.read(domainHabitRepositoryProvider));
+});
+
+final deleteHabitUseCaseProvider = Provider<DeleteHabit>((ref) {
+  return DeleteHabit(ref.read(domainHabitRepositoryProvider));
+});
+
+final saveHabitsUseCaseProvider = Provider<SaveHabits>((ref) {
+  return SaveHabits(ref.read(domainHabitRepositoryProvider));
 });
 
 final getProfileUseCaseProvider = Provider<GetProfile>((ref) {

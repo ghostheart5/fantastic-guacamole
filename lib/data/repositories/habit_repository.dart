@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:flutter/foundation.dart';
 
 @immutable
@@ -30,13 +31,14 @@ class HabitRecord {
   }
 }
 
-class HabitRepository {
+class HabitRepository implements IHabitRepository {
   HabitRepository(this._storage);
 
   static const String _key = 'habit_records_v1';
 
   final HiveStorage<String> _storage;
 
+  @override
   Future<List<HabitRecord>> getHabits() async {
     await _storage.open();
     final String? raw = _storage.get(_key);
@@ -60,6 +62,7 @@ class HabitRepository {
         .toList(growable: false);
   }
 
+  @override
   Future<void> saveHabits(List<HabitRecord> habits) {
     return _storage.put(
       _key,

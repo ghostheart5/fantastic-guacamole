@@ -14,7 +14,6 @@ import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
-import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
@@ -431,8 +430,8 @@ class CoachQueryController implements SmartCoachInterface {
       orElse: () => const <FlowmapNode>[],
     );
     final planPreview = _ref
-        .read(calendarServiceProvider)
-        .generateAdaptivePlan(tasks: tasks, energy: energy)
+        .read(generateAdaptivePlanUseCaseProvider)
+        .call(tasks: tasks, energy: energy)
         .take(3)
         .map((block) => block.title)
         .toList(growable: false);

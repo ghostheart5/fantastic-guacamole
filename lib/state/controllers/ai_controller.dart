@@ -39,7 +39,6 @@ import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
-import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
@@ -202,8 +201,8 @@ class AIController {
       orElse: () => 0,
     );
     final List<String> planPreview = _ref
-        .read(calendarServiceProvider)
-        .generateAdaptivePlan(tasks: tasks, energy: si.energy)
+        .read(generateAdaptivePlanUseCaseProvider)
+        .call(tasks: tasks, energy: si.energy)
         .take(3)
         .map((block) => block.title)
         .toList(growable: false);
