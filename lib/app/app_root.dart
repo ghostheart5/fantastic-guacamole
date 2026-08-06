@@ -288,7 +288,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
     }
     // Deep links are handled automatically without direct user interaction.
     // Use replace to avoid creating a synthetic browser history entry.
-    router.replace(location);
+    router.replace<Object?>(location);
   }
 
   String _resolveDeepLinkLocation(Uri uri) {
