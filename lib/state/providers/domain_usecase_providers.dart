@@ -829,7 +829,10 @@ final deleteTaskUseCaseProvider = Provider<DeleteTask>((ref) {
 final scheduleNotificationUseCaseProvider = Provider<ScheduleNotification>((
   ref,
 ) {
-  return ScheduleNotification(ref.read(domainNotificationRepositoryProvider));
+  return ScheduleNotification(
+    ref.read(domainNotificationRepositoryProvider),
+    generateSiDecision: ref.read(generateSiDecisionUseCaseProvider),
+  );
 });
 
 final cancelNotificationUseCaseProvider = Provider<CancelNotification>((ref) {
