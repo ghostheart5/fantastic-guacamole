@@ -205,13 +205,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final String text = _input.text.trim();
     if (text.isEmpty) return;
 
-    if (_handleLocalCommand(text)) {
-      _input.clear();
+    if (ref.read(siConsoleQueryControllerProvider).detectsCrisis(text)) {
+      showCrisisDialog(context);
       return;
     }
 
-    if (ref.read(siConsoleQueryControllerProvider).detectsCrisis(text)) {
-      showCrisisDialog(context);
+    if (_handleLocalCommand(text)) {
+      _input.clear();
       return;
     }
     _input.clear();

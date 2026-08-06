@@ -35,6 +35,7 @@ import 'package:fantastic_guacamole/domain/usecases/add_timeline_event.dart';
 import 'package:fantastic_guacamole/domain/usecases/analyze_plan_context.dart';
 import 'package:fantastic_guacamole/domain/usecases/apply_learning_feedback.dart';
 import 'package:fantastic_guacamole/domain/usecases/assemble_si_context.dart';
+import 'package:fantastic_guacamole/domain/usecases/assemble_si_decision_output.dart';
 import 'package:fantastic_guacamole/domain/usecases/award_xp.dart';
 import 'package:fantastic_guacamole/domain/usecases/cancel_notification.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_goal.dart';
@@ -614,6 +615,11 @@ final assembleSiContextUseCaseProvider = Provider<AssembleSiContext>((ref) {
   return const AssembleSiContext(DefaultAssistantContextBuilder());
 });
 
+final assembleSiDecisionOutputUseCaseProvider =
+    Provider<AssembleSiDecisionOutput>((ref) {
+      return const AssembleSiDecisionOutput();
+    });
+
 // --- Habits ---------------------------------------------------------------
 // Habits previously went straight from provider to repository, unlike every
 // other CRUD surface. These give it the same domain path.
@@ -805,7 +811,11 @@ final createTaskUseCaseProvider = Provider<CreateTask>((ref) {
 });
 
 final completeTaskUseCaseProvider = Provider<CompleteTask>((ref) {
-  return CompleteTask(ref.read(domainTaskRepositoryProvider));
+  return CompleteTask(
+    ref.read(domainTaskRepositoryProvider),
+    progressionRepo: ref.read(domainProgressionRepositoryProvider),
+    siRepo: ref.read(domainSiRepositoryProvider),
+  );
 });
 
 final updateTaskUseCaseProvider = Provider<UpdateTask>((ref) {

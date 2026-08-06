@@ -25,6 +25,18 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
   int _selectedDay = DateTime.now().weekday - 1;
   final Set<String> _completingTaskIds = <String>{};
 
+  /// The actual calendar date the selected day-of-week chip refers to, within
+  /// the current Mon-Sun week. [DaySelector] only carries a weekday index, so
+  /// blocks must be matched against this real date rather than weekday alone
+  /// — otherwise a task scheduled on the same weekday in a past or future
+  /// week would render as if it belonged to the current week.
+  DateTime get _selectedDate {
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    final DateTime monday = today.subtract(Duration(days: today.weekday - 1));
+    return monday.add(Duration(days: _selectedDay));
+  }
+
   void _runAfterBuild(VoidCallback action) {
     if (!mounted) return;
     final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
@@ -174,7 +186,12 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                 energy: energy,
               );
               final List<TimeBlock> blocks = allBlocks
-                  .where((block) => (block.start.weekday - 1) == _selectedDay)
+                  .where((block) {
+                    final DateTime selected = _selectedDate;
+                    return block.start.year == selected.year &&
+                        block.start.month == selected.month &&
+                        block.start.day == selected.day;
+                  })
                   .toList(growable: false);
 
               // Load/capacity for the selected day, and unplanned work across

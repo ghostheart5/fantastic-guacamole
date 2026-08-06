@@ -118,6 +118,47 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'a crisis phrase prefixed with a slash command still triggers the '
+    'crisis dialog instead of being handled as a local command',
+    (WidgetTester tester) async {
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          aiControllerProvider.overrideWith(
+            (Ref ref) => _RecordingAiController(ref),
+          ),
+          voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+          intelligenceStateProvider.overrideWithValue(_intelligence),
+        ],
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      });
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: SIConsoleScreen()),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 60));
+
+      await tester.enterText(
+        find.byType(TextField),
+        '/tasks i want to kill myself',
+      );
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.pump();
+
+      expect(find.text("You're not alone"), findsOneWidget);
+      final _RecordingAiController controller =
+          container.read(aiControllerProvider) as _RecordingAiController;
+      expect(controller.calls, 0);
+      expect(find.textContaining('SI COMMAND GUIDE'), findsNothing);
+    },
+  );
 }
 
 const IntelligenceState _intelligence = IntelligenceState(
