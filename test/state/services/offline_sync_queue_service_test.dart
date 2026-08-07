@@ -128,6 +128,48 @@ void main() {
     expect(queue, hasLength(1));
     expect(queue.single.id, 'good-id');
   });
+
+  test(
+    'replay does not persist progress until every item has been attempted',
+    () async {
+      // Documents the app-kill-mid-sync window rather than endorsing it.
+      // replay() mutates an in-memory working copy and calls _persist once, at
+      // the end. If the process dies between a successful upload and that
+      // write, the already-uploaded item is still queued on next launch and
+      // gets sent a second time.
+      //
+      // Asserting from inside the executor is the only way to observe the
+      // window: it runs after the first item has succeeded but before the
+      // single persist. Making replay checkpoint per item should fail this.
+      await service.enqueue(actionType: 'sync_to_cloud', dedupeKey: 'first');
+      await service.enqueue(actionType: 'sync_to_cloud', dedupeKey: 'second');
+
+      List<OfflineSyncQueueItem>? queueSeenDuringSecondItem;
+      int handled = 0;
+
+      await service.replay(
+        executor: (OfflineSyncQueueItem item) async {
+          handled++;
+          if (handled == 2) {
+            queueSeenDuringSecondItem = await service.loadQueue();
+          }
+          return true;
+        },
+      );
+
+      expect(handled, 2);
+      expect(
+        queueSeenDuringSecondItem,
+        hasLength(2),
+        reason:
+            'The first item uploaded successfully but is still on disk, so a '
+            'crash here re-uploads it.',
+      );
+
+      // The write does land once the loop finishes.
+      expect(await service.queuedCount(), 0);
+    },
+  );
 }
 
 class _TestHiveStore implements HiveStore {
