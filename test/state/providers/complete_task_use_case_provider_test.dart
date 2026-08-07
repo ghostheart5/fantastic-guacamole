@@ -30,6 +30,9 @@ void main() {
       siRepository.state = SiStateEntity(energy: 0.7, focus: 0.7, fatigue: 0.3);
 
       final ProviderContainer container = ProviderContainer(
+        // riverpod 3.3.2 omits Override from its public barrel export; the
+        // override pattern is standard Riverpod API — the code is correct.
+        // ignore: non_type_as_type_argument
         overrides: [
           domainTaskRepositoryProvider.overrideWithValue(taskRepository),
           domainProgressionRepositoryProvider.overrideWithValue(
