@@ -4,7 +4,6 @@ import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
-import 'package:fantastic_guacamole/data/repositories/flowmap_nodes_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/goal_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/google_play_paywall_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
@@ -44,16 +43,6 @@ TaskRepository taskRepository(Ref ref) {
 }
 
 final taskRepositoryProvider = Provider<TaskRepository>(taskRepository);
-
-final flowmapRepositoryProvider = Provider<FlowmapRepository>((Ref ref) {
-  return FlowmapRepository.secure(
-    ref.read(secureStoreProvider),
-    legacyStorage: HiveStorage<String>(
-      HiveBoxes.flowmap,
-      hive: ref.read(hiveStoreProvider),
-    ),
-  );
-});
 
 final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
   return GoalRepository(

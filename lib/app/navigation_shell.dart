@@ -4,7 +4,6 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
-import 'package:fantastic_guacamole/features/flowmap/ui/flowmap_screen.dart';
 import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_coach_screen.dart';
 import 'package:fantastic_guacamole/features/insights/ui/insight_screen.dart';
@@ -146,8 +145,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
   /// Routes a notification tap that arrived while the app was running.
   void _onNotificationTapped() {
-    final String? payload =
-        NotificationScheduler.tappedPayloadListenable.value;
+    final String? payload = NotificationScheduler.tappedPayloadListenable.value;
     if (payload == null || !mounted) {
       return;
     }
@@ -468,6 +466,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView.profile => Scaffold(
         floatingActionButton: FloatingActionButton.small(
           onPressed: _showNavigationMap,
+          tooltip: 'Open navigation map',
           child: const Icon(Icons.map_outlined),
         ),
         body: _buildTabbedBody(tabIndex),
@@ -495,7 +494,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView.progression => const ProgressionScreen(),
       AppView.plan => const PlanScreen(),
       AppView.creator => const CreatorScreen(),
-      AppView.flowmap => const FlowmapScreen(),
       AppView.goals => const GoalsScreen(),
       AppView.milestones => const MilestonesScreen(),
       AppView.memories => const MemoriesScreen(),

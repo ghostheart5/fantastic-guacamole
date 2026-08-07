@@ -42,7 +42,6 @@ import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
@@ -173,7 +172,6 @@ class AIController {
     final SoulMapFutureSelfComparison soulMapComparison = _ref.read(
       soulMapFutureSelfComparisonProvider,
     );
-    final flowmapAsync = _ref.read(flowmapProvider);
     final progression = _ref.read(progressionProvider).progress;
     final soulState = _ref.read(soulStateProvider);
     final trajectory = _ref.read(trajectorySummaryProvider);
@@ -195,10 +193,6 @@ class AIController {
       }
     }
 
-    final int flowmapNodeCount = flowmapAsync.maybeWhen(
-      data: (nodes) => nodes.length,
-      orElse: () => 0,
-    );
     final List<String> planPreview = _ref
         .read(generateAdaptivePlanUseCaseProvider)
         .call(tasks: tasks, energy: si.energy)
@@ -339,7 +333,6 @@ class AIController {
         'memories',
         'notifications',
         'plan',
-        'flowmap',
         'emotions',
         'soulmap',
         'timeline',
@@ -399,7 +392,6 @@ class AIController {
           'preview': planPreview,
           'generatedFromEnergy': si.energy,
         },
-        'flowmap': <String, dynamic>{'count': flowmapNodeCount},
         'emotions': <String, dynamic>{
           'current': emotion.name,
           'fatigue': si.fatigue,
@@ -593,7 +585,6 @@ class AIController {
       'memories': <String>['memory', 'remember', 'recall', 'history'],
       'notifications': <String>['notification', 'alert', 'reminder', 'prompt'],
       'plan': <String>['plan', 'schedule', 'calendar', 'time block'],
-      'flowmap': <String>['flowmap', 'map', 'dependency', 'path'],
       'emotions': <String>['emotion', 'mood', 'energy', 'fatigue', 'feel'],
       'soulmap': <String>[
         'soul map',
@@ -656,8 +647,6 @@ class AIController {
       '/memory': 'memories',
       '/plan': 'plan',
       '/planner': 'plan',
-      '/flowmap': 'flowmap',
-      '/flow': 'flowmap',
       '/emotions': 'emotions',
       '/emotion': 'emotions',
       '/soulmap': 'soulmap',
@@ -698,9 +687,6 @@ class AIController {
         matchedSurfaces.contains('memories') ||
         matchedSurfaces.contains('goals')) {
       return 'summarization';
-    }
-    if (matchedSurfaces.contains('flowmap')) {
-      return 'research';
     }
     return 'chat';
   }

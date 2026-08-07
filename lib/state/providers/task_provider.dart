@@ -19,7 +19,6 @@ import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/session_score_view.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
@@ -353,15 +352,6 @@ class TaskActions {
               detail: '${task.title} added to trajectory.',
               timestamp: timestamp,
             ),
-          ),
-    );
-    await _bestEffort(
-      () => _ref
-          .read(flowmapProvider.notifier)
-          .addNode(
-            title: task.title,
-            description: task.description,
-            tags: const <String>['task', 'created'],
           ),
     );
     await _refreshCoachDecision(notify: notify);

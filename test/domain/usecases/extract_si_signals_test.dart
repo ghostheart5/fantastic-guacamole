@@ -10,7 +10,6 @@ SiSignals _extract({
   int skippedTaskCount = 0,
   String emotion = 'neutral',
   String insightsSummary = '',
-  List<String> flowmapTags = const <String>[],
 }) {
   return const ExtractSiSignals()(
     pressureIndex: pressureIndex,
@@ -21,7 +20,6 @@ SiSignals _extract({
     skippedTaskCount: skippedTaskCount,
     emotion: emotion,
     insightsSummary: insightsSummary,
-    flowmapTags: flowmapTags,
   );
 }
 
@@ -102,30 +100,6 @@ void main() {
       );
     });
 
-    test('detects insight and goal linked flows from flowmap tags', () {
-      expect(
-        _extract(flowmapTags: const <String>['insight']).emotionalPatterns,
-        contains('insight_linked_flow'),
-      );
-      expect(
-        _extract(flowmapTags: const <String>['goal']).emotionalPatterns,
-        contains('goal_pressure_pattern'),
-      );
-      expect(
-        _extract(flowmapTags: const <String>['other']).emotionalPatterns,
-        isEmpty,
-      );
-    });
-
-    test('patterns are de-duplicated', () {
-      final SiSignals signals = _extract(
-        flowmapTags: const <String>['goal', 'goal', 'insight'],
-      );
-      expect(
-        signals.emotionalPatterns.where((String p) => p == 'goal_pressure_pattern').length,
-        1,
-      );
-    });
   });
 
   group('equivalence with the previous inline provider logic', () {

@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
@@ -64,12 +63,6 @@ final soulStateProvider = Provider<SoulState>((ref) {
   final logsState = ref.watch(logsProvider);
   final List<MemoryEntity> memories = ref.watch(memoriesProvider);
   final List<TimelineEventEntity> timelineEvents = ref.watch(timelineProvider);
-  final List<FlowmapNode> flowNodes = ref
-      .watch(flowmapProvider)
-      .maybeWhen(
-        data: (List<FlowmapNode> nodes) => nodes,
-        orElse: () => const <FlowmapNode>[],
-      );
   final String mood =
       emotion == EmotionalState.anxious ||
           emotion == EmotionalState.fatigued ||
@@ -77,18 +70,6 @@ final soulStateProvider = Provider<SoulState>((ref) {
       ? 'stressed'
       : 'neutral';
 
-  final int nodeCount = flowNodes.length;
-  final int describedCount = flowNodes
-      .where(
-        (FlowmapNode node) => (node.description?.trim().isNotEmpty ?? false),
-      )
-      .length;
-  final int taggedCount = flowNodes
-      .where((FlowmapNode node) => node.tags.isNotEmpty)
-      .length;
-  final int connectedCount = flowNodes
-      .where((FlowmapNode node) => node.connectedTo.isNotEmpty)
-      .length;
   final int memoryCount = memories.length;
   final int recentMemoryCount = memories
       .where((MemoryEntity memory) => memory.isRecent)
@@ -113,14 +94,6 @@ final soulStateProvider = Provider<SoulState>((ref) {
             event.isGoalComplete || event.isLevelUp || event.isStreak,
       )
       .length;
-  final double mapDensity = nodeCount == 0
-      ? 0.0
-      : ((describedCount + taggedCount + connectedCount) / (nodeCount * 3))
-            .clamp(0.0, 1.0);
-  final double flowPresenceBoost = (nodeCount * 0.035).clamp(0.0, 0.18);
-  final double flowEmergenceBoost = ((nodeCount * 0.02) + (mapDensity * 0.16))
-      .clamp(0.0, 0.22);
-  final bool hasFlowNarrative = nodeCount >= 3 || connectedCount > 0;
   final double memoryPresenceBoost = (memoryCount * 0.012).clamp(0.0, 0.10);
   final double memoryEmergenceBoost =
       ((recentMemoryCount * 0.018) + (starredMemoryCount * 0.02)).clamp(
@@ -159,7 +132,6 @@ final soulStateProvider = Provider<SoulState>((ref) {
   return const SyntheticSoulLayer().harmonize(
     presence:
         (si.energy +
-                flowPresenceBoost +
                 memoryPresenceBoost +
                 insightPresenceBoost +
                 timelinePresenceBoost +
@@ -167,7 +139,6 @@ final soulStateProvider = Provider<SoulState>((ref) {
             .clamp(0.0, 1.0),
     emergence:
         (traj.momentum +
-                flowEmergenceBoost +
                 memoryEmergenceBoost +
                 insightEmergenceBoost +
                 timelineEmergenceBoost +
@@ -176,7 +147,6 @@ final soulStateProvider = Provider<SoulState>((ref) {
     mood: mood,
     hasNarrative:
         traj.completedTasks > 0 ||
-        hasFlowNarrative ||
         hasMemoryNarrative ||
         hasInsightNarrative ||
         hasTimelineNarrative ||

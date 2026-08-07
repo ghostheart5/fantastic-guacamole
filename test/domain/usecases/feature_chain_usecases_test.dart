@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
@@ -8,7 +7,6 @@ import 'package:fantastic_guacamole/domain/entities/si_decision_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_flowmap_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
@@ -22,11 +20,9 @@ import 'package:fantastic_guacamole/domain/usecases/complete_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_task.dart';
-import 'package:fantastic_guacamole/domain/usecases/delete_flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_goal.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_memory.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_si_decision.dart';
-import 'package:fantastic_guacamole/domain/usecases/get_flowmap_nodes.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_memories.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
@@ -37,7 +33,6 @@ import 'package:fantastic_guacamole/domain/usecases/save_memories.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_memory.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/schedule_notification.dart';
-import 'package:fantastic_guacamole/domain/usecases/update_flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_goal.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -170,37 +165,6 @@ void main() {
         <String>['timeline-2'],
       );
     });
-  });
-
-  group('flowmap usecases', () {
-    late _FakeFlowmapRepository repository;
-
-    setUp(() {
-      repository = _FakeFlowmapRepository();
-    });
-
-    test(
-      'get/update/delete flowmap node use the repository contract',
-      () async {
-        final FlowmapNode node = FlowmapNode(
-          id: 'node-1',
-          title: 'Decision graph',
-          tags: const <String>['planning'],
-          createdAt: DateTime.utc(2026, 7, 4),
-        );
-
-        expect(await GetFlowmap(repository).call(), isEmpty);
-
-        await UpdateFlowmapNode(repository).call(node);
-        expect(
-          (await GetFlowmap(repository).call()).single.title,
-          'Decision graph',
-        );
-
-        await DeleteFlowmapNode(repository).call(node.id);
-        expect(await GetFlowmap(repository).call(), isEmpty);
-      },
-    );
   });
 
   group('task and si usecases', () {
@@ -537,37 +501,6 @@ class _FakeTimelineRepository implements ITimelineRepository {
   @override
   Future<void> removeEvent(String id) async {
     _events.removeWhere((TimelineEventEntity event) => event.id == id);
-  }
-}
-
-class _FakeFlowmapRepository implements IFlowmapRepository {
-  final List<FlowmapNode> _nodes = <FlowmapNode>[];
-
-  @override
-  Future<List<FlowmapNode>> getNodes() async => List<FlowmapNode>.from(_nodes);
-
-  @override
-  Future<void> saveNodes(List<FlowmapNode> nodes) async {
-    _nodes
-      ..clear()
-      ..addAll(nodes);
-  }
-
-  @override
-  Future<void> saveNode(FlowmapNode node) async {
-    final int index = _nodes.indexWhere(
-      (FlowmapNode item) => item.id == node.id,
-    );
-    if (index >= 0) {
-      _nodes[index] = node;
-    } else {
-      _nodes.add(node);
-    }
-  }
-
-  @override
-  Future<void> deleteNode(String id) async {
-    _nodes.removeWhere((FlowmapNode node) => node.id == id);
   }
 }
 

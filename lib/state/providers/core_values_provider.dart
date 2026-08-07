@@ -20,7 +20,6 @@ final coreValuesAlignmentProvider = Provider<CoreValuesAlignment>((Ref ref) {
   final List<Task> tasks =
       ref.watch(tasksProvider).asData?.value ?? const <Task>[];
   final int goalsCount = ref.watch(goalsProvider).length;
-  final int flowmapCount = ref.watch(flowmapProvider).asData?.value.length ?? 0;
   final List<MemoryEntity> memories = ref.watch(memoriesProvider);
   final EmotionalState emotion = ref.watch(emotionProvider);
 
@@ -71,7 +70,6 @@ final coreValuesAlignmentProvider = Provider<CoreValuesAlignment>((Ref ref) {
 
   final int creativity =
       (28 +
-              (flowmapCount * 5).clamp(0, 30) +
               (creativitySignals * 4).clamp(0, 24) +
               (selected(CoreValueType.creativity) ? 8 : 0))
           .clamp(0, 100);

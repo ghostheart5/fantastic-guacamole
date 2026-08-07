@@ -73,7 +73,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       title: 'WHAT TO CLICK',
       subtitle: 'Quick control map',
       body:
-          'Nexus: scan signals, choose one next move.\nTrajectory: read prediction, then open Flowmap for branches.\nCreator: forge manual tasks only when needed.\nActivity Ledger: audit completed actions and patterns.',
+          'Nexus: scan signals, choose one next move.\nTrajectory: read prediction, then commit to one next move.\nCreator: forge manual tasks only when needed.\nActivity Ledger: audit completed actions and patterns.',
     ),
   ];
 

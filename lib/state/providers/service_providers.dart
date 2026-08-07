@@ -11,7 +11,6 @@ import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/services/cache_cleanup_service.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/expired_session_cleanup.dart';
-import 'package:fantastic_guacamole/state/services/flowmap_service.dart';
 import 'package:fantastic_guacamole/state/services/identity_service.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:fantastic_guacamole/state/services/orphan_data_cleanup.dart';
@@ -25,10 +24,6 @@ import 'package:fantastic_guacamole/system/external_url_service.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
-
-final flowmapServiceProvider = Provider<FlowmapService>((Ref ref) {
-  return FlowmapService(ref.read(flowmapRepositoryProvider));
-});
 
 final identityServiceProvider = Provider<IdentityServiceContract>((Ref ref) {
   if (Env.isMockMode || Env.isMockLoginEnabled) {
@@ -55,7 +50,6 @@ final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
     tasks: ref.read(taskRepositoryProvider),
     goals: ref.read(goalRepositoryProvider),
     insights: ref.read(insightRepositoryProvider),
-    flowmap: ref.read(flowmapRepositoryProvider),
     logs: ref.read(logRepositoryProvider),
     timeline: ref.read(timelineRepositoryProvider),
     progression: ref.read(progressionRepositoryProvider),

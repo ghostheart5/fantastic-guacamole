@@ -1,5 +1,4 @@
 import 'package:fantastic_guacamole/data/repositories/si_engine_repository.dart';
-import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/insight_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
@@ -10,7 +9,6 @@ import 'package:fantastic_guacamole/domain/entities/profile_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_flowmap_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_insight_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_log_repository.dart';
@@ -73,7 +71,6 @@ SiEngineDependencies _fakeDependencies() {
     tasks: _FakeTaskRepository(),
     goals: _FakeGoalRepository(),
     insights: _FakeInsightRepository(),
-    flowmap: _FakeFlowmapRepository(),
     logs: _FakeLogRepository(),
     timeline: _FakeTimelineRepository(),
     progression: _FakeProgressionRepository(),
@@ -128,20 +125,6 @@ class _FakeInsightRepository implements IInsightRepository {
   @override
   Future<List<InsightEntity>> searchInsights(String query) async =>
       const <InsightEntity>[];
-}
-
-class _FakeFlowmapRepository implements IFlowmapRepository {
-  @override
-  Future<void> deleteNode(String id) async {}
-
-  @override
-  Future<List<FlowmapNode>> getNodes() async => const <FlowmapNode>[];
-
-  @override
-  Future<void> saveNode(FlowmapNode node) async {}
-
-  @override
-  Future<void> saveNodes(List<FlowmapNode> nodes) async {}
 }
 
 class _FakeLogRepository implements ILogRepository {

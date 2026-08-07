@@ -76,7 +76,7 @@ class TutorialContent {
       id: 'trajectory_overview',
       title: 'TRAJECTORY',
       description:
-          'Read the prediction, choose one action, then branch in Flowmap when needed.',
+          'Read the prediction, then commit to one action before moving on.',
       ctaLabel: 'Open Trajectory',
     ),
     TutorialStepContent(
@@ -113,13 +113,6 @@ class TutorialContent {
       description:
           'Track momentum shifts over time and confirm your weekly trajectory is climbing.',
       ctaLabel: 'CHECK CLIMB',
-    ),
-    TutorialStepContent(
-      id: 'flowmap_overview',
-      title: 'FLOWMAP',
-      description:
-          'Map branching paths before committing so your next move stays resilient.',
-      ctaLabel: 'Open Flowmap',
     ),
     TutorialStepContent(
       id: 'goals_overview',
@@ -223,9 +216,9 @@ class TutorialContent {
         'Set one top priority first, then stack the rest around it.',
 
     'trajectory':
-        'Read prediction first, then choose one action and open Flowmap if you need branching.',
+        'Read prediction first, then commit to one action before moving on.',
     'trajectory_overview':
-        'Read prediction first, then choose one action and open Flowmap if you need branching.',
+        'Read prediction first, then commit to one action before moving on.',
 
     'creator':
         'Use Creator when you need direct manual control over task creation.',
@@ -254,11 +247,6 @@ class TutorialContent {
         'Track whether momentum compounds week over week and adjust immediately when it stalls.',
     'progression_overview':
         'Track whether momentum compounds week over week and adjust immediately when it stalls.',
-
-    'flowmap':
-        'Map branches before committing so your next move stays clear and resilient.',
-    'flowmap_overview':
-        'Explore branches before committing so your next move is both clear and resilient.',
 
     'goals':
         'Keep goals concise, measurable, and aligned with current trajectory constraints.',

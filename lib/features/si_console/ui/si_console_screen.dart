@@ -116,7 +116,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _addSI(
         'System online. Strategic Intelligence interface active.\n'
-        'I have access to tasks, progression, goals, memories, day plan, flowmap, emotions, soul map, milestones, and console history. '
+        'I have access to tasks, progression, goals, memories, day plan, emotions, soul map, milestones, and console history. '
         'Ask me anything - or type "help" to see available commands.',
         emotion: 'confident',
       );
@@ -297,7 +297,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- milestones: ${ref.read(milestonesProvider).asData?.value.length ?? 0}\n'
                 '- core values overall: ${ref.read(coreValuesAlignmentProvider).overall}%\n'
                 '- soulmap overall: ${ref.read(soulMapAlignmentProvider).overall}%\n'
-                '- flowmap: ${aggregation.flowmapNodes.length}\n'
                 '- plan preview blocks: ${aggregation.planPreview.length}\n\n'
                 'Trajectory:\n'
                 '- pressure: ${aggregation.trajectory.pressureIndex}\n'
@@ -557,7 +556,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _messages.add(
           const _Msg(
             text:
-                'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, flowmap, emotions, soul map, or milestones.',
+                'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, emotions, soul map, or milestones.',
             isUser: false,
             emotion: 'cautious',
           ),

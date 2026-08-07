@@ -42,19 +42,6 @@ class InsightLifecycleEvent extends DomainEvent {
   final List<String> titles;
 }
 
-class FlowmapLifecycleEvent extends DomainEvent {
-  FlowmapLifecycleEvent({
-    required this.nodeId,
-    required this.title,
-    required this.action,
-    super.occurredAt,
-  });
-
-  final String nodeId;
-  final String title;
-  final String action;
-}
-
 class LogLifecycleEvent extends DomainEvent {
   LogLifecycleEvent({
     required this.logId,

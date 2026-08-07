@@ -812,8 +812,6 @@ class _DependencyMesh extends ConsumerWidget {
     final List<GoalEntity> goals = aggregation?.goals ?? const <GoalEntity>[];
     final List<MemoryEntity> memories =
         aggregation?.memories ?? const <MemoryEntity>[];
-    final List<FlowmapNode> flowNodesData =
-        aggregation?.flowmapNodes ?? const <FlowmapNode>[];
 
     final int pendingTasks = tasks.length;
     final String nextTaskTitle = aggregation == null
@@ -850,21 +848,6 @@ class _DependencyMesh extends ConsumerWidget {
         ? 'No recent memory capture'
         : memories.first.text;
 
-    final int flowNodes = flowNodesData.length;
-    final int connectedNodes = flowNodesData
-        .where((FlowmapNode node) => node.connectedTo.isNotEmpty)
-        .length;
-    final List<String> flowTitles = flowNodesData
-        .map((FlowmapNode node) => node.title.trim())
-        .where((String title) => title.isNotEmpty)
-        .toList(growable: false);
-    final String flowHeadline = flowTitles.isEmpty
-        ? 'No mapped threads'
-        : flowTitles.firstWhere((String title) {
-            final String lowered = title.toLowerCase();
-            return lowered != nextTaskTitle.toLowerCase() &&
-                lowered != goalHeadline.toLowerCase();
-          }, orElse: () => 'Flow linked to "$nextTaskTitle"');
     // Sync copy is read by people, not operators: describe what happened
     // rather than exposing the service state (LIVE/DEGRADED/SYNCING).
     final bool syncFailed = !modelAsync.isLoading && modelAsync.hasError;
@@ -947,14 +930,6 @@ class _DependencyMesh extends ConsumerWidget {
               headline: insightsHeadline,
               detail:
                   'Health ${(((insights?.healthScore ?? 0) * 100).round())}%.',
-            ),
-            _DependencyCard(
-              label: 'Flowmap',
-              accent: const Color(0xFF4BE6B0),
-              value: '$flowNodes nodes',
-              headline: flowHeadline,
-              detail:
-                  '$connectedNodes/$flowNodes connected decision nodes (node = a mapped task, goal, or idea link).',
             ),
             _DependencyCard(
               label: 'Memories',
@@ -1352,11 +1327,6 @@ class _ActionGrid extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             HoloButton(
-              label: 'Flowmap',
-              onTap: () => ref.read(appFlowProvider.notifier).toFlowmap(),
-            ),
-            const SizedBox(height: 10),
-            HoloButton(
               label: 'SI Console',
               onTap: () => ref.read(appFlowProvider.notifier).toConsole(),
             ),
@@ -1417,15 +1387,17 @@ class _ActionGrid extends ConsumerWidget {
               children: [
                 Expanded(
                   child: HoloButton(
-                    label: 'Flowmap',
-                    onTap: () => ref.read(appFlowProvider.notifier).toFlowmap(),
+                    label: 'SI Console',
+                    onTap: () => ref.read(appFlowProvider.notifier).toConsole(),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: HoloButton(
-                    label: 'SI Console',
-                    onTap: () => ref.read(appFlowProvider.notifier).toConsole(),
+                    label: 'Timeline',
+                    color: AppColors.neonViolet,
+                    onTap: () =>
+                        ref.read(appFlowProvider.notifier).toTimeline(),
                   ),
                 ),
               ],
@@ -1435,21 +1407,15 @@ class _ActionGrid extends ConsumerWidget {
               children: [
                 Expanded(
                   child: HoloButton(
-                    label: 'Timeline',
-                    color: AppColors.neonViolet,
-                    onTap: () =>
-                        ref.read(appFlowProvider.notifier).toTimeline(),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: HoloButton(
                     label: 'Progression',
                     color: AppColors.memoryAmber,
                     onTap: () =>
                         ref.read(appFlowProvider.notifier).toProgression(),
                   ),
                 ),
+                const SizedBox(width: 12),
+                // Trailing slot keeps the two-column rhythm intact.
+                const Expanded(child: SizedBox.shrink()),
               ],
             ),
           ],

@@ -58,7 +58,6 @@ class ExtractSiSignals {
     required int skippedTaskCount,
     required String emotion,
     required String insightsSummary,
-    required List<String> flowmapTags,
   }) {
     final bool friction = pressureIndex >= 60 || energy < 0.35;
     final bool overwhelm = pressureIndex >= 75 || behaviorDivergence >= 50;
@@ -75,12 +74,6 @@ class ExtractSiSignals {
     final Set<String> patterns = <String>{};
     if (insightsSummary.toLowerCase().contains('overload')) {
       patterns.add('overload_pattern');
-    }
-    if (flowmapTags.contains('insight')) {
-      patterns.add('insight_linked_flow');
-    }
-    if (flowmapTags.contains('goal')) {
-      patterns.add('goal_pressure_pattern');
     }
     if (emotionalStrain) {
       patterns.add('emotional_strain');

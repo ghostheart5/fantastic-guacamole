@@ -19,7 +19,6 @@ class TesterDataResetService {
   static const List<String> hiveBoxes = <String>[
     'tasks_box',
     'profile_box',
-    'flowmap_box',
     'tasks',
     StorageKeys.credentials,
     StorageKeys.session,
@@ -49,7 +48,6 @@ class TesterDataResetService {
     'settings_v1_text_scale',
     'settings_v1_si_tuning',
     'task_entries_v2',
-    'flowmap_entries_v2',
     'profile_state_v2',
     'paywall_subscription_state_v1',
   ];

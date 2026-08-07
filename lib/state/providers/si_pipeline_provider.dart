@@ -1,6 +1,5 @@
 import 'package:fantastic_guacamole/data/repositories/habit_repository.dart'
     show HabitRecord;
-import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -33,11 +32,6 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final CoreValuesAlignment coreValues = ref.watch(coreValuesAlignmentProvider);
   final SoulMapAlignment soulMap = ref.watch(soulMapAlignmentProvider);
   final double energy = ref.watch(energyProvider);
-  final AsyncValue<List<FlowmapNode>> flowmapAsync = ref.watch(flowmapProvider);
-  final List<FlowmapNode> flowmapNodes = flowmapAsync.maybeWhen(
-    data: (List<FlowmapNode> nodes) => nodes,
-    orElse: () => const <FlowmapNode>[],
-  );
   // Habits feed Smart Planner and SI. Read non-blocking: if habit storage has
   // not resolved (or failed), aggregation continues with none rather than
   // stalling the whole SI pipeline on it.
@@ -70,16 +64,12 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
             .length,
         emotion: emotion.name,
         insightsSummary: insights.summary,
-        flowmapTags: <String>[
-          for (final FlowmapNode node in flowmapNodes) ...node.tags,
-        ],
       );
 
   return SIStateAggregation(
     tasks: tasks,
     goals: goals,
     insights: insights,
-    flowmapNodes: flowmapNodes,
     logs: logs,
     timeline: timeline,
     memories: memories,

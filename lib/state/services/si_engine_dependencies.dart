@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/domain/interfaces/i_flowmap_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_insight_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_log_repository.dart';
@@ -15,7 +14,6 @@ class SiEngineDependencies {
     required this.tasks,
     required this.goals,
     required this.insights,
-    required this.flowmap,
     required this.logs,
     required this.timeline,
     required this.progression,
@@ -28,7 +26,6 @@ class SiEngineDependencies {
   final ITaskRepository tasks;
   final IGoalRepository goals;
   final IInsightRepository insights;
-  final IFlowmapRepository flowmap;
   final ILogRepository logs;
   final ITimelineRepository timeline;
   final IProgressionRepository progression;

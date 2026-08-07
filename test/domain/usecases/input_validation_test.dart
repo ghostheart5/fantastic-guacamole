@@ -1,11 +1,9 @@
-import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/project_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/subtask_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_flowmap_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_project_repository.dart';
@@ -13,7 +11,6 @@ import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart'
 import 'package:fantastic_guacamole/domain/interfaces/i_subtask_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/input_guard.dart';
-import 'package:fantastic_guacamole/domain/usecases/delete_flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_memory.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_project.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_routine.dart';
@@ -103,15 +100,6 @@ void main() {
       final _FakeMemoryRepository repository = _FakeMemoryRepository();
       await expectLater(
         () => DeleteMemory(repository).call('   '),
-        throwsArgumentError,
-      );
-      expect(repository.deletedIds, isEmpty);
-    });
-
-    test('DeleteFlowmapNode', () async {
-      final _FakeFlowmapRepository repository = _FakeFlowmapRepository();
-      await expectLater(
-        () => DeleteFlowmapNode(repository).call(''),
         throwsArgumentError,
       );
       expect(repository.deletedIds, isEmpty);
@@ -290,22 +278,6 @@ class _FakeMemoryRepository implements IMemoryRepository {
 
   @override
   Future<void> deleteMemory(String id) async => deletedIds.add(id);
-}
-
-class _FakeFlowmapRepository implements IFlowmapRepository {
-  final List<String> deletedIds = <String>[];
-
-  @override
-  Future<List<FlowmapNode>> getNodes() async => const <FlowmapNode>[];
-
-  @override
-  Future<void> saveNode(FlowmapNode node) async {}
-
-  @override
-  Future<void> saveNodes(List<FlowmapNode> nodes) async {}
-
-  @override
-  Future<void> deleteNode(String id) async => deletedIds.add(id);
 }
 
 class _FakeTimelineRepository implements ITimelineRepository {
