@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
@@ -98,7 +99,7 @@ class AuthGate extends ConsumerStatefulWidget {
   final Widget child;
   final AuthServiceContract? authService;
   final String? startupError;
-  final String? deepLinkMode;
+  final DeepLinkMode? deepLinkMode;
   final bool enableMockLogin;
   final String mockLoginEmail;
   final String mockLoginPassword;
@@ -373,7 +374,7 @@ class _AuthScreen extends StatefulWidget {
 
   final AuthServiceContract authService;
   final String? startupError;
-  final String? deepLinkMode;
+  final DeepLinkMode? deepLinkMode;
   final bool enableMockLogin;
   final String mockLoginEmail;
   final String mockLoginPassword;
@@ -420,8 +421,7 @@ class _AuthScreenState extends State<_AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final bool inRecoveryMode =
-        (widget.deepLinkMode ?? '').trim() == 'recovery' &&
-        !_dismissRecoveryMode;
+        widget.deepLinkMode == DeepLinkMode.recovery && !_dismissRecoveryMode;
     if (inRecoveryMode) {
       return _buildRecoveryScreen(context);
     }
@@ -453,19 +453,19 @@ class _AuthScreenState extends State<_AuthScreen> {
   }
 
   Future<void> _applyDeepLinkModeHint() async {
-    final String mode = (widget.deepLinkMode ?? '').trim();
-    if (mode.isEmpty) {
+    final DeepLinkMode? mode = widget.deepLinkMode;
+    if (mode == null) {
       return;
     }
 
-    if (mode == 'recovery') {
+    if (mode == DeepLinkMode.recovery) {
       _showMessage(
         'Password reset link received. Set your new password below.',
       );
       return;
     }
 
-    if (mode == 'verify-email') {
+    if (mode == DeepLinkMode.verifyEmail) {
       try {
         await widget.authService.reloadCurrentUser();
       } catch (_) {
@@ -477,7 +477,7 @@ class _AuthScreenState extends State<_AuthScreen> {
       return;
     }
 
-    if (mode == 'auth-callback') {
+    if (mode == DeepLinkMode.authCallback) {
       _showMessage(
         'Authentication callback received. Continuing sign-in flow.',
       );
