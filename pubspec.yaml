@@ -156,7 +156,6 @@ flutter:
     - assets/legal/terms_of_service.html
     - assets/legal/terms_of_service.txt
     - assets/tutorials/home.json
-    - assets/tutorials/tasks.json
   fonts:
     - family: Inter
       fonts:

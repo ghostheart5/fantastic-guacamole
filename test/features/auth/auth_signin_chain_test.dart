@@ -105,6 +105,178 @@ void main() {
       reason: 'Session teardown must revoke access to the app surface.',
     );
   });
+
+  // L-27: the auth-state StreamBuilder's error branch was implemented but
+  // untested — a backend hiccup on the stream itself must fail closed rather
+  // than admit the user or crash the widget tree.
+  testWidgets('an auth-state stream error is shown, not the app surface', (
+    WidgetTester tester,
+  ) async {
+    final _FakeAuthService service = _FakeAuthService();
+    addTearDown(service.dispose);
+
+    await pumpGate(tester, service);
+    expect(find.text('APP_READY'), findsNothing);
+
+    service.emitStreamError('network-request-failed');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('APP_READY'), findsNothing);
+    expect(find.text('Authentication unavailable'), findsOneWidget);
+  });
+
+  testWidgets('toggling sign-up mode swaps the primary action and title', (
+    WidgetTester tester,
+  ) async {
+    // Sign-up mode is only reachable when mock login is disabled — allowSignUp
+    // is wired to !enableMockLogin (auth_gate.dart:435).
+    //
+    // The login form sits in a SingleChildScrollView and the toggle link is
+    // below the fold at the default 800x600 test viewport; ensureVisible()
+    // doesn't bring it fully into view there (same landmine worked around in
+    // nexus_navigation_test.dart), so use a tall surface instead so the whole
+    // form renders without needing to scroll.
+    tester.platformDispatcher.views.first
+      ..physicalSize = const Size(800, 1400)
+      ..devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.platformDispatcher.views.first
+        ..resetPhysicalSize()
+        ..resetDevicePixelRatio();
+    });
+
+    final _FakeAuthService service = _FakeAuthService();
+    addTearDown(service.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: AuthGate(
+            authService: service,
+            enableMockLogin: false,
+            child: const Scaffold(body: Text('APP_READY')),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    // The form's 720ms entrance animation slides it up from below; settle it
+    // fully before locating "Create Account". Pump in small increments so the
+    // SlideTransition's paint/hit-test transform converges frame-by-frame
+    // rather than jumping straight to the end value in one large tick.
+    for (int i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(find.text('ENTER SYSTEM'), findsOneWidget);
+    expect(find.text('ACCESS SYSTEM'), findsOneWidget);
+
+    await tester.tap(find.text('Create Account'));
+    await tester.pump();
+
+    expect(find.text('INITIALIZE PROFILE'), findsOneWidget);
+    expect(find.text('CREATE ACCOUNT'), findsOneWidget);
+
+    await tester.tap(find.text('Switch to Login'));
+    await tester.pump();
+
+    expect(find.text('ENTER SYSTEM'), findsOneWidget);
+    expect(find.text('ACCESS SYSTEM'), findsOneWidget);
+  });
+
+  testWidgets('forgot password sends a reset for a valid email', (
+    WidgetTester tester,
+  ) async {
+    final _FakeAuthService service = _FakeAuthService();
+    addTearDown(service.dispose);
+
+    await pumpGate(tester, service);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('login-email-field')),
+      'user@chronospark.app',
+    );
+    await tester.tap(find.text('Forgot Password?'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(service.passwordResetCalls, <String>['user@chronospark.app']);
+    expect(find.text('Password reset link sent.'), findsOneWidget);
+  });
+
+  testWidgets('forgot password rejects an invalid email without a network call', (
+    WidgetTester tester,
+  ) async {
+    final _FakeAuthService service = _FakeAuthService();
+    addTearDown(service.dispose);
+
+    await pumpGate(tester, service);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('login-email-field')),
+      'not-an-email',
+    );
+    await tester.tap(find.text('Forgot Password?'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(service.passwordResetCalls, isEmpty);
+    expect(
+      find.text('Enter account email, then trigger password reset.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'Google/GitHub sign-in buttons are hidden behind the mock-login hint',
+    (WidgetTester tester) async {
+      final _FakeAuthService service = _FakeAuthService();
+      addTearDown(service.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: AuthGate(
+              authService: service,
+              enableMockLogin: true,
+              child: const Scaffold(body: Text('APP_READY')),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Continue with Google'), findsNothing);
+      expect(find.text('Continue with GitHub'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Google/GitHub sign-in buttons render once mock login is disabled',
+    (WidgetTester tester) async {
+      final _FakeAuthService service = _FakeAuthService();
+      addTearDown(service.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: AuthGate(
+              authService: service,
+              enableMockLogin: false,
+              child: const Scaffold(body: Text('APP_READY')),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(find.text('Continue with GitHub'), findsOneWidget);
+    },
+  );
 }
 
 /// Drives the auth-state stream the way a real backend would: sign-in and
@@ -118,8 +290,11 @@ class _FakeAuthService implements AuthServiceContract {
 
   User? _current;
   int signInCalls = 0;
+  final List<String> passwordResetCalls = <String>[];
 
   void dispose() => unawaited(_authState.close());
+
+  void emitStreamError(Object error) => _authState.addError(error);
 
   @override
   Stream<User?> authStateChanges() async* {
@@ -173,7 +348,9 @@ class _FakeAuthService implements AuthServiceContract {
   Future<void> sendEmailVerification() async {}
 
   @override
-  Future<void> sendPasswordReset(String email) async {}
+  Future<void> sendPasswordReset(String email) async {
+    passwordResetCalls.add(email);
+  }
 
   @override
   Future<void> updatePassword({required String newPassword}) async {}

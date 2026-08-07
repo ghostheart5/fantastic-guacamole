@@ -29,7 +29,6 @@ class AppRoot extends ConsumerStatefulWidget {
 class _AppRootState extends ConsumerState<AppRoot> {
   static const List<String> _tutorialAssets = <String>[
     'assets/tutorials/home.json',
-    'assets/tutorials/tasks.json',
   ];
 
   GoRouter? _router;

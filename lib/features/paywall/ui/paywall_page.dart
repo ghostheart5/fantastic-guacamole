@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
@@ -174,6 +175,31 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     }
   }
 
+  void _logProviderError<T>(
+    String providerName,
+    AsyncValue<T>? previous,
+    AsyncValue<T> next,
+  ) {
+    if (next.hasError && !(previous?.hasError ?? false)) {
+      Logger.error('Paywall: $providerName failed to load.', next.error);
+      RuntimeDiagnostics.recordState(
+        'paywall.provider_error',
+        message: providerName,
+        data: <String, Object?>{'error': next.error.toString()},
+      );
+    }
+  }
+
+  void _retryFailedProviders({
+    required bool config,
+    required bool subscription,
+    required bool wallet,
+  }) {
+    if (config) ref.invalidate(paywallConfigProvider);
+    if (subscription) ref.invalidate(paywallSubscriptionProvider);
+    if (wallet) ref.invalidate(aiCreditWalletProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     final routes = ref.watch(routeSurfaceProvider);
@@ -185,6 +211,21 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
     );
     final AsyncValue<AiCreditWallet> walletAsync = ref.watch(
       aiCreditWalletProvider,
+    );
+    ref.listen<AsyncValue<PaywallEntity>>(
+      paywallConfigProvider,
+      (previous, next) =>
+          _logProviderError('paywallConfigProvider', previous, next),
+    );
+    ref.listen<AsyncValue<SubscriptionState>>(
+      paywallSubscriptionProvider,
+      (previous, next) =>
+          _logProviderError('paywallSubscriptionProvider', previous, next),
+    );
+    ref.listen<AsyncValue<AiCreditWallet>>(
+      aiCreditWalletProvider,
+      (previous, next) =>
+          _logProviderError('aiCreditWalletProvider', previous, next),
     );
     final PaywallPrompt? prompt = ref.watch(paywallPromptProvider);
     final bool isPremium = ref.watch(appAccessProvider).hasPremiumAccess;
@@ -227,6 +268,10 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
         );
     final SubscriptionState? subscription = subscriptionAsync.asData?.value;
     final AiCreditWallet? wallet = walletAsync.asData?.value;
+    final bool configError = configAsync.hasError;
+    final bool subscriptionError = subscriptionAsync.hasError;
+    final bool walletError = walletAsync.hasError;
+    final bool anyError = configError || subscriptionError || walletError;
     final bool canRestore =
         paywallTestingMode || config.plans.any((plan) => plan.isAvailable);
     final int trialDays = _resolveTrialDays(config.plans);
@@ -305,6 +350,16 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
                 ],
               ),
               const SizedBox(height: 18),
+              if (anyError) ...[
+                _PaywallErrorBanner(
+                  onRetry: () => _retryFailedProviders(
+                    config: configError,
+                    subscription: subscriptionError,
+                    wallet: walletError,
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
               _HeroCard(
                 title: config.title,
                 body: config.body,
@@ -889,6 +944,50 @@ class _ComparisonCard extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaywallErrorBanner extends StatelessWidget {
+  const _PaywallErrorBanner({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.recallRed.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.recallRed.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline,
+            color: AppColors.recallRed,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              "Couldn't load the latest plan details. Showing what we have.",
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: onRetry,
+            child: const Text('Retry'),
           ),
         ],
       ),

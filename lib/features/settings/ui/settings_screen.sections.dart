@@ -616,7 +616,6 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
 
   static const List<String> _tutorialAssets = <String>[
     'assets/tutorials/home.json',
-    'assets/tutorials/tasks.json',
   ];
 
   @override
