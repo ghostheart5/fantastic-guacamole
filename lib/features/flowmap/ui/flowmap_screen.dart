@@ -99,10 +99,33 @@ class FlowmapScreen extends ConsumerWidget {
             strokeWidth: 2,
           ),
         ),
-        error: (e, _) => Center(
-          child: Text(
-            'Error: $e',
-            style: const TextStyle(color: AppColors.recallRed, fontSize: 13),
+        error: (_, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: AppColors.recallRed,
+                  size: 28,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  // Never interpolate the raw error object here: it leaks
+                  // stack detail to users and reads as a crash.
+                  "We couldn't load this right now.\n"
+                  'Check your connection and try again.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => ref.invalidate(flowmapProvider),
+                  child: const Text('Try again'),
+                ),
+              ],
+            ),
           ),
         ),
         data: (nodes) => nodes.isEmpty

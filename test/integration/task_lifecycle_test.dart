@@ -14,11 +14,14 @@ import 'package:fantastic_guacamole/state/providers/session_score_provider.dart'
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/path_provider_harness.dart';
+
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  // Drives the real task repository, which reaches Hive and so path_provider.
+  // Mocking the channel keeps this headless and runnable in CI.
+  useTemporaryPathProvider();
 
   test('task lifecycle creates, surfaces, completes, and updates progression state', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});

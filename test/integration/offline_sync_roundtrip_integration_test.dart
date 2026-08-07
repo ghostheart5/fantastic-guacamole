@@ -11,11 +11,14 @@ import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/path_provider_harness.dart';
+
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  // The sync path reaches Hive and so path_provider. Mocking the channel keeps
+  // this headless and runnable in CI.
+  useTemporaryPathProvider();
 
   late Directory hiveDirectory;
   late SharedPrefsStorage prefs;
@@ -75,6 +78,11 @@ void main() {
     final int queuedAfterReplay = await container.read(offlineQueueCountProvider.future);
     expect(queuedAfterReplay, lessThanOrEqualTo(1));
 
+    // syncToCloudProvider is a future provider, so the container caches the
+    // first (failed) result. Without invalidating, this second read returns
+    // that cached false and the assertion can never pass regardless of what
+    // the sync layer does.
+    container.invalidate(syncToCloudProvider);
     final bool secondSync = await container.read(syncToCloudProvider.future);
     expect(secondSync, isTrue);
   });
