@@ -107,6 +107,7 @@ class ProfileHeader extends StatelessWidget {
             icon: Icons.settings,
             color: AppColors.neonCyan,
             onTap: onOpenSettings,
+            semanticLabel: 'Open settings',
           ),
         ],
       ),
@@ -119,18 +120,22 @@ class _HeaderIconBtn extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    required this.semanticLabel,
   });
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final String semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     return SmartPressable(
       onTap: onTap,
+      semanticLabel: semanticLabel,
       child: Container(
-        width: 34,
-        height: 34,
+        width: 48,
+        height: 48,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),

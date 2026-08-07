@@ -13,7 +13,13 @@ class TimeSlot extends StatelessWidget {
       children: [
         Text(
           start,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          // Without an explicit colour this inherited the ambient default and
+          // could render near-invisible on the plan surface.
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         Text(
           '→ $end',

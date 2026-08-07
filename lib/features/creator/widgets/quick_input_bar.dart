@@ -87,9 +87,10 @@ class _QuickInputBarState extends State<QuickInputBar> {
             duration: const Duration(milliseconds: 150),
             child: SmartPressable(
               onTap: _hasText ? _submit : () {},
+              semanticLabel: 'Send quick task',
               child: Container(
-                width: 32,
-                height: 32,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: _hasText
                       ? AppColors.neonCyan.withValues(alpha: 0.2)

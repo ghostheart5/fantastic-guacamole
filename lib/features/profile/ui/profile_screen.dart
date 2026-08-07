@@ -353,11 +353,12 @@ class _ValuesCard extends ConsumerWidget {
               final int score = alignment.scores[value]?.score ?? 0;
               return GestureDetector(
                 onTap: () => _toggle(ref, title),
+                behavior: HitTestBehavior.opaque,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
-                    vertical: 6,
+                    vertical: 11,
                   ),
                   decoration: BoxDecoration(
                     color: sel

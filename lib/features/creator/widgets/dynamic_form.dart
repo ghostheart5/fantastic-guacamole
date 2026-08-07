@@ -148,7 +148,7 @@ class _DynamicFormState extends State<DynamicForm> {
             onTap: _submitting ? () {} : _submit,
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
                 color: AppColors.memoryAmber.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
@@ -306,22 +306,28 @@ class _PriorityPicker extends StatelessWidget {
             return Expanded(
               child: SmartPressable(
                 onTap: () => onChanged(level),
-                child: Container(
-                  margin: EdgeInsets.only(right: i < 4 ? 6 : 0),
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? AppColors.recallRed.withValues(alpha: 0.7)
-                        : Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(3),
-                    boxShadow: isActive
-                        ? [
-                            BoxShadow(
-                              color: AppColors.recallRed.withValues(alpha: 0.4),
-                              blurRadius: 4,
-                            ),
-                          ]
-                        : null,
+                semanticLabel: 'Set priority level $level',
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Container(
+                    margin: EdgeInsets.only(right: i < 4 ? 6 : 0),
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? AppColors.recallRed.withValues(alpha: 0.7)
+                          : Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(3),
+                      boxShadow: isActive
+                          ? [
+                              BoxShadow(
+                                color: AppColors.recallRed.withValues(
+                                  alpha: 0.4,
+                                ),
+                                blurRadius: 4,
+                              ),
+                            ]
+                          : null,
+                    ),
                   ),
                 ),
               ),
@@ -354,8 +360,9 @@ class _ScheduleDatePicker extends StatelessWidget {
           ),
         ).then(onPick);
       },
+      semanticLabel: 'Schedule date',
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(10),
@@ -384,7 +391,11 @@ class _ScheduleDatePicker extends StatelessWidget {
             if (selected != null)
               SmartPressable(
                 onTap: () => onPick(null),
-                child: const Icon(Icons.close, size: 14, color: Colors.white38),
+                semanticLabel: 'Clear schedule date',
+                child: const Padding(
+                  padding: EdgeInsets.all(11),
+                  child: Icon(Icons.close, size: 14, color: Colors.white38),
+                ),
               ),
           ],
         ),
@@ -469,7 +480,7 @@ class _RepeatChip extends StatelessWidget {
     return SmartPressable(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: active
               ? AppColors.neonCyan.withValues(alpha: 0.12)
