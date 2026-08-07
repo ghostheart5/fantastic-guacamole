@@ -42,9 +42,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     _Slide(
       icon: Icons.psychology_rounded,
       iconColor: Color(0xFF9B8AFB),
-      tag: 'SMART COACH',
+      tag: 'SMART PLANNER',
       title: 'LIFE GUIDANCE',
-      subtitle: 'Adaptive personal coaching',
+      subtitle: 'Adaptive personal planning',
       body:
           'Smart Planner reads your emotional state, energy signature, and behavior patterns to generate practical guidance. This is not a checklist bot. It is your strategy layer.',
     ),
@@ -257,13 +257,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                 );
                                 _complete();
                               },
-                              child: const Text(
-                                'SKIP',
-                                style: TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 12,
-                                  letterSpacing: 2,
-                                  fontWeight: FontWeight.w600,
+                              behavior: HitTestBehavior.opaque,
+                              child: Semantics(
+                                button: true,
+                                label: 'Skip onboarding',
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 14,
+                                  ),
+                                  child: Text(
+                                    'SKIP',
+                                    style: TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 12,
+                                      letterSpacing: 2,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
                               ),
                             )
@@ -327,13 +338,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                 );
                                 _complete();
                               },
-                              child: const Text(
-                                'SKIP',
-                                style: TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 12,
-                                  letterSpacing: 2,
-                                  fontWeight: FontWeight.w600,
+                              behavior: HitTestBehavior.opaque,
+                              child: Semantics(
+                                button: true,
+                                label: 'Skip onboarding',
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 14,
+                                  ),
+                                  child: Text(
+                                    'SKIP',
+                                    style: TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 12,
+                                      letterSpacing: 2,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
                               ),
                             )
@@ -955,7 +977,13 @@ class _PersonalizationSlide extends StatelessWidget {
               );
 
         return SafeArea(
-          child: SingleChildScrollView(padding: padding, child: content),
+          child: SingleChildScrollView(
+            padding: padding,
+            // This slide owns the only text field in onboarding, so dragging
+            // the sheet should dismiss the keyboard the same way login does.
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: content,
+          ),
         );
       },
     );

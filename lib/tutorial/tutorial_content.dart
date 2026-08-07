@@ -53,7 +53,7 @@ class TutorialContent {
     ),
     TutorialStepContent(
       id: 'coach_quick_prompt',
-      title: 'SMART COACH',
+      title: 'SMART PLANNER',
       description:
           'Send one focused prompt to get immediate guidance when momentum drops.',
       ctaLabel: 'Try Prompt',

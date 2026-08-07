@@ -760,20 +760,37 @@ class _Header extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    seededQueryCount > 0
-                        ? 'SI CONSOLE QRY:$seededQueryCount'
-                        : 'SI CONSOLE',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 3,
-                      color: Colors.white,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        seededQueryCount > 0
+                            ? 'SI CONSOLE QRY:$seededQueryCount'
+                            : 'SI CONSOLE',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 3,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
-                  ),
+                    // "SI" is the app's own coinage and appears nowhere in
+                    // onboarding, so expand it here: a user arriving on this
+                    // screen otherwise has no way to learn what it means.
+                    const Text(
+                      'Synthetic Intelligence',
+                      style: TextStyle(
+                        fontSize: 10,
+                        letterSpacing: 0.5,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               // No hardcoded 'ONLINE' chip here: it was a constant, so it

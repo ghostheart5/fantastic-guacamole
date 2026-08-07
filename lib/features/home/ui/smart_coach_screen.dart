@@ -438,10 +438,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       children: [
         SmartPressable(
           onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
-          child: const Icon(
-            Icons.arrow_back_ios,
-            color: Colors.white54,
-            size: 18,
+          semanticLabel: 'Back',
+          child: const Padding(
+            padding: EdgeInsets.all(11),
+            child: Icon(Icons.arrow_back_ios, color: Colors.white54, size: 18),
           ),
         ),
         const SizedBox(width: 14),
@@ -453,7 +453,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                 colors: [AppColors.neonCyan, AppColors.neonViolet],
               ).createShader(bounds),
               child: const Text(
-                'SMART COACH',
+                'SMART PLANNER',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -767,8 +767,9 @@ class _VoiceButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
       onTap: () => unawaited(ref.read(voiceServiceProvider).speak(message)),
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
           color: AppColors.memoryAmber.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
@@ -827,8 +828,9 @@ class _VoiceSummaryButton extends ConsumerWidget {
               ],
             ),
       ),
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
           color: AppColors.neonCyan.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(8),
@@ -861,6 +863,7 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         showModalBottomSheet<void>(
           context: context,
@@ -917,7 +920,7 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
         );
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(8),
@@ -970,6 +973,7 @@ class _MicButton extends ConsumerWidget {
     });
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () async {
         if (listening) {
           await ref.read(voiceControllerProvider.notifier).stopListening();
@@ -987,7 +991,7 @@ class _MicButton extends ConsumerWidget {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
           color: listening
               ? AppColors.neonCyan.withValues(alpha: 0.15)
@@ -1173,30 +1177,34 @@ class _QuickNavCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 52,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.07),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 16),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            height: 52,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: color, size: 16),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The Nexus action hub is the only surface that reaches several core
+/// The Nexus home screen is the only surface that reaches several core
 /// features. Timeline and Progression were previously absent from every
 /// navigation surface in the app, so they were unreachable without a deep
 /// link. These tests pin that they stay reachable and route to the right view.
@@ -18,7 +18,7 @@ void main() {
     ('Create Task', AppView.creator),
     ('Plan View', AppView.plan),
   ]) {
-    testWidgets('action hub "$label" navigates to $expected', (
+    testWidgets('Nexus "$label" navigates to $expected', (
       WidgetTester tester,
     ) async {
       // The action grid is the last sliver on a long screen, so the default
@@ -59,7 +59,7 @@ void main() {
         expect(
           find.bySemanticsLabel(label),
           findsWidgets,
-          reason: '"$label" must stay reachable from the Nexus action hub.',
+          reason: '"$label" must stay reachable from the Nexus home screen.',
         );
 
         // Scope to the button: several of these words also appear as

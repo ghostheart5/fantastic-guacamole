@@ -903,7 +903,9 @@ class _DependencyMesh extends ConsumerWidget {
           runSpacing: 12,
           children: [
             _DependencyCard(
-              label: 'Coach',
+              // The feature is Smart Planner. "Coach" was a leftover name for
+              // the same surface and made one feature look like two.
+              label: 'Smart Planner',
               accent: AppColors.neonCyan,
               emphasize: true,
               value: modelAsync.isLoading
@@ -1309,8 +1311,10 @@ class _ActionGrid extends ConsumerWidget {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
+                  // "Action hub" was internal naming, not a product concept.
+                  // Nexus is the home screen; this is simply where you go next.
                   child: Text(
-                    'NEXUS ACTION HUB',
+                    'GO TO',
                     style: TextStyle(
                       fontSize: 10,
                       letterSpacing: 1.6,
