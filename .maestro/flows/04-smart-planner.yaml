@@ -1,0 +1,20 @@
+# P1 — Smart Planner. The core value proposition.
+appId: com.ghostheart5.chronospark
+tags:
+  - core
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+# "Smart Planner" is the HoloButton semantics label (original casing).
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Smart Planner"
+
+- assertVisible: "SMART PLANNER"
+
+# The button and the screen it opens must agree. They did not before: the
+# button read "Smart Planner" and opened a screen headed "SMART COACH".
+- assertNotVisible: "SMART COACH"

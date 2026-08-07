@@ -1,0 +1,13 @@
+# Shared: get past onboarding without re-testing it.
+#
+# SKIP is present on every onboarding page, so this is safe to call whether the
+# app opened on slide 1 or mid-way through.
+appId: com.ghostheart5.chronospark
+---
+- runFlow:
+    when:
+      visible: "SKIP"
+    commands:
+      - tapOn: "SKIP"
+      - waitForAnimationToEnd:
+          timeout: 5000

@@ -1,0 +1,31 @@
+# P0 — Subscription. Revenue-critical, and Play Billing regressions are silent.
+appId: com.ghostheart5.chronospark
+tags:
+  - critical
+  - billing
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+- scrollUntilVisible:
+    element:
+      text: "Premium"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Premium"
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Restore must always be reachable: Play requires it, and users who reinstall
+# have no other route back to what they paid for.
+- assertVisible: "Restore Purchases"
+
+# Trust copy is a store-review surface. Losing it is a compliance problem, not
+# a cosmetic one.
+- assertVisible:
+    text: ".*Cancel anytime.*"
+
+# A production build must never expose the simulated-purchase path.
+- assertNotVisible: "Simulate unlock"
+- assertNotVisible: "UNLOCKED FOR TESTING"

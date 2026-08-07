@@ -1,0 +1,28 @@
+# P2 — Settings. Non-destructive checks only; deletion lives in flow 12.
+appId: com.ghostheart5.chronospark
+tags:
+  - core
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+- tapOn: "Profile"
+- waitForAnimationToEnd:
+    timeout: 5000
+
+- scrollUntilVisible:
+    element:
+      text: "Settings"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Settings"
+
+# Both destructive controls must be present and clearly labelled, but neither
+# is tapped here.
+- scrollUntilVisible:
+    element:
+      text: "Delete Account"
+    direction: DOWN
+    timeout: 15000
+- assertVisible: "Delete Account"

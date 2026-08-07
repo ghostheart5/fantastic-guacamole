@@ -47,6 +47,12 @@ jobs:
       - name: Analyze project source
         run: flutter analyze
 
+      # Executing Maestro flows needs a booted device, which this job does not
+      # have. This parses them and checks every runFlow target resolves, so a
+      # broken flow is caught on push rather than on the next device run.
+      - name: Validate Maestro flows
+        run: dart run tool/validate_maestro_flows.dart
+
       - name: Run tests
         run: flutter test --coverage
 

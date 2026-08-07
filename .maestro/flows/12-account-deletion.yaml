@@ -1,0 +1,44 @@
+# P0 — Account deletion. Required by Google Play's data deletion policy.
+#
+# DESTRUCTIVE: this permanently deletes the account it runs against. It is
+# tagged so it can be excluded, and it must be pointed at a disposable account:
+#   maestro test --exclude-tags destructive .maestro/flows   # everything else
+#   maestro test .maestro/flows/12-account-deletion.yaml     # this alone
+appId: com.ghostheart5.chronospark
+tags:
+  - critical
+  - destructive
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+- tapOn: "Profile"
+- waitForAnimationToEnd:
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      text: "Settings"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Settings"
+
+- scrollUntilVisible:
+    element:
+      text: "Delete Account"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Delete Account"
+
+# The consequence must be stated before the user can confirm.
+- assertVisible:
+    text: ".*cannot be undone.*"
+
+- inputText: "${MAESTRO_TEST_PASSWORD}"
+- hideKeyboard
+- tapOn: "Purge Account"
+
+# Deletion must end the session, not just close the dialog.
+- extendedWaitUntil:
+    visible: "ENTER SYSTEM"
+    timeout: 30000

@@ -1,0 +1,19 @@
+# P2 — SI Console.
+appId: com.ghostheart5.chronospark
+tags:
+  - core
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "SI Console"
+
+- assertVisible: "SI CONSOLE"
+
+# "SI" is the app's own coinage and is expanded nowhere in onboarding, so this
+# is the only place a user can learn it. Losing it re-opens that gap.
+- assertVisible: "Synthetic Intelligence"
