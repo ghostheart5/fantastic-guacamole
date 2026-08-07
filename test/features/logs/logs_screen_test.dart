@@ -33,6 +33,37 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('error state stays human-readable and offers a retry', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        profileProvider.overrideWith(_StaticProfileController.new),
+        logsProvider.overrideWith(_FailedLogsController.new),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: LogsScreen()),
+      ),
+    );
+    await tester.pump();
+
+    // Asserting on the absence of the exception text is the point: an earlier
+    // version interpolated the raw error object into the UI, which leaked
+    // stack detail to users and read as a crash.
+    expect(find.textContaining('log stream failed'), findsNothing);
+    expect(find.textContaining('StateError'), findsNothing);
+    expect(
+      find.textContaining("We couldn't load your activity right now."),
+      findsOneWidget,
+    );
+    expect(find.text('Try again'), findsOneWidget);
+  });
 }
 
 class _StaticProfileController extends ProfileController {
@@ -44,4 +75,13 @@ class _EmptyLogsController extends LogsController {
   @override
   LogsState build() =>
       const LogsState(entries: <LogEntryEntity>[], isLoading: false);
+}
+
+class _FailedLogsController extends LogsController {
+  @override
+  LogsState build() => const LogsState(
+    entries: <LogEntryEntity>[],
+    isLoading: false,
+    error: 'StateError: log stream failed',
+  );
 }

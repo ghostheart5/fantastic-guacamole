@@ -150,7 +150,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
         body: SafeArea(
           child: tasksAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(
+            error: (_, _) => Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
@@ -162,10 +162,13 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                       size: 28,
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      'Plan stream offline: $error',
+                    const Text(
+                      // Never surface the raw error object here: it leaks
+                      // stack detail to users and reads as a crash.
+                      "We couldn't load your plan right now.\n"
+                      'Check your connection and try again.',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
                       ),
@@ -173,7 +176,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                     const SizedBox(height: 12),
                     TextButton(
                       onPressed: () => ref.invalidate(tasksProvider),
-                      child: const Text('Re-sync'),
+                      child: const Text('Try again'),
                     ),
                   ],
                 ),
