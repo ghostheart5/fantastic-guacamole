@@ -12,10 +12,7 @@ class SaveProjects {
 
   final IProjectRepository _repository;
 
-  Future<void> call(
-    List<ProjectEntity> projects, {
-    bool allowClear = false,
-  }) {
+  Future<void> call(List<ProjectEntity> projects, {bool allowClear = false}) {
     return _repository.saveProjects(
       InputGuard.batch(projects, 'projects', allowClear: allowClear),
     );

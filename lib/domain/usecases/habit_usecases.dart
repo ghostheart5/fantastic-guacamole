@@ -94,8 +94,7 @@ class UpdateHabit {
     required String title,
   }) async {
     final String trimmed = title.trim();
-    if (trimmed.isEmpty ||
-        !current.any((HabitRecord item) => item.id == id)) {
+    if (trimmed.isEmpty || !current.any((HabitRecord item) => item.id == id)) {
       return current;
     }
     final List<HabitRecord> next = current

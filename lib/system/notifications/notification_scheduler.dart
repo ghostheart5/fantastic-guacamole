@@ -118,8 +118,8 @@ class NotificationScheduler {
       // later schedule() call silently skipped. Goal, habit and daily-planning
       // reminders never scheduled on iOS as a result.
       if (androidPlugin != null) {
-        _permissionGranted = await androidPlugin.areNotificationsEnabled() ??
-            false;
+        _permissionGranted =
+            await androidPlugin.areNotificationsEnabled() ?? false;
       } else if (iosPlugin != null) {
         _permissionGranted =
             (await iosPlugin.checkPermissions())?.isAlertEnabled ?? false;

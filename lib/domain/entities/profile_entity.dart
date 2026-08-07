@@ -34,7 +34,11 @@ class ProfileEntity {
   /// reports whether the award crossed a level threshold.
   ProfileEntity awardXp(int amount) {
     if (amount < 0) {
-      throw ArgumentError.value(amount, 'amount', 'XP award cannot be negative');
+      throw ArgumentError.value(
+        amount,
+        'amount',
+        'XP award cannot be negative',
+      );
     }
     final int newXp = xp + amount;
     final int newLevel = ProgressionPolicy.levelFromXp(newXp);

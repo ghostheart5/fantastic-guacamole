@@ -12,10 +12,7 @@ class SaveSubtasks {
 
   final ISubtaskRepository _repository;
 
-  Future<void> call(
-    List<SubtaskEntity> subtasks, {
-    bool allowClear = false,
-  }) {
+  Future<void> call(List<SubtaskEntity> subtasks, {bool allowClear = false}) {
     return _repository.saveSubtasks(
       InputGuard.batch(subtasks, 'subtasks', allowClear: allowClear),
     );

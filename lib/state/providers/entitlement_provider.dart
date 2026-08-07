@@ -71,11 +71,7 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
         .read(paywallRepositoryProvider)
         .getUserSubscriptionState();
     final String? owner = await _readOwner();
-    return _resolve(
-      userId: userId,
-      subscription: subscription,
-      owner: owner,
-    );
+    return _resolve(userId: userId, subscription: subscription, owner: owner);
   }
 
   /// Applies a purchase or restore result to the single entitlement owner.
@@ -187,10 +183,9 @@ class EntitlementNotifier extends AsyncNotifier<EntitlementState> {
 
   Future<void> _writeOwner(String userId) async {
     try {
-      await ref.read(secureStoreProvider).writeString(
-        kEntitlementOwnerKey,
-        userId,
-      );
+      await ref
+          .read(secureStoreProvider)
+          .writeString(kEntitlementOwnerKey, userId);
     } on Object {
       // Never fail a completed purchase because the claim could not be stored.
     }

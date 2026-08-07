@@ -30,12 +30,15 @@ class HabitsNotifier extends AsyncNotifier<List<HabitRecord>> {
   }
 
   Future<void> _syncReminders(List<HabitRecord> habits) {
-    return ref.read(reminderOrchestratorServiceProvider).syncHabitReminders(
-      habits,
-    );
+    return ref
+        .read(reminderOrchestratorServiceProvider)
+        .syncHabitReminders(habits);
   }
 
-  Future<void> _apply(List<HabitRecord> previous, List<HabitRecord> next) async {
+  Future<void> _apply(
+    List<HabitRecord> previous,
+    List<HabitRecord> next,
+  ) async {
     if (identical(previous, next)) {
       return;
     }

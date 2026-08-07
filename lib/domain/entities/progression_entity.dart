@@ -27,7 +27,11 @@ class ProgressionEntity {
   /// result of gameplay — see `AwardXp` for the persisting equivalent.
   ProgressionEntity awardXp(int amount) {
     if (amount < 0) {
-      throw ArgumentError.value(amount, 'amount', 'XP award cannot be negative');
+      throw ArgumentError.value(
+        amount,
+        'amount',
+        'XP award cannot be negative',
+      );
     }
     final int newXp = xp + amount;
     return copyWith(xp: newXp, level: ProgressionPolicy.levelFromXp(newXp));

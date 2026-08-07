@@ -12,10 +12,7 @@ class SaveRoutines {
 
   final IRoutineRepository _repository;
 
-  Future<void> call(
-    List<RoutineEntity> routines, {
-    bool allowClear = false,
-  }) {
+  Future<void> call(List<RoutineEntity> routines, {bool allowClear = false}) {
     return _repository.saveRoutines(
       InputGuard.batch(routines, 'routines', allowClear: allowClear),
     );

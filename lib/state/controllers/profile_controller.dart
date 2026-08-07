@@ -176,7 +176,11 @@ class ProfileController extends Notifier<ProfileState> {
 
   void addXP(int amount) {
     if (amount < 0) {
-      throw ArgumentError.value(amount, 'amount', 'XP award cannot be negative');
+      throw ArgumentError.value(
+        amount,
+        'amount',
+        'XP award cannot be negative',
+      );
     }
     final DateTime now = DateTime.now();
     final bool streakBroke = _streakLogic.didBreak(

@@ -103,8 +103,7 @@ class AssembleSiDecisionOutput {
     final List<String> insightPrompts = <String>[
       if (friction) 'What is creating the most friction right now?',
       if (goalDrift) 'Which goal has drifted and why?',
-      if (emotionalStrain)
-        'What would reduce emotional load in the next hour?',
+      if (emotionalStrain) 'What would reduce emotional load in the next hour?',
       if (emotionalStability)
         'How can you convert this stable state into one decisive action?',
       if (hasMemories) 'What memory should inform this decision?',

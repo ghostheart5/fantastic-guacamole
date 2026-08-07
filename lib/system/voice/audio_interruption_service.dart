@@ -32,9 +32,7 @@ class PluginAudioInterruptionService implements AudioInterruptionService {
           unawaited(onInterruptionBegin());
         }
       });
-      _becomingNoisySubscription = session.becomingNoisyEventStream.listen((
-        _,
-      ) {
+      _becomingNoisySubscription = session.becomingNoisyEventStream.listen((_) {
         unawaited(onBecomingNoisy());
       });
     } on MissingPluginException {

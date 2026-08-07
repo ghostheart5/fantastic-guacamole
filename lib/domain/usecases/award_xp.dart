@@ -19,7 +19,11 @@ class AwardXp {
 
   Future<ProgressionEntity> call(int amount) async {
     if (amount < 0) {
-      throw ArgumentError.value(amount, 'amount', 'XP award cannot be negative');
+      throw ArgumentError.value(
+        amount,
+        'amount',
+        'XP award cannot be negative',
+      );
     }
     final ProgressionEntity current =
         await repository.getProgression() ?? const ProgressionEntity();
