@@ -1,0 +1,53 @@
+name: Update Golden Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to update goldens on'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  update-goldens:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+
+      - name: Create .env for CI
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Regenerate golden images
+        run: |
+          flutter test \
+            test/features/auth/login_screen_golden_test.dart \
+            test/features/nexus/nexus_screen_golden_test.dart \
+            --update-goldens
+
+      - name: Commit updated goldens
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add test/features/auth/goldens/ test/features/nexus/goldens/
+          if git diff --cached --quiet; then
+            echo "No golden changes detected."
+          else
+            git commit -m "chore(test): regenerate golden images on ubuntu-latest CI"
+            git push
+          fi
