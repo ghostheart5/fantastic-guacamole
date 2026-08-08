@@ -22,6 +22,12 @@ class RoutePaths {
   static const si = '$advancedRoot/si-console';
   static const advisor = '$advancedRoot/advisor';
 
+  // Feature surfaces reachable via deep-link or notification tap.
+  static const goals = '$advancedRoot/goals';
+  static const timeline = '$advancedRoot/timeline';
+  static const milestones = '$advancedRoot/milestones';
+  static const memories = '$advancedRoot/memories';
+
   // Legal and account routes.
   static const paywall = '/paywall';
   static const privacy = '/privacy';

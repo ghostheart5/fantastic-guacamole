@@ -333,6 +333,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   ) {
     return BottomNavigationBarItem(
       label: label,
+      // Explicit semantics label ensures screen readers announce the
+      // destination name even when text labels are visually hidden.
+      semanticsLabel: label,
       icon: SvgPicture.asset(
         assetPath,
         width: 24,

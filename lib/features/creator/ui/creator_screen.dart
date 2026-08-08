@@ -31,7 +31,7 @@ class CreatorScreen extends ConsumerWidget {
                   children: [
                     SmartPressable(
                       onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
-                      semanticLabel: 'Back to Smart Planner',
+                      semanticLabel: 'Back',
                       child: Container(
                         width: 48,
                         height: 48,

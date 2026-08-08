@@ -39,9 +39,11 @@ final appFlowProvider = NotifierProvider<AppFlowController, AppView>(
 
 class AppFlowController extends Notifier<AppView> {
   @override
-  AppView build() => AppView.coach;
+  AppView build() => AppView.nexus;
 
-  void toCoach() => state = AppView.coach;
+  // [coach] is a legacy alias kept for call-sites that have not been migrated.
+  // All navigation targeting the main hub should use [toNexus] directly.
+  void toCoach() => toNexus();
   void toNexus() => state = AppView.nexus;
   void toTasks() => state = AppView.tasks;
   void toLogs() => state = AppView.logs;

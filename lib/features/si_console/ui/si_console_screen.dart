@@ -775,7 +775,7 @@ class _Header extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Semantics(
-                label: 'Back to Smart Planner',
+                label: 'Back',
                 button: true,
                 child: GestureDetector(
                   onTap: onBack,

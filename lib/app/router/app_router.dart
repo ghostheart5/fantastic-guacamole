@@ -196,8 +196,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.advisor,
+        // Guard: only tester/admin builds may access the product advisor.
+        redirect: (BuildContext context, GoRouterState state) {
+          final intelligence = ref.read(intelligenceStateProvider);
+          if (!intelligence.flags.testerFullAccess) {
+            return RoutePaths.home;
+          }
+          return null;
+        },
         builder: (BuildContext context, GoRouterState state) =>
             const ProductAdvisorScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.goals,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.goals),
+      ),
+      GoRoute(
+        path: RoutePaths.timeline,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.timeline),
+      ),
+      GoRoute(
+        path: RoutePaths.milestones,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.milestones),
+      ),
+      GoRoute(
+        path: RoutePaths.memories,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.memories),
       ),
 
       // Legacy top-level routes redirect into the secondary hierarchy.

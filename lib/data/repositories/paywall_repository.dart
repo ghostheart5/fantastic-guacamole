@@ -22,7 +22,10 @@ class PaywallRepository implements IPaywallRepository {
     );
   }
 
-  static SubscriptionState _subscriptionState = const SubscriptionState(
+  // Instance variable — not static. A static field shared across all instances
+  // caused test pollution (one test's purchase bleed into the next) and
+  // prevented correct multi-instance isolation.
+  SubscriptionState _subscriptionState = const SubscriptionState(
     isActive: false,
     status: 'locked',
     source: 'platform_unavailable',
@@ -43,7 +46,7 @@ class PaywallRepository implements IPaywallRepository {
 
     return <PaywallPlan>[
       PaywallPlan(
-        id: 'monthly',
+        id: 'chronospark_premium_monthly',
         title: 'Premium Monthly',
         priceLabel: 'from \$9.99 / month',
         description:
@@ -59,7 +62,7 @@ class PaywallRepository implements IPaywallRepository {
         isFeatured: true,
       ),
       PaywallPlan(
-        id: 'annual',
+        id: 'chronospark_premium_annual',
         title: 'Premium Yearly',
         priceLabel: 'from \$89.99 / year',
         description:
@@ -171,7 +174,7 @@ class PaywallRepository implements IPaywallRepository {
         isActive: true,
         status: 'unlocked_for_testing',
         source: 'testing_mode',
-        planId: _subscriptionState.planId ?? 'annual',
+        planId: _subscriptionState.planId ?? 'chronospark_premium_annual',
         renewalDate: DateTime.now().add(const Duration(days: 30)),
         isTesting: true,
       );
@@ -187,7 +190,7 @@ class PaywallRepository implements IPaywallRepository {
         isActive: true,
         status: 'unlocked_for_testing',
         source: 'testing_mode',
-        planId: _subscriptionState.planId ?? 'annual',
+        planId: _subscriptionState.planId ?? 'chronospark_premium_annual',
         renewalDate: DateTime.now().add(const Duration(days: 30)),
         isTesting: true,
       );

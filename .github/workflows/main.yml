@@ -22,6 +22,8 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set up Flutter
+        # TODO: pin to a full SHA once verified, e.g.:
+        #   uses: subosito/flutter-action@<sha>
         uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -41,6 +43,12 @@ jobs:
 
       - name: Flutter pub get
         run: flutter pub get
+
+      - name: Flutter analyze
+        run: flutter analyze --fatal-warnings
+
+      - name: Flutter test
+        run: flutter test
 
       - name: Run security secret guard
         shell: pwsh
