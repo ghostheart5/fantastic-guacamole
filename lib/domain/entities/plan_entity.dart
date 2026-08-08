@@ -1,5 +1,8 @@
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Smart Planner
+///
+/// Persisted-plan path; does not reach the UI yet.
 class PlanEntity {
   const PlanEntity({
     required this.id,

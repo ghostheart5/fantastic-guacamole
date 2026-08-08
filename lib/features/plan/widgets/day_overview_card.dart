@@ -6,10 +6,33 @@ class DayOverviewCard extends StatelessWidget {
     super.key,
     required this.blocksCount,
     required this.energy,
+    this.plannedMinutes = 0,
+    this.unplannedTaskCount = 0,
   });
 
   final int blocksCount;
   final double energy;
+
+  /// Minutes scheduled on the selected day, from AnalyzePlanContext.
+  final int plannedMinutes;
+
+  /// Tasks with no block anywhere in the plan, from AnalyzePlanContext.
+  final int unplannedTaskCount;
+
+  static String formatMinutes(int minutes) {
+    if (minutes <= 0) {
+      return '0m';
+    }
+    final int hours = minutes ~/ 60;
+    final int remainder = minutes % 60;
+    if (hours == 0) {
+      return '${remainder}m';
+    }
+    if (remainder == 0) {
+      return '${hours}h';
+    }
+    return '${hours}h ${remainder}m';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,8 +49,15 @@ class DayOverviewCard extends StatelessWidget {
         alignment: WrapAlignment.spaceBetween,
         children: [
           _item('Blocks', '$blocksCount', AppColors.neonCyan),
+          _item(
+            'Planned',
+            formatMinutes(plannedMinutes),
+            AppColors.pulseNeonBlue,
+          ),
           _item('Energy', '${(energy * 100).round()}%', AppColors.memoryAmber),
           _item('Mode', energy > 0.6 ? 'Deep' : 'Steady', AppColors.neonViolet),
+          if (unplannedTaskCount > 0)
+            _item('Unplanned', '$unplannedTaskCount', AppColors.recallRed),
         ],
       ),
     );

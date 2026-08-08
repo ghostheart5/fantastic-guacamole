@@ -78,6 +78,7 @@ dependencies:
   freezed_annotation: ^3.0.0
   logger: ^2.6.1
   permission_handler: ^12.0.1
+  speech_to_text: ^7.4.0
   cloud_firestore: ^6.6.0
   firebase_storage: ^13.4.3
 
@@ -88,6 +89,9 @@ dev_dependencies:
     sdk: flutter
   flutter_native_splash: ^2.4.1
   flutter_launcher_icons: ^0.14.4
+  # Used only by tool/validate_maestro_flows.dart to parse the Maestro flows in
+  # CI. Dev-only, so it is never bundled into the shipped app.
+  yaml: ^3.1.2
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -152,7 +156,6 @@ flutter:
     - assets/legal/terms_of_service.html
     - assets/legal/terms_of_service.txt
     - assets/tutorials/home.json
-    - assets/tutorials/tasks.json
   fonts:
     - family: Inter
       fonts:

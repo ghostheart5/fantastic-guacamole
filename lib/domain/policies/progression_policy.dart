@@ -1,5 +1,8 @@
 import 'dart:math' as math;
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Progression
+///
+/// The single source of truth for the XP -> level curve.
 class LevelProfile {
   const LevelProfile({
     required this.minSessionMinutes,

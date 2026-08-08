@@ -3,8 +3,39 @@ import 'dart:async';
 
 // Package imports.
 import 'package:app_links/app_links.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// The set of recognized `?mode=` values a deep link may carry into
+/// [AuthGate]. Anything that doesn't match one of these is untrusted input
+/// and is rejected by [parseDeepLinkMode] rather than passed through.
+enum DeepLinkMode { recovery, verifyEmail, authCallback }
+
+/// Validates the raw `mode` query parameter from a deep link against the
+/// known allowlist. Returns `null` for anything unrecognized (including
+/// empty/whitespace-only input), logging a Crashlytics breadcrumb — never the
+/// raw value itself — when a non-empty value fails to match.
+DeepLinkMode? parseDeepLinkMode(String? raw) {
+  final String trimmed = raw?.trim() ?? '';
+  if (trimmed.isEmpty) {
+    return null;
+  }
+  switch (trimmed) {
+    case 'recovery':
+      return DeepLinkMode.recovery;
+    case 'verify-email':
+      return DeepLinkMode.verifyEmail;
+    case 'auth-callback':
+      return DeepLinkMode.authCallback;
+    default:
+      final bool asciiSafe = RegExp(r'^[a-zA-Z0-9_-]*$').hasMatch(trimmed);
+      Logger.breadcrumb(
+        'rejected deep-link mode: len=${trimmed.length} asciiSafe=$asciiSafe',
+      );
+      return null;
+  }
+}
 
 @immutable
 class DeepLinkState {

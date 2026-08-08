@@ -1,11 +1,15 @@
-import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/task_policy.dart';
+import 'package:fantastic_guacamole/domain/usecases/award_xp.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
+///
+/// Resolved by taskActionsProvider. Gated by TaskPolicy.canComplete; awards XP
+/// via AwardXp.
 class CompleteTask {
   CompleteTask(this.repository, {this.siRepo, this.progressionRepo});
 
@@ -40,14 +44,10 @@ class CompleteTask {
       await repository.saveTask(next);
     }
 
-    // Award flat XP
+    // Award flat XP through the single canonical path so level stays in sync.
     final IProgressionRepository? prog = progressionRepo;
     if (prog != null) {
-      final ProgressionEntity current =
-          await prog.getProgression() ?? const ProgressionEntity();
-      await prog.saveProgression(
-        current.copyWith(xp: current.xp + ProgressionPolicy.taskXp),
-      );
+      await AwardXp(prog).call(ProgressionPolicy.taskXp);
     }
 
     // Update SI confidence

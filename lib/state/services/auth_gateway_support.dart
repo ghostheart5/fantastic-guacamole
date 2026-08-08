@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/data/services/mock_auth_service.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 export 'package:fantastic_guacamole/data/models/auth_models.dart';
@@ -16,18 +17,24 @@ AuthServiceContract createAuthService({
   required sb.SupabaseClient? supabaseClient,
   required IntelligenceState intelligence,
 }) {
-  if (intelligence.flags.mockMode) {
-    return AlwaysAuthenticatedAuthService(
-      user: const User(
-        id: 'mock-always-auth-user',
-        email: 'mock@chronospark.app',
-        displayName: 'Mock Operator',
-        emailVerified: true,
-      ),
-    );
-  }
-  if (intelligence.flags.mockLoginEnabled) {
-    return MockAuthService();
+  // Hard release guard. The flag cascade below is driven by env/flavor
+  // resolution; this makes any misconfiguration of that resolution
+  // non-exploitable in a shipped binary rather than merely unlikely. A release
+  // build never gets a credential-free or any-password auth service.
+  if (!kReleaseMode) {
+    if (intelligence.flags.mockMode) {
+      return AlwaysAuthenticatedAuthService(
+        user: const User(
+          id: 'mock-always-auth-user',
+          email: 'mock@chronospark.app',
+          displayName: 'Mock Operator',
+          emailVerified: true,
+        ),
+      );
+    }
+    if (intelligence.flags.mockLoginEnabled) {
+      return MockAuthService();
+    }
   }
   if (!intelligence.environment.isSupabaseConfigured) {
     return const UnavailableAuthService(

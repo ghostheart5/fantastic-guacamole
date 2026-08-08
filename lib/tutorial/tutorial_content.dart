@@ -53,7 +53,7 @@ class TutorialContent {
     ),
     TutorialStepContent(
       id: 'coach_quick_prompt',
-      title: 'SMART COACH',
+      title: 'SMART PLANNER',
       description:
           'Send one focused prompt to get immediate guidance when momentum drops.',
       ctaLabel: 'Try Prompt',
@@ -76,7 +76,7 @@ class TutorialContent {
       id: 'trajectory_overview',
       title: 'TRAJECTORY',
       description:
-          'Read the prediction, choose one action, then branch in Flowmap when needed.',
+          'Read the prediction, then commit to one action before moving on.',
       ctaLabel: 'Open Trajectory',
     ),
     TutorialStepContent(
@@ -115,13 +115,6 @@ class TutorialContent {
       ctaLabel: 'CHECK CLIMB',
     ),
     TutorialStepContent(
-      id: 'flowmap_overview',
-      title: 'FLOWMAP',
-      description:
-          'Map branching paths before committing so your next move stays resilient.',
-      ctaLabel: 'Open Flowmap',
-    ),
-    TutorialStepContent(
       id: 'goals_overview',
       title: 'GOALS WORKSPACE',
       description:
@@ -132,7 +125,7 @@ class TutorialContent {
       id: 'memories_overview',
       title: 'MEMORIES',
       description:
-          'Capture high-signal memory notes so Smart Coach can reason with real context.',
+          'Capture high-signal memory notes so Smart Planner can reason with real context.',
       ctaLabel: 'Save Memory',
     ),
     TutorialStepContent(
@@ -173,7 +166,7 @@ class TutorialContent {
     AcademyTrack(
       title: 'Intelligence',
       lessons: <AcademyLesson>[
-        AcademyLesson(title: 'Smart Coach'),
+        AcademyLesson(title: 'Smart Planner'),
         AcademyLesson(title: 'Recommendations'),
         AcademyLesson(title: 'Analytics'),
       ],
@@ -223,9 +216,9 @@ class TutorialContent {
         'Set one top priority first, then stack the rest around it.',
 
     'trajectory':
-        'Read prediction first, then choose one action and open Flowmap if you need branching.',
+        'Read prediction first, then commit to one action before moving on.',
     'trajectory_overview':
-        'Read prediction first, then choose one action and open Flowmap if you need branching.',
+        'Read prediction first, then commit to one action before moving on.',
 
     'creator':
         'Use Creator when you need direct manual control over task creation.',
@@ -254,11 +247,6 @@ class TutorialContent {
         'Track whether momentum compounds week over week and adjust immediately when it stalls.',
     'progression_overview':
         'Track whether momentum compounds week over week and adjust immediately when it stalls.',
-
-    'flowmap':
-        'Map branches before committing so your next move stays clear and resilient.',
-    'flowmap_overview':
-        'Explore branches before committing so your next move is both clear and resilient.',
 
     'goals':
         'Keep goals concise, measurable, and aligned with current trajectory constraints.',

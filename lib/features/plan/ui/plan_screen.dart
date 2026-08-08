@@ -1,5 +1,8 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
+import 'package:fantastic_guacamole/domain/usecases/analyze_plan_context.dart';
+import 'package:fantastic_guacamole/domain/usecases/generate_adaptive_plan.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/day_overview_card.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/day_selector.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/plan_header.dart';
@@ -21,6 +24,18 @@ class PlanScreen extends ConsumerStatefulWidget {
 class _PlanScreenState extends ConsumerState<PlanScreen> {
   int _selectedDay = DateTime.now().weekday - 1;
   final Set<String> _completingTaskIds = <String>{};
+
+  /// The actual calendar date the selected day-of-week chip refers to, within
+  /// the current Mon-Sun week. [DaySelector] only carries a weekday index, so
+  /// blocks must be matched against this real date rather than weekday alone
+  /// — otherwise a task scheduled on the same weekday in a past or future
+  /// week would render as if it belonged to the current week.
+  DateTime get _selectedDate {
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    final DateTime monday = today.subtract(Duration(days: today.weekday - 1));
+    return monday.add(Duration(days: _selectedDay));
+  }
 
   void _runAfterBuild(VoidCallback action) {
     if (!mounted) return;
@@ -81,11 +96,51 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     }
   }
 
+  // Memo for the generated day plan. build() runs on every task-completion
+  // setState, every day-chip tap and every energy tick, and each run
+  // regenerated the whole plan — producing structurally identical blocks with
+  // new millisecond-derived ids, which also defeated downstream diffing.
+  List<TimeBlock>? _cachedPlan;
+  Object? _cachedPlanKey;
+
+  /// Returns the adaptive plan, regenerating only when its inputs change.
+  ///
+  /// The key covers task identity/ordering and the energy bucket. Energy is
+  /// bucketed to two decimals because the raw value drifts continuously and
+  /// sub-percent changes do not alter the ranking meaningfully.
+  List<TimeBlock> _adaptivePlanFor({
+    required GenerateAdaptivePlan generateAdaptivePlan,
+    required List<Task> tasks,
+    required double energy,
+  }) {
+    final String key = <String>[
+      energy.toStringAsFixed(2),
+      for (final Task task in tasks)
+        '${task.id}:${task.priority}:${task.difficulty}:${task.energyRequired}:'
+            '${task.scheduledFor?.toIso8601String() ?? ''}:'
+            '${task.recurrenceRule.name}',
+    ].join('|');
+
+    final List<TimeBlock>? cached = _cachedPlan;
+    if (cached != null && _cachedPlanKey == key) {
+      return cached;
+    }
+    final List<TimeBlock> generated = generateAdaptivePlan(
+      tasks: tasks,
+      energy: energy,
+    );
+    _cachedPlan = generated;
+    _cachedPlanKey = key;
+    return generated;
+  }
+
   @override
   Widget build(BuildContext context) {
     final tasksAsync = ref.watch(tasksProvider);
     final energy = ref.watch(energyProvider);
-    final calendarService = ref.read(calendarServiceProvider);
+    final generateAdaptivePlan = ref.read(generateAdaptivePlanUseCaseProvider);
+    final analyzePlanContext = ref.read(analyzePlanContextUseCaseProvider);
+    final recommendNextBlock = ref.read(recommendNextBlockUseCaseProvider);
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/plan_bg.jpg',
@@ -95,7 +150,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
         body: SafeArea(
           child: tasksAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(
+            error: (_, _) => Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
@@ -107,10 +162,13 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                       size: 28,
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      'Plan stream offline: $error',
+                    const Text(
+                      // Never surface the raw error object here: it leaks
+                      // stack detail to users and reads as a crash.
+                      "We couldn't load your plan right now.\n"
+                      'Check your connection and try again.',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
                       ),
@@ -118,18 +176,41 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                     const SizedBox(height: 12),
                     TextButton(
                       onPressed: () => ref.invalidate(tasksProvider),
-                      child: const Text('Re-sync'),
+                      child: const Text('Try again'),
                     ),
                   ],
                 ),
               ),
             ),
             data: (tasks) {
-              final List<TimeBlock> allBlocks = calendarService
-                  .generateAdaptivePlan(tasks: tasks, energy: energy);
+              final List<TimeBlock> allBlocks = _adaptivePlanFor(
+                generateAdaptivePlan: generateAdaptivePlan,
+                tasks: tasks,
+                energy: energy,
+              );
               final List<TimeBlock> blocks = allBlocks
-                  .where((block) => (block.start.weekday - 1) == _selectedDay)
+                  .where((block) {
+                    final DateTime selected = _selectedDate;
+                    return block.start.year == selected.year &&
+                        block.start.month == selected.month &&
+                        block.start.day == selected.day;
+                  })
                   .toList(growable: false);
+
+              // Load/capacity for the selected day, and unplanned work across
+              // the whole plan (a task scheduled on another day is not
+              // "unplanned" just because it is absent from today).
+              final PlanContext dayContext = analyzePlanContext(
+                blocks: blocks,
+                tasks: tasks,
+                energy: energy,
+              );
+              final PlanContext planContext = analyzePlanContext(
+                blocks: allBlocks,
+                tasks: tasks,
+                energy: energy,
+              );
+              final TimeBlock? nextBlock = recommendNextBlock(blocks: blocks);
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,8 +236,19 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                     child: DayOverviewCard(
                       blocksCount: blocks.length,
                       energy: energy,
+                      plannedMinutes: dayContext.plannedMinutes,
+                      unplannedTaskCount: planContext.unplannedTaskCount,
                     ),
                   ),
+                  if (dayContext.isOverloaded) ...[
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      child: _OverloadedDayBanner(
+                        plannedMinutes: dayContext.plannedMinutes,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Expanded(
                     child: blocks.isEmpty
@@ -211,6 +303,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                               blocks: blocks,
                               onCompleteTask: _completePlannedTask,
                               completingTaskIds: _completingTaskIds,
+                              highlightedBlockId: nextBlock?.id,
                             ),
                           ),
                   ),
@@ -219,6 +312,50 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Shown when [AnalyzePlanContext] reports the selected day exceeds its
+/// planned-minutes threshold, so an overloaded day is visible before the user
+/// works through it.
+class _OverloadedDayBanner extends StatelessWidget {
+  const _OverloadedDayBanner({required this.plannedMinutes});
+
+  final int plannedMinutes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.memoryAmber.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.memoryAmber.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: AppColors.memoryAmber,
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Heavy day: ${DayOverviewCard.formatMinutes(plannedMinutes)} '
+              'scheduled. Consider moving lower-priority work.',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

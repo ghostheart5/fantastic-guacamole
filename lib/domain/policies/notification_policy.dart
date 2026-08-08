@@ -1,5 +1,8 @@
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Notifications
+///
+/// Enforced by ScheduleNotification.
 class NotificationPolicy {
   static bool canSchedule(NotificationEntity notification, {DateTime? now}) {
     if (!notification.isEnabled) return false;

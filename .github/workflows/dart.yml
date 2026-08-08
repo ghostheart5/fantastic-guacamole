@@ -15,8 +15,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          # For pull_request events, check out the source branch (head_ref)
+          # rather than the synthetic merge commit so that updated goldens can
+          # be pushed back.  For push events head_ref is empty and github.ref
+          # resolves to the pushed branch.
+          ref: ${{ github.head_ref || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       # Pinning by commit SHA keeps CI builds reproducible and avoids
       # unexpected behavior changes from upstream action updates.
@@ -24,6 +34,13 @@ jobs:
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           channel: stable
+
+      # .env is declared as a Flutter asset in pubspec.yaml and must exist on
+      # the CI runner before flutter pub get runs. It is git-ignored, so we
+      # create it from the checked-in example file. No secrets are committed —
+      # every value in .env.example is blank or a safe local-dev default.
+      - name: Create .env for CI
+        run: cp .env.example .env
 
       - name: Install dependencies
         run: flutter pub get
@@ -39,6 +56,36 @@ jobs:
       # Consider passing '--fatal-infos' for slightly stricter analysis.
       - name: Analyze project source
         run: flutter analyze
+
+      # Executing Maestro flows needs a booted device, which this job does not
+      # have. This parses them and checks every runFlow target resolves, so a
+      # broken flow is caught on push rather than on the next device run.
+      - name: Validate Maestro flows
+        run: dart run tool/validate_maestro_flows.dart
+
+      # Regenerate golden baselines on the CI platform (ubuntu-latest) so
+      # that pixel-comparison tests are stable regardless of where the golden
+      # images were originally authored (e.g. macOS).  The step is skipped on
+      # commits already made by this bot to prevent infinite-loop reruns.  If
+      # goldens change (first run after a local golden was committed), the new
+      # images are pushed back to the branch; subsequent runs see no diff and
+      # skip the commit.
+      - name: Sync golden baselines
+        if: ${{ github.actor != 'github-actions[bot]' }}
+        run: |
+          flutter test \
+            test/features/auth/login_screen_golden_test.dart \
+            test/features/nexus/nexus_screen_golden_test.dart \
+            --update-goldens
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add test/features/auth/goldens/ test/features/nexus/goldens/
+          if git diff --cached --quiet; then
+            echo "Golden images are already up-to-date."
+          else
+            git commit -m "chore(test): sync golden baselines to ubuntu-latest CI [skip ci]"
+            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+          fi
 
       - name: Run tests
         run: flutter test --coverage

@@ -15,22 +15,32 @@ class _NexusHeader extends ConsumerWidget {
     final routes = ref.watch(routeSurfaceProvider);
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final bool compact = constraints.maxWidth < 390;
-        final bool ultraCompact = constraints.maxWidth < 340;
+        final bool compact = constraints.maxWidth < Breakpoints.compact;
+        final bool ultraCompact =
+            constraints.maxWidth < Breakpoints.ultraCompact;
         return Padding(
-          padding: EdgeInsets.fromLTRB(ultraCompact ? 12 : 20, 16, ultraCompact ? 12 : 20, 0),
+          padding: EdgeInsets.fromLTRB(
+            ultraCompact ? 12 : 20,
+            16,
+            ultraCompact ? 12 : 20,
+            0,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SmartPressable(
                 onTap: () => context.push(routes.notifications),
-                child: Badge(
-                  isLabelVisible: unread > 0,
-                  label: Text('$unread'),
-                  child: Icon(
-                    Icons.notifications_outlined,
-                    color: AppColors.neonCyan,
-                    size: ultraCompact ? 20 : (compact ? 22 : 24),
+                semanticLabel: 'Open notifications',
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Badge(
+                    isLabelVisible: unread > 0,
+                    label: Text('$unread'),
+                    child: Icon(
+                      Icons.notifications_outlined,
+                      color: AppColors.neonCyan,
+                      size: ultraCompact ? 20 : (compact ? 22 : 24),
+                    ),
                   ),
                 ),
               ),
@@ -44,7 +54,10 @@ class _NexusHeader extends ConsumerWidget {
                       AppAssets.iconNexus,
                       width: ultraCompact ? 18 : (compact ? 20 : 22),
                       height: ultraCompact ? 18 : (compact ? 20 : 22),
-                      colorFilter: const ColorFilter.mode(AppColors.neonCyan, BlendMode.srcIn),
+                      colorFilter: const ColorFilter.mode(
+                        AppColors.neonCyan,
+                        BlendMode.srcIn,
+                      ),
                     ),
                     SizedBox(height: ultraCompact ? 3 : 4),
                     FittedBox(
@@ -54,7 +67,9 @@ class _NexusHeader extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: ultraCompact ? 25 : (compact ? 29 : 32),
                           fontWeight: FontWeight.w900,
-                          letterSpacing: ultraCompact ? 3.2 : (compact ? 4.8 : 6),
+                          letterSpacing: ultraCompact
+                              ? 3.2
+                              : (compact ? 4.8 : 6),
                           color: Colors.white,
                         ),
                       ),
@@ -66,11 +81,17 @@ class _NexusHeader extends ConsumerWidget {
                         'ADAPTIVE LOGIC CORE',
                         style: TextStyle(
                           fontSize: ultraCompact ? 7 : (compact ? 8 : 9),
-                          letterSpacing: ultraCompact ? 1.3 : (compact ? 2.0 : 2.4),
+                          letterSpacing: ultraCompact
+                              ? 1.3
+                              : (compact ? 2.0 : 2.4),
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
                           shadows: const [
-                            Shadow(color: Colors.black87, blurRadius: 6, offset: Offset(0, 1)),
+                            Shadow(
+                              color: Colors.black87,
+                              blurRadius: 6,
+                              offset: Offset(0, 1),
+                            ),
                           ],
                         ),
                       ),
@@ -80,33 +101,23 @@ class _NexusHeader extends ConsumerWidget {
               ),
               SizedBox(width: ultraCompact ? 2 : (compact ? 4 : 8)),
               ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: ultraCompact ? 72 : (compact ? 86 : 102)),
+                constraints: BoxConstraints(
+                  maxWidth: ultraCompact ? 72 : (compact ? 86 : 102),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const _PulseDot(color: Colors.greenAccent),
-                        SizedBox(width: ultraCompact ? 4 : 6),
-                        Text(
-                          'ONLINE',
-                          style: TextStyle(
-                            fontSize: ultraCompact ? 7 : (compact ? 8 : 9),
-                            letterSpacing: ultraCompact ? 0.8 : (compact ? 1.4 : 2),
-                            color: Colors.greenAccent,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
+                    // No hardcoded connectivity chip here: it was always green
+                    // regardless of real state, so it contradicted the global
+                    // OfflineBanner whenever the device actually went offline.
                     Text(
                       'LVL ${profile.level}  ·  ${profile.streak}d',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: ultraCompact ? 8 : (compact ? 9 : 10),
+                        fontSize: ultraCompact
+                            ? AppSizes.fontMicro
+                            : (compact ? AppSizes.fontXs : AppSizes.fontSm),
                         color: Colors.white38,
                         letterSpacing: ultraCompact ? 0.3 : 1,
                       ),
@@ -116,15 +127,19 @@ class _NexusHeader extends ConsumerWidget {
               ),
               SizedBox(width: ultraCompact ? 4 : (compact ? 6 : 8)),
               SmartPressable(
-                onTap: () => unawaited(_signOut(context, ref, hasMockSession: hasMockSession)),
+                onTap: () => unawaited(
+                  _signOut(context, ref, hasMockSession: hasMockSession),
+                ),
                 child: Tooltip(
                   message: hasMockSession ? 'Sign out mock session' : 'Log out',
                   child: Container(
-                    padding: const EdgeInsets.all(7),
+                    padding: const EdgeInsets.all(11),
                     decoration: BoxDecoration(
                       color: AppColors.neonViolet.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.38)),
+                      border: Border.all(
+                        color: AppColors.neonViolet.withValues(alpha: 0.38),
+                      ),
                     ),
                     child: Icon(
                       Icons.logout,
@@ -141,7 +156,11 @@ class _NexusHeader extends ConsumerWidget {
     );
   }
 
-  Future<void> _signOut(BuildContext context, WidgetRef ref, {required bool hasMockSession}) async {
+  Future<void> _signOut(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool hasMockSession,
+  }) async {
     final routes = ref.read(routeSurfaceProvider);
     try {
       if (hasMockSession) {
@@ -157,9 +176,9 @@ class _NexusHeader extends ConsumerWidget {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Could not log out. Please try again.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not log out. Please try again.')),
+      );
     }
   }
 }
@@ -172,14 +191,17 @@ class _PulseDot extends StatefulWidget {
   State<_PulseDot> createState() => _PulseDotState();
 }
 
-class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _c;
 
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
-      ..repeat(reverse: true);
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -215,7 +237,11 @@ class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixi
 // ---------------------------------------------------------------------------
 
 class _SystemRings extends StatelessWidget {
-  const _SystemRings({required this.energy, required this.fatigue, required this.pulse});
+  const _SystemRings({
+    required this.energy,
+    required this.fatigue,
+    required this.pulse,
+  });
 
   final double energy;
   final double fatigue;
@@ -266,7 +292,11 @@ class _SystemRings extends StatelessWidget {
               ),
               CustomPaint(
                 size: const Size(210, 210),
-                painter: _RingPainter(energy: energy, fatigue: fatigue, pulse: pulse),
+                painter: _RingPainter(
+                  energy: energy,
+                  fatigue: fatigue,
+                  pulse: pulse,
+                ),
               ),
               Container(
                 width: 88,
@@ -279,9 +309,14 @@ class _SystemRings extends StatelessWidget {
                       const Color(0xFF061624),
                     ],
                   ),
-                  border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.45)),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withValues(alpha: 0.45),
+                  ),
                   boxShadow: [
-                    BoxShadow(color: AppColors.neonCyan.withValues(alpha: 0.26), blurRadius: 16),
+                    BoxShadow(
+                      color: AppColors.neonCyan.withValues(alpha: 0.26),
+                      blurRadius: 16,
+                    ),
                     BoxShadow(
                       color: AppColors.neonViolet.withValues(alpha: 0.16),
                       blurRadius: 20,
@@ -304,7 +339,7 @@ class _SystemRings extends StatelessWidget {
                     Text(
                       'CLARITY $clarityPct%',
                       style: const TextStyle(
-                        fontSize: 8,
+                        fontSize: AppSizes.fontMicro,
                         color: Colors.white70,
                         letterSpacing: 1.2,
                         fontWeight: FontWeight.w700,
@@ -322,7 +357,11 @@ class _SystemRings extends StatelessWidget {
 }
 
 class _RingPainter extends CustomPainter {
-  const _RingPainter({required this.energy, required this.fatigue, required this.pulse});
+  const _RingPainter({
+    required this.energy,
+    required this.fatigue,
+    required this.pulse,
+  });
 
   final double energy;
   final double fatigue;
@@ -338,8 +377,22 @@ class _RingPainter extends CustomPainter {
 
     _drawTicks(canvas, c);
     _drawAura(canvas, c);
-    _drawRing(canvas, c, _outerR, energy, const Color(0xFF00E5FF), reversed: false);
-    _drawRing(canvas, c, _innerR, 1 - fatigue, const Color(0xFF9B8AFB), reversed: false);
+    _drawRing(
+      canvas,
+      c,
+      _outerR,
+      energy,
+      const Color(0xFF00E5FF),
+      reversed: false,
+    );
+    _drawRing(
+      canvas,
+      c,
+      _innerR,
+      1 - fatigue,
+      const Color(0xFF9B8AFB),
+      reversed: false,
+    );
 
     // Center glow
     canvas.drawCircle(
@@ -466,7 +519,7 @@ class _RingLabels extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double width = MediaQuery.sizeOf(context).width;
-    final bool ultraCompact = width < 340;
+    final bool ultraCompact = width < Breakpoints.ultraCompact;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: ultraCompact ? 18 : 32),
@@ -504,7 +557,8 @@ class _NexusBridgeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool ultraCompact = MediaQuery.sizeOf(context).width < 340;
+    final bool ultraCompact =
+        MediaQuery.sizeOf(context).width < Breakpoints.ultraCompact;
 
     final String greeting = energy >= 0.65
         ? 'High-capacity window active. Start one high-impact step now.'
@@ -534,7 +588,7 @@ class _NexusBridgeCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.neonViolet,
-              fontSize: 10,
+              fontSize: AppSizes.fontSm,
               letterSpacing: 1.4,
               fontWeight: FontWeight.w700,
             ),
@@ -542,7 +596,11 @@ class _NexusBridgeCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             greeting,
-            style: TextStyle(color: Colors.white70, fontSize: ultraCompact ? 11 : 12, height: 1.35),
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: ultraCompact ? AppSizes.fontCaption : AppSizes.fontBody,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -551,7 +609,7 @@ class _NexusBridgeCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: Colors.white54,
-              fontSize: ultraCompact ? 9 : 10,
+              fontSize: ultraCompact ? AppSizes.fontXs : AppSizes.fontSm,
               letterSpacing: ultraCompact ? 0.8 : 1.2,
             ),
           ),
@@ -562,7 +620,11 @@ class _NexusBridgeCard extends StatelessWidget {
 }
 
 class _RingLabel extends StatelessWidget {
-  const _RingLabel({required this.label, required this.value, required this.color});
+  const _RingLabel({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
   final String label;
   final String value;
   final Color color;
@@ -578,7 +640,9 @@ class _RingLabel extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: color,
-            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 6)],
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 6),
+            ],
           ),
         ),
         const SizedBox(width: 8),
@@ -587,11 +651,19 @@ class _RingLabel extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(fontSize: 8, letterSpacing: 2, color: Colors.white38),
+              style: const TextStyle(
+                fontSize: AppSizes.fontMicro,
+                letterSpacing: 2,
+                color: Colors.white38,
+              ),
             ),
             Text(
               value,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+              style: TextStyle(
+                fontSize: AppSizes.fontBodyLg,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ],
         ),
@@ -649,7 +721,7 @@ class _CoreSignalsStrip extends StatelessWidget {
                   'SYSTEM SYNTHESIS (CROSS-MODULE)',
                   style: TextStyle(
                     color: AppColors.neonViolet,
-                    fontSize: 10,
+                    fontSize: AppSizes.fontSm,
                     letterSpacing: 1.6,
                     fontWeight: FontWeight.w800,
                   ),
@@ -659,14 +731,20 @@ class _CoreSignalsStrip extends StatelessWidget {
                 AppAssets.iconInsights,
                 width: 16,
                 height: 16,
-                colorFilter: const ColorFilter.mode(AppColors.neonViolet, BlendMode.srcIn),
+                colorFilter: const ColorFilter.mode(
+                  AppColors.neonViolet,
+                  BlendMode.srcIn,
+                ),
               ),
               const SizedBox(width: 6),
               SvgPicture.asset(
                 AppAssets.iconReflect,
                 width: 16,
                 height: 16,
-                colorFilter: const ColorFilter.mode(AppColors.neonCyan, BlendMode.srcIn),
+                colorFilter: const ColorFilter.mode(
+                  AppColors.neonCyan,
+                  BlendMode.srcIn,
+                ),
               ),
             ],
           ),
@@ -678,7 +756,7 @@ class _CoreSignalsStrip extends StatelessWidget {
                   growthTitle,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: AppSizes.fontTitle,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -698,7 +776,11 @@ class _CoreSignalsStrip extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             narrativeSummary,
-            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.35),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: AppSizes.fontBody,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -707,7 +789,10 @@ class _CoreSignalsStrip extends StatelessWidget {
             children: [
               _SignalPill(label: 'Consistency', value: consistencySignal),
               _SignalPill(label: 'Load', value: loadSignal),
-              _SignalPill(label: 'Soul Continuity', value: '$soulContinuityPct%'),
+              _SignalPill(
+                label: 'Soul Continuity',
+                value: '$soulContinuityPct%',
+              ),
               _SignalPill(label: 'Narrative', value: '$narrativePresencePct%'),
             ],
           ),
@@ -729,8 +814,8 @@ class _DependencyMesh extends ConsumerWidget {
     final decision = model?.decision;
     final List<Task> tasks = aggregation?.tasks ?? const <Task>[];
     final List<GoalEntity> goals = aggregation?.goals ?? const <GoalEntity>[];
-    final List<MemoryEntity> memories = aggregation?.memories ?? const <MemoryEntity>[];
-    final List<FlowmapNode> flowNodesData = aggregation?.flowmapNodes ?? const <FlowmapNode>[];
+    final List<MemoryEntity> memories =
+        aggregation?.memories ?? const <MemoryEntity>[];
 
     final int pendingTasks = tasks.length;
     final String nextTaskTitle = aggregation == null
@@ -747,48 +832,46 @@ class _DependencyMesh extends ConsumerWidget {
     final String goalHeadline = goalTitles.isEmpty
         ? 'No active goals'
         : goalTitles.firstWhere(
-            (String title) => title.toLowerCase() != nextTaskTitle.toLowerCase(),
+            (String title) =>
+                title.toLowerCase() != nextTaskTitle.toLowerCase(),
             orElse: () => 'Goal linked to "$nextTaskTitle"',
           );
-    final int goalsWithTarget = goals.where((GoalEntity goal) => goal.targetDate != null).length;
+    final int goalsWithTarget = goals
+        .where((GoalEntity goal) => goal.targetDate != null)
+        .length;
 
     final insights = aggregation?.insights;
     final String insightsHeadline = (insights == null || insights.items.isEmpty)
         ? 'No insight bundle published'
         : insights.items.first.title;
 
-    final int recentMemories = memories.where((MemoryEntity memory) => memory.isRecent).length;
+    final int recentMemories = memories
+        .where((MemoryEntity memory) => memory.isRecent)
+        .length;
     final String memoryHeadline = memories.isEmpty
         ? 'No recent memory capture'
         : memories.first.text;
 
-    final int flowNodes = flowNodesData.length;
-    final int connectedNodes = flowNodesData
-        .where((FlowmapNode node) => node.connectedTo.isNotEmpty)
-        .length;
-    final List<String> flowTitles = flowNodesData
-        .map((FlowmapNode node) => node.title.trim())
-        .where((String title) => title.isNotEmpty)
-        .toList(growable: false);
-    final String flowHeadline = flowTitles.isEmpty
-        ? 'No mapped threads'
-        : flowTitles.firstWhere((String title) {
-            final String lowered = title.toLowerCase();
-            return lowered != nextTaskTitle.toLowerCase() && lowered != goalHeadline.toLowerCase();
-          }, orElse: () => 'Flow linked to "$nextTaskTitle"');
+    // Sync copy is read by people, not operators: describe what happened
+    // rather than exposing the service state (LIVE/DEGRADED/SYNCING).
+    final bool syncFailed = !modelAsync.isLoading && modelAsync.hasError;
     final String syncStatus = modelAsync.isLoading
-        ? 'SYNCING'
-        : (modelAsync.hasError ? 'DEGRADED' : 'LIVE');
+        ? 'Updating…'
+        : (syncFailed ? "Couldn't update — showing last saved" : 'Up to date');
     final DateTime now = DateTime.now();
     final String syncTime =
-        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
     final progress = progression.progress;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _NexusSyncStrip(status: syncStatus, timestamp: syncTime),
+        _NexusSyncStrip(
+          status: syncStatus,
+          degraded: syncFailed,
+          timestamp: syncTime,
+        ),
         const SizedBox(height: 10),
         const Padding(
           padding: EdgeInsets.only(bottom: 10),
@@ -796,7 +879,7 @@ class _DependencyMesh extends ConsumerWidget {
             'NEXUS DEPENDENCY MESH (HOW MODULES CONNECT)',
             style: TextStyle(
               color: AppColors.neonCyan,
-              fontSize: 10,
+              fontSize: AppSizes.fontSm,
               letterSpacing: 1.8,
               fontWeight: FontWeight.w800,
             ),
@@ -807,7 +890,9 @@ class _DependencyMesh extends ConsumerWidget {
           runSpacing: 12,
           children: [
             _DependencyCard(
-              label: 'Coach',
+              // The feature is Smart Planner. "Coach" was a leftover name for
+              // the same surface and made one feature look like two.
+              label: 'Smart Planner',
               accent: AppColors.neonCyan,
               emphasize: true,
               value: modelAsync.isLoading
@@ -815,7 +900,8 @@ class _DependencyMesh extends ConsumerWidget {
                   : (decision?.coachMessage.trim().isNotEmpty ?? false)
                   ? 'Live'
                   : 'Idle',
-              headline: decision?.coachMessage ?? 'No active coaching advice yet.',
+              headline:
+                  decision?.coachMessage ?? 'No active coaching advice yet.',
               detail: (decision?.nextAction.trim().isNotEmpty ?? false)
                   ? 'Next action: ${decision!.nextAction}'
                   : 'SI engine advice routed into Nexus.',
@@ -846,15 +932,8 @@ class _DependencyMesh extends ConsumerWidget {
               accent: AppColors.neonViolet,
               value: '${insights?.items.length ?? 0} signals',
               headline: insightsHeadline,
-              detail: 'Health ${(((insights?.healthScore ?? 0) * 100).round())}%.',
-            ),
-            _DependencyCard(
-              label: 'Flowmap',
-              accent: const Color(0xFF4BE6B0),
-              value: '$flowNodes nodes',
-              headline: flowHeadline,
               detail:
-                  '$connectedNodes/$flowNodes connected decision nodes (node = a mapped task, goal, or idea link).',
+                  'Health ${(((insights?.healthScore ?? 0) * 100).round())}%.',
             ),
             _DependencyCard(
               label: 'Memories',
@@ -887,21 +966,29 @@ class _SignalPill extends StatelessWidget {
       ),
       child: Text(
         '$label: $value',
-        style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: AppSizes.fontCaption,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
 }
 
 class _NexusSyncStrip extends StatelessWidget {
-  const _NexusSyncStrip({required this.status, required this.timestamp});
+  const _NexusSyncStrip({
+    required this.status,
+    required this.degraded,
+    required this.timestamp,
+  });
 
   final String status;
+  final bool degraded;
   final String timestamp;
 
   @override
   Widget build(BuildContext context) {
-    final bool degraded = status == 'DEGRADED';
     final Color accent = degraded ? AppColors.recallRed : AppColors.neonCyan;
     return Container(
       width: double.infinity,
@@ -919,23 +1006,32 @@ class _NexusSyncStrip extends StatelessWidget {
             decoration: BoxDecoration(
               color: accent,
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 8)],
+              boxShadow: [
+                BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 8),
+              ],
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            'NEXUS CORE SYNC: $status',
-            style: TextStyle(
-              color: accent,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.4,
+          Flexible(
+            child: Text(
+              status,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: accent,
+                fontSize: AppSizes.fontSm,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.4,
+              ),
             ),
           ),
           const Spacer(),
           Text(
             timestamp,
-            style: const TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 1),
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: AppSizes.fontSm,
+              letterSpacing: 1,
+            ),
           ),
         ],
       ),
@@ -981,7 +1077,9 @@ class _DependencyCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: Colors.black.withValues(alpha: emphasize ? 0.28 : 0.24),
-        border: Border.all(color: accent.withValues(alpha: emphasize ? 0.34 : 0.26)),
+        border: Border.all(
+          color: accent.withValues(alpha: emphasize ? 0.34 : 0.26),
+        ),
         boxShadow: [
           BoxShadow(
             color: accent.withValues(alpha: emphasize ? 0.14 : 0.10),
@@ -1001,7 +1099,12 @@ class _DependencyCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: accent,
-                  boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.45), blurRadius: 8)],
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.45),
+                      blurRadius: 8,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
@@ -1010,7 +1113,7 @@ class _DependencyCard extends StatelessWidget {
                   label.toUpperCase(),
                   style: TextStyle(
                     color: accent,
-                    fontSize: 10,
+                    fontSize: AppSizes.fontSm,
                     letterSpacing: 1.4,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1020,7 +1123,7 @@ class _DependencyCard extends StatelessWidget {
                 value,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 12,
+                  fontSize: AppSizes.fontBody,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -1033,13 +1136,20 @@ class _DependencyCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: Colors.white,
-              fontSize: emphasize ? 15 : 14,
+              fontSize: emphasize ? AppSizes.fontLabelLg : AppSizes.fontLabel,
               fontWeight: FontWeight.w700,
               height: 1.2,
             ),
           ),
           const SizedBox(height: 6),
-          Text(detail, style: const TextStyle(color: Colors.white60, fontSize: 11, height: 1.35)),
+          Text(
+            detail,
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: AppSizes.fontCaption,
+              height: 1.35,
+            ),
+          ),
         ],
       ),
     );
@@ -1058,14 +1168,80 @@ String _truncate(String text, {int max = 52}) {
 // Action grid
 // ---------------------------------------------------------------------------
 
+/// First-run call to action.
+///
+/// Without this the empty Nexus is a wall of zeroed gauges with no obvious
+/// entry point, which is the single biggest drop-off moment in the app. It
+/// deliberately uses plain language rather than the surrounding system
+/// vocabulary, because the reader has not learned that vocabulary yet.
+class _FirstRunCta extends ConsumerWidget {
+  const _FirstRunCta();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.neonCyan.withValues(alpha: 0.16),
+            AppColors.neonViolet.withValues(alpha: 0.10),
+            Colors.black.withValues(alpha: 0.25),
+          ],
+        ),
+        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.45)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonCyan.withValues(alpha: 0.18),
+            blurRadius: 20,
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Start here',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: AppSizes.fontTitle,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Add one task you want to get done. '
+            'ChronoSpark builds your plan and tracks your progress from there.',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: AppSizes.fontBodyLg,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 14),
+          HoloButton(
+            label: 'Create your first task',
+            onTap: () => ref.read(appFlowProvider.notifier).toCreator(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ActionGrid extends ConsumerWidget {
   const _ActionGrid();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final double width = MediaQuery.sizeOf(context).width;
-    final bool compact = width < 360;
-    final bool ultraCompact = width < 340;
+    final bool compact = width < Breakpoints.compact;
+    final bool ultraCompact = width < Breakpoints.ultraCompact;
 
     return Container(
       width: double.infinity,
@@ -1118,10 +1294,12 @@ class _ActionGrid extends ConsumerWidget {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
+                  // "Action hub" was internal naming, not a product concept.
+                  // Nexus is the home screen; this is simply where you go next.
                   child: Text(
-                    'NEXUS ACTION HUB',
+                    'GO TO',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: AppSizes.fontSm,
                       letterSpacing: 1.6,
                       color: AppColors.neonCyan,
                       fontWeight: FontWeight.w700,
@@ -1134,7 +1312,7 @@ class _ActionGrid extends ConsumerWidget {
           SizedBox(height: ultraCompact ? 10 : 12),
           if (compact) ...[
             HoloButton(
-              label: 'Smart Coach',
+              label: 'Smart Planner',
               onTap: () => ref.read(appFlowProvider.notifier).toSmartCoach(),
             ),
             const SizedBox(height: 10),
@@ -1157,21 +1335,29 @@ class _ActionGrid extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             HoloButton(
-              label: 'Flowmap',
-              onTap: () => ref.read(appFlowProvider.notifier).toFlowmap(),
+              label: 'SI Console',
+              onTap: () => ref.read(appFlowProvider.notifier).toConsole(),
             ),
             const SizedBox(height: 10),
             HoloButton(
-              label: 'SI Console',
-              onTap: () => ref.read(appFlowProvider.notifier).toConsole(),
+              label: 'Timeline',
+              color: AppColors.neonViolet,
+              onTap: () => ref.read(appFlowProvider.notifier).toTimeline(),
+            ),
+            const SizedBox(height: 10),
+            HoloButton(
+              label: 'Progression',
+              color: AppColors.memoryAmber,
+              onTap: () => ref.read(appFlowProvider.notifier).toProgression(),
             ),
           ] else ...[
             Row(
               children: [
                 Expanded(
                   child: HoloButton(
-                    label: 'Smart Coach',
-                    onTap: () => ref.read(appFlowProvider.notifier).toSmartCoach(),
+                    label: 'Smart Planner',
+                    onTap: () =>
+                        ref.read(appFlowProvider.notifier).toSmartCoach(),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1209,17 +1395,35 @@ class _ActionGrid extends ConsumerWidget {
               children: [
                 Expanded(
                   child: HoloButton(
-                    label: 'Flowmap',
-                    onTap: () => ref.read(appFlowProvider.notifier).toFlowmap(),
+                    label: 'SI Console',
+                    onTap: () => ref.read(appFlowProvider.notifier).toConsole(),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: HoloButton(
-                    label: 'SI Console',
-                    onTap: () => ref.read(appFlowProvider.notifier).toConsole(),
+                    label: 'Timeline',
+                    color: AppColors.neonViolet,
+                    onTap: () =>
+                        ref.read(appFlowProvider.notifier).toTimeline(),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: HoloButton(
+                    label: 'Progression',
+                    color: AppColors.memoryAmber,
+                    onTap: () =>
+                        ref.read(appFlowProvider.notifier).toProgression(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Trailing slot keeps the two-column rhythm intact.
+                const Expanded(child: SizedBox.shrink()),
               ],
             ),
           ],

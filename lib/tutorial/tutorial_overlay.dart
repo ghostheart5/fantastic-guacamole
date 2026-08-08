@@ -248,10 +248,6 @@ class _TooltipCard extends StatelessWidget {
                   Row(
                     children: <Widget>[
                       TextButton(
-                        onPressed: controller.pause,
-                        child: const Text('Pause'),
-                      ),
-                      TextButton(
                         onPressed: controller.skip,
                         child: const Text('Skip'),
                       ),

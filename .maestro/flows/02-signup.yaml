@@ -1,0 +1,29 @@
+# P0 — Signup. Broken signup means zero new users, and it is the flow a store
+# reviewer exercises first on a fresh device.
+appId: com.ghostheart5.chronospark
+tags:
+  - critical
+  - auth
+---
+- launchApp:
+    clearState: true
+
+- runFlow: ../subflows/skip-onboarding.yaml
+
+- assertVisible: "CREATE ACCOUNT"
+- tapOn: "CREATE ACCOUNT"
+
+- tapOn:
+    id: "login-email-field"
+- inputText: "${MAESTRO_SIGNUP_EMAIL}"
+
+- tapOn:
+    id: "login-password-field"
+- inputText: "${MAESTRO_SIGNUP_PASSWORD}"
+
+- hideKeyboard
+- tapOn: "CREATE ACCOUNT"
+
+- extendedWaitUntil:
+    visible: "NEXUS"
+    timeout: 25000

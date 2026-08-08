@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
 enum SubtaskStatus { pending, completed, canceled }
 
 class SubtaskEntity {

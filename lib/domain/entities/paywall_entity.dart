@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Subscriptions/paywall
 class PaywallEntity {
   const PaywallEntity({
     required this.featureId,

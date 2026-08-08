@@ -1,6 +1,9 @@
 import 'package:fantastic_guacamole/domain/entities/si_decision_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console
+///
+/// sanitize() is the terminal gate every SiDecisionEntity must pass.
 class SiPolicy {
   static const Set<String> _unsafeClaims = <String>{
     'guarantee',
@@ -33,10 +36,47 @@ class SiPolicy {
   }
 
   static bool isSupportedAndSafe(SiDecisionEntity decision) {
-    final String text =
-        '${decision.rationale} ${decision.action} ${decision.reasoningTrace}'
-            .toLowerCase();
-    return !_unsafeClaims.any(text.contains);
+    return !containsUnsupportedClaim(
+      '${decision.rationale} ${decision.action} ${decision.reasoningTrace}',
+    );
+  }
+
+  /// Whether [text] contains a claim ChronoSpark is not permitted to make.
+  ///
+  /// Exposed so free-form assistant text can be held to the same standard as a
+  /// [SiDecisionEntity]. Model output previously bypassed this list entirely —
+  /// `sanitize` only ever saw decisions, never generated prose.
+  static bool containsUnsupportedClaim(String text) {
+    final String lowered = text.toLowerCase();
+    return _unsafeClaims.any(lowered.contains);
+  }
+
+  /// Rationale used when a decision is withheld for containing an unsupported
+  /// claim. Deliberately free of every term in [_unsafeClaims] so the fallback
+  /// can never itself fail the safety check.
+  static const String withheldRationale =
+      'Suggestion withheld: it contained an unsupported claim.';
+
+  /// Rationale used when required context is missing.
+  static const String missingContextRationale =
+      'Not enough context to make a recommendation yet.';
+
+  /// Terminal gate that every [SiDecisionEntity] must pass before it leaves the
+  /// domain. Applies [enforce], then blocks the decision entirely if it fails
+  /// [isSupportedAndSafe].
+  ///
+  /// Call this from every code path that returns a decision — currently
+  /// `GenerateSiDecision` and `GetNextAction`.
+  static SiDecisionEntity sanitize(SiDecisionEntity decision) {
+    final SiDecisionEntity enforced = enforce(decision);
+    if (isSupportedAndSafe(enforced)) {
+      return enforced;
+    }
+    return SiDecisionEntity(
+      rationale: withheldRationale,
+      tone: 'calm',
+      recommendedFocusMinutes: enforced.recommendedFocusMinutes,
+    );
   }
 
   static bool hasRequiredContext({

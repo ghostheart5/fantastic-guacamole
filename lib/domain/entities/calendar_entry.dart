@@ -1,3 +1,17 @@
+/// CHRONOSPARK-CLASS: LEGACY | Feature: Calendar/timeline
+///
+/// Older calendar shape used by CalendarService. Migration target is
+/// CalendarEntryEntity.
+/// TODO(duplication): [CalendarEntry] and `CalendarEntryEntity` have identical
+/// field sets. The engine (`engine/planning/calendar_service.dart`) uses this
+/// one; the data layer and use cases use `CalendarEntryEntity`. `TimeBlock` is a
+/// third shape with the same six fields (only `completed` vs `isCompleted`
+/// differs by name).
+///
+/// No data is lost across these mappings today because the fields line up
+/// 1:1 — but three types for one concept means a field added to one silently
+/// won't exist on the others. Migration target: `CalendarEntryEntity`.
+/// See `test/domain/entities/calendar_mapping_test.dart`.
 class CalendarEntry {
   final String id;
 

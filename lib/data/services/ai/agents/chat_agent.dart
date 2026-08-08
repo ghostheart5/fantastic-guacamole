@@ -5,12 +5,41 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart';
 import 'package:fantastic_guacamole/data/services/ai/agents/ai_agent.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/policies/si_policy.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
 import 'package:fantastic_guacamole/engine/si/ai_response.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/si/si_ai_service.dart';
 import 'package:http/http.dart' as http;
+
+/// Outcome of an attempt to reach the AI proxy.
+///
+/// Exists so callers can tell a real model response apart from a locally
+/// generated one. Previously every failure collapsed to `null` and the local
+/// engine's answer was surfaced as if the model had produced it.
+enum AiProxyOutcome {
+  /// The proxy returned a usable model response.
+  model,
+
+  /// The proxy was not attempted — not configured, empty prompt, or no auth
+  /// token in a production build. No model response was ever expected.
+  notAttempted,
+
+  /// The proxy was attempted and did not yield a usable response.
+  failed,
+
+  /// The proxy replied, but the reply was withheld by the safety policy.
+  withheld,
+}
+
+/// A proxy attempt and, when successful, its response.
+class AiProxyAttempt {
+  const AiProxyAttempt(this.outcome, [this.response]);
+
+  final AiProxyOutcome outcome;
+  final AIResponse? response;
+}
 
 class ChatAgent extends AiAgent {
   const ChatAgent({this.service});
@@ -35,12 +64,13 @@ class ChatAgent extends AiAgent {
         const <String, dynamic>{};
     final List<Map<String, String>> history = _readHistory(request['history']);
 
-    final AIResponse? proxyResponse = await _tryProxy(
+    final AiProxyAttempt attempt = await _tryProxy(
       prompt: prompt,
       history: history,
       context: context,
       personality: personality,
     );
+    final AIResponse? proxyResponse = attempt.response;
     final AIResponse response =
         proxyResponse ??
         ((si != null && learning != null && prompt.trim().isNotEmpty)
@@ -60,21 +90,51 @@ class ChatAgent extends AiAgent {
                 personality: personality,
               ));
 
+    // When the model was expected but did not deliver, say so. Presenting a
+    // locally generated answer as a model response is the behaviour this
+    // disclosure exists to prevent.
+    final String disclosure = _degradedNotice(attempt.outcome);
+    final String message = disclosure.isEmpty
+        ? response.message
+        : '${response.message}\n\n$disclosure';
+
     return <String, dynamic>{
       'agent': name,
       'mode': 'conversation',
       'prompt': prompt,
       'task': response.task?.toJson(),
-      'message': response.message,
+      'message': message,
       'reasoning': response.reasoning,
       'emotion': response.emotion,
       'confidence': response.confidence,
-      'response': response.message,
+      'response': message,
       'status': 'ready',
+      // Machine-readable provenance for callers and diagnostics.
+      'source': attempt.outcome.name,
+      'modelBacked': attempt.outcome == AiProxyOutcome.model,
     };
   }
 
-  Future<AIResponse?> _tryProxy({
+  /// User-visible disclosure for a response the model did not produce.
+  ///
+  /// Deliberately empty when the proxy was never configured — in that build
+  /// the local engine is the intended engine, not a degraded substitute.
+  static String _degradedNotice(AiProxyOutcome outcome) {
+    switch (outcome) {
+      case AiProxyOutcome.model:
+      case AiProxyOutcome.notAttempted:
+        return '';
+      case AiProxyOutcome.failed:
+        return 'Note: the assistant service could not be reached, so this '
+            'reply was generated on-device from your current data.';
+      case AiProxyOutcome.withheld:
+        return 'Note: the assistant reply was withheld by ChronoSpark safety '
+            'policy, so this reply was generated on-device from your current '
+            'data.';
+    }
+  }
+
+  Future<AiProxyAttempt> _tryProxy({
     required String prompt,
     required List<Map<String, String>> history,
     required Map<String, dynamic> context,
@@ -82,10 +142,12 @@ class ChatAgent extends AiAgent {
   }) async {
     final Uri? endpoint = parseSecureHttpsEndpoint(Env.aiProxyEndpoint);
     if (endpoint == null || prompt.trim().isEmpty) {
-      return null;
+      return const AiProxyAttempt(AiProxyOutcome.notAttempted);
     }
     final String? accessToken = currentSupabaseAccessToken();
-    if (Env.isProduction && accessToken == null) return null;
+    if (Env.isProduction && accessToken == null) {
+      return const AiProxyAttempt(AiProxyOutcome.notAttempted);
+    }
     final Map<String, dynamic> minimizedContext = _minimizeProxyContext(
       context,
     );
@@ -115,12 +177,12 @@ class ChatAgent extends AiAgent {
           )
           .timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
-        return null;
+        return const AiProxyAttempt(AiProxyOutcome.failed);
       }
 
       final Object? decoded = jsonDecode(response.body);
       if (decoded is! Map) {
-        return null;
+        return const AiProxyAttempt(AiProxyOutcome.failed);
       }
       final Map<String, dynamic> payload = decoded.map(
         (dynamic key, dynamic value) => MapEntry(key.toString(), value),
@@ -130,21 +192,33 @@ class ChatAgent extends AiAgent {
           payload['reply']?.toString().trim() ??
           '';
       if (message.isEmpty || _repeatsRecentAssistant(message, history)) {
-        return null;
+        return const AiProxyAttempt(AiProxyOutcome.failed);
+      }
+      final String reasoning =
+          payload['reasoning']?.toString() ??
+          'Generated from the current state and recent conversation.';
+      // Model output is held to the same standard as a SiDecisionEntity.
+      // Without this, generated prose bypassed the unsupported-claim list
+      // entirely — SiPolicy only ever saw decisions.
+      if (SiPolicy.containsUnsupportedClaim('$message $reasoning')) {
+        return const AiProxyAttempt(AiProxyOutcome.withheld);
       }
 
-      return AIResponse(
-        message: message,
-        reasoning:
-            payload['reasoning']?.toString() ??
-            'Generated from the current state and recent conversation.',
-        emotion: payload['emotion']?.toString() ?? 'balanced',
-        confidence: (payload['confidence'] as num?)?.toDouble() ?? 0.8,
+      return AiProxyAttempt(
+        AiProxyOutcome.model,
+        AIResponse(
+          message: message,
+          reasoning: reasoning,
+          emotion: payload['emotion']?.toString() ?? 'balanced',
+          confidence: (payload['confidence'] as num?)?.toDouble() ?? 0.8,
+        ),
       );
     } on TimeoutException {
-      return null;
-    } on Exception {
-      return null;
+      return const AiProxyAttempt(AiProxyOutcome.failed);
+    } on Object {
+      // `on Object`: a malformed payload can produce a TypeError, which is an
+      // Error and not an Exception, and previously escaped this method.
+      return const AiProxyAttempt(AiProxyOutcome.failed);
     }
   }
 
@@ -171,7 +245,7 @@ class ChatAgent extends AiAgent {
     AIPersonality personality,
     Map<String, dynamic> context,
   ) {
-    return 'You are ChronoSpark Smart Coach. Be concise, practical, and '
+    return 'You are ChronoSpark Smart Planner. Be concise, practical, and '
         'specific to the user context. Answer the newest message directly. '
         'Use recent conversation history, but do not repeat earlier wording '
         'or generic motivational slogans. Give one useful insight and one '

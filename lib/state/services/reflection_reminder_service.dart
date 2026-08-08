@@ -2,6 +2,8 @@ import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 @immutable
 class ReflectionReminderPrefs {
@@ -96,6 +98,16 @@ class VoicePermissionService {
   const VoicePermissionService();
 
   Future<bool> requestPermission() async {
-    return false;
+    try {
+      final PermissionStatus status = await Permission.microphone.request();
+      return status.isGranted;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException catch (error) {
+      debugPrint('VoicePermissionService unavailable: $error');
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 }

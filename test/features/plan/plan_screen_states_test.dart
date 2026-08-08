@@ -47,8 +47,13 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.textContaining('Plan stream offline:'), findsOneWidget);
-    expect(find.text('Re-sync'), findsOneWidget);
+    // The error surface must stay human-readable. Asserting on the absence of
+    // the exception text is the point: an earlier version interpolated the raw
+    // error object into the UI, which leaked stack detail and read as a crash.
+    expect(find.textContaining('task stream failed'), findsNothing);
+    expect(find.textContaining('StateError'), findsNothing);
+    expect(find.textContaining("couldn't load your plan"), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
   });
 
   testWidgets('shows empty-plan helper when no calendar entries exist', (

@@ -1,0 +1,33 @@
+# P0 — Login. Everything downstream depends on getting past this screen.
+appId: com.ghostheart5.chronospark
+tags:
+  - critical
+  - auth
+---
+- launchApp:
+    clearState: true
+
+# A fresh install lands on onboarding, not login. Skip through it so this flow
+# tests authentication rather than re-testing onboarding.
+- runFlow: ../subflows/skip-onboarding.yaml
+
+- assertVisible: "ENTER SYSTEM"
+- assertVisible: "Forgot Password?"
+
+- tapOn:
+    id: "login-email-field"
+- inputText: "${MAESTRO_TEST_EMAIL}"
+
+- tapOn:
+    id: "login-password-field"
+- inputText: "${MAESTRO_TEST_PASSWORD}"
+
+- hideKeyboard
+- tapOn: "ENTER SYSTEM"
+
+# The gate renders from the auth-state stream, so admission is asynchronous.
+- extendedWaitUntil:
+    visible: "NEXUS"
+    timeout: 20000
+
+- assertNotVisible: "ENTER SYSTEM"

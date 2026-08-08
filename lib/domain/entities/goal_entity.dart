@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
+///
+/// Carries completion state; CompleteGoal marks, DeleteGoal removes.
 class GoalEntity {
   const GoalEntity({
     required this.id,
@@ -6,6 +9,7 @@ class GoalEntity {
     this.description,
     this.targetDate,
     this.colorHex = 0xFF9B8AFB,
+    this.completedAt,
   });
 
   final String id;
@@ -15,11 +19,20 @@ class GoalEntity {
   final DateTime? targetDate;
   final int colorHex;
 
+  /// When the goal was completed, or null while it is still active. Completion
+  /// is a state change, not a deletion — `DeleteGoal` is the only destructive
+  /// path.
+  final DateTime? completedAt;
+
+  bool get isCompleted => completedAt != null;
+
   GoalEntity copyWith({
     String? title,
     String? description,
     DateTime? targetDate,
     int? colorHex,
+    DateTime? completedAt,
+    bool clearCompletedAt = false,
   }) => GoalEntity(
     id: id,
     title: title ?? this.title,
@@ -27,7 +40,16 @@ class GoalEntity {
     description: description ?? this.description,
     targetDate: targetDate ?? this.targetDate,
     colorHex: colorHex ?? this.colorHex,
+    completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
   );
+
+  /// Marks the goal complete. Idempotent: re-completing keeps the original
+  /// completion timestamp.
+  GoalEntity markCompleted(DateTime at) {
+    return completedAt != null ? this : copyWith(completedAt: at);
+  }
+
+  GoalEntity reopen() => copyWith(clearCompletedAt: true);
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -36,6 +58,7 @@ class GoalEntity {
     if (description != null) 'description': description,
     if (targetDate != null) 'targetDate': targetDate!.toIso8601String(),
     'colorHex': colorHex,
+    if (completedAt != null) 'completedAt': completedAt!.toIso8601String(),
   };
 
   factory GoalEntity.fromJson(Map<String, dynamic> j) => GoalEntity(
@@ -47,5 +70,8 @@ class GoalEntity {
         ? DateTime.tryParse(j['targetDate'] as String)
         : null,
     colorHex: (j['colorHex'] as num?)?.toInt() ?? 0xFF9B8AFB,
+    completedAt: j['completedAt'] != null
+        ? DateTime.tryParse(j['completedAt'] as String)
+        : null,
   );
 }

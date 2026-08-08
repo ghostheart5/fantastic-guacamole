@@ -19,6 +19,7 @@ import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -53,18 +54,27 @@ class SIConsoleScreen extends ConsumerStatefulWidget {
 }
 
 class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final List<_Msg> _messages = [];
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  final GlobalKey _composerKey = GlobalKey();
+  // Starting guess only, replaced by the composer's real measured height
+  // right after the first frame — see _measureComposer.
+  final ValueNotifier<double> _composerHeight = ValueNotifier<double>(220);
   bool _typing = false;
   late final AnimationController _typingAnim;
   StreamSubscription<GoalLifecycleEvent>? _goalEventSubscription;
 
+  /// Captured in [initState] because `ref` cannot be read from [dispose] —
+  /// the element is already deactivated by then and Riverpod throws.
+  late final VoiceService _voiceService;
+
   void _runAfterBuild(VoidCallback action) {
     if (!mounted) return;
     final SchedulerPhase phase = SchedulerBinding.instance.schedulerPhase;
-    if (phase == SchedulerPhase.idle || phase == SchedulerPhase.postFrameCallbacks) {
+    if (phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks) {
       action();
       return;
     }
@@ -81,30 +91,37 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     AppAnalytics.track('si_opened');
-    _goalEventSubscription = ref.read(eventBusProvider).on<GoalLifecycleEvent>().listen((event) {
-      if (!mounted) {
-        return;
-      }
-      _safeSetState(() {
-        _messages.add(
-          _Msg(
-            text: 'GOAL SYNC: ${event.action.toUpperCase()} ${event.title}',
-            isUser: false,
-            emotion: 'focused',
-          ),
-        );
-      });
-      _scrollToBottom();
-    });
-    _typingAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
-      ..repeat();
+    _voiceService = ref.read(voiceServiceProvider);
+    _goalEventSubscription = ref
+        .read(eventBusProvider)
+        .on<GoalLifecycleEvent>()
+        .listen((event) {
+          if (!mounted) {
+            return;
+          }
+          _safeSetState(() {
+            _messages.add(
+              _Msg(
+                text: 'GOAL SYNC: ${event.action.toUpperCase()} ${event.title}',
+                isUser: false,
+                emotion: 'focused',
+              ),
+            );
+          });
+          _scrollToBottom();
+        });
+    _typingAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
 
     // Greeting after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _addSI(
         'System online. Strategic Intelligence interface active.\n'
-        'I have access to tasks, progression, goals, memories, day plan, flowmap, emotions, soul map, milestones, and console history. '
+        'I have access to tasks, progression, goals, memories, day plan, emotions, soul map, milestones, and console history. '
         'Ask me anything - or type "help" to see available commands.',
         emotion: 'confident',
       );
@@ -113,16 +130,42 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _typingAnim.dispose();
     _input.dispose();
     _scroll.dispose();
-    unawaited(ref.read(voiceServiceProvider).stop());
+    _composerHeight.dispose();
+    unawaited(_voiceService.stop());
     unawaited(_goalEventSubscription?.cancel());
     super.dispose();
   }
 
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    // The keyboard opening/closing resizes the viewport without the SI
+    // Console ever leaving resizeToAvoidBottomInset: false, so nothing else
+    // re-anchors the transcript to the latest message when that happens.
+    // Re-measure first: the keyboard toggle also flips the composer between
+    // its compact/expanded layouts, and scrolling before that resize lands
+    // would jump to a since-stale maxScrollExtent.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measureComposer();
+      _scrollToBottom();
+    });
+  }
+
+  void _measureComposer() {
+    final double? height = _composerKey.currentContext?.size?.height;
+    if (height != null && height != _composerHeight.value) {
+      _composerHeight.value = height;
+    }
+  }
+
   void _addSI(String text, {String emotion = 'balanced'}) {
-    _safeSetState(() => _messages.add(_Msg(text: text, isUser: false, emotion: emotion)));
+    _safeSetState(
+      () => _messages.add(_Msg(text: text, isUser: false, emotion: emotion)),
+    );
     _scrollToBottom();
   }
 
@@ -134,7 +177,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       'Type a prompt in the input field, then tap send.',
       'Use Summary to hear recent assistant responses.',
       'Use Speak on assistant bubbles to read aloud.',
-      'Use Back to return to Smart Coach.',
+      'Use Back to return to Smart Planner.',
     ];
     await showModalBottomSheet<void>(
       context: context,
@@ -162,7 +205,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 SizedBox(height: 8),
                 Text(
                   'A11Y means accessibility. These controls help with readable and spoken guidance.',
-                  style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
                 ),
                 SizedBox(height: 10),
                 Text(
@@ -178,7 +225,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
                 Text(
-                  '4. Back returns to Smart Coach',
+                  '4. Back returns to Smart Planner',
                   style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
@@ -188,9 +235,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       },
     );
     unawaited(
-      ref
-          .read(voiceServiceProvider)
-          .speakAccessibilityHint(surface: 'SI Console', controls: controls),
+      _voiceService.speakAccessibilityHint(
+        surface: 'SI Console',
+        controls: controls,
+      ),
     );
   }
 
@@ -198,13 +246,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final String text = _input.text.trim();
     if (text.isEmpty) return;
 
-    if (_handleLocalCommand(text)) {
-      _input.clear();
+    if (ref.read(siConsoleQueryControllerProvider).detectsCrisis(text)) {
+      showCrisisDialog(context);
       return;
     }
 
-    if (ref.read(siConsoleQueryControllerProvider).detectsCrisis(text)) {
-      showCrisisDialog(context);
+    if (_handleLocalCommand(text)) {
+      _input.clear();
       return;
     }
     _input.clear();
@@ -219,7 +267,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   bool _handleLocalCommand(String text) {
     final String normalized = text.trim().toLowerCase();
     final String command = normalized.split(RegExp(r'\s+')).first;
-    final SIConsoleScreenModel? consoleModel = ref.read(siConsoleScreenModelProvider).asData?.value;
+    final SIConsoleScreenModel? consoleModel = ref
+        .read(siConsoleScreenModelProvider)
+        .asData
+        ?.value;
     final SIStateAggregation? aggregation = consoleModel?.aggregation;
 
     if (normalized == '/help' || normalized == 'help') {
@@ -275,7 +326,6 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- milestones: ${ref.read(milestonesProvider).asData?.value.length ?? 0}\n'
                 '- core values overall: ${ref.read(coreValuesAlignmentProvider).overall}%\n'
                 '- soulmap overall: ${ref.read(soulMapAlignmentProvider).overall}%\n'
-                '- flowmap: ${aggregation.flowmapNodes.length}\n'
                 '- plan preview blocks: ${aggregation.planPreview.length}\n\n'
                 'Trajectory:\n'
                 '- pressure: ${aggregation.trajectory.pressureIndex}\n'
@@ -305,7 +355,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _messages.add(_Msg(text: text, isUser: true));
         _messages.add(
           _Msg(
-            text: compareSoulMap ? _localSoulMapCompareSummary(aggregation) : response,
+            text: compareSoulMap
+                ? _localSoulMapCompareSummary(aggregation)
+                : response,
             isUser: false,
             emotion: 'focused',
           ),
@@ -338,7 +390,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             .take(3)
             .map((g) => g.title)
             .toList(growable: false);
-        final String topText = top.isEmpty ? 'No goals found.' : top.map((g) => '- $g').join('\n');
+        final String topText = top.isEmpty
+            ? 'No goals found.'
+            : top.map((g) => '- $g').join('\n');
         return 'GOALS SNAPSHOT\n\nGoals: ${aggregation.goals.length}\n\nTop goals:\n$topText\n\nPrompt: "which goal is drifting and what is the next corrective action?"';
       case '/plan':
         final String blocks = aggregation.planPreview.isEmpty
@@ -347,13 +401,21 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         return 'PLAN SNAPSHOT\n\nPlan preview blocks: ${aggregation.planPreview.length}\n\nUpcoming blocks:\n$blocks\n\nPrompt: "what should I move or drop to reduce pressure today?"';
       case '/milestones':
         final MilestoneSummary summary = ref.read(milestoneSummaryProvider);
-        final List<MilestoneEntity> overdue = ref.read(milestoneOverdueProvider);
-        final List<MilestoneEntity> upcoming = ref.read(milestoneUpcomingProvider);
+        final List<MilestoneEntity> overdue = ref.read(
+          milestoneOverdueProvider,
+        );
+        final List<MilestoneEntity> upcoming = ref.read(
+          milestoneUpcomingProvider,
+        );
         final List<MilestoneRisk> risks = ref.read(milestoneRisksProvider);
         final List<String> topMilestones =
-            (ref.read(milestonesProvider).asData?.value ?? const <MilestoneEntity>[])
+            (ref.read(milestonesProvider).asData?.value ??
+                    const <MilestoneEntity>[])
                 .take(3)
-                .map((MilestoneEntity item) => '${item.title} (${item.completionPercent.round()}%)')
+                .map(
+                  (MilestoneEntity item) =>
+                      '${item.title} (${item.completionPercent.round()}%)',
+                )
                 .toList(growable: false);
         final String topText = topMilestones.isEmpty
             ? 'No milestones created yet.'
@@ -376,7 +438,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             'Top milestones:\n$topText\n\n'
             'Prompt: "what milestone is next, what is overdue, and am I on track?"';
       case '/values':
-        final CoreValuesAlignment values = ref.read(coreValuesAlignmentProvider);
+        final CoreValuesAlignment values = ref.read(
+          coreValuesAlignmentProvider,
+        );
         final List<String> rows = CoreValueType.values
             .map(
               (CoreValueType value) =>
@@ -393,15 +457,21 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             'Prompt: "analyze my life by core values alignment"';
       case '/soulmap':
         final SoulMapAlignment soulMap = ref.read(soulMapAlignmentProvider);
-        final int purpose = soulMap.scores[SoulMapDimension.purpose]?.score ?? 0;
-        final int identity = soulMap.scores[SoulMapDimension.identity]?.score ?? 0;
-        final int values = soulMap.scores[SoulMapDimension.coreValues]?.score ?? 0;
-        final int futureSelf = soulMap.scores[SoulMapDimension.futureSelf]?.score ?? 0;
+        final int purpose =
+            soulMap.scores[SoulMapDimension.purpose]?.score ?? 0;
+        final int identity =
+            soulMap.scores[SoulMapDimension.identity]?.score ?? 0;
+        final int values =
+            soulMap.scores[SoulMapDimension.coreValues]?.score ?? 0;
+        final int futureSelf =
+            soulMap.scores[SoulMapDimension.futureSelf]?.score ?? 0;
         final String strongest = soulMapDimensionTitle(soulMap.strongest);
         final String weakest = soulMapDimensionTitle(soulMap.weakest);
         final String action = soulMap.recommendations.firstWhere(
-          (String line) => line.toLowerCase().contains('schedule one concrete action'),
-          orElse: () => 'Schedule one concrete action this week to strengthen $weakest.',
+          (String line) =>
+              line.toLowerCase().contains('schedule one concrete action'),
+          orElse: () =>
+              'Schedule one concrete action this week to strengthen $weakest.',
         );
         return 'SOULMAP ANALYSIS\n\n'
             'Purpose Alignment: $purpose%\n'
@@ -419,8 +489,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         final int overdueCount = ref.read(timelineOverdueProvider).length;
         final int upcomingCount = ref.read(timelineUpcomingProvider).length;
         final int riskEventsCount = ref.read(timelineRiskEventsProvider).length;
-        final int recommendationCount = ref.read(timelineRecommendationsProvider).length;
-        final List<TimelineEventEntity> upcomingEvents = ref.read(timelineUpcomingProvider);
+        final int recommendationCount = ref
+            .read(timelineRecommendationsProvider)
+            .length;
+        final List<TimelineEventEntity> upcomingEvents = ref.read(
+          timelineUpcomingProvider,
+        );
         final String nextDeadline = upcomingEvents.isEmpty
             ? 'No upcoming deadline in timeline data.'
             : upcomingEvents
@@ -459,7 +533,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       return 'SI is still loading module data. Retry the command in a second.';
     }
 
-    final SoulMapFutureSelfComparison compare = ref.read(soulMapFutureSelfComparisonProvider);
+    final SoulMapFutureSelfComparison compare = ref.read(
+      soulMapFutureSelfComparisonProvider,
+    );
     return 'SOULMAP CURRENT VS FUTURE SELF\n\n'
         'Current Self Alignment: ${compare.currentSelfAlignment}%\n'
         'Future Self Readiness: ${compare.futureSelfReadiness}%\n'
@@ -471,7 +547,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   Future<void> _dispatchQuery(String text) async {
     try {
-      final recommendation = await ref.read(aiControllerProvider).sendMessage(text);
+      final recommendation = await ref
+          .read(aiControllerProvider)
+          .sendMessage(text);
       if (!mounted) return;
       final String message = recommendation?.message.trim() ?? '';
       if (message.isEmpty || _isInvalidAssistantText(message)) {
@@ -492,7 +570,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       _safeSetState(() {
         _typing = false;
         _messages.add(
-          _Msg(text: message, isUser: false, emotion: recommendation?.emotion ?? 'balanced'),
+          _Msg(
+            text: message,
+            isUser: false,
+            emotion: recommendation?.emotion ?? 'balanced',
+          ),
         );
       });
       _scrollToBottom();
@@ -503,7 +585,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _messages.add(
           const _Msg(
             text:
-                'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, flowmap, emotions, soul map, or milestones.',
+                'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, emotions, soul map, or milestones.',
             isUser: false,
             emotion: 'cautious',
           ),
@@ -543,8 +625,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final double composerBottomInset = keyboardInset > 0
         ? keyboardInset
         : mediaQuery.padding.bottom;
-    final double composerMaxHeight = keyboardVisible ? 120 : 220;
-    final double composerReservedHeight = composerMaxHeight;
+
+    // The composer's own height isn't known until after it's laid out, so
+    // the transcript's reserved bottom padding is measured, not guessed —
+    // see _measureComposer.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureComposer());
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgSiConsole,
@@ -576,7 +661,10 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                     unawaited(
                       ref
                           .read(voiceServiceProvider)
-                          .speakSummary(title: 'SI console voice summary', points: points),
+                          .speakSummary(
+                            title: 'SI console voice summary',
+                            points: points,
+                          ),
                     );
                   },
                   onSpeakAccessibility: () {
@@ -584,51 +672,65 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   },
                 ),
                 Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: (consoleError != null && _messages.isEmpty)
-                            ? ErrorView(
-                                title: 'SI Context Error',
-                                message: consoleError.toString(),
-                                onRetry: () {
-                                  ref.invalidate(siConsoleScreenModelProvider);
-                                },
-                              )
-                            : ListView.builder(
-                                controller: _scroll,
-                                padding: EdgeInsets.fromLTRB(
-                                  16,
-                                  8,
-                                  16,
-                                  composerReservedHeight + composerBottomInset,
-                                ),
-                                itemCount: _messages.length + (_typing ? 1 : 0),
-                                itemBuilder: (context, i) {
-                                  if (_typing && i == _messages.length) {
-                                    return _TypingIndicator(animation: _typingAnim);
-                                  }
-                                  return _BubbleTile(msg: _messages[i]);
-                                },
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _composerHeight,
+                    builder: (context, composerHeight, _) {
+                      final double composerReservedHeight = composerHeight;
+                      return Stack(
+                        children: [
+                          Positioned.fill(
+                            child: (consoleError != null && _messages.isEmpty)
+                                ? ErrorView(
+                                    title: 'SI Context Error',
+                                    message: consoleError.toString(),
+                                    onRetry: () {
+                                      ref.invalidate(
+                                        siConsoleScreenModelProvider,
+                                      );
+                                    },
+                                  )
+                                : ListView.builder(
+                                    controller: _scroll,
+                                    padding: EdgeInsets.fromLTRB(
+                                      16,
+                                      8,
+                                      16,
+                                      composerReservedHeight +
+                                          composerBottomInset,
+                                    ),
+                                    itemCount:
+                                        _messages.length + (_typing ? 1 : 0),
+                                    itemBuilder: (context, i) {
+                                      if (_typing && i == _messages.length) {
+                                        return _TypingIndicator(
+                                          animation: _typingAnim,
+                                        );
+                                      }
+                                      return _BubbleTile(msg: _messages[i]);
+                                    },
+                                  ),
+                          ),
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                bottom: composerBottomInset,
                               ),
-                      ),
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: Padding(
-                          padding: EdgeInsets.only(bottom: composerBottomInset),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(maxHeight: composerMaxHeight),
-                            child: _InputBar(
-                              controller: _input,
-                              onSend: _send,
-                              compact: keyboardVisible,
+                              child: KeyedSubtree(
+                                key: _composerKey,
+                                child: _InputBar(
+                                  controller: _input,
+                                  onSend: _send,
+                                  compact: keyboardVisible,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ],
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],
@@ -672,44 +774,80 @@ class _Header extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              GestureDetector(
-                onTap: onBack,
-                child: const Icon(Icons.arrow_back_ios, color: Colors.white54, size: 18),
+              Semantics(
+                label: 'Back to Smart Planner',
+                button: true,
+                child: GestureDetector(
+                  onTap: onBack,
+                  behavior: HitTestBehavior.opaque,
+                  child: const Padding(
+                    padding: EdgeInsets.all(11),
+                    child: Icon(
+                      Icons.arrow_back_ios,
+                      color: Colors.white54,
+                      size: 18,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 12),
               Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    seededQueryCount > 0 ? 'SI CONSOLE QRY:$seededQueryCount' : 'SI CONSOLE',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 3,
-                      color: Colors.white,
-                    ),
-                  ),
+                decoration: const BoxDecoration(
+                  color: Colors.greenAccent,
+                  shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
-                'ONLINE',
-                style: TextStyle(fontSize: 9, letterSpacing: 2, color: Colors.greenAccent),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        seededQueryCount > 0
+                            ? 'SI CONSOLE QRY:$seededQueryCount'
+                            : 'SI CONSOLE',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 3,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    // "SI" is the app's own coinage and appears nowhere in
+                    // onboarding, so expand it here: a user arriving on this
+                    // screen otherwise has no way to learn what it means.
+                    const Text(
+                      'Synthetic Intelligence',
+                      style: TextStyle(
+                        fontSize: 10,
+                        letterSpacing: 0.5,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              // No hardcoded 'ONLINE' chip here: it was a constant, so it
+              // claimed a live connection even when the device was offline.
+              // Real connectivity is surfaced by the global OfflineBanner.
             ],
           ),
           if (engineSnapshot != null) ...[
             const SizedBox(height: 4),
             Text(
               engineSnapshot ?? '',
-              style: const TextStyle(fontSize: 8, letterSpacing: 1, color: Colors.white54),
+              style: const TextStyle(
+                fontSize: 8,
+                letterSpacing: 1,
+                color: Colors.white54,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -721,17 +859,27 @@ class _Header extends StatelessWidget {
             children: [
               GestureDetector(
                 onTap: onSpeakSummary,
+                behavior: HitTestBehavior.opaque,
                 child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: compact ? 7 : 8, vertical: 3),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 7 : 8,
+                    vertical: 9,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.neonCyan.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.35)),
+                    border: Border.all(
+                      color: AppColors.neonCyan.withValues(alpha: 0.35),
+                    ),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.summarize_rounded, size: 11, color: AppColors.neonCyan),
+                      Icon(
+                        Icons.summarize_rounded,
+                        size: 11,
+                        color: AppColors.neonCyan,
+                      ),
                       SizedBox(width: 4),
                       Text(
                         'SUMMARY',
@@ -748,8 +896,12 @@ class _Header extends StatelessWidget {
               ),
               GestureDetector(
                 onTap: onSpeakAccessibility,
+                behavior: HitTestBehavior.opaque,
                 child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 7, vertical: 3),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 6 : 7,
+                    vertical: 9,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(6),
@@ -758,7 +910,11 @@ class _Header extends StatelessWidget {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.accessibility_new_rounded, size: 11, color: Colors.white70),
+                      Icon(
+                        Icons.accessibility_new_rounded,
+                        size: 11,
+                        color: Colors.white70,
+                      ),
                       SizedBox(width: 4),
                       Text(
                         'ACCESS',
@@ -797,17 +953,27 @@ class _BubbleTile extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
-          if (!isUser) ...[_SIAvatar(emotion: msg.emotion), const SizedBox(width: 8)],
+          if (!isUser) ...[
+            _SIAvatar(emotion: msg.emotion),
+            const SizedBox(width: 8),
+          ],
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
-                    color: isUser ? const Color(0xFF1E1330) : const Color(0xFF0D1A2A),
+                    color: isUser
+                        ? const Color(0xFF1E1330)
+                        : const Color(0xFF0D1A2A),
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
                       topRight: const Radius.circular(16),
@@ -838,7 +1004,9 @@ class _BubbleTile extends ConsumerWidget {
                         ),
                       TypingText(
                         msg.text,
-                        key: ValueKey<String>('si-msg-${msg.isUser}-${msg.text}'),
+                        key: ValueKey<String>(
+                          'si-msg-${msg.isUser}-${msg.text}',
+                        ),
                         animate: false,
                         style: TextStyle(
                           fontSize: 13,
@@ -853,18 +1021,30 @@ class _BubbleTile extends ConsumerWidget {
                 if (!isUser) ...[
                   const SizedBox(height: 4),
                   GestureDetector(
-                    onTap: () => unawaited(ref.read(voiceServiceProvider).speak(msg.text)),
+                    onTap: () => unawaited(
+                      ref.read(voiceServiceProvider).speak(msg.text),
+                    ),
+                    behavior: HitTestBehavior.opaque,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 9,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.neonCyan.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.25)),
+                        border: Border.all(
+                          color: AppColors.neonCyan.withValues(alpha: 0.25),
+                        ),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.volume_up_rounded, color: AppColors.neonCyan, size: 12),
+                          Icon(
+                            Icons.volume_up_rounded,
+                            color: AppColors.neonCyan,
+                            size: 12,
+                          ),
                           SizedBox(width: 4),
                           Text(
                             'SPEAK',
@@ -920,7 +1100,9 @@ class _SIAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         color: const Color(0xFF0A1520),
         border: Border.all(color: _color.withValues(alpha: 0.5)),
-        boxShadow: [BoxShadow(color: _color.withValues(alpha: 0.25), blurRadius: 8)],
+        boxShadow: [
+          BoxShadow(color: _color.withValues(alpha: 0.25), blurRadius: 8),
+        ],
       ),
       child: Center(
         child: Text(
@@ -1007,7 +1189,9 @@ class _TypingIndicator extends StatelessWidget {
                 bottomRight: Radius.circular(16),
                 bottomLeft: Radius.circular(4),
               ),
-              border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.18)),
+              border: Border.all(
+                color: AppColors.neonCyan.withValues(alpha: 0.18),
+              ),
             ),
             child: AnimatedBuilder(
               animation: animation,
@@ -1015,8 +1199,12 @@ class _TypingIndicator extends StatelessWidget {
                 return Row(
                   mainAxisSize: MainAxisSize.min,
                   children: List.generate(3, (i) {
-                    final double phase = (animation.value - i * 0.2).clamp(0.0, 1.0);
-                    final double opacity = 0.3 + 0.7 * math.sin(phase * math.pi);
+                    final double phase = (animation.value - i * 0.2).clamp(
+                      0.0,
+                      1.0,
+                    );
+                    final double opacity =
+                        0.3 + 0.7 * math.sin(phase * math.pi);
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       child: Opacity(
@@ -1046,8 +1234,12 @@ class _TypingIndicator extends StatelessWidget {
 // Input bar
 // ---------------------------------------------------------------------------
 
-class _InputBar extends StatelessWidget {
-  const _InputBar({required this.controller, required this.onSend, this.compact = false});
+class _InputBar extends ConsumerWidget {
+  const _InputBar({
+    required this.controller,
+    required this.onSend,
+    this.compact = false,
+  });
   final TextEditingController controller;
   final VoidCallback onSend;
   final bool compact;
@@ -1069,10 +1261,25 @@ class _InputBar extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final VoiceState voice = ref.watch(voiceControllerProvider);
+    final bool listening = voice.isListening;
+
+    // Recognized speech populates the query box for explicit review and
+    // send - it is never auto-sent or routed as a command.
+    ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
+      final bool stoppedListening =
+          (previous?.isListening ?? false) && !next.isListening;
+      if (stoppedListening && next.recognizedText.trim().isNotEmpty) {
+        controller.text = next.recognizedText.trim();
+        ref.read(voiceControllerProvider.notifier).clearRecognizedText();
+      }
+    });
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final bool forceCompact = constraints.hasBoundedHeight && constraints.maxHeight < 150;
+        final bool forceCompact =
+            constraints.hasBoundedHeight && constraints.maxHeight < 150;
         final bool effectiveCompact = compact || forceCompact;
 
         return Container(
@@ -1114,13 +1321,21 @@ class _InputBar extends StatelessWidget {
                                   _insertCommand(command);
                                   onSend();
                                 },
+                                behavior: HitTestBehavior.opaque,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 9,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.neonCyan.withValues(alpha: 0.08),
+                                    color: AppColors.neonCyan.withValues(
+                                      alpha: 0.08,
+                                    ),
                                     borderRadius: BorderRadius.circular(999),
                                     border: Border.all(
-                                      color: AppColors.neonCyan.withValues(alpha: 0.28),
+                                      color: AppColors.neonCyan.withValues(
+                                        alpha: 0.28,
+                                      ),
                                     ),
                                   ),
                                   child: Text(
@@ -1148,15 +1363,24 @@ class _InputBar extends StatelessWidget {
                         controller: controller,
                         minLines: 1,
                         maxLines: 1,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
                         cursorColor: AppColors.neonCyan,
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
                           hintText: 'Query the system...',
-                          hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
+                          hintStyle: const TextStyle(
+                            color: Colors.white24,
+                            fontSize: 13,
+                          ),
                           filled: true,
                           fillColor: const Color(0xFF0A1520),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24),
                             borderSide: BorderSide(
@@ -1180,17 +1404,67 @@ class _InputBar extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    GestureDetector(
-                      onTap: onSend,
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.neonCyan.withValues(alpha: 0.12),
-                          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.4)),
+                    Semantics(
+                      label: listening
+                          ? 'Stop voice input'
+                          : 'Start voice input',
+                      button: true,
+                      child: GestureDetector(
+                        onTap: () async {
+                          if (listening) {
+                            await ref
+                                .read(voiceControllerProvider.notifier)
+                                .stopListening();
+                            return;
+                          }
+                          await ref
+                              .read(voiceControllerProvider.notifier)
+                              .startListening();
+                        },
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: listening
+                                ? AppColors.neonCyan.withValues(alpha: 0.22)
+                                : AppColors.neonCyan.withValues(alpha: 0.12),
+                            border: Border.all(
+                              color: AppColors.neonCyan.withValues(
+                                alpha: listening ? 0.6 : 0.4,
+                              ),
+                            ),
+                          ),
+                          child: Icon(
+                            listening ? Icons.mic : Icons.mic_none_rounded,
+                            color: AppColors.neonCyan,
+                            size: 18,
+                          ),
                         ),
-                        child: const Icon(Icons.send_rounded, color: AppColors.neonCyan, size: 18),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Semantics(
+                      label: 'Send query',
+                      button: true,
+                      child: GestureDetector(
+                        onTap: onSend,
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.neonCyan.withValues(alpha: 0.12),
+                            border: Border.all(
+                              color: AppColors.neonCyan.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.send_rounded,
+                            color: AppColors.neonCyan,
+                            size: 18,
+                          ),
+                        ),
                       ),
                     ),
                   ],

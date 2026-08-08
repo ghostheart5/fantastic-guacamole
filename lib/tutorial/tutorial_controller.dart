@@ -71,19 +71,6 @@ class TutorialController extends ChangeNotifier {
     _notifySafely();
   }
 
-  Future<void> resume() async {
-    if (_activeStep == null) return;
-    _paused = false;
-    _scheduleIfNeeded();
-    _notifySafely();
-  }
-
-  Future<void> restart() async {
-    final String? id = _activeTutorial?.id;
-    if (id == null) return;
-    await start(id, restart: true);
-  }
-
   Future<void> skip() async {
     final String? tutorialId = _activeTutorial?.id;
     if (tutorialId != null) {
@@ -104,11 +91,6 @@ class TutorialController extends ChangeNotifier {
 
   void updateState(String key, Object? value) {
     _state[key] = value;
-    _validate();
-  }
-
-  void updateInput(String key, String value) {
-    _inputs[key] = value;
     _validate();
   }
 

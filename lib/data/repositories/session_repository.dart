@@ -70,6 +70,17 @@ class SessionRepository implements ISessionRepository {
         .toList();
   }
 
+  @override
+  Future<SessionEntity?> getSessionById(String sessionId) async {
+    final List<SessionEntity> sessions = await _allSessions();
+    for (final SessionEntity item in sessions) {
+      if (item.id == sessionId) {
+        return item;
+      }
+    }
+    return null;
+  }
+
   Future<List<SessionEntity>> _allSessions() async {
     final String? raw = await _store.readString(_sessionsKey);
     if (raw == null || raw.trim().isEmpty) {

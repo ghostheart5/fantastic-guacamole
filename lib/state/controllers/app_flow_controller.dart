@@ -13,7 +13,6 @@ enum AppView {
   progression,
   plan,
   creator,
-  flowmap,
   goals,
   milestones,
   memories,
@@ -54,7 +53,6 @@ class AppFlowController extends Notifier<AppView> {
   void toProgression() => state = AppView.progression;
   void toPlan() => state = AppView.plan;
   void toCreator() => state = AppView.creator;
-  void toFlowmap() => state = AppView.flowmap;
   void toGoals() => state = AppView.goals;
   void toMilestones() => state = AppView.milestones;
   void toMemories() => state = AppView.memories;

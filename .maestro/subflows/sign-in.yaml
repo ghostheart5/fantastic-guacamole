@@ -1,0 +1,24 @@
+# Shared: authenticate and land on Nexus.
+#
+# Used by every flow that tests something behind the login gate, so those flows
+# assert their own feature rather than re-asserting authentication.
+appId: com.ghostheart5.chronospark
+---
+- runFlow: skip-onboarding.yaml
+
+- runFlow:
+    when:
+      visible: "ENTER SYSTEM"
+    commands:
+      - tapOn:
+          id: "login-email-field"
+      - inputText: "${MAESTRO_TEST_EMAIL}"
+      - tapOn:
+          id: "login-password-field"
+      - inputText: "${MAESTRO_TEST_PASSWORD}"
+      - hideKeyboard
+      - tapOn: "ENTER SYSTEM"
+
+- extendedWaitUntil:
+    visible: "NEXUS"
+    timeout: 20000

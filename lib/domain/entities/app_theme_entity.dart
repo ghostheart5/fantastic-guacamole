@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Theme
+///
+/// Not exported from domain.dart; imported directly.
 class AppThemeEntity {
   const AppThemeEntity({
     required this.id,

@@ -1,0 +1,89 @@
+# Maestro E2E flows
+
+End-to-end flows for ChronoSpark on Android. Twelve flows covering the paths
+whose failure is invisible to the Dart test suite: real navigation, real Play
+Billing surfaces, and the destructive account paths.
+
+## Layout
+
+```
+.maestro/
+  config.yaml            shared appId + selector notes (read before editing)
+  flows/                 the twelve flows, numbered in execution order
+  subflows/              shared steps: skip-onboarding, sign-in, open-from-nexus
+```
+
+## Running
+
+Maestro is not a Dart dependency and is not installed by `flutter pub get`:
+
+```bash
+curl -Ls "https://get.maestro.mobile.dev" | bash
+```
+
+It needs a booted device or emulator and the app installed on it:
+
+```bash
+emulator -avd Pixel_9 &
+flutter build apk --debug
+adb install -r build/app/outputs/flutter-apk/app-debug.apk
+```
+
+Credentials come from the environment so no test account is committed:
+
+```bash
+export MAESTRO_TEST_EMAIL=...        MAESTRO_TEST_PASSWORD=...
+export MAESTRO_SIGNUP_EMAIL=...      MAESTRO_SIGNUP_PASSWORD=...
+```
+
+Then:
+
+```bash
+maestro test --exclude-tags destructive .maestro/flows   # safe full run
+maestro test --include-tags critical .maestro/flows      # release gate
+maestro test .maestro/flows/01-login.yaml                # one flow
+```
+
+## Recommended execution order
+
+The numbering is the order. It runs cheapest-and-most-depended-upon first, so
+a break in authentication fails in seconds rather than after ten minutes of
+downstream flows failing for the same reason.
+
+| # | Flow | Priority | Why it sits here |
+|---|------|----------|------------------|
+| 01 | login | **P0** | Everything else is behind it |
+| 02 | signup | **P0** | Fresh-install path; broken signup means no new users |
+| 03 | onboarding-tutorial | **P0** | Content-versioned, so it replays for existing users too |
+| 04 | smart-planner | P1 | Core value proposition |
+| 05 | creator | P1 | The only way data enters the app |
+| 06 | si-console | P2 | Advanced surface |
+| 07 | timeline | P1 | Reachable from no other navigation surface |
+| 08 | progression | P2 | Reachable from no other navigation surface |
+| 09 | settings | P2 | Gateway to both destructive actions |
+| 10 | subscription | **P0** | Revenue; Play Billing regressions are silent |
+| 11 | logout | P1 | Verifies session teardown revokes access |
+| 12 | account-deletion | **P0** | Play data-deletion policy; destructive, so last |
+
+Gate 01–03, 10 and 12 as required on `main`. Run the rest nightly.
+
+## Two things to know before editing
+
+**Selector casing.** `HoloButton` uppercases its visible text but exposes the
+original casing through `Semantics`. Target `"Timeline"`, not `"TIMELINE"`, for
+anything built from `HoloButton`. Screen headers are plain `Text` and really
+are uppercase.
+
+**Text selectors are fragile.** Only two widgets in the app carry keys
+(`login-email-field`, `login-password-field`). Everything else matches on
+visible text, so a copy change breaks flows. If several fail at once after a
+wording change, that is the cause. Adding widget keys to the surfaces these
+flows touch would make them durable.
+
+## Validation without a device
+
+`dart run tool/validate_maestro_flows.dart` parses every file and checks that
+each flow declares an `appId`, has a command list, and that every `runFlow`
+target resolves. It runs in CI on every push and catches the errors that
+actually happen when editing these files. It is not a substitute for executing
+them — only a device can tell you a selector no longer matches.

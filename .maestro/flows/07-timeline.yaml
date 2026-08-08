@@ -1,0 +1,16 @@
+# P1 — Timeline. Reachable only from the Nexus button group; it appears in no
+# other navigation surface, so this flow is the only guard on it.
+appId: com.ghostheart5.chronospark
+tags:
+  - core
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-from-nexus.yaml
+    env:
+      TARGET: "Timeline"
+
+- assertVisible: "TIMELINE OPS"

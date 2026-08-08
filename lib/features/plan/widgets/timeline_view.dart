@@ -9,11 +9,15 @@ class TimelineView extends StatelessWidget {
     required this.blocks,
     this.onCompleteTask,
     this.completingTaskIds = const <String>{},
+    this.highlightedBlockId,
   });
 
   final List<TimeBlock> blocks;
   final Future<void> Function(String taskId)? onCompleteTask;
   final Set<String> completingTaskIds;
+
+  /// Id of the block the planner recommends next, from RecommendNextBlock.
+  final String? highlightedBlockId;
 
   Color _blockColor(int index) {
     const List<Color> colors = <Color>[
@@ -46,6 +50,7 @@ class TimelineView extends StatelessWidget {
           completed: block.completed,
           onCompleteTask: onCompleteTask,
           isCompleting: completingTaskIds.contains(block.taskId),
+          isNext: highlightedBlockId != null && block.id == highlightedBlockId,
         );
       },
     );

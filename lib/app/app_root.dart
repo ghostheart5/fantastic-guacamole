@@ -29,7 +29,6 @@ class AppRoot extends ConsumerStatefulWidget {
 class _AppRootState extends ConsumerState<AppRoot> {
   static const List<String> _tutorialAssets = <String>[
     'assets/tutorials/home.json',
-    'assets/tutorials/tasks.json',
   ];
 
   GoRouter? _router;
@@ -288,7 +287,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
     }
     // Deep links are handled automatically without direct user interaction.
     // Use replace to avoid creating a synthetic browser history entry.
-    router.replace(location);
+    router.replace<Object?>(location);
   }
 
   String _resolveDeepLinkLocation(Uri uri) {

@@ -22,6 +22,12 @@ class GlobalAggregationService {
   static const _kCacheMaxAgeSeconds = 86400;
 
   Future<void> push(Map<String, dynamic> dailySnapshot) async {
+    // Consent gate. This is the most privacy-sensitive call in the app — it
+    // uploads a device id, a user id and behavioural counters — and it was the
+    // only analytics path that did not consult the analytics flag at all.
+    if (!Env.enableAnalytics) {
+      return;
+    }
     final sb.SupabaseClient? client = _client;
     final String? userId = client?.auth.currentUser?.id;
     if (!Env.isSupabaseConfigured || client == null || userId == null) {

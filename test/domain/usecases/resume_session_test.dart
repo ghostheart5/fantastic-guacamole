@@ -27,6 +27,9 @@ class _FakeSessionRepository implements ISessionRepository {
       <SessionEntity>[];
 
   @override
+  Future<SessionEntity?> getSessionById(String sessionId) async => null;
+
+  @override
   Future<void> pauseSession(String sessionId, DateTime pausedAt) async {}
 
   @override

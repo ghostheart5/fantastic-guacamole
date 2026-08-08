@@ -7,8 +7,6 @@ export 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 export 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 export 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 export 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
-export 'package:fantastic_guacamole/state/providers/feature_flowmap_provider.dart';
-export 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 export 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 export 'package:fantastic_guacamole/state/providers/habits_provider.dart';
 export 'package:fantastic_guacamole/state/providers/insights_provider.dart';

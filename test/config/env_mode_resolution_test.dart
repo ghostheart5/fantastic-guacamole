@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -147,7 +148,14 @@ void main() {
     });
 
     test('privacy policy URL stays on the public HTTPS domain', () {
-      expect(Env.privacyPolicyUrl, 'https://chronospark.app/privacy');
+      // Single source of truth: Env forwards to AppUrls, so the two cannot
+      // drift onto conflicting hosts.
+      expect(Env.privacyPolicyUrl, AppUrls.privacy);
+      expect(Env.termsOfServiceUrl, AppUrls.terms);
+      expect(Env.supportUrl, AppUrls.support);
+      expect(Env.privacyPolicyUrl.startsWith('https://'), isTrue);
+      expect(Env.termsOfServiceUrl.startsWith('https://'), isTrue);
+      expect(Env.supportUrl.startsWith('https://'), isTrue);
     });
 
     test('AI proxy configuration requires a valid HTTPS endpoint', () {

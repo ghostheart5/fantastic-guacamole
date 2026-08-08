@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Workspace
+///
+/// Multi-workspace UI not built yet.
 class WorkspaceEntity {
   const WorkspaceEntity({
     required this.id,

@@ -1,12 +1,17 @@
 import 'package:fantastic_guacamole/config/app_flavor.dart';
+import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 abstract final class Env {
   static const String appName = 'ChronoSpark';
-  static const String privacyPolicyUrl = 'https://chronospark.app/privacy';
-  static const String termsOfServiceUrl = 'https://chronospark.app/terms';
-  static const String supportUrl = 'https://chronospark.app/support';
+
+  // Legal/support URLs have a single source of truth in [AppUrls], which is
+  // what every live screen opens. These forward to it; they previously
+  // declared chronospark.app paths that disagreed with the URLs actually used.
+  static const String privacyPolicyUrl = AppUrls.privacy;
+  static const String termsOfServiceUrl = AppUrls.terms;
+  static const String supportUrl = AppUrls.support;
   static const String supportEmail = 'support@chronospark.app';
   static const String _appFlavorDefine = String.fromEnvironment(
     'CHRONOSPARK_APP_FLAVOR',
@@ -26,7 +31,10 @@ abstract final class Env {
   );
   static const bool _enableMockLoginDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_MOCK_LOGIN',
-    defaultValue: true,
+    // Fail closed. Every other risk flag defaults to false; this one used to
+    // default to true, which made MockAuthService (accepts any password) the
+    // default for any build that was not BOTH release mode AND prod flavor.
+    defaultValue: false,
   );
   static const bool _enableMockModeDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENABLE_MOCK_MODE',
@@ -103,9 +111,9 @@ abstract final class Env {
   );
 
   static String get appFlavor =>
-      _readString('CHRONOSPARK_APP_FLAVOR', _appFlavorDefine);
+      _readRiskString('CHRONOSPARK_APP_FLAVOR', _appFlavorDefine);
   static bool get enableVerboseLogs =>
-      _readBool('CHRONOSPARK_VERBOSE_LOGS', _enableVerboseLogsDefine);
+      _readRiskBool('CHRONOSPARK_VERBOSE_LOGS', _enableVerboseLogsDefine);
   static bool get enableCrashReporting => _readBool(
     'CHRONOSPARK_ENABLE_CRASH_REPORTING',
     _enableCrashReportingDefine,
@@ -113,12 +121,14 @@ abstract final class Env {
   static bool get enableAnalytics =>
       _readBool('CHRONOSPARK_ENABLE_ANALYTICS', _enableAnalyticsDefine);
   static bool get enableMockLogin =>
-      _readBool('CHRONOSPARK_ENABLE_MOCK_LOGIN', _enableMockLoginDefine);
+      _readRiskBool('CHRONOSPARK_ENABLE_MOCK_LOGIN', _enableMockLoginDefine);
   static bool get enableMockMode =>
-      _readBool('CHRONOSPARK_ENABLE_MOCK_MODE', _enableMockModeDefine);
-  static bool get enablePaywallDisabled =>
-      _readBool('CHRONOSPARK_PAYWALL_DISABLED', _enablePaywallDisabledDefine);
-  static bool get enableTesterFullAccess => _readBool(
+      _readRiskBool('CHRONOSPARK_ENABLE_MOCK_MODE', _enableMockModeDefine);
+  static bool get enablePaywallDisabled => _readRiskBool(
+    'CHRONOSPARK_PAYWALL_DISABLED',
+    _enablePaywallDisabledDefine,
+  );
+  static bool get enableTesterFullAccess => _readRiskBool(
     'CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS',
     _enableTesterFullAccessDefine,
   );
@@ -175,7 +185,17 @@ abstract final class Env {
   }) {
     // Production hardening is enabled only for release + production flavor.
     // QA/testing release builds can still exercise tester-only access paths.
-    return isReleaseMode && AppFlavor.parse(flavor).isProduction;
+    //
+    // Fail closed on an unrecognised flavor string in a release build: a typo
+    // such as "production" (the enum value is "prod") previously parsed to
+    // `development`, which silently disabled every production gate in a build
+    // that was otherwise shipping. An unknown flavor in a release binary is a
+    // misconfiguration, and the safe interpretation is "this is production".
+    final AppFlavor? parsed = AppFlavor.tryParse(flavor);
+    if (parsed == null) {
+      return isReleaseMode;
+    }
+    return isReleaseMode && parsed.isProduction;
   }
 
   static bool resolveIsMockMode({
@@ -379,5 +399,30 @@ abstract final class Env {
     } on Object {
       return null;
     }
+  }
+
+  /// Reads a security-relevant flag.
+  ///
+  /// In a release build the bundled `.env` is ignored entirely and only the
+  /// compile-time `--dart-define` is honoured. `.env` ships inside the app
+  /// bundle (see `pubspec.yaml` assets), so treating it as authoritative for
+  /// risk flags meant a stray `CHRONOSPARK_ENABLE_MOCK_LOGIN=true` — or a
+  /// repackaged bundle — could enable mock authentication in a shipped binary,
+  /// and a `--dart-define` could not override it. Debug/profile builds keep the
+  /// `.env` convenience.
+  static bool _readRiskBool(String key, bool fallback) {
+    if (kReleaseMode) {
+      return fallback;
+    }
+    return _readBool(key, fallback);
+  }
+
+  /// String counterpart of [_readRiskBool]. Used for the app flavor, which
+  /// gates every other production check.
+  static String _readRiskString(String key, String fallback) {
+    if (kReleaseMode) {
+      return fallback;
+    }
+    return _readString(key, fallback);
   }
 }

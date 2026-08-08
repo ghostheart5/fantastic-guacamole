@@ -99,6 +99,10 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         );
     RuntimeDiagnostics.record('AI[$requestId] started');
 
+    // Assigned once credits have actually been debited, so both the
+    // supersede path and the failure handler below can return them.
+    Future<void> Function()? refundCredits;
+
     try {
       final List<Task> tasks = await ref.read(tasksProvider.future);
       final siEngineService = ref.read(siEngineServiceProvider);
@@ -117,11 +121,36 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           AIPersonality.coach;
       final input = inputOverride ?? ref.read(aiInputProvider);
 
+      final int creditCost = _aiCreditCost(
+        input: input,
+        personality: personality,
+      );
       final AiCreditSpendResult spend = await creditService.spend(
         premium: hasPremiumAccess,
-        amount: _aiCreditCost(input: input, personality: personality),
+        amount: creditCost,
       );
       ref.invalidate(aiCreditWalletProvider);
+
+      // Credits are debited up-front, before the request is issued. Any path
+      // below that returns without delivering a response must hand them back,
+      // otherwise timeouts, proxy failures and superseded requests all bill
+      // the user for nothing.
+      refundCredits = () async {
+        if (!spend.allowed || creditCost <= 0) {
+          return;
+        }
+        try {
+          await creditService.refund(
+            premium: hasPremiumAccess,
+            amount: creditCost,
+          );
+          ref.invalidate(aiCreditWalletProvider);
+        } on Object catch (error) {
+          RuntimeDiagnostics.record(
+            'AI[$requestId] credit refund failed: $error',
+          );
+        }
+      };
 
       if (!spend.allowed) {
         ref
@@ -247,6 +276,9 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         request: request,
       );
       if (_activeRequestId != requestId) {
+        // Superseded by a newer request: this one delivers nothing, so it must
+        // not keep the credits it took.
+        await refundCredits();
         return null;
       }
       ref.read(aiAgentTraceProvider.notifier).set(agentResult);
@@ -586,8 +618,15 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         'AI[$requestId] completed in ${stopwatch.elapsedMilliseconds}ms',
       );
       return recommendation;
-    } on Exception catch (error, stackTrace) {
+    } on Object catch (error, stackTrace) {
+      // `on Object`, not `on Exception`: a Dart Error (a bad cast in response
+      // parsing, for example) previously escaped this handler, leaving `state`
+      // stuck in AsyncLoading forever and the execution status stuck on
+      // 'running'. Anything watching aiResponseProvider spun indefinitely.
       stopwatch.stop();
+      // The request produced no response, so the credits it took go back
+      // regardless of whether it was superseded.
+      await refundCredits?.call();
       if (_activeRequestId != requestId) {
         return null;
       }

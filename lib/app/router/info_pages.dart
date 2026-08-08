@@ -122,7 +122,7 @@ class AboutPage extends StatelessWidget {
           const _Section(
             title: 'Core Surfaces',
             body:
-                'Nexus for command, Trajectory for tasks, Ledger for logs, and Profile for identity and progression. Advanced modules (Plan, Creator, SI, Flowmap, Goals, Memories, Soul Map, Timeline) expand depth when needed.',
+                'Nexus for command, Trajectory for tasks, Ledger for logs, and Profile for identity and progression. Advanced modules (Plan, Creator, SI, Goals, Memories, Soul Map, Timeline) expand depth when needed.',
           ),
           const _Section(
             title: 'Guiding Principle',
@@ -132,7 +132,7 @@ class AboutPage extends StatelessWidget {
           const _Section(
             title: 'Privacy and Support',
             body:
-              'Official privacy policy: ${AppUrls.privacy}. Terms: ${AppUrls.terms}. Support page: ${AppUrls.support}. Support email: ${Env.supportEmail}.',
+                'Official privacy policy: ${AppUrls.privacy}. Terms: ${AppUrls.terms}. Support page: ${AppUrls.support}. Support email: ${Env.supportEmail}.',
           ),
           const _Section(
             title: 'Voice Features',

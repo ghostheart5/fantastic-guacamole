@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/subtask_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_subtask_repository.dart';
@@ -28,7 +29,16 @@ class SubtaskRepository implements ISubtaskRepository {
           .whereType<Map<String, dynamic>>()
           .map(SubtaskEntity.fromJson)
           .toList(growable: false);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      // Corrupted payload: return the empty/absent value so the app stays
+      // usable, but make it observable instead of silently
+      // indistinguishable from "user has no subtasks".
+      Logger.errorCategory(
+        'StorageCorruption',
+        'Failed to decode stored subtasks; returning empty result.',
+        error,
+        stackTrace,
+      );
       return const <SubtaskEntity>[];
     }
   }

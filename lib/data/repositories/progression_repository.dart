@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
@@ -28,7 +29,16 @@ class ProgressionRepository implements IProgressionRepository {
         level: (decoded['level'] as num?)?.toInt() ?? 1,
         streak: (decoded['streak'] as num?)?.toInt() ?? 0,
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      // Corrupted payload: return the empty/absent value so the app stays
+      // usable, but make it observable instead of silently
+      // indistinguishable from "user has no progression".
+      Logger.errorCategory(
+        'StorageCorruption',
+        'Failed to decode stored progression; returning empty result.',
+        error,
+        stackTrace,
+      );
       return null;
     }
   }

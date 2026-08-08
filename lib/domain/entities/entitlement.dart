@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Subscriptions/paywall
+///
+/// NOTE: isExpired reads the device clock directly.
 class Entitlement {
   const Entitlement({
     required this.featureId,

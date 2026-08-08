@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
+import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 
@@ -239,7 +241,7 @@ class _PortraitLoginContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double width = MediaQuery.sizeOf(context).width;
-    final bool compact = width < 390;
+    final bool compact = width < Breakpoints.compact;
     return Positioned.fill(
       child: SafeArea(
         child: AnimatedPadding(
@@ -457,10 +459,10 @@ class _LoginBrandHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double width = MediaQuery.sizeOf(context).width;
-    final bool compact = width < 390;
+    final bool compact = width < Breakpoints.compact;
     final double titleSize = compact ? 40 : 48;
     final double titleSpacing = compact ? 2.2 : 3;
-    final double subtitleSize = compact ? 9 : 10;
+    final double subtitleSize = compact ? AppSizes.fontXs : AppSizes.fontSm;
     final double subtitleSpacing = compact ? 2.8 : 3.5;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -535,7 +537,11 @@ class _LoginBrandPanel extends StatelessWidget {
         const SizedBox(height: 18),
         const Text(
           'Access the system, reset the key, or initialize a new profile from one place.',
-          style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.55),
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: AppSizes.fontLabel,
+            height: 1.55,
+          ),
         ),
       ],
     );
@@ -584,7 +590,7 @@ class _LoginFormCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double width = MediaQuery.sizeOf(context).width;
-    final bool compact = width < 390;
+    final bool compact = width < Breakpoints.compact;
     final double edgePadding = compact ? 14 : 18;
     final double sectionGap = compact ? 10 : 14;
     final String startupText = startupMessage ?? '';
@@ -623,7 +629,7 @@ class _LoginFormCard extends StatelessWidget {
             isSignUpMode ? 'CREATE ACCOUNT' : 'ACCESS SYSTEM',
             style: TextStyle(
               color: Colors.white38,
-              fontSize: compact ? 9 : 10,
+              fontSize: compact ? AppSizes.fontXs : AppSizes.fontSm,
               letterSpacing: compact ? 2.4 : 3,
               fontWeight: FontWeight.w700,
             ),
@@ -633,7 +639,7 @@ class _LoginFormCard extends StatelessWidget {
             'Secure command access for your mission control.',
             style: TextStyle(
               color: Colors.white60,
-              fontSize: compact ? 11 : 12,
+              fontSize: compact ? AppSizes.fontCaption : AppSizes.fontBody,
               height: 1.35,
             ),
           ),
@@ -653,7 +659,7 @@ class _LoginFormCard extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Color(0xFFFFD7D0),
-                  fontSize: 12,
+                  fontSize: AppSizes.fontBody,
                   height: 1.4,
                 ),
               ),
@@ -698,7 +704,7 @@ class _LoginFormCard extends StatelessWidget {
                 'Forgot Password?',
                 style: TextStyle(
                   color: AppColors.neonCyan.withValues(alpha: 0.9),
-                  fontSize: 12,
+                  fontSize: AppSizes.fontBody,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.2,
                 ),
@@ -798,7 +804,7 @@ class _LoginFormCard extends StatelessWidget {
                         style: TextStyle(
                           color: Color(0xFFFFDFA3),
                           fontWeight: FontWeight.w700,
-                          fontSize: 11,
+                          fontSize: AppSizes.fontCaption,
                           letterSpacing: 1.5,
                         ),
                       ),
@@ -815,7 +821,7 @@ class _LoginFormCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFFE5C7A0),
-                fontSize: 11,
+                fontSize: AppSizes.fontCaption,
                 height: 1.3,
               ),
             ),
@@ -873,7 +879,7 @@ class _NeonInput extends StatelessWidget {
               keyboardType: keyboardType,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: AppSizes.fontLabel,
                 letterSpacing: 0.3,
               ),
               decoration: InputDecoration(
@@ -883,7 +889,7 @@ class _NeonInput extends StatelessWidget {
                 hintText: hintText,
                 hintStyle: TextStyle(
                   color: Colors.white.withValues(alpha: 0.25),
-                  fontSize: 14,
+                  fontSize: AppSizes.fontLabel,
                 ),
               ),
             ),
@@ -939,7 +945,7 @@ class _PrimaryButton extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   color: Colors.black,
-                  fontSize: 13,
+                  fontSize: AppSizes.fontBodyLg,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 2.5,
                 ),
@@ -1010,7 +1016,7 @@ class _SecondaryButton extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.88),
-                  fontSize: 12,
+                  fontSize: AppSizes.fontBody,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.3,
                 ),

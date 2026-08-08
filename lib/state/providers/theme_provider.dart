@@ -43,7 +43,14 @@ class ThemeActions {
   }
 
   Future<void> switchTo(String id) async {
-    await _ref.read(switchThemeUseCaseProvider).call(id);
+    final AppThemeEntity? switched = await _ref
+        .read(switchThemeUseCaseProvider)
+        .call(id);
+    if (switched == null) {
+      // Unknown/stale theme id: preserve the user's existing saved theme
+      // rather than treating this as a successful switch.
+      return;
+    }
     _ref.invalidate(currentThemeProvider);
     _ref.invalidate(availableThemesProvider);
   }

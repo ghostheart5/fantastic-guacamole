@@ -1,5 +1,7 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
 class RuntimeDiagnosticEvent {
@@ -36,6 +38,7 @@ class RuntimeDiagnostics {
       next.removeRange(0, next.length - _maxEntries);
     }
     entries.value = next;
+    _logBreadcrumb(stamped);
   }
 
   static void recordState(
@@ -70,7 +73,28 @@ class RuntimeDiagnostics {
       nextEntries.removeRange(0, nextEntries.length - _maxEntries);
     }
     entries.value = nextEntries;
+    _logBreadcrumb(summary);
   }
+
+  // Every in-app diagnostic event also becomes a Crashlytics breadcrumb, so a
+  // crash report carries the app's recent history without a separate set of
+  // call sites to maintain. Must never throw — this runs on ~40 existing
+  // record()/recordState() call sites across the app.
+  static void _logBreadcrumb(String message) {
+    try {
+      if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+        FirebaseCrashlytics.instance.log(message);
+      }
+    } on Object {
+      // Best effort only.
+    }
+  }
+
+  static bool get _supportsCrashlytics =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
 
   static String _summary(RuntimeDiagnosticEvent event) {
     final String timestamp = DateTimeFormats.reportTimestamp(event.timestamp);

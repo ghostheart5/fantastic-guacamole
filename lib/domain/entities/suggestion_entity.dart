@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: SI Console
+///
+/// Surfaced-suggestion model with confidence/status. Not yet referenced.
 enum SuggestionStatus { proposed, accepted, rejected, dismissed }
 
 class SuggestionEntity {

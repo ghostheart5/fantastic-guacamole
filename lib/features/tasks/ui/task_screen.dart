@@ -2,7 +2,6 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
-import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:fantastic_guacamole/tutorial/widgets/micro_tutorial_card.dart';
 import 'package:fantastic_guacamole/tutorial/widgets/show_me_again_button.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -41,10 +40,6 @@ class TaskScreen extends ConsumerWidget {
                   color: Colors.white54,
                   letterSpacing: 1.8,
                 ),
-              ),
-              const SizedBox(height: 12),
-              _FlowmapAccessCard(
-                onTap: () => ref.read(appFlowProvider.notifier).toFlowmap(),
               ),
               const SizedBox(height: 12),
               _CreatorTaskRedirectPanel(
@@ -109,72 +104,6 @@ class _CreatorTaskRedirectPanel extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FlowmapAccessCard extends ConsumerWidget {
-  const _FlowmapAccessCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return TutorialTarget(
-      id: 'tasks.add_button',
-      child: InkWell(
-        onTap: () {
-          ref
-              .read(tutorialControllerProvider)
-              .reportEvent('tap:tasks.add_button');
-          onTap();
-        },
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.neonViolet.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: AppColors.neonViolet.withValues(alpha: 0.3),
-            ),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.account_tree_outlined, color: AppColors.neonViolet),
-              SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'FLOWMAP ACCESS',
-                      style: TextStyle(
-                        color: AppColors.neonViolet,
-                        fontSize: 10,
-                        letterSpacing: 2,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Open Flowmap to map branching paths before committing your next move.',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded, color: Colors.white70),
-            ],
-          ),
-        ),
       ),
     );
   }

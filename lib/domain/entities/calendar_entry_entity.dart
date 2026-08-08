@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Calendar/timeline
+///
+/// Persisted calendar type; the UI renders TimeBlock today.
 class CalendarEntryEntity {
   const CalendarEntryEntity({
     required this.id,

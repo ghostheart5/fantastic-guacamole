@@ -12,7 +12,6 @@ import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
-import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_detection_service.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_interfaces.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_models.dart';
@@ -39,12 +38,10 @@ import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
-import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
@@ -175,7 +172,6 @@ class AIController {
     final SoulMapFutureSelfComparison soulMapComparison = _ref.read(
       soulMapFutureSelfComparisonProvider,
     );
-    final flowmapAsync = _ref.read(flowmapProvider);
     final progression = _ref.read(progressionProvider).progress;
     final soulState = _ref.read(soulStateProvider);
     final trajectory = _ref.read(trajectorySummaryProvider);
@@ -197,13 +193,9 @@ class AIController {
       }
     }
 
-    final int flowmapNodeCount = flowmapAsync.maybeWhen(
-      data: (nodes) => nodes.length,
-      orElse: () => 0,
-    );
     final List<String> planPreview = _ref
-        .read(calendarServiceProvider)
-        .generateAdaptivePlan(tasks: tasks, energy: si.energy)
+        .read(generateAdaptivePlanUseCaseProvider)
+        .call(tasks: tasks, energy: si.energy)
         .take(3)
         .map((block) => block.title)
         .toList(growable: false);
@@ -297,8 +289,6 @@ class AIController {
           input: input,
           surface: 'si_console',
         );
-    final DefaultAssistantContextBuilder contextBuilder =
-        const DefaultAssistantContextBuilder();
     final List<String> timelineSummaries = timelineEvents
         .take(3)
         .map((event) => event.title.trim())
@@ -315,15 +305,17 @@ class AIController {
       'forcedSurface': forcedSurface,
       'responseContract': _responseContract(primarySurface, matchedSurfaces),
       'assistantIntent': assistantIntent.toJson(),
-      'assistantContext': contextBuilder.buildSIConsoleContext(
-        input: input,
-        intent: assistantIntent,
-        matchedSurfaces: matchedSurfaces,
-        memorySummaries: selectedMemorySummaries,
-        timelineSummaries: timelineSummaries,
-        taskCount: tasks.length,
-        goalCount: goals.length,
-      ),
+      'assistantContext': _ref
+          .read(assembleSiContextUseCaseProvider)
+          .call(
+            input: input,
+            intent: assistantIntent,
+            matchedSurfaces: matchedSurfaces,
+            memorySummaries: selectedMemorySummaries,
+            timelineSummaries: timelineSummaries,
+            taskCount: tasks.length,
+            goalCount: goals.length,
+          ),
       'name': profile.name,
       'level': profile.level,
       'xp': profile.xp,
@@ -341,7 +333,6 @@ class AIController {
         'memories',
         'notifications',
         'plan',
-        'flowmap',
         'emotions',
         'soulmap',
         'timeline',
@@ -401,7 +392,6 @@ class AIController {
           'preview': planPreview,
           'generatedFromEnergy': si.energy,
         },
-        'flowmap': <String, dynamic>{'count': flowmapNodeCount},
         'emotions': <String, dynamic>{
           'current': emotion.name,
           'fatigue': si.fatigue,
@@ -595,7 +585,6 @@ class AIController {
       'memories': <String>['memory', 'remember', 'recall', 'history'],
       'notifications': <String>['notification', 'alert', 'reminder', 'prompt'],
       'plan': <String>['plan', 'schedule', 'calendar', 'time block'],
-      'flowmap': <String>['flowmap', 'map', 'dependency', 'path'],
       'emotions': <String>['emotion', 'mood', 'energy', 'fatigue', 'feel'],
       'soulmap': <String>[
         'soul map',
@@ -658,8 +647,6 @@ class AIController {
       '/memory': 'memories',
       '/plan': 'plan',
       '/planner': 'plan',
-      '/flowmap': 'flowmap',
-      '/flow': 'flowmap',
       '/emotions': 'emotions',
       '/emotion': 'emotions',
       '/soulmap': 'soulmap',
@@ -700,9 +687,6 @@ class AIController {
         matchedSurfaces.contains('memories') ||
         matchedSurfaces.contains('goals')) {
       return 'summarization';
-    }
-    if (matchedSurfaces.contains('flowmap')) {
-      return 'research';
     }
     return 'chat';
   }

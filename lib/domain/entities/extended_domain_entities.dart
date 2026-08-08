@@ -1,3 +1,9 @@
+/// CHRONOSPARK-CLASS: EXPERIMENTAL | Feature: SI Console / extended domain
+///
+/// Placeholder id+label taxonomy for future ChronoSpark surfaces. 18 types are
+/// consumed by IExtendedDomainRepository; the rest are reserved names. Do not
+/// treat the unreferenced ones as dead code, and do not add behaviour here
+/// without giving the type real fields.
 class LightweightEntity {
   const LightweightEntity({required this.id, this.label});
 
@@ -5,7 +11,7 @@ class LightweightEntity {
   final String? label;
 }
 
-// Smart Coach Entities
+// Smart Planner Entities
 class CoachMessage extends LightweightEntity {
   const CoachMessage({required super.id, super.label});
 }

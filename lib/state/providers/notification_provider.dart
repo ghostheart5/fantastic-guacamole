@@ -120,13 +120,53 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
         );
   }
 
+  /// Records an in-app-only notification.
+  ///
+  /// Identical to [push] except it never asks the OS to post anything. The
+  /// entity is persisted (so it appears in the in-app list) with
+  /// `isEnabled: false`, which `NotificationScheduler.schedule` treats as
+  /// "in-app only". Used for transient interaction feedback — task decision,
+  /// completion, skip — which previously each produced a real system
+  /// notification one second later.
+  Future<void> pushInApp(
+    NotificationEntity notification, {
+    bool refreshCoach = true,
+    bool refreshPlan = true,
+  }) async {
+    // Straight to the repository: ScheduleNotification enforces
+    // NotificationPolicy.canSchedule, which correctly rejects a disabled
+    // entity, so the use case is not the right path for an in-app record.
+    await ref
+        .read(domainNotificationRepositoryProvider)
+        .scheduleNotification(notification);
+    final bool soundEnabled = ref.read(soundEnabledProvider);
+    await AudioService.playNotification(soundEnabled);
+    state = <NotificationEntity>[notification, ...state];
+
+    if (refreshPlan) {
+      ref.invalidate(tasksProvider);
+    }
+    if (refreshCoach) {
+      await _refreshCoachDecision();
+    }
+    ref
+        .read(eventBusProvider)
+        .emit(
+          NotificationLifecycleEvent(
+            notificationId: notification.id,
+            title: notification.title,
+            action: 'in_app',
+          ),
+        );
+  }
+
   Future<void> pushDecision(
     String taskTitle, {
     bool refreshCoach = true,
     bool refreshPlan = true,
   }) {
-    return push(
-      _notification(
+    return pushInApp(
+      _inAppNotification(
         title: 'Decision Alert',
         message: 'Selected $taskTitle as the current focus target.',
       ),
@@ -142,8 +182,8 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
   }) {
     final bool soundEnabled = ref.read(soundEnabledProvider);
     AudioService.playAchievement(soundEnabled);
-    return push(
-      _notification(
+    return pushInApp(
+      _inAppNotification(
         title: 'Completion',
         message: '$taskTitle completed. Recomputing next move.',
       ),
@@ -157,8 +197,8 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     bool refreshCoach = true,
     bool refreshPlan = true,
   }) {
-    return push(
-      _notification(
+    return pushInApp(
+      _inAppNotification(
         title: 'Task Skipped',
         message: '$taskTitle skipped. SI will adapt the next pick.',
       ),
@@ -220,6 +260,14 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     }
   }
 
+  /// Factory for a real, OS-scheduled notification.
+  ///
+  /// Retained deliberately: this is the correct shape for an actual reminder
+  /// (enabled, scheduled in the future) and is the counterpart to
+  /// [_inAppNotification]. It is currently unreferenced only because the three
+  /// interaction-feedback callers were moved to the in-app path; any future
+  /// reminder pushed through [push] should use this.
+  // ignore: unused_element
   NotificationEntity _notification({
     required String title,
     required String message,
@@ -230,6 +278,25 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
       title: title,
       message: message,
       scheduledAt: now.add(const Duration(seconds: 1)),
+    );
+  }
+
+  /// In-app-only counterpart of [_notification].
+  ///
+  /// `isEnabled: false` marks it as never-to-be-posted by the OS, and
+  /// `scheduledAt` is now rather than a second in the future because there is
+  /// no future delivery to schedule.
+  NotificationEntity _inAppNotification({
+    required String title,
+    required String message,
+  }) {
+    final DateTime now = DateTime.now();
+    return NotificationEntity(
+      id: 'notification-${now.microsecondsSinceEpoch}',
+      title: title,
+      message: message,
+      scheduledAt: now,
+      isEnabled: false,
     );
   }
 }

@@ -3,6 +3,10 @@ import 'package:fantastic_guacamole/domain/interfaces/i_learning_repository.dart
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/learning_policy.dart';
 
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Learning/adaptation
+///
+/// Registered as applyLearningFeedbackUseCaseProvider. Repository is real; not
+/// yet auto-invoked from completion/skip.
 class ApplyLearningFeedback {
   ApplyLearningFeedback(this.repository, {this.siRepo});
 

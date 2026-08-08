@@ -1,5 +1,20 @@
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 
+/// CHRONOSPARK-CLASS: LEGACY | Feature: Goals/tasks
+///
+/// Older task shape still used by the UI and engine. Migration target is
+/// TaskEntity; do not add fields here.
+/// TODO(duplication): [Task] and `TaskEntity` model the same concept.
+/// `TaskEntity` is a strict superset — it additionally carries `description`,
+/// `createdAt`, `isCompleted`, `completedAt`, `dueDate`, `isCanceled` and
+/// `estimatedDuration`. Anything mapping `TaskEntity -> Task` therefore DROPS
+/// those seven fields, and mapping back cannot recover them.
+///
+/// Current split: the UI/engine layers use [Task]; repositories and use cases
+/// use `TaskEntity`. Converting the whole app in one pass is too risky, so the
+/// agreed migration is: (1) cover every mapping boundary with tests — see
+/// `test/domain/entities/task_mapping_test.dart`, (2) migrate one feature at a
+/// time onto `TaskEntity`, (3) delete this type. Do not add fields here.
 class Task {
   final String id;
   final String title;

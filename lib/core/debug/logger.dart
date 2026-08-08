@@ -64,6 +64,15 @@ class Logger {
     }
   }
 
+  // Low-noise breadcrumb for Crashlytics only — no console output, no
+  // recordError. Use for anomalous-but-not-erroneous events (e.g. an
+  // unrecognized deep-link parameter) that shouldn't be flagged as app errors.
+  static void breadcrumb(String message) {
+    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+      FirebaseCrashlytics.instance.log(redactSensitive(safeString(message)));
+    }
+  }
+
   static Future<T> withMutedErrors<T>(Future<T> Function() action) async {
     final bool previous = errorOutputEnabled;
     errorOutputEnabled = false;

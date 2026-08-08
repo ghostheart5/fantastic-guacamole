@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Future automation
+///
+/// Condition/effect rules. Not yet referenced.
 enum RuleStatus { enabled, disabled, archived }
 
 class RuleEntity {

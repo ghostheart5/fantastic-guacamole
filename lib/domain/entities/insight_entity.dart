@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Insights
+///
+/// Wired through data + domain; does not reach the UI yet.
 class InsightEntity {
   const InsightEntity({
     required this.id,

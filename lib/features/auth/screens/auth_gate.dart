@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/utils/validators.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
@@ -59,15 +61,21 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
           ? backendMessage
           : 'Auth backend unavailable in this runtime.';
     case 'operation-failed':
-      return backendMessage.isNotEmpty ? backendMessage : 'Operation failed. Retry.';
+      return backendMessage.isNotEmpty
+          ? backendMessage
+          : 'Operation failed. Retry.';
     case 'operation-not-supported':
       return backendMessage.isNotEmpty
           ? backendMessage
           : 'This operation is unavailable in the current build.';
     case 'missing-password':
-      return backendMessage.isNotEmpty ? backendMessage : 'Password is required.';
+      return backendMessage.isNotEmpty
+          ? backendMessage
+          : 'Password is required.';
     case 'missing-email':
-      return backendMessage.isNotEmpty ? backendMessage : 'Account email is unavailable.';
+      return backendMessage.isNotEmpty
+          ? backendMessage
+          : 'Account email is unavailable.';
     default:
       if (backendMessage.isNotEmpty) {
         return backendMessage;
@@ -91,7 +99,7 @@ class AuthGate extends ConsumerStatefulWidget {
   final Widget child;
   final AuthServiceContract? authService;
   final String? startupError;
-  final String? deepLinkMode;
+  final DeepLinkMode? deepLinkMode;
   final bool enableMockLogin;
   final String mockLoginEmail;
   final String mockLoginPassword;
@@ -125,7 +133,8 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     final bool allowMockAccess =
         widget.enableMockLogin || (!kReleaseMode && _authInitError != null);
     final String? startupMessage = _effectiveStartupError;
-    final AuthServiceContract fallbackAuthService = _authService ?? const _UnavailableAuthService();
+    final AuthServiceContract fallbackAuthService =
+        _authService ?? const _UnavailableAuthService();
 
     if (_mockSessionActive) {
       return widget.child;
@@ -155,7 +164,8 @@ class _AuthGateState extends ConsumerState<AuthGate> {
         if (authSnapshot.hasError) {
           return const _AuthStatusMessage(
             title: 'Authentication unavailable',
-            message: 'Auth initialization failed. Please restart and try again.',
+            message:
+                'Auth initialization failed. Please restart and try again.',
           );
         }
 
@@ -215,7 +225,8 @@ class _AuthGateState extends ConsumerState<AuthGate> {
             if (snapshot.hasError) {
               return const _AuthStatusMessage(
                 title: 'Authentication unavailable',
-                message: 'Auth service reported an error. Please restart and try again.',
+                message:
+                    'Auth service reported an error. Please restart and try again.',
               );
             }
 
@@ -243,7 +254,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               );
             }
             if (!user.emailVerified) {
-              return _VerifyEmailScreen(authService: authService, email: user.email ?? '');
+              return _VerifyEmailScreen(
+                authService: authService,
+                email: user.email ?? '',
+              );
             }
             return widget.child;
           },
@@ -264,7 +278,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     }
 
     try {
-      final ProviderContainer container = ProviderScope.containerOf(context, listen: false);
+      final ProviderContainer container = ProviderScope.containerOf(
+        context,
+        listen: false,
+      );
       final bool supabaseConfigured = ref
           .read(intelligenceStateProvider)
           .environment
@@ -272,12 +289,26 @@ class _AuthGateState extends ConsumerState<AuthGate> {
       const int maxInitAttempts = 3;
 
       for (int attempt = 0; attempt < maxInitAttempts; attempt++) {
-        final AuthServiceContract authService = container.read(authServiceProvider);
+        if (attempt > 0) {
+          // Force the providers to rebuild. authServiceProvider is a plain
+          // (non-autoDispose) Provider that reads supabaseClientProvider with
+          // `read`, not `watch`, so it caches its result on first read. Without
+          // invalidating, every retry returned the identical cached instance
+          // and the loop could never recover from a first-attempt failure — it
+          // just slept 700ms and reported the same error.
+          container.invalidate(supabaseClientProvider);
+          container.invalidate(authServiceProvider);
+        }
+        final AuthServiceContract authService = container.read(
+          authServiceProvider,
+        );
         _authService = authService;
 
         final bool backendUnavailable = authService is UnavailableAuthService;
         final bool shouldRetry =
-            supabaseConfigured && backendUnavailable && attempt < maxInitAttempts - 1;
+            supabaseConfigured &&
+            backendUnavailable &&
+            attempt < maxInitAttempts - 1;
         if (!shouldRetry) {
           if (supabaseConfigured && backendUnavailable) {
             _authInitError =
@@ -301,13 +332,17 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     final bool productionReadinessBanner = startupError.startsWith(
       'Production readiness configuration is incomplete',
     );
-    final bool crashlyticsOnly = startupError.contains('Crashlytics is unavailable');
-    final bool hideStartupIssue = !kReleaseMode && (crashlyticsOnly || productionReadinessBanner);
+    final bool crashlyticsOnly = startupError.contains(
+      'Crashlytics is unavailable',
+    );
+    final bool hideStartupIssue =
+        !kReleaseMode && (crashlyticsOnly || productionReadinessBanner);
     if (startupError.isNotEmpty && !hideStartupIssue) {
       issues.add(startupError);
     }
     final bool hideAuthBackendIssueForMockMode =
-        widget.enableMockLogin && authInitError.contains('Authentication backend unavailable');
+        widget.enableMockLogin &&
+        authInitError.contains('Authentication backend unavailable');
     if (authInitError.isNotEmpty && !hideAuthBackendIssueForMockMode) {
       issues.add(authInitError);
     }
@@ -339,7 +374,7 @@ class _AuthScreen extends StatefulWidget {
 
   final AuthServiceContract authService;
   final String? startupError;
-  final String? deepLinkMode;
+  final DeepLinkMode? deepLinkMode;
   final bool enableMockLogin;
   final String mockLoginEmail;
   final String mockLoginPassword;
@@ -352,8 +387,10 @@ class _AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<_AuthScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _recoveryPasswordController = TextEditingController();
-  final TextEditingController _recoveryConfirmController = TextEditingController();
+  final TextEditingController _recoveryPasswordController =
+      TextEditingController();
+  final TextEditingController _recoveryConfirmController =
+      TextEditingController();
   bool _obscuredPassword = true;
   bool _obscuredRecoveryPassword = true;
   bool _obscuredRecoveryConfirm = true;
@@ -384,7 +421,7 @@ class _AuthScreenState extends State<_AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final bool inRecoveryMode =
-        (widget.deepLinkMode ?? '').trim() == 'recovery' && !_dismissRecoveryMode;
+        widget.deepLinkMode == DeepLinkMode.recovery && !_dismissRecoveryMode;
     if (inRecoveryMode) {
       return _buildRecoveryScreen(context);
     }
@@ -416,28 +453,34 @@ class _AuthScreenState extends State<_AuthScreen> {
   }
 
   Future<void> _applyDeepLinkModeHint() async {
-    final String mode = (widget.deepLinkMode ?? '').trim();
-    if (mode.isEmpty) {
+    final DeepLinkMode? mode = widget.deepLinkMode;
+    if (mode == null) {
       return;
     }
 
-    if (mode == 'recovery') {
-      _showMessage('Password reset link received. Set your new password below.');
+    if (mode == DeepLinkMode.recovery) {
+      _showMessage(
+        'Password reset link received. Set your new password below.',
+      );
       return;
     }
 
-    if (mode == 'verify-email') {
+    if (mode == DeepLinkMode.verifyEmail) {
       try {
         await widget.authService.reloadCurrentUser();
       } catch (_) {
         // Ignore callback refresh failures and keep login available.
       }
-      _showMessage('Email verification callback received. Continue sign-in if needed.');
+      _showMessage(
+        'Email verification callback received. Continue sign-in if needed.',
+      );
       return;
     }
 
-    if (mode == 'auth-callback') {
-      _showMessage('Authentication callback received. Continuing sign-in flow.');
+    if (mode == DeepLinkMode.authCallback) {
+      _showMessage(
+        'Authentication callback received. Continuing sign-in flow.',
+      );
     }
   }
 
@@ -584,8 +627,10 @@ class _AuthScreenState extends State<_AuthScreen> {
                   decoration: InputDecoration(
                     labelText: 'New Password',
                     suffixIcon: IconButton(
-                      onPressed: () =>
-                          setState(() => _obscuredRecoveryPassword = !_obscuredRecoveryPassword),
+                      onPressed: () => setState(
+                        () => _obscuredRecoveryPassword =
+                            !_obscuredRecoveryPassword,
+                      ),
                       icon: Icon(
                         _obscuredRecoveryPassword
                             ? Icons.visibility_off_outlined
@@ -603,8 +648,10 @@ class _AuthScreenState extends State<_AuthScreen> {
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
                     suffixIcon: IconButton(
-                      onPressed: () =>
-                          setState(() => _obscuredRecoveryConfirm = !_obscuredRecoveryConfirm),
+                      onPressed: () => setState(
+                        () => _obscuredRecoveryConfirm =
+                            !_obscuredRecoveryConfirm,
+                      ),
                       icon: Icon(
                         _obscuredRecoveryConfirm
                             ? Icons.visibility_off_outlined
@@ -625,7 +672,9 @@ class _AuthScreenState extends State<_AuthScreen> {
                 ),
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: _submitting ? null : () => setState(() => _dismissRecoveryMode = true),
+                  onPressed: _submitting
+                      ? null
+                      : () => setState(() => _dismissRecoveryMode = true),
                   child: const Text('Back to Sign In'),
                 ),
               ],
@@ -669,7 +718,9 @@ class _AuthScreenState extends State<_AuthScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -730,7 +781,10 @@ class _UnavailableAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<UserCredential> signIn({required String email, required String password}) async {
+  Future<UserCredential> signIn({
+    required String email,
+    required String password,
+  }) async {
     throw _error();
   }
 
@@ -738,7 +792,10 @@ class _UnavailableAuthService implements AuthServiceContract {
   Future<void> signOut() async {}
 
   @override
-  Future<UserCredential> signUp({required String email, required String password}) async {
+  Future<UserCredential> signUp({
+    required String email,
+    required String password,
+  }) async {
     throw _error();
   }
 }
@@ -773,7 +830,9 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
                 const Text('Verify email to unlock access'),
                 const SizedBox(height: 8),
                 Text(
-                  widget.email.isEmpty ? 'Open inbox and confirm account access.' : widget.email,
+                  widget.email.isEmpty
+                      ? 'Open inbox and confirm account access.'
+                      : widget.email,
                 ),
                 const SizedBox(height: 20),
                 FilledButton(
@@ -816,7 +875,9 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
               e.code == 'requires-recent-login')
           ? 'Session expired. Sign in again.'
           : 'Could not refresh account state.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -829,15 +890,15 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
     try {
       await widget.authService.sendEmailVerification();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Verification link sent.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verification link sent.')),
+        );
       }
     } on FirebaseAuthException {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Could not send verification link.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send verification link.')),
+        );
       }
     } finally {
       if (mounted) {
