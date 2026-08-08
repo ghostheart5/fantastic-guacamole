@@ -49,5 +49,6 @@ jobs:
             echo "No golden changes detected."
           else
             git commit -m "chore(test): regenerate golden images on ubuntu-latest CI"
-            git push
+            TARGET_BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
+            git push origin HEAD:"${TARGET_BRANCH}"
           fi

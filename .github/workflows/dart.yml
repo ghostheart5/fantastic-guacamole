@@ -71,7 +71,7 @@ jobs:
       # images are pushed back to the branch; subsequent runs see no diff and
       # skip the commit.
       - name: Sync golden baselines
-        if: github.actor != 'github-actions[bot]'
+        if: ${{ github.actor != 'github-actions[bot]' }}
         run: |
           flutter test \
             test/features/auth/login_screen_golden_test.dart \
@@ -84,7 +84,7 @@ jobs:
             echo "Golden images are already up-to-date."
           else
             git commit -m "chore(test): sync golden baselines to ubuntu-latest CI [skip ci]"
-            git push
+            git push origin HEAD:${{ github.head_ref || github.ref_name }}
           fi
 
       - name: Run tests
