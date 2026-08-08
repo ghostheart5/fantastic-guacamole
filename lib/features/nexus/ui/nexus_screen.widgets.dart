@@ -15,8 +15,9 @@ class _NexusHeader extends ConsumerWidget {
     final routes = ref.watch(routeSurfaceProvider);
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final bool compact = constraints.maxWidth < 390;
-        final bool ultraCompact = constraints.maxWidth < 340;
+        final bool compact = constraints.maxWidth < Breakpoints.compact;
+        final bool ultraCompact =
+            constraints.maxWidth < Breakpoints.ultraCompact;
         return Padding(
           padding: EdgeInsets.fromLTRB(
             ultraCompact ? 12 : 20,
@@ -114,7 +115,9 @@ class _NexusHeader extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: ultraCompact ? 8 : (compact ? 9 : 10),
+                        fontSize: ultraCompact
+                            ? AppSizes.fontMicro
+                            : (compact ? AppSizes.fontXs : AppSizes.fontSm),
                         color: Colors.white38,
                         letterSpacing: ultraCompact ? 0.3 : 1,
                       ),
@@ -336,7 +339,7 @@ class _SystemRings extends StatelessWidget {
                     Text(
                       'CLARITY $clarityPct%',
                       style: const TextStyle(
-                        fontSize: 8,
+                        fontSize: AppSizes.fontMicro,
                         color: Colors.white70,
                         letterSpacing: 1.2,
                         fontWeight: FontWeight.w700,
@@ -516,7 +519,7 @@ class _RingLabels extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double width = MediaQuery.sizeOf(context).width;
-    final bool ultraCompact = width < 340;
+    final bool ultraCompact = width < Breakpoints.ultraCompact;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: ultraCompact ? 18 : 32),
@@ -554,7 +557,8 @@ class _NexusBridgeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool ultraCompact = MediaQuery.sizeOf(context).width < 340;
+    final bool ultraCompact =
+        MediaQuery.sizeOf(context).width < Breakpoints.ultraCompact;
 
     final String greeting = energy >= 0.65
         ? 'High-capacity window active. Start one high-impact step now.'
@@ -584,7 +588,7 @@ class _NexusBridgeCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.neonViolet,
-              fontSize: 10,
+              fontSize: AppSizes.fontSm,
               letterSpacing: 1.4,
               fontWeight: FontWeight.w700,
             ),
@@ -594,7 +598,7 @@ class _NexusBridgeCard extends StatelessWidget {
             greeting,
             style: TextStyle(
               color: Colors.white70,
-              fontSize: ultraCompact ? 11 : 12,
+              fontSize: ultraCompact ? AppSizes.fontCaption : AppSizes.fontBody,
               height: 1.35,
             ),
           ),
@@ -605,7 +609,7 @@ class _NexusBridgeCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: Colors.white54,
-              fontSize: ultraCompact ? 9 : 10,
+              fontSize: ultraCompact ? AppSizes.fontXs : AppSizes.fontSm,
               letterSpacing: ultraCompact ? 0.8 : 1.2,
             ),
           ),
@@ -648,7 +652,7 @@ class _RingLabel extends StatelessWidget {
             Text(
               label,
               style: const TextStyle(
-                fontSize: 8,
+                fontSize: AppSizes.fontMicro,
                 letterSpacing: 2,
                 color: Colors.white38,
               ),
@@ -656,7 +660,7 @@ class _RingLabel extends StatelessWidget {
             Text(
               value,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: AppSizes.fontBodyLg,
                 fontWeight: FontWeight.w600,
                 color: color,
               ),
@@ -717,7 +721,7 @@ class _CoreSignalsStrip extends StatelessWidget {
                   'SYSTEM SYNTHESIS (CROSS-MODULE)',
                   style: TextStyle(
                     color: AppColors.neonViolet,
-                    fontSize: 10,
+                    fontSize: AppSizes.fontSm,
                     letterSpacing: 1.6,
                     fontWeight: FontWeight.w800,
                   ),
@@ -752,7 +756,7 @@ class _CoreSignalsStrip extends StatelessWidget {
                   growthTitle,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: AppSizes.fontTitle,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -774,7 +778,7 @@ class _CoreSignalsStrip extends StatelessWidget {
             narrativeSummary,
             style: const TextStyle(
               color: Colors.white70,
-              fontSize: 12,
+              fontSize: AppSizes.fontBody,
               height: 1.35,
             ),
           ),
@@ -875,7 +879,7 @@ class _DependencyMesh extends ConsumerWidget {
             'NEXUS DEPENDENCY MESH (HOW MODULES CONNECT)',
             style: TextStyle(
               color: AppColors.neonCyan,
-              fontSize: 10,
+              fontSize: AppSizes.fontSm,
               letterSpacing: 1.8,
               fontWeight: FontWeight.w800,
             ),
@@ -964,7 +968,7 @@ class _SignalPill extends StatelessWidget {
         '$label: $value',
         style: const TextStyle(
           color: Colors.white70,
-          fontSize: 11,
+          fontSize: AppSizes.fontCaption,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -1014,7 +1018,7 @@ class _NexusSyncStrip extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: accent,
-                fontSize: 10,
+                fontSize: AppSizes.fontSm,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.4,
               ),
@@ -1025,7 +1029,7 @@ class _NexusSyncStrip extends StatelessWidget {
             timestamp,
             style: const TextStyle(
               color: Colors.white54,
-              fontSize: 10,
+              fontSize: AppSizes.fontSm,
               letterSpacing: 1,
             ),
           ),
@@ -1109,7 +1113,7 @@ class _DependencyCard extends StatelessWidget {
                   label.toUpperCase(),
                   style: TextStyle(
                     color: accent,
-                    fontSize: 10,
+                    fontSize: AppSizes.fontSm,
                     letterSpacing: 1.4,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1119,7 +1123,7 @@ class _DependencyCard extends StatelessWidget {
                 value,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 12,
+                  fontSize: AppSizes.fontBody,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -1132,7 +1136,7 @@ class _DependencyCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: Colors.white,
-              fontSize: emphasize ? 15 : 14,
+              fontSize: emphasize ? AppSizes.fontLabelLg : AppSizes.fontLabel,
               fontWeight: FontWeight.w700,
               height: 1.2,
             ),
@@ -1142,7 +1146,7 @@ class _DependencyCard extends StatelessWidget {
             detail,
             style: const TextStyle(
               color: Colors.white60,
-              fontSize: 11,
+              fontSize: AppSizes.fontCaption,
               height: 1.35,
             ),
           ),
@@ -1205,7 +1209,7 @@ class _FirstRunCta extends ConsumerWidget {
             'Start here',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 16,
+              fontSize: AppSizes.fontTitle,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1213,7 +1217,11 @@ class _FirstRunCta extends ConsumerWidget {
           const Text(
             'Add one task you want to get done. '
             'ChronoSpark builds your plan and tracks your progress from there.',
-            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.35),
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: AppSizes.fontBodyLg,
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 14),
           HoloButton(
@@ -1232,8 +1240,8 @@ class _ActionGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final double width = MediaQuery.sizeOf(context).width;
-    final bool compact = width < 360;
-    final bool ultraCompact = width < 340;
+    final bool compact = width < Breakpoints.compact;
+    final bool ultraCompact = width < Breakpoints.ultraCompact;
 
     return Container(
       width: double.infinity,
@@ -1291,7 +1299,7 @@ class _ActionGrid extends ConsumerWidget {
                   child: Text(
                     'GO TO',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: AppSizes.fontSm,
                       letterSpacing: 1.6,
                       color: AppColors.neonCyan,
                       fontWeight: FontWeight.w700,

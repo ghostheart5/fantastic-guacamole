@@ -54,10 +54,14 @@ class SIConsoleScreen extends ConsumerStatefulWidget {
 }
 
 class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final List<_Msg> _messages = [];
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  final GlobalKey _composerKey = GlobalKey();
+  // Starting guess only, replaced by the composer's real measured height
+  // right after the first frame — see _measureComposer.
+  final ValueNotifier<double> _composerHeight = ValueNotifier<double>(220);
   bool _typing = false;
   late final AnimationController _typingAnim;
   StreamSubscription<GoalLifecycleEvent>? _goalEventSubscription;
@@ -87,6 +91,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     AppAnalytics.track('si_opened');
     _voiceService = ref.read(voiceServiceProvider);
     _goalEventSubscription = ref
@@ -125,12 +130,36 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _typingAnim.dispose();
     _input.dispose();
     _scroll.dispose();
+    _composerHeight.dispose();
     unawaited(_voiceService.stop());
     unawaited(_goalEventSubscription?.cancel());
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    // The keyboard opening/closing resizes the viewport without the SI
+    // Console ever leaving resizeToAvoidBottomInset: false, so nothing else
+    // re-anchors the transcript to the latest message when that happens.
+    // Re-measure first: the keyboard toggle also flips the composer between
+    // its compact/expanded layouts, and scrolling before that resize lands
+    // would jump to a since-stale maxScrollExtent.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measureComposer();
+      _scrollToBottom();
+    });
+  }
+
+  void _measureComposer() {
+    final double? height = _composerKey.currentContext?.size?.height;
+    if (height != null && height != _composerHeight.value) {
+      _composerHeight.value = height;
+    }
   }
 
   void _addSI(String text, {String emotion = 'balanced'}) {
@@ -596,8 +625,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final double composerBottomInset = keyboardInset > 0
         ? keyboardInset
         : mediaQuery.padding.bottom;
-    final double composerMaxHeight = keyboardVisible ? 120 : 220;
-    final double composerReservedHeight = composerMaxHeight;
+
+    // The composer's own height isn't known until after it's laid out, so
+    // the transcript's reserved bottom padding is measured, not guessed —
+    // see _measureComposer.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureComposer());
 
     return AnimatedSystemBackground(
       backgroundAssetPath: AppAssets.bgSiConsole,
@@ -640,55 +672,65 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   },
                 ),
                 Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: (consoleError != null && _messages.isEmpty)
-                            ? ErrorView(
-                                title: 'SI Context Error',
-                                message: consoleError.toString(),
-                                onRetry: () {
-                                  ref.invalidate(siConsoleScreenModelProvider);
-                                },
-                              )
-                            : ListView.builder(
-                                controller: _scroll,
-                                padding: EdgeInsets.fromLTRB(
-                                  16,
-                                  8,
-                                  16,
-                                  composerReservedHeight + composerBottomInset,
-                                ),
-                                itemCount: _messages.length + (_typing ? 1 : 0),
-                                itemBuilder: (context, i) {
-                                  if (_typing && i == _messages.length) {
-                                    return _TypingIndicator(
-                                      animation: _typingAnim,
-                                    );
-                                  }
-                                  return _BubbleTile(msg: _messages[i]);
-                                },
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _composerHeight,
+                    builder: (context, composerHeight, _) {
+                      final double composerReservedHeight = composerHeight;
+                      return Stack(
+                        children: [
+                          Positioned.fill(
+                            child: (consoleError != null && _messages.isEmpty)
+                                ? ErrorView(
+                                    title: 'SI Context Error',
+                                    message: consoleError.toString(),
+                                    onRetry: () {
+                                      ref.invalidate(
+                                        siConsoleScreenModelProvider,
+                                      );
+                                    },
+                                  )
+                                : ListView.builder(
+                                    controller: _scroll,
+                                    padding: EdgeInsets.fromLTRB(
+                                      16,
+                                      8,
+                                      16,
+                                      composerReservedHeight +
+                                          composerBottomInset,
+                                    ),
+                                    itemCount:
+                                        _messages.length + (_typing ? 1 : 0),
+                                    itemBuilder: (context, i) {
+                                      if (_typing && i == _messages.length) {
+                                        return _TypingIndicator(
+                                          animation: _typingAnim,
+                                        );
+                                      }
+                                      return _BubbleTile(msg: _messages[i]);
+                                    },
+                                  ),
+                          ),
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                bottom: composerBottomInset,
                               ),
-                      ),
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: Padding(
-                          padding: EdgeInsets.only(bottom: composerBottomInset),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxHeight: composerMaxHeight,
-                            ),
-                            child: _InputBar(
-                              controller: _input,
-                              onSend: _send,
-                              compact: keyboardVisible,
+                              child: KeyedSubtree(
+                                key: _composerKey,
+                                child: _InputBar(
+                                  controller: _input,
+                                  onSend: _send,
+                                  compact: keyboardVisible,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ],
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],

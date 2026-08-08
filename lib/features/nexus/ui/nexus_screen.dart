@@ -9,6 +9,8 @@ import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
+import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
