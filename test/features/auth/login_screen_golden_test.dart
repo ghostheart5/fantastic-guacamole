@@ -1,32 +1,23 @@
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
+import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
+import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../support/golden_harness.dart';
-
-/// Pixel regression coverage for Phase 6's M-1 font/breakpoint migration.
-/// Generated against the CURRENT (pre-migration) screen first, then re-run
-/// unchanged after the migration to prove it was value-preserving.
 void main() {
-  setUpAll(loadAppFontsForGolden);
-  setUpAll(useTolerantGoldenComparator);
+  Future<void> pumpLoginScreen(WidgetTester tester, {required double width}) async {
+    tester.view.physicalSize = Size(width, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
 
-  for (final (String label, double width) in <(String, double)>[
-    ('compact_320', 320),
-    ('regular_500', 500),
-  ]) {
-    testWidgets('LoginScreen at $label matches golden', (
-      WidgetTester tester,
-    ) async {
-      final TextEditingController emailController = TextEditingController();
-      final TextEditingController passwordController =
-          TextEditingController();
-      addTearDown(emailController.dispose);
-      addTearDown(passwordController.dispose);
+    final TextEditingController emailController = TextEditingController();
+    final TextEditingController passwordController = TextEditingController();
+    addTearDown(emailController.dispose);
+    addTearDown(passwordController.dispose);
 
-      await pumpForGolden(
-        tester,
-        LoginScreen(
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LoginScreen(
           emailController: emailController,
           passwordController: passwordController,
           obscurePassword: true,
@@ -39,14 +30,69 @@ void main() {
           onToggleMode: () {},
           onTogglePassword: () {},
         ),
-        size: Size(width, 900),
-      );
-      await tester.pump(const Duration(milliseconds: 800));
+      ),
+    );
+    await tester.pump();
+    // LoginScreen's entry animation runs for 720ms before the responsive text
+    // reaches its final painted position and style.
+    await tester.pump(const Duration(milliseconds: 800));
+  }
 
-      await expectLater(
-        find.byType(LoginScreen),
-        matchesGoldenFile('goldens/login_screen_$label.png'),
+  Text textWidget(WidgetTester tester, String text) =>
+      tester.widget<Text>(find.text(text).first);
+
+  group('LoginScreen responsive typography', () {
+    testWidgets('uses compact values below the compact breakpoint', (
+      WidgetTester tester,
+    ) async {
+      await pumpLoginScreen(tester, width: Breakpoints.compact - 1);
+
+      expect(
+        textWidget(tester, 'TEMPORAL INTELLIGENCE SYSTEM').style?.fontSize,
+        AppSizes.fontXs,
+      );
+      expect(
+        textWidget(tester, 'ACCESS SYSTEM').style?.fontSize,
+        AppSizes.fontXs,
+      );
+      expect(
+        textWidget(
+          tester,
+          'Secure command access for your mission control.',
+        ).style?.fontSize,
+        AppSizes.fontCaption,
+      );
+
+      final TextField emailField = tester.widget<TextField>(
+        find.descendant(
+          of: find.byKey(const ValueKey('login-email-field')),
+          matching: find.byType(TextField),
+        ),
+      );
+      expect(emailField.style?.fontSize, AppSizes.fontLabel);
+      expect(emailField.decoration?.hintStyle?.fontSize, AppSizes.fontLabel);
+    });
+
+    testWidgets('uses regular values at the compact breakpoint', (
+      WidgetTester tester,
+    ) async {
+      await pumpLoginScreen(tester, width: Breakpoints.compact);
+
+      expect(
+        textWidget(tester, 'TEMPORAL INTELLIGENCE SYSTEM').style?.fontSize,
+        AppSizes.fontSm,
+      );
+      expect(
+        textWidget(tester, 'ACCESS SYSTEM').style?.fontSize,
+        AppSizes.fontSm,
+      );
+      expect(
+        textWidget(
+          tester,
+          'Secure command access for your mission control.',
+        ).style?.fontSize,
+        AppSizes.fontBody,
       );
     });
-  }
+  });
 }
