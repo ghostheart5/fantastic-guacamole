@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
@@ -90,6 +90,25 @@ jobs:
             echo "::warning::ANDROID_GOOGLE_SERVICES_JSON(_BASE64) is not set; building without Firebase Google Services config."
           fi
 
+          # Guard: fail the build if the injected file still contains the stale
+          # com.example.* client entry (no SHA restriction — impersonation risk).
+          if [ -f android/app/google-services.json ] && \
+             python3 -c "
+import json, sys
+d = json.load(open('android/app/google-services.json'))
+stale = [c for c in d.get('client', [])
+         if c['client_info']['android_client_info']['package_name'].startswith('com.example')]
+if stale:
+    pkgs = ', '.join(c['client_info']['android_client_info']['package_name'] for c in stale)
+    print(f'Stale Firebase client(s) found: {pkgs}', file=sys.stderr)
+    sys.exit(1)
+"; then
+            echo "google-services.json client validation passed."
+          elif [ -f android/app/google-services.json ]; then
+            echo "::error::google-services.json contains a stale com.example.* client entry. Remove it from the Firebase Console and re-download the file."
+            exit 1
+          fi
+
       - name: Validate production configuration
         env:
           SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
@@ -113,9 +132,6 @@ jobs:
             echo "::warning::Disabling CHRONOSPARK_ENFORCE_PROD_READINESS because required prod secrets are missing"
             echo "PROD_READINESS=false" >> "$GITHUB_ENV"
           fi
-
-      - name: Create empty .env file for asset bundling
-        run: touch .env
 
       - name: Build signed AAB
         run: >-

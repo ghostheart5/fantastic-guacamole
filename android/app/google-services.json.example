@@ -1,0 +1,58 @@
+{
+  "_comment": [
+    "This is an EXAMPLE file showing the structure of google-services.json.",
+    "The real file contains a live Firebase API key and is git-ignored.",
+    "",
+    "To obtain the real file:",
+    "  1. Go to https://console.firebase.google.com/project/chronospark-app/settings/general/",
+    "  2. Under 'Your apps', select the Android app with package name com.ghostheart5.chronospark",
+    "  3. Download google-services.json and place it at android/app/google-services.json",
+    "",
+    "For CI/release builds the file is decoded from the",
+    "ANDROID_GOOGLE_SERVICES_JSON_BASE64 GitHub secret.",
+    "",
+    "IMPORTANT: Never commit the real google-services.json to git.",
+    "IMPORTANT: The Firebase project must have SHA-256 certificate fingerprints",
+    "           registered for every signing key (debug + upload + distribution).",
+    "IMPORTANT: Only the com.ghostheart5.chronospark package name should have a",
+    "           client entry. Remove any com.example.* stale entries from",
+    "           the Firebase Console."
+  ],
+  "project_info": {
+    "project_number": "<YOUR_PROJECT_NUMBER>",
+    "project_id": "chronospark-app",
+    "storage_bucket": "chronospark-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:<YOUR_PROJECT_NUMBER>:android:<YOUR_APP_HASH>",
+        "android_client_info": {
+          "package_name": "com.ghostheart5.chronospark"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "<YOUR_WEB_CLIENT_ID>.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "<ROTATE_VIA_FIREBASE_CONSOLE_IF_PREVIOUSLY_EXPOSED>"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "<YOUR_WEB_CLIENT_ID>.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

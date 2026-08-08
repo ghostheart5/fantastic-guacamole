@@ -12,3 +12,8 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+# google-services.json contains a live Firebase API key and must never be
+# committed.  For local development, obtain this file from a team member or
+# the Firebase Console.  For CI/release builds it is decoded from the
+# ANDROID_GOOGLE_SERVICES_JSON_BASE64 secret.
+google-services.json
