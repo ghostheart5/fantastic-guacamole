@@ -98,129 +98,122 @@ This canonical alignment maps product scope to staged delivery tiers and core fe
 
 ### Technology Stack
 
-- **Framework**: Flutter (Dart)
-- **State Management**: Riverpod providers (with legacy compatibility where needed)
-- **Persistence**: `SharedPreferences` via abstracted `RuntimePersistence` layer (designed for future Hive/SQLite upgrades)
-- **Typography**: Google Fonts (Orbitron, Inter, etc.)
-- **UI Pattern**: Material 3 + custom glassmorphic components
+- **Framework**: Flutter (Dart), version 4.0.0 (`fantastic_guacamole`)
+- **State Management**: Riverpod v3 with code generation (`riverpod_annotation` + `riverpod_generator`)
+- **Routing**: `go_router` v17 with a custom `NavigationShell` widget
+- **Persistence**:
+  - `Hive` v2 + `hive_flutter` — primary structured data store
+  - `SharedPreferences` — lightweight key/value preferences
+  - `flutter_secure_storage` — credential and token storage
+- **Backend Services**:
+  - **Firebase** — Auth, Crashlytics, Analytics, Cloud Messaging, Remote Config, Firestore, Storage
+  - **Supabase** — real-time data sync and supplementary backend
+- **Typography**: Inter (Regular, Medium 500, Bold 700) — bundled as local font assets
+- **UI Pattern**: Material 3 + custom glassmorphic components; dark-first palette
+- **Voice & Audio**: `speech_to_text` (STT), `flutter_tts` (TTS), `just_audio` / `audioplayers`, `audio_session`
+- **Animations**: `lottie` for JSON animations (focus pulse, level-up, session complete)
+- **Notifications**: `flutter_local_notifications` with `timezone` scheduling
+- **Networking**: `http`, `connectivity_plus`, `internet_connection_checker_plus`, `app_links`
+- **Utilities**: `encrypt`, `crypto`, `share_plus`, `image_picker`, `cached_network_image`, `permission_handler`, `device_info_plus`, `package_info_plus`
 
-Layer dependency direction contract: `UI (features) -> Riverpod providers (state) -> Repositories (data/di) -> Services (Supabase/storage) -> Engine (logic layer)`.
+Layer dependency direction contract: `UI (features) -> Riverpod providers (state) -> Repositories (data/di) -> Services (Supabase / Firebase / storage) -> Engine (logic layer)`.
 See `docs/LAYER_FLOW.md`.
 
 ### Core Layers
 
-#### 1. **AppState** (`lib/core/state/app_state.dart`)
-Central runtime orchestrator that:
-- Maintains `currentState` (energy, workload, deadline pressure, task list)
-- Manages missions, routines, logs, decisions, and notifications
-- Persists and hydrates all state via `RuntimePersistence`
-- Routes console input, time updates, and task lifecycle operations
-- Tracks trial quotas for premium features
-- Orchestrates `AdaptiveLearningSystem`, `SiEngine`, and `NotificationManager`
+#### 1. **Navigation Shell** (`lib/app/navigation_shell.dart`)
+Top-level host widget that:
+- Manages a 4-tab `BottomNavigationBar` (Nexus, Trajectory, Ledger, Profile)
+- Exposes a floating **Navigation Map** FAB giving access to all secondary screens
+- Integrates `SystemScheduler`, `DataHygieneScheduler`, and `AudioInterruptionService`
+- Subscribes to `energyProvider` and `learningProvider` to keep AI decisions fresh
+- Handles cold-launch and in-app notification routing via `NotificationScheduler`
+- Persists and restores the last-opened tab across sessions
+- Triggers offline-queue cloud sync when the device comes back online
 
-**Key Methods**:
-- `updateFromConsole()` – Process natural-language-like commands
-- `updateFromTime()` – Update state on time changes
-- `addTask()`, `editTask()`, `completeTask()`, `skipTask()`, `delayTask()`
-- `addMission()`, `addRoutine()`
-- `consumeTemporalOpsTrialIfNeeded()`, `consumeSiConsoleTrialIfNeeded()` – Gated access with quota tracking
+#### 2. **App Flow Controller** (`lib/state/controllers/app_flow_controller.dart`)
+Riverpod `NotifierProvider` that drives navigation:
+- Exposes the `AppView` enum (nexus, tasks, logs, profile, plan, creator, goals,
+  milestones, memories, soulMap, timeline, console, insight, settings, progression, smartCoach, coach)
+- Navigation shell and all features call `appFlowProvider.notifier` methods (e.g. `toNexus()`, `toLogs()`)
 
-#### 2. **SI Engine** (`lib/core/si/si_engine.dart`)
-Decision-generation engine that:
-- Ingests energy, workload, deadline pressure, recent task behavior, and adaptive scores
-- Produces `SiDecision` objects with:
-  - `primaryDecision` – Main recommended focus
-  - `secondaryAction` – Supporting activity
-  - `optionalAction` – Lower-priority suggestion
-  - `focusTasks` – Top-ranked tasks to prioritize
-  - `energy`, `workload` – Normalized state metrics
-  - `systemNote` – Explanation for the user
-- Consumes `TaskSuggester` for fallback/recommended task generation
+#### 3. **SI Engine** (`lib/engine/si/si_engine.dart`)
+Comprehensive intelligence engine composed of layered cognitive modules:
+- Core decision pipeline: `SiEngine` → `SiOutputBundle` → `SiDecision`
+- Supporting modules include input fusion, reasoning, personality, emotion, intent,
+  memory (tiered / fabric / topology), policy, ethics, self-model, creativity,
+  consciousness loop, and 70+ specialized cognitive layers
+- Learning subsystem (`lib/engine/learning/`) provides `AdaptiveLearning`,
+  `LearningHistory`, `LearningMetrics`, and `LearningState`
+- Consumed by `aiDecisionProvider` and `siPipelineProvider`
 
-#### 3. **Adaptive Learning System** (`lib/core/si/adaptive_learning.dart`)
-Behavioral tracking and scoring that:
-- Records task completions, skips, delays, and console interactions
-- Builds per-task behavior score: completion rate, skip/delay counts, recent engagement
-- Tracks active-hour histograms to infer user patterns
-- Ranks tasks dynamically based on completion likelihood and user history
-- Exports/imports JSON for persistence
-- Provides `outputLoadModifier` to reduce suggestion volume when user is overwhelmed
+#### 4. **State Layer** (`lib/state/`)
+Riverpod providers that orchestrate the UI → repository → service boundary:
+- **Controllers**: `AiController`, `AppFlowController`, `LearningController`, `VoiceController`
+- **Providers**: 40+ providers covering tasks, goals, energy, habits, memories,
+  milestones, soul map, progression, paywall/entitlement, sync, offline queue,
+  session recovery, insights, emotion, routines, timeline, and more
+- **Services**: `DataHygieneScheduler`, `PreferenceService`, `StreakService`,
+  `ProductionHardeningService`, and others
 
-**Key Methods**:
-- `registerCompletion()`, `registerSkip()`, `registerDelay()`
-- `rankTasks()` – Sort tasks by adaptive score
-- `scoreForTask()` – Get numeric score for single task
-- `outputLoadModifier` – Reduce load when system detects overwhelm
-
-#### 4. **Task Suggester** (`lib/core/si/task_suggester.dart`)
-Fallback task recommendation engine that:
-- Generates recommended task lists based on energy, workload, task count, time of day
-- Produces fallback tasks when the core task list is thin
-- Returns `TaskSuggestionResult` with `recommended`, `fallback`, and system hint
-
-#### 5. **Notification Manager** (`lib/core/system/notification_manager.dart`)
-Intelligent notification generation with:
-- Typed notifications (completion feedback, energy warnings, deadline alerts, etc.)
-- Priority-based cooldown logic
-- Response tracking and user engagement scoring
-- Activity markers to avoid over-notification
-- Automatic throttling to prevent fatigue
-
-#### 6. **Runtime Persistence** (`lib/core/system/runtime_persistence.dart`)
-Abstracted persistence layer that:
-- Defines `RuntimePersistence` interface
-- Implements `SharedPrefsRuntimePersistence` for JSON snapshot storage
-- Designed to swap to Hive/SQLite without app-layer changes
-- Stores/loads complete state snapshots with schema versioning
+#### 5. **Notification Scheduler** (`lib/system/notifications/notification_scheduler.dart`)
+Platform-level notification layer that:
+- Schedules typed local notifications (goal reminders, daily planning, habit reminders,
+  reflection reminders, streak-break recovery) via `flutter_local_notifications`
+- Exposes a `ValueListenable` for in-app tap routing without requiring a rebuild
+- Persists a launch payload so cold-start taps route to the correct screen
 
 ---
 
 ## Feature Areas
 
-### Shell Navigation (`lib/features/system_shell/`)
+### Shell Navigation (`lib/app/navigation_shell.dart`)
 
-The app uses a bottom-nav shell with five main tabs:
+The app uses a `BottomNavigationBar` with **four primary tabs** and a floating
+**Navigation Map** FAB for all secondary screens.
 
-1. **Nexus** (`nexus_page.dart`)
-   - Home/dashboard
-   - Displays current `decision.systemNote`
-   - Shows primary, secondary, and optional action cards
-   - Portal buttons to jump to other modules
-   - Real-time decision feedback
+#### Primary tabs
 
-2. **ChronoCreator** (`chronocreator_page.dart`)
-   - Task, mission, and routine creation interface
-   - Feeds new items directly into AppState
-   - Updates adaptive learning and decision engine in real-time
+1. **Nexus** (`lib/features/nexus/ui/nexus_screen.dart`)
+   - Main command center / home dashboard
+   - Shows AI decision summary, energy status, and quick-action cards
+   - Entry point to the full app experience
 
-3. **Temporal Ops** (`temporal_ops_page.dart`)
-   - Time-blocking and calendar interface
-   - Multiple view modes: ChronoFlow (timeline), ArcView (circular), Constellation (task web)
-   - Chrono-ring pulse animation and focus-mode visuals
-   - Task interaction (create, complete) with live AppState sync
-   - Day chips for date navigation
-   - **Premium/Trial Feature**: Free 5 test opens; then requires upgrade
+2. **Trajectory** (`lib/features/tasks/ui/task_screen.dart`)
+   - Task execution lane
+   - Create, complete, and manage tasks; adaptive priority ordering
 
-4. **SI Console** (`si_console_page.dart`)
-   - Text-based console for direct engine interaction
-   - Send natural-language commands to `AppState.updateFromConsole()`
-   - View decision history and system logs
-   - **Premium/Trial Feature**: Free 8 test opens; then requires upgrade
+3. **Ledger** (`lib/features/logs/ui/logs_screen.dart`)
+   - Logs and review trail
+   - Timestamped event history; feeds the SI learning pipeline
 
-5. **ChronoLogs** (`chronologs_page.dart`)
-   - Historical event and decision log viewer
-   - Trace past recommendations and user interactions
+4. **Profile** (`lib/features/profile/ui/profile_screen.dart`)
+   - Identity and progression hub
+   - Account details, XP, progression stats, and avatar
 
-6. **Settings** (`settings_page.dart`)
-   - Paywall and premium access management
-   - Link to premium tier benefits
+#### Secondary screens (Navigation Map FAB)
 
-### Premium Gating (`lib/ui/system/premium_feature_gate.dart`)
+| Screen | File | Description |
+|--------|------|-------------|
+| **Plan** | `lib/features/plan/ui/plan_screen.dart` | Adaptive daily/weekly schedule builder |
+| **Creator** | `lib/features/creator/ui/creator_screen.dart` | Task, goal, and routine creation wizard |
+| **Milestones** | `lib/features/milestones/ui/milestones_screen.dart` | Checkpoint planning and tracking |
+| **Insights** | `lib/features/insights/ui/insight_screen.dart` | Pattern and trend analysis |
+| **Settings** | `lib/features/settings/ui/settings_screen.dart` | Preferences, paywall, danger-zone |
+| **Smart Coach** | `lib/features/home/ui/smart_coach_screen.dart` | AI coaching interface |
+| **SI Console** | `lib/features/si_console/ui/si_console_screen.dart` | Natural-language command terminal |
+| **Progression** | `lib/features/progression/ui/progression_screen.dart` | XP, levels, streaks, gamification |
+| **Goals** | `lib/features/goals/ui/goals_screen.dart` | Long-term goal management |
+| **Memories** | `lib/features/memories/ui/memories_screen.dart` | AI context memory store |
+| **Soul Map** | `lib/features/soul_map/ui/soul_map_screen.dart` | Identity and life-area alignment |
+| **Timeline** | `lib/features/timeline/ui/timeline_screen.dart` | Time-blocking and calendar view |
 
-- **Trial Model**: Temporal Ops (5 free opens) and SI Console (8 free opens)
-- **Persistence**: Trial counters stored in runtime snapshot
-- **Flow**: When quota exhausted, tab redirects to Settings with upgrade prompt
-- **Bypass**: Premium users have unlimited access
+### Premium Gating (`lib/features/paywall/`)
+
+- **Entitlement source**: `entitlementProvider` backed by `PaywallRepository` → `PaywallService`
+- **Gate widget**: `FeatureGate` renders a child or an upgrade prompt based on the active plan
+- **Plans**: Base (free) and Premium ($7.99/month | $59.99/year)
+- **Billing backend**: `GooglePlayPaywallRepository` wrapping `in_app_purchase`; swap-ready for RevenueCat / Stripe
 
 ---
 
@@ -236,9 +229,9 @@ The app uses a bottom-nav shell with five main tabs:
 
 ### Visual Language
 
-- **Font**: Orbitron (headings), Inter (body, support)
-- **Palette**: Purples, teals, dark backgrounds with accent glows
-- **Motion**: Smooth transitions, pulse animations, focus-mode dimming
+- **Font**: Inter (Regular, Medium 500, Bold 700) — bundled locally in `assets/fonts/`
+- **Palette**: Dark backgrounds (`#0F172A` base), cyans (`#00E5FF` accent), purples, teals, and accent glows
+- **Motion**: Smooth transitions, Lottie animations (focus pulse, level-up, session complete), focus-mode dimming
 - **Density**: Material 3 spacing and density settings
 
 ---
