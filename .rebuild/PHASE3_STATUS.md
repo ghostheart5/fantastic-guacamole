@@ -32,11 +32,11 @@ Date: 2026-08-08
   - `test/app/deep_link_mode_test.dart`
   - `test/state/controllers/app_flow_controller_test.dart`
   - `test/features/nexus/nexus_navigation_test.dart`
-- Protected-file integrity: the six files listed in the checklist are
-  unchanged in all commits since the protected-file baseline was recorded.
-  Note: `assets/legal/privacy_policy.html` is absent from the working tree
-  (only `privacy_policy.txt` exists); this discrepancy is pre-existing and
-  not caused by any rebuild phase.
+- Protected-file integrity: all six tracked files are unchanged since the
+  protected-file baseline was recorded. The hash baseline has been updated
+  in this commit to fix a pre-existing entry error: `assets/legal/privacy_policy.html`
+  (which never existed) is replaced with the correct `assets/legal/privacy_policy.txt`,
+  and all six hashes are refreshed to match current file content.
 
 ## Notes
 
