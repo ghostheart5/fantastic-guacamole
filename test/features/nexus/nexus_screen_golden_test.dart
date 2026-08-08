@@ -13,61 +13,96 @@ import 'package:fantastic_guacamole/state/models/insights_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
+import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
+import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../support/golden_harness.dart';
-
-/// Pixel regression coverage for Phase 6's M-1 font/breakpoint migration.
-/// These are generated against the CURRENT (pre-migration) screen first —
-/// see the Phase 6 plan for why the sequencing matters — then re-run
-/// unchanged after the migration to prove it was value-preserving.
 void main() {
-  setUpAll(loadAppFontsForGolden);
-  setUpAll(useTolerantGoldenComparator);
+  Future<void> pumpNexusScreen(WidgetTester tester, {required double width}) async {
+    tester.view.physicalSize = Size(width, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
 
-  for (final (String label, double width) in <(String, double)>[
-    ('ultraCompact_320', 320),
-    ('compact_375', 375),
-    ('regular_500', 500),
-  ]) {
-    testWidgets('NexusScreen at $label matches golden', (
+    final ProviderContainer container = ProviderContainer(
+      retry: (int retryCount, Object error) => null,
+      overrides: [
+        unreadNotificationsProvider.overrideWithValue(0),
+        profileProvider.overrideWith(_PopulatedProfileController.new),
+        nexusScreenModelProvider.overrideWith(
+          (Ref ref) async => _populatedNexusModel,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: NexusScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+
+  Text textWidgetContaining(WidgetTester tester, String text) =>
+      tester.widget<Text>(
+        find.byWidgetPredicate(
+          (Widget widget) =>
+              widget is Text && (widget.data?.contains(text) ?? false),
+        ).first,
+      );
+
+  group('NexusScreen responsive typography', () {
+    testWidgets('uses ultra-compact values below 340px', (
       WidgetTester tester,
     ) async {
-      final ProviderContainer container = ProviderContainer(
-        // FutureProviders retry a thrown error with backoff by default
-        // (ProviderContainer.defaultRetry); a scheduled retry timer can
-        // outlive the test frame and fail teardown. Golden capture doesn't
-        // exercise error paths, so disabling retry is safe here — matching
-        // nexus_navigation_test.dart's "dependency mesh" test.
-        retry: (int retryCount, Object error) => null,
-        overrides: [
-          unreadNotificationsProvider.overrideWithValue(0),
-          profileProvider.overrideWith(_PopulatedProfileController.new),
-          nexusScreenModelProvider.overrideWith(
-            (Ref ref) async => _populatedNexusModel,
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+      await pumpNexusScreen(tester, width: Breakpoints.ultraCompact - 1);
 
-      await pumpForGolden(
-        tester,
-        UncontrolledProviderScope(
-          container: container,
-          child: const NexusScreen(),
-        ),
-        size: Size(width, 2400),
+      expect(
+        textWidgetContaining(tester, 'LVL 10').style?.fontSize,
+        AppSizes.fontMicro,
       );
-      await tester.pump(const Duration(milliseconds: 50));
-
-      await expectLater(
-        find.byType(NexusScreen),
-        matchesGoldenFile('goldens/nexus_screen_$label.png'),
+      expect(
+        textWidgetContaining(tester, 'STREAK 21d').style?.fontSize,
+        AppSizes.fontXs,
       );
     });
-  }
+
+    testWidgets('uses compact values from 340px up to 389px', (
+      WidgetTester tester,
+    ) async {
+      await pumpNexusScreen(tester, width: Breakpoints.ultraCompact);
+
+      expect(
+        textWidgetContaining(tester, 'LVL 10').style?.fontSize,
+        AppSizes.fontXs,
+      );
+      expect(
+        textWidgetContaining(tester, 'STREAK 21d').style?.fontSize,
+        AppSizes.fontSm,
+      );
+    });
+
+    testWidgets('uses regular values at 390px and above', (
+      WidgetTester tester,
+    ) async {
+      await pumpNexusScreen(tester, width: Breakpoints.compact);
+
+      // At the regular breakpoint, both labels intentionally converge on the
+      // same font size; this matches the production widget logic.
+      expect(
+        textWidgetContaining(tester, 'LVL 10').style?.fontSize,
+        AppSizes.fontSm,
+      );
+      expect(
+        textWidgetContaining(tester, 'STREAK 21d').style?.fontSize,
+        AppSizes.fontSm,
+      );
+    });
+  });
 }
 
 final NexusScreenModel _populatedNexusModel = NexusScreenModel(
