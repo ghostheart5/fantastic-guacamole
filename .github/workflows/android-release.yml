@@ -18,10 +18,17 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
+          flutter-version: '3.44.6'
           channel: stable
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --fatal-infos
+
+      - name: Test
+        run: flutter test
 
       - name: Run security secret guard
         shell: pwsh
@@ -157,3 +164,9 @@ if stale:
         with:
           files: build/app/outputs/bundle/release/app-release.aab
           prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-pre') }}
+
+      - name: Clean up signing material
+        if: always()
+        run: |
+          rm -f android/app/key.jks android/key.properties
+          echo "Signing material removed from workspace."

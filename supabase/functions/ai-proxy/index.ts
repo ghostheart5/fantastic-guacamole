@@ -50,7 +50,6 @@ interface ProxyRequest {
   prompt?: string;
   message?: string;
   history?: Array<{ role: "user" | "assistant"; content: string }>;
-  system?: string;
   model?: string;
   maxTokens?: number;
   context?: Record<string, unknown>;  // arbitrary agent context
@@ -92,7 +91,6 @@ serve(async (req) => {
       prompt: explicitPrompt,
       message,
       history = [],
-      system,
       maxTokens = MAX_TOKENS,
     } = body;
     const prompt = explicitPrompt ?? message ?? "";
@@ -129,7 +127,6 @@ serve(async (req) => {
       max_tokens: Math.max(128, Math.min(MAX_TOKENS, Number(maxTokens) || MAX_TOKENS)),
       messages,
     };
-    if (system) anthropicBody.system = system;
 
     const res = await fetch(ANTHROPIC_API, {
       method: "POST",

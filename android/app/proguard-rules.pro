@@ -13,3 +13,11 @@
 
 -dontwarn io.flutter.embedding.**
 -dontwarn com.google.errorprone.annotations.**
+
+# Preserve source file names and line numbers in crash stack traces.
+# Without these, Crashlytics reports obfuscated traces with no line numbers.
+-keepattributes SourceFile,LineNumberTable
+
+# Required for Gson deserialization used by flutter_local_notifications.
+# Missing these can silently break reminder scheduling after a reboot.
+-keepattributes Signature,InnerClasses,EnclosingMethod
