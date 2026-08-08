@@ -144,7 +144,7 @@ class ChatAgent extends AiAgent {
     if (endpoint == null || prompt.trim().isEmpty) {
       return const AiProxyAttempt(AiProxyOutcome.notAttempted);
     }
-    final String? accessToken = currentSupabaseAccessToken();
+    final String? accessToken = await requireFreshSupabaseToken();
     if (Env.isProduction && accessToken == null) {
       return const AiProxyAttempt(AiProxyOutcome.notAttempted);
     }

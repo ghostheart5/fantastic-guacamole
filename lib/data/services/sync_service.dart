@@ -132,6 +132,12 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
     String baseObjectPath,
     Map<String, dynamic> payload,
   ) async {
+    // Guard: if the user has signed out since this upload was enqueued, abort
+    // rather than writing data to the anonymous path (uid fallback = 'anonymous').
+    if (_client.auth.currentUser == null) {
+      Logger.warn('_uploadObject: skipped — no authenticated user (signed out).');
+      return false;
+    }
     final String objectPath = _scopedPath(baseObjectPath);
     try {
       final String json = jsonEncode(payload);

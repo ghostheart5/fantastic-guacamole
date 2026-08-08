@@ -1,5 +1,6 @@
 // lib/engine/si/si_ai_service.dart
 
+import 'package:fantastic_guacamole/core/utils/cancel_token.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
@@ -24,7 +25,9 @@ class SIAIService {
     List<NeuralEntry> history = const <NeuralEntry>[],
     Task? task,
     String? previousMood,
+    CancelToken? cancelToken,
   }) async {
+    cancelToken?.throwIfCancelled();
     final SIOutputBundle bundle = await process(
       input,
       memory: memory,
@@ -32,6 +35,7 @@ class SIAIService {
       task: task,
       previousMood: previousMood,
     );
+    cancelToken?.throwIfCancelled();
     return AIResponse.fromBundle(bundle);
   }
 
@@ -62,16 +66,26 @@ class SIAIService {
     Map<String, dynamic> context = const <String, dynamic>{},
     SILatentInputs latent = const SILatentInputs(),
     Task? task,
+    CancelToken? cancelToken,
   }) {
+    cancelToken?.throwIfCancelled();
+    // Clamp prompt to a safe length before passing to the engine.
+    // The ai-proxy rejects requests larger than 8,000 chars; 5,000 gives
+    // comfortable headroom for the system prefix and history payload.
+    const int _maxPromptChars = 5000;
+    final String safeText = text.length <= _maxPromptChars
+        ? text
+        : text.substring(0, _maxPromptChars);
     return send(
       SIInputPacket(
-        text: text,
+        text: safeText,
         history: history,
         metadata: metadata,
         context: context,
         latent: latent,
       ),
       task: task,
+      cancelToken: cancelToken,
     );
   }
 

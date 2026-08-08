@@ -98,6 +98,17 @@
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </receiver>
+        <!-- FCM default notification channel and icon.
+             Without these, background push notifications render on the "Miscellaneous"
+             system channel with a grey-square icon on Android 5+ (which uses only the
+             alpha channel of the icon). Both values must match what the app registers
+             at runtime in NotificationScheduler. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="chronospark_channel" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

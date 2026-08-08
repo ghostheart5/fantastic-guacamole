@@ -74,7 +74,7 @@ class NotificationScheduler {
       channelDescription: 'ChronoSpark reminders and alerts',
       importance: Importance.high,
       priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
+      icon: '@drawable/ic_notification',
     ),
   );
 

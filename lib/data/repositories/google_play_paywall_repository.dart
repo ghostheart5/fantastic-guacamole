@@ -482,7 +482,7 @@ class GooglePlayPaywallRepository implements IPaywallRepository {
       return false;
     }
     final Uri endpoint = parseSecureHttpsEndpoint(_receiptVerifyEndpoint)!;
-    final String? accessToken = currentSupabaseAccessToken();
+    final String? accessToken = await requireFreshSupabaseToken();
     if (Env.isProduction && accessToken == null) {
       Logger.error('Receipt verification requires an authenticated session.');
       return false;
