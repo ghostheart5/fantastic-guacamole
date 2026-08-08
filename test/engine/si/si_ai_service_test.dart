@@ -1,8 +1,39 @@
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
+import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
+import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/si/si_ai_service.dart';
+import 'package:fantastic_guacamole/engine/si/si_engine.dart';
+import 'package:fantastic_guacamole/engine/si/si_engine_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// A subclass of [SIEngineService] that records the last [SIInputPacket]
+/// passed to [handleUserInput]. Used to verify the prompt-length cap applied
+/// by [SIAIService.sendText] before the engine sees the text.
+class _CapturingEngineService extends SIEngineService {
+  SIInputPacket? lastInput;
+
+  @override
+  Future<SIFinalOutputBundle> handleUserInput(
+    SIInputPacket input, {
+    List<NeuralEntry> history = const <NeuralEntry>[],
+    Task? task,
+    List<String> goals = const <String>[],
+    String? previousMood,
+    SIEngineRuntimeState? runtime,
+  }) {
+    lastInput = input;
+    return super.handleUserInput(
+      input,
+      history: history,
+      task: task,
+      goals: goals,
+      previousMood: previousMood,
+      runtime: runtime,
+    );
+  }
+}
 
 void main() {
   final SIAIService service = SIAIService();
@@ -59,5 +90,49 @@ void main() {
 
     expect(first.message.trim(), isNotEmpty);
     expect(second.message.trim(), isNotEmpty);
+  });
+
+  group('sendText prompt-length cap', () {
+    test(
+      'text at exactly the limit is passed to the engine unchanged',
+      () async {
+        final _CapturingEngineService capturing = _CapturingEngineService();
+        final SIAIService capped = SIAIService(engineService: capturing);
+        const int limit = 5000;
+        final String exactText = 'a' * limit;
+
+        await capped.sendText(exactText);
+
+        expect(capturing.lastInput, isNotNull);
+        expect(capturing.lastInput!.text.length, limit);
+        expect(capturing.lastInput!.text, exactText);
+      },
+    );
+
+    test(
+      'text longer than 5000 characters is truncated to exactly 5000',
+      () async {
+        final _CapturingEngineService capturing = _CapturingEngineService();
+        final SIAIService capped = SIAIService(engineService: capturing);
+        final String overLong = 'b' * 7500;
+
+        await capped.sendText(overLong);
+
+        expect(capturing.lastInput, isNotNull);
+        expect(capturing.lastInput!.text.length, 5000);
+        expect(capturing.lastInput!.text, 'b' * 5000);
+      },
+    );
+
+    test('short text is passed to the engine unchanged', () async {
+      final _CapturingEngineService capturing = _CapturingEngineService();
+      final SIAIService capped = SIAIService(engineService: capturing);
+      const String short = 'Hello, what should I do today?';
+
+      await capped.sendText(short);
+
+      expect(capturing.lastInput, isNotNull);
+      expect(capturing.lastInput!.text, short);
+    });
   });
 }
