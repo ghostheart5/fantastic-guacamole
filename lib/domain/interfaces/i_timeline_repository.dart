@@ -1,5 +1,8 @@
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Calendar/timeline
+///
+/// Bound to TimelineRepository.
 abstract class ITimelineRepository {
   List<TimelineEventEntity> getEvents();
   Future<void> addEvent(TimelineEventEntity event);

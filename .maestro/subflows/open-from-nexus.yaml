@@ -1,0 +1,14 @@
+# Shared: open a surface from the Nexus button group.
+#
+# Pass TARGET as the button's ORIGINAL casing, e.g. "Timeline". HoloButton
+# uppercases only the visible text; the accessibility label keeps the original.
+appId: com.ghostheart5.chronospark
+---
+- scrollUntilVisible:
+    element:
+      text: "${TARGET}"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "${TARGET}"
+- waitForAnimationToEnd:
+    timeout: 5000

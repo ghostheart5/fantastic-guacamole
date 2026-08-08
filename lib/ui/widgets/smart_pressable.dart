@@ -9,6 +9,8 @@ class SmartPressable extends StatefulWidget {
     this.feedback,
     this.pressedScale = 0.95,
     this.duration = const Duration(milliseconds: 100),
+    this.semanticLabel,
+    this.button = true,
     super.key,
   });
 
@@ -17,6 +19,12 @@ class SmartPressable extends StatefulWidget {
   final Future<void> Function()? feedback;
   final double pressedScale;
   final Duration duration;
+
+  /// Accessible name announced by screen readers. When null (the default),
+  /// this widget adds no semantics of its own so existing call sites whose
+  /// child already carries its own label (e.g. visible text) are unaffected.
+  final String? semanticLabel;
+  final bool button;
 
   @override
   State<SmartPressable> createState() => _SmartPressableState();
@@ -54,7 +62,7 @@ class _SmartPressableState extends State<SmartPressable> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final Widget gesture = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => _setPressed(true),
       onTapUp: (_) => _setPressed(false),
@@ -68,6 +76,17 @@ class _SmartPressableState extends State<SmartPressable> {
         curve: Curves.easeOut,
         child: widget.child,
       ),
+    );
+    final String? label = widget.semanticLabel;
+    if (label == null) {
+      return gesture;
+    }
+    // ExcludeSemantics prevents the child's own text/icon semantics (if any)
+    // from being announced alongside this label, avoiding double-reads.
+    return Semantics(
+      label: label,
+      button: widget.button,
+      child: ExcludeSemantics(child: gesture),
     );
   }
 }

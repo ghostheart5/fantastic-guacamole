@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
@@ -9,7 +10,21 @@ class GoalRepository implements IGoalRepository {
 
   static const String _key = 'goals_v2';
 
+  /// Where an unreadable payload is quarantined before it would be overwritten.
+  static const String _corruptBackupKey = 'goals_v2_corrupt_backup';
+
   final HiveStorage<String> _store;
+
+  bool _lastReadCorrupted = false;
+
+  /// True when the most recent [getGoals] could not decode stored data.
+  ///
+  /// A corrupted read returns an empty list so the app stays usable, but that
+  /// empty list is NOT a valid "user has no goals" state — callers that treat
+  /// it as one and then save would destroy recoverable data. [saveGoals]
+  /// quarantines the raw payload first; this flag lets callers and tests tell
+  /// the two situations apart.
+  bool get lastReadCorrupted => _lastReadCorrupted;
 
   @override
   List<GoalEntity> getGoals() {
@@ -17,18 +32,30 @@ class GoalRepository implements IGoalRepository {
     try {
       raw = _store.get(_key);
     } on StateError {
+      _lastReadCorrupted = false;
       return const <GoalEntity>[];
     }
     if (raw == null || raw.trim().isEmpty) {
+      _lastReadCorrupted = false;
       return const <GoalEntity>[];
     }
     try {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
-      return list
+      final List<GoalEntity> goals = list
           .whereType<Map<String, dynamic>>()
           .map(GoalEntity.fromJson)
           .toList(growable: false);
-    } catch (_) {
+      _lastReadCorrupted = false;
+      return goals;
+    } catch (error, stackTrace) {
+      _lastReadCorrupted = true;
+      Logger.errorCategory(
+        'StorageCorruption',
+        'Failed to decode stored goals; returning empty list without '
+            'discarding the raw payload.',
+        error,
+        stackTrace,
+      );
       return const <GoalEntity>[];
     }
   }
@@ -48,8 +75,9 @@ class GoalRepository implements IGoalRepository {
   }
 
   @override
-  Future<void> saveGoals(List<GoalEntity> goals) {
-    return _store.put(
+  Future<void> saveGoals(List<GoalEntity> goals) async {
+    await _quarantineCorruptPayloadIfNeeded();
+    await _store.put(
       _key,
       jsonEncode(goals.map((GoalEntity g) => g.toJson()).toList()),
     );
@@ -61,5 +89,32 @@ class GoalRepository implements IGoalRepository {
         .where((GoalEntity goal) => goal.id != id)
         .toList(growable: false);
     return saveGoals(next);
+  }
+
+  /// Copies an undecodable payload to [_corruptBackupKey] before it is
+  /// overwritten, so a decode bug never becomes permanent data loss.
+  Future<void> _quarantineCorruptPayloadIfNeeded() async {
+    if (!_lastReadCorrupted) {
+      return;
+    }
+    try {
+      final String? raw = _store.get(_key);
+      if (raw != null && raw.trim().isNotEmpty) {
+        await _store.put(_corruptBackupKey, raw);
+        Logger.errorCategory(
+          'StorageCorruption',
+          'Quarantined unreadable goals payload to "$_corruptBackupKey" '
+              'before overwrite.',
+        );
+      }
+    } catch (error, stackTrace) {
+      Logger.errorCategory(
+        'StorageCorruption',
+        'Failed to quarantine unreadable goals payload.',
+        error,
+        stackTrace,
+      );
+    }
+    _lastReadCorrupted = false;
   }
 }

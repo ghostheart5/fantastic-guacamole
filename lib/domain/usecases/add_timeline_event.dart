@@ -1,6 +1,9 @@
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Calendar/timeline
+///
+/// Resolved by timelineProvider.
 class AddTimelineEvent {
   const AddTimelineEvent(this._repository);
 

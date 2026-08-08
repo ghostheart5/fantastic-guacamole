@@ -1,0 +1,33 @@
+# P0 — Onboarding. Content-versioned: bumping TutorialContent.contentVersion
+# replays this for existing users, so a regression here hits everyone, not just
+# new installs.
+appId: com.ghostheart5.chronospark
+tags:
+  - critical
+  - onboarding
+---
+- launchApp:
+    clearState: true
+
+- assertVisible: "CHRONOSPARK"
+
+# Slide 2 previously tagged itself "SMART COACH" while its own body said
+# "Smart Planner". Assert the settled name so the contradiction cannot return.
+- tapOn: "NEXT"
+- assertVisible: "SMART PLANNER"
+- assertNotVisible: "SMART COACH"
+
+- tapOn: "NEXT"
+- assertVisible: "TRAJECTORY ENGINE"
+
+- tapOn: "NEXT"
+- assertVisible: "ACTIVITY LEDGER"
+
+- tapOn: "NEXT"
+- assertVisible: "PAGE GUIDE"
+
+# Personalization is the last page and is where form abandonment happens.
+- tapOn: "NEXT"
+- assertVisible: "PERSONALIZE"
+
+- runFlow: ../subflows/skip-onboarding.yaml

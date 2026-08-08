@@ -1,5 +1,8 @@
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
+///
+/// Canonical task type used by repositories and use cases.
 class TaskEntity {
   const TaskEntity({
     required this.id,

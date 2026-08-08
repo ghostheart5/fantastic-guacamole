@@ -34,7 +34,7 @@ class FirebaseBootstrap {
       return 'Firebase initialization failed: $error';
     } on TimeoutException {
       return 'Firebase initialization timed out. The app started in degraded mode.';
-    } on Exception catch (error) {
+    } on Object catch (error) {
       return 'Firebase initialization failed: $error';
     }
   }

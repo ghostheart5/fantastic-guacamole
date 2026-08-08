@@ -106,7 +106,7 @@ class PaywallRepository implements IPaywallRepository {
           ? 'Premium gates are bypassed in this build so QA can verify the full app.'
           : (aiMode
                 ? 'Purchases are currently supported through Google Play on Android.'
-                : 'Purchases are currently supported through Google Play on Android for Smart Coaching.'),
+                : 'Purchases are currently supported through Google Play on Android for Smart Planning.'),
       plans: await getAvailablePlans(),
       isUnlocked: _testingMode || _subscriptionState.isActive,
     );

@@ -124,9 +124,10 @@ class ProgressionScreen extends ConsumerWidget {
                   children: [
                     SmartPressable(
                       onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
+                      semanticLabel: 'Back to Smart Planner',
                       child: Container(
-                        width: 36,
-                        height: 36,
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
                           color: AppColors.neonCyan.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),

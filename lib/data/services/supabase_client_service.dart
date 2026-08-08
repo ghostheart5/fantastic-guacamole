@@ -24,7 +24,7 @@ class SupabaseClientService {
         'Supabase initialization timed out',
       );
       return 'Supabase initialization timed out. Auth will be unavailable.';
-    } on Exception catch (error) {
+    } on Object catch (error) {
       Logger.errorCategory(
         'Supabase Errors',
         'Supabase initialization failed',

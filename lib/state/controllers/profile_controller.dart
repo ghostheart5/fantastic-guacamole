@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 import 'package:fantastic_guacamole/state/models/streak.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
@@ -21,6 +22,19 @@ class ProfileState {
   final bool soundEnabled;
   final DateTime? lastActiveDate;
 
+  /// Highest level this user had reached under the pre-migration linear curve
+  /// (`(xp ~/ 50) + 1`), which granted levels far faster than the canonical
+  /// [ProgressionPolicy] curve.
+  ///
+  /// Existing users are grandfathered: their displayed level never drops.
+  /// [level] is `max(ProgressionPolicy.levelFromXp(xp), legacyLevelFloor)`, so
+  /// they keep what they earned and simply advance more slowly from here.
+  /// New users start with a floor of 1 and are unaffected.
+  ///
+  /// This is a migration artifact. Once no installs predate the migration it
+  /// can be removed and [level] becomes purely policy-derived.
+  final int legacyLevelFloor;
+
   ProfileState({
     this.xp = 0,
     this.level = 1,
@@ -30,6 +44,7 @@ class ProfileState {
     this.name = 'Operative',
     this.soundEnabled = true,
     this.lastActiveDate,
+    this.legacyLevelFloor = 1,
   });
 
   ProfileState copyWith({
@@ -42,6 +57,7 @@ class ProfileState {
     bool? soundEnabled,
     DateTime? lastActiveDate,
     bool clearLastActiveDate = false,
+    int? legacyLevelFloor,
   }) {
     return ProfileState(
       xp: xp ?? this.xp,
@@ -54,6 +70,7 @@ class ProfileState {
       lastActiveDate: clearLastActiveDate
           ? null
           : (lastActiveDate ?? this.lastActiveDate),
+      legacyLevelFloor: legacyLevelFloor ?? this.legacyLevelFloor,
     );
   }
 
@@ -65,19 +82,47 @@ class ProfileState {
     'name': name,
     'soundEnabled': soundEnabled,
     'lastActiveDate': lastActiveDate?.toIso8601String(),
+    'legacyLevelFloor': legacyLevelFloor,
   };
 
-  factory ProfileState.fromJson(Map<String, dynamic> json) => ProfileState(
-    xp: (json['xp'] as num?)?.toInt() ?? 0,
-    level: (json['level'] as num?)?.toInt() ?? 1,
-    streak: (json['streak'] as num?)?.toInt() ?? 0,
-    longestStreak: (json['longestStreak'] as num?)?.toInt() ?? 0,
-    name: json['name'] as String? ?? 'Operative',
-    soundEnabled: json['soundEnabled'] as bool? ?? true,
-    lastActiveDate: json['lastActiveDate'] != null
-        ? DateTime.tryParse(json['lastActiveDate'] as String)
-        : null,
-  );
+  factory ProfileState.fromJson(Map<String, dynamic> json) {
+    final int storedXp = (json['xp'] as num?)?.toInt() ?? 0;
+    final int storedLevel = (json['level'] as num?)?.toInt() ?? 1;
+
+    // Migration: a record written before the curve was unified has no
+    // 'legacyLevelFloor'. Adopt its stored level as the floor so the user
+    // never sees their level go backwards. Records written after the
+    // migration carry the floor explicitly and are left alone.
+    final int floor =
+        (json['legacyLevelFloor'] as num?)?.toInt() ??
+        (storedLevel > 1 ? storedLevel : 1);
+
+    return ProfileState(
+      xp: storedXp,
+      level: levelFor(xp: storedXp, floor: floor),
+      streak: (json['streak'] as num?)?.toInt() ?? 0,
+      longestStreak: (json['longestStreak'] as num?)?.toInt() ?? 0,
+      name: json['name'] as String? ?? 'Operative',
+      soundEnabled: json['soundEnabled'] as bool? ?? true,
+      lastActiveDate: json['lastActiveDate'] != null
+          ? DateTime.tryParse(json['lastActiveDate'] as String)
+          : null,
+      legacyLevelFloor: floor,
+    );
+  }
+
+  /// The displayed level: the canonical curve, floored by what the user had
+  /// already earned before the migration.
+  static int levelFor({required int xp, required int floor}) {
+    final int policyLevel = ProgressionPolicy.levelFromXp(xp);
+    return policyLevel > floor ? policyLevel : floor;
+  }
+
+  /// True while this user is still carried by the pre-migration floor rather
+  /// than by earned XP. Lets the UI explain the slower climb, and shows when
+  /// the migration artifact can be retired.
+  bool get isGrandfathered =>
+      legacyLevelFloor > ProgressionPolicy.levelFromXp(xp);
 }
 
 final profileProvider = NotifierProvider<ProfileController, ProfileState>(
@@ -130,6 +175,13 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   void addXP(int amount) {
+    if (amount < 0) {
+      throw ArgumentError.value(
+        amount,
+        'amount',
+        'XP award cannot be negative',
+      );
+    }
     final DateTime now = DateTime.now();
     final bool streakBroke = _streakLogic.didBreak(
       Streak(
@@ -140,7 +192,13 @@ class ProfileController extends Notifier<ProfileState> {
       now,
     );
     final int newXP = state.xp + amount;
-    final int newLevel = (newXP ~/ 50) + 1;
+    // ProgressionPolicy is the single source of truth for the level curve,
+    // floored by any level the user earned before the curve was unified so a
+    // grandfathered user never regresses.
+    final int newLevel = ProfileState.levelFor(
+      xp: newXP,
+      floor: state.legacyLevelFloor,
+    );
     final bool didLevelUp = newLevel > state.level;
     final updated = _streakLogic.update(
       Streak(

@@ -36,9 +36,55 @@ For the master release checklist, see [docs/FINAL_AUDIT_SCORECARD.md](docs/FINAL
 
 ## Development
 
+### First-time setup
+
+`.env` is declared as a Flutter asset in `pubspec.yaml` and is git-ignored, so
+a fresh clone has no `.env` and **every** `flutter run` / `flutter test` /
+`flutter build` fails with:
+
+```
+Error detected in pubspec.yaml:
+No file or variants found for asset: .env.
+```
+
+Create it before anything else:
+
+```bash
+cp .env.example .env
+```
+
+Every key is optional and safe to leave blank — blanks fall back to
+`--dart-define` values and then to built-in defaults. Those defaults run the
+app fully offline against local storage, which is all `flutter test` needs.
+See the comments in [.env.example](.env.example) for what each key does, and
+which ones must stay blank rather than being filled with placeholders.
+
+### Everyday commands
+
 - `flutter analyze`
 - `flutter test`
 - `flutter run -d windows`
+
+### Domain layer conventions
+
+`lib/domain` is intentionally larger than the set of features currently
+visible in the UI. Every file carries a classification banner:
+
+```
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
+```
+
+`SHIPPING` backs production behaviour. `PLANNED` is deliberate architecture
+for a ChronoSpark feature that is built or partly built but not yet surfaced —
+it is **not** dead code and must not be deleted. `EXPERIMENTAL` is
+exploratory, `LEGACY` is retained for migration, `DEPRECATED` takes no new
+call sites. `lib/domain/domain.dart` documents the full taxonomy.
+
+To review what is intentionally unwired:
+
+```bash
+rg "CHRONOSPARK-CLASS: PLANNED" lib/domain
+```
 
 ## Integration setup (Supabase, Firebase, Google, GitHub)
 

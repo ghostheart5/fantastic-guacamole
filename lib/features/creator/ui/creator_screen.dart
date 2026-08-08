@@ -31,9 +31,10 @@ class CreatorScreen extends ConsumerWidget {
                   children: [
                     SmartPressable(
                       onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
+                      semanticLabel: 'Back to Smart Planner',
                       child: Container(
-                        width: 36,
-                        height: 36,
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
                           color: AppColors.neonCyan.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
@@ -200,7 +201,7 @@ class _CreatorPurposeCard extends StatelessWidget {
         border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.14)),
       ),
       child: const Text(
-        'Creator is optional. Use Smart Coach, Day Plan, and Flowmap for guided workflows. Use Creator when you want direct, manual task forging.',
+        'Creator is optional. Use Smart Planner and Day Plan for guided workflows. Use Creator when you want direct, manual task forging.',
         style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.45),
       ),
     );

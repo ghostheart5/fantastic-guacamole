@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Milestones
+///
+/// UI-only today: no repository, no use case, no test. See report.
 enum MilestoneStatus { planned, inProgress, completed, overdue, archived }
 
 enum MilestoneCategory {

@@ -226,6 +226,163 @@ void main() {
     expect(mergedTask['title'], 'Cloud newer');
   });
 
+  // Conflict resolution had no coverage for the ambiguous cases, which are the
+  // ones that lose user data. These pin the current rules so a change to them
+  // is visible rather than silent.
+
+  List<Map<String, dynamic>> mergedTasks() {
+    return (gateway.fullBackup?['tasks'] as List<dynamic>)
+        .whereType<Map<dynamic, dynamic>>()
+        .map(
+          (Map<dynamic, dynamic> task) => task.map(
+            (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+          ),
+        )
+        .toList();
+  }
+
+  test('syncDelta breaks an exact timestamp tie in favour of local', () async {
+    // Two devices editing the same task within the same clock tick is rare but
+    // reachable, and an undefined winner here means a silent lost edit.
+    await repository.saveTask(
+      TaskEntity(
+        id: 'shared',
+        title: 'Local edit',
+        createdAt: DateTime.utc(2026, 7, 5, 10),
+      ),
+    );
+    gateway.fullBackup = <String, dynamic>{
+      'version': '3.0.0',
+      'tasks': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 'shared',
+          'title': 'Cloud edit',
+          'createdAt': '2026-07-05T10:00:00.000Z',
+        },
+      ],
+    };
+
+    expect(await syncService.syncDelta(), isTrue);
+    expect(mergedTasks().single['title'], 'Local edit');
+  });
+
+  test('syncDelta keeps a task that exists only in the cloud', () async {
+    // A task created on another device must survive a sync from this one.
+    await repository.saveTask(
+      TaskEntity(
+        id: 'local-only',
+        title: 'From this device',
+        createdAt: DateTime.utc(2026, 7, 5, 9),
+      ),
+    );
+    gateway.fullBackup = <String, dynamic>{
+      'version': '3.0.0',
+      'tasks': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 'cloud-only',
+          'title': 'From another device',
+          'createdAt': '2026-07-05T09:00:00.000Z',
+        },
+      ],
+    };
+
+    expect(await syncService.syncDelta(), isTrue);
+    expect(
+      mergedTasks().map((Map<String, dynamic> task) => task['id']).toSet(),
+      <String>{'local-only', 'cloud-only'},
+    );
+  });
+
+  test('syncDelta ranks a completed local task above an older cloud copy', () async {
+    // _taskTimestamp prefers updatedAt, then completedAt, then createdAt.
+    // TaskEntity has no updatedAt field, so completedAt is the only signal a
+    // local change can actually produce.
+    await repository.saveTask(
+      TaskEntity(
+        id: 'shared',
+        title: 'Local completed later',
+        createdAt: DateTime.utc(2026, 7, 1),
+        isCompleted: true,
+        completedAt: DateTime.utc(2026, 7, 9),
+      ),
+    );
+    gateway.fullBackup = <String, dynamic>{
+      'version': '3.0.0',
+      'tasks': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 'shared',
+          'title': 'Cloud created later, never completed',
+          'createdAt': '2026-07-05T00:00:00.000Z',
+        },
+      ],
+    };
+
+    expect(await syncService.syncDelta(), isTrue);
+    expect(mergedTasks().single['title'], 'Local completed later');
+  });
+
+  test('syncDelta loses a local edit that changes no timestamp', () async {
+    // Documents a real data-loss vector rather than endorsing it. TaskEntity
+    // carries no updatedAt, so renaming or re-prioritising a task locally
+    // leaves createdAt untouched. Conflict resolution therefore cannot see the
+    // edit, and any cloud copy with a later timestamp silently overwrites it.
+    // Adding updatedAt to TaskEntity should flip this assertion.
+    await repository.saveTask(
+      TaskEntity(
+        id: 'shared',
+        title: 'Locally renamed, never synced',
+        createdAt: DateTime.utc(2026, 7, 1),
+      ),
+    );
+    gateway.fullBackup = <String, dynamic>{
+      'version': '3.0.0',
+      'tasks': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 'shared',
+          'title': 'Stale cloud title',
+          'createdAt': '2026-07-05T00:00:00.000Z',
+        },
+      ],
+    };
+
+    expect(await syncService.syncDelta(), isTrue);
+    expect(
+      mergedTasks().single['title'],
+      'Stale cloud title',
+      reason:
+          'Local edits are invisible to merge because TaskEntity has no '
+          'updatedAt to bump.',
+    );
+  });
+
+
+  test(
+    'syncDelta resurrects a locally deleted task that is still in the cloud',
+    () async {
+      // Documents a real gap rather than endorsing it: there are no tombstones,
+      // so deleting on one device and syncing brings the task back. Asserting
+      // it here means adding deletion tracking will fail this test loudly
+      // instead of changing behaviour unnoticed.
+      gateway.fullBackup = <String, dynamic>{
+        'version': '3.0.0',
+        'tasks': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'deleted-here',
+            'title': 'Deleted on this device',
+            'createdAt': '2026-07-05T09:00:00.000Z',
+          },
+        ],
+      };
+
+      expect(await syncService.syncDelta(), isTrue);
+      expect(
+        mergedTasks().single['id'],
+        'deleted-here',
+        reason: 'No tombstone support: cloud copy wins over a local deletion.',
+      );
+    },
+  );
+
   test(
     'syncTasksOnly and restoreTasksOnly operate on task payloads only',
     () async {

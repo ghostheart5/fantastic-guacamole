@@ -7,7 +7,6 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
-import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
@@ -39,7 +38,13 @@ final goalProgressProvider = FutureProvider.family<GoalProgressView, String>((
 class GoalsNotifier extends Notifier<List<GoalEntity>> {
   @override
   List<GoalEntity> build() {
-    final List<GoalEntity> goals = ref.read(getGoalsUseCaseProvider).call();
+    // Completed goals are retained in storage (CompleteGoal no longer deletes)
+    // but stay out of the active list, preserving the previous UI behaviour.
+    final List<GoalEntity> goals = ref
+        .read(getGoalsUseCaseProvider)
+        .call()
+        .where((GoalEntity goal) => !goal.isCompleted)
+        .toList(growable: false);
     final reminders = ref.read(reminderOrchestratorServiceProvider);
     Future<void>(() async {
       await reminders.syncGoalReminders(goals);
@@ -141,14 +146,6 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
             detail: goal.title,
             timestamp: now,
           ),
-        );
-
-    await ref
-        .read(flowmapProvider.notifier)
-        .addNode(
-          title: goal.title,
-          description: '$detailPrefix at ${now.toIso8601String()}',
-          tags: <String>['goal', actionName, 'goal:${goal.id}'],
         );
 
     final int progressionXp = switch (action) {

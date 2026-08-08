@@ -1,0 +1,38 @@
+# P1 — Logout. Verifies session teardown actually revokes access.
+appId: com.ghostheart5.chronospark
+tags:
+  - auth
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/sign-in.yaml
+
+- tapOn: "Profile"
+- waitForAnimationToEnd:
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      text: "Settings"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Settings"
+
+- scrollUntilVisible:
+    element:
+      text: "Log Out"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Log Out"
+
+- runFlow:
+    when:
+      visible: "Log Out"
+    commands:
+      - tapOn: "Log Out"
+
+- extendedWaitUntil:
+    visible: "ENTER SYSTEM"
+    timeout: 20000
+
+# Signing out must not leave the app surface reachable behind the gate.
+- assertNotVisible: "NEXUS"

@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Future automation
 enum RoutineStatus { active, paused, archived }
 
 class RoutineEntity {

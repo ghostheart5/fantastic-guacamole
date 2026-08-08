@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
@@ -10,6 +9,8 @@ import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
+import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
@@ -27,14 +28,17 @@ class NexusScreen extends ConsumerStatefulWidget {
   ConsumerState<NexusScreen> createState() => _NexusScreenState();
 }
 
-class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProviderStateMixin {
+class _NexusScreenState extends ConsumerState<NexusScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
 
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(vsync: this, duration: const Duration(seconds: 3))
-      ..repeat(reverse: true);
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -53,6 +57,12 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
     final trajectory = ref.watch(trajectorySummaryProvider);
     final double momentum = trajectory.momentum;
     final int completedTasks = trajectory.completedTasks;
+
+    // A brand-new user lands on a dashboard where every metric reads zero and
+    // nothing indicates what to do first. When there is genuinely nothing to
+    // summarise, lead with a single concrete action instead of empty gauges.
+    final bool hasNothingYet =
+        completedTasks == 0 && trajectory.pendingTasks == 0;
 
     final String consistencySignal = momentum >= 0.65
         ? 'High'
@@ -75,12 +85,12 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
         ? 'Momentum is active. Keep the next action small and immediate.'
         : 'No completed actions yet. Start with one clear task to establish narrative continuity.';
     final int soulContinuityPct =
-        ((((1 - fatigue) * 0.55) + (momentum * 0.45)).clamp(0.0, 1.0) * 100).round();
+        ((((1 - fatigue) * 0.55) + (momentum * 0.45)).clamp(0.0, 1.0) * 100)
+            .round();
     final double narrativePresence =
-        ((completedTasks > 0 ? 0.5 : 0.28) + (profile.streak.clamp(0, 14) / 14) * 0.5).clamp(
-          0.0,
-          1.0,
-        );
+        ((completedTasks > 0 ? 0.5 : 0.28) +
+                (profile.streak.clamp(0, 14) / 14) * 0.5)
+            .clamp(0.0, 1.0);
     final int narrativePresencePct = (narrativePresence * 100).round();
 
     return AnimatedSystemBackground(
@@ -91,13 +101,23 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(child: _NexusHeader(profile: profile)),
+              if (hasNothingYet)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _FirstRunCta(),
+                  ),
+                ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: AnimatedBuilder(
                     animation: _pulse,
-                    builder: (context, _) =>
-                        _SystemRings(energy: energy, fatigue: fatigue, pulse: _pulse.value),
+                    builder: (context, _) => _SystemRings(
+                      energy: energy,
+                      fatigue: fatigue,
+                      pulse: _pulse.value,
+                    ),
                   ),
                 ),
               ),
@@ -134,7 +154,10 @@ class _NexusScreenState extends ConsumerState<NexusScreen> with SingleTickerProv
                 ),
               ),
               const SliverToBoxAdapter(
-                child: Padding(padding: EdgeInsets.fromLTRB(16, 10, 16, 24), child: _ActionGrid()),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, 10, 16, 24),
+                  child: _ActionGrid(),
+                ),
               ),
             ],
           ),

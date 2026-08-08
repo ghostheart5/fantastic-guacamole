@@ -5,7 +5,6 @@ import 'package:fantastic_guacamole/core/eventing/event_bus.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
@@ -42,11 +41,6 @@ final eventBusBootstrapProvider = Provider<void>((Ref ref) {
     bus.on<InsightLifecycleEvent>().listen((InsightLifecycleEvent _) {
       ref.invalidate(insightsBundleProvider);
       ref.invalidate(memoriesProvider);
-      ref.invalidate(soulStateProvider);
-      ref.invalidate(domainSiDecisionProvider);
-    }),
-    bus.on<FlowmapLifecycleEvent>().listen((FlowmapLifecycleEvent _) {
-      ref.invalidate(flowmapProvider);
       ref.invalidate(soulStateProvider);
       ref.invalidate(domainSiDecisionProvider);
     }),

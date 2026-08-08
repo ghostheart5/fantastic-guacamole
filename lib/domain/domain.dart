@@ -1,3 +1,33 @@
+// ChronoSpark domain barrel.
+//
+// READ THIS BEFORE "CLEANING UP" ANYTHING IN lib/domain.
+//
+// ChronoSpark has a deliberately large domain layer because the product is
+// built around Smart Planner, SI Console, adaptive learning, sessions,
+// progression, goals, workspace, calendar, subscriptions and automation.
+// A file having no callers does NOT mean it is dead code — a lot of this is
+// planned architecture that ships ahead of its UI.
+//
+// Every file under lib/domain carries a classification banner:
+//
+//     /// CHRONOSPARK-CLASS: <CLASS> | Feature: <feature>
+//
+// where <CLASS> is one of:
+//   SHIPPING     — used by production behaviour. Must stay wired, tested,
+//                  policy-gated and input-validated.
+//   PLANNED      — intentionally kept for a ChronoSpark feature that is built
+//                  or partially built but not yet surfaced in UI. Do not
+//                  delete. Do not wire until the matching feature exists.
+//   EXPERIMENTAL — exploratory. Keep, but never treat as shipping behaviour.
+//   LEGACY       — older shape retained for compatibility/migration. Needs a
+//                  migration plan, not a delete.
+//   DEPRECATED   — no new call sites; retained so imports/migrations keep
+//                  working.
+//
+// To audit: `rg "CHRONOSPARK-CLASS: PLANNED" lib/domain`
+//
+// This barrel intentionally exports PLANNED and EXPERIMENTAL surfaces.
+
 // Entities
 export 'package:fantastic_guacamole/domain/entities/automation_entity.dart';
 export 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';
@@ -39,7 +69,6 @@ export 'package:fantastic_guacamole/domain/entities/workspace_entity.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_calendar_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_entitlement_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_extended_domain_repository.dart';
-export 'package:fantastic_guacamole/domain/interfaces/i_flowmap_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_identity_repository.dart';
 export 'package:fantastic_guacamole/domain/interfaces/i_insight_repository.dart';
@@ -82,7 +111,6 @@ export 'package:fantastic_guacamole/domain/usecases/complete_task.dart';
 export 'package:fantastic_guacamole/domain/usecases/create_goal.dart';
 export 'package:fantastic_guacamole/domain/usecases/create_plan.dart';
 export 'package:fantastic_guacamole/domain/usecases/create_task.dart';
-export 'package:fantastic_guacamole/domain/usecases/delete_flowmap_node.dart';
 export 'package:fantastic_guacamole/domain/usecases/delete_goal.dart';
 export 'package:fantastic_guacamole/domain/usecases/delete_memory.dart';
 export 'package:fantastic_guacamole/domain/usecases/delete_task.dart';
@@ -97,7 +125,6 @@ export 'package:fantastic_guacamole/domain/usecases/get_calendar_entries.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_coach_messages.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_current_theme.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_extended_app_settings.dart';
-export 'package:fantastic_guacamole/domain/usecases/get_flowmap_nodes.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_identity_profile.dart';
 export 'package:fantastic_guacamole/domain/usecases/get_insights.dart';
@@ -141,7 +168,6 @@ export 'package:fantastic_guacamole/domain/usecases/start_session.dart';
 export 'package:fantastic_guacamole/domain/usecases/start_subscription.dart';
 export 'package:fantastic_guacamole/domain/usecases/switch_theme.dart';
 export 'package:fantastic_guacamole/domain/usecases/switch_workspace.dart';
-export 'package:fantastic_guacamole/domain/usecases/update_flowmap_node.dart';
 export 'package:fantastic_guacamole/domain/usecases/update_goal.dart';
 export 'package:fantastic_guacamole/domain/usecases/update_learning_state.dart';
 export 'package:fantastic_guacamole/domain/usecases/update_level.dart';

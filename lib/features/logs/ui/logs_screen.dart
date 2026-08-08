@@ -65,11 +65,42 @@ class LogsScreen extends ConsumerWidget {
                   )
                 else if (logsAsync.error != null)
                   Center(
-                    child: Text(
-                      'Log stream offline: ${logsAsync.error}',
-                      style: const TextStyle(
-                        color: AppColors.recallRed,
-                        fontSize: 12,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.cloud_off_rounded,
+                            color: AppColors.recallRed,
+                            size: 28,
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            // Never surface the raw error object here: it leaks
+                            // stack detail to users and reads as a crash.
+                            "We couldn't load your activity right now.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Check your connection and try again.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () => ref.invalidate(logsProvider),
+                            child: const Text('Try again'),
+                          ),
+                        ],
                       ),
                     ),
                   )

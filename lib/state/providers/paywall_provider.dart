@@ -7,11 +7,16 @@ import 'package:fantastic_guacamole/domain/entities/paywall_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/paywall_plan.dart';
 import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
+import 'package:fantastic_guacamole/domain/usecases/cancel_subscription.dart';
+import 'package:fantastic_guacamole/domain/usecases/check_entitlement.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_available_plans.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_paywall_config.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_user_subscription_state.dart';
 import 'package:fantastic_guacamole/domain/usecases/restore_purchases.dart';
 import 'package:fantastic_guacamole/domain/usecases/start_subscription.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
+import 'package:fantastic_guacamole/state/providers/entitlement_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
 import 'package:fantastic_guacamole/state/services/credit_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,7 +26,14 @@ final creditServiceProvider = Provider<CreditService>((ref) {
 });
 
 final aiCreditWalletProvider = FutureProvider<AiCreditWallet>((ref) async {
-  final bool premium = ref.watch(appAccessProvider).hasPremiumAccess;
+  final bool testerAccess = ref.watch(appAccessProvider).hasTesterFullAccess;
+  // Wait for entitlement to resolve before touching the wallet. Loading it
+  // while access is still unknown would rebuild a premium wallet as free and
+  // reset the user's balance on every launch.
+  final EntitlementState entitlement = await ref.watch(
+    entitlementProvider.future,
+  );
+  final bool premium = testerAccess || entitlement.isPremium;
   return ref.read(creditServiceProvider).loadWallet(premium: premium);
 });
 
@@ -39,6 +51,23 @@ final startSubscriptionUseCaseProvider = Provider<StartSubscription>((ref) {
 
 final restorePurchasesUseCaseProvider = Provider<RestorePurchases>((ref) {
   return RestorePurchases(ref.read(paywallRepositoryProvider));
+});
+
+final cancelSubscriptionUseCaseProvider = Provider<CancelSubscription>((ref) {
+  return CancelSubscription(ref.read(paywallRepositoryProvider));
+});
+
+final getPaywallConfigUseCaseProvider = Provider<GetPaywallConfig>((ref) {
+  return GetPaywallConfig(ref.read(paywallRepositoryProvider));
+});
+
+final getUserSubscriptionStateUseCaseProvider =
+    Provider<GetUserSubscriptionState>((ref) {
+      return GetUserSubscriptionState(ref.read(paywallRepositoryProvider));
+    });
+
+final checkEntitlementUseCaseProvider = Provider<CheckEntitlement>((ref) {
+  return CheckEntitlement(ref.read(paywallRepositoryProvider));
 });
 
 final paywallActionsProvider = Provider<PaywallActions>((ref) {

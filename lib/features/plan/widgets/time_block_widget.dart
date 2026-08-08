@@ -11,6 +11,7 @@ class TimeBlockWidget extends StatelessWidget {
     required this.accent,
     this.completed = false,
     this.isCompleting = false,
+    this.isNext = false,
     this.onCompleteTask,
   });
 
@@ -21,6 +22,9 @@ class TimeBlockWidget extends StatelessWidget {
   final Color accent;
   final bool completed;
   final bool isCompleting;
+
+  /// Marks the block the planner recommends working on now.
+  final bool isNext;
   final Future<void> Function(String taskId)? onCompleteTask;
 
   @override
@@ -30,9 +34,15 @@ class TimeBlockWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF050D1A),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: accent.withValues(alpha: isNext ? 0.65 : 0.2),
+          width: isNext ? 1.6 : 1.0,
+        ),
         boxShadow: [
-          BoxShadow(color: accent.withValues(alpha: 0.06), blurRadius: 12),
+          BoxShadow(
+            color: accent.withValues(alpha: isNext ? 0.22 : 0.06),
+            blurRadius: isNext ? 18 : 12,
+          ),
         ],
       ),
       child: Row(
@@ -51,15 +61,43 @@ class TimeBlockWidget extends StatelessWidget {
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isNext) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'UP NEXT',
+                      style: TextStyle(
+                        fontSize: 9,
+                        letterSpacing: 1.2,
+                        color: accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                ],
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
           Column(

@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Future automation
+///
+/// Trigger/action automations. Not yet referenced.
 enum AutomationStatus { enabled, disabled, paused, archived }
 
 class AutomationEntity {

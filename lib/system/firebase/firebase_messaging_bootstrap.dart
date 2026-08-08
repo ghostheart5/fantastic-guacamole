@@ -74,7 +74,7 @@ class FirebaseMessagingBootstrap {
       });
 
       return null;
-    } on Exception catch (error) {
+    } on Object catch (error) {
       return 'Firebase Messaging initialization failed: $error';
     }
   }

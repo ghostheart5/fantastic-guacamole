@@ -3,6 +3,13 @@ import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 
+/// SHIPPING Smart Planner path. `PlanScreen` renders the `TimeBlock` list this
+/// produces. Plans are built in-memory per render and are NOT persisted.
+///
+/// The alternate persisted path — `IPlanRepository` plus the
+/// `CreatePlan`/`GetPlan`/`UpdatePlan` use cases — is wired but has no consumer.
+/// Keep the two in mind together: a change to planning rules here does not
+/// affect that path, and vice versa.
 class CalendarService {
   final Map<String, CalendarEntry> _entries = <String, CalendarEntry>{};
   final Map<String, List<TimeBlock>> _timeBlocksByDay =

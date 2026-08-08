@@ -18,6 +18,48 @@ class NotificationScheduler {
   static final ValueNotifier<bool?> permissionGrantedListenable =
       ValueNotifier<bool?>(null);
 
+  /// The payload of the most recently tapped notification.
+  ///
+  /// Set both for a tap while the app is running and for a cold launch from a
+  /// notification (see [consumeLaunchPayload]). Previously no response handler
+  /// was registered at all, so tapping a reminder did nothing beyond opening
+  /// the app and a launch-from-notification was indistinguishable from a
+  /// normal launch.
+  static final ValueNotifier<String?> tappedPayloadListenable =
+      ValueNotifier<String?>(null);
+
+  /// Payload the app was launched with, if it was launched by a notification
+  /// tap. Returns null once consumed so a later read cannot re-route.
+  Future<String?> consumeLaunchPayload() async {
+    if (!_initialized) {
+      return null;
+    }
+    try {
+      final NotificationAppLaunchDetails? details = await _plugin
+          .getNotificationAppLaunchDetails();
+      if (details == null || !details.didNotificationLaunchApp) {
+        return null;
+      }
+      final String? payload = details.notificationResponse?.payload;
+      if (payload == null || payload.isEmpty) {
+        return null;
+      }
+      return payload;
+    } on Object catch (error) {
+      Logger.warn('Failed to read notification launch details: $error');
+      return null;
+    }
+  }
+
+  static void _handleNotificationResponse(NotificationResponse response) {
+    final String? payload = response.payload;
+    Logger.log('Notifications', 'Notification tapped: ${payload ?? '(none)'}');
+    RuntimeDiagnostics.record('Notification tapped: ${payload ?? '(none)'}');
+    if (payload != null && payload.isNotEmpty) {
+      tappedPayloadListenable.value = payload;
+    }
+  }
+
   static const _channel = AndroidNotificationChannel(
     'chronospark_channel',
     'ChronoSpark',
@@ -48,7 +90,10 @@ class NotificationScheduler {
       iOS: darwin,
       macOS: darwin,
     );
-    await _plugin.initialize(settings: settings);
+    await _plugin.initialize(
+      settings: settings,
+      onDidReceiveNotificationResponse: _handleNotificationResponse,
+    );
     _initialized = true;
 
     final AndroidFlutterLocalNotificationsPlugin? androidPlugin = _plugin
@@ -67,8 +112,25 @@ class NotificationScheduler {
     await androidPlugin?.createNotificationChannel(_channel);
 
     if (!requestPermissions) {
-      _permissionGranted =
-          await androidPlugin?.areNotificationsEnabled() ?? false;
+      // Query the platform we are actually on. This previously read
+      // `androidPlugin?.areNotificationsEnabled() ?? false`, so on iOS/macOS —
+      // where androidPlugin is null — it always resolved to false and every
+      // later schedule() call silently skipped. Goal, habit and daily-planning
+      // reminders never scheduled on iOS as a result.
+      if (androidPlugin != null) {
+        _permissionGranted =
+            await androidPlugin.areNotificationsEnabled() ?? false;
+      } else if (iosPlugin != null) {
+        _permissionGranted =
+            (await iosPlugin.checkPermissions())?.isAlertEnabled ?? false;
+      } else if (macosPlugin != null) {
+        _permissionGranted =
+            (await macosPlugin.checkPermissions())?.isAlertEnabled ?? false;
+      } else {
+        // No supported local-notification implementation on this platform
+        // (desktop/web). Nothing to schedule against.
+        _permissionGranted = false;
+      }
       permissionGrantedListenable.value = _permissionGranted;
       return _permissionGranted;
     }
@@ -115,6 +177,13 @@ class NotificationScheduler {
   Future<bool> requestPermissions() => init(requestPermissions: true);
 
   Future<void> schedule(NotificationEntity notification) async {
+    if (!notification.isEnabled) {
+      // In-app-only entries (task completion/skip feedback and similar
+      // transient toasts) are persisted for the in-app notification list but
+      // must never reach the OS. Without this guard every task interaction
+      // posted a real system notification one second later.
+      return;
+    }
     if (!_initialized) {
       Logger.warn(
         'Skipped schedule because notification scheduler is not initialized.',
@@ -152,6 +221,8 @@ class NotificationScheduler {
       scheduledDate: scheduledTz,
       notificationDetails: _notifDetails,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      // Carry the domain id so a tap can be routed back to what it refers to.
+      payload: notification.id,
     );
   }
 
@@ -162,8 +233,26 @@ class NotificationScheduler {
     required int hour,
     required int minute,
   }) async {
-    if (!_initialized) return;
-    if (!_permissionGranted) return;
+    if (!_initialized) {
+      Logger.warn(
+        'Skipped daily schedule "$id" because the scheduler is not '
+        'initialized.',
+      );
+      RuntimeDiagnostics.record(
+        'Skipped daily notification schedule "$id": scheduler not initialized.',
+      );
+      return;
+    }
+    if (!_permissionGranted) {
+      Logger.log(
+        'Notifications',
+        'Skipped daily schedule "$id" because permission is not granted.',
+      );
+      RuntimeDiagnostics.record(
+        'Skipped daily notification schedule "$id": permission not granted.',
+      );
+      return;
+    }
     final now = tz.TZDateTime.now(tz.local);
     var scheduled = tz.TZDateTime(
       tz.local,
@@ -184,6 +273,7 @@ class NotificationScheduler {
       notificationDetails: _notifDetails,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
+      payload: id,
     );
   }
 

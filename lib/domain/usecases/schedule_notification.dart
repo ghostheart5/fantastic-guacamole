@@ -3,6 +3,9 @@ import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.
 import 'package:fantastic_guacamole/domain/policies/notification_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_si_decision.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Notifications
+///
+/// Resolved by notificationProvider. Gated by NotificationPolicy.canSchedule.
 class ScheduleNotification {
   ScheduleNotification(this.repository, {this.generateSiDecision});
 

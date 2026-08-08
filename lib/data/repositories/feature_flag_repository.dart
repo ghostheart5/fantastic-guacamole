@@ -8,8 +8,6 @@ class FeatureFlagRepository {
   final RemoteConfigService _remoteConfigService;
 
   static const Map<String, bool> _defaultFlags = <String, bool>{
-    'tutorial_enabled': true,
-    'nexus_micro_tutorial_enabled': true,
     'daily_reflection_tutorial_enabled': true,
     'new_paywall_copy_enabled': false,
   };

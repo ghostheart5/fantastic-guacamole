@@ -53,7 +53,7 @@ class TypeSelector extends StatelessWidget {
                 duration: const Duration(milliseconds: 150),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
-                  vertical: 7,
+                  vertical: 12,
                 ),
                 decoration: BoxDecoration(
                   color: isSelected

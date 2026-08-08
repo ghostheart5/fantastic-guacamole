@@ -68,6 +68,16 @@ void main() {
       container.read(mockAuthSessionProvider.notifier).set(true);
 
       expect(container.read(authenticatedGuardProvider), isTrue);
+
+      // A StreamProvider only subscribes to its stream while something is
+      // listening. Reading `.future` on its own does not establish that
+      // subscription, so without this listener the await never completes.
+      final ProviderSubscription<AsyncValue<User?>> sub = container.listen(
+        authUserProvider,
+        (AsyncValue<User?>? _, AsyncValue<User?> _) {},
+      );
+      addTearDown(sub.close);
+
       final User? mockUser = await container.read(authUserProvider.future);
       expect(mockUser, isNotNull);
       expect(mockUser?.id, 'mock-user');

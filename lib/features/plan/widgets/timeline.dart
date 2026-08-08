@@ -9,11 +9,13 @@ class Timeline extends StatelessWidget {
     required this.blocks,
     this.onCompleteTask,
     this.completingTaskIds = const <String>{},
+    this.highlightedBlockId,
   });
 
   final List<TimeBlock> blocks;
   final Future<void> Function(String taskId)? onCompleteTask;
   final Set<String> completingTaskIds;
+  final String? highlightedBlockId;
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +28,7 @@ class Timeline extends StatelessWidget {
         blocks: blocks,
         onCompleteTask: onCompleteTask,
         completingTaskIds: completingTaskIds,
+        highlightedBlockId: highlightedBlockId,
       ),
     );
   }

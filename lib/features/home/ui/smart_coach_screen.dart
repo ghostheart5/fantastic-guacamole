@@ -5,7 +5,6 @@ import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.da
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
-import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
@@ -386,7 +385,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                                   emotion: _emotion,
                                 ),
                                 const _VoiceAccessibilityButton(),
-                                const _MicButton(),
+                                _MicButton(
+                                  onRecognized: (String text) =>
+                                      _followUpController.text = text,
+                                ),
                               ],
                             ),
                           ],
@@ -436,10 +438,10 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
       children: [
         SmartPressable(
           onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
-          child: const Icon(
-            Icons.arrow_back_ios,
-            color: Colors.white54,
-            size: 18,
+          semanticLabel: 'Back',
+          child: const Padding(
+            padding: EdgeInsets.all(11),
+            child: Icon(Icons.arrow_back_ios, color: Colors.white54, size: 18),
           ),
         ),
         const SizedBox(width: 14),
@@ -451,7 +453,7 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                 colors: [AppColors.neonCyan, AppColors.neonViolet],
               ).createShader(bounds),
               child: const Text(
-                'SMART COACH',
+                'SMART PLANNER',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -765,8 +767,9 @@ class _VoiceButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
       onTap: () => unawaited(ref.read(voiceServiceProvider).speak(message)),
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
           color: AppColors.memoryAmber.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
@@ -817,7 +820,7 @@ class _VoiceSummaryButton extends ConsumerWidget {
         ref
             .read(voiceServiceProvider)
             .speakSummary(
-              title: 'Smart Coach voice summary',
+              title: 'Smart Planner voice summary',
               points: <String>[
                 'Energy is ${(energy * 100).round()} percent',
                 'Emotion state is ${emotion.name}',
@@ -825,8 +828,9 @@ class _VoiceSummaryButton extends ConsumerWidget {
               ],
             ),
       ),
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
           color: AppColors.neonCyan.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(8),
@@ -859,6 +863,7 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         showModalBottomSheet<void>(
           context: context,
@@ -902,7 +907,7 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
           ref
               .read(voiceServiceProvider)
               .speakAccessibilityHint(
-                surface: 'Smart Coach',
+                surface: 'Smart Planner',
                 controls: const <String>[
                   'Adjust energy slider to set intensity',
                   'Select emotional state to tune guidance',
@@ -915,7 +920,7 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
         );
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(8),
@@ -947,32 +952,46 @@ class _VoiceAccessibilityButton extends ConsumerWidget {
 }
 
 class _MicButton extends ConsumerWidget {
-  const _MicButton();
+  const _MicButton({required this.onRecognized});
+
+  final ValueChanged<String> onRecognized;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final VoiceState voice = ref.watch(voiceControllerProvider);
     final bool listening = voice.isListening;
+
+    // Recognized speech populates the follow-up box for explicit review and
+    // send - it is never auto-sent or routed as a command.
+    ref.listen<VoiceState>(voiceControllerProvider, (previous, next) {
+      final bool stoppedListening =
+          (previous?.isListening ?? false) && !next.isListening;
+      if (stoppedListening && next.recognizedText.trim().isNotEmpty) {
+        onRecognized(next.recognizedText.trim());
+        ref.read(voiceControllerProvider.notifier).clearRecognizedText();
+      }
+    });
+
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () async {
         if (listening) {
           await ref.read(voiceControllerProvider.notifier).stopListening();
-        } else {
-          await ref.read(settingsUiActionsProvider).requestVoicePermission();
-          await ref.read(voiceControllerProvider.notifier).startListening();
-          if (!context.mounted) {
-            return;
-          }
-          final String message =
-              ref.read(voiceControllerProvider).error ??
-              'Voice input is not available in this build. First step: type your request in Focus Context and tap GET INSIGHT.';
+          return;
+        }
+        await ref.read(voiceControllerProvider.notifier).startListening();
+        if (!context.mounted) {
+          return;
+        }
+        final String? error = ref.read(voiceControllerProvider).error;
+        if (error != null) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text(message)));
+          ).showSnackBar(SnackBar(content: Text(error)));
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
           color: listening
               ? AppColors.neonCyan.withValues(alpha: 0.15)
@@ -1158,30 +1177,34 @@ class _QuickNavCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 52,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.07),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 16),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            height: 52,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: color, size: 16),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

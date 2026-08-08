@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Calendar/timeline
 enum TimelineEventType {
   reflection,
   levelUp,

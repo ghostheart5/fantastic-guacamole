@@ -5,6 +5,9 @@ import 'package:fantastic_guacamole/domain/entities/subscription_state.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_entitlement_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_subscription_repository.dart';
 
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Subscriptions/paywall
+///
+/// Bound to PaywallRepository or GooglePlayPaywallRepository by platform.
 abstract class IPaywallRepository
     implements ISubscriptionRepository, IEntitlementRepository {
   @override

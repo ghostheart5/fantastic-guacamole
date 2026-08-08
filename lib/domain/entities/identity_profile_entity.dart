@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Identity/onboarding
 class IdentityProfileEntity {
   const IdentityProfileEntity({
     this.disciplineIdentity = 0.1,

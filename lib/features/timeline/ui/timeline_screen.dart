@@ -135,9 +135,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       SmartPressable(
                         onTap: () =>
                             ref.read(appFlowProvider.notifier).toCoach(),
+                        semanticLabel: 'Back to Smart Planner',
                         child: Container(
-                          width: 36,
-                          height: 36,
+                          width: 48,
+                          height: 48,
                           decoration: BoxDecoration(
                             color: AppColors.neonViolet.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(10),
@@ -427,15 +428,22 @@ class _TimelineEventTile extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        event.title,
-                        style: TextStyle(
-                          color: _color,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
+                      // Titles are user-entered, so the title has to yield space
+                      // to the fixed-width time label instead of overflowing.
+                      Expanded(
+                        child: Text(
+                          event.title,
+                          style: TextStyle(
+                            color: _color,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         DateTimeFormats.timelineTime(_eventMoment(event)),
                         style: const TextStyle(
@@ -642,7 +650,7 @@ class _Chip extends StatelessWidget {
     return SmartPressable(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         decoration: BoxDecoration(
           color: selected
               ? AppColors.neonCyan.withValues(alpha: 0.18)

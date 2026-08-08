@@ -51,7 +51,11 @@ void main() {
     await _tapPrimaryButton(tester, 'NEXT');
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('SMART COACH'), findsOneWidget);
+    // The feature is Smart Planner. This slide previously tagged itself
+    // "SMART COACH" while its own body text said "Smart Planner", so a new
+    // user met two names for one feature 20 seconds into first launch.
+    expect(find.text('SMART PLANNER'), findsOneWidget);
+    expect(find.text('SMART COACH'), findsNothing);
   });
 
   testWidgets('personalization completion persists name and goal type', (

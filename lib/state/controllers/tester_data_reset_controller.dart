@@ -7,7 +7,6 @@ import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/behavior_provider.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
-import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
@@ -42,7 +41,6 @@ class TesterDataResetController {
     _ref.invalidate(memoriesProvider);
     _ref.invalidate(behaviorStateProvider);
     _ref.invalidate(identityStateProvider);
-    _ref.invalidate(flowmapProvider);
     _ref.invalidate(learningProvider);
     _ref.invalidate(learningHistoryProvider);
     _ref.invalidate(siStateProvider);

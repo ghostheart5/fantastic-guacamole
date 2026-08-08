@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
+import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/app/router/info_pages.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
@@ -54,6 +55,57 @@ String _resolveInitialLocation({
   return RoutePaths.home;
 }
 
+/// Pure decision logic for the top-level go_router redirect. Extracted so it
+/// can be unit-tested (including fuzzed across input combinations) without
+/// spinning up a [GoRouter]/widget tree. Returning `null` means "no top-level
+/// redirect" — the request falls through to route matching, where a
+/// per-route `redirect` (e.g. the legacy aliases below) may still apply.
+String? computeAppRedirect({
+  required bool isAuthenticated,
+  required bool onboardingComplete,
+  required bool mockLoginEnabled,
+  required String location,
+}) {
+  if (!onboardingComplete && location != RoutePaths.onboarding) {
+    if (mockLoginEnabled && location == RoutePaths.login) {
+      return null;
+    }
+    return RoutePaths.onboarding;
+  }
+
+  if (location == RoutePaths.shell && isAuthenticated) {
+    return RoutePaths.home;
+  }
+
+  if (location == RoutePaths.onboarding) {
+    if (!onboardingComplete) {
+      return null;
+    }
+    if (isAuthenticated) {
+      return RoutePaths.home;
+    }
+    return RoutePaths.login;
+  }
+
+  if (!isAuthenticated &&
+      onboardingComplete &&
+      location != RoutePaths.login) {
+    return RoutePaths.login;
+  }
+
+  if (location == RoutePaths.login &&
+      !onboardingComplete &&
+      !mockLoginEnabled) {
+    return RoutePaths.onboarding;
+  }
+
+  if (location == RoutePaths.login && isAuthenticated) {
+    return RoutePaths.home;
+  }
+
+  return null;
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final _AppRouterRefreshListenable refresh = ref.read(
     _appRouterRefreshListenableProvider,
@@ -68,52 +120,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     debugLogDiagnostics: false,
     refreshListenable: refresh,
     redirect: (BuildContext context, GoRouterState state) {
-      final bool isAuthenticated = refresh.isAuthenticated;
-      final bool onboardingComplete = refresh.onboardingComplete;
-      final bool mockLoginEnabled = ref
-          .read(intelligenceStateProvider)
-          .flags
-          .mockLoginEnabled;
-      final String location = state.matchedLocation;
-
-      if (!onboardingComplete && location != RoutePaths.onboarding) {
-        if (mockLoginEnabled && location == RoutePaths.login) {
-          return null;
-        }
-        return RoutePaths.onboarding;
-      }
-
-      if (location == RoutePaths.shell && isAuthenticated) {
-        return RoutePaths.home;
-      }
-
-      if (location == RoutePaths.onboarding) {
-        if (!onboardingComplete) {
-          return null;
-        }
-        if (isAuthenticated) {
-          return RoutePaths.home;
-        }
-        return RoutePaths.login;
-      }
-
-      if (!isAuthenticated &&
-          onboardingComplete &&
-          location != RoutePaths.login) {
-        return RoutePaths.login;
-      }
-
-      if (location == RoutePaths.login &&
-          !onboardingComplete &&
-          !mockLoginEnabled) {
-        return RoutePaths.onboarding;
-      }
-
-      if (location == RoutePaths.login && isAuthenticated) {
-        return RoutePaths.home;
-      }
-
-      return null;
+      return computeAppRedirect(
+        isAuthenticated: refresh.isAuthenticated,
+        onboardingComplete: refresh.onboardingComplete,
+        mockLoginEnabled: ref
+            .read(intelligenceStateProvider)
+            .flags
+            .mockLoginEnabled,
+        location: state.matchedLocation,
+      );
     },
     routes: <RouteBase>[
       // Primary surfaces: Now, Plan, Add, Reflect, Settings.
@@ -221,7 +236,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 intelligence.flags.testerFullAccess,
             mockLoginEmail: mockLoginConfig.email,
             mockLoginPassword: mockLoginConfig.password,
-            deepLinkMode: state.uri.queryParameters['mode'],
+            deepLinkMode: parseDeepLinkMode(state.uri.queryParameters['mode']),
             child: const NavigationShell(),
           );
         },

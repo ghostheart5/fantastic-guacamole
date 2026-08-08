@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Subscriptions/paywall
 class SubscriptionState {
   const SubscriptionState({
     required this.isActive,

@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console
+///
+/// In-memory only; no data-layer persistence yet.
 class SiStateEntity {
   SiStateEntity({
     required this.energy,

@@ -1,3 +1,11 @@
+/// CHRONOSPARK-CLASS: LEGACY | Feature: Smart Planner
+///
+/// Planner render shape duplicating CalendarEntryEntity. Migration target is
+/// CalendarEntryEntity.
+/// TODO(duplication): [TimeBlock] duplicates `CalendarEntryEntity` field for
+/// field (only `completed` vs `isCompleted` differs by name). This is the type
+/// the shipping planner UI renders; `CalendarEntryEntity` is the persisted one.
+/// Migration target: `CalendarEntryEntity`. See `lib/domain/entities/calendar_entry.dart`.
 class TimeBlock {
   const TimeBlock({
     required this.id,

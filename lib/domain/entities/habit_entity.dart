@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Future automation
+///
+/// Habit tracking surface. HabitRepository exists; no UI yet.
 enum HabitCadence { daily, weekly, monthly }
 
 enum HabitStatus { active, paused, archived }

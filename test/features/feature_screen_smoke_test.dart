@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
@@ -7,9 +6,6 @@ import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/si/si_synthetic_soul_layer.dart';
-import 'package:fantastic_guacamole/features/flowmap/domain/flowmap_graph_entity.dart';
-import 'package:fantastic_guacamole/features/flowmap/domain/flowmap_node_entity.dart';
-import 'package:fantastic_guacamole/features/flowmap/ui/flowmap_screen.dart';
 import 'package:fantastic_guacamole/features/memories/ui/memories_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/soul_map/ui/soul_map_screen.dart';
@@ -22,9 +18,6 @@ import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/feature_flags_provider.dart';
-import 'package:fantastic_guacamole/state/providers/feature_flowmap_provider.dart';
-import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
@@ -56,34 +49,6 @@ void main() {
 
     expect(find.text('TIMELINE OPS'), findsOneWidget);
     expect(find.text('Completed sprint review'), findsOneWidget);
-  });
-
-  testWidgets('FlowmapScreen renders nodes from the legacy read path', (
-    WidgetTester tester,
-  ) async {
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        flowmapProvider.overrideWith(_StaticFlowmapController.new),
-        featureFlowmapGraphProvider.overrideWith(
-          _StaticFeatureFlowmapGraphController.new,
-        ),
-        featureFlagEnabledProvider(
-          'flowmap_feature_read_path',
-        ).overrideWith((Ref ref) => false),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: FlowmapScreen()),
-      ),
-    );
-    await tester.pump();
-
-    expect(find.text('FLOWMAP'), findsOneWidget);
-    expect(find.text('Priority Graph'), findsOneWidget);
   });
 
   testWidgets('MemoriesScreen renders starred memories first', (
@@ -176,33 +141,12 @@ class _StaticTimelineNotifier extends TimelineNotifier {
       type: TimelineEventType.goalComplete,
       title: 'Completed sprint review',
       detail: 'Closed the review loop for the weekly plan.',
-      timestamp: DateTime.utc(2026, 7, 7, 9, 30),
+      // Must be relative to now: TimelineScreen defaults to the "week" window,
+      // so a hardcoded date silently stops matching once it ages out and the
+      // test fails for a reason that has nothing to do with the screen.
+      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
     ),
   ];
-}
-
-class _StaticFlowmapController extends FlowmapController {
-  @override
-  AsyncValue<List<FlowmapNode>> build() => AsyncValue.data(<FlowmapNode>[
-    FlowmapNode(
-      id: 'flow-1',
-      title: 'Priority Graph',
-      description: 'Maps the current work dependencies.',
-      createdAt: DateTime.utc(2026, 7, 7),
-    ),
-  ]);
-}
-
-class _StaticFeatureFlowmapGraphController
-    extends FeatureFlowmapGraphController {
-  @override
-  AsyncValue<FlowmapGraphEntity> build() => const AsyncValue.data(
-    FlowmapGraphEntity(
-      nodes: <FlowmapNodeEntity>[
-        FlowmapNodeEntity(id: 'feature-node-1', title: 'Priority Graph'),
-      ],
-    ),
-  );
 }
 
 class _StaticMemoriesNotifier extends MemoriesNotifier {
@@ -262,7 +206,6 @@ final NexusScreenModel _nexusModel = NexusScreenModel(
       summary: 'Stable',
       healthScore: 0.76,
     ),
-    flowmapNodes: const <FlowmapNode>[],
     logs: const <LogEntryEntity>[],
     timeline: const <TimelineEventEntity>[],
     memories: const <MemoryEntity>[],

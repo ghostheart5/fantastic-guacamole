@@ -1,3 +1,4 @@
+/// CHRONOSPARK-CLASS: SHIPPING | Feature: Logs
 class LogEntryEntity {
   const LogEntryEntity({
     required this.id,

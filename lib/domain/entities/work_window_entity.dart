@@ -1,3 +1,7 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Smart Planner
+///
+/// Energy-banded work windows for future planner scheduling. Not yet
+/// referenced.
 enum WorkWindowStatus { planned, active, completed, canceled }
 
 class WorkWindowEntity {

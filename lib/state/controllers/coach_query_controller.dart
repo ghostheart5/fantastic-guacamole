@@ -1,6 +1,5 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
-import 'package:fantastic_guacamole/domain/entities/flowmap_node.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
@@ -14,12 +13,10 @@ import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
-import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
-import 'package:fantastic_guacamole/state/providers/flowmap_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
@@ -344,7 +341,7 @@ class CoachQueryController implements SmartCoachInterface {
   }
 
   static String _smartCoachPolicy() {
-    return 'You are Smart Coach. '
+    return 'You are Smart Planner. '
         'Identify the user\'s intent category before generating coaching. '
         'Never respond with generic encouragement alone. '
         'Detect topics automatically: health usecases like weight loss, weight gain, nutrition, hydration, exercise, running, strength training, energy, fatigue, sleep, and recovery; '
@@ -417,22 +414,15 @@ class CoachQueryController implements SmartCoachInterface {
     final memories = _ref.read(memoriesProvider);
     final notifications = _ref.read(notificationProvider);
     final timelineEvents = _ref.read(timelineProvider);
-    final AsyncValue<List<FlowmapNode>> flowmapAsync = _ref.read(
-      flowmapProvider,
-    );
     final progression = _ref.read(progressionProvider).progress;
     final soulState = _ref.read(soulStateProvider);
     final CoreValuesAlignment coreValues = _ref.read(
       coreValuesAlignmentProvider,
     );
     final SoulMapAlignment soulMap = _ref.read(soulMapAlignmentProvider);
-    final flowmapNodes = flowmapAsync.maybeWhen(
-      data: (List<FlowmapNode> nodes) => nodes,
-      orElse: () => const <FlowmapNode>[],
-    );
     final planPreview = _ref
-        .read(calendarServiceProvider)
-        .generateAdaptivePlan(tasks: tasks, energy: energy)
+        .read(generateAdaptivePlanUseCaseProvider)
+        .call(tasks: tasks, energy: energy)
         .take(3)
         .map((block) => block.title)
         .toList(growable: false);
@@ -465,13 +455,6 @@ class CoachQueryController implements SmartCoachInterface {
           'top': insightsBundle.items
               .take(5)
               .map((item) => item.title)
-              .toList(growable: false),
-        },
-        'flowmap': <String, dynamic>{
-          'count': flowmapNodes.length,
-          'top': flowmapNodes
-              .take(5)
-              .map((node) => node.title)
               .toList(growable: false),
         },
         'logs': <String, dynamic>{

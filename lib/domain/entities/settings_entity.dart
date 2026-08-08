@@ -1,3 +1,6 @@
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Workspace
+///
+/// Domain settings model; settings UI uses its own state today.
 class SettingsEntity {
   const SettingsEntity({
     this.soundEnabled = true,

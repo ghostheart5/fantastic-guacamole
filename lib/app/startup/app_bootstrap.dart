@@ -192,23 +192,52 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
   }
 
   Future<void> _bootstrap() async {
-    final StartupBootstrapResult result = await _initializeStartup(ref).timeout(
-      const Duration(seconds: 45),
-      onTimeout: () {
-        Logger.error('Startup bootstrap timed out before completion.');
-        RuntimeDiagnostics.record(
-          'Startup bootstrap timed out before completion.',
-        );
-        return const StartupBootstrapResult(
-          hasOnboarded: false,
-          startupError:
-              'Startup bootstrap timed out. App started in degraded mode.',
-        );
-      },
+    // Last-resort guard. Every stage below catches its own failures, but if
+    // anything at all escapes (an Error subtype, a bug in a stage helper) the
+    // app must still leave the loading screen. Without this, an escaping
+    // throwable means `_ready` is never set and the user sits on a spinner
+    // forever with no crash report — strictly worse than crashing.
+    StartupBootstrapResult result = const StartupBootstrapResult(
+      hasOnboarded: false,
+      startupError: null,
     );
-    final String? stateBootstrapIssue = await _runStateBootstrapSafe(ref);
+    String fatalIssue = '';
+    try {
+      result = await _initializeStartup(ref).timeout(
+        const Duration(seconds: 45),
+        onTimeout: () {
+          Logger.error('Startup bootstrap timed out before completion.');
+          RuntimeDiagnostics.record(
+            'Startup bootstrap timed out before completion.',
+          );
+          return const StartupBootstrapResult(
+            hasOnboarded: false,
+            startupError:
+                'Startup bootstrap timed out. App started in degraded mode.',
+          );
+        },
+      );
+    } on Object catch (error, stackTrace) {
+      Logger.errorCategory('Startup', 'Bootstrap failed', error, stackTrace);
+      RuntimeDiagnostics.record('Startup bootstrap failed: $error');
+      fatalIssue = 'Startup did not complete. App started in degraded mode.';
+    }
+
+    String? stateBootstrapIssue;
+    try {
+      stateBootstrapIssue = await _runStateBootstrapSafe(ref);
+    } on Object catch (error, stackTrace) {
+      Logger.errorCategory(
+        'Startup',
+        'State bootstrap failed',
+        error,
+        stackTrace,
+      );
+      stateBootstrapIssue = 'State bootstrap failed.';
+    }
+
     final String? startupError = _appendStartupIssue(
-      result.startupError,
+      _appendStartupIssue(result.startupError, fatalIssue),
       stateBootstrapIssue ?? '',
     );
     if (!mounted) {
@@ -250,7 +279,7 @@ Future<String?> _runStateBootstrapSafe(WidgetRef ref) async {
     Logger.warn('State bootstrap timed out.');
     RuntimeDiagnostics.record('State bootstrap timed out.');
     return 'State bootstrap timed out.';
-  } on Exception catch (error) {
+  } on Object catch (error) {
     Logger.error('State bootstrap failed.', error);
     RuntimeDiagnostics.record('State bootstrap failed: $error');
     return 'State bootstrap failed: $error';
@@ -400,7 +429,7 @@ Future<String?> _initStorageSafe() async {
     Logger.log('Startup', 'Local storage initialized.');
     RuntimeDiagnostics.record('Local storage initialized.');
     return null;
-  } on Exception catch (error) {
+  } on Object catch (error) {
     Logger.error('Local storage initialization failed.', error);
     RuntimeDiagnostics.record('Local storage initialization failed: $error');
     return 'Local storage initialization failed: $error';
@@ -586,7 +615,7 @@ Future<String?> _initNotificationSchedulerSafe({
       'Notification scheduler startup timed out (non-fatal).',
     );
     return null;
-  } on Exception catch (error) {
+  } on Object catch (error) {
     Logger.warn('Notification scheduler startup failed (non-fatal): $error');
     RuntimeDiagnostics.record(
       'Notification scheduler startup failed (non-fatal): $error',
@@ -611,7 +640,7 @@ Future<String?> _initDeepLinksSafe() async {
       'Deep link initialization timed out (non-fatal).',
     );
     return null;
-  } on Exception catch (error) {
+  } on Object catch (error) {
     Logger.warn('Deep link initialization failed (non-fatal): $error');
     RuntimeDiagnostics.record(
       'Deep link initialization failed (non-fatal): $error',
@@ -635,7 +664,7 @@ Future<String?> _initIdentitySafe(WidgetRef ref) async {
     Logger.warn('Identity bootstrap timed out.');
     RuntimeDiagnostics.record('Identity bootstrap timed out.');
     return 'Identity bootstrap timed out.';
-  } on Exception catch (error) {
+  } on Object catch (error) {
     Logger.error('Identity bootstrap failed.', error);
     RuntimeDiagnostics.record('Identity bootstrap failed: $error');
     return 'Identity bootstrap failed: $error';

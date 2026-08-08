@@ -11,7 +11,6 @@ import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/services/cache_cleanup_service.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/expired_session_cleanup.dart';
-import 'package:fantastic_guacamole/state/services/flowmap_service.dart';
 import 'package:fantastic_guacamole/state/services/identity_service.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:fantastic_guacamole/state/services/orphan_data_cleanup.dart';
@@ -23,12 +22,17 @@ import 'package:fantastic_guacamole/state/services/stale_notification_cleanup.da
 import 'package:fantastic_guacamole/state/services/state_si_engine_service.dart';
 import 'package:fantastic_guacamole/system/external_url_service.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
-final flowmapServiceProvider = Provider<FlowmapService>((Ref ref) {
-  return FlowmapService(ref.read(flowmapRepositoryProvider));
-});
+bool get _supportsCrashlytics =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS);
 
 final identityServiceProvider = Provider<IdentityServiceContract>((Ref ref) {
   if (Env.isMockMode || Env.isMockLoginEnabled) {
@@ -55,7 +59,6 @@ final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
     tasks: ref.read(taskRepositoryProvider),
     goals: ref.read(goalRepositoryProvider),
     insights: ref.read(insightRepositoryProvider),
-    flowmap: ref.read(flowmapRepositoryProvider),
     logs: ref.read(logRepositoryProvider),
     timeline: ref.read(timelineRepositoryProvider),
     progression: ref.read(progressionRepositoryProvider),
@@ -182,4 +185,25 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
     }
     unawaited(syncIfPossible(source: 'auth-state-change'));
   });
+
+  // Crashes today are anonymous; tying them to the signed-in user (cleared on
+  // sign-out) is the only place this is wired in the whole app.
+  ref.listen<AsyncValue<User?>>(authUserProvider, (_, next) {
+    if (next is! AsyncData<User?>) {
+      return;
+    }
+    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+      unawaited(
+        FirebaseCrashlytics.instance.setUserIdentifier(
+          crashlyticsUserId(next.value),
+        ),
+      );
+    }
+  });
 });
+
+/// Pure derivation of the id Crashlytics should tag a crash report with —
+/// the signed-in user's id, or `''` once signed out. Extracted so it's
+/// directly unit-testable without touching the real Crashlytics plugin.
+@visibleForTesting
+String crashlyticsUserId(User? user) => user?.id ?? '';
