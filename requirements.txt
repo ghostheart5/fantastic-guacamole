@@ -1,0 +1,4 @@
+# Python dependencies for uats.py
+# This script uses only Python standard library modules (json, os, re, subprocess, pathlib).
+# No third-party packages are required.
+# Python 3.8+ is recommended.
