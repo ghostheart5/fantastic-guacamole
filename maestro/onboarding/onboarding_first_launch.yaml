@@ -1,0 +1,9 @@
+appId: com.keeganradetski.chronospark
+---
+- launchApp:
+    clearState: true
+    stopApp: true
+- assertVisible:
+    text: "NEXT"
+- assertVisible:
+    text: "SKIP"

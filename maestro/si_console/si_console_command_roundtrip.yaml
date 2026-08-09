@@ -1,0 +1,13 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: si_console_open.yaml
+- tapOn:
+    text: "Type a prompt"
+    optional: true
+- inputText: "/help"
+- tapOn:
+    id: "send_rounded"
+    optional: true
+- assertVisible:
+    text: "SI Console guide"
+    optional: true

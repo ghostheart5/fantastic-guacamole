@@ -1,0 +1,5 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../subscriptions/free_plan_restrictions.yaml
+- runFlow: ../subscriptions/purchase_flow_launch.yaml
+- runFlow: ../subscriptions/restore_purchases_probe.yaml

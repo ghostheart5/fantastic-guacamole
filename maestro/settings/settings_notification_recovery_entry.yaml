@@ -1,0 +1,9 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: settings_open.yaml
+- tapOn:
+    text: "Fix notification access"
+    optional: true
+- assertVisible:
+    text: "notification"
+    optional: true

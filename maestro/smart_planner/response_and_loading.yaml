@@ -1,0 +1,15 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../_common/go_to_smart_planner.yaml
+- tapOn:
+    text: "Share your current context, friction, or outcome..."
+- eraseText
+- inputText: "What should I do next?"
+- tapOn:
+    text: "Get insight"
+- assertVisible:
+    text: "Getting insight..."
+    optional: true
+- assertVisible:
+    text: "SMART INSIGHT"
+    optional: true

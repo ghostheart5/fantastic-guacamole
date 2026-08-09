@@ -1,3 +1,3 @@
 appId: com.keeganradetski.chronospark
 ---
-- runFlow: smoke/_suite_smoke.yaml
+- runFlow: goals_create_goal.yaml

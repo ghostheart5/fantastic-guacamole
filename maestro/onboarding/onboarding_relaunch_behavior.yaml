@@ -1,0 +1,12 @@
+appId: com.keeganradetski.chronospark
+---
+- launchApp:
+    clearState: true
+    stopApp: true
+- tapOn: "NEXT"
+- stopApp
+- launchApp:
+    clearState: false
+    stopApp: true
+- assertVisible:
+    text: "START SETUP"

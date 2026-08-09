@@ -1,0 +1,21 @@
+appId: com.keeganradetski.chronospark
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- tapOn:
+    id: "login-email-field"
+    optional: true
+- eraseText
+- inputText: ${MAESTRO_EMAIL}
+- tapOn:
+    id: "login-password-field"
+    optional: true
+- eraseText
+- inputText: ${MAESTRO_PASSWORD}
+- tapOn:
+    text: "ENTER SYSTEM"
+    optional: true
+- assertVisible:
+    text: "Navigation Map"
+    optional: true

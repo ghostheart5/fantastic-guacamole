@@ -1,0 +1,12 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../_common/open_navigation_map.yaml
+- tapOn:
+    text: "Settings"
+    optional: true
+- tapOn:
+    text: "SI Console"
+    optional: true
+- assertVisible:
+    text: "Mission control is aligned"
+    optional: true

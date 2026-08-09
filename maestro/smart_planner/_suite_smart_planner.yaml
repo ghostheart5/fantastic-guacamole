@@ -1,0 +1,8 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: prompt_simple.yaml
+- runFlow: prompt_complex.yaml
+- runFlow: prompt_empty_guard.yaml
+- runFlow: prompt_special_characters.yaml
+- runFlow: prompt_long.yaml
+- runFlow: response_and_loading.yaml

@@ -1,0 +1,14 @@
+appId: com.keeganradetski.chronospark
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- assertVisible:
+    text: "NEXT"
+    optional: true
+- assertVisible:
+    text: "ENTER SYSTEM"
+    optional: true
+- assertVisible:
+    text: "Navigation Map"
+    optional: true

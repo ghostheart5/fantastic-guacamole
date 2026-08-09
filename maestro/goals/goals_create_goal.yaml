@@ -1,0 +1,3 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../planner/planner_create_goal.yaml

@@ -1,0 +1,10 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../authentication/login_with_env.yaml
+- runFlow: ../_common/go_to_settings.yaml
+- tapOn:
+    text: "Log Out"
+    optional: true
+- assertVisible:
+    id: "login-email-field"
+    optional: true

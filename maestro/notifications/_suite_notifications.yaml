@@ -1,0 +1,4 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: notifications_open.yaml
+- runFlow: notifications_empty_or_list.yaml

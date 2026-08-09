@@ -1,0 +1,5 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: regression_navigation_chain.yaml
+- runFlow: regression_ai_surfaces.yaml
+- runFlow: regression_monetization_chain.yaml

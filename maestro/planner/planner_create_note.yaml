@@ -1,0 +1,15 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../authentication/login_with_env.yaml
+- runFlow: ../_common/go_to_creator.yaml
+- tapOn:
+    text: "Note"
+- tapOn:
+    text: "Item title *"
+- inputText: "Maestro Note"
+- tapOn:
+    text: "Notes or details (optional)"
+- inputText: "Note body from maestro"
+- tapOn:
+    text: "Create"
+    optional: true

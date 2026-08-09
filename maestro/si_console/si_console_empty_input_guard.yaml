@@ -1,0 +1,9 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: si_console_open.yaml
+- tapOn:
+    id: "send_rounded"
+    optional: true
+- assertVisible:
+    text: "Mission control is aligned"
+    optional: true

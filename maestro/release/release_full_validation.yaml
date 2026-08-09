@@ -1,0 +1,13 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../smoke/_suite_smoke.yaml
+- runFlow: ../onboarding/_suite_onboarding.yaml
+- runFlow: ../authentication/_suite_authentication.yaml
+- runFlow: ../timeline/_suite_timeline.yaml
+- runFlow: ../planner/_suite_planner.yaml
+- runFlow: ../profile/_suite_profile.yaml
+- runFlow: ../settings/_suite_settings.yaml
+- runFlow: ../notifications/_suite_notifications.yaml
+- runFlow: ../subscriptions/_suite_subscriptions.yaml
+- runFlow: ../smart_planner/_suite_smart_planner.yaml
+- runFlow: ../si_console/_suite_si_console.yaml

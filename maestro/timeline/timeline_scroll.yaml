@@ -1,0 +1,19 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: timeline_load.yaml
+- swipe:
+    from:
+      x: 50%
+      y: 80%
+    to:
+      x: 50%
+      y: 25%
+    duration: 700
+- swipe:
+    from:
+      x: 50%
+      y: 25%
+    to:
+      x: 50%
+      y: 80%
+    duration: 700

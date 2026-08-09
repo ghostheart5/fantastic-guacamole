@@ -1,0 +1,17 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: paywall_open.yaml
+- tapOn:
+    text: "Subscription Details"
+    optional: true
+- assertVisible:
+    text: "Plan:"
+    optional: true
+- stopApp
+- launchApp:
+    clearState: false
+    stopApp: true
+- runFlow: ../_common/go_to_settings.yaml
+- tapOn:
+    text: "Billing Center"
+    optional: true

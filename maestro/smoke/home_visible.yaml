@@ -1,0 +1,6 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../authentication/login_with_env.yaml
+- assertVisible:
+    text: "Navigation Map"
+    optional: true

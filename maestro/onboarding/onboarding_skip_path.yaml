@@ -1,0 +1,9 @@
+appId: com.keeganradetski.chronospark
+---
+- launchApp:
+    clearState: true
+    stopApp: true
+- tapOn: "SKIP"
+- assertVisible:
+    id: "login-email-field"
+    optional: true

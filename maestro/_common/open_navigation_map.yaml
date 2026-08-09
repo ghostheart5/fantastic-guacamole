@@ -1,0 +1,8 @@
+appId: com.keeganradetski.chronospark
+---
+- tapOn:
+    id: "map_outlined"
+    optional: true
+- tapOn:
+    text: "Navigation Map"
+    optional: true

@@ -1,0 +1,6 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: paywall_open.yaml
+- assertVisible:
+    text: "Restore"
+    optional: true

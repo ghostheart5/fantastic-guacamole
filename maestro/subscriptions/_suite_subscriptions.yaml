@@ -1,0 +1,7 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: paywall_open.yaml
+- runFlow: free_plan_restrictions.yaml
+- runFlow: purchase_flow_launch.yaml
+- runFlow: restore_purchases_probe.yaml
+- runFlow: premium_state_persistence.yaml

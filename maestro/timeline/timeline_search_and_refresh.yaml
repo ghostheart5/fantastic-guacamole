@@ -1,0 +1,14 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: timeline_load.yaml
+- tapOn: "Search timeline..."
+- inputText: "task"
+- eraseText
+- swipe:
+    from:
+      x: 50%
+      y: 20%
+    to:
+      x: 50%
+      y: 75%
+    duration: 600

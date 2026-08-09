@@ -1,0 +1,12 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: settings_open.yaml
+- tapOn:
+    text: "Reflection Reminder"
+    optional: true
+- stopApp
+- launchApp:
+    clearState: false
+    stopApp: true
+- runFlow: ../_common/go_to_settings.yaml
+- assertVisible: "Daily Reflection"

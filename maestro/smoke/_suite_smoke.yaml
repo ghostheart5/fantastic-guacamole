@@ -1,0 +1,9 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: app_launch.yaml
+- runFlow: splash_no_startup_crash.yaml
+- runFlow: home_visible.yaml
+- runFlow: timeline_visible.yaml
+- runFlow: navigation_works.yaml
+- runFlow: session_restored.yaml
+- runFlow: logout_works.yaml

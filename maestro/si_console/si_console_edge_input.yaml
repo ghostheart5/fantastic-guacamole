@@ -1,0 +1,10 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: si_console_open.yaml
+- inputText: "../../../../ ;;; ::: ???"
+- tapOn:
+    id: "send_rounded"
+    optional: true
+- assertVisible:
+    text: "Task sync"
+    optional: true

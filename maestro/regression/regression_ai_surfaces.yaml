@@ -1,0 +1,5 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../smart_planner/prompt_simple.yaml
+- runFlow: ../smart_planner/prompt_complex.yaml
+- runFlow: ../si_console/si_console_command_roundtrip.yaml

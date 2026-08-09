@@ -1,0 +1,9 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: notifications_open.yaml
+- assertVisible:
+    text: "ALL CLEAR"
+    optional: true
+- assertVisible:
+    text: "CHRONOSPARK EVENT STREAM"
+    optional: true

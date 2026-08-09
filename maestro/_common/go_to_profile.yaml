@@ -1,0 +1,8 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../_common/open_navigation_map.yaml
+- tapOn:
+    text: "Profile"
+    optional: true
+- assertVisible:
+    text: "Billing"

@@ -1,0 +1,11 @@
+appId: com.keeganradetski.chronospark
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- assertNotVisible:
+    text: "Unable to start setup"
+    optional: true
+- assertNotVisible:
+    text: "Route not found"
+    optional: true

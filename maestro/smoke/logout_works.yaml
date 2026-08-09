@@ -1,0 +1,4 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../authentication/login_with_env.yaml
+- runFlow: ../authentication/logout.yaml

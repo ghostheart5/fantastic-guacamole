@@ -1,0 +1,12 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../_common/open_navigation_map.yaml
+- tapOn:
+    text: "Nexus"
+    optional: true
+- tapOn:
+    text: "Smart Planner"
+    optional: true
+- assertVisible:
+    text: "Get insight"
+    optional: true

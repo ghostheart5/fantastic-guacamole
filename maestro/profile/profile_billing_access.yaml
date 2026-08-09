@@ -1,0 +1,10 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../authentication/login_with_env.yaml
+- runFlow: ../_common/go_to_profile.yaml
+- tapOn:
+    text: "Billing center"
+    optional: true
+- assertVisible:
+    text: "Billing Center"
+    optional: true

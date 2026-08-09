@@ -1,0 +1,6 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../authentication/login_with_env.yaml
+- runFlow: ../_common/go_to_timeline.yaml
+- assertVisible: "Search timeline..."
+- assertVisible: "Window"

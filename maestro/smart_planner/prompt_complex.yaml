@@ -1,0 +1,12 @@
+appId: com.keeganradetski.chronospark
+---
+- runFlow: ../_common/go_to_smart_planner.yaml
+- tapOn:
+    text: "Share your current context, friction, or outcome..."
+- eraseText
+- inputText: "I have conflicting deadlines, low energy, and need a risk-aware action plan for work, health, and study in the next 48 hours."
+- tapOn:
+    text: "Get insight"
+- assertVisible:
+    text: "Why this action?"
+    optional: true
