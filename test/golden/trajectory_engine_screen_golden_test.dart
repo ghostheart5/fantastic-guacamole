@@ -14,7 +14,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('trajectory engine golden', () {
-    testWidgets('forecast screen matches baseline', (WidgetTester tester) async {
+    testWidgets('forecast screen matches baseline', (
+      WidgetTester tester,
+    ) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -37,9 +39,11 @@ void main() {
                 behaviorDivergence: 21,
                 alert: 'trajectory stable',
                 predictionTitle: 'focus block',
-                predictionOutcome: 'Trajectory strengthens with focused execution.',
+                predictionOutcome:
+                    'Trajectory strengthens with focused execution.',
                 predictionProbability: 0.74,
-                predictionExplanation: 'Execution consistency remains the leading factor.',
+                predictionExplanation:
+                    'Execution consistency remains the leading factor.',
               ),
             ),
             momentumEngineProvider.overrideWithValue(
@@ -47,26 +51,27 @@ void main() {
                 score: 71,
                 trend: 'Rising',
                 recovery: 'Recovered',
-                forecast: 'Execution quality determines near-term momentum slope.',
+                forecast:
+                    'Execution quality determines near-term momentum slope.',
                 energyPercent: 66,
                 pressurePercent: 38,
                 streak: 5,
                 completedToday: 2,
               ),
             ),
-            trajectorySimulationProvider.overrideWithValue(
-              const <TrajectorySimulationResult>[
-                TrajectorySimulationResult(
-                  type: TrajectorySimulationType.momentumBoost,
-                  title: 'Deep Focus Plan',
-                  summary: 'Protect one uninterrupted focus block.',
-                  projectedMomentum: 84,
-                  projectedPressure: 41,
-                  projectedRecovery: 'Recovered',
-                  projectedOutcome: 'Momentum compounds when scope stays narrow.',
-                ),
-              ],
-            ),
+            trajectorySimulationProvider
+                .overrideWithValue(const <TrajectorySimulationResult>[
+                  TrajectorySimulationResult(
+                    type: TrajectorySimulationType.momentumBoost,
+                    title: 'Deep Focus Plan',
+                    summary: 'Protect one uninterrupted focus block.',
+                    projectedMomentum: 84,
+                    projectedPressure: 41,
+                    projectedRecovery: 'Recovered',
+                    projectedOutcome:
+                        'Momentum compounds when scope stays narrow.',
+                  ),
+                ]),
             futureTimelineProvider.overrideWithValue(
               const FutureTimelineState(
                 checkpoints: <FutureTimelineCheckpoint>[
@@ -97,11 +102,36 @@ void main() {
           child: const MaterialApp(home: TrajectoryEngineScreen()),
         ),
       );
-      await tester.pumpAndSettle();
+
+      await tester.pump();
+await tester.pump(const Duration(milliseconds: 300));
+
+debugPrint(
+  tester
+      .widgetList<Text>(find.byType(Text))
+      .map((Text widget) => widget.data)
+      .whereType<String>()
+      .join('\n'),
+);
+
+expect(find.text('Deep Focus Plan'), findsOneWidget);
+expect(find.text('7 DAYS'), findsOneWidget);
+
+expect(
+  find.textContaining('Ship the focused milestone block'),
+  findsOneWidget,
+);
+
+expect(
+  find.textContaining('Behavior and direction are aligned.'),
+  findsOneWidget,
+);
 
       await expectLater(
         find.byType(MaterialApp),
-        matchesGoldenFile('../goldens/trajectory/trajectory_engine_default.png'),
+        matchesGoldenFile(
+          '../goldens/trajectory/trajectory_engine_default.png',
+        ),
       );
     });
   });

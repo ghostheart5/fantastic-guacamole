@@ -10,7 +10,9 @@ class TaskEntityMapper {
     final String legacyStatus = json['status']?.toString() ?? '';
     final DateTime? createdAt = _dateTimeFromJson(json['createdAt']);
     if (createdAt == null) {
-      throw const FormatException('Task payload requires a valid createdAt timestamp.');
+      throw const FormatException(
+        'Task payload requires a valid createdAt timestamp.',
+      );
     }
     final bool legacyCompleted =
         legacyStatus == 'completed' ||
@@ -21,7 +23,7 @@ class TaskEntityMapper {
       title: json['title']?.toString() ?? 'Untitled Task',
       kind: json['kind']?.toString(),
       description: json['description']?.toString(),
-        createdAt: createdAt,
+      createdAt: createdAt,
       isCompleted: json['isCompleted'] as bool? ?? legacyCompleted,
       priority: (json['priority'] as num?)?.toInt() ?? 3,
       difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,

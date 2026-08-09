@@ -26,7 +26,9 @@ class CreditService {
       try {
         final dynamic decoded = jsonDecode(raw);
         if (decoded is! Map<String, dynamic>) {
-          throw const FormatException('Credit wallet storage is not an object.');
+          throw const FormatException(
+            'Credit wallet storage is not an object.',
+          );
         } else {
           wallet = _decodeWallet(decoded);
         }
@@ -89,13 +91,21 @@ class CreditService {
     final Object? balance = json['balance'];
     final Object? tier = json['tier'];
     final Object? allowance = json['allowance'];
-    final DateTime? resetAt = DateTime.tryParse(json['resetAt']?.toString() ?? '');
+    final DateTime? resetAt = DateTime.tryParse(
+      json['resetAt']?.toString() ?? '',
+    );
     final DateTime? updatedAt = DateTime.tryParse(
       json['updatedAt']?.toString() ?? '',
     );
-    if (balance is! num || tier is! String || tier.trim().isEmpty ||
-        allowance is! num || resetAt == null || updatedAt == null) {
-      throw const FormatException('Credit wallet storage has missing required fields.');
+    if (balance is! num ||
+        tier is! String ||
+        tier.trim().isEmpty ||
+        allowance is! num ||
+        resetAt == null ||
+        updatedAt == null) {
+      throw const FormatException(
+        'Credit wallet storage has missing required fields.',
+      );
     }
     return AiCreditWallet.fromJson(json);
   }

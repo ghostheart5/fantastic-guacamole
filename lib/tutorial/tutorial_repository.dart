@@ -29,7 +29,9 @@ class TutorialRepository {
         );
       }
 
-      throw const StorageException('Tutorial progress storage is not an object.');
+      throw const StorageException(
+        'Tutorial progress storage is not an object.',
+      );
     } on FormatException {
       throw const StorageException('Tutorial progress storage is corrupted.');
     } on Object catch (error) {

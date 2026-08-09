@@ -59,7 +59,9 @@ class PreferenceService {
           (dynamic key, dynamic value) => MapEntry(key.toString(), value),
         );
       }
-      throw const StorageException('User preferences storage is not an object.');
+      throw const StorageException(
+        'User preferences storage is not an object.',
+      );
     } on FormatException catch (error) {
       throw StorageException('User preferences storage is corrupted: $error');
     }

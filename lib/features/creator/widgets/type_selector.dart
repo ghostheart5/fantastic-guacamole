@@ -63,43 +63,47 @@ class TypeSelector extends StatelessWidget {
             final isSelected = type == selected;
             return RepaintBoundary(
               child: SmartPressable(
-              onTap: () => onSelect(type),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.memoryAmber.withValues(alpha: 0.15)
-                      : Colors.white.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppColors.memoryAmber.withValues(alpha: 0.6)
-                        : Colors.white.withValues(alpha: 0.1),
+                onTap: () => onSelect(type),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
                   ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: AppColors.memoryAmber.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Text(
-                  _displayLabel(type).toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 1.5,
-                    fontWeight: FontWeight.w700,
-                    color: isSelected ? AppColors.memoryAmber : Colors.white38,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.memoryAmber.withValues(alpha: 0.15)
+                        : Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.memoryAmber.withValues(alpha: 0.6)
+                          : Colors.white.withValues(alpha: 0.1),
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: AppColors.memoryAmber.withValues(
+                                alpha: 0.2,
+                              ),
+                              blurRadius: 8,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Text(
+                    _displayLabel(type).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 10,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected
+                          ? AppColors.memoryAmber
+                          : Colors.white38,
+                    ),
                   ),
                 ),
               ),
-            ),
             );
           }).toList(),
         ),

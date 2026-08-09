@@ -64,8 +64,13 @@ class SiEngineRepository implements ISiRepository {
     final DateTime? lastUpdated = DateTime.tryParse(
       json['lastUpdated']?.toString() ?? '',
     );
-    if (energy == null || focus == null || fatigue == null || lastUpdated == null) {
-      throw const FormatException('Stored SI state has missing required fields.');
+    if (energy == null ||
+        focus == null ||
+        fatigue == null ||
+        lastUpdated == null) {
+      throw const FormatException(
+        'Stored SI state has missing required fields.',
+      );
     }
     return SiStateEntity(
       energy: energy,

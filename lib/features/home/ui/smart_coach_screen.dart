@@ -558,13 +558,13 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
                     bottom: MediaQuery.viewInsetsOf(context).bottom,
                   ),
                   child: _FollowUpBar(
-                  controller: _followUpController,
-                  onSend: _sendFollowUp,
-                  sending: _sendingFollowUp,
-                  errorText: _followUpError,
+                    controller: _followUpController,
+                    onSend: _sendFollowUp,
+                    sending: _sendingFollowUp,
+                    errorText: _followUpError,
+                  ),
                 ),
-              ),
-            )
+              )
             : null,
       ),
     );

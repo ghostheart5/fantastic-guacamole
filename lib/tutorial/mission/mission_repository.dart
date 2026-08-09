@@ -30,7 +30,9 @@ class MissionRepository {
           ),
         );
       }
-      throw const StorageException('Mission progress storage is not an object.');
+      throw const StorageException(
+        'Mission progress storage is not an object.',
+      );
     } on FormatException {
       throw const StorageException('Mission progress storage is corrupted.');
     } on TypeError {

@@ -231,7 +231,9 @@ class WorkspaceStoreService {
       try {
         return CreatorWorkspaceState.fromJson(decoded);
       } on TypeError catch (error) {
-        throw StorageException('Creator workspace storage is corrupted: $error');
+        throw StorageException(
+          'Creator workspace storage is corrupted: $error',
+        );
       }
     }
 
@@ -252,12 +254,16 @@ class WorkspaceStoreService {
         storageKey: _temporalKey,
       );
       if (decoded == null) {
-        throw const StorageException('Temporal workspace storage is corrupted.');
+        throw const StorageException(
+          'Temporal workspace storage is corrupted.',
+        );
       }
       try {
         return TemporalPlannerState.fromJson(decoded);
       } on TypeError catch (error) {
-        throw StorageException('Temporal workspace storage is corrupted: $error');
+        throw StorageException(
+          'Temporal workspace storage is corrupted: $error',
+        );
       }
     }
 
@@ -336,9 +342,7 @@ class WorkspaceStoreService {
       Logger.error('Workspace payload at $storageKey is not a JSON object.');
       return null;
     } on FormatException catch (error) {
-      Logger.error(
-        'Workspace payload at $storageKey is corrupt JSON. $error',
-      );
+      Logger.error('Workspace payload at $storageKey is corrupt JSON. $error');
       return null;
     }
   }

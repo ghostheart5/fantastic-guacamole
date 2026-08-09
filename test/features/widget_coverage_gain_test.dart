@@ -70,7 +70,7 @@ void main() {
       expect(find.text('TIMELINE'), findsOneWidget);
     });
 
-    testWidgets('timeline surfaces task and journal cards', (
+    testWidgets('timeline surfaces task and reflection cards', (
       WidgetTester tester,
     ) async {
       final DateTime now = DateTime.now();
@@ -87,22 +87,22 @@ void main() {
           relatedId: 'task-1',
         ),
         TimelineEventEntity(
-          id: 'journal-1',
-          type: TimelineEventType.reflection,
-          title: 'Daily journal checkpoint',
-          detail: 'Capture one lesson from today\'s effort.',
-          timestamp: now.subtract(const Duration(minutes: 15)),
-          status: TimelineEventStatus.info,
-        ),
+  id: 'reflection-1',
+  type: TimelineEventType.reflection,
+  title: 'Daily reflection checkpoint',
+  detail: 'Capture one lesson from today\'s effort.',
+  timestamp: now.subtract(const Duration(minutes: 15)),
+  status: TimelineEventStatus.info,
+),
       ];
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            timelineProvider.overrideWith(() => _FakeTimelineNotifier(seededEvents)),
-            timelineTodayProvider.overrideWith(
-              (Ref ref) => seededEvents,
+            timelineProvider.overrideWith(
+              () => _FakeTimelineNotifier(seededEvents),
             ),
+            timelineTodayProvider.overrideWith((Ref ref) => seededEvents),
             timelineCompletedEventsProvider.overrideWith(
               (Ref ref) => const <TimelineEventEntity>[],
             ),
@@ -116,9 +116,10 @@ void main() {
 
       expect(find.text('Timeline'), findsOneWidget);
       expect(find.text('Task'), findsWidgets);
-      expect(find.text('Journal'), findsWidgets);
+      
+      expect(find.text('Reflection'), findsWidgets);
       expect(find.text('Ship launch checklist'), findsOneWidget);
-      expect(find.text('Daily journal checkpoint'), findsOneWidget);
+      expect(find.text('Daily reflection checkpoint'), findsOneWidget);
     });
 
     testWidgets('si console surfaces mission control opportunity card', (
@@ -130,8 +131,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('MISSION CONTROL'), findsOneWidget);
-      expect(find.text('TOP OPPORTUNITY'), findsOneWidget);
+      expect(find.text('Goals, habits, tasks, and momentum'), findsOneWidget);
       expect(find.text('/daily'), findsOneWidget);
+      expect(find.text('/focus'), findsOneWidget);
     });
 
     testWidgets('settings screen shows primary control sections', (

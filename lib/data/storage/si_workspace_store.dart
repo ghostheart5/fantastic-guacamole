@@ -19,7 +19,8 @@ class SiWorkspaceStore {
     try {
       final Object? decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) return decoded;
-      if (decoded is Map<dynamic, dynamic>) return decoded.cast<String, dynamic>();
+      if (decoded is Map<dynamic, dynamic>)
+        return decoded.cast<String, dynamic>();
       throw const FormatException('Stored SI workspace is not a JSON object.');
     } on Object catch (error) {
       Logger.error('Stored SI workspace state is corrupt.', error);

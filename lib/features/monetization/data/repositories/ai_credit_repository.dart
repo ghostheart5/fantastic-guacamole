@@ -150,5 +150,4 @@ class SupabaseAiCreditRepository implements AiCreditRepository {
       'updated_at': row['updated_at'],
     });
   }
-
 }

@@ -33,7 +33,9 @@ class CalendarRepository implements ICalendarRepository {
     final List<CalendarEntryEntity> items = <CalendarEntryEntity>[];
     for (final Object? value in decoded) {
       if (value is! Map) {
-        throw const StorageException('Calendar storage contains a non-object entry.');
+        throw const StorageException(
+          'Calendar storage contains a non-object entry.',
+        );
       }
       final Map<String, dynamic> json = value.map(
         (dynamic key, dynamic item) => MapEntry(key.toString(), item),

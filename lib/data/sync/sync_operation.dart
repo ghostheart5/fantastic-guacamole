@@ -86,22 +86,24 @@ class SyncOperation {
     }
     final Object? rawRetryCount = json['retryCount'];
     if (rawRetryCount is! int || rawRetryCount < 0) {
-      throw const FormatException('Sync operation requires a non-negative retry count.');
+      throw const FormatException(
+        'Sync operation requires a non-negative retry count.',
+      );
     }
     final DateTime? createdAtUtc = DateTime.tryParse(
       _requiredString(json, 'createdAtUtc'),
     );
     if (createdAtUtc == null) {
-      throw const FormatException('Sync operation requires a valid createdAtUtc timestamp.');
+      throw const FormatException(
+        'Sync operation requires a valid createdAtUtc timestamp.',
+      );
     }
     return SyncOperation(
       operationId: operationId,
       tableName: tableName,
       recordId: recordId,
       operationType: operationType,
-      payload: Map<String, dynamic>.from(
-        rawPayload,
-      ),
+      payload: Map<String, dynamic>.from(rawPayload),
       userId: userId,
       createdAtUtc: createdAtUtc,
       retryCount: rawRetryCount,

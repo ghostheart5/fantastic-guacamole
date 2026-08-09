@@ -30,7 +30,7 @@ class AuthService implements AuthServiceContract {
        _accountDeleteEndpoint =
            accountDeleteEndpoint ?? Env.accountDeleteEndpoint,
        _oauthGoogleRedirectUrl = oauthGoogleRedirectUrl ?? Env.oauthRedirectUrl,
-         _passwordRecoveryRedirectUrl =
+       _passwordRecoveryRedirectUrl =
            passwordRecoveryRedirectUrl ?? Env.passwordRecoveryRedirectUrl,
        _localUserDataCleanupService =
            localUserDataCleanupService ??
@@ -54,12 +54,10 @@ class AuthService implements AuthServiceContract {
 
   @override
   Stream<User?> authStateChanges() {
-    return _auth.auth.onAuthStateChange.asyncMap(
-      (sb.AuthState state) async {
-        await _hydrateProfileStateForVerifiedUser(state.session?.user);
-        return _mapUser(state.session?.user);
-      },
-    );
+    return _auth.auth.onAuthStateChange.asyncMap((sb.AuthState state) async {
+      await _hydrateProfileStateForVerifiedUser(state.session?.user);
+      return _mapUser(state.session?.user);
+    });
   }
 
   @override

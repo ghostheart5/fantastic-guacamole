@@ -54,15 +54,21 @@ class OfflineSyncQueueItem {
     final String dedupeKey = _requiredString(json, 'dedupeKey');
     final String enqueuedAtUtc = _requiredString(json, 'enqueuedAtUtc');
     if (DateTime.tryParse(enqueuedAtUtc) == null) {
-      throw const FormatException('Offline sync queue item has invalid enqueue time.');
+      throw const FormatException(
+        'Offline sync queue item has invalid enqueue time.',
+      );
     }
     final Object? rawPayload = json['payload'];
     if (rawPayload is! Map) {
-      throw const FormatException('Offline sync queue item requires a payload object.');
+      throw const FormatException(
+        'Offline sync queue item requires a payload object.',
+      );
     }
     final Object? rawAttempts = json['attempts'];
     if (rawAttempts is! int || rawAttempts < 0) {
-      throw const FormatException('Offline sync queue item requires non-negative attempts.');
+      throw const FormatException(
+        'Offline sync queue item requires non-negative attempts.',
+      );
     }
     final Map<String, dynamic> payload = rawPayload.map<String, dynamic>(
       (dynamic key, dynamic value) => MapEntry(key.toString(), value),
@@ -104,18 +110,24 @@ class OfflineSyncQueueService {
     try {
       final Object? decoded = jsonDecode(encoded);
       if (decoded is! List) {
-        throw const FormatException('Offline sync queue storage is not a list.');
-      }
-      return decoded.map<OfflineSyncQueueItem>((Object? value) {
-        if (value is! Map) {
-          throw const FormatException('Offline sync queue contains a non-object entry.');
-        }
-        return OfflineSyncQueueItem.fromJson(
-          value.map<String, dynamic>(
-            (dynamic key, dynamic item) => MapEntry(key.toString(), item),
-          ),
+        throw const FormatException(
+          'Offline sync queue storage is not a list.',
         );
-      }).toList(growable: false);
+      }
+      return decoded
+          .map<OfflineSyncQueueItem>((Object? value) {
+            if (value is! Map) {
+              throw const FormatException(
+                'Offline sync queue contains a non-object entry.',
+              );
+            }
+            return OfflineSyncQueueItem.fromJson(
+              value.map<String, dynamic>(
+                (dynamic key, dynamic item) => MapEntry(key.toString(), item),
+              ),
+            );
+          })
+          .toList(growable: false);
     } on Object catch (error) {
       throw StorageException('Offline sync queue storage is corrupted: $error');
     }

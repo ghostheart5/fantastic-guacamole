@@ -30,12 +30,16 @@ class RoutineRepository implements IRoutineRepository {
     try {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
       _corruptedSnapshot = false;
-      return list.map((dynamic value) {
-        if (value is! Map) {
-          throw const FormatException('Routine storage contains a non-object entry.');
-        }
-        return RoutineEntity.fromJson(_validateRoutinePayload(value));
-      }).toList(growable: false);
+      return list
+          .map((dynamic value) {
+            if (value is! Map) {
+              throw const FormatException(
+                'Routine storage contains a non-object entry.',
+              );
+            }
+            return RoutineEntity.fromJson(_validateRoutinePayload(value));
+          })
+          .toList(growable: false);
     } on Object catch (error) {
       _corruptedSnapshot = true;
       Logger.error(
@@ -98,9 +102,7 @@ class RoutineRepository implements IRoutineRepository {
     );
   }
 
-  Map<String, dynamic> _validateRoutinePayload(
-    Map<dynamic, dynamic> payload,
-  ) {
+  Map<String, dynamic> _validateRoutinePayload(Map<dynamic, dynamic> payload) {
     final Map<String, dynamic> normalized = payload.map<String, dynamic>(
       (dynamic key, dynamic value) => MapEntry(key.toString(), value),
     );

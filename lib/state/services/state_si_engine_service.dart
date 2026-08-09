@@ -9,10 +9,10 @@ class StateSiEngineService {
   final SiWorkspaceStore _workspaceStore;
   final SiEngineDependencies dependencies;
 
-      Future<Map<String, dynamic>?> loadState() => _workspaceStore.load();
+  Future<Map<String, dynamic>?> loadState() => _workspaceStore.load();
 
   Future<void> saveState(Map<String, dynamic> state) =>
-        _workspaceStore.save(state);
+      _workspaceStore.save(state);
 
   Future<Map<String, dynamic>> generateResponse({
     required String input,

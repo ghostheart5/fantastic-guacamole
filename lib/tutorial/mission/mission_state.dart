@@ -162,11 +162,7 @@ class MissionState {
         Map<MissionId, MissionStatus>.from(statuses);
     next[MissionId.complete] = MissionStatus.dismissed;
 
-    return copyWith(
-      statuses: next,
-      activeMissionId: null,
-      finished: true,
-    );
+    return copyWith(statuses: next, activeMissionId: null, finished: true);
   }
 
   Map<String, Object?> toJson() {
@@ -220,9 +216,9 @@ class MissionState {
 
     final _MissionStateCompatibility compatibility =
         _normalizeLegacySmartPlannerStep(
-      statuses: statuses,
-      activeMissionId: activeMissionId,
-    );
+          statuses: statuses,
+          activeMissionId: activeMissionId,
+        );
 
     return MissionState(
       statuses: compatibility.statuses,
@@ -241,7 +237,7 @@ class MissionState {
 
     final MissionStatus smartPlannerStatus =
         normalizedStatuses[MissionId.askSmartPlannerQuestion] ??
-            MissionStatus.locked;
+        MissionStatus.locked;
 
     MissionId? normalizedActiveMissionId = activeMissionId;
 
@@ -259,8 +255,8 @@ class MissionState {
 
       normalizedActiveMissionId =
           normalizedStatuses[MissionId.openTimeline] == MissionStatus.completed
-              ? MissionId.complete
-              : MissionId.openTimeline;
+          ? MissionId.complete
+          : MissionId.openTimeline;
     }
 
     return _MissionStateCompatibility(

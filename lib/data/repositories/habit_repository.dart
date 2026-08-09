@@ -105,7 +105,9 @@ class HabitRecord {
     final String id = json['id']?.toString() ?? '';
     final String title = json['title']?.toString() ?? '';
     if (id.trim().isEmpty || title.trim().isEmpty) {
-      throw const FormatException('Habit record requires a non-empty id and title.');
+      throw const FormatException(
+        'Habit record requires a non-empty id and title.',
+      );
     }
     final DateTime? createdAt = _parseOptionalDate(json['createdAt']);
     final DateTime? updatedAt = _parseOptionalDate(json['updatedAt']);
@@ -123,9 +125,8 @@ class HabitRecord {
       targetCount: ((json['targetCount'] as num?)?.toInt() ?? 1).clamp(1, 365),
       status: HabitStatus.values.firstWhere(
         (HabitStatus value) => value.name == json['status']?.toString(),
-        orElse: () => json['active'] == false
-            ? HabitStatus.paused
-            : HabitStatus.active,
+        orElse: () =>
+            json['active'] == false ? HabitStatus.paused : HabitStatus.active,
       ),
     );
   }
@@ -203,7 +204,9 @@ class HabitRepository {
           'target_count': habit.targetCount,
           'status': habit.status.name,
           'active': habit.active,
-          'updated_at': (habit.updatedAt ?? DateTime.now()).toUtc().toIso8601String(),
+          'updated_at': (habit.updatedAt ?? DateTime.now())
+              .toUtc()
+              .toIso8601String(),
           'deleted_at': null,
         },
       );

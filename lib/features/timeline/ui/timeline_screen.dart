@@ -273,7 +273,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                       _searchDebounce?.cancel();
                       _searchDebounce = Timer(
                         const Duration(milliseconds: 180),
-                        () { if (mounted) setState(() => _query = value); },
+                        () {
+                          if (mounted) setState(() => _query = value);
+                        },
                       );
                     },
                     style: const TextStyle(color: Colors.white),
@@ -483,7 +485,7 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
         event.phase == 'snapshot' ? 'Snapshot' : 'Memory',
       TimelineEventType.risk => 'Risk',
       TimelineEventType.recommendation => 'Recommendation',
-      TimelineEventType.reflection => 'Journal',
+      TimelineEventType.reflection => 'Reflection',
       TimelineEventType.levelUp => 'Level Up',
       TimelineEventType.streak => 'Streak',
       TimelineEventType.goalComplete => 'Goal Complete',

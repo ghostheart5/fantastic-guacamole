@@ -233,13 +233,13 @@ class _DynamicFormState extends State<DynamicForm> {
             child: TypeSelector(
               selected: _selectedType,
               onSelect: (t) => setState(() {
-              _selectedType = t;
-              final String kind = t.trim().toLowerCase();
-              if ((kind == 'routine' || kind == 'habit') &&
-                  _recurrenceRule == RecurrenceRule.none) {
-                _recurrenceRule = RecurrenceRule.daily;
-              }
-            }),
+                _selectedType = t;
+                final String kind = t.trim().toLowerCase();
+                if ((kind == 'routine' || kind == 'habit') &&
+                    _recurrenceRule == RecurrenceRule.none) {
+                  _recurrenceRule = RecurrenceRule.daily;
+                }
+              }),
             ),
           ),
           const SizedBox(height: 12),

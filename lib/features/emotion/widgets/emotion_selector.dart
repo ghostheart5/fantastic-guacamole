@@ -42,32 +42,32 @@ class EmotionSelector extends StatelessWidget {
         final color = _colorFor(state);
         return RepaintBoundary(
           child: SmartPressable(
-          onTap: () => onSelect(state),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? color.withValues(alpha: 0.15)
-                  : Colors.white.withValues(alpha: 0.04),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
+            onTap: () => onSelect(state),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
                 color: isSelected
-                    ? color.withValues(alpha: 0.6)
-                    : Colors.white.withValues(alpha: 0.1),
+                    ? color.withValues(alpha: 0.15)
+                    : Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isSelected
+                      ? color.withValues(alpha: 0.6)
+                      : Colors.white.withValues(alpha: 0.1),
+                ),
               ),
-            ),
-            child: Text(
-              state.name.toUpperCase(),
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.w700,
-                color: isSelected ? color : Colors.white38,
+              child: Text(
+                state.name.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? color : Colors.white38,
+                ),
               ),
             ),
           ),
-        ),
         );
       }).toList(),
     );

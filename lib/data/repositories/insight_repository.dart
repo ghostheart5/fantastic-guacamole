@@ -84,8 +84,14 @@ class InsightRepository implements IInsightRepository {
     final DateTime? createdAt = DateTime.tryParse(
       json['createdAt'] as String? ?? '',
     );
-    if (id == null || id.trim().isEmpty || title == null || summary == null || createdAt == null) {
-      throw const FormatException('Insight record has missing required fields.');
+    if (id == null ||
+        id.trim().isEmpty ||
+        title == null ||
+        summary == null ||
+        createdAt == null) {
+      throw const FormatException(
+        'Insight record has missing required fields.',
+      );
     }
     final Object? rawTags = json['tags'];
     if (rawTags is! List || rawTags.any((Object? tag) => tag is! String)) {

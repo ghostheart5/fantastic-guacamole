@@ -75,10 +75,8 @@ class HabitsNotifier extends AsyncNotifier<List<HabitRecord>> {
         .map(
           (HabitRecord item) => item.id == id
               ? item.copyWith(
-                status: item.active
-                  ? HabitStatus.paused
-                  : HabitStatus.active,
-                updatedAt: DateTime.now(),
+                  status: item.active ? HabitStatus.paused : HabitStatus.active,
+                  updatedAt: DateTime.now(),
                 )
               : item,
         )

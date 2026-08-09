@@ -28,13 +28,11 @@ class ProgressionRepository implements IProgressionRepository {
       final int? level = (decoded['level'] as num?)?.toInt();
       final int? streak = (decoded['streak'] as num?)?.toInt();
       if (xp == null || level == null || streak == null) {
-        throw const FormatException('Progression storage has missing required fields.');
+        throw const FormatException(
+          'Progression storage has missing required fields.',
+        );
       }
-      return ProgressionEntity(
-        xp: xp,
-        level: level,
-        streak: streak,
-      );
+      return ProgressionEntity(xp: xp, level: level, streak: streak);
     } on Object catch (error) {
       throw StorageException('Progression storage is corrupted: $error');
     }

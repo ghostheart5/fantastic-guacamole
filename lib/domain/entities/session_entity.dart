@@ -101,7 +101,8 @@ class SessionEntity {
       startedAt: startedAt,
       endedAt: endedAt,
       plannedDuration: plannedDuration,
-      pausedDuration: pausedDuration + resumeTime.difference(activePauseStartedAt),
+      pausedDuration:
+          pausedDuration + resumeTime.difference(activePauseStartedAt),
     );
   }
 

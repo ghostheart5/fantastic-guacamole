@@ -40,7 +40,9 @@ class NotificationsRepository implements INotificationRepository {
       final List<NotificationEntity> entries = <NotificationEntity>[];
       for (final Object? value in decoded) {
         if (value is! Map) {
-          throw const FormatException('Notification storage contains a non-object entry.');
+          throw const FormatException(
+            'Notification storage contains a non-object entry.',
+          );
         }
         try {
           entries.add(
@@ -51,7 +53,9 @@ class NotificationsRepository implements INotificationRepository {
             ).toEntity(),
           );
         } on FormatException catch (error) {
-          throw FormatException('Notification storage contains an invalid entry: $error');
+          throw FormatException(
+            'Notification storage contains an invalid entry: $error',
+          );
         }
       }
       entries.sort(
