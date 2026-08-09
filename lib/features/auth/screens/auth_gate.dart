@@ -554,22 +554,27 @@ class _AuthScreenState extends State<_AuthScreen> {
         _showMessage('Use 8+ chars with upper, lower, and a number.');
         return;
       }
+
       await widget.authService.signUp(email: email, password: password);
-      await widget.authService.sendEmailVerification();
+
       AppAnalytics.track(
         'sign_up',
         params: <String, Object?>{'method': 'email'},
       );
+
       AppAnalytics.track(
         'login_event',
         params: <String, Object?>{'provider': 'email', 'mode': 'signup'},
       );
-      _showMessage('Verification link sent. Confirm inbox to proceed.');
+
+      _showMessage('Account created. Check your inbox to verify your email.');
       return;
     }
 
     await widget.authService.signIn(email: email, password: password);
+
     AppAnalytics.track('login', params: <String, Object?>{'method': 'email'});
+
     AppAnalytics.track(
       'login_event',
       params: <String, Object?>{'provider': 'email', 'mode': 'signin'},

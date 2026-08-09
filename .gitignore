@@ -117,3 +117,4 @@ audit_reports/chronospark_audit*.txt
 
 # Local Node lockfile (repo is Flutter-first)
 package-lock.json
+node_modules/

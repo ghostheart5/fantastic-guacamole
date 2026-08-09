@@ -54,10 +54,16 @@ class TutorialController extends ChangeNotifier {
       return;
     }
 
-    _activeTutorial = tutorial;
-    _activeStep = tutorial.steps.first;
+   _activeTutorial = tutorial;
 
-    _running = true;
+if (tutorial.steps.isEmpty) {
+  _activeStep = null;
+  _running = false;
+  return;
+}
+
+_activeStep = tutorial.steps.first;
+_running = true;
     _paused = false;
 
     _scheduleIfNeeded();

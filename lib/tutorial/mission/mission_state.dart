@@ -5,9 +5,11 @@ enum MissionId {
   // "Create Something" and accepts task, routine, goal, or note creation.
   createFirstGoal,
   configureFirstItem,
+
   // Legacy compatibility-only step retained so older saved progress can be
   // migrated safely. It is no longer part of required first setup.
   askSmartPlannerQuestion,
+
   // Reaching Timeline completes the setup flow. It does not require a
   // complete/skip/reschedule Timeline action.
   openTimeline,
@@ -47,10 +49,18 @@ class MissionCatalog {
     MissionId.openTimeline,
   ];
 
-  static MissionStep stepFor(MissionId id) {
-    return steps.firstWhere((MissionStep step) => step.id == id);
+  static MissionStep? stepById(MissionId id) {
+    for (final MissionStep step in steps) {
+      if (step.id == id) {
+        return step;
+      }
+    }
+
+    return null;
   }
 }
+
+const Object _activeMissionIdSentinel = Object();
 
 @immutable
 class MissionState {
@@ -86,7 +96,8 @@ class MissionState {
     if (id == null) {
       return null;
     }
-    return MissionCatalog.stepFor(id);
+
+    return MissionCatalog.stepById(id);
   }
 
   MissionStatus statusOf(MissionId id) {
@@ -102,13 +113,15 @@ class MissionState {
 
   MissionState copyWith({
     Map<MissionId, MissionStatus>? statuses,
-    MissionId? activeMissionId,
+    Object? activeMissionId = _activeMissionIdSentinel,
     bool? started,
     bool? finished,
   }) {
     return MissionState(
       statuses: statuses ?? this.statuses,
-      activeMissionId: activeMissionId,
+      activeMissionId: identical(activeMissionId, _activeMissionIdSentinel)
+          ? this.activeMissionId
+          : activeMissionId as MissionId?,
       started: started ?? this.started,
       finished: finished ?? this.finished,
     );
@@ -144,10 +157,16 @@ class MissionState {
     if (!isCompletionBannerActive) {
       return this;
     }
+
     final Map<MissionId, MissionStatus> next =
         Map<MissionId, MissionStatus>.from(statuses);
     next[MissionId.complete] = MissionStatus.dismissed;
-    return copyWith(statuses: next, activeMissionId: null, finished: true);
+
+    return copyWith(
+      statuses: next,
+      activeMissionId: null,
+      finished: true,
+    );
   }
 
   Map<String, Object?> toJson() {
@@ -179,13 +198,13 @@ class MissionState {
 
         final MissionId? id = _missionIdFromStoredName(idName);
 
-        final MissionStatus? status = MissionStatus.values
-            .where((MissionStatus candidate) => candidate.name == statusName)
-            .cast<MissionStatus?>()
-            .firstWhere(
-              (MissionStatus? value) => value != null,
-              orElse: () => null,
-            );
+        MissionStatus? status;
+        for (final MissionStatus candidate in MissionStatus.values) {
+          if (candidate.name == statusName) {
+            status = candidate;
+            break;
+          }
+        }
 
         if (id != null && status != null) {
           statuses[id] = status;
@@ -201,9 +220,9 @@ class MissionState {
 
     final _MissionStateCompatibility compatibility =
         _normalizeLegacySmartPlannerStep(
-          statuses: statuses,
-          activeMissionId: activeMissionId,
-        );
+      statuses: statuses,
+      activeMissionId: activeMissionId,
+    );
 
     return MissionState(
       statuses: compatibility.statuses,
@@ -222,7 +241,8 @@ class MissionState {
 
     final MissionStatus smartPlannerStatus =
         normalizedStatuses[MissionId.askSmartPlannerQuestion] ??
-        MissionStatus.locked;
+            MissionStatus.locked;
+
     MissionId? normalizedActiveMissionId = activeMissionId;
 
     if (smartPlannerStatus == MissionStatus.active ||
@@ -239,8 +259,8 @@ class MissionState {
 
       normalizedActiveMissionId =
           normalizedStatuses[MissionId.openTimeline] == MissionStatus.completed
-          ? MissionId.complete
-          : MissionId.openTimeline;
+              ? MissionId.complete
+              : MissionId.openTimeline;
     }
 
     return _MissionStateCompatibility(
@@ -253,14 +273,20 @@ class MissionState {
     if (storedName == null || storedName.trim().isEmpty) {
       return null;
     }
+
     final String normalized = storedName.trim();
+
     if (normalized == 'openActionHub') {
       return MissionId.configureFirstItem;
     }
-    return MissionId.values
-        .where((MissionId candidate) => candidate.name == normalized)
-        .cast<MissionId?>()
-        .firstWhere((MissionId? value) => value != null, orElse: () => null);
+
+    for (final MissionId candidate in MissionId.values) {
+      if (candidate.name == normalized) {
+        return candidate;
+      }
+    }
+
+    return null;
   }
 }
 

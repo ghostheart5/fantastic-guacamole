@@ -75,12 +75,28 @@ class _AppRootState extends ConsumerState<AppRoot> {
   }
 
   void _trackRouteChange() {
-    final String? location = _router?.state.matchedLocation;
-    if (location == null ||
-        location.isEmpty ||
-        location == _lastTrackedLocation) {
+    final GoRouter? router = _router;
+    if (router == null) {
       return;
     }
+
+    String location = '';
+
+    try {
+      location = router.state.matchedLocation;
+    } on StateError {
+      // GoRouter can briefly have no matched route during initial widget-test boot.
+      return;
+    }
+
+    if (location.trim().isEmpty) {
+      return;
+    }
+
+    if (location == _lastTrackedLocation) {
+      return;
+    }
+
     _lastTrackedLocation = location;
     unawaited(AppAnalytics.trackScreen(location));
   }
@@ -334,19 +350,30 @@ class _AppRootState extends ConsumerState<AppRoot> {
 
   void _handleDeepLink(Uri uri, GoRouter router) {
     final String deepLinkKey = uri.toString();
+
     if (_handledDeepLinks.contains(deepLinkKey)) {
       return;
     }
+
     _handledDeepLinks.add(deepLinkKey);
 
     final String location = resolveDeepLinkLocation(uri);
     if (location.isEmpty) {
       return;
     }
-    final String currentUri = router.state.uri.toString();
+
+    String currentUri = '';
+
+    try {
+      currentUri = router.state.uri.toString();
+    } on StateError {
+      currentUri = '';
+    }
+
     if (currentUri == location) {
       return;
     }
+
     // Deep links are handled automatically without direct user interaction.
     // Use replace to avoid creating a synthetic browser history entry.
     router.replace<void>(location);
@@ -446,21 +473,34 @@ class _AppRootState extends ConsumerState<AppRoot> {
   void _handlePendingNotificationTap(GoRouter router) {
     final String? payload =
         NotificationScheduler.consumePendingNotificationPayload();
+
     if (payload == null || payload.isEmpty) {
       return;
     }
+
     if (_handledNotificationPayloads.contains(payload)) {
       return;
     }
+
     _handledNotificationPayloads.add(payload);
 
     final String location = resolveNotificationPayloadLocation(payload);
     if (location.isEmpty) {
       return;
     }
-    if (router.state.uri.toString() == location) {
+
+    String currentUri = '';
+
+    try {
+      currentUri = router.state.uri.toString();
+    } on StateError {
+      currentUri = '';
+    }
+
+    if (currentUri == location) {
       return;
     }
+
     router.replace<void>(location);
   }
 }

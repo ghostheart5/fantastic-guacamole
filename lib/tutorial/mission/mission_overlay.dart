@@ -131,6 +131,33 @@ class _MissionOverlayState extends ConsumerState<MissionOverlay> {
       return const SizedBox.shrink();
     }
 
+    if (_dismissed ||
+        location.trim().isEmpty ||
+        !routeAllowed ||
+        !modalRouteIsSafe ||
+        !missionContextActive) {
+      if (kDebugMode) {
+        String reason = 'unknown';
+
+        if (location.trim().isEmpty) {
+          reason = 'empty_route';
+        } else if (!routeAllowed) {
+          reason = 'route_not_allowed:$location';
+        } else if (!modalRouteIsSafe) {
+          reason = 'modal_or_dialog_open';
+        } else if (!missionContextActive) {
+          reason = 'mission_context_inactive';
+        } else if (_dismissed) {
+          reason = 'dismissed';
+        }
+
+        debugPrint('CHRONOSPARK_TUTORIAL_OVERLAY_SUPPRESSED: reason=$reason');
+      }
+
+      _wasVisible = false;
+      return const SizedBox.shrink();
+    }
+
     final AsyncValue<MissionState> stateAsync = ref.watch(missionStateProvider);
 
     return stateAsync.when(
