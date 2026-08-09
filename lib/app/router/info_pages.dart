@@ -1,7 +1,39 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
+import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+class UnsupportedLinkPage extends StatelessWidget {
+  const UnsupportedLinkPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Link unavailable')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Text(
+                'This link is not supported by this version of ChronoSpark.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => context.go(RoutePaths.home),
+                child: const Text('Go to Home'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class SupportPage extends StatelessWidget {
   const SupportPage({super.key});

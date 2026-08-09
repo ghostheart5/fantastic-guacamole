@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/subtask_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_subtask_repository.dart';
@@ -16,8 +17,8 @@ class SubtaskRepository implements ISubtaskRepository {
     String? raw;
     try {
       raw = _store.get(_key);
-    } on StateError {
-      return const <SubtaskEntity>[];
+    } on StateError catch (error) {
+      throw StorageException('Subtask storage is unavailable: $error');
     }
     if (raw == null || raw.trim().isEmpty) {
       return const <SubtaskEntity>[];
@@ -28,8 +29,8 @@ class SubtaskRepository implements ISubtaskRepository {
           .whereType<Map<String, dynamic>>()
           .map(SubtaskEntity.fromJson)
           .toList(growable: false);
-    } catch (_) {
-      return const <SubtaskEntity>[];
+    } on Object catch (error) {
+      throw StorageException('Subtask storage is corrupted: $error');
     }
   }
 

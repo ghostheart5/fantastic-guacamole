@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/models/notification_record.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
@@ -37,10 +38,9 @@ class NotificationsRepository implements INotificationRepository {
         throw const FormatException('Notification storage is not a list.');
       }
       final List<NotificationEntity> entries = <NotificationEntity>[];
-      int malformedCount = 0;
       for (final Object? value in decoded) {
         if (value is! Map) {
-          continue;
+          throw const FormatException('Notification storage contains a non-object entry.');
         }
         try {
           entries.add(
@@ -51,16 +51,8 @@ class NotificationsRepository implements INotificationRepository {
             ).toEntity(),
           );
         } on FormatException catch (error) {
-          malformedCount++;
-          if (malformedCount == 1) {
-            Logger.warn('Skipping malformed notification: $error');
-          }
+          throw FormatException('Notification storage contains an invalid entry: $error');
         }
-      }
-      if (malformedCount > 1) {
-        Logger.warn(
-          'Skipped $malformedCount malformed notifications while reading storage.',
-        );
       }
       entries.sort(
         (NotificationEntity a, NotificationEntity b) =>
@@ -69,7 +61,7 @@ class NotificationsRepository implements INotificationRepository {
       return entries;
     } on FormatException catch (error) {
       Logger.error('Stored notifications are corrupt.', error);
-      return const <NotificationEntity>[];
+      throw StorageException('Notification storage is corrupted: $error');
     }
   }
 

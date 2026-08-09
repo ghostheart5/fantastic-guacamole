@@ -35,6 +35,31 @@ void main() {
       }
     });
 
+    test('signup does not automatically resend verification and callback config is documented', () {
+      final String authGate = SourceTestUtils.readText(
+        File('lib/features/auth/screens/auth_gate.dart'),
+      );
+      final String signUpHandler = authGate.substring(
+        authGate.indexOf('if (_signUpMode)'),
+        authGate.indexOf('await widget.authService.signIn('),
+      );
+      final String env = SourceTestUtils.readText(File('lib/config/env.dart'));
+      final String envExample = SourceTestUtils.readText(File('.env.example'));
+        final String readme = SourceTestUtils
+          .readText(File('README.md'))
+          .replaceAll(RegExp(r'\s+'), ' ');
+
+      expect(signUpHandler.contains('sendEmailVerification'), isFalse);
+      expect(env.contains('CHRONOSPARK_OAUTH_REDIRECT_URL'), isTrue);
+      expect(env.contains('CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL'), isTrue);
+      expect(env.contains('https://chronospark.app/app/auth/callback'), isTrue);
+      expect(envExample.contains('CHRONOSPARK_OAUTH_REDIRECT_URL=chronospark://auth-callback'), isTrue);
+      expect(envExample.contains('CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL=chronospark://auth-callback'), isTrue);
+      expect(readme.contains('Supabase Auth production setup'), isTrue);
+      expect(readme.contains('SMTP provider or Send Email Auth Hook'), isTrue);
+      expect(readme.contains('redirect allowlist'), isTrue);
+    });
+
     test('auth source does not contain hard-coded credentials', () {
       final List<String> offenders = <String>[];
       final List<RegExp> riskyPatterns = <RegExp>[

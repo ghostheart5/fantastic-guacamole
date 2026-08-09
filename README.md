@@ -44,9 +44,20 @@ The app reads runtime values from [.env](.env.example) and supports a few build-
 - CHRONOSPARK_SUPABASE_URL
 - CHRONOSPARK_SUPABASE_ANON_KEY
 - CHRONOSPARK_OAUTH_REDIRECT_URL
+- CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL
 - CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL
 
 See [.env.example](.env.example) for the expected shape.
+
+### Supabase Auth production setup
+
+In Supabase Dashboard, configure a production SMTP provider or Send Email Auth
+Hook. The default email provider only delivers to organization members. Set the
+Site URL and redirect allowlist to the exact production values for
+`CHRONOSPARK_OAUTH_REDIRECT_URL` and
+`CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL`, including both the HTTPS App Link
+and `chronospark://auth-callback` when those builds are distributed. Verify
+signup confirmation and password recovery callbacks on a signed release build.
 
 ## Supabase ownership contract
 

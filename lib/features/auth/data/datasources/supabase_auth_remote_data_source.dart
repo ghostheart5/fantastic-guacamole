@@ -27,12 +27,12 @@ class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
 
   @override
   Future<AuthSessionModel?> getCurrentSession() async {
+    final AuthSessionSnapshot? session = await _authService
+        .getCurrentSessionSnapshot(forceRefresh: true);
     final User? user = _authService.currentUser;
     if (user == null) {
       return null;
     }
-    final AuthSessionSnapshot? session = await _authService
-        .getCurrentSessionSnapshot();
     if (session == null || session.accessToken.isEmpty) {
       return null;
     }

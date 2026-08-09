@@ -26,41 +26,48 @@ class SessionRepository implements ISessionRepository {
   @override
   Future<void> endSession(String sessionId, DateTime endedAt) async {
     final List<SessionEntity> sessions = await _allSessions();
+    bool found = false;
     final List<SessionEntity> updated = sessions.map((SessionEntity item) {
       if (item.id != sessionId) {
         return item;
       }
-      return SessionEntity(
-        id: item.id,
-        taskId: item.taskId,
-        startedAt: item.startedAt,
-        plannedDuration: item.plannedDuration,
-        endedAt: endedAt,
-      );
+      found = true;
+      return item.endAt(endedAt);
     }).toList();
+    if (!found) {
+      throw StateError('Cannot end unknown session $sessionId.');
+    }
     await _saveAll(updated);
   }
 
   @override
   Future<void> pauseSession(String sessionId, DateTime pausedAt) async {
     final List<SessionEntity> sessions = await _allSessions();
-    final bool exists = sessions.any(
-      (SessionEntity item) => item.id == sessionId,
-    );
-    if (!exists) {
-      return;
+    bool found = false;
+    final List<SessionEntity> updated = sessions.map((SessionEntity item) {
+      if (item.id != sessionId) return item;
+      found = true;
+      return item.pauseAt(pausedAt);
+    }).toList();
+    if (!found) {
+      throw StateError('Cannot pause unknown session $sessionId.');
     }
+    await _saveAll(updated);
   }
 
   @override
   Future<void> resumeSession(String sessionId, DateTime resumedAt) async {
     final List<SessionEntity> sessions = await _allSessions();
-    final bool exists = sessions.any(
-      (SessionEntity item) => item.id == sessionId,
-    );
-    if (!exists) {
-      return;
+    bool found = false;
+    final List<SessionEntity> updated = sessions.map((SessionEntity item) {
+      if (item.id != sessionId) return item;
+      found = true;
+      return item.resumeAt(resumedAt);
+    }).toList();
+    if (!found) {
+      throw StateError('Cannot resume unknown session $sessionId.');
     }
+    await _saveAll(updated);
   }
 
   @override
@@ -117,7 +124,15 @@ class SessionRepository implements ISessionRepository {
       final DateTime? endedAt = DateTime.tryParse(
         (json['endedAt'] as String?) ?? '',
       );
+      final DateTime? pausedAt = json['pausedAt'] == null
+          ? null
+          : DateTime.tryParse((json['pausedAt'] as String?) ?? '');
       final int plannedMs = (json['plannedDurationMs'] as num?)?.toInt() ?? 0;
+      final int pausedMs = (json['pausedDurationMs'] as num?)?.toInt() ?? 0;
+      if (json['pausedAt'] != null && pausedAt == null) {
+        malformedCount++;
+        continue;
+      }
       sessions.add(
         SessionEntity(
           id: id,
@@ -125,6 +140,8 @@ class SessionRepository implements ISessionRepository {
           startedAt: startedAt,
           endedAt: endedAt,
           plannedDuration: Duration(milliseconds: plannedMs),
+          pausedAt: pausedAt,
+          pausedDuration: Duration(milliseconds: pausedMs),
         ),
       );
     }
@@ -146,6 +163,8 @@ class SessionRepository implements ISessionRepository {
                 'startedAt': item.startedAt.toIso8601String(),
                 'endedAt': item.endedAt?.toIso8601String(),
                 'plannedDurationMs': item.plannedDuration.inMilliseconds,
+                'pausedAt': item.pausedAt?.toIso8601String(),
+                'pausedDurationMs': item.pausedDuration.inMilliseconds,
               };
             })
             .toList(growable: false),

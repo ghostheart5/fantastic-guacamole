@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
@@ -28,8 +29,8 @@ class MemoryRepository implements IMemoryRepository {
         (MemoryEntity a, MemoryEntity b) => b.date.compareTo(a.date),
       );
       return memories;
-    } catch (_) {
-      return const <MemoryEntity>[];
+    } on Object catch (error) {
+      throw StorageException('Memory storage is corrupted: $error');
     }
   }
 

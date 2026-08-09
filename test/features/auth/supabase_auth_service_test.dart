@@ -10,15 +10,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 class _FakeCleanupService extends LocalUserDataCleanupService {
-  _FakeCleanupService()
+  _FakeCleanupService({required SecureStore store})
     : super(
         preferences: const SharedPrefsStoreAdapter(),
         hive: const HiveStoreAdapter(),
-        secureStore: SecureStore(backend: InMemorySecureStoreBackend()),
+        secureStore: store,
       );
 
+  int clearCalls = 0;
+  String? clearedUserId;
+
   @override
-  Future<void> clear({String? userId}) async {}
+  Future<void> clear({String? userId}) async {
+    clearCalls += 1;
+    clearedUserId = userId;
+    await secureStore.delete('auth.cached_session');
+    await secureStore.delete('profile_state_v2');
+  }
 }
 
 class _FakeSupabaseClient extends sb.SupabaseClient {
@@ -36,7 +44,14 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
 
   final StreamController<sb.AuthState> _authState;
   bool failNextRefreshSessionWithNetworkError = false;
+  bool signUpRequiresConfirmation = false;
+  bool failSignOut = false;
   int refreshSessionCallCount = 0;
+  int signUpCallCount = 0;
+  int resendCallCount = 0;
+  String? lastSignUpRedirect;
+  String? lastResendRedirect;
+  String? lastPasswordResetRedirect;
 
   @override
   Stream<sb.AuthState> get onAuthStateChange => _authState.stream;
@@ -64,14 +79,32 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
     String? captchaToken,
     sb.OtpChannel channel = sb.OtpChannel.sms,
   }) async {
+    signUpCallCount += 1;
+    lastSignUpRedirect = emailRedirectTo;
     if ((email ?? '').contains('fail')) {
       throw const sb.AuthException('Sign-up failed');
+    }
+    if (signUpRequiresConfirmation) {
+      final sb.User user = _buildUser(
+        userId: 'u2',
+        email: email ?? 'person@example.com',
+        emailConfirmed: false,
+      );
+      _currentUser = null;
+      _currentSession = null;
+      return sb.AuthResponse(user: user, session: null);
     }
     return _buildAuthResponse(userId: 'u2', email: email ?? 'person@example.com');
   }
 
   @override
-  Future<void> signOut({sb.SignOutScope scope = sb.SignOutScope.local}) async {}
+  Future<void> signOut({sb.SignOutScope scope = sb.SignOutScope.local}) async {
+    if (failSignOut) {
+      throw TimeoutException('Remote sign-out failed');
+    }
+    _currentUser = null;
+    _currentSession = null;
+  }
 
   @override
   Future<sb.AuthResponse> refreshSession([String? refreshToken]) async {
@@ -91,6 +124,8 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
     String? emailRedirectTo,
     String? captchaToken,
   }) async {
+    resendCallCount += 1;
+    lastResendRedirect = emailRedirectTo;
     return sb.ResendResponse(messageId: 'otp-message');
   }
 
@@ -123,7 +158,9 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
     String email, {
     String? redirectTo,
     String? captchaToken,
-  }) async {}
+  }) async {
+    lastPasswordResetRedirect = redirectTo;
+  }
 
   @override
   Future<sb.UserResponse> updateUser(
@@ -152,14 +189,7 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
     required String userId,
     required String email,
   }) {
-    final user = sb.User(
-      id: userId,
-      email: email,
-      appMetadata: const {},
-      userMetadata: const {},
-      aud: 'authenticated',
-      createdAt: DateTime.now().toIso8601String(),
-    );
+    final sb.User user = _buildUser(userId: userId, email: email);
     final session = sb.Session(
       accessToken: 'abc',
       tokenType: 'bearer',
@@ -171,21 +201,43 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
     _currentSession = session;
     return sb.AuthResponse(user: user, session: session);
   }
+
+  sb.User _buildUser({
+    required String userId,
+    required String email,
+    bool emailConfirmed = true,
+  }) {
+    return sb.User(
+      id: userId,
+      email: email,
+      appMetadata: const {},
+      userMetadata: const {},
+      aud: 'authenticated',
+      createdAt: DateTime.now().toIso8601String(),
+      emailConfirmedAt: emailConfirmed ? DateTime.now().toIso8601String() : null,
+    );
+  }
 }
 
 void main() {
   group('AuthService', () {
     late AuthService service;
     late _FakeGoTrueClient auth;
+    late SecureStore store;
+    late _FakeCleanupService cleanup;
 
     setUp(() {
       final authState = StreamController<sb.AuthState>.broadcast();
       auth = _FakeGoTrueClient(authState);
       final fakeClient = _FakeSupabaseClient(authClient: auth);
+      store = SecureStore(backend: InMemorySecureStoreBackend());
+      cleanup = _FakeCleanupService(store: store);
       service = AuthService(
         supabaseClient: fakeClient,
-        store: SecureStore(backend: InMemorySecureStoreBackend()),
-        localUserDataCleanupService: _FakeCleanupService(),
+        store: store,
+        oauthGoogleRedirectUrl: 'chronospark://auth-callback',
+        passwordRecoveryRedirectUrl: 'chronospark://auth-callback',
+        localUserDataCleanupService: cleanup,
       );
     });
 
@@ -196,6 +248,32 @@ void main() {
       );
       expect(credential.user, isNotNull);
       expect(credential.user!.email, 'person@example.com');
+    });
+
+    test('unconfirmed sign-up does not overwrite durable profile state', () async {
+      auth.signUpRequiresConfirmation = true;
+      await store.writeString('profile_state_v2', '{"name":"Existing"}');
+
+      await service.signUp(
+        email: 'new@example.com',
+        password: 'Password123!',
+      );
+
+      expect(await store.readString('profile_state_v2'), '{"name":"Existing"}');
+      expect(auth.signUpCallCount, 1);
+      expect(auth.resendCallCount, 0);
+      expect(auth.lastSignUpRedirect, 'chronospark://auth-callback');
+    });
+
+    test('verified sign-up session hydrates a missing durable profile', () async {
+      await service.signUp(
+        email: 'verified@example.com',
+        password: 'Password123!',
+      );
+
+      final String? profile = await store.readString('profile_state_v2');
+      expect(profile, isNotNull);
+      expect(profile, contains('verified'));
     });
 
     test('signUp surfaces sign-up failure', () async {
@@ -223,6 +301,38 @@ void main() {
 
     test('signOut clears session state without exposing secrets', () async {
       await expectLater(service.signOut(), completes);
+    });
+
+    test('failed remote sign-out still clears cached auth and local profile', () async {
+      await service.signIn(email: 'person@example.com', password: 'Password123!');
+      await store.writeString('auth.cached_session', 'cached');
+      await store.writeString('profile_state_v2', '{"name":"Person"}');
+      auth.failSignOut = true;
+
+      await expectLater(
+        service.signOut,
+        throwsA(isA<FirebaseAuthException>()),
+      );
+
+      expect(cleanup.clearCalls, 1);
+      expect(cleanup.clearedUserId, 'u1');
+      expect(await store.readString('auth.cached_session'), isNull);
+      expect(await store.readString('profile_state_v2'), isNull);
+    });
+
+    test('explicit verification resend uses the configured callback', () async {
+      await service.signIn(email: 'person@example.com', password: 'Password123!');
+
+      await service.sendEmailVerification();
+
+      expect(auth.resendCallCount, 1);
+      expect(auth.lastResendRedirect, 'chronospark://auth-callback');
+    });
+
+    test('password reset uses the configured recovery callback', () async {
+      await service.sendPasswordReset('person@example.com');
+
+      expect(auth.lastPasswordResetRedirect, 'chronospark://auth-callback');
     });
 
     test('getCurrentSessionSnapshot exposes session details without logging secrets', () async {

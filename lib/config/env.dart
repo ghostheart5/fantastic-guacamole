@@ -65,6 +65,10 @@ abstract final class Env {
     'CHRONOSPARK_OAUTH_REDIRECT_URL',
     defaultValue: 'https://chronospark.app/app/auth/callback',
   );
+  static const String _passwordRecoveryRedirectUrlDefine = String.fromEnvironment(
+    'CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL',
+    defaultValue: _oauthRedirectUrlDefine,
+  );
   static const String _githubOauthRedirectUrlDefine = String.fromEnvironment(
     'CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL',
     defaultValue: _oauthRedirectUrlDefine,
@@ -154,6 +158,10 @@ abstract final class Env {
   );
   static String get oauthRedirectUrl =>
       _readString('CHRONOSPARK_OAUTH_REDIRECT_URL', _oauthRedirectUrlDefine);
+  static String get passwordRecoveryRedirectUrl => _readString(
+    'CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL',
+    _passwordRecoveryRedirectUrlDefine,
+  );
   static String get githubOauthRedirectUrl => _readString(
     'CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL',
     _githubOauthRedirectUrlDefine,

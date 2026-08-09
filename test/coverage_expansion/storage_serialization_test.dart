@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/data/storage/storage_keys.dart';
@@ -75,7 +76,7 @@ void main() {
     });
 
     test(
-      'TutorialRepository handles missing and corrupted progress safely',
+      'TutorialRepository handles missing progress and rejects corruption',
       () async {
         final TutorialRepository repo = const TutorialRepository();
         final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -84,9 +85,14 @@ void main() {
         expect(missing, const TutorialProgress());
 
         await prefs.setString('tutorial_progress_v1', '{not-json');
-        final TutorialProgress corrupted = repo.loadProgress();
-        expect(corrupted, const TutorialProgress());
+        expect(repo.loadProgress, throwsA(isA<StorageException>()));
+        await expectLater(
+          repo.loadProgressWithVersion(contentVersion: 2),
+          throwsA(isA<StorageException>()),
+        );
+        expect(prefs.getString('tutorial_progress_v1'), '{not-json');
 
+        await repo.removeProgress();
         await repo.saveProgress(
           const TutorialProgress(completedStepIds: <String>{'nexus_overview'}),
         );

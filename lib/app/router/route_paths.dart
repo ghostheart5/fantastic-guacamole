@@ -4,6 +4,7 @@ class RoutePaths {
   // Entry and auth routes.
   static const onboarding = '/onboarding';
   static const login = '/login';
+  static const unsupportedLink = '/unsupported-link';
 
   // Primary navigation surfaces.
   static const home = '/home';

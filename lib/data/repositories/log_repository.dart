@@ -102,11 +102,9 @@ class LogRepository implements ILogRepository {
       throw const FormatException('Log storage is not a list.');
     }
     final List<LogEntryEntity> entries = <LogEntryEntity>[];
-    int malformedCount = 0;
     for (final Object? value in decoded) {
       if (value is! Map) {
-        malformedCount++;
-        continue;
+        throw const FormatException('Log storage contains a non-object entry.');
       }
       try {
         final Map<String, dynamic> json = value.map(
@@ -114,16 +112,8 @@ class LogRepository implements ILogRepository {
         );
         entries.add(LogEntryRecord.fromJson(json).toEntity());
       } on FormatException catch (error) {
-        malformedCount++;
-        if (malformedCount == 1) {
-          Logger.warn('Skipping malformed log entry: $error');
-        }
+        throw FormatException('Log storage contains an invalid entry: $error');
       }
-    }
-    if (malformedCount > 1) {
-      Logger.warn(
-        'Skipped $malformedCount malformed log entries while reading storage.',
-      );
     }
     return _LogsDecodeResult(entries: entries);
   }

@@ -87,6 +87,7 @@ bugreport-*
 
 # Secrets
 .env
+tool/staging_validation/.core_sync_rls_approved
 key.properties
 *.jks
 *.keystore

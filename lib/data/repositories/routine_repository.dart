@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart';
@@ -19,8 +20,8 @@ class RoutineRepository implements IRoutineRepository {
     String? raw;
     try {
       raw = _store.get(_key);
-    } on StateError {
-      return const <RoutineEntity>[];
+    } on StateError catch (error) {
+      throw StorageException('Routine storage is unavailable: $error');
     }
     if (raw == null || raw.trim().isEmpty) {
       _corruptedSnapshot = false;
@@ -29,18 +30,19 @@ class RoutineRepository implements IRoutineRepository {
     try {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
       _corruptedSnapshot = false;
-      return list
-          .whereType<Map<dynamic, dynamic>>()
-          .map(_normalizeRoutinePayloadToHabitShape)
-          .map(RoutineEntity.fromJson)
-          .toList(growable: false);
+      return list.map((dynamic value) {
+        if (value is! Map) {
+          throw const FormatException('Routine storage contains a non-object entry.');
+        }
+        return RoutineEntity.fromJson(_validateRoutinePayload(value));
+      }).toList(growable: false);
     } on Object catch (error) {
       _corruptedSnapshot = true;
       Logger.error(
         'Routines snapshot is corrupted; writes are blocked.',
         error,
       );
-      return const <RoutineEntity>[];
+      throw StorageException('Routine storage is corrupted: $error');
     }
   }
 
@@ -96,34 +98,26 @@ class RoutineRepository implements IRoutineRepository {
     );
   }
 
-  Map<String, dynamic> _normalizeRoutinePayloadToHabitShape(
+  Map<String, dynamic> _validateRoutinePayload(
     Map<dynamic, dynamic> payload,
   ) {
     final Map<String, dynamic> normalized = payload.map<String, dynamic>(
       (dynamic key, dynamic value) => MapEntry(key.toString(), value),
     );
 
-    final String rawName =
-        normalized['name']?.toString() ?? normalized['title']?.toString() ?? '';
-    normalized['name'] = rawName.isEmpty ? 'Untitled Habit' : rawName;
-
-    if (!normalized.containsKey('title')) {
-      normalized['title'] = normalized['name'];
+    for (final String key in <String>[
+      'id',
+      'name',
+      'createdAt',
+      'updatedAt',
+      'cadence',
+      'targetCount',
+      'status',
+    ]) {
+      if (!normalized.containsKey(key)) {
+        throw FormatException('Routine storage is missing required $key.');
+      }
     }
-
-    if (!normalized.containsKey('cadence')) {
-      final String fallbackCadence =
-          normalized['frequency']?.toString() ??
-          normalized['recurrence']?.toString() ??
-          normalized['recurrenceRule']?.toString() ??
-          'daily';
-      normalized['cadence'] = fallbackCadence;
-    }
-
-    if (!normalized.containsKey('targetCount')) {
-      normalized['targetCount'] = 1;
-    }
-
     return normalized;
   }
 

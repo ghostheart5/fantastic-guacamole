@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/engine/learning/adaptive_learning.dart';
@@ -11,6 +13,7 @@ final learningProvider = NotifierProvider<LearningController, LearningState>(
 );
 
 class LearningController extends Notifier<LearningState> {
+  bool _storageCorrupted = false;
   @override
   LearningState build() {
     _load();
@@ -28,8 +31,9 @@ class LearningController extends Notifier<LearningState> {
       }
 
       state = LearningState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    } catch (_) {
-      // Keep defaults when persistence is empty or invalid.
+    } on Object catch (error) {
+      _storageCorrupted = true;
+      Logger.error('Learning state storage is corrupted.', error);
     }
   }
 
@@ -42,6 +46,11 @@ class LearningController extends Notifier<LearningState> {
   }
 
   Future<void> apply(LearningState updated) async {
+    if (_storageCorrupted) {
+      throw const StorageException(
+        'Learning state storage is corrupted. Reset or recover it before saving.',
+      );
+    }
     state = updated;
     await _store.writeString(_storageKey, jsonEncode(updated.toJson()));
   }

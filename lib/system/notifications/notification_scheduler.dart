@@ -16,6 +16,8 @@ enum NotificationScheduleResult {
   skippedPastTime,
 }
 
+enum NotificationDestination { task, goal, timeline, siConsole, home }
+
 class NotificationScheduler {
   factory NotificationScheduler() => _instance;
 
@@ -36,6 +38,15 @@ class NotificationScheduler {
     final String? payload = _pendingNotificationPayload;
     _pendingNotificationPayload = null;
     return payload;
+  }
+
+  static void queueExternalNotificationPayload(String payload) {
+    final String normalized = payload.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    _pendingNotificationPayload = normalized;
+    notificationPayloadListenable.value = normalized;
   }
 
   static const _channel = AndroidNotificationChannel(
@@ -98,8 +109,7 @@ class NotificationScheduler {
         if (payload == null || payload.isEmpty) {
           return;
         }
-        _pendingNotificationPayload = payload;
-        notificationPayloadListenable.value = payload;
+        queueExternalNotificationPayload(payload);
       },
       onDidReceiveBackgroundNotificationResponse:
           notificationTapBackgroundHandler,
@@ -213,7 +223,7 @@ class NotificationScheduler {
       scheduledDate: scheduledTz,
       notificationDetails: _notifDetails,
       payload: jsonEncode(<String, String>{
-        'route': '/notifications',
+        'destination': NotificationDestination.home.name,
         'notificationId': notification.id,
       }),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -269,7 +279,7 @@ class NotificationScheduler {
       scheduledDate: scheduled,
       notificationDetails: _notifDetails,
       payload: jsonEncode(<String, String>{
-        'route': '/notifications',
+        'destination': NotificationDestination.home.name,
         'notificationId': id,
       }),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,

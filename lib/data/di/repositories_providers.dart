@@ -34,7 +34,9 @@ import 'package:fantastic_guacamole/data/repositories/workspace_repository.dart'
 import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
 import 'package:fantastic_guacamole/data/sync/sync_queue_store.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
+import 'package:fantastic_guacamole/data/storage/si_workspace_store.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -147,8 +149,12 @@ final appPaywallRepositoryProvider = Provider<IPaywallRepository>((Ref ref) {
   return PaywallRepository(testingModeOverride: forceLocalTestingPaywall);
 });
 
-final siEngineRepositoryProvider = Provider<SiEngineRepository>((Ref ref) {
+final siEngineRepositoryProvider = Provider<ISiRepository>((Ref ref) {
   return SiEngineRepository(ref.read(secureStoreProvider));
+});
+
+final siWorkspaceStoreProvider = Provider<SiWorkspaceStore>((Ref ref) {
+  return SiWorkspaceStore(ref.read(secureStoreProvider));
 });
 
 final logRepositoryProvider = Provider<LogRepository>((Ref ref) {

@@ -8,6 +8,10 @@ class TaskEntityMapper {
     final int? durationMs = (json['estimatedDurationMs'] as num?)?.toInt();
     final String? recurrenceName = json['recurrenceRule']?.toString();
     final String legacyStatus = json['status']?.toString() ?? '';
+    final DateTime? createdAt = _dateTimeFromJson(json['createdAt']);
+    if (createdAt == null) {
+      throw const FormatException('Task payload requires a valid createdAt timestamp.');
+    }
     final bool legacyCompleted =
         legacyStatus == 'completed' ||
         ((json['completionCount'] as num?)?.toInt() ?? 0) > 0;
@@ -17,9 +21,7 @@ class TaskEntityMapper {
       title: json['title']?.toString() ?? 'Untitled Task',
       kind: json['kind']?.toString(),
       description: json['description']?.toString(),
-      createdAt:
-          _dateTimeFromJson(json['createdAt']) ??
-          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+        createdAt: createdAt,
       isCompleted: json['isCompleted'] as bool? ?? legacyCompleted,
       priority: (json['priority'] as num?)?.toInt() ?? 3,
       difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,

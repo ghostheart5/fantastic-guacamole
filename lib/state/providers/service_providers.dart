@@ -63,7 +63,7 @@ final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
 
 final siEngineServiceProvider = Provider<StateSiEngineService>((Ref ref) {
   return StateSiEngineService(
-    ref.read(siEngineRepositoryProvider),
+    ref.read(siWorkspaceStoreProvider),
     dependencies: ref.read(siEngineDependenciesProvider),
   );
 });
@@ -165,6 +165,22 @@ final firebaseSupabaseBridgeProvider = Provider<void>((Ref ref) {
       );
     }
   }
+
+  FirebaseMessagingBootstrap.configureTokenRefreshHandler((String token) async {
+    final sb.SupabaseClient? activeClient = ref.read(supabaseClientProvider);
+    if (activeClient == null) {
+      await bridgeRepository.cacheFirebaseMessagingToken(token);
+      return;
+    }
+    await bridgeRepository.syncFirebaseMessagingToken(
+      activeClient,
+      token,
+      source: 'fcm-token-refresh',
+    );
+  });
+  ref.onDispose(() {
+    FirebaseMessagingBootstrap.configureTokenRefreshHandler(null);
+  });
 
   if (client != null) {
     unawaited(syncIfPossible(source: 'bridge-bootstrap'));

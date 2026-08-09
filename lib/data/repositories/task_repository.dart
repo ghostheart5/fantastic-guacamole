@@ -84,10 +84,27 @@ class TaskRepository implements ITaskRepository {
   }
 
   Map<String, dynamic> _taskSyncPayload(TaskEntity task) {
-    final Map<String, dynamic> payload = TaskEntityMapper.toJson(task);
-    payload['updated_at'] = DateTime.now().toUtc().toIso8601String();
-    payload['deleted_at'] = null;
-    return payload;
+    return <String, dynamic>{
+      'id': task.id,
+      'title': task.title,
+      'kind': task.kind,
+      'description': task.description,
+      'priority': task.priority,
+      'difficulty': task.difficulty,
+      'energy_required': task.energyRequired,
+      'estimated_duration_ms': task.estimatedDuration?.inMilliseconds,
+      'created_at': task.createdAt.toUtc().toIso8601String(),
+      'is_completed': task.isCompleted,
+      'completed_at': task.completedAt?.toUtc().toIso8601String(),
+      'scheduled_for': task.scheduledFor?.toUtc().toIso8601String(),
+      'due_date': task.dueDate?.toUtc().toIso8601String(),
+      'goal_id': task.goalId,
+      'is_canceled': task.isCanceled,
+      'subtasks': task.subtasks,
+      'recurrence_rule': task.recurrenceRule.name,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+      'deleted_at': null,
+    };
   }
 
   Future<List<TaskEntity>> _loadSortedTasks() async {

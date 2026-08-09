@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { verifySubscriptionLineItem } from "../_shared/subscription_verification.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
@@ -342,18 +343,18 @@ serve(async (req: Request) => {
 
     // Subscription response
     if (purchaseType === "subscription") {
-      const lineItem = gpData.lineItems?.[0];
-      const expiryTimeMs = lineItem?.expiryTime
-        ? new Date(lineItem.expiryTime).getTime()
-        : undefined;
-      const valid = gpData.subscriptionState === "SUBSCRIPTION_STATE_ACTIVE" ||
-        gpData.subscriptionState === "SUBSCRIPTION_STATE_IN_GRACE_PERIOD";
+      const verifiedLineItem = verifySubscriptionLineItem(
+        gpData as Record<string, unknown>,
+        productId,
+      );
+      const expiryTimeMs = verifiedLineItem?.expiryTimeMs;
+      const valid = verifiedLineItem !== null;
       const bound = valid &&
         await bindPurchaseToken(token, userId, productId);
       const applied = bound
         ? await applyVerifiedPurchase(
           userId,
-          productId,
+          verifiedLineItem.productId,
           purchaseType,
           token,
           gpData.latestOrderId,

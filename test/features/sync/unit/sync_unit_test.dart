@@ -3,8 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('OfflineSyncQueueItem', () {
-    test('fromJson normalizes payload keys and defaults missing primitives', () {
-      final OfflineSyncQueueItem item = OfflineSyncQueueItem.fromJson(
+    test('fromJson rejects a non-integer attempt count', () {
+      expect(() => OfflineSyncQueueItem.fromJson(
         <String, dynamic>{
           'id': 'evt-1',
           'actionType': 'upsert_task',
@@ -13,14 +13,7 @@ void main() {
           'enqueuedAtUtc': '2026-08-01T00:00:00.000Z',
           'attempts': 2.0,
         },
-      );
-
-      expect(item.id, 'evt-1');
-      expect(item.actionType, 'upsert_task');
-      expect(item.dedupeKey, 'task:1');
-      expect(item.payload.keys, containsAll(<String>['1', 'b']));
-      expect(item.attempts, 2);
-      expect(item.lastAttemptAtUtc, isNull);
+      ), throwsFormatException);
     });
 
     test('toJson and copyWith preserve immutable queue item fields', () {

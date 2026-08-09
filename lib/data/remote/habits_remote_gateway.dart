@@ -7,7 +7,10 @@ class HabitsRemoteGateway {
 
   Future<void> upsert({required Map<String, dynamic> row}) async {
     final sb.SupabaseClient client = _requireClient();
-    await client.from('habits').upsert(row);
+    await client.from('habits').upsert(
+      _ownedRow(client, row),
+      onConflict: 'user_id,id',
+    );
   }
 
   Future<void> softDelete({
@@ -51,5 +54,20 @@ class HabitsRemoteGateway {
       throw StateError('Supabase client is not available.');
     }
     return client;
+  }
+
+  Map<String, dynamic> _ownedRow(
+    sb.SupabaseClient client,
+    Map<String, dynamic> row,
+  ) {
+    final String? userId = client.auth.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      throw StateError('An authenticated user is required for habit sync.');
+    }
+    final String? claimedUserId = row['user_id']?.toString();
+    if (claimedUserId != null && claimedUserId.isNotEmpty && claimedUserId != userId) {
+      throw StateError('Habit sync payload user does not match the active user.');
+    }
+    return <String, dynamic>{...row, 'user_id': userId};
   }
 }

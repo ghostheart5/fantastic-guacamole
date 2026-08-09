@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -21,8 +22,8 @@ class GoalRepository implements IGoalRepository {
     String? raw;
     try {
       raw = _store.get(_key);
-    } on StateError {
-      return const <GoalEntity>[];
+    } on StateError catch (error) {
+      throw StorageException('Goal storage is unavailable: $error');
     }
     if (raw == null || raw.trim().isEmpty) {
       _corruptedSnapshot = false;
@@ -38,7 +39,7 @@ class GoalRepository implements IGoalRepository {
     } on Object catch (error) {
       _corruptedSnapshot = true;
       Logger.error('Goals snapshot is corrupted; writes are blocked.', error);
-      return const <GoalEntity>[];
+      throw StorageException('Goal storage is corrupted: $error');
     }
   }
 

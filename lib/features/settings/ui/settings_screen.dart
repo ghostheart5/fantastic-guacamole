@@ -476,6 +476,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                     ),
+                    _NeonNavTile(
+                      title: 'About ChronoSpark',
+                      subtitle: 'App information, privacy, and support details.',
+                      onTap: () => context.push(RoutePaths.about),
+                    ),
                   ],
                 ),
               ),

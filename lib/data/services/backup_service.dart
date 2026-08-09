@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/local/task_entity_mapper.dart';
@@ -123,9 +124,13 @@ class BackupService {
       return null;
     }
     try {
-      return _asStringKeyMap(jsonDecode(raw));
-    } on FormatException {
-      return null;
+      final Map<String, dynamic>? profile = _asStringKeyMap(jsonDecode(raw));
+      if (profile == null) {
+        throw const FormatException('Profile storage is not an object.');
+      }
+      return profile;
+    } on Object catch (error) {
+      throw StorageException('Profile storage is corrupted: $error');
     }
   }
 
@@ -171,13 +176,21 @@ class BackupService {
   }
 
   List<TaskEntity>? _taskEntitiesFromRaw(dynamic rawTasks) {
-    if (rawTasks is! List) {
+    if (rawTasks == null) {
       return null;
+    }
+    if (rawTasks is! List) {
+      throw const StorageException('Backup tasks payload is not a list.');
     }
 
     final List<TaskEntity> tasks = <TaskEntity>[];
-    for (final Map<dynamic, dynamic> item
-        in rawTasks.whereType<Map<dynamic, dynamic>>()) {
+    final List<String> rejectedRecordIds = <String>[];
+    for (final dynamic value in rawTasks) {
+      if (value is! Map) {
+        rejectedRecordIds.add('<non-object>');
+        continue;
+      }
+      final Map<dynamic, dynamic> item = value;
       try {
         final TaskEntity task = TaskEntityMapper.fromJson(
           item.map(
@@ -186,14 +199,17 @@ class BackupService {
         );
         if (task.id.trim().isNotEmpty) {
           tasks.add(task);
+        } else {
+          rejectedRecordIds.add('<missing-id>');
         }
-      } catch (_) {
-        // Ignore individual malformed legacy records when other records remain
-        // recoverable.
+      } on Object {
+        rejectedRecordIds.add(item['id']?.toString() ?? '<missing-id>');
       }
     }
-    if (rawTasks.isNotEmpty && tasks.isEmpty) {
-      throw const FormatException('Backup contains no valid task records.');
+    if (rejectedRecordIds.isNotEmpty) {
+      throw StorageException(
+        'Backup contains malformed task records: ${rejectedRecordIds.join(', ')}.',
+      );
     }
     return tasks;
   }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/sync/sync_operation.dart';
 
@@ -31,16 +32,25 @@ class SyncQueueStore implements SyncQueueStoreContract {
       return const <SyncOperation>[];
     }
 
-    return decoded
-        .whereType<Map<dynamic, dynamic>>()
-        .map(
-          (Map<dynamic, dynamic> entry) => SyncOperation.fromJson(
+    final List<SyncOperation> operations = <SyncOperation>[];
+    for (final Object? entry in decoded) {
+      if (entry is! Map) {
+        Logger.warn('Skipping malformed sync queue entry: not an object.');
+        continue;
+      }
+      try {
+        operations.add(
+          SyncOperation.fromJson(
             entry.map<String, dynamic>(
               (dynamic key, dynamic value) => MapEntry(key.toString(), value),
             ),
           ),
-        )
-        .toList(growable: false);
+        );
+      } on FormatException catch (error) {
+        Logger.warn('Skipping malformed sync queue entry: $error');
+      }
+    }
+    return operations;
   }
 
   @override

@@ -30,12 +30,19 @@ class FirebaseBootstrap {
           await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
             Env.enableCrashReporting,
           );
+          _reportCollectionState(
+            name: 'Crashlytics',
+            enabled: Env.enableCrashReporting,
+          );
         }
 
         if (_supportsAnalytics) {
+          final bool analyticsEnabled =
+              Env.enableAnalytics && kReleaseMode && Env.isProduction;
           await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
-            Env.enableAnalytics && kReleaseMode && Env.isProduction,
+            analyticsEnabled,
           );
+          _reportCollectionState(name: 'Analytics', enabled: analyticsEnabled);
         } else {
           Logger.warn(
             'Firebase Analytics bootstrap skipped on unsupported platform: $defaultTargetPlatform',
@@ -82,5 +89,19 @@ class FirebaseBootstrap {
 
     return defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  void _reportCollectionState({required String name, required bool enabled}) {
+    final String state =
+        '$name collection enabled=$enabled '
+        '(release=$kReleaseMode production=${Env.isProduction} configured=${name == 'Analytics' ? Env.enableAnalytics : Env.enableCrashReporting}).';
+    RuntimeDiagnostics.record(state);
+    if (kReleaseMode && Env.isProduction && !enabled) {
+      Logger.error(
+        '$name collection is disabled in a production release build.',
+      );
+    } else {
+      Logger.log('Firebase', state);
+    }
   }
 }

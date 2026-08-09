@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
@@ -23,8 +24,8 @@ class TimelineRepository implements ITimelineRepository {
           .whereType<Map<String, dynamic>>()
           .map(TimelineEventEntity.fromJson)
           .toList(growable: false);
-    } catch (_) {
-      return const <TimelineEventEntity>[];
+    } on Object catch (error) {
+      throw StorageException('Timeline storage is corrupted: $error');
     }
   }
 

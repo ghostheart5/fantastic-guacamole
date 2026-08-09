@@ -69,22 +69,42 @@ class SyncOperation {
   }
 
   factory SyncOperation.fromJson(Map<String, dynamic> json) {
+    final String operationId = _requiredString(json, 'operationId');
+    final String tableName = _requiredString(json, 'tableName');
+    final String recordId = _requiredString(json, 'recordId');
+    final String userId = _requiredString(json, 'userId');
+    final String operationTypeName = _requiredString(json, 'operationType');
+    final SyncOperationType operationType = SyncOperationType.values.firstWhere(
+      (SyncOperationType value) => value.name == operationTypeName,
+      orElse: () => throw FormatException(
+        'Invalid sync operation type: $operationTypeName',
+      ),
+    );
+    final Object? rawPayload = json['payload'];
+    if (rawPayload is! Map) {
+      throw const FormatException('Sync operation requires a payload object.');
+    }
+    final Object? rawRetryCount = json['retryCount'];
+    if (rawRetryCount is! int || rawRetryCount < 0) {
+      throw const FormatException('Sync operation requires a non-negative retry count.');
+    }
+    final DateTime? createdAtUtc = DateTime.tryParse(
+      _requiredString(json, 'createdAtUtc'),
+    );
+    if (createdAtUtc == null) {
+      throw const FormatException('Sync operation requires a valid createdAtUtc timestamp.');
+    }
     return SyncOperation(
-      operationId: json['operationId']?.toString() ?? '',
-      tableName: json['tableName']?.toString() ?? '',
-      recordId: json['recordId']?.toString() ?? '',
-      operationType: SyncOperationType.values.firstWhere(
-        (SyncOperationType value) => value.name == json['operationType'],
-        orElse: () => SyncOperationType.update,
-      ),
+      operationId: operationId,
+      tableName: tableName,
+      recordId: recordId,
+      operationType: operationType,
       payload: Map<String, dynamic>.from(
-        (json['payload'] as Map?) ?? const <String, dynamic>{},
+        rawPayload,
       ),
-      userId: json['userId']?.toString() ?? '',
-      createdAtUtc:
-          DateTime.tryParse(json['createdAtUtc']?.toString() ?? '') ??
-          DateTime.now().toUtc(),
-      retryCount: (json['retryCount'] as int?) ?? 0,
+      userId: userId,
+      createdAtUtc: createdAtUtc,
+      retryCount: rawRetryCount,
       nextRetryAtUtc: json['nextRetryAtUtc'] == null
           ? null
           : DateTime.tryParse(json['nextRetryAtUtc'].toString()),
@@ -100,5 +120,13 @@ class SyncOperation {
       throw const FormatException('Invalid SyncOperation payload.');
     }
     return SyncOperation.fromJson(decoded);
+  }
+
+  static String _requiredString(Map<String, dynamic> json, String key) {
+    final Object? value = json[key];
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('Sync operation requires a non-empty $key.');
+    }
+    return value;
   }
 }

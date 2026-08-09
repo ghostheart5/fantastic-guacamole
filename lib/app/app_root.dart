@@ -3,8 +3,10 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
+import 'package:fantastic_guacamole/app/router/navigation_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
+import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
@@ -36,13 +38,52 @@ class _AppRootState extends ConsumerState<AppRoot> {
   bool _activationFinalizationInFlight = false;
   final Set<String> _handledDeepLinks = <String>{};
   final Set<String> _handledNotificationPayloads = <String>{};
+  String? _lastTrackedLocation;
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationScheduler.notificationPayloadListenable.addListener(
+      _handleNotificationPayloadChange,
+    );
+  }
 
   void _attachRouterListener(GoRouter router) {
+    if (identical(_router, router)) {
+      return;
+    }
+    _router?.routerDelegate.removeListener(_trackRouteChange);
     _router = router;
+    router.routerDelegate.addListener(_trackRouteChange);
+    _trackRouteChange();
   }
 
   @override
-  void dispose() => super.dispose();
+  void dispose() {
+    NotificationScheduler.notificationPayloadListenable.removeListener(
+      _handleNotificationPayloadChange,
+    );
+    _router?.routerDelegate.removeListener(_trackRouteChange);
+    super.dispose();
+  }
+
+  void _handleNotificationPayloadChange() {
+    final GoRouter? router = _router;
+    if (router != null) {
+      _handlePendingNotificationTap(router);
+    }
+  }
+
+  void _trackRouteChange() {
+    final String? location = _router?.state.matchedLocation;
+    if (location == null ||
+        location.isEmpty ||
+        location == _lastTrackedLocation) {
+      return;
+    }
+    _lastTrackedLocation = location;
+    unawaited(AppAnalytics.trackScreen(location));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -298,7 +339,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
     }
     _handledDeepLinks.add(deepLinkKey);
 
-    final String location = _resolveDeepLinkLocation(uri);
+    final String location = resolveDeepLinkLocation(uri);
     if (location.isEmpty) {
       return;
     }
@@ -309,84 +350,6 @@ class _AppRootState extends ConsumerState<AppRoot> {
     // Deep links are handled automatically without direct user interaction.
     // Use replace to avoid creating a synthetic browser history entry.
     router.replace<void>(location);
-  }
-
-  String _resolveDeepLinkLocation(Uri uri) {
-    // Mobile OAuth callbacks may return through the custom scheme target.
-    // HTTPS app links remain supported via /app/auth/callback.
-    if (_isCustomSchemeAuthCallback(uri)) {
-      final Map<String, String> params = _allLinkParams(uri);
-      final String type = (params['type'] ?? '').toLowerCase();
-      final String mode = switch (type) {
-        'recovery' => 'recovery',
-        'signup' || 'email_change' || 'invite' => 'verify-email',
-        _ => 'auth-callback',
-      };
-      return '${RoutePaths.login}?mode=$mode';
-    }
-
-    final String appPath = _normalizeAppPath(uri.path);
-    if (appPath.isEmpty) {
-      return '';
-    }
-
-    final Map<String, String> params = _allLinkParams(uri);
-
-    if (appPath == '/app/auth/callback') {
-      final String type = (params['type'] ?? '').toLowerCase();
-      final String mode = switch (type) {
-        'recovery' => 'recovery',
-        'signup' || 'email_change' || 'invite' => 'verify-email',
-        _ => 'auth-callback',
-      };
-      return '${RoutePaths.login}?mode=$mode';
-    }
-
-    if (appPath == '/app' || appPath == '/app/') {
-      return RoutePaths.home;
-    }
-
-    final String leaf = appPath.substring('/app/'.length);
-    return switch (leaf) {
-      'home' => RoutePaths.home,
-      'plan' => RoutePaths.plan,
-      'creator' => RoutePaths.creator,
-      'insights' => RoutePaths.insights,
-      'settings' => RoutePaths.settings,
-      'notifications' => RoutePaths.notifications,
-      'support' => RoutePaths.support,
-      'privacy' => RoutePaths.privacy,
-      'terms' => RoutePaths.terms,
-      _ => RoutePaths.home,
-    };
-  }
-
-  bool _isCustomSchemeAuthCallback(Uri uri) {
-    if (uri.scheme != 'chronospark') {
-      return false;
-    }
-    return uri.host.toLowerCase() == 'auth-callback' &&
-        (uri.path.isEmpty || uri.path == '/');
-  }
-
-  String _normalizeAppPath(String path) {
-    if (path == '/app' || path == '/app/' || path.startsWith('/app/')) {
-      return path;
-    }
-    final int appStart = path.indexOf('/app');
-    if (appStart >= 0) {
-      return path.substring(appStart);
-    }
-    return '';
-  }
-
-  Map<String, String> _allLinkParams(Uri uri) {
-    final Map<String, String> merged = <String, String>{...uri.queryParameters};
-    final String fragment = uri.fragment.trim();
-    if (fragment.isNotEmpty) {
-      merged.addAll(Uri.splitQueryString(fragment));
-    }
-    return merged;
   }
 
   String _startupBannerMessage(
@@ -491,7 +454,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
     }
     _handledNotificationPayloads.add(payload);
 
-    final String location = _resolveNotificationPayloadLocation(payload);
+    final String location = resolveNotificationPayloadLocation(payload);
     if (location.isEmpty) {
       return;
     }
@@ -499,21 +462,5 @@ class _AppRootState extends ConsumerState<AppRoot> {
       return;
     }
     router.replace<void>(location);
-  }
-
-  String _resolveNotificationPayloadLocation(String payload) {
-    try {
-      final Object? decoded = jsonDecode(payload);
-      if (decoded is Map) {
-        final Object? rawRoute = decoded['route'];
-        final String? route = rawRoute is String ? rawRoute.trim() : null;
-        if (route != null && route.isNotEmpty) {
-          return route;
-        }
-      }
-    } on FormatException {
-      // Fall through to safe default route.
-    }
-    return RoutePaths.notifications;
   }
 }

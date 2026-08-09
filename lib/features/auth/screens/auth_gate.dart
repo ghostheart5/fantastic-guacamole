@@ -557,6 +557,10 @@ class _AuthScreenState extends State<_AuthScreen> {
       await widget.authService.signUp(email: email, password: password);
       await widget.authService.sendEmailVerification();
       AppAnalytics.track(
+        'sign_up',
+        params: <String, Object?>{'method': 'email'},
+      );
+      AppAnalytics.track(
         'login_event',
         params: <String, Object?>{'provider': 'email', 'mode': 'signup'},
       );
@@ -565,6 +569,7 @@ class _AuthScreenState extends State<_AuthScreen> {
     }
 
     await widget.authService.signIn(email: email, password: password);
+    AppAnalytics.track('login', params: <String, Object?>{'method': 'email'});
     AppAnalytics.track(
       'login_event',
       params: <String, Object?>{'provider': 'email', 'mode': 'signin'},
@@ -591,6 +596,7 @@ class _AuthScreenState extends State<_AuthScreen> {
       return;
     }
     await widget.authService.signInWithGoogle();
+    AppAnalytics.track('login', params: <String, Object?>{'method': 'google'});
     AppAnalytics.track(
       'login_event',
       params: <String, Object?>{'provider': 'google', 'mode': 'signin'},

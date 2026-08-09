@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_state.dart';
 
@@ -29,11 +30,11 @@ class MissionRepository {
           ),
         );
       }
-      return MissionState.initial();
+      throw const StorageException('Mission progress storage is not an object.');
     } on FormatException {
-      return MissionState.initial();
+      throw const StorageException('Mission progress storage is corrupted.');
     } on TypeError {
-      return MissionState.initial();
+      throw const StorageException('Mission progress storage is corrupted.');
     }
   }
 

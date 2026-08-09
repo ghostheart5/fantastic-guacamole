@@ -47,13 +47,17 @@ class AuthRepositoryImpl implements AuthRepository {
       final AuthSessionEntity? session = await remoteDataSource
           .getCurrentSession();
       if (session == null) {
-        final AuthSessionEntity? cached = await localDataSource
-            .getCachedSession();
-        return Result<AuthSessionEntity?>.success(cached);
+        await localDataSource.clearSession();
+        return const Result<AuthSessionEntity?>.success(null);
       }
       await localDataSource.cacheSession(session);
       return Result<AuthSessionEntity?>.success(session);
     } catch (error) {
+      try {
+        await localDataSource.clearSession();
+      } on Object {
+        // The remote session remains authoritative even if cache cleanup fails.
+      }
       return Result<AuthSessionEntity?>.failure(
         AuthFailure(
           code: 'auth-session-failed',
@@ -115,8 +119,17 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<void>> signOut() {
     return _wrapVoid(() async {
-      await remoteDataSource.signOut();
-      await localDataSource.clearSession();
+      Object? remoteError;
+      try {
+        await remoteDataSource.signOut();
+      } on Object catch (error) {
+        remoteError = error;
+      } finally {
+        await localDataSource.clearSession();
+      }
+      if (remoteError != null) {
+        throw remoteError;
+      }
     });
   }
 

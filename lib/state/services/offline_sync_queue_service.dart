@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:flutter/foundation.dart';
 
@@ -48,21 +49,42 @@ class OfflineSyncQueueItem {
   }
 
   factory OfflineSyncQueueItem.fromJson(Map<String, dynamic> json) {
-    final Map<String, dynamic> payload =
-        (json['payload'] as Map?)?.map<String, dynamic>(
-          (dynamic key, dynamic value) => MapEntry(key.toString(), value),
-        ) ??
-        <String, dynamic>{};
+    final String id = _requiredString(json, 'id');
+    final String actionType = _requiredString(json, 'actionType');
+    final String dedupeKey = _requiredString(json, 'dedupeKey');
+    final String enqueuedAtUtc = _requiredString(json, 'enqueuedAtUtc');
+    if (DateTime.tryParse(enqueuedAtUtc) == null) {
+      throw const FormatException('Offline sync queue item has invalid enqueue time.');
+    }
+    final Object? rawPayload = json['payload'];
+    if (rawPayload is! Map) {
+      throw const FormatException('Offline sync queue item requires a payload object.');
+    }
+    final Object? rawAttempts = json['attempts'];
+    if (rawAttempts is! int || rawAttempts < 0) {
+      throw const FormatException('Offline sync queue item requires non-negative attempts.');
+    }
+    final Map<String, dynamic> payload = rawPayload.map<String, dynamic>(
+      (dynamic key, dynamic value) => MapEntry(key.toString(), value),
+    );
 
     return OfflineSyncQueueItem(
-      id: json['id']?.toString() ?? '',
-      actionType: json['actionType']?.toString() ?? '',
-      dedupeKey: json['dedupeKey']?.toString() ?? '',
+      id: id,
+      actionType: actionType,
+      dedupeKey: dedupeKey,
       payload: payload,
-      enqueuedAtUtc: json['enqueuedAtUtc']?.toString() ?? '',
-      attempts: (json['attempts'] as num?)?.toInt() ?? 0,
+      enqueuedAtUtc: enqueuedAtUtc,
+      attempts: rawAttempts,
       lastAttemptAtUtc: json['lastAttemptAtUtc']?.toString(),
     );
+  }
+
+  static String _requiredString(Map<String, dynamic> json, String key) {
+    final Object? value = json[key];
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('Offline sync queue item requires $key.');
+    }
+    return value;
   }
 }
 
@@ -79,24 +101,24 @@ class OfflineSyncQueueService {
     if (encoded == null || encoded.trim().isEmpty) {
       return const <OfflineSyncQueueItem>[];
     }
-    final Object? decoded = jsonDecode(encoded);
-    final List<dynamic> raw = decoded is List<dynamic>
-        ? decoded
-        : const <dynamic>[];
-    return raw
-        .whereType<Map<dynamic, dynamic>>()
-        .map(
-          (Map<dynamic, dynamic> value) => OfflineSyncQueueItem.fromJson(
-            value.map<String, dynamic>(
-              (dynamic key, dynamic item) => MapEntry(key.toString(), item),
-            ),
+    try {
+      final Object? decoded = jsonDecode(encoded);
+      if (decoded is! List) {
+        throw const FormatException('Offline sync queue storage is not a list.');
+      }
+      return decoded.map<OfflineSyncQueueItem>((Object? value) {
+        if (value is! Map) {
+          throw const FormatException('Offline sync queue contains a non-object entry.');
+        }
+        return OfflineSyncQueueItem.fromJson(
+          value.map<String, dynamic>(
+            (dynamic key, dynamic item) => MapEntry(key.toString(), item),
           ),
-        )
-        .where(
-          (OfflineSyncQueueItem item) =>
-              item.id.isNotEmpty && item.actionType.isNotEmpty,
-        )
-        .toList(growable: false);
+        );
+      }).toList(growable: false);
+    } on Object catch (error) {
+      throw StorageException('Offline sync queue storage is corrupted: $error');
+    }
   }
 
   Future<int> queuedCount() async {

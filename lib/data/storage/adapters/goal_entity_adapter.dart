@@ -1,6 +1,9 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
+/// LEGACY/STALE: GoalRepository persists versioned JSON and does not use this
+/// binary adapter. Do not register or use it without a versioned migration.
+@Deprecated('Legacy GoalEntity binary adapter; do not register for new data.')
 class GoalEntityAdapter extends TypeAdapter<GoalEntity> {
   @override
   final int typeId = 101;

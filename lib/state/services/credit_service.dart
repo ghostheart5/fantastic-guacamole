@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 
@@ -25,12 +26,12 @@ class CreditService {
       try {
         final dynamic decoded = jsonDecode(raw);
         if (decoded is! Map<String, dynamic>) {
-          wallet = _createWallet(premium: premium, now: now);
+          throw const FormatException('Credit wallet storage is not an object.');
         } else {
-          wallet = AiCreditWallet.fromJson(decoded);
+          wallet = _decodeWallet(decoded);
         }
-      } on Object {
-        wallet = _createWallet(premium: premium, now: now);
+      } on Object catch (error) {
+        throw StorageException('Credit wallet storage is corrupted: $error');
       }
     }
 
@@ -82,6 +83,21 @@ class CreditService {
 
   Future<void> _save(AiCreditWallet wallet) async {
     await _prefs.save(_walletKey, jsonEncode(wallet.toJson()));
+  }
+
+  AiCreditWallet _decodeWallet(Map<String, dynamic> json) {
+    final Object? balance = json['balance'];
+    final Object? tier = json['tier'];
+    final Object? allowance = json['allowance'];
+    final DateTime? resetAt = DateTime.tryParse(json['resetAt']?.toString() ?? '');
+    final DateTime? updatedAt = DateTime.tryParse(
+      json['updatedAt']?.toString() ?? '',
+    );
+    if (balance is! num || tier is! String || tier.trim().isEmpty ||
+        allowance is! num || resetAt == null || updatedAt == null) {
+      throw const FormatException('Credit wallet storage has missing required fields.');
+    }
+    return AiCreditWallet.fromJson(json);
   }
 
   AiCreditWallet _createWallet({required bool premium, required DateTime now}) {

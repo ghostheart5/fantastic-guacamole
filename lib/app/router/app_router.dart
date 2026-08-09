@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/app/navigation_shell.dart';
 import 'package:fantastic_guacamole/app/router/info_pages.dart';
+import 'package:fantastic_guacamole/app/router/navigation_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_guards.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/features/admin/ui/product_advisor_screen.dart';
@@ -103,6 +104,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final _AppRouterRefreshListenable refresh = ref.read(
     _appRouterRefreshListenableProvider,
   );
+  final bool hasAdminAccess = ref.watch(adminAccessGuardProvider);
   final String initialLocation = _resolveInitialLocation(
     isAuthenticated: refresh.isAuthenticated,
     onboardingStatus: refresh.onboardingStatus,
@@ -138,10 +140,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       final bool isAuthenticated = refresh.isAuthenticated;
       final OnboardingStatus onboardingStatus = refresh.onboardingStatus;
-      if (onboardingStatus == OnboardingStatus.unknown) {
-        return state.matchedLocation == RoutePaths.onboarding
-            ? null
-            : RoutePaths.onboarding;
+      final String location = state.matchedLocation;
+      final StartupRouteGate startupGate = resolveStartupRouteGate(
+        location: location,
+        uri: state.uri,
+        onboardingStatus: onboardingStatus,
+      );
+      if (startupGate == StartupRouteGate.allow) {
+        return null;
+      }
+      if (startupGate == StartupRouteGate.redirectToOnboarding) {
+        return RoutePaths.onboarding;
       }
 
       final bool onboardingComplete =
@@ -158,19 +167,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           .flags
           .mockLoginEnabled;
       final bool hasPremiumAccess = ref.read(premiumAccessGuardProvider);
-      final bool hasAdminAccess = ref.read(adminAccessGuardProvider);
-      final String location = state.matchedLocation;
       final bool qaSkipOnboarding =
           !kReleaseMode &&
           state.uri.queryParameters['qa_skip_onboarding'] == '1';
-      final String loginMode = (state.uri.queryParameters['mode'] ?? '')
-          .trim()
-          .toLowerCase();
-      final bool allowLoginDuringOnboarding =
-          location == RoutePaths.login &&
-          (loginMode == 'recovery' ||
-              loginMode == 'verify-email' ||
-              loginMode == 'auth-callback');
 
       if (kDebugMode) {
         debugPrint(
@@ -181,10 +180,40 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           'profile=$hasValidProfile',
         );
       }
-      final bool allowMissionActivationSurface =
-          location == RoutePaths.home ||
-          location == RoutePaths.shell ||
-          location == RoutePaths.creator;
+      if (!onboardingComplete && location != RoutePaths.onboarding) {
+        if (qaSkipOnboarding &&
+            mockLoginEnabled &&
+            location == RoutePaths.login) {
+          return null;
+        }
+        return RoutePaths.onboarding;
+      }
+
+      if (!isAuthenticated) {
+        return location == RoutePaths.login ? null : RoutePaths.login;
+      }
+
+      if (!hasValidProfile) {
+        return location == RoutePaths.onboarding ? null : RoutePaths.onboarding;
+      }
+
+      if (location == RoutePaths.onboarding || location == RoutePaths.login) {
+        if (!hasCreatedFirstItem) {
+          return RoutePaths.creator;
+        }
+        return hasCompletedTimelineFirstAction
+            ? RoutePaths.home
+            : RoutePaths.timeline;
+      }
+
+      if (location == RoutePaths.shell) {
+        if (!hasCreatedFirstItem) {
+          return RoutePaths.creator;
+        }
+        return hasCompletedTimelineFirstAction
+            ? RoutePaths.home
+            : RoutePaths.timeline;
+      }
 
       final bool premiumOnlyLocation = location == RoutePaths.advisor;
       if (premiumOnlyLocation && !hasPremiumAccess) {
@@ -200,82 +229,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return RoutePaths.notifications;
       }
 
-      if (!onboardingComplete && location != RoutePaths.onboarding) {
-        if (allowLoginDuringOnboarding) {
-          return null;
-        }
-        if (isAuthenticated && allowMissionActivationSurface) {
-          return null;
-        }
-        if (qaSkipOnboarding &&
-            mockLoginEnabled &&
-            location == RoutePaths.login) {
-          return null;
-        }
-        return RoutePaths.onboarding;
+      if (location == RoutePaths.home && !hasCreatedFirstItem) {
+        return RoutePaths.creator;
       }
-
-      if (isAuthenticated && onboardingComplete && !hasValidProfile) {
-        if (location == RoutePaths.onboarding) {
-          return null;
-        }
-        return RoutePaths.onboarding;
-      }
-
-      if (location == RoutePaths.shell && isAuthenticated) {
-        if (!hasCreatedFirstItem) {
-          return RoutePaths.creator;
-        }
-        return hasCompletedTimelineFirstAction
-            ? RoutePaths.home
-            : RoutePaths.timeline;
-      }
-
-      if (location == RoutePaths.onboarding) {
-        if (!onboardingComplete || (isAuthenticated && !hasValidProfile)) {
-          return null;
-        }
-        if (isAuthenticated) {
-          if (!hasCreatedFirstItem) {
-            return RoutePaths.creator;
-          }
-          return hasCompletedTimelineFirstAction
-              ? RoutePaths.home
-              : RoutePaths.timeline;
-        }
-        return RoutePaths.login;
-      }
-
-      if (!isAuthenticated &&
-          onboardingComplete &&
-          location != RoutePaths.login) {
-        return RoutePaths.login;
-      }
-
-      if (location == RoutePaths.login &&
-          !onboardingComplete &&
-          !mockLoginEnabled) {
-        return RoutePaths.onboarding;
-      }
-
-      if (location == RoutePaths.login && isAuthenticated) {
-        if (!hasCreatedFirstItem) {
-          return RoutePaths.creator;
-        }
-        return hasCompletedTimelineFirstAction
-            ? RoutePaths.home
-            : RoutePaths.timeline;
-      }
-
-      if (isAuthenticated && onboardingComplete && hasValidProfile) {
-        if (location == RoutePaths.home && !hasCreatedFirstItem) {
-          return RoutePaths.creator;
-        }
-        if (hasCreatedFirstItem &&
-            !hasCompletedTimelineFirstAction &&
-            location != RoutePaths.timeline) {
-          return RoutePaths.timeline;
-        }
+      if (hasCreatedFirstItem &&
+          !hasCompletedTimelineFirstAction &&
+          location != RoutePaths.timeline) {
+        return RoutePaths.timeline;
       }
 
       return null;
@@ -356,11 +316,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (BuildContext context, GoRouterState state) =>
             const ProductAdvisorScreen(),
       ),
-      GoRoute(
-        path: RoutePaths.completionEvents,
-        builder: (BuildContext context, GoRouterState state) =>
-            const CompletionEventsDebugScreen(),
-      ),
+      if (shouldRegisterCompletionEventsRoute(
+        isReleaseMode: kReleaseMode,
+        hasAdminAccess: hasAdminAccess,
+      ))
+        GoRoute(
+          path: RoutePaths.completionEvents,
+          builder: (BuildContext context, GoRouterState state) =>
+              const CompletionEventsDebugScreen(),
+        ),
 
       // Legacy top-level routes redirect into the secondary hierarchy.
       // Sunset target is tracked in docs/LEGACY_ROUTE_SUNSET.md and reviewed by 2026-10-01.
@@ -403,6 +367,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             child: const NavigationShell(),
           );
         },
+      ),
+      GoRoute(
+        path: RoutePaths.unsupportedLink,
+        builder: (BuildContext context, GoRouterState state) =>
+            const UnsupportedLinkPage(),
       ),
       GoRoute(
         path: RoutePaths.paywall,

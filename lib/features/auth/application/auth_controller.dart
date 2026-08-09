@@ -99,7 +99,7 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> signOut() async {
     state = state.copyWith(status: AuthStatus.loading, failure: null);
     final Result<void> result = await _repository.signOut();
-    await _clearChronoSparkIdentityFromResult(result);
+    await LocalIdentityRepository().clearIdentity();
     result.fold(
       onSuccess: (_) {
         state = AuthState(
@@ -107,10 +107,9 @@ class AuthController extends StateNotifier<AuthState> {
           lastUpdated: DateTime.now(),
         );
       },
-      onFailure: (Object failure) {
-        state = state.copyWith(
-          status: AuthStatus.error,
-          failure: _normalizeFailure(failure),
+      onFailure: (Object _) {
+        state = AuthState(
+          status: AuthStatus.unauthenticated,
           lastUpdated: DateTime.now(),
         );
       },
@@ -251,23 +250,6 @@ class AuthController extends StateNotifier<AuthState> {
     );
 
     await LocalIdentityRepository().saveIdentity(identity);
-  }
-
-  Future<void> _clearChronoSparkIdentityFromResult(Result<void> result) async {
-    bool shouldClear = false;
-
-    result.fold(
-      onSuccess: (_) {
-        shouldClear = true;
-      },
-      onFailure: (Object _) {},
-    );
-
-    if (!shouldClear) {
-      return;
-    }
-
-    await LocalIdentityRepository().clearIdentity();
   }
 
   void _applySessionResult(Result<AuthSessionEntity?> result) {

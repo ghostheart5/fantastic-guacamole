@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_progress_store.dart';
 
@@ -28,11 +29,11 @@ class TutorialRepository {
         );
       }
 
-      return const TutorialProgress();
+      throw const StorageException('Tutorial progress storage is not an object.');
     } on FormatException {
-      return const TutorialProgress();
-    } catch (_) {
-      return const TutorialProgress();
+      throw const StorageException('Tutorial progress storage is corrupted.');
+    } on Object catch (error) {
+      throw StorageException('Tutorial progress storage is corrupted: $error');
     }
   }
 

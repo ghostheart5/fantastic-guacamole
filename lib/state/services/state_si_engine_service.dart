@@ -1,18 +1,18 @@
-import 'package:fantastic_guacamole/data/repositories/si_engine_repository.dart';
+import 'package:fantastic_guacamole/data/storage/si_workspace_store.dart';
 import 'package:fantastic_guacamole/engine/si/ai_response.dart';
 import 'package:fantastic_guacamole/engine/si/si_response_policy.dart';
 import 'package:fantastic_guacamole/state/services/si_engine_dependencies.dart';
 
 class StateSiEngineService {
-  StateSiEngineService(this._repository, {required this.dependencies});
+  StateSiEngineService(this._workspaceStore, {required this.dependencies});
 
-  final SiEngineRepository _repository;
+  final SiWorkspaceStore _workspaceStore;
   final SiEngineDependencies dependencies;
 
-  Future<Map<String, dynamic>?> loadState() => _repository.loadState();
+      Future<Map<String, dynamic>?> loadState() => _workspaceStore.load();
 
   Future<void> saveState(Map<String, dynamic> state) =>
-      _repository.saveState(state);
+        _workspaceStore.save(state);
 
   Future<Map<String, dynamic>> generateResponse({
     required String input,

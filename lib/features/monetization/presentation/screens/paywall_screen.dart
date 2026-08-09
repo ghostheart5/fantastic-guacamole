@@ -162,6 +162,10 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
             runSpacing: 8,
             children: [
               OutlinedButton(
+                onPressed: () => context.push(RoutePaths.planComparison),
+                child: const Text('Compare Plans'),
+              ),
+              OutlinedButton(
                 onPressed: () => context.push(RoutePaths.creditStore),
                 child: const Text('Buy Credits'),
               ),

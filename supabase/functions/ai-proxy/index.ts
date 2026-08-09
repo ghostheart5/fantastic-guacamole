@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { validateAiProxyRequest } from "../_shared/ai_proxy_request_validation.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
@@ -9,7 +10,6 @@ const ALLOWED_ORIGINS = new Set(
     .map((value) => value.trim())
     .filter(Boolean),
 );
-const requestWindows = new Map<string, number[]>();
 
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") ?? "";
@@ -31,13 +31,17 @@ async function authenticatedUserId(req: Request): Promise<string | null> {
   return typeof user?.id === "string" ? user.id : null;
 }
 
-function withinRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const recent = (requestWindows.get(userId) ?? []).filter((time) => now - time < 60_000);
-  if (recent.length >= 20) return false;
-  recent.push(now);
-  requestWindows.set(userId, recent);
-  return true;
+async function consumeRateLimit(req: Request): Promise<boolean> {
+  const authorization = req.headers.get("authorization") ?? "";
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/consume_ai_proxy_rate_limit`, {
+    method: "POST",
+    headers: {
+      Authorization: authorization,
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+      "Content-Type": "application/json",
+    },
+  });
+  return response.ok;
 }
 
 // Set ANTHROPIC_API_KEY as a Supabase secret:
@@ -82,34 +86,21 @@ serve(async (req) => {
         headers: { ...headers, "Content-Type": "application/json" },
       });
     }
-    if (!withinRateLimit(userId)) {
+    if (!await consumeRateLimit(req)) {
       return new Response(JSON.stringify({ error: "rate limit exceeded" }), {
         status: 429,
         headers: { ...headers, "Content-Type": "application/json" },
       });
     }
-    const body: ProxyRequest = await req.json();
-    const {
-      prompt: explicitPrompt,
-      message,
-      history = [],
-      system,
-      maxTokens = MAX_TOKENS,
-    } = body;
-    const prompt = explicitPrompt ?? message ?? "";
-
-    if (!prompt?.trim()) {
-      return new Response(
-        JSON.stringify({ error: "prompt is required" } satisfies Partial<ProxyResponse>),
-        { status: 400, headers: { ...headers, "Content-Type": "application/json" } },
-      );
-    }
-    if (prompt.length > 8_000 || history.length > 8) {
-      return new Response(JSON.stringify({ error: "request too large" }), {
+    const body = validateAiProxyRequest(await req.json());
+    if (!body) {
+      return new Response(JSON.stringify({ error: "invalid request body" }), {
         status: 413,
         headers: { ...headers, "Content-Type": "application/json" },
       });
     }
+
+    const { prompt, history, system, maxTokens } = body;
 
     if (!ANTHROPIC_API_KEY) {
       return new Response(
@@ -127,7 +118,7 @@ serve(async (req) => {
 
     const anthropicBody: Record<string, unknown> = {
       model: DEFAULT_MODEL,
-      max_tokens: Math.max(128, Math.min(MAX_TOKENS, Number(maxTokens) || MAX_TOKENS)),
+      max_tokens: Math.max(128, maxTokens),
       messages,
     };
     if (system) anthropicBody.system = system;

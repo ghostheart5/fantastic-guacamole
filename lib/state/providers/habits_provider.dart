@@ -74,10 +74,11 @@ class HabitsNotifier extends AsyncNotifier<List<HabitRecord>> {
     final List<HabitRecord> next = current
         .map(
           (HabitRecord item) => item.id == id
-              ? HabitRecord(
-                  id: item.id,
-                  title: item.title,
-                  active: !item.active,
+              ? item.copyWith(
+                status: item.active
+                  ? HabitStatus.paused
+                  : HabitStatus.active,
+                updatedAt: DateTime.now(),
                 )
               : item,
         )

@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 
 class PreferenceService {
@@ -59,14 +59,9 @@ class PreferenceService {
           (dynamic key, dynamic value) => MapEntry(key.toString(), value),
         );
       }
-      Logger.warn(
-        'User preferences payload is not a JSON object and will be ignored.',
-      );
+      throw const StorageException('User preferences storage is not an object.');
     } on FormatException catch (error) {
-      Logger.warn(
-        'User preferences payload is corrupted and will be ignored: $error',
-      );
+      throw StorageException('User preferences storage is corrupted: $error');
     }
-    return <String, dynamic>{};
   }
 }

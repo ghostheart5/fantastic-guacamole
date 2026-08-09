@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 // Package imports.
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/calendar_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_calendar_repository.dart';
@@ -19,24 +20,33 @@ class CalendarRepository implements ICalendarRepository {
       return const <CalendarEntryEntity>[];
     }
 
-    final Object? decoded = jsonDecode(raw);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on Object catch (error) {
+      throw StorageException('Calendar storage is corrupted: $error');
+    }
     if (decoded is! List<dynamic>) {
-      return const <CalendarEntryEntity>[];
+      throw const StorageException('Calendar storage must contain a list.');
     }
 
     final List<CalendarEntryEntity> items = <CalendarEntryEntity>[];
     for (final Object? value in decoded) {
       if (value is! Map) {
-        continue;
+        throw const StorageException('Calendar storage contains a non-object entry.');
       }
       final Map<String, dynamic> json = value.map(
         (dynamic key, dynamic item) => MapEntry(key.toString(), item),
       );
-      final DateTime start =
-          DateTime.tryParse((json['start'] as String?) ?? '') ?? DateTime.now();
-      final DateTime end =
-          DateTime.tryParse((json['end'] as String?) ?? '') ??
-          start.add(const Duration(hours: 1));
+      final DateTime? start = DateTime.tryParse(
+        (json['start'] as String?) ?? '',
+      );
+      final DateTime? end = DateTime.tryParse((json['end'] as String?) ?? '');
+      if (start == null || end == null || end.isBefore(start)) {
+        throw const StorageException(
+          'Calendar storage contains an entry with invalid required dates.',
+        );
+      }
       items.add(
         CalendarEntryEntity(
           id: (json['id'] as String?) ?? '',

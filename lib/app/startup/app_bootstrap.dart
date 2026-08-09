@@ -349,6 +349,10 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       final String? previousUserId = previous?.asData?.value?.id;
       final String? nextUserId = next.asData?.value?.id;
 
+      if (previousUserId != nextUserId) {
+        unawaited(_applyFirebaseUserAttribution(nextUserId));
+      }
+
       if (!_ready ||
           previousUserId == nextUserId ||
           _lastAuthUserId == nextUserId) {
@@ -419,6 +423,17 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
     }
 
     return AppRoot(startupError: _startupError);
+  }
+
+  Future<void> _applyFirebaseUserAttribution(String? userId) async {
+    await AppAnalytics.identifySupabaseUser(userId);
+    if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
+      try {
+        await FirebaseCrashlytics.instance.setUserIdentifier(userId ?? '');
+      } on Object catch (error) {
+        Logger.warn('Crashlytics user attribution failed: $error');
+      }
+    }
   }
 
   Future<void> _refreshOnboardingStateFromPrefs() async {

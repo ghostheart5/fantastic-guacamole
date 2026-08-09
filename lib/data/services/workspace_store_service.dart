@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:flutter/services.dart';
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 
 const String _creatorSeedAssetPath = 'assets/data/creator_seed.json';
 const String _temporalSeedAssetPath = 'assets/data/temporal_seed.json';
@@ -224,14 +225,13 @@ class WorkspaceStoreService {
         raw,
         storageKey: _creatorKey,
       );
-      if (decoded != null) {
-        try {
-          return CreatorWorkspaceState.fromJson(decoded);
-        } on TypeError catch (error) {
-          Logger.error(
-            'Creator workspace state invalid shape. Re-seeding defaults. $error',
-          );
-        }
+      if (decoded == null) {
+        throw const StorageException('Creator workspace storage is corrupted.');
+      }
+      try {
+        return CreatorWorkspaceState.fromJson(decoded);
+      } on TypeError catch (error) {
+        throw StorageException('Creator workspace storage is corrupted: $error');
       }
     }
 
@@ -251,14 +251,13 @@ class WorkspaceStoreService {
         raw,
         storageKey: _temporalKey,
       );
-      if (decoded != null) {
-        try {
-          return TemporalPlannerState.fromJson(decoded);
-        } on TypeError catch (error) {
-          Logger.error(
-            'Temporal workspace state invalid shape. Re-seeding defaults. $error',
-          );
-        }
+      if (decoded == null) {
+        throw const StorageException('Temporal workspace storage is corrupted.');
+      }
+      try {
+        return TemporalPlannerState.fromJson(decoded);
+      } on TypeError catch (error) {
+        throw StorageException('Temporal workspace storage is corrupted: $error');
       }
     }
 
@@ -278,14 +277,13 @@ class WorkspaceStoreService {
         raw,
         storageKey: _siKey,
       );
-      if (decoded != null) {
-        try {
-          return SIWorkspaceState.fromJson(decoded);
-        } on TypeError catch (error) {
-          Logger.error(
-            'SI workspace state invalid shape. Re-seeding defaults. $error',
-          );
-        }
+      if (decoded == null) {
+        throw const StorageException('SI workspace storage is corrupted.');
+      }
+      try {
+        return SIWorkspaceState.fromJson(decoded);
+      } on TypeError catch (error) {
+        throw StorageException('SI workspace storage is corrupted: $error');
       }
     }
 
@@ -335,13 +333,11 @@ class WorkspaceStoreService {
       if (decoded is Map<dynamic, dynamic>) {
         return decoded.cast<String, dynamic>();
       }
-      Logger.error(
-        'Workspace payload at $storageKey is not a JSON object. Re-seeding defaults.',
-      );
+      Logger.error('Workspace payload at $storageKey is not a JSON object.');
       return null;
     } on FormatException catch (error) {
       Logger.error(
-        'Workspace payload at $storageKey is corrupt JSON. Re-seeding defaults. $error',
+        'Workspace payload at $storageKey is corrupt JSON. $error',
       );
       return null;
     }

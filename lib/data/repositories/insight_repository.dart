@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/insight_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_insight_repository.dart';
@@ -23,8 +24,8 @@ class InsightRepository implements IInsightRepository {
           .whereType<Map<String, dynamic>>()
           .map(_fromJson)
           .toList(growable: false);
-    } catch (_) {
-      return const <InsightEntity>[];
+    } on Object catch (error) {
+      throw StorageException('Insight storage is corrupted: $error');
     }
   }
 
@@ -77,15 +78,25 @@ class InsightRepository implements IInsightRepository {
   }
 
   static InsightEntity _fromJson(Map<String, dynamic> json) {
+    final String? id = json['id'] as String?;
+    final String? title = json['title'] as String?;
+    final String? summary = json['summary'] as String?;
+    final DateTime? createdAt = DateTime.tryParse(
+      json['createdAt'] as String? ?? '',
+    );
+    if (id == null || id.trim().isEmpty || title == null || summary == null || createdAt == null) {
+      throw const FormatException('Insight record has missing required fields.');
+    }
+    final Object? rawTags = json['tags'];
+    if (rawTags is! List || rawTags.any((Object? tag) => tag is! String)) {
+      throw const FormatException('Insight record has invalid tags.');
+    }
     return InsightEntity(
-      id: json['id'] as String? ?? '',
-      title: json['title'] as String? ?? 'Untitled Insight',
-      summary: json['summary'] as String? ?? '',
-      createdAt:
-          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
-          DateTime.now(),
-      tags: (json['tags'] as List<dynamic>? ?? const <dynamic>[])
-          .cast<String>(),
+      id: id,
+      title: title,
+      summary: summary,
+      createdAt: createdAt,
+      tags: rawTags.cast<String>(),
       action: json['action'] as String?,
     );
   }

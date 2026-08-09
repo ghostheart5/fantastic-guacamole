@@ -11,6 +11,53 @@ import 'package:flutter/services.dart';
 class AppAnalytics {
   const AppAnalytics._();
 
+  @visibleForTesting
+  static Future<void> Function(String? userId)? userAttributionOverride;
+
+  @visibleForTesting
+  static Future<void> Function(String screenName)? screenViewOverride;
+
+  static Future<void> identifySupabaseUser(String? userId) async {
+    final String? normalized = userId?.trim().isEmpty == true
+        ? null
+        : userId?.trim();
+    if (userAttributionOverride != null) {
+      await userAttributionOverride!(normalized);
+      return;
+    }
+    if (!_canUseFirebaseAnalytics || Firebase.apps.isEmpty) {
+      return;
+    }
+    try {
+      await FirebaseAnalytics.instance.setUserId(id: normalized);
+      await FirebaseAnalytics.instance.setUserProperty(
+        name: 'auth_source',
+        value: normalized == null ? 'signed_out' : 'supabase',
+      );
+    } on Object catch (error) {
+      Logger.warn('Firebase Analytics user attribution failed: $error');
+    }
+  }
+
+  static Future<void> trackScreen(String screenName) async {
+    final String normalized = screenName.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    if (screenViewOverride != null) {
+      await screenViewOverride!(normalized);
+      return;
+    }
+    if (!_canUseFirebaseAnalytics || Firebase.apps.isEmpty) {
+      return;
+    }
+    try {
+      await FirebaseAnalytics.instance.logScreenView(screenName: normalized);
+    } on Object catch (error) {
+      Logger.warn('Firebase Analytics screen view failed: $error');
+    }
+  }
+
   static void track(
     String event, {
     Map<String, Object?> params = const <String, Object?>{},

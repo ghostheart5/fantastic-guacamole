@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/completion_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_completion_event_repository.dart';
@@ -24,8 +25,8 @@ class CompletionEventRepository implements ICompletionEventRepository {
           .whereType<Map<String, dynamic>>()
           .map(CompletionEventEntity.fromJson)
           .toList(growable: false);
-    } catch (_) {
-      return const <CompletionEventEntity>[];
+    } on Object catch (error) {
+      throw StorageException('Completion event storage is corrupted: $error');
     }
   }
 

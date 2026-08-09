@@ -12,6 +12,8 @@ void main() {
 
       final File appRouter = File('lib/app/router/app_router.dart');
       final File deepLinkService = File('lib/app/router/deep_link_service.dart');
+      final File appRoot = File('lib/app/app_root.dart');
+      final File navigationPolicy = File('lib/app/router/navigation_policy.dart');
 
       if (!hasDeepLinkDeps) {
         return;
@@ -19,13 +21,20 @@ void main() {
 
       expect(appRouter.existsSync(), isTrue);
       expect(deepLinkService.existsSync(), isTrue);
+      expect(appRoot.existsSync(), isTrue);
+      expect(navigationPolicy.existsSync(), isTrue);
 
       final String routerText = SourceTestUtils.readText(appRouter).toLowerCase();
       final String deepLinkText = SourceTestUtils.readText(deepLinkService).toLowerCase();
+      final String appRootText = SourceTestUtils.readText(appRoot).toLowerCase();
+      final String policyText = SourceTestUtils.readText(navigationPolicy).toLowerCase();
 
       expect(routerText.contains('redirect') || routerText.contains('gorouter'), isTrue);
       expect(routerText.contains('error') || routerText.contains('unknown'), isTrue);
       expect(deepLinkText.contains('uri') || deepLinkText.contains('link'), isTrue);
+      expect(appRootText.contains('resolvedeeplinklocation'), isTrue);
+      expect(policyText.contains('unsupportedlink'), isTrue);
+      expect(routerText.contains('routepaths.unsupportedlink'), isTrue);
     });
   });
 }

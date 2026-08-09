@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/data/storage/adapters/goal_entity_adapter.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -12,9 +11,8 @@ class HiveAdapters {
       return;
     }
 
-    if (!Hive.isAdapterRegistered(101)) {
-      Hive.registerAdapter(GoalEntityAdapter());
-    }
+    // GoalRepository uses JSON. Its former binary adapter remains legacy and
+    // unregistered until a versioned migration can preserve every field.
 
     _registered = true;
   }

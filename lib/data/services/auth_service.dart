@@ -22,6 +22,7 @@ class AuthService implements AuthServiceContract {
     http.Client? httpClient,
     String? accountDeleteEndpoint,
     String? oauthGoogleRedirectUrl,
+    String? passwordRecoveryRedirectUrl,
     LocalUserDataCleanupService? localUserDataCleanupService,
   }) : _auth = supabaseClient,
        _store = store,
@@ -29,6 +30,8 @@ class AuthService implements AuthServiceContract {
        _accountDeleteEndpoint =
            accountDeleteEndpoint ?? Env.accountDeleteEndpoint,
        _oauthGoogleRedirectUrl = oauthGoogleRedirectUrl ?? Env.oauthRedirectUrl,
+         _passwordRecoveryRedirectUrl =
+           passwordRecoveryRedirectUrl ?? Env.passwordRecoveryRedirectUrl,
        _localUserDataCleanupService =
            localUserDataCleanupService ??
            LocalUserDataCleanupService(
@@ -44,14 +47,18 @@ class AuthService implements AuthServiceContract {
   final http.Client _httpClient;
   final String _accountDeleteEndpoint;
   final String _oauthGoogleRedirectUrl;
+  final String _passwordRecoveryRedirectUrl;
   final LocalUserDataCleanupService _localUserDataCleanupService;
   int _failedSignInAttempts = 0;
   DateTime? _signInBlockedUntil;
 
   @override
   Stream<User?> authStateChanges() {
-    return _auth.auth.onAuthStateChange.map(
-      (sb.AuthState state) => _mapUser(state.session?.user),
+    return _auth.auth.onAuthStateChange.asyncMap(
+      (sb.AuthState state) async {
+        await _hydrateProfileStateForVerifiedUser(state.session?.user);
+        return _mapUser(state.session?.user);
+      },
     );
   }
 
@@ -106,13 +113,15 @@ class AuthService implements AuthServiceContract {
     required String password,
   }) async {
     try {
-      final String emailRedirectTo = Env.oauthRedirectUrl.trim();
+      final String emailRedirectTo = _authRedirectUrl;
       final sb.AuthResponse response = await _auth.auth.signUp(
         email: email,
         password: password,
         emailRedirectTo: emailRedirectTo.isEmpty ? null : emailRedirectTo,
       );
-      await _seedProfileStateFromSignupEmail(email);
+      if (response.session != null) {
+        await _hydrateProfileStateForVerifiedUser(response.user);
+      }
       return UserCredential(user: _mapUser(response.user));
     } on sb.AuthException catch (error) {
       Logger.errorCategory('Auth Errors', 'Supabase signUp failed', error);
@@ -125,9 +134,20 @@ class AuthService implements AuthServiceContract {
     }
   }
 
-  Future<void> _seedProfileStateFromSignupEmail(String email) async {
+  String get _authRedirectUrl => _oauthGoogleRedirectUrl.trim();
+
+  Future<void> _hydrateProfileStateForVerifiedUser(sb.User? user) async {
+    if (user?.emailConfirmedAt == null) {
+      return;
+    }
+
     const String secureProfileStateKey = 'profile_state_v2';
-    final String normalizedEmail = email.trim();
+    final String? existing = await _store.readString(secureProfileStateKey);
+    if (existing != null && existing.trim().isNotEmpty) {
+      return;
+    }
+
+    final String normalizedEmail = user?.email?.trim() ?? '';
     final String localPart = normalizedEmail.contains('@')
         ? normalizedEmail.split('@').first.trim()
         : '';
@@ -235,7 +255,7 @@ class AuthService implements AuthServiceContract {
   @override
   Future<void> sendPasswordReset(String email) async {
     try {
-      final String redirectTo = Env.oauthRedirectUrl.trim();
+      final String redirectTo = _passwordRecoveryRedirectUrl.trim();
       await _auth.auth.resetPasswordForEmail(
         email,
         redirectTo: redirectTo.isEmpty ? null : redirectTo,
@@ -282,7 +302,12 @@ class AuthService implements AuthServiceContract {
       );
     }
     try {
-      await _auth.auth.resend(type: sb.OtpType.signup, email: email);
+      final String redirectTo = _authRedirectUrl;
+      await _auth.auth.resend(
+        type: sb.OtpType.signup,
+        email: email,
+        emailRedirectTo: redirectTo.isEmpty ? null : redirectTo,
+      );
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
     } on Object {
@@ -297,7 +322,9 @@ class AuthService implements AuthServiceContract {
   Future<User?> reloadCurrentUser() async {
     try {
       await _auth.auth.refreshSession();
-      return currentUser;
+      final sb.User? user = _auth.auth.currentUser;
+      await _hydrateProfileStateForVerifiedUser(user);
+      return _mapUser(user);
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
     } on Object {
@@ -357,8 +384,24 @@ class AuthService implements AuthServiceContract {
   @override
   Future<void> signOut() async {
     final String? userId = _auth.auth.currentUser?.id;
-    await _auth.auth.signOut();
-    await _localUserDataCleanupService.clear(userId: userId);
+    Object? signOutError;
+    try {
+      await _auth.auth.signOut();
+    } on Object catch (error) {
+      signOutError = error;
+      Logger.warn('Remote sign-out failed; clearing local auth state: $error');
+    } finally {
+      await _localUserDataCleanupService.clear(userId: userId);
+    }
+    if (signOutError is sb.AuthException) {
+      throw _mapAuthException(signOutError);
+    }
+    if (signOutError != null) {
+      throw FirebaseAuthException(
+        code: 'auth-unavailable',
+        message: 'Remote sign-out could not be completed.',
+      );
+    }
   }
 
   @override

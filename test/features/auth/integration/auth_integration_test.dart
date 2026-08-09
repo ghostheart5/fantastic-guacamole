@@ -95,15 +95,37 @@ void main() {
       expect(state.status, AuthStatus.authenticated);
       expect(state.user?.email, 'loop@example.com');
     });
+
+    test('failed remote sign-out still leaves the controller signed out', () async {
+      final _FakeAuthRepository repository = _FakeAuthRepository(
+        initialSession: _activeSession('logout-failure', 'logout@example.com', 'token-a'),
+        failSignOut: true,
+      );
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(authControllerProvider.notifier).restoreSession();
+      await container.read(authControllerProvider.notifier).signOut();
+
+      expect(container.read(authControllerProvider).status, AuthStatus.unauthenticated);
+      expect(container.read(authControllerProvider).isAuthenticated, isFalse);
+    });
   });
 }
 
 class _FakeAuthRepository implements AuthRepository {
-  _FakeAuthRepository({required AuthSessionEntity? initialSession})
-      : _session = initialSession;
+  _FakeAuthRepository({
+    required AuthSessionEntity? initialSession,
+    this.failSignOut = false,
+  }) : _session = initialSession;
 
   final StreamController<Result<AuthSessionEntity?>> _sessionStream =
       StreamController<Result<AuthSessionEntity?>>.broadcast();
+  final bool failSignOut;
   AuthSessionEntity? _session;
 
   @override
@@ -167,6 +189,9 @@ class _FakeAuthRepository implements AuthRepository {
   Future<Result<void>> signOut() async {
     _session = null;
     _sessionStream.add(const Result<AuthSessionEntity?>.success(null));
+    if (failSignOut) {
+      return Result<void>.failure(StateError('remote sign-out failed'));
+    }
     return const Result<void>.success(null);
   }
 

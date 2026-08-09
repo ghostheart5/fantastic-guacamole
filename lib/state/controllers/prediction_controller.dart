@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/prediction.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,8 +23,8 @@ final predictionProvider = FutureProvider.family<Prediction, String>((
           .whereType<Map<String, dynamic>>()
           .map((Map<String, dynamic> e) => NeuralEntry.fromJson(e))
           .toList();
-    } catch (_) {
-      history = <NeuralEntry>[];
+    } on Object catch (error) {
+      throw StorageException('Neural history storage is corrupted: $error');
     }
   }
 
