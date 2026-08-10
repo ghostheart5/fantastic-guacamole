@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
@@ -57,7 +56,8 @@ class SupportPage extends StatelessWidget {
             '1. Open Settings in the app\n'
             '2. Use diagnostics + logs to capture context\n'
             '3. Send your issue summary and what you expected to happen\n\n'
-            'Support address: support@chronospark.app\n\n'
+            'Official support page: ${AppUrls.support}\n'
+            'If the page is unavailable, use the developer contact shown on the ChronoSpark Google Play listing.\n\n'
             'Include these details for faster help:\n'
             '- Device + OS version\n'
             '- App version\n'
@@ -103,24 +103,6 @@ class SupportPage extends StatelessWidget {
                   );
                 },
           ),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: theme.colorScheme.primary.withValues(alpha: 0.22),
-              ),
-              color: theme.colorScheme.primary.withValues(alpha: 0.06),
-            ),
-            child: Text(
-              'Response targets\n'
-              '- Critical outage: same day\n'
-              '- Login and billing issues: within 24 hours\n'
-              '- General product support: 1-2 business days',
-              style: theme.textTheme.bodyMedium,
-            ),
-          ),
         ],
       ),
     );
@@ -164,7 +146,7 @@ class AboutPage extends StatelessWidget {
           const _Section(
             title: 'Privacy and Support',
             body:
-                'Official privacy policy: ${AppUrls.privacy}. Terms: ${AppUrls.terms}. Support page: ${AppUrls.support}. Support email: ${Env.supportEmail}.',
+                'Official privacy policy: ${AppUrls.privacy}. Terms: ${AppUrls.terms}. Support page: ${AppUrls.support}.',
           ),
           const _Section(
             title: 'Voice Features',

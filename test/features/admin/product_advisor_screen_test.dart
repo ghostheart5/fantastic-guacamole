@@ -13,7 +13,8 @@ void main() {
       ProviderScope(
         overrides: [
           productInsightsProvider.overrideWith(
-            (ref) async => throw StateError('raw-secret-token path=/tmp/private'),
+            (ref) async =>
+                throw StateError('raw-secret-token path=/tmp/private'),
           ),
         ],
         child: const MaterialApp(home: ProductAdvisorScreen()),
@@ -22,12 +23,19 @@ void main() {
 
     await tester.pump();
 
-    expect(find.text('Unable to load advisor insights.\nTry refreshing or check logs for details.'), findsOneWidget);
+    expect(
+      find.text(
+        'Unable to load advisor insights.\nTry refreshing or check logs for details.',
+      ),
+      findsOneWidget,
+    );
     expect(find.textContaining('raw-secret-token'), findsNothing);
     expect(find.textContaining('StateError'), findsNothing);
   });
 
-  testWidgets('shows fallback warning and still renders insights', (tester) async {
+  testWidgets('shows fallback warning and still renders insights', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -52,7 +60,12 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Advisor insights are running in fallback mode.\nSome source data could not be loaded.'), findsOneWidget);
+    expect(
+      find.text(
+        'Advisor insights are running in fallback mode.\nSome source data could not be loaded.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Fallback issue'), findsOneWidget);
   });
 }

@@ -4,10 +4,19 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 abstract final class Env {
   static const String appName = 'ChronoSpark';
-  static const String privacyPolicyUrl = 'https://chronospark.app/privacy';
-  static const String termsOfServiceUrl = 'https://chronospark.app/terms';
-  static const String supportUrl = 'https://chronospark.app/support';
-  static const String supportEmail = 'support@chronospark.app';
+  static const String publicWebsiteUrl =
+      'https://ghostheart5.github.io/fantastic-guacamole';
+  static const String privacyPolicyUrl = '$publicWebsiteUrl/privacy/';
+  static const String termsOfServiceUrl = '$publicWebsiteUrl/terms/';
+  static const String supportUrl = '$publicWebsiteUrl/support/';
+  static const String deleteAccountUrl = '$publicWebsiteUrl/delete-account/';
+  static const String productionAppLinkHost = 'chronospark.app';
+  static const String productionAppLinkOrigin =
+      'https://$productionAppLinkHost';
+  static const String productionAuthCallbackUrl =
+      '$productionAppLinkOrigin/app/auth/callback';
+  static const String customSchemeAuthCallbackUrl =
+      'chronospark://auth-callback';
   static const String _appFlavorDefine = String.fromEnvironment(
     'CHRONOSPARK_APP_FLAVOR',
     defaultValue: 'dev',
@@ -63,7 +72,7 @@ abstract final class Env {
   );
   static const String _oauthRedirectUrlDefine = String.fromEnvironment(
     'CHRONOSPARK_OAUTH_REDIRECT_URL',
-    defaultValue: 'https://chronospark.app/app/auth/callback',
+    defaultValue: customSchemeAuthCallbackUrl,
   );
   static const String _passwordRecoveryRedirectUrlDefine =
       String.fromEnvironment(
@@ -117,6 +126,10 @@ abstract final class Env {
   );
   static const bool _enforceProductionReadinessDefine = bool.fromEnvironment(
     'CHRONOSPARK_ENFORCE_PROD_READINESS',
+    defaultValue: false,
+  );
+  static const bool _maestroModeDefine = bool.fromEnvironment(
+    'CHRONOSPARK_MAESTRO_MODE',
     defaultValue: false,
   );
 
@@ -203,6 +216,10 @@ abstract final class Env {
     'CHRONOSPARK_ENFORCE_PROD_READINESS',
     _enforceProductionReadinessDefine,
   );
+  static bool get maestroMode =>
+      !kReleaseMode &&
+      !isProduction &&
+      _readBool('CHRONOSPARK_MAESTRO_MODE', _maestroModeDefine);
 
   static AppFlavor get flavor => AppFlavor.parse(appFlavor);
 
@@ -345,7 +362,63 @@ abstract final class Env {
           .toString();
     }
 
-    return 'https://chronospark.app/monetization-verify';
+    return '';
+  }
+
+  static bool resolveIsAllowedAuthRedirect(
+    String value, {
+    bool requireHttpsAppLink = false,
+  }) {
+    final Uri? uri = Uri.tryParse(value.trim());
+    if (uri == null || uri.userInfo.isNotEmpty) {
+      return false;
+    }
+
+    final bool hasUnexpectedPayload =
+        uri.query.isNotEmpty || uri.fragment.isNotEmpty;
+    if (hasUnexpectedPayload) {
+      return false;
+    }
+
+    if (uri.scheme == 'chronospark') {
+      return !requireHttpsAppLink &&
+          uri.host == 'auth-callback' &&
+          (uri.path.isEmpty || uri.path == '/');
+    }
+
+    return uri.scheme == 'https' &&
+        uri.host == productionAppLinkHost &&
+        uri.path == '/app/auth/callback';
+  }
+
+  static bool resolveIsTrustedEdgeFunctionEndpoint({
+    required String endpoint,
+    required String supabaseUrl,
+    required String functionName,
+  }) {
+    final Uri? endpointUri = Uri.tryParse(endpoint.trim());
+    final Uri? supabaseUri = Uri.tryParse(supabaseUrl.trim());
+    if (endpointUri == null ||
+        supabaseUri == null ||
+        endpointUri.scheme != 'https' ||
+        supabaseUri.scheme != 'https' ||
+        !endpointUri.hasAuthority ||
+        !supabaseUri.hasAuthority ||
+        endpointUri.userInfo.isNotEmpty ||
+        supabaseUri.userInfo.isNotEmpty ||
+        endpointUri.query.isNotEmpty ||
+        endpointUri.fragment.isNotEmpty) {
+      return false;
+    }
+
+    return endpointUri.origin == supabaseUri.origin &&
+        endpointUri.path == '/functions/v1/$functionName';
+  }
+
+  static bool resolveIsValidAndroidSha256CertificateDigest(String value) {
+    return RegExp(
+      r'^(?:[0-9A-Fa-f]{2}:){31}[0-9A-Fa-f]{2}$',
+    ).hasMatch(value.trim());
   }
 
   static List<String> productionReadinessIssues({bool force = false}) {
@@ -357,6 +430,8 @@ abstract final class Env {
     }
 
     final List<String> issues = <String>[];
+    final bool requireHttpsAppLink =
+        force || enforceProductionReadiness || isProduction || kReleaseMode;
     if (kReleaseMode && !AppFlavor.parse(appFlavor).isProduction) {
       issues.add('Release builds must use CHRONOSPARK_APP_FLAVOR=prod.');
     }
@@ -375,41 +450,69 @@ abstract final class Env {
     if (enableTesterFullAccess) {
       issues.add('Tester full-access override is enabled.');
     }
+    if (_readBool('CHRONOSPARK_MAESTRO_MODE', _maestroModeDefine)) {
+      issues.add('Maestro test mode is enabled.');
+    }
     if (!hasSupabaseCredentialsPresent) {
       issues.add('Supabase authentication is not configured.');
     } else if (!isSupabaseConfigured) {
       issues.add('Supabase URL must be a valid HTTPS URL.');
     }
-    _validateHttpsEndpoint(
+    _validateTrustedEdgeFunctionEndpoint(
       receiptVerifyEndpoint,
       label: 'Receipt verification endpoint',
+      functionName: 'monetization-verify',
       issues: issues,
     );
-    _validateHttpsEndpoint(
+    _validateTrustedEdgeFunctionEndpoint(
       aiProxyEndpoint,
       label: 'AI proxy endpoint',
+      functionName: 'ai-proxy',
       issues: issues,
     );
-    _validateHttpsEndpoint(
+    _validateTrustedEdgeFunctionEndpoint(
       accountDeleteEndpoint,
       label: 'Account deletion endpoint',
+      functionName: 'account-delete',
+      issues: issues,
+    );
+    _validateAuthRedirect(
+      oauthRedirectUrl,
+      label: 'OAuth redirect URL',
+      requireHttpsAppLink: requireHttpsAppLink,
+      issues: issues,
+    );
+    _validateAuthRedirect(
+      passwordRecoveryRedirectUrl,
+      label: 'Password recovery redirect URL',
+      requireHttpsAppLink: requireHttpsAppLink,
+      issues: issues,
+    );
+    _validateAuthRedirect(
+      githubOauthRedirectUrl,
+      label: 'GitHub OAuth redirect URL',
+      requireHttpsAppLink: requireHttpsAppLink,
       issues: issues,
     );
     if (enableRuntimeFeatureFlags && !isFirebaseFeatureFlagRuntimeReady) {
       issues.add('Runtime feature flags require Firebase to be configured.');
     }
-    if (appLinksAndroidSha256.trim().isEmpty) {
-      issues.add('Android App Links SHA-256 fingerprint is not configured.');
+    if (!resolveIsValidAndroidSha256CertificateDigest(appLinksAndroidSha256)) {
+      issues.add(
+        'Android App Links SHA-256 fingerprint must contain 32 colon-separated bytes.',
+      );
     }
-    if (appLinksIosTeamId.trim().isEmpty) {
+    if (defaultTargetPlatform == TargetPlatform.iOS &&
+        appLinksIosTeamId.trim().isEmpty) {
       issues.add('iOS associated domains team ID is not configured.');
     }
     return issues;
   }
 
-  static void _validateHttpsEndpoint(
+  static void _validateTrustedEdgeFunctionEndpoint(
     String value, {
     required String label,
+    required String functionName,
     required List<String> issues,
   }) {
     final String endpoint = value.trim();
@@ -417,9 +520,32 @@ abstract final class Env {
       issues.add('$label is not configured.');
       return;
     }
-    final Uri? uri = Uri.tryParse(endpoint);
-    if (uri == null || !uri.hasAuthority || uri.scheme != 'https') {
-      issues.add('$label must be a valid HTTPS URL.');
+    if (!resolveIsTrustedEdgeFunctionEndpoint(
+      endpoint: endpoint,
+      supabaseUrl: supabaseUrl,
+      functionName: functionName,
+    )) {
+      issues.add(
+        '$label must be the HTTPS /functions/v1/$functionName endpoint on the configured Supabase origin.',
+      );
+    }
+  }
+
+  static void _validateAuthRedirect(
+    String value, {
+    required String label,
+    required bool requireHttpsAppLink,
+    required List<String> issues,
+  }) {
+    if (!resolveIsAllowedAuthRedirect(
+      value,
+      requireHttpsAppLink: requireHttpsAppLink,
+    )) {
+      issues.add(
+        requireHttpsAppLink
+            ? '$label must be the verified production App Link $productionAuthCallbackUrl.'
+            : '$label must be $customSchemeAuthCallbackUrl or $productionAuthCallbackUrl.',
+      );
     }
   }
 

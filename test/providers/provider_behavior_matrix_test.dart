@@ -18,6 +18,7 @@ import 'package:fantastic_guacamole/state/services/app_integration_actions.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -27,12 +28,11 @@ void main() {
     });
 
     test('auth: initial empty session resolves to unauthenticated', () async {
-      final _MatrixAuthRepository repository =
-          _MatrixAuthRepository(initialSession: null);
+      final _MatrixAuthRepository repository = _MatrixAuthRepository(
+        initialSession: null,
+      );
       final ProviderContainer container = ProviderContainer(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [authRepositoryProvider.overrideWithValue(repository)],
       );
       addTearDown(container.dispose);
 
@@ -45,18 +45,20 @@ void main() {
     });
 
     test('auth: sign-in transitions to authenticated success state', () async {
-      final _MatrixAuthRepository repository =
-          _MatrixAuthRepository(initialSession: null);
+      final _MatrixAuthRepository repository = _MatrixAuthRepository(
+        initialSession: null,
+      );
       final ProviderContainer container = ProviderContainer(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [authRepositoryProvider.overrideWithValue(repository)],
       );
       addTearDown(container.dispose);
 
       await container
           .read(authControllerProvider.notifier)
-          .signInWithEmail(email: 'matrix@example.com', password: 'Password123');
+          .signInWithEmail(
+            email: 'matrix@example.com',
+            password: 'Password123',
+          );
 
       final AuthState state = container.read(authControllerProvider);
       expect(state.status, AuthStatus.authenticated);
@@ -64,12 +66,11 @@ void main() {
     });
 
     test('auth: invalid login input transitions to error state', () async {
-      final _MatrixAuthRepository repository =
-          _MatrixAuthRepository(initialSession: null);
+      final _MatrixAuthRepository repository = _MatrixAuthRepository(
+        initialSession: null,
+      );
       final ProviderContainer container = ProviderContainer(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [authRepositoryProvider.overrideWithValue(repository)],
       );
       addTearDown(container.dispose);
 
@@ -84,29 +85,33 @@ void main() {
       expect(state.failure, isNotNull);
     });
 
-    test('auth: sign-out transitions authenticated to unauthenticated', () async {
-      final _MatrixAuthRepository repository = _MatrixAuthRepository(
-        initialSession: _matrixSession('stateful@example.com', 'token-stateful'),
-      );
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(repository),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'auth: sign-out transitions authenticated to unauthenticated',
+      () async {
+        final _MatrixAuthRepository repository = _MatrixAuthRepository(
+          initialSession: _matrixSession(
+            'stateful@example.com',
+            'token-stateful',
+          ),
+        );
+        final ProviderContainer container = ProviderContainer(
+          overrides: [authRepositoryProvider.overrideWithValue(repository)],
+        );
+        addTearDown(container.dispose);
 
-      await container.read(authControllerProvider.notifier).restoreSession();
-      expect(
-        container.read(authControllerProvider).status,
-        AuthStatus.authenticated,
-      );
+        await container.read(authControllerProvider.notifier).restoreSession();
+        expect(
+          container.read(authControllerProvider).status,
+          AuthStatus.authenticated,
+        );
 
-      await container.read(authControllerProvider.notifier).signOut();
-      expect(
-        container.read(authControllerProvider).status,
-        AuthStatus.unauthenticated,
-      );
-    });
+        await container.read(authControllerProvider.notifier).signOut();
+        expect(
+          container.read(authControllerProvider).status,
+          AuthStatus.unauthenticated,
+        );
+      },
+    );
 
     test('sync: error message notifier starts as null', () {
       final ProviderContainer container = ProviderContainer();
@@ -126,23 +131,27 @@ void main() {
       expect(container.read(syncErrorMessageProvider), isNull);
     });
 
-    test('sync: actions fallback safely when sync service is unavailable', () async {
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          syncServiceProvider.overrideWithValue(null),
-          monetizationActionsCompatProvider.overrideWithValue(
-            const _FakeMonetizationActionsCompat(),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'sync: actions fallback safely when sync service is unavailable',
+      () async {
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            syncServiceProvider.overrideWithValue(null),
+            monetizationActionsCompatProvider.overrideWithValue(
+              const _FakeMonetizationActionsCompat(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final AppIntegrationActions actions =
-          container.read(appIntegrationActionsProvider);
-      expect(await actions.syncToCloud(), isFalse);
-      expect(await actions.syncDelta(), isFalse);
-      expect(await actions.restoreFromCloud(), isFalse);
-    });
+        final AppIntegrationActions actions = container.read(
+          appIntegrationActionsProvider,
+        );
+        expect(await actions.syncToCloud(), isFalse);
+        expect(await actions.syncDelta(), isFalse);
+        expect(await actions.restoreFromCloud(), isFalse);
+      },
+    );
 
     test('si pipeline: banner emits healthy success surface', () {
       const AppIntegrationSnapshot snapshot = AppIntegrationSnapshot(
@@ -215,16 +224,17 @@ void main() {
       addTearDown(container.dispose);
 
       container.read(syncErrorMessageProvider.notifier).set('stale');
-      final AppIntegrationActions actions =
-          container.read(appIntegrationActionsProvider);
+      final AppIntegrationActions actions = container.read(
+        appIntegrationActionsProvider,
+      );
 
-      final AppIntegrationSnapshot staleSnapshot =
-          await actions.fetchIntegrationSnapshot();
+      final AppIntegrationSnapshot staleSnapshot = await actions
+          .fetchIntegrationSnapshot();
       expect(staleSnapshot.syncErrorMessage, 'stale');
 
       container.read(syncErrorMessageProvider.notifier).set(null);
-      final AppIntegrationSnapshot refreshedSnapshot =
-          await actions.fetchIntegrationSnapshot();
+      final AppIntegrationSnapshot refreshedSnapshot = await actions
+          .fetchIntegrationSnapshot();
       expect(refreshedSnapshot.syncErrorMessage, isNull);
     });
 

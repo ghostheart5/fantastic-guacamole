@@ -17,7 +17,9 @@ class _FakeGoalRepository implements IGoalRepository {
 
   @override
   Future<void> saveGoal(GoalEntity goal) async {
-    final int index = _goals.indexWhere((GoalEntity item) => item.id == goal.id);
+    final int index = _goals.indexWhere(
+      (GoalEntity item) => item.id == goal.id,
+    );
     if (index >= 0) {
       _goals[index] = goal;
       return;
@@ -45,37 +47,41 @@ class _FakeGoalRepository implements IGoalRepository {
 
 void main() {
   group('Goal transition matrix contract', () {
-    test('active -> completed -> archived -> active retains lifecycle timestamps',
-        () async {
-      final DateTime createdAt = DateTime.utc(2025, 1, 1);
-      final GoalEntity seed = GoalEntity(
-        id: 'g-seed',
-        title: 'Lifecycle path',
-        createdAt: createdAt,
-      );
-      final _FakeGoalRepository repository = _FakeGoalRepository(<GoalEntity>[seed]);
+    test(
+      'active -> completed -> archived -> active retains lifecycle timestamps',
+      () async {
+        final DateTime createdAt = DateTime.utc(2025, 1, 1);
+        final GoalEntity seed = GoalEntity(
+          id: 'g-seed',
+          title: 'Lifecycle path',
+          createdAt: createdAt,
+        );
+        final _FakeGoalRepository repository = _FakeGoalRepository(<GoalEntity>[
+          seed,
+        ]);
 
-      final CompleteGoal completeGoal = CompleteGoal(repository);
-      final ArchiveGoal archiveGoal = ArchiveGoal(repository);
-      final ReopenGoal reopenGoal = ReopenGoal(repository);
+        final CompleteGoal completeGoal = CompleteGoal(repository);
+        final ArchiveGoal archiveGoal = ArchiveGoal(repository);
+        final ReopenGoal reopenGoal = ReopenGoal(repository);
 
-      await completeGoal.call('g-seed');
-      final GoalEntity completed = repository.byId('g-seed');
-      expect(completed.status, GoalStatus.completed);
-      expect(completed.completedAt, isNotNull);
+        await completeGoal.call('g-seed');
+        final GoalEntity completed = repository.byId('g-seed');
+        expect(completed.status, GoalStatus.completed);
+        expect(completed.completedAt, isNotNull);
 
-      await archiveGoal.call('g-seed');
-      final GoalEntity archived = repository.byId('g-seed');
-      expect(archived.status, GoalStatus.archived);
-      expect(archived.archivedAt, isNotNull);
-      expect(archived.completedAt, completed.completedAt);
+        await archiveGoal.call('g-seed');
+        final GoalEntity archived = repository.byId('g-seed');
+        expect(archived.status, GoalStatus.archived);
+        expect(archived.archivedAt, isNotNull);
+        expect(archived.completedAt, completed.completedAt);
 
-      await reopenGoal.call('g-seed');
-      final GoalEntity reopened = repository.byId('g-seed');
-      expect(reopened.status, GoalStatus.active);
-      expect(reopened.completedAt, completed.completedAt);
-      expect(reopened.archivedAt, archived.archivedAt);
-    });
+        await reopenGoal.call('g-seed');
+        final GoalEntity reopened = repository.byId('g-seed');
+        expect(reopened.status, GoalStatus.active);
+        expect(reopened.completedAt, completed.completedAt);
+        expect(reopened.archivedAt, archived.archivedAt);
+      },
+    );
 
     test('archiving an active goal sets archived status directly', () async {
       final GoalEntity seed = GoalEntity(
@@ -83,7 +89,9 @@ void main() {
         title: 'Archive active',
         createdAt: DateTime.utc(2025, 1, 1),
       );
-      final _FakeGoalRepository repository = _FakeGoalRepository(<GoalEntity>[seed]);
+      final _FakeGoalRepository repository = _FakeGoalRepository(<GoalEntity>[
+        seed,
+      ]);
 
       await ArchiveGoal(repository).call('g-archive-active');
       final GoalEntity archived = repository.byId('g-archive-active');
@@ -118,7 +126,9 @@ void main() {
         title: 'Present goal',
         createdAt: DateTime.utc(2025, 1, 1),
       );
-      final _FakeGoalRepository repository = _FakeGoalRepository(<GoalEntity>[seed]);
+      final _FakeGoalRepository repository = _FakeGoalRepository(<GoalEntity>[
+        seed,
+      ]);
 
       await CompleteGoal(repository).call('missing');
       await ArchiveGoal(repository).call('missing');

@@ -50,7 +50,7 @@ Invoke-Step -Title 'Dart Fix Dry Run' -Command 'dart fix --dry-run'
 $pubspecPath = 'pubspec.yaml'
 $pubspecText = if (Test-Path $pubspecPath) { Get-Content $pubspecPath -Raw } else { '' }
 if ($pubspecText -match '(?m)^\s*build_runner\s*:') {
-  Invoke-Step -Title 'Build Runner Check' -Command 'dart run build_runner build --delete-conflicting-outputs'
+  Invoke-Step -Title 'Build Runner Check' -Command 'dart run build_runner build'
 } else {
   $skip = 'SKIP: Build Runner Check (build_runner not declared in pubspec.yaml)'
   Write-Host $skip

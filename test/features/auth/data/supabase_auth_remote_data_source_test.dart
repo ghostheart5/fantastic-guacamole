@@ -13,8 +13,9 @@ void main() {
       ),
       session: _snapshot(),
     );
-    final SupabaseAuthRemoteDataSource source =
-        SupabaseAuthRemoteDataSource(authService: service);
+    final SupabaseAuthRemoteDataSource source = SupabaseAuthRemoteDataSource(
+      authService: service,
+    );
 
     final session = await source.getCurrentSession();
 
@@ -22,25 +23,31 @@ void main() {
     expect(service.forceRefreshRequested, isTrue);
   });
 
-  test('propagates a failed revalidation instead of returning a stale session',
-      () async {
-    final _FakeAuthService service = _FakeAuthService(
-      user: const User(
-        id: 'user-1',
-        email: 'person@example.com',
-        emailVerified: true,
-      ),
-      sessionError: FirebaseAuthException(
-        code: 'user-token-expired',
-        message: 'Refresh token rejected',
-      ),
-    );
-    final SupabaseAuthRemoteDataSource source =
-        SupabaseAuthRemoteDataSource(authService: service);
+  test(
+    'propagates a failed revalidation instead of returning a stale session',
+    () async {
+      final _FakeAuthService service = _FakeAuthService(
+        user: const User(
+          id: 'user-1',
+          email: 'person@example.com',
+          emailVerified: true,
+        ),
+        sessionError: FirebaseAuthException(
+          code: 'user-token-expired',
+          message: 'Refresh token rejected',
+        ),
+      );
+      final SupabaseAuthRemoteDataSource source = SupabaseAuthRemoteDataSource(
+        authService: service,
+      );
 
-    await expectLater(source.getCurrentSession(), throwsA(isA<FirebaseAuthException>()));
-    expect(service.forceRefreshRequested, isTrue);
-  });
+      await expectLater(
+        source.getCurrentSession(),
+        throwsA(isA<FirebaseAuthException>()),
+      );
+      expect(service.forceRefreshRequested, isTrue);
+    },
+  );
 }
 
 class _FakeAuthService implements AuthServiceContract {
@@ -58,7 +65,9 @@ class _FakeAuthService implements AuthServiceContract {
   Stream<User?> authStateChanges() => Stream<User?>.value(user);
 
   @override
-  Future<AuthSessionSnapshot?> getCurrentSessionSnapshot({bool forceRefresh = false}) async {
+  Future<AuthSessionSnapshot?> getCurrentSessionSnapshot({
+    bool forceRefresh = false,
+  }) async {
     forceRefreshRequested = forceRefresh;
     if (sessionError != null) {
       throw sessionError!;
@@ -67,10 +76,12 @@ class _FakeAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<void> deleteCurrentAccount({required String password}) => throw UnimplementedError();
+  Future<void> deleteCurrentAccount({required String password}) =>
+      throw UnimplementedError();
 
   @override
-  Future<String?> getIdToken({bool forceRefresh = false}) => throw UnimplementedError();
+  Future<String?> getIdToken({bool forceRefresh = false}) =>
+      throw UnimplementedError();
 
   @override
   Future<User?> reloadCurrentUser() => throw UnimplementedError();
@@ -85,7 +96,10 @@ class _FakeAuthService implements AuthServiceContract {
   Future<void> sendPhoneOtp(String phone) => throw UnimplementedError();
 
   @override
-  Future<UserCredential> signIn({required String email, required String password}) => throw UnimplementedError();
+  Future<UserCredential> signIn({
+    required String email,
+    required String password,
+  }) => throw UnimplementedError();
 
   @override
   Future<UserCredential> signInWithGoogle() => throw UnimplementedError();
@@ -94,13 +108,20 @@ class _FakeAuthService implements AuthServiceContract {
   Future<void> signOut() => throw UnimplementedError();
 
   @override
-  Future<UserCredential> signUp({required String email, required String password}) => throw UnimplementedError();
+  Future<UserCredential> signUp({
+    required String email,
+    required String password,
+  }) => throw UnimplementedError();
 
   @override
-  Future<void> updatePassword({required String newPassword}) => throw UnimplementedError();
+  Future<void> updatePassword({required String newPassword}) =>
+      throw UnimplementedError();
 
   @override
-  Future<UserCredential> verifyPhoneOtp({required String phone, required String token}) => throw UnimplementedError();
+  Future<UserCredential> verifyPhoneOtp({
+    required String phone,
+    required String token,
+  }) => throw UnimplementedError();
 }
 
 AuthSessionSnapshot _snapshot() {

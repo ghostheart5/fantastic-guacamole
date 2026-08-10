@@ -12,7 +12,9 @@ void main() {
       final RegExp uiPath = RegExp(r'/(ui|widgets|presentation)/');
 
       for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
-        final String normalizedPath = SourceTestUtils.normalizePath(file.path).toLowerCase();
+        final String normalizedPath = SourceTestUtils.normalizePath(
+          file.path,
+        ).toLowerCase();
         if (!uiPath.hasMatch(normalizedPath)) {
           continue;
         }
@@ -31,19 +33,26 @@ void main() {
         }
       }
 
-      expect(offenders.length, lessThanOrEqualTo(6), reason: 'IconButton without accessibility hint found: $offenders');
-    });
-
-    test('core navigation actions are represented by text or semantics labels', () {
-      final String nexusWidgets = SourceTestUtils.readText(
-        File('lib/features/nexus/ui/nexus_screen.widgets.dart'),
+      expect(
+        offenders.length,
+        lessThanOrEqualTo(6),
+        reason: 'IconButton without accessibility hint found: $offenders',
       );
-      final String lower = nexusWidgets.toLowerCase();
-
-      expect(lower.contains("label: 'creator'"), isTrue);
-      expect(lower.contains("label: 'timeline'"), isTrue);
-      expect(lower.contains("label: 'profile'"), isTrue);
-      expect(nexusWidgets.contains('Text('), isTrue);
     });
+
+    test(
+      'core navigation actions are represented by text or semantics labels',
+      () {
+        final String nexusWidgets = SourceTestUtils.readText(
+          File('lib/features/nexus/ui/nexus_screen.widgets.dart'),
+        );
+        final String lower = nexusWidgets.toLowerCase();
+
+        expect(lower.contains("label: 'creator'"), isTrue);
+        expect(lower.contains("label: 'timeline'"), isTrue);
+        expect(lower.contains("label: 'profile'"), isTrue);
+        expect(nexusWidgets.contains('Text('), isTrue);
+      },
+    );
   });
 }

@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_simulation_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 void main() {
   group('trajectory engine deterministic fixtures', () {
     test('high pressure returns overload-focused replans', () {
@@ -13,8 +14,9 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      final List<AdaptiveReplanningScenario> scenarios =
-          container.read(adaptiveReplanningProvider);
+      final List<AdaptiveReplanningScenario> scenarios = container.read(
+        adaptiveReplanningProvider,
+      );
       final List<AdaptiveReplanningType> kinds = scenarios
           .map((AdaptiveReplanningScenario item) => item.type)
           .toList(growable: false);
@@ -29,8 +31,9 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      final List<AdaptiveReplanningScenario> scenarios =
-          container.read(adaptiveReplanningProvider);
+      final List<AdaptiveReplanningScenario> scenarios = container.read(
+        adaptiveReplanningProvider,
+      );
 
       expect(
         scenarios.any(
@@ -47,8 +50,9 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      final List<AdaptiveReplanningScenario> scenarios =
-          container.read(adaptiveReplanningProvider);
+      final List<AdaptiveReplanningScenario> scenarios = container.read(
+        adaptiveReplanningProvider,
+      );
 
       expect(
         scenarios.any(
@@ -65,26 +69,30 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      final List<AdaptiveReplanningScenario> scenarios =
-          container.read(adaptiveReplanningProvider);
+      final List<AdaptiveReplanningScenario> scenarios = container.read(
+        adaptiveReplanningProvider,
+      );
 
       expect(scenarios.first.title, 'High Momentum Protection');
     });
 
-    test('trajectory simulations include adaptive replan card when replans exist', () {
-      final ProviderContainer container = _container(
-        momentum: _momentum(score: 52, pressure: 58, energy: 54),
-      );
-      addTearDown(container.dispose);
+    test(
+      'trajectory simulations include adaptive replan card when replans exist',
+      () {
+        final ProviderContainer container = _container(
+          momentum: _momentum(score: 52, pressure: 58, energy: 54),
+        );
+        addTearDown(container.dispose);
 
-      final List<TrajectorySimulationResult> results = container.read(
-        trajectorySimulationProvider,
-      );
+        final List<TrajectorySimulationResult> results = container.read(
+          trajectorySimulationProvider,
+        );
 
-      expect(results, isNotEmpty);
-      expect(results.first.title, isNotEmpty);
-      expect(results.first.summary, isNotEmpty);
-    });
+        expect(results, isNotEmpty);
+        expect(results.first.title, isNotEmpty);
+        expect(results.first.summary, isNotEmpty);
+      },
+    );
 
     test('simulation projected values are clamped within 0..100', () {
       final ProviderContainer container = _container(
@@ -102,25 +110,28 @@ void main() {
       }
     });
 
-    test('drift warning simulation uses trajectory alert text when provided', () {
-      const String alert =
-          'SI ALERT: load is high, reduce task density and clear deferrals.';
-      final ProviderContainer container = _container(
-        momentum: _momentum(score: 48, pressure: 72, energy: 47),
-        trajectory: _trajectory(alert: alert),
-      );
-      addTearDown(container.dispose);
+    test(
+      'drift warning simulation uses trajectory alert text when provided',
+      () {
+        const String alert =
+            'SI ALERT: load is high, reduce task density and clear deferrals.';
+        final ProviderContainer container = _container(
+          momentum: _momentum(score: 48, pressure: 72, energy: 47),
+          trajectory: _trajectory(alert: alert),
+        );
+        addTearDown(container.dispose);
 
-      final List<TrajectorySimulationResult> results = container.read(
-        trajectorySimulationProvider,
-      );
-      final TrajectorySimulationResult driftWarning = results.firstWhere(
-        (TrajectorySimulationResult item) =>
-            item.type == TrajectorySimulationType.driftWarning,
-      );
+        final List<TrajectorySimulationResult> results = container.read(
+          trajectorySimulationProvider,
+        );
+        final TrajectorySimulationResult driftWarning = results.firstWhere(
+          (TrajectorySimulationResult item) =>
+              item.type == TrajectorySimulationType.driftWarning,
+        );
 
-      expect(driftWarning.projectedOutcome, alert);
-    });
+        expect(driftWarning.projectedOutcome, alert);
+      },
+    );
 
     test('drift warning marks recovery-needed when pressure is very high', () {
       final ProviderContainer container = _container(
@@ -165,13 +176,13 @@ MomentumEngineState _momentum({
     trend: score >= 70
         ? 'Rising'
         : score >= 45
-            ? 'Stable'
-            : 'Declining',
+        ? 'Stable'
+        : 'Declining',
     recovery: pressure >= 75
         ? 'Recovery Needed'
         : pressure >= 45
-            ? 'Watch Load'
-            : 'Recovered',
+        ? 'Watch Load'
+        : 'Recovered',
     forecast: 'Deterministic fixture forecast.',
     energyPercent: energy,
     pressurePercent: pressure,

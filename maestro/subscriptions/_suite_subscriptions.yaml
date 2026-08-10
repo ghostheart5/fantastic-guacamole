@@ -1,4 +1,4 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: paywall_open.yaml
 - runFlow: free_plan_restrictions.yaml

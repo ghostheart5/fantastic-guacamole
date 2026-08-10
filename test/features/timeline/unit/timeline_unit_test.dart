@@ -1,4 +1,4 @@
-﻿import 'package:fantastic_guacamole/domain/entities/timeline_connection_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_connection_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -62,7 +62,9 @@ void main() {
         relatedId: 'goal-1',
       );
 
-      final TimelineEventEntity decoded = TimelineEventEntity.fromJson(original.toJson());
+      final TimelineEventEntity decoded = TimelineEventEntity.fromJson(
+        original.toJson(),
+      );
       expect(decoded.id, original.id);
       expect(decoded.type, original.type);
       expect(decoded.phase, original.phase);
@@ -85,25 +87,23 @@ void main() {
 
   group('TimelineConnectionEntity', () {
     test('json parsing maps known type and defaults unknown type to goal', () {
-      final TimelineConnectionEntity taskLink = TimelineConnectionEntity.fromJson(
-        <String, dynamic>{
-          'id': 'c1',
-          'timelineEventId': 'e1',
-          'targetId': 't1',
-          'type': 'task',
-          'createdAt': '2026-08-01T00:00:00.000Z',
-        },
-      );
+      final TimelineConnectionEntity taskLink =
+          TimelineConnectionEntity.fromJson(<String, dynamic>{
+            'id': 'c1',
+            'timelineEventId': 'e1',
+            'targetId': 't1',
+            'type': 'task',
+            'createdAt': '2026-08-01T00:00:00.000Z',
+          });
 
-      final TimelineConnectionEntity fallback = TimelineConnectionEntity.fromJson(
-        <String, dynamic>{
-          'id': 'c2',
-          'timelineEventId': 'e2',
-          'targetId': 't2',
-          'type': 'unknown',
-          'createdAt': 'bad-date',
-        },
-      );
+      final TimelineConnectionEntity fallback =
+          TimelineConnectionEntity.fromJson(<String, dynamic>{
+            'id': 'c2',
+            'timelineEventId': 'e2',
+            'targetId': 't2',
+            'type': 'unknown',
+            'createdAt': 'bad-date',
+          });
 
       expect(taskLink.type, TimelineConnectionType.task);
       expect(fallback.type, TimelineConnectionType.goal);

@@ -20,6 +20,7 @@ import 'package:fantastic_guacamole/data/di/storage_providers.dart'
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart'
     show authServiceProvider;
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/sensitive_prefs_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/data/storage/storage_migration.dart';
@@ -60,6 +61,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
@@ -82,7 +84,7 @@ class AppBootstrapper {
   }
 
   Future<void> _initializeFirebaseEarlyForCrashHooks() async {
-    if (Env.isMockMode || Firebase.apps.isNotEmpty) {
+    if (Env.isMockMode || Env.maestroMode || Firebase.apps.isNotEmpty) {
       return;
     }
 
@@ -307,17 +309,21 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       stateBootstrapIssue ?? '',
     );
 
-    ref.read(onboardingCompleteProvider.notifier).set(result.hasOnboarded);
-    ref
-        .read(creatorFirstItemCreatedProvider.notifier)
-        .set(result.hasCreatedFirstItem);
+    final bool hasOnboarded = Env.maestroMode || result.hasOnboarded;
+    final bool hasCreatedFirstItem =
+        Env.maestroMode || result.hasCreatedFirstItem;
+    final bool hasCompletedTimelineFirstAction =
+        Env.maestroMode || result.hasCompletedTimelineFirstAction;
+
+    ref.read(onboardingCompleteProvider.notifier).set(hasOnboarded);
+    ref.read(creatorFirstItemCreatedProvider.notifier).set(hasCreatedFirstItem);
     ref
         .read(timelineFirstActionCompletedProvider.notifier)
-        .set(result.hasCompletedTimelineFirstAction);
+        .set(hasCompletedTimelineFirstAction);
 
     final OnboardingStatus onboardingStatus = resolveOnboardingStatus(
       isResolved: result.onboardingResolved,
-      isComplete: result.hasOnboarded,
+      isComplete: hasOnboarded,
     );
 
     ref.read(onboardingStatusProvider.notifier).set(onboardingStatus);
@@ -443,17 +449,21 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       return;
     }
 
-    ref.read(onboardingCompleteProvider.notifier).set(prefsResult.hasOnboarded);
-    ref
-        .read(creatorFirstItemCreatedProvider.notifier)
-        .set(prefsResult.hasCreatedFirstItem);
+    final bool hasOnboarded = Env.maestroMode || prefsResult.hasOnboarded;
+    final bool hasCreatedFirstItem =
+        Env.maestroMode || prefsResult.hasCreatedFirstItem;
+    final bool hasCompletedTimelineFirstAction =
+        Env.maestroMode || prefsResult.hasCompletedTimelineFirstAction;
+
+    ref.read(onboardingCompleteProvider.notifier).set(hasOnboarded);
+    ref.read(creatorFirstItemCreatedProvider.notifier).set(hasCreatedFirstItem);
     ref
         .read(timelineFirstActionCompletedProvider.notifier)
-        .set(prefsResult.hasCompletedTimelineFirstAction);
+        .set(hasCompletedTimelineFirstAction);
 
     final OnboardingStatus onboardingStatus = resolveOnboardingStatus(
       isResolved: prefsResult.isResolved,
-      isComplete: prefsResult.hasOnboarded,
+      isComplete: hasOnboarded,
     );
 
     ref.read(onboardingStatusProvider.notifier).set(onboardingStatus);
@@ -934,9 +944,17 @@ Future<String?> _initStorageSafe() async {
 
   final List<String> issues = <String>[];
 
+  HiveService.configureSecureStore(
+    SecureStore(
+      backend: Env.isMockMode || _isTestBuild
+          ? InMemorySecureStoreBackend()
+          : RealSecureStoreBackend(storage: const FlutterSecureStorage()),
+    ),
+  );
+
   final String? hiveIssue = await runStorageStep(
     'HiveService.init',
-    HiveService.init,
+    () => HiveService.init(warmupBoxes: true),
     timeout: const Duration(seconds: 8),
   );
   if (hiveIssue != null) {

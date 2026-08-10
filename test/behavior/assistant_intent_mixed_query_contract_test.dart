@@ -6,15 +6,18 @@ void main() {
     const DefaultAssistantIntentDetector detector =
         DefaultAssistantIntentDetector();
 
-    test('smart coach favors stress_support for mixed stress and planning prompt', () {
-      final intent = detector.detect(
-        input: 'I am stressed and overwhelmed, help me plan one next task.',
-        surface: 'smart_coach',
-      );
+    test(
+      'smart coach favors stress_support for mixed stress and planning prompt',
+      () {
+        final intent = detector.detect(
+          input: 'I am stressed and overwhelmed, help me plan one next task.',
+          surface: 'smart_coach',
+        );
 
-      expect(intent.label, 'stress_support');
-      expect(intent.confidence, greaterThan(0.8));
-    });
+        expect(intent.label, 'stress_support');
+        expect(intent.confidence, greaterThan(0.8));
+      },
+    );
 
     test('si console favors timeline query for schedule-risk mixed prompt', () {
       final intent = detector.detect(

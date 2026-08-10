@@ -1,4 +1,4 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: settings_open.yaml
 - runFlow: settings_persistence_restart.yaml

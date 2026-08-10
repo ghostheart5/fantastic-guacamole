@@ -30,8 +30,10 @@ void main() {
     test('advanced settings paths remain under the settings namespace', () {
       expect(RoutePaths.advancedRoot.startsWith('/settings'), isTrue);
       expect(RoutePaths.notifications.startsWith('/settings'), isTrue);
-      expect(RoutePaths.notificationPermissionRecovery.startsWith('/settings'), isTrue);
+      expect(
+        RoutePaths.notificationPermissionRecovery.startsWith('/settings'),
+        isTrue,
+      );
     });
   });
 }
-

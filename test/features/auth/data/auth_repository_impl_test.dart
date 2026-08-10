@@ -75,21 +75,23 @@ void main() {
       expect(local.cachedSession, isNull);
     });
 
-    test('remote sign-out simulation clears cached session and stays signed out',
-        () async {
-      final _FakeLocalDataSource local = _FakeLocalDataSource(
-        cachedSession: _activeSession(),
-      );
-      final AuthRepositoryImpl repository = AuthRepositoryImpl(
-        remoteDataSource: _FakeRemoteDataSource(),
-        localDataSource: local,
-      );
+    test(
+      'remote sign-out simulation clears cached session and stays signed out',
+      () async {
+        final _FakeLocalDataSource local = _FakeLocalDataSource(
+          cachedSession: _activeSession(),
+        );
+        final AuthRepositoryImpl repository = AuthRepositoryImpl(
+          remoteDataSource: _FakeRemoteDataSource(),
+          localDataSource: local,
+        );
 
-      final result = await repository.getCurrentSession();
+        final result = await repository.getCurrentSession();
 
-      expect(result.getOrNull(), isNull);
-      expect(local.cachedSession, isNull);
-    });
+        expect(result.getOrNull(), isNull);
+        expect(local.cachedSession, isNull);
+      },
+    );
   });
 
   group('AuthRepositoryImpl sign-out', () {
@@ -149,7 +151,11 @@ class _FakeLocalDataSource implements AuthLocalDataSource {
 }
 
 class _FakeRemoteDataSource implements AuthRemoteDataSource {
-  _FakeRemoteDataSource({this.session, this.getSessionError, this.signOutError});
+  _FakeRemoteDataSource({
+    this.session,
+    this.getSessionError,
+    this.signOutError,
+  });
 
   final AuthSessionEntity? session;
   final Object? getSessionError;
@@ -171,13 +177,20 @@ class _FakeRemoteDataSource implements AuthRemoteDataSource {
   }
 
   @override
-  Stream<AuthSessionModel?> watchSession() => const Stream<AuthSessionModel?>.empty();
+  Stream<AuthSessionModel?> watchSession() =>
+      const Stream<AuthSessionModel?>.empty();
 
   @override
-  Future<AuthSessionModel?> signInWithEmail({required EmailAddress email, required PasswordValue password}) => throw UnimplementedError();
+  Future<AuthSessionModel?> signInWithEmail({
+    required EmailAddress email,
+    required PasswordValue password,
+  }) => throw UnimplementedError();
 
   @override
-  Future<AuthSessionModel?> signUpWithEmail({required EmailAddress email, required PasswordValue password}) => throw UnimplementedError();
+  Future<AuthSessionModel?> signUpWithEmail({
+    required EmailAddress email,
+    required PasswordValue password,
+  }) => throw UnimplementedError();
 
   @override
   Future<AuthSessionModel?> signInWithGoogle() => throw UnimplementedError();
@@ -186,13 +199,15 @@ class _FakeRemoteDataSource implements AuthRemoteDataSource {
   Future<void> sendEmailVerification() => throw UnimplementedError();
 
   @override
-  Future<void> sendPasswordReset({required EmailAddress email}) => throw UnimplementedError();
+  Future<void> sendPasswordReset({required EmailAddress email}) =>
+      throw UnimplementedError();
 
   @override
   Future<void> refreshSession() => throw UnimplementedError();
 
   @override
-  Future<void> deleteAccount({required PasswordValue password}) => throw UnimplementedError();
+  Future<void> deleteAccount({required PasswordValue password}) =>
+      throw UnimplementedError();
 }
 
 AuthSessionEntity _activeSession({bool expired = false}) {
@@ -201,7 +216,9 @@ AuthSessionEntity _activeSession({bool expired = false}) {
     accessToken: 'access-token',
     refreshToken: 'refresh-token',
     issuedAt: now.subtract(const Duration(hours: 1)),
-    expiresAt: expired ? now.subtract(const Duration(minutes: 1)) : now.add(const Duration(hours: 1)),
+    expiresAt: expired
+        ? now.subtract(const Duration(minutes: 1))
+        : now.add(const Duration(hours: 1)),
     user: const AuthUserEntity(
       id: 'user-1',
       email: 'person@example.com',

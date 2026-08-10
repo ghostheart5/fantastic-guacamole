@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 void main() {
   group('navigation integration flow', () {
     test('appFlowProvider transitions across primary surfaces', () {
@@ -39,4 +40,3 @@ void main() {
     });
   });
 }
-

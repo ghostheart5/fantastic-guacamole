@@ -53,144 +53,173 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  test('automated user journey performs human-like end-to-end flow', () async {
-    final _FakeAuthRepository authRepository = _FakeAuthRepository(
-      initialSession: null,
-    );
-    final _FakeGoalRepository goalRepository = _FakeGoalRepository();
-    final _FakeRoutineRepository routineRepository = _FakeRoutineRepository();
-    final _FakeTaskRepository taskRepository = _FakeTaskRepository();
-    final _TimelineProbe timeline = _TimelineProbe();
-    final _LogProbe logs = _LogProbe();
-    final _FakeLocalMetricsAccumulator metrics = _FakeLocalMetricsAccumulator();
-    final EventBus bus = EventBus();
+  test(
+    'automated user journey performs human-like end-to-end flow',
+    () async {
+      final _FakeAuthRepository authRepository = _FakeAuthRepository(
+        initialSession: null,
+      );
+      final _FakeGoalRepository goalRepository = _FakeGoalRepository();
+      final _FakeRoutineRepository routineRepository = _FakeRoutineRepository();
+      final _FakeTaskRepository taskRepository = _FakeTaskRepository();
+      final _TimelineProbe timeline = _TimelineProbe();
+      final _LogProbe logs = _LogProbe();
+      final _FakeLocalMetricsAccumulator metrics =
+          _FakeLocalMetricsAccumulator();
+      final EventBus bus = EventBus();
 
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        authRepositoryProvider.overrideWithValue(authRepository),
-        eventBusProvider.overrideWithValue(bus),
-        profileProvider.overrideWith(_TestProfileController.new),
-        reminderOrchestratorServiceProvider.overrideWithValue(
-          _buildReminderOrchestrator(),
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(authRepository),
+          eventBusProvider.overrideWithValue(bus),
+          profileProvider.overrideWith(_TestProfileController.new),
+          reminderOrchestratorServiceProvider.overrideWithValue(
+            _buildReminderOrchestrator(),
+          ),
+          domainGoalRepositoryProvider.overrideWithValue(goalRepository),
+          getGoalsUseCaseProvider.overrideWithValue(GetGoals(goalRepository)),
+          featureCreateGoalUseCaseProvider.overrideWithValue(
+            CreateGoalUsecase(goalRepository),
+          ),
+          domainRoutineRepositoryProvider.overrideWithValue(routineRepository),
+          getRoutinesUseCaseProvider.overrideWithValue(
+            GetRoutines(routineRepository),
+          ),
+          createRoutineUseCaseProvider.overrideWithValue(
+            CreateRoutine(routineRepository),
+          ),
+          domainTaskRepositoryProvider.overrideWithValue(taskRepository),
+          createTaskUseCaseProvider.overrideWithValue(
+            CreateTask(taskRepository),
+          ),
+          completeTaskUseCaseProvider.overrideWithValue(
+            CompleteTask(taskRepository),
+          ),
+          tasksProvider.overrideWith((Ref ref) async => const <Task>[]),
+          timelineActionsProvider.overrideWith(
+            (Ref ref) => _FakeTimelineActions(ref, timeline),
+          ),
+          logsActionsProvider.overrideWith(
+            (Ref ref) => _FakeLogsActions(ref, logs),
+          ),
+          localMetricsAccumulatorProvider.overrideWithValue(metrics),
+        ],
+      );
+      addTearDown(() async {
+        await bus.dispose();
+        container.dispose();
+      });
+
+      // 1) Launch App
+      expect(container.read(appFlowProvider), AppView.nexus);
+
+      // 2) Login
+      await container
+          .read(authControllerProvider.notifier)
+          .signInWithEmail(
+            email: 'journey@example.com',
+            password: 'Password123',
+          );
+      expect(
+        container.read(authControllerProvider).status,
+        AuthStatus.authenticated,
+      );
+
+      // 3) Create Goal
+      await container
+          .read(goalsProvider.notifier)
+          .add(
+            title: 'Journey Goal',
+            description: 'Reach mission-ready state.',
+          );
+
+      // 4) Create Habit
+      final RoutineEntity habit = RoutineEntity(
+        id: 'habit-journey-1',
+        name: 'Daily Focus Sprint',
+        createdAt: DateTime.now(),
+        cadence: RoutineCadence.daily,
+        targetCount: 1,
+      );
+      await container.read(routinesProvider.notifier).addHabit(habit);
+
+      // 5) Create Task
+      final TaskEntity task = TaskEntity(
+        id: 'task-journey-1',
+        title: 'Ship milestone task',
+        createdAt: DateTime.now(),
+        priority: 3,
+        difficulty: 2,
+        energyRequired: 2,
+      );
+      await container
+          .read(taskActionsProvider)
+          .createTask(task, actionSource: 'automated_journey');
+
+      // 6) Create Note
+      await container
+          .read(logsActionsProvider)
+          .addStandaloneEntry(
+            source: 'note',
+            message: 'Captured mission context for SI.',
+          );
+
+      // 7) Open Timeline
+      container.read(appFlowProvider.notifier).toTimeline();
+      expect(container.read(appFlowProvider), AppView.timeline);
+
+      // 8) Open SI Console
+      container.read(appFlowProvider.notifier).toConsole();
+      expect(container.read(appFlowProvider), AppView.console);
+
+      // 9) Open Profile
+      container.read(appFlowProvider.notifier).toProfile();
+      expect(container.read(appFlowProvider), AppView.profile);
+
+      // 10) Open Settings
+      container.read(appFlowProvider.notifier).toSettings();
+      expect(container.read(appFlowProvider), AppView.settings);
+
+      // 11) Return to Nexus
+      container.read(appFlowProvider.notifier).toNexus();
+      expect(container.read(appFlowProvider), AppView.nexus);
+
+      // 12) Verify values exist
+      final List<GoalEntity> goals = container.read(goalsProvider);
+      final List<RoutineEntity> habits = container.read(routinesProvider);
+
+      expect(
+        goals.any((GoalEntity goal) => goal.title == 'Journey Goal'),
+        isTrue,
+      );
+      expect(
+        habits.any((RoutineEntity item) => item.name == 'Daily Focus Sprint'),
+        isTrue,
+      );
+      expect(
+        taskRepository.savedTasks.any(
+          (TaskEntity item) => item.id == 'task-journey-1',
         ),
-        domainGoalRepositoryProvider.overrideWithValue(goalRepository),
-        getGoalsUseCaseProvider.overrideWithValue(GetGoals(goalRepository)),
-        featureCreateGoalUseCaseProvider.overrideWithValue(
-          CreateGoalUsecase(goalRepository),
-        ),
-        domainRoutineRepositoryProvider.overrideWithValue(routineRepository),
-        getRoutinesUseCaseProvider.overrideWithValue(
-          GetRoutines(routineRepository),
-        ),
-        createRoutineUseCaseProvider.overrideWithValue(
-          CreateRoutine(routineRepository),
-        ),
-        domainTaskRepositoryProvider.overrideWithValue(taskRepository),
-        createTaskUseCaseProvider.overrideWithValue(CreateTask(taskRepository)),
-        completeTaskUseCaseProvider.overrideWithValue(
-          CompleteTask(taskRepository),
-        ),
-        tasksProvider.overrideWith((Ref ref) async => const <Task>[]),
-        timelineActionsProvider.overrideWith(
-          (Ref ref) => _FakeTimelineActions(ref, timeline),
-        ),
-        logsActionsProvider.overrideWith((Ref ref) => _FakeLogsActions(ref, logs)),
-        localMetricsAccumulatorProvider.overrideWithValue(metrics),
-      ],
-    );
-    addTearDown(() async {
-      await bus.dispose();
-      container.dispose();
-    });
+        isTrue,
+      );
+      expect(
+        logs.notes.any((String note) => note.contains('mission context')),
+        isTrue,
+      );
+      expect(
+        timeline.connectedTasks.map((TaskEntity item) => item.id),
+        contains('task-journey-1'),
+      );
 
-    // 1) Launch App
-    expect(container.read(appFlowProvider), AppView.nexus);
-
-    // 2) Login
-    await container.read(authControllerProvider.notifier).signInWithEmail(
-          email: 'journey@example.com',
-          password: 'Password123',
-        );
-    expect(container.read(authControllerProvider).status, AuthStatus.authenticated);
-
-    // 3) Create Goal
-    await container.read(goalsProvider.notifier).add(
-          title: 'Journey Goal',
-          description: 'Reach mission-ready state.',
-        );
-
-    // 4) Create Habit
-    final RoutineEntity habit = RoutineEntity(
-      id: 'habit-journey-1',
-      name: 'Daily Focus Sprint',
-      createdAt: DateTime.now(),
-      cadence: RoutineCadence.daily,
-      targetCount: 1,
-    );
-    await container.read(routinesProvider.notifier).addHabit(habit);
-
-    // 5) Create Task
-    final TaskEntity task = TaskEntity(
-      id: 'task-journey-1',
-      title: 'Ship milestone task',
-      createdAt: DateTime.now(),
-      priority: 3,
-      difficulty: 2,
-      energyRequired: 2,
-    );
-    await container
-        .read(taskActionsProvider)
-        .createTask(task, actionSource: 'automated_journey');
-
-    // 6) Create Note
-    await container.read(logsActionsProvider).addStandaloneEntry(
-          source: 'note',
-          message: 'Captured mission context for SI.',
-        );
-
-    // 7) Open Timeline
-    container.read(appFlowProvider.notifier).toTimeline();
-    expect(container.read(appFlowProvider), AppView.timeline);
-
-    // 8) Open SI Console
-    container.read(appFlowProvider.notifier).toConsole();
-    expect(container.read(appFlowProvider), AppView.console);
-
-    // 9) Open Profile
-    container.read(appFlowProvider.notifier).toProfile();
-    expect(container.read(appFlowProvider), AppView.profile);
-
-    // 10) Open Settings
-    container.read(appFlowProvider.notifier).toSettings();
-    expect(container.read(appFlowProvider), AppView.settings);
-
-    // 11) Return to Nexus
-    container.read(appFlowProvider.notifier).toNexus();
-    expect(container.read(appFlowProvider), AppView.nexus);
-
-    // 12) Verify values exist
-    final List<GoalEntity> goals = container.read(goalsProvider);
-    final List<RoutineEntity> habits = container.read(routinesProvider);
-
-    expect(goals.any((GoalEntity goal) => goal.title == 'Journey Goal'), isTrue);
-    expect(
-      habits.any((RoutineEntity item) => item.name == 'Daily Focus Sprint'),
-      isTrue,
-    );
-    expect(
-      taskRepository.savedTasks.any((TaskEntity item) => item.id == 'task-journey-1'),
-      isTrue,
-    );
-    expect(
-      logs.notes.any((String note) => note.contains('mission context')),
-      isTrue,
-    );
-    expect(timeline.connectedTasks.map((TaskEntity item) => item.id), contains('task-journey-1'));
-
-    // 13) Logout
-    await container.read(authControllerProvider.notifier).signOut();
-    expect(container.read(authControllerProvider).status, AuthStatus.unauthenticated);
-  }, tags: <String>['full', 'journey']);
+      // 13) Logout
+      await container.read(authControllerProvider.notifier).signOut();
+      expect(
+        container.read(authControllerProvider).status,
+        AuthStatus.unauthenticated,
+      );
+    },
+    tags: <String>['full', 'journey'],
+  );
 }
 
 ReminderOrchestratorService _buildReminderOrchestrator() {
@@ -255,7 +284,7 @@ class _FakeNotificationRepository implements INotificationRepository {
 
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository({required AuthSessionEntity? initialSession})
-      : _session = initialSession;
+    : _session = initialSession;
 
   final StreamController<Result<AuthSessionEntity?>> _sessionStream =
       StreamController<Result<AuthSessionEntity?>>.broadcast();

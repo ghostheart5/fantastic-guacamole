@@ -12,52 +12,70 @@ void main() {
 
       final String routerText = SourceTestUtils.readText(appRouter);
 
-      expect(routerText.contains('creatorFirstItemCreatedGuardProvider'), isTrue);
-      expect(routerText.contains('timelineFirstActionCompletedGuardProvider'), isTrue);
+      expect(
+        routerText.contains('creatorFirstItemCreatedGuardProvider'),
+        isTrue,
+      );
+      expect(
+        routerText.contains('timelineFirstActionCompletedGuardProvider'),
+        isTrue,
+      );
       expect(routerText.contains('if (!hasCreatedFirstItem)'), isTrue);
-      expect(routerText.contains('if (!hasCompletedTimelineFirstAction)'), isTrue);
+      expect(
+        routerText.contains('if (!hasCompletedTimelineFirstAction)'),
+        isTrue,
+      );
       expect(routerText.contains('location != RoutePaths.timeline'), isTrue);
       expect(routerText.contains('return RoutePaths.creator;'), isTrue);
       expect(routerText.contains('return RoutePaths.timeline;'), isTrue);
     });
 
-    test('startup, onboarding reset, and timeline actions wire funnel state', () {
-      final File bootstrap = File('lib/app/startup/app_bootstrap.dart');
-      final File onboarding = File('lib/features/onboarding/ui/onboarding_screen.dart');
-      final File tasks = File('lib/state/providers/task_provider.dart');
+    test(
+      'startup, onboarding reset, and timeline actions wire funnel state',
+      () {
+        final File bootstrap = File('lib/app/startup/app_bootstrap.dart');
+        final File onboarding = File(
+          'lib/features/onboarding/ui/onboarding_screen.dart',
+        );
+        final File tasks = File('lib/state/providers/task_provider.dart');
 
-      expect(bootstrap.existsSync(), isTrue);
-      expect(onboarding.existsSync(), isTrue);
-      expect(tasks.existsSync(), isTrue);
+        expect(bootstrap.existsSync(), isTrue);
+        expect(onboarding.existsSync(), isTrue);
+        expect(tasks.existsSync(), isTrue);
 
-      final String bootstrapText = SourceTestUtils.readText(bootstrap);
-      final String onboardingText = SourceTestUtils.readText(onboarding);
-      final String tasksText = SourceTestUtils.readText(tasks);
+        final String bootstrapText = SourceTestUtils.readText(bootstrap);
+        final String onboardingText = SourceTestUtils.readText(onboarding);
+        final String tasksText = SourceTestUtils.readText(tasks);
 
-      expect(
-        bootstrapText.contains('timelineFirstActionCompletedStorageKey'),
-        isTrue,
-      );
-      expect(
-        bootstrapText.contains('hasCompletedTimelineFirstAction'),
-        isTrue,
-      );
-      expect(
-        bootstrapText.contains('timelineFirstActionCompletedProvider.notifier'),
-        isTrue,
-      );
+        expect(
+          bootstrapText.contains('timelineFirstActionCompletedStorageKey'),
+          isTrue,
+        );
+        expect(
+          bootstrapText.contains('hasCompletedTimelineFirstAction'),
+          isTrue,
+        );
+        expect(
+          bootstrapText.contains(
+            'timelineFirstActionCompletedProvider.notifier',
+          ),
+          isTrue,
+        );
 
-      expect(
-        onboardingText.contains('timelineFirstActionCompletedStorageKey'),
-        isTrue,
-      );
-      expect(
-        onboardingText.contains('timelineFirstActionCompletedProvider.notifier'),
-        isTrue,
-      );
+        expect(
+          onboardingText.contains('timelineFirstActionCompletedStorageKey'),
+          isTrue,
+        );
+        expect(
+          onboardingText.contains(
+            'timelineFirstActionCompletedProvider.notifier',
+          ),
+          isTrue,
+        );
 
-      expect(tasksText.contains("actionSource == 'timeline'"), isTrue);
-      expect(tasksText.contains('_markTimelineFirstActionCompleted'), isTrue);
-    });
+        expect(tasksText.contains("actionSource == 'timeline'"), isTrue);
+        expect(tasksText.contains('_markTimelineFirstActionCompleted'), isTrue);
+      },
+    );
   });
 }

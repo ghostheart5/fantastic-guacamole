@@ -54,7 +54,11 @@
                 <data
                     android:scheme="https"
                     android:host="ghostheart5.github.io"
-                    android:pathPrefix="/fantastic-guacamole/app" />
+                    android:path="/fantastic-guacamole/app" />
+                <data
+                    android:scheme="https"
+                    android:host="ghostheart5.github.io"
+                    android:pathPrefix="/fantastic-guacamole/app/" />
             </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
@@ -63,16 +67,11 @@
                 <data
                     android:scheme="https"
                     android:host="chronospark.app"
-                    android:pathPrefix="/app" />
-            </intent-filter>
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
+                    android:path="/app" />
                 <data
                     android:scheme="https"
-                    android:host="www.chronospark.app"
-                    android:pathPrefix="/app" />
+                    android:host="chronospark.app"
+                    android:pathPrefix="/app/" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

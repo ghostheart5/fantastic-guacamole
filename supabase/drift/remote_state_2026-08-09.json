@@ -1,0 +1,310 @@
+{
+  "manifest_version": 1,
+  "captured_at": "2026-08-09T16:33:33.1083361-05:00",
+  "project_ref": "qpwhuckyirnqtmvhpede",
+  "capture_mode": "Supabase MCP read-only",
+  "remote_migrations": [
+    {
+      "version": "202607050001",
+      "name": "purchase_bindings",
+      "local_path": "../migrations/202607050001_purchase_bindings.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "202607110001",
+      "name": "profiles",
+      "local_path": "../migrations/202607110001_profiles.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "202607110002",
+      "name": "data_policies",
+      "local_path": "../migrations/202607110002_data_policies.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "20260711160649",
+      "name": "new-migration",
+      "local_path": "../migrations/20260711160649_new-migration.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "20260712143000",
+      "name": "resilient_handle_new_user",
+      "local_path": "../migrations/20260712143000_resilient_handle_new_user.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "20260714000001",
+      "name": "quickstart_todos",
+      "local_path": "../migrations/20260714000001_quickstart_todos.sql",
+      "git_tracked_at_capture": false
+    },
+    {
+      "version": "20260716193000",
+      "name": "monetization_system",
+      "local_path": "../migrations/20260716193000_monetization_system.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "20260717170000",
+      "name": "secure_user_daily_metrics",
+      "local_path": "../migrations/20260717170000_secure_user_daily_metrics.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "20260802120000",
+      "name": "harden_security_definer_functions",
+      "local_path": "../migrations/20260802120000_harden_security_definer_functions.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "20260804120000",
+      "name": "harden_monetization_credit_rpc",
+      "local_path": "../migrations/20260804120000_harden_monetization_credit_rpc.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "20260804130000",
+      "name": "create_core_sync_tables_with_rls",
+      "local_path": "../migrations/20260804130000_create_core_sync_tables_with_rls.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "20260804140000",
+      "name": "harden_metrics_and_profile_provisioning",
+      "local_path": "../migrations/20260804140000_harden_metrics_and_profile_provisioning.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "20260804150000",
+      "name": "harden_ai_proxy_rate_limit",
+      "local_path": "../migrations/20260804150000_harden_ai_proxy_rate_limit.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "20260804160000",
+      "name": "harden_apply_verified_purchase_rpc_grants",
+      "local_path": "../migrations/20260804160000_harden_apply_verified_purchase_rpc_grants.sql",
+      "git_tracked_at_capture": true
+    },
+    {
+      "version": "20260809120000",
+      "name": "add_monetization_verify_rate_limit",
+      "local_path": "../migrations/20260809120000_add_monetization_verify_rate_limit.sql",
+      "git_tracked_at_capture": false
+    }
+  ],
+  "local_unapplied_migrations_at_capture": [
+    "../migrations/20260809164233_optimize_legacy_auth_uid_policies.sql",
+    "../migrations/20260809170000_harden_function_privileges_and_data_api_defaults.sql",
+    "../migrations/20260809171000_enforce_account_deletion_cascades.sql"
+  ],
+  "remote_edge_functions": [
+    {
+      "slug": "verify-receipt",
+      "version": 4,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "deployment_sha256": "fae7cf208faffa0d8624fd05b2d73c68d7664e5c8f41d0e4106e581a734eb451",
+      "classification": "legacy divergent billing implementation; snapshot only",
+      "source_path": "remote_snapshots/edge_functions/verify-receipt/index.ts",
+      "source_sha256": "15db0045ac9c5e95fff94727682a48ce6d399e66f84b06e1abc35e42a2a04267"
+    },
+    {
+      "slug": "ai-proxy",
+      "version": 3,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "deployment_sha256": "8d7831a33197a45117c26dfbbf7f84d001b8d24703285583556d9b1ce83ff50f",
+      "classification": "canonical repository source",
+      "source_path": "../functions/ai-proxy/index.ts",
+      "source_sha256": "a5a82b8a775b2522a4f2508f37125acf0d0397191a9227c3ca1d3a5710792b3a"
+    },
+    {
+      "slug": "monetization-verify",
+      "version": 5,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "deployment_sha256": "58dad0e71c55c7c828c82c00691cdef3a8d8776145a046cbc123c1124a82f75f",
+      "classification": "canonical repository source",
+      "source_path": "../functions/monetization-verify/index.ts",
+      "source_sha256": "e8689bbb57a0b8465432344c0d8a4568325ee9d57b5b55f3fd4695d24a4859d6"
+    },
+    {
+      "slug": "delete-account",
+      "version": 4,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "deployment_sha256": "f20afeaa541f12cb5acf29dac3b46b849b3e2e6423df2df7dec07a13f57e3c70",
+      "classification": "legacy duplicate with wildcard CORS and manual table list; snapshot only",
+      "source_path": "remote_snapshots/edge_functions/delete-account/index.ts",
+      "source_sha256": "255712a18e5bf7f16eb75cb10b31c20fc0506f692f64e0dfad3a7289d03dc7f7"
+    },
+    {
+      "slug": "webhook-ingest",
+      "version": 2,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "deployment_sha256": "953db214d191389c4ec69d806d7d749e5ac2aee8f11470af4bf75355a5f6037c",
+      "classification": "DB-free echo test; snapshot only",
+      "source_path": "remote_snapshots/edge_functions/webhook-ingest/index.ts",
+      "source_sha256": "72a05e89f1f5821aa82e853a7443ab6b30b32918a30caa4405e03abdc912dfef"
+    },
+    {
+      "slug": "account-delete",
+      "version": 1,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "deployment_sha256": "659d25c08a784b09d7a104ba22be94f7ae3c5ccb95ceda53730abe06ab73e83d",
+      "classification": "canonical repository source; owned by the account-deletion workstream",
+      "source_path": "../functions/account-delete/index.ts",
+      "source_sha256": "ae82891f4b33108c63d12bdc87ca8a3adb865446914d6af13b6926ba67ed96b4"
+    }
+  ],
+  "intentional_authenticated_security_definer_rpcs": [
+    {
+      "function": "public.ensure_profile_for_current_user()",
+      "caller": "authenticated profile-repair contract",
+      "evidence": "supabase/tests/profile_and_metrics_security_test.sql; no direct Flutter call was found in this capture",
+      "constraint": "requires auth.uid(), accepts no target user, and reads/writes only that profile",
+      "follow_up": "remove authenticated EXECUTE if the profile-repair contract is retired"
+    },
+    {
+      "function": "public.consume_monetization_credits(integer, text, jsonb)",
+      "caller": "Flutter",
+      "evidence": "lib/features/monetization/data/repositories/ai_credit_repository.dart:120 and lib/features/monetization/data/monetization_remote_data_source.dart:127",
+      "constraint": "requires auth.uid(), accepts no target user, bounds debit amount/reason/metadata"
+    },
+    {
+      "function": "public.consume_ai_proxy_rate_limit()",
+      "caller": "ai-proxy Edge Function forwarding the caller bearer token and publishable key",
+      "evidence": "supabase/functions/ai-proxy/index.ts:37",
+      "constraint": "requires auth.uid(), accepts no target user, updates only the caller row"
+    },
+    {
+      "function": "public.consume_monetization_verify_rate_limit()",
+      "caller": "monetization-verify Edge Function forwarding the caller bearer token and publishable key",
+      "evidence": "supabase/functions/monetization-verify/index.ts:57",
+      "constraint": "requires auth.uid(), accepts no target user, updates only the caller row"
+    }
+  ],
+  "remote_tables": {
+    "count": 39,
+    "all_rls_enabled": true,
+    "names": [
+      "purchase_bindings",
+      "profiles",
+      "user_daily_metrics",
+      "tasks",
+      "habits",
+      "habit entries",
+      "timeline_events",
+      "milestones",
+      "core_values",
+      "memoryEngine",
+      "smart coach notes",
+      "settings",
+      "notifications",
+      "soul_maps",
+      "goals",
+      "task_steps",
+      "goal_checkins",
+      "streaks",
+      "achievements",
+      "user_achievements",
+      "focus_sessions",
+      "recurring_rules",
+      "user_devices",
+      "app_events",
+      "feedback_reports",
+      "subscriptions",
+      "entitlement_events",
+      "sync_queue",
+      "app_announcements",
+      "admin_users",
+      "monetization_subscription_statuses",
+      "monetization_wallets",
+      "monetization_credit_transactions",
+      "monetization_purchases",
+      "monetization_entitlement_events",
+      "todos",
+      "webhook_events",
+      "ai_proxy_rate_limits",
+      "monetization_verify_rate_limits"
+    ],
+    "without_local_create_migration": [
+      "habit entries",
+      "timeline_events",
+      "milestones",
+      "core_values",
+      "memoryEngine",
+      "smart coach notes",
+      "notifications",
+      "soul_maps",
+      "task_steps",
+      "goal_checkins",
+      "streaks",
+      "achievements",
+      "user_achievements",
+      "focus_sessions",
+      "recurring_rules",
+      "user_devices",
+      "app_events",
+      "feedback_reports",
+      "subscriptions",
+      "entitlement_events",
+      "sync_queue",
+      "app_announcements",
+      "admin_users",
+      "webhook_events"
+    ],
+    "focus_sessions": {
+      "rows_at_capture": 0,
+      "foreign_keys": [
+        "user_id -> auth.users.id",
+        "linked_task_id -> public.tasks.id",
+        "linked_goal_id -> public.goals.id"
+      ],
+      "retirement_status": "blocked until the active legacy delete-account function is retired or updated"
+    },
+    "account_deletion_fk_audit": {
+      "audit_mode": "Supabase MCP read-only catalog and orphan-count queries",
+      "tables_requiring_cascade_migration": [
+        "app_events",
+        "core_values",
+        "goals",
+        "habit entries",
+        "milestones",
+        "notifications",
+        "settings",
+        "smart coach notes",
+        "soul_maps",
+        "tasks",
+        "timeline_events",
+        "webhook_events"
+      ],
+      "rows_in_each_table_at_capture": 0,
+      "finding": "Eleven user-owned tables had no auth.users foreign key; app_events used ON DELETE SET NULL.",
+      "production_gate": "Apply and validate 20260809171000_enforce_account_deletion_cascades.sql in staging before relying on Auth user deletion for privacy compliance."
+    }
+  },
+  "remote_advisors": {
+    "security": {
+      "unintended_warning": "handle_new_user executable by anon/authenticated",
+      "intentional_warnings": [
+        "ensure_profile_for_current_user executable by authenticated",
+        "consume_monetization_credits executable by authenticated",
+        "consume_ai_proxy_rate_limit executable by authenticated",
+        "consume_monetization_verify_rate_limit executable by authenticated"
+      ],
+      "external_dashboard_gate": "leaked password protection disabled",
+      "expected_info": "RPC-only rate-limit tables have RLS enabled and no direct policies"
+    },
+    "performance": {
+      "auth_rls_initplan_warnings": 10,
+      "multiple_permissive_habits_warnings": 4,
+      "unused_index_findings": "defer deletion until representative production workload exists"
+    }
+  }
+}

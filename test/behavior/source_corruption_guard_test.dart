@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,37 +15,40 @@ void main() {
   }
 
   group('Source corruption guard', () {
-    test('lib Dart files do not contain replacement characters or common mojibake', () {
-      final offenders = <String>[];
+    test(
+      'lib Dart files do not contain replacement characters or common mojibake',
+      () {
+        final offenders = <String>[];
 
-      final badTokens = <String>[
-        '�',
-        'Ã',
-        'Â',
-        'â€™',
-        'â€œ',
-        'â€',
-        'ðŸ',
-        'Ø',
-        '¤',
-      ];
+        final badTokens = <String>[
+          '�',
+          'Ã',
+          'Â',
+          'â€™',
+          'â€œ',
+          'â€',
+          'ðŸ',
+          'Ø',
+          '¤',
+        ];
 
-      for (final file in dartFilesUnder('lib')) {
-        final text = file.readAsStringSync();
+        for (final file in dartFilesUnder('lib')) {
+          final text = file.readAsStringSync();
 
-        final found = badTokens.where(text.contains).toList();
+          final found = badTokens.where(text.contains).toList();
 
-        if (found.isNotEmpty) {
-          offenders.add('${file.path}: $found');
+          if (found.isNotEmpty) {
+            offenders.add('${file.path}: $found');
+          }
         }
-      }
 
-      expect(
-        offenders,
-        isEmpty,
-        reason: 'Possible encoding corruption/mojibake found: $offenders',
-      );
-    });
+        expect(
+          offenders,
+          isEmpty,
+          reason: 'Possible encoding corruption/mojibake found: $offenders',
+        );
+      },
+    );
 
     test('lib does not contain backup or generated repair drift files', () {
       final offenders = <String>[];

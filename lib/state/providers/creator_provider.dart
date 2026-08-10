@@ -191,7 +191,7 @@ class CreatorActions {
   String _normalizeRequestedKind(String kind) {
     final String normalized = kind.trim().toLowerCase();
     return switch (normalized) {
-      'daily rhythm' => 'habit',
+      'daily rhythm' || 'habit' || 'routine' => 'routine',
       'notes' || 'memo' || 'memory' || 'journal' => 'note',
       _ => normalized,
     };

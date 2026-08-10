@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/features/auth/domain/value_objects/password_
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -19,101 +20,131 @@ void main() {
       SharedPreferences.setMockInitialValues(<String, Object>{});
     });
 
-    test('login success authenticates user and publishes session state', () async {
-      final _FakeAuthRepository repository = _FakeAuthRepository(
-        initialSession: null,
-      );
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(repository),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'login success authenticates user and publishes session state',
+      () async {
+        final _FakeAuthRepository repository = _FakeAuthRepository(
+          initialSession: null,
+        );
+        final ProviderContainer container = ProviderContainer(
+          overrides: [authRepositoryProvider.overrideWithValue(repository)],
+        );
+        addTearDown(container.dispose);
 
-      final states = <AuthStatus>[];
-      final subscription = container.listen<AuthState>(
-        authControllerProvider,
-        (_, AuthState next) => states.add(next.status),
-        fireImmediately: true,
-      );
-      addTearDown(subscription.close);
+        final states = <AuthStatus>[];
+        final subscription = container.listen<AuthState>(
+          authControllerProvider,
+          (_, AuthState next) => states.add(next.status),
+          fireImmediately: true,
+        );
+        addTearDown(subscription.close);
 
-      await container
-          .read(authControllerProvider.notifier)
-          .signInWithEmail(email: 'pilot@example.com', password: 'Password123');
+        await container
+            .read(authControllerProvider.notifier)
+            .signInWithEmail(
+              email: 'pilot@example.com',
+              password: 'Password123',
+            );
 
-      final AuthState state = container.read(authControllerProvider);
-      expect(state.status, AuthStatus.authenticated);
-      expect(state.user?.email, 'pilot@example.com');
-      expect(states.contains(AuthStatus.loading), isTrue);
-    });
+        final AuthState state = container.read(authControllerProvider);
+        expect(state.status, AuthStatus.authenticated);
+        expect(state.user?.email, 'pilot@example.com');
+        expect(states.contains(AuthStatus.loading), isTrue);
+      },
+    );
 
-    test('expired session refresh recovers from unauthenticated to authenticated', () async {
-      final _FakeAuthRepository repository = _FakeAuthRepository(
-        initialSession: _expiredSession(),
-      );
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(repository),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'expired session refresh recovers from unauthenticated to authenticated',
+      () async {
+        final _FakeAuthRepository repository = _FakeAuthRepository(
+          initialSession: _expiredSession(),
+        );
+        final ProviderContainer container = ProviderContainer(
+          overrides: [authRepositoryProvider.overrideWithValue(repository)],
+        );
+        addTearDown(container.dispose);
 
-      await container.read(authControllerProvider.notifier).restoreSession();
-      expect(container.read(authControllerProvider).status, AuthStatus.unauthenticated);
+        await container.read(authControllerProvider.notifier).restoreSession();
+        expect(
+          container.read(authControllerProvider).status,
+          AuthStatus.unauthenticated,
+        );
 
-      await repository.refreshSession();
-      await Future<void>.delayed(Duration.zero);
+        await repository.refreshSession();
+        await Future<void>.delayed(Duration.zero);
 
-      final AuthState recovered = container.read(authControllerProvider);
-      expect(recovered.status, AuthStatus.authenticated);
-      expect(recovered.session?.accessToken, 'token-refreshed');
-    });
+        final AuthState recovered = container.read(authControllerProvider);
+        expect(recovered.status, AuthStatus.authenticated);
+        expect(recovered.session?.accessToken, 'token-refreshed');
+      },
+    );
 
-    test('logout to login loop transitions unauthenticated then authenticated again', () async {
-      final _FakeAuthRepository repository = _FakeAuthRepository(
-        initialSession: _activeSession('loop-a', 'loop@example.com', 'token-a'),
-      );
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(repository),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'logout to login loop transitions unauthenticated then authenticated again',
+      () async {
+        final _FakeAuthRepository repository = _FakeAuthRepository(
+          initialSession: _activeSession(
+            'loop-a',
+            'loop@example.com',
+            'token-a',
+          ),
+        );
+        final ProviderContainer container = ProviderContainer(
+          overrides: [authRepositoryProvider.overrideWithValue(repository)],
+        );
+        addTearDown(container.dispose);
 
-      await container.read(authControllerProvider.notifier).restoreSession();
-      expect(container.read(authControllerProvider).status, AuthStatus.authenticated);
+        await container.read(authControllerProvider.notifier).restoreSession();
+        expect(
+          container.read(authControllerProvider).status,
+          AuthStatus.authenticated,
+        );
 
-      await container.read(authControllerProvider.notifier).signOut();
-      expect(container.read(authControllerProvider).status, AuthStatus.unauthenticated);
+        await container.read(authControllerProvider.notifier).signOut();
+        expect(
+          container.read(authControllerProvider).status,
+          AuthStatus.unauthenticated,
+        );
 
-      await container
-          .read(authControllerProvider.notifier)
-          .signInWithEmail(email: 'loop@example.com', password: 'Password123');
+        await container
+            .read(authControllerProvider.notifier)
+            .signInWithEmail(
+              email: 'loop@example.com',
+              password: 'Password123',
+            );
 
-      final AuthState state = container.read(authControllerProvider);
-      expect(state.status, AuthStatus.authenticated);
-      expect(state.user?.email, 'loop@example.com');
-    });
+        final AuthState state = container.read(authControllerProvider);
+        expect(state.status, AuthStatus.authenticated);
+        expect(state.user?.email, 'loop@example.com');
+      },
+    );
 
-    test('failed remote sign-out still leaves the controller signed out', () async {
-      final _FakeAuthRepository repository = _FakeAuthRepository(
-        initialSession: _activeSession('logout-failure', 'logout@example.com', 'token-a'),
-        failSignOut: true,
-      );
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(repository),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'failed remote sign-out still leaves the controller signed out',
+      () async {
+        final _FakeAuthRepository repository = _FakeAuthRepository(
+          initialSession: _activeSession(
+            'logout-failure',
+            'logout@example.com',
+            'token-a',
+          ),
+          failSignOut: true,
+        );
+        final ProviderContainer container = ProviderContainer(
+          overrides: [authRepositoryProvider.overrideWithValue(repository)],
+        );
+        addTearDown(container.dispose);
 
-      await container.read(authControllerProvider.notifier).restoreSession();
-      await container.read(authControllerProvider.notifier).signOut();
+        await container.read(authControllerProvider.notifier).restoreSession();
+        await container.read(authControllerProvider.notifier).signOut();
 
-      expect(container.read(authControllerProvider).status, AuthStatus.unauthenticated);
-      expect(container.read(authControllerProvider).isAuthenticated, isFalse);
-    });
+        expect(
+          container.read(authControllerProvider).status,
+          AuthStatus.unauthenticated,
+        );
+        expect(container.read(authControllerProvider).isAuthenticated, isFalse);
+      },
+    );
   });
 }
 
@@ -163,7 +194,11 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<Result<AuthSessionEntity?>> signInWithGoogle() async {
-    _session = _activeSession('user-google', 'google@example.com', 'token-google');
+    _session = _activeSession(
+      'user-google',
+      'google@example.com',
+      'token-google',
+    );
     _sessionStream.add(Result<AuthSessionEntity?>.success(_session));
     return Result<AuthSessionEntity?>.success(_session);
   }
@@ -180,7 +215,11 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<Result<void>> refreshSession() async {
-    _session = _activeSession('user-refresh', 'refresh@example.com', 'token-refreshed');
+    _session = _activeSession(
+      'user-refresh',
+      'refresh@example.com',
+      'token-refreshed',
+    );
     _sessionStream.add(Result<AuthSessionEntity?>.success(_session));
     return const Result<void>.success(null);
   }

@@ -19,7 +19,10 @@ void main() {
         source,
         contains('Transient AI proxy failure: \${next.statusCode}'),
       );
-      expect(source, contains('TimeoutException || error is http.ClientException'));
+      expect(
+        source,
+        contains('TimeoutException || error is http.ClientException'),
+      );
     });
 
     test('enforces request timeout and graceful fallback', () {

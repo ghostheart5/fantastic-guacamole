@@ -10,41 +10,45 @@ import '_support/source_test_utils.dart';
 
 void main() {
   group('Action Hub structural behavior', () {
-    testWidgets('smart planner action tap transitions app flow to coach surface', (
-      WidgetTester tester,
-    ) async {
-      final ProviderContainer container = ProviderContainer();
-      addTearDown(container.dispose);
+    testWidgets(
+      'smart planner action tap transitions app flow to coach surface',
+      (WidgetTester tester) async {
+        final ProviderContainer container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            home: Scaffold(
-              body: SmartPressable(
-                onTap: () =>
-                    container.read(appFlowProvider.notifier).toSmartCoach(),
-                child: const Text('Smart Planner'),
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: Scaffold(
+                body: SmartPressable(
+                  onTap: () =>
+                      container.read(appFlowProvider.notifier).toSmartCoach(),
+                  child: const Text('Smart Planner'),
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(container.read(appFlowProvider), AppView.nexus);
+        expect(container.read(appFlowProvider), AppView.nexus);
 
-      await tester.tap(find.text('Smart Planner'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Smart Planner'));
+        await tester.pumpAndSettle();
 
-      expect(container.read(appFlowProvider), AppView.smartCoach);
-    });
+        expect(container.read(appFlowProvider), AppView.smartCoach);
+      },
+    );
 
     test('Nexus source retains explicit screen contract', () {
       final File file = File('lib/features/nexus/ui/nexus_screen.dart');
       expect(file.existsSync(), isTrue);
 
       final String text = SourceTestUtils.readText(file);
-      expect(text.contains('class NexusScreen extends ConsumerStatefulWidget'), isTrue);
+      expect(
+        text.contains('class NexusScreen extends ConsumerStatefulWidget'),
+        isTrue,
+      );
       expect(text.contains('class _NexusScreenState'), isTrue);
       expect(text.contains('AnimatedSystemBackground'), isTrue);
     });
@@ -70,31 +74,37 @@ void main() {
         expect(
           hasVariant,
           isTrue,
-          reason: 'Expected action destination not found: ${labelVariants.join(' / ')}',
+          reason:
+              'Expected action destination not found: ${labelVariants.join(' / ')}',
         );
       }
       expect(text.contains('toConsole('), isTrue);
     });
 
-    test('Action surfaces do not expose internal engines as standalone destinations', () {
-      final File file = File('lib/features/nexus/ui/nexus_screen.widgets.dart');
-      expect(file.existsSync(), isTrue);
-
-      final String text = SourceTestUtils.readText(file);
-      const List<String> forbiddenLabels = <String>[
-        "label: 'Memories'",
-        "label: 'Insights'",
-        "label: 'FlowMap'",
-      ];
-
-      for (final String token in forbiddenLabels) {
-        expect(
-          text.contains(token),
-          isFalse,
-          reason: 'Forbidden standalone destination found: $token',
+    test(
+      'Action surfaces do not expose internal engines as standalone destinations',
+      () {
+        final File file = File(
+          'lib/features/nexus/ui/nexus_screen.widgets.dart',
         );
-      }
-    });
+        expect(file.existsSync(), isTrue);
+
+        final String text = SourceTestUtils.readText(file);
+        const List<String> forbiddenLabels = <String>[
+          "label: 'Memories'",
+          "label: 'Insights'",
+          "label: 'FlowMap'",
+        ];
+
+        for (final String token in forbiddenLabels) {
+          expect(
+            text.contains(token),
+            isFalse,
+            reason: 'Forbidden standalone destination found: $token',
+          );
+        }
+      },
+    );
 
     test('Action destinations are wired to app flow transitions', () {
       final File file = File('lib/features/nexus/ui/nexus_screen.widgets.dart');

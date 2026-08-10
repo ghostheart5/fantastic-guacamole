@@ -20,7 +20,9 @@ void main() async {
     }
   }
 
-  files.sort((FileReport a, FileReport b) => b.sizeBytes.compareTo(a.sizeBytes));
+  files.sort(
+    (FileReport a, FileReport b) => b.sizeBytes.compareTo(a.sizeBytes),
+  );
 
   stdout.writeln('=== CHRONOSPARK ASSET ANALYSIS ===\n');
   stdout.writeln('Top 30 largest assets:');
@@ -63,7 +65,9 @@ String _categorizeFile(String path) {
     return 'background';
   } else if (path.contains('icons') || path.contains('icon')) {
     return 'icon';
-  } else if (path.contains('audio') || path.endsWith('.wav') || path.endsWith('.mp3')) {
+  } else if (path.contains('audio') ||
+      path.endsWith('.wav') ||
+      path.endsWith('.mp3')) {
     return 'audio';
   } else if (path.contains('overlays')) {
     return 'overlay';
@@ -157,7 +161,8 @@ void _generateOptimizationReport(List<FileReport> files) {
       0.0,
       (double sum, FileReport f) => sum + (f.sizeBytes / (1024 * 1024)),
     );
-    final Map<String, dynamic> byCategoryReport = report['byCategory'] as Map<String, dynamic>;
+    final Map<String, dynamic> byCategoryReport =
+        report['byCategory'] as Map<String, dynamic>;
 
     byCategoryReport[category] = <String, dynamic>{
       'count': categoryFiles.length,
@@ -175,7 +180,9 @@ void _generateOptimizationReport(List<FileReport> files) {
   }
 
   final File reportFile = File('scripts/asset_analysis_report.json');
-  reportFile.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(report));
+  reportFile.writeAsStringSync(
+    const JsonEncoder.withIndent('  ').convert(report),
+  );
   stdout.writeln('\nFull report saved to: scripts/asset_analysis_report.json');
 }
 

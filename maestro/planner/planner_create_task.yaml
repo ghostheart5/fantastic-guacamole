@@ -1,17 +1,18 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../authentication/login_with_env.yaml
 - runFlow: ../_common/go_to_creator.yaml
 - tapOn: "Item title *"
 - inputText: "Maestro Task"
+- hideKeyboard
 - tapOn: "Description or details (optional)"
 - inputText: "Created by maestro planner suite"
+- hideKeyboard
 - tapOn: "Every day"
-- tapOn: "Schedule for..."
-- back
-- tapOn:
-    text: "Save"
-    optional: true
-- tapOn:
-    text: "Create"
-    optional: true
+- scrollUntilVisible:
+    element:
+      text: "Create item"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "Create item"
+- assertVisible: "Task saved."

@@ -11,10 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Future<void> scrollUntilFound(
-    WidgetTester tester,
-    Finder finder,
-  ) async {
+  Future<void> scrollUntilFound(WidgetTester tester, Finder finder) async {
     if (finder.evaluate().isNotEmpty) {
       return;
     }
@@ -74,137 +71,145 @@ void main() {
 
       expect(find.text('Future Forecast'), findsOneWidget);
       expect(
-        find.textContaining(
-          'focused execution',
-          skipOffstage: false,
-        ),
+        find.textContaining('focused execution', skipOffstage: false),
         findsWidgets,
       );
       await scrollUntilFound(tester, find.text('Deep Focus Plan'));
       expect(find.text('Deep Focus Plan'), findsOneWidget);
       expect(find.text('Momentum: 88%'), findsOneWidget);
-      expect(find.text('Decision: Ship the focused milestone block'), findsOneWidget);
+      expect(
+        find.text('Decision: Ship the focused milestone block'),
+        findsOneWidget,
+      );
       expect(find.textContaining('Alignment 84% -'), findsOneWidget);
     });
 
-    testWidgets('scenario section reflects provided scenario set and projection values', (
-      WidgetTester tester,
-    ) async {
-      await tester.binding.setSurfaceSize(const Size(1200, 2600));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'scenario section reflects provided scenario set and projection values',
+      (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(1200, 2600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(
-        _buildHarness(
-          trajectory: _trajectory(pressure: 61, divergence: 33, completed: 3),
-          momentum: _momentum(score: 51, pressure: 64, trend: 'Stable'),
-          simulations: <TrajectorySimulationResult>[
-            _simulation(
-              title: 'Momentum Boost',
-              summary: 'Complete one decisive action today.',
-              momentum: 63,
-              pressure: 68,
-              recovery: 'Watch Load',
-              outcome: 'Momentum climbs if execution remains narrow.',
+        await tester.pumpWidget(
+          _buildHarness(
+            trajectory: _trajectory(pressure: 61, divergence: 33, completed: 3),
+            momentum: _momentum(score: 51, pressure: 64, trend: 'Stable'),
+            simulations: <TrajectorySimulationResult>[
+              _simulation(
+                title: 'Momentum Boost',
+                summary: 'Complete one decisive action today.',
+                momentum: 63,
+                pressure: 68,
+                recovery: 'Watch Load',
+                outcome: 'Momentum climbs if execution remains narrow.',
+              ),
+              _simulation(
+                title: 'Recovery Plan',
+                summary: 'Lower pressure before adding new commitments.',
+                momentum: 58,
+                pressure: 49,
+                recovery: 'Recovered',
+                outcome: 'Pressure drops and next-day readiness improves.',
+              ),
+            ],
+            timeline: const FutureTimelineState(
+              checkpoints: <FutureTimelineCheckpoint>[],
             ),
-            _simulation(
-              title: 'Recovery Plan',
-              summary: 'Lower pressure before adding new commitments.',
-              momentum: 58,
-              pressure: 49,
-              recovery: 'Recovered',
-              outcome: 'Pressure drops and next-day readiness improves.',
+            drift: const IdentityDriftState(
+              alignment: IdentityAlignment.drifting,
+              score: 61,
+              summary: 'Small drift detected.',
+              correction: 'Reduce active scope.',
             ),
-          ],
-          timeline: const FutureTimelineState(checkpoints: <FutureTimelineCheckpoint>[]),
-          drift: const IdentityDriftState(
-            alignment: IdentityAlignment.drifting,
-            score: 61,
-            summary: 'Small drift detected.',
-            correction: 'Reduce active scope.',
-          ),
-          decision: const FutureDecision(
-            recommendedChoice: 'Reduce active commitments',
-            reason: 'Pressure reduction path',
-            alignmentScore: 61,
-          ),
-        ),
-      );
-      await tester.pump(const Duration(milliseconds: 500));
-
-      await scrollUntilFound(tester, find.text('Momentum Boost'));
-      expect(find.text('Momentum Boost'), findsOneWidget);
-      expect(find.text('Recovery Plan'), findsOneWidget);
-      expect(find.text('Pressure: 68%'), findsOneWidget);
-      expect(find.text('Pressure: 49%'), findsOneWidget);
-      expect(find.text('Recovery: Watch Load'), findsAtLeastNWidgets(1));
-      expect(find.text('Recovery: Recovered'), findsOneWidget);
-    });
-
-    testWidgets('forecast guidance updates when trajectory risk signal changes', (
-      WidgetTester tester,
-    ) async {
-      await tester.binding.setSurfaceSize(const Size(1200, 2600));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-
-      Widget buildWithAlert(String alert) {
-        return _buildHarness(
-          trajectory: _trajectory(
-            pressure: 76,
-            divergence: 47,
-            completed: 2,
-            alert: alert,
-            outcome: 'Near-term path is sensitive to execution quality.',
-          ),
-          momentum: _momentum(score: 44, pressure: 74, trend: 'Declining'),
-          simulations: <TrajectorySimulationResult>[
-            _simulation(
-              title: 'Drift Warning',
-              summary: 'No meaningful action completed today.',
-              momentum: 30,
-              pressure: 84,
-              recovery: 'Recovery Needed',
-              outcome: 'Momentum weakens and pressure rises.',
+            decision: const FutureDecision(
+              recommendedChoice: 'Reduce active commitments',
+              reason: 'Pressure reduction path',
+              alignmentScore: 61,
             ),
-          ],
-          timeline: const FutureTimelineState(checkpoints: <FutureTimelineCheckpoint>[]),
-          drift: const IdentityDriftState(
-            alignment: IdentityAlignment.diverging,
-            score: 38,
-            summary: 'Direction is diverging.',
-            correction: 'Re-center with one decisive completion.',
-          ),
-          decision: const FutureDecision(
-            recommendedChoice: 'Stabilize load immediately',
-            reason: 'Risk mitigation path',
-            alignmentScore: 38,
           ),
         );
-      }
+        await tester.pump(const Duration(milliseconds: 500));
 
-      await tester.pumpWidget(buildWithAlert('risk detected in current trajectory'));
-      await tester.pump(const Duration(milliseconds: 500));
+        await scrollUntilFound(tester, find.text('Momentum Boost'));
+        expect(find.text('Momentum Boost'), findsOneWidget);
+        expect(find.text('Recovery Plan'), findsOneWidget);
+        expect(find.text('Pressure: 68%'), findsOneWidget);
+        expect(find.text('Pressure: 49%'), findsOneWidget);
+        expect(find.text('Recovery: Watch Load'), findsAtLeastNWidgets(1));
+        expect(find.text('Recovery: Recovered'), findsOneWidget);
+      },
+    );
 
-      await scrollUntilFound(
-        tester,
-        find.textContaining('Some risk signals are active'),
-      );
-      expect(
-        find.textContaining('Some risk signals are active'),
-        findsOneWidget,
-      );
+    testWidgets(
+      'forecast guidance updates when trajectory risk signal changes',
+      (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(1200, 2600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(buildWithAlert('stable trajectory state'));
-      await tester.pump(const Duration(milliseconds: 500));
+        Widget buildWithAlert(String alert) {
+          return _buildHarness(
+            trajectory: _trajectory(
+              pressure: 76,
+              divergence: 47,
+              completed: 2,
+              alert: alert,
+              outcome: 'Near-term path is sensitive to execution quality.',
+            ),
+            momentum: _momentum(score: 44, pressure: 74, trend: 'Declining'),
+            simulations: <TrajectorySimulationResult>[
+              _simulation(
+                title: 'Drift Warning',
+                summary: 'No meaningful action completed today.',
+                momentum: 30,
+                pressure: 84,
+                recovery: 'Recovery Needed',
+                outcome: 'Momentum weakens and pressure rises.',
+              ),
+            ],
+            timeline: const FutureTimelineState(
+              checkpoints: <FutureTimelineCheckpoint>[],
+            ),
+            drift: const IdentityDriftState(
+              alignment: IdentityAlignment.diverging,
+              score: 38,
+              summary: 'Direction is diverging.',
+              correction: 'Re-center with one decisive completion.',
+            ),
+            decision: const FutureDecision(
+              recommendedChoice: 'Stabilize load immediately',
+              reason: 'Risk mitigation path',
+              alignmentScore: 38,
+            ),
+          );
+        }
 
-      await scrollUntilFound(
-        tester,
-        find.textContaining('Your current pace supports a positive outcome'),
-      );
-      expect(
-        find.textContaining('Your current pace supports a positive outcome'),
-        findsOneWidget,
-      );
-    });
+        await tester.pumpWidget(
+          buildWithAlert('risk detected in current trajectory'),
+        );
+        await tester.pump(const Duration(milliseconds: 500));
+
+        await scrollUntilFound(
+          tester,
+          find.textContaining('Some risk signals are active'),
+        );
+        expect(
+          find.textContaining('Some risk signals are active'),
+          findsOneWidget,
+        );
+
+        await tester.pumpWidget(buildWithAlert('stable trajectory state'));
+        await tester.pump(const Duration(milliseconds: 500));
+
+        await scrollUntilFound(
+          tester,
+          find.textContaining('Your current pace supports a positive outcome'),
+        );
+        expect(
+          find.textContaining('Your current pace supports a positive outcome'),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }
 
@@ -251,7 +256,8 @@ TrajectorySummaryView _trajectory({
     behaviorDivergence: divergence,
     alert: alert ?? 'trajectory stable',
     predictionTitle: 'focus block',
-    predictionOutcome: outcome ?? 'Current path remains stable with focused execution.',
+    predictionOutcome:
+        outcome ?? 'Current path remains stable with focused execution.',
     predictionProbability: 0.72,
     predictionExplanation: 'Execution consistency remains the leading factor.',
   );
@@ -268,8 +274,8 @@ MomentumEngineState _momentum({
     recovery: pressure >= 70
         ? 'Recovery Needed'
         : pressure >= 45
-            ? 'Watch Load'
-            : 'Recovered',
+        ? 'Watch Load'
+        : 'Recovered',
     forecast: 'Execution quality determines near-term momentum slope.',
     energyPercent: 64,
     pressurePercent: pressure,
@@ -296,4 +302,3 @@ TrajectorySimulationResult _simulation({
     projectedOutcome: outcome,
   );
 }
-

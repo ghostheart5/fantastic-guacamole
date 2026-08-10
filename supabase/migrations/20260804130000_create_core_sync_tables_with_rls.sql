@@ -79,22 +79,38 @@ alter table public.settings enable row level security;
 revoke all on public.tasks, public.goals, public.habits, public.settings from anon;
 grant select, insert, update, delete on public.tasks, public.goals, public.habits, public.settings to authenticated;
 
+drop policy if exists "tasks_select_own" on public.tasks;
 create policy "tasks_select_own" on public.tasks for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "tasks_insert_own" on public.tasks;
 create policy "tasks_insert_own" on public.tasks for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "tasks_update_own" on public.tasks;
 create policy "tasks_update_own" on public.tasks for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "tasks_delete_own" on public.tasks;
 create policy "tasks_delete_own" on public.tasks for delete to authenticated using ((select auth.uid()) = user_id);
 
+drop policy if exists "goals_select_own" on public.goals;
 create policy "goals_select_own" on public.goals for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "goals_insert_own" on public.goals;
 create policy "goals_insert_own" on public.goals for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "goals_update_own" on public.goals;
 create policy "goals_update_own" on public.goals for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "goals_delete_own" on public.goals;
 create policy "goals_delete_own" on public.goals for delete to authenticated using ((select auth.uid()) = user_id);
 
+drop policy if exists "habits_select_own" on public.habits;
 create policy "habits_select_own" on public.habits for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "habits_insert_own" on public.habits;
 create policy "habits_insert_own" on public.habits for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "habits_update_own" on public.habits;
 create policy "habits_update_own" on public.habits for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "habits_delete_own" on public.habits;
 create policy "habits_delete_own" on public.habits for delete to authenticated using ((select auth.uid()) = user_id);
 
+drop policy if exists "settings_select_own" on public.settings;
 create policy "settings_select_own" on public.settings for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "settings_insert_own" on public.settings;
 create policy "settings_insert_own" on public.settings for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "settings_update_own" on public.settings;
 create policy "settings_update_own" on public.settings for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+drop policy if exists "settings_delete_own" on public.settings;
 create policy "settings_delete_own" on public.settings for delete to authenticated using ((select auth.uid()) = user_id);

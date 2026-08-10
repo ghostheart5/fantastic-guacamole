@@ -1,11 +1,12 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+/// <reference lib="deno.ns" />
 import { validateAiProxyRequest } from "../_shared/ai_proxy_request_validation.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
   Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const ALLOWED_ORIGINS = new Set(
-  (Deno.env.get("ALLOWED_ORIGINS") ?? "https://chronospark.app,https://www.chronospark.app")
+  (Deno.env.get("ALLOWED_ORIGINS") ??
+    "https://chronospark.app,https://www.chronospark.app")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),
@@ -14,15 +15,21 @@ const ALLOWED_ORIGINS = new Set(
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") ?? "";
   return {
-    ...(ALLOWED_ORIGINS.has(origin) ? { "Access-Control-Allow-Origin": origin } : {}),
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    ...(ALLOWED_ORIGINS.has(origin)
+      ? { "Access-Control-Allow-Origin": origin }
+      : {}),
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
     "Vary": "Origin",
   };
 }
 
 async function authenticatedUserId(req: Request): Promise<string | null> {
   const authorization = req.headers.get("authorization") ?? "";
-  if (!authorization.startsWith("Bearer ") || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return null;
+  if (
+    !authorization.startsWith("Bearer ") || !SUPABASE_URL ||
+    !SUPABASE_PUBLISHABLE_KEY
+  ) return null;
   const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: { Authorization: authorization, apikey: SUPABASE_PUBLISHABLE_KEY },
   });
@@ -33,14 +40,17 @@ async function authenticatedUserId(req: Request): Promise<string | null> {
 
 async function consumeRateLimit(req: Request): Promise<boolean> {
   const authorization = req.headers.get("authorization") ?? "";
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/consume_ai_proxy_rate_limit`, {
-    method: "POST",
-    headers: {
-      Authorization: authorization,
-      apikey: SUPABASE_PUBLISHABLE_KEY,
-      "Content-Type": "application/json",
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/rpc/consume_ai_proxy_rate_limit`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: authorization,
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        "Content-Type": "application/json",
+      },
     },
-  });
+  );
   return response.ok;
 }
 
@@ -49,7 +59,6 @@ async function consumeRateLimit(req: Request): Promise<boolean> {
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL = "claude-sonnet-4-6";
-const MAX_TOKENS = 1024;
 
 interface ProxyRequest {
   prompt?: string;
@@ -58,7 +67,7 @@ interface ProxyRequest {
   system?: string;
   model?: string;
   maxTokens?: number;
-  context?: Record<string, unknown>;  // arbitrary agent context
+  context?: Record<string, unknown>; // arbitrary agent context
 }
 
 interface ProxyResponse {
@@ -69,7 +78,7 @@ interface ProxyResponse {
   error?: string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const headers = cors(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers });
@@ -104,17 +113,21 @@ serve(async (req) => {
 
     if (!ANTHROPIC_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "AI proxy not configured" } satisfies Partial<ProxyResponse>),
-        { status: 500, headers: { ...headers, "Content-Type": "application/json" } },
+        JSON.stringify(
+          { error: "AI proxy not configured" } satisfies Partial<ProxyResponse>,
+        ),
+        {
+          status: 500,
+          headers: { ...headers, "Content-Type": "application/json" },
+        },
       );
     }
 
     const recentHistory = history.slice(-6);
-    const messages =
-      recentHistory.at(-1)?.role === "user" &&
+    const messages = recentHistory.at(-1)?.role === "user" &&
         recentHistory.at(-1)?.content === prompt
-        ? recentHistory
-        : [...recentHistory, { role: "user" as const, content: prompt }];
+      ? recentHistory
+      : [...recentHistory, { role: "user" as const, content: prompt }];
 
     const anthropicBody: Record<string, unknown> = {
       model: DEFAULT_MODEL,
@@ -137,8 +150,13 @@ serve(async (req) => {
       await res.body?.cancel();
       console.error("Anthropic API request failed");
       return new Response(
-        JSON.stringify({ error: "Upstream AI error" } satisfies Partial<ProxyResponse>),
-        { status: 502, headers: { ...headers, "Content-Type": "application/json" } },
+        JSON.stringify(
+          { error: "Upstream AI error" } satisfies Partial<ProxyResponse>,
+        ),
+        {
+          status: 502,
+          headers: { ...headers, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -147,19 +165,26 @@ serve(async (req) => {
     const usage = data.usage ?? {};
 
     return new Response(
-      JSON.stringify({
-        message,
-        model: data.model ?? DEFAULT_MODEL,
-        inputTokens: usage.input_tokens ?? 0,
-        outputTokens: usage.output_tokens ?? 0,
-      } satisfies ProxyResponse),
+      JSON.stringify(
+        {
+          message,
+          model: data.model ?? DEFAULT_MODEL,
+          inputTokens: usage.input_tokens ?? 0,
+          outputTokens: usage.output_tokens ?? 0,
+        } satisfies ProxyResponse,
+      ),
       { headers: { ...headers, "Content-Type": "application/json" } },
     );
   } catch {
     console.error("AI proxy request failed");
     return new Response(
-      JSON.stringify({ error: "request failed" } satisfies Partial<ProxyResponse>),
-      { status: 500, headers: { ...headers, "Content-Type": "application/json" } },
+      JSON.stringify(
+        { error: "request failed" } satisfies Partial<ProxyResponse>,
+      ),
+      {
+        status: 500,
+        headers: { ...headers, "Content-Type": "application/json" },
+      },
     );
   }
 });

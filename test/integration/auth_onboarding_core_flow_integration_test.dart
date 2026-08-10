@@ -51,9 +51,7 @@ void main() {
         ),
       );
       final ProviderContainer container = ProviderContainer(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(repository),
-        ],
+        overrides: [authRepositoryProvider.overrideWithValue(repository)],
       );
       addTearDown(container.dispose);
 
@@ -73,10 +71,9 @@ void main() {
         AuthStatus.unauthenticated,
       );
 
-      await container.read(authControllerProvider.notifier).signInWithEmail(
-        email: 'pilot@example.com',
-        password: 'Password123',
-      );
+      await container
+          .read(authControllerProvider.notifier)
+          .signInWithEmail(email: 'pilot@example.com', password: 'Password123');
       expect(
         container.read(authControllerProvider).status,
         AuthStatus.authenticated,
@@ -94,15 +91,27 @@ void main() {
       addTearDown(container.dispose);
 
       await container.read(missionStateProvider.notifier).reset();
-      await container.read(missionStateProvider.notifier).reportFirstItemCreated();
+      await container
+          .read(missionStateProvider.notifier)
+          .reportFirstItemCreated();
       await container.read(missionStateProvider.notifier).reportCreatorOpened();
-      await container.read(missionStateProvider.notifier).reportTimelineOpened();
+      await container
+          .read(missionStateProvider.notifier)
+          .reportTimelineOpened();
 
-      final MissionState mission = container.read(missionStateProvider).requireValue;
+      final MissionState mission = container
+          .read(missionStateProvider)
+          .requireValue;
       expect(mission.activeMissionId, MissionId.complete);
       expect(mission.isCompletionBannerActive, isTrue);
-      expect(mission.statusOf(MissionId.createFirstGoal), MissionStatus.completed);
-      expect(mission.statusOf(MissionId.configureFirstItem), MissionStatus.completed);
+      expect(
+        mission.statusOf(MissionId.createFirstGoal),
+        MissionStatus.completed,
+      );
+      expect(
+        mission.statusOf(MissionId.configureFirstItem),
+        MissionStatus.completed,
+      );
       expect(mission.statusOf(MissionId.openTimeline), MissionStatus.completed);
     }, tags: <String>['full']);
 
@@ -129,104 +138,124 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(container.read(onboardingCompleteProvider), isTrue);
-      expect(container.read(onboardingStatusProvider), OnboardingStatus.complete);
+      expect(
+        container.read(onboardingStatusProvider),
+        OnboardingStatus.complete,
+      );
     }, tags: <String>['full']);
 
-    testWidgets('progress tracking stores onboarding step after NEXT', (
-      WidgetTester tester,
-    ) async {
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          profileProvider.overrideWith(_TestProfileController.new),
-          intelligenceStateProvider.overrideWithValue(_unauthenticatedRuntime),
-        ],
-      );
-      addTearDown(container.dispose);
+    testWidgets(
+      'progress tracking stores onboarding step after NEXT',
+      (WidgetTester tester) async {
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            profileProvider.overrideWith(_TestProfileController.new),
+            intelligenceStateProvider.overrideWithValue(
+              _unauthenticatedRuntime,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(home: OnboardingScreen()),
-        ),
-      );
-      await tester.pump(const Duration(milliseconds: 300));
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(home: OnboardingScreen()),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
 
-      await tester.drag(find.byType(PageView), const Offset(-500, 0));
-      await tester.pump(const Duration(milliseconds: 500));
+        await tester.drag(find.byType(PageView), const Offset(-500, 0));
+        await tester.pump(const Duration(milliseconds: 500));
 
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt(onboardingStepStorageKey), 1);
-    }, tags: <String>['full']);
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        expect(prefs.getInt(onboardingStepStorageKey), 1);
+      },
+      tags: <String>['full'],
+    );
   });
 
   group('Core User Flow', () {
-    test('open app, create task, complete task, and see dashboard update', () async {
-      final _FakeTaskRepository taskRepository = _FakeTaskRepository();
-      final _TimelineProbe timeline = _TimelineProbe();
-      final _FakeLocalMetricsAccumulator metrics = _FakeLocalMetricsAccumulator();
-      final EventBus bus = EventBus();
+    test(
+      'open app, create task, complete task, and see dashboard update',
+      () async {
+        final _FakeTaskRepository taskRepository = _FakeTaskRepository();
+        final _TimelineProbe timeline = _TimelineProbe();
+        final _FakeLocalMetricsAccumulator metrics =
+            _FakeLocalMetricsAccumulator();
+        final EventBus bus = EventBus();
 
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          eventBusProvider.overrideWithValue(bus),
-          profileProvider.overrideWith(_TestProfileController.new),
-          domainTaskRepositoryProvider.overrideWithValue(taskRepository),
-          createTaskUseCaseProvider.overrideWithValue(CreateTask(taskRepository)),
-          completeTaskUseCaseProvider.overrideWithValue(
-            CompleteTask(taskRepository),
-          ),
-          timelineActionsProvider.overrideWith(
-            (Ref ref) => _FakeTimelineActions(ref, timeline),
-          ),
-          logsActionsProvider.overrideWith(
-            (Ref ref) => _FakeLogsActions(ref),
-          ),
-          localMetricsAccumulatorProvider.overrideWithValue(metrics),
-          tasksProvider.overrideWith((Ref ref) async => const <Task>[]),
-        ],
-      );
-      addTearDown(() async {
-        await bus.dispose();
-        container.dispose();
-      });
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            eventBusProvider.overrideWithValue(bus),
+            profileProvider.overrideWith(_TestProfileController.new),
+            domainTaskRepositoryProvider.overrideWithValue(taskRepository),
+            createTaskUseCaseProvider.overrideWithValue(
+              CreateTask(taskRepository),
+            ),
+            completeTaskUseCaseProvider.overrideWithValue(
+              CompleteTask(taskRepository),
+            ),
+            timelineActionsProvider.overrideWith(
+              (Ref ref) => _FakeTimelineActions(ref, timeline),
+            ),
+            logsActionsProvider.overrideWith(
+              (Ref ref) => _FakeLogsActions(ref),
+            ),
+            localMetricsAccumulatorProvider.overrideWithValue(metrics),
+            tasksProvider.overrideWith((Ref ref) async => const <Task>[]),
+          ],
+        );
+        addTearDown(() async {
+          await bus.dispose();
+          container.dispose();
+        });
 
-      // 1) Open app
-      expect(container.read(appFlowProvider), AppView.nexus);
+        // 1) Open app
+        expect(container.read(appFlowProvider), AppView.nexus);
 
-      final int beforeCompleted =
-          container.read(nexusStartupSummaryProvider).completedToday;
+        final int beforeCompleted = container
+            .read(nexusStartupSummaryProvider)
+            .completedToday;
 
-      // 2) Create task
-      final TaskEntity task = TaskEntity(
-        id: 'core-flow-1',
-        title: 'Ship integration test milestone',
-        createdAt: DateTime(2026, 1, 1),
-        priority: 3,
-        difficulty: 2,
-        energyRequired: 2,
-      );
-      await container
-          .read(taskActionsProvider)
-          .createTask(task, actionSource: 'core_user_flow');
+        // 2) Create task
+        final TaskEntity task = TaskEntity(
+          id: 'core-flow-1',
+          title: 'Ship integration test milestone',
+          createdAt: DateTime(2026, 1, 1),
+          priority: 3,
+          difficulty: 2,
+          energyRequired: 2,
+        );
+        await container
+            .read(taskActionsProvider)
+            .createTask(task, actionSource: 'core_user_flow');
 
-      expect(taskRepository.savedTasks.map((TaskEntity item) => item.id),
-          contains('core-flow-1'));
+        expect(
+          taskRepository.savedTasks.map((TaskEntity item) => item.id),
+          contains('core-flow-1'),
+        );
 
-      // 3) Complete task
-      await container.read(taskActionsProvider).completeTask(
-            'core-flow-1',
-            notify: false,
-            actionSource: 'core_user_flow',
-          );
-      await _flushMicrotasks();
+        // 3) Complete task
+        await container
+            .read(taskActionsProvider)
+            .completeTask(
+              'core-flow-1',
+              notify: false,
+              actionSource: 'core_user_flow',
+            );
+        await _flushMicrotasks();
 
-      // 4) Dashboard update (Nexus summary)
-      final int afterCompleted =
-          container.read(nexusStartupSummaryProvider).completedToday;
-      expect(afterCompleted, beforeCompleted + 1);
-      expect(timeline.connectedTasks, isNotEmpty);
-      expect(metrics.checkpoints, contains('task_completed_event_emitted'));
-    }, tags: <String>['full']);
+        // 4) Dashboard update (Nexus summary)
+        final int afterCompleted = container
+            .read(nexusStartupSummaryProvider)
+            .completedToday;
+        expect(afterCompleted, beforeCompleted + 1);
+        expect(timeline.connectedTasks, isNotEmpty);
+        expect(metrics.checkpoints, contains('task_completed_event_emitted'));
+      },
+      tags: <String>['full'],
+    );
   });
 }
 
@@ -250,16 +279,13 @@ const IntelligenceState _unauthenticatedRuntime = IntelligenceState(
     paywallDisabled: false,
     testerFullAccess: false,
   ),
-  auth: AuthStateSnapshot(
-    hasMockSession: false,
-    hasAuthenticatedUser: false,
-  ),
+  auth: AuthStateSnapshot(hasMockSession: false, hasAuthenticatedUser: false),
   mockLogin: MockLoginConfigState(email: '', password: ''),
 );
 
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository({required AuthSessionEntity? initialSession})
-      : _session = initialSession;
+    : _session = initialSession;
 
   final StreamController<Result<AuthSessionEntity?>> _sessionStream =
       StreamController<Result<AuthSessionEntity?>>.broadcast();
@@ -300,7 +326,11 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<Result<AuthSessionEntity?>> signInWithGoogle() async {
-    _session = _activeSession('user-google', 'google@example.com', 'token-google');
+    _session = _activeSession(
+      'user-google',
+      'google@example.com',
+      'token-google',
+    );
     _sessionStream.add(Result<AuthSessionEntity?>.success(_session));
     return Result<AuthSessionEntity?>.success(_session);
   }
@@ -317,7 +347,11 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<Result<void>> refreshSession() async {
-    _session = _activeSession('user-refresh', 'refresh@example.com', 'token-refreshed');
+    _session = _activeSession(
+      'user-refresh',
+      'refresh@example.com',
+      'token-refreshed',
+    );
     _sessionStream.add(Result<AuthSessionEntity?>.success(_session));
     return const Result<void>.success(null);
   }

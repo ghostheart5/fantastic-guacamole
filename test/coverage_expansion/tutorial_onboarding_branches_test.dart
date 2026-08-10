@@ -30,7 +30,9 @@ void main() {
       expect(skipped.isStepDismissed('timeline_overview'), isTrue);
       expect(skipped.isStepSkippedForever('insight_overview'), isTrue);
 
-      final TutorialProgress shownAgain = skipped.revealStep('insight_overview');
+      final TutorialProgress shownAgain = skipped.revealStep(
+        'insight_overview',
+      );
       expect(shownAgain.isStepDismissed('insight_overview'), isFalse);
 
       final TutorialProgress reset = shownAgain.reset(
@@ -66,24 +68,27 @@ void main() {
       );
     });
 
-    test('content version migration resets started state but keeps intro flag', () {
-      final TutorialProgress old = const TutorialProgress(
-        started: true,
-        hasSeenIntro: true,
-        contentVersion: 1,
-        completedStepIds: <String>{'legacy-step'},
-      );
+    test(
+      'content version migration resets started state but keeps intro flag',
+      () {
+        final TutorialProgress old = const TutorialProgress(
+          started: true,
+          hasSeenIntro: true,
+          contentVersion: 1,
+          completedStepIds: <String>{'legacy-step'},
+        );
 
-      final TutorialProgress migrated = old.applyContentVersion(6);
-      expect(migrated.started, isFalse);
-      expect(migrated.hasSeenIntro, isTrue);
-      expect(migrated.completedStepIds, isEmpty);
-      expect(migrated.contentVersion, 6);
-    });
+        final TutorialProgress migrated = old.applyContentVersion(6);
+        expect(migrated.started, isFalse);
+        expect(migrated.hasSeenIntro, isTrue);
+        expect(migrated.completedStepIds, isEmpty);
+        expect(migrated.contentVersion, 6);
+      },
+    );
 
     test('tutorial definition decoder handles valid and invalid payloads', () {
       final TutorialDefinition valid = TutorialDefinition.decode(
-        '{"id":"intro","title":"Intro","version":2,"steps":[{"id":"s1","title":"Step","body":"Body","trigger":"tap","blockMode":"allowTarget"}]}'
+        '{"id":"intro","title":"Intro","version":2,"steps":[{"id":"s1","title":"Step","body":"Body","trigger":"tap","blockMode":"allowTarget"}]}',
       );
       expect(valid.id, 'intro');
       expect(valid.version, 2);
@@ -94,9 +99,11 @@ void main() {
       expect(invalid.id, 'tutorial');
       expect(invalid.steps, isEmpty);
 
-      final TutorialStep fallbackStep = TutorialStep.fromJson(
-        <String, dynamic>{'id': 'x', 'trigger': 'unknown', 'blockMode': 'unknown'},
-      );
+      final TutorialStep fallbackStep = TutorialStep.fromJson(<String, dynamic>{
+        'id': 'x',
+        'trigger': 'unknown',
+        'blockMode': 'unknown',
+      });
       expect(fallbackStep.trigger, TutorialTriggerType.manual);
       expect(fallbackStep.blockMode, TutorialBlockMode.allowTarget);
     });

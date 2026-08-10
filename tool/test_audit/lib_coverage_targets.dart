@@ -8,7 +8,8 @@ void main() {
   }
 
   final File lcovFile = File('coverage/lcov.info');
-  final Map<String, ({int covered, int measured})> coverage = lcovFile.existsSync()
+  final Map<String, ({int covered, int measured})> coverage =
+      lcovFile.existsSync()
       ? _parseLcov(lcovFile.readAsLinesSync())
       : <String, ({int covered, int measured})>{};
 
@@ -19,7 +20,9 @@ void main() {
     final String path = _normalizeFilePath(file.path);
     final ({int covered, int measured})? lcov = coverage[path];
     final int sourceLineCount = file.readAsLinesSync().length;
-    final int total = (lcov?.measured ?? 0) > 0 ? lcov!.measured : sourceLineCount;
+    final int total = (lcov?.measured ?? 0) > 0
+        ? lcov!.measured
+        : sourceLineCount;
     final int covered = lcov?.covered ?? 0;
     rows.add((path: path, covered: covered, total: total));
   }
@@ -46,7 +49,9 @@ void main() {
 
   final double overall = _pct(totalCovered, totalLines);
   stdout.writeln('---');
-  stdout.writeln('Overall lib coverage: ${overall.toStringAsFixed(2)}% ($totalCovered/$totalLines)');
+  stdout.writeln(
+    'Overall lib coverage: ${overall.toStringAsFixed(2)}% ($totalCovered/$totalLines)',
+  );
 }
 
 List<File> _collectTestableLibFiles() {

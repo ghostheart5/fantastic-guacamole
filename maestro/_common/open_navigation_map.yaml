@@ -1,8 +1,6 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - tapOn:
-    id: "map_outlined"
-    optional: true
-- tapOn:
-    text: "Navigation Map"
-    optional: true
+    id: "nav-open-map"
+- assertVisible:
+    id: "nav-timeline"

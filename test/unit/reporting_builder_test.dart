@@ -35,8 +35,10 @@ void main() {
       final String goalsReport = ExportGoalsUsecase(goalRepo).call();
       final String timelineReport = ExportTimelineUsecase(timelineRepo).call();
 
-      final List<dynamic> goalsDecoded = jsonDecode(goalsReport) as List<dynamic>;
-      final List<dynamic> timelineDecoded = jsonDecode(timelineReport) as List<dynamic>;
+      final List<dynamic> goalsDecoded =
+          jsonDecode(goalsReport) as List<dynamic>;
+      final List<dynamic> timelineDecoded =
+          jsonDecode(timelineReport) as List<dynamic>;
 
       expect(goalsDecoded, hasLength(1));
       expect((goalsDecoded.first as Map<String, dynamic>)['id'], 'g-1');
@@ -74,10 +76,10 @@ void main() {
       );
 
       expect(overdue.map((g) => g.id).toList(), <String>['g-overdue']);
-      expect(
-        withTargetDate.map((g) => g.id).toSet(),
-        <String>{'g-overdue', 'g-upcoming'},
-      );
+      expect(withTargetDate.map((g) => g.id).toSet(), <String>{
+        'g-overdue',
+        'g-upcoming',
+      });
     });
 
     test('sorting returns expected title and target-date order', () {
@@ -104,42 +106,53 @@ void main() {
 
       final SortGoalsUsecase usecase = SortGoalsUsecase(repo);
 
-      final List<GoalEntity> titleAsc = usecase.call(mode: GoalSortMode.titleAsc);
+      final List<GoalEntity> titleAsc = usecase.call(
+        mode: GoalSortMode.titleAsc,
+      );
       final List<GoalEntity> bySoonest = usecase.call(
         mode: GoalSortMode.targetDateSoonest,
       );
 
       expect(titleAsc.map((g) => g.id).toList(), <String>['g-a', 'g-b', 'g-z']);
-      expect(bySoonest.map((g) => g.id).toList(), <String>['g-a', 'g-b', 'g-z']);
-    });
-
-    test('export formats differ for pretty goals JSON vs compact timeline JSON', () {
-      final _FakeGoalRepository goalRepo = _FakeGoalRepository(<GoalEntity>[
-        GoalEntity(
-          id: 'g-1',
-          title: 'Readable Export',
-          createdAt: DateTime(2026, 1, 1),
-        ),
+      expect(bySoonest.map((g) => g.id).toList(), <String>[
+        'g-a',
+        'g-b',
+        'g-z',
       ]);
-      final _FakeTimelineRepository timelineRepo =
-          _FakeTimelineRepository(<TimelineEventEntity>[
-            TimelineEventEntity(
-              id: 't-1',
-              type: TimelineEventType.task,
-              title: 'Compact Export',
-              detail: 'single line json',
-              timestamp: DateTime(2026, 1, 1),
-            ),
-          ]);
-
-      final String goalsReport = ExportGoalsUsecase(goalRepo).call();
-      final String timelineReport = ExportTimelineUsecase(timelineRepo).call();
-
-      expect(goalsReport.contains('\n  {'), isTrue);
-      expect(timelineReport.contains('\n'), isFalse);
-      expect(() => jsonDecode(goalsReport), returnsNormally);
-      expect(() => jsonDecode(timelineReport), returnsNormally);
     });
+
+    test(
+      'export formats differ for pretty goals JSON vs compact timeline JSON',
+      () {
+        final _FakeGoalRepository goalRepo = _FakeGoalRepository(<GoalEntity>[
+          GoalEntity(
+            id: 'g-1',
+            title: 'Readable Export',
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        ]);
+        final _FakeTimelineRepository timelineRepo =
+            _FakeTimelineRepository(<TimelineEventEntity>[
+              TimelineEventEntity(
+                id: 't-1',
+                type: TimelineEventType.task,
+                title: 'Compact Export',
+                detail: 'single line json',
+                timestamp: DateTime(2026, 1, 1),
+              ),
+            ]);
+
+        final String goalsReport = ExportGoalsUsecase(goalRepo).call();
+        final String timelineReport = ExportTimelineUsecase(
+          timelineRepo,
+        ).call();
+
+        expect(goalsReport.contains('\n  {'), isTrue);
+        expect(timelineReport.contains('\n'), isFalse);
+        expect(() => jsonDecode(goalsReport), returnsNormally);
+        expect(() => jsonDecode(timelineReport), returnsNormally);
+      },
+    );
   });
 }
 

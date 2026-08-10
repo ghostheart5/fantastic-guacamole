@@ -11,8 +11,26 @@ plugins {
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
+val productionApplicationId = "com.ghostheart5.chronospark"
+val buildProfile = (
+    (project.findProperty("CHRONOSPARK_BUILD_PROFILE") as String?)
+        ?: System.getenv("CHRONOSPARK_BUILD_PROFILE")
+        ?: "production"
+)
+    .trim()
+    .lowercase(Locale.US)
+val profileApplicationIds = mapOf(
+    "production" to productionApplicationId,
+    "staging" to "$productionApplicationId.staging",
+    "maestro" to "$productionApplicationId.maestro",
+)
+val releaseApplicationId =
+    (project.findProperty("CHRONOSPARK_APPLICATION_ID") as String?)
+        ?.takeIf { buildProfile == "production" }
+        ?: profileApplicationIds[buildProfile]
+        ?: error("Unsupported CHRONOSPARK_BUILD_PROFILE '$buildProfile'. Use production, staging, or maestro.")
 val googleServicesJsonFile = project.file("google-services.json")
-val hasGoogleServicesJson = googleServicesJsonFile.exists()
+val hasGoogleServicesJson = googleServicesJsonFile.exists() && buildProfile == "production"
 val isReleaseTaskRequested = gradle.startParameter.taskNames.any {
     it.lowercase(Locale.US).contains("release")
 }
@@ -36,10 +54,6 @@ if (hasGoogleServicesJson) {
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
-
-val releaseApplicationId =
-    (project.findProperty("CHRONOSPARK_APPLICATION_ID") as String?)
-        ?: "com.ghostheart5.chronospark"
 
 val releaseVersionCode =
     (project.findProperty("CHRONOSPARK_VERSION_CODE") as String?)?.toIntOrNull()
@@ -72,7 +86,7 @@ fun ByteArray.toHexFingerprint(): String = joinToString(":") { b -> "%02X".forma
 fun File.resolveAgainst(base: File): File = if (isAbsolute) this else File(base, path)
 
 android {
-    namespace = releaseApplicationId
+    namespace = productionApplicationId
     compileSdk = maxOf(flutter.compileSdkVersion, 34)
     ndkVersion = "28.2.13676358"
 
@@ -103,6 +117,9 @@ android {
 
     buildTypes {
         release {
+            require(!isReleaseTaskRequested || buildProfile == "production") {
+                "Release builds must use CHRONOSPARK_BUILD_PROFILE=production."
+            }
             isMinifyEnabled = true
             isShrinkResources = true
 
@@ -161,7 +178,7 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.window:window:1.5.1")
     implementation("androidx.window:window-java:1.5.1")
-    implementation("com.android.billingclient:billing:6.0.1")
+    implementation("com.android.billingclient:billing:8.0.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
 

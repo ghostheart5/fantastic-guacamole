@@ -10,16 +10,8 @@ void main() {
         client: null,
         ensureIdentity: () async => 'device-id',
         metricsRowsLoader: (_) async => <Map<String, dynamic>>[
-          {
-            'tasks_created': 10,
-            'tasks_completed': 8,
-            'momentum_peak': 4.5,
-          },
-          {
-            'tasks_created': 4,
-            'tasks_completed': 1,
-            'momentum_peak': 2.0,
-          },
+          {'tasks_created': 10, 'tasks_completed': 8, 'momentum_peak': 4.5},
+          {'tasks_created': 4, 'tasks_completed': 1, 'momentum_peak': 2.0},
         ],
       );
 
@@ -38,7 +30,10 @@ void main() {
         hint: null,
       );
 
-      expect(GlobalAggregationService.isExpectedNonFatalPushError(error), isTrue);
+      expect(
+        GlobalAggregationService.isExpectedNonFatalPushError(error),
+        isTrue,
+      );
     });
 
     test('does not suppress unexpected errors', () {

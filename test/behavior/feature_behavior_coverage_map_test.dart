@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -26,43 +26,46 @@ void main() {
   }
 
   group('ChronoSpark real feature behavior coverage map', () {
-    test('core features have at least one provider controller service repository or widget', () {
-      final featureTerms = <String, List<String>>{
-        'nexus': ['Nexus', 'nexus'],
-        'creator': ['Creator', 'creator'],
-        'coach': ['Coach', 'SmartCoach', 'coach', 'smart_coach'],
-        'timeline': ['Timeline', 'timeline'],
-        'profile': ['Profile', 'profile'],
-        'progression': ['Progression', 'progression'],
-        'trajectory': ['Trajectory', 'trajectory'],
-        'si_console': ['SIConsole', 'SI Console', 'si_console'],
-        'tutorial': ['Tutorial', 'tutorial'],
-        'action_hub': [
-          'ActionHub',
-          'Action Hub',
-          'action_hub',
-          'NavigationShell',
-          '_showNavigationMap',
-        ],
-      };
+    test(
+      'core features have at least one provider controller service repository or widget',
+      () {
+        final featureTerms = <String, List<String>>{
+          'nexus': ['Nexus', 'nexus'],
+          'creator': ['Creator', 'creator'],
+          'coach': ['Coach', 'SmartCoach', 'coach', 'smart_coach'],
+          'timeline': ['Timeline', 'timeline'],
+          'profile': ['Profile', 'profile'],
+          'progression': ['Progression', 'progression'],
+          'trajectory': ['Trajectory', 'trajectory'],
+          'si_console': ['SIConsole', 'SI Console', 'si_console'],
+          'tutorial': ['Tutorial', 'tutorial'],
+          'action_hub': [
+            'ActionHub',
+            'Action Hub',
+            'action_hub',
+            'NavigationShell',
+            '_showNavigationMap',
+          ],
+        };
 
-      final lib = readAllLib();
-      final missing = <String>[];
+        final lib = readAllLib();
+        final missing = <String>[];
 
-      featureTerms.forEach((feature, terms) {
-        final exists = terms.any(lib.contains);
+        featureTerms.forEach((feature, terms) {
+          final exists = terms.any(lib.contains);
 
-        if (!exists) {
-          missing.add(feature);
-        }
-      });
+          if (!exists) {
+            missing.add(feature);
+          }
+        });
 
-      expect(
-        missing,
-        isEmpty,
-        reason: 'Core feature terms missing from lib source: $missing',
-      );
-    });
+        expect(
+          missing,
+          isEmpty,
+          reason: 'Core feature terms missing from lib source: $missing',
+        );
+      },
+    );
 
     test('core features have matching tests beyond base smoke coverage', () {
       final expectedTestTerms = <String>[
@@ -86,9 +89,9 @@ void main() {
         'ui',
       ];
 
-      final dartTestFiles = dartFilesUnder('test')
-          .map((file) => file.path.replaceAll('\\', '/').toLowerCase())
-          .toList();
+      final dartTestFiles = dartFilesUnder(
+        'test',
+      ).map((file) => file.path.replaceAll('\\', '/').toLowerCase()).toList();
 
       final missing = <String>[];
 

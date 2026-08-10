@@ -12,7 +12,9 @@ Future<void> main(List<String> args) async {
 
   final coverageFile = File('coverage/lcov.info');
   if (!coverageFile.existsSync()) {
-    stderr.writeln('coverage/lcov.info not found. Run flutter test --coverage first.');
+    stderr.writeln(
+      'coverage/lcov.info not found. Run flutter test --coverage first.',
+    );
     exitCode = 1;
     return;
   }

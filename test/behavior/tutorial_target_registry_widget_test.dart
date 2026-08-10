@@ -1,11 +1,13 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 
 void main() {
   group('TutorialTargetRegistry widget behavior', () {
-    testWidgets('TutorialTarget registers a render rect after pump', (tester) async {
+    testWidgets('TutorialTarget registers a render rect after pump', (
+      tester,
+    ) async {
       const targetId = 'test.nexus.action_hub';
 
       await tester.pumpWidget(
@@ -69,7 +71,9 @@ void main() {
       expect(newRect.height, greaterThan(0));
     });
 
-    testWidgets('TutorialTarget unregisters when removed from tree', (tester) async {
+    testWidgets('TutorialTarget unregisters when removed from tree', (
+      tester,
+    ) async {
       const targetId = 'test.creator.button';
 
       await tester.pumpWidget(
@@ -88,11 +92,7 @@ void main() {
       expect(TutorialTargetRegistry.instance.rectFor(targetId), isNotNull);
 
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: SizedBox.shrink(),
-          ),
-        ),
+        const MaterialApp(home: Scaffold(body: SizedBox.shrink())),
       );
 
       await tester.pumpAndSettle();

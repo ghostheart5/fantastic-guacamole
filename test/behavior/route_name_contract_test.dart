@@ -10,7 +10,9 @@ void main() {
       final File routesFile = File('lib/app/router/route_paths.dart');
       final String text = SourceTestUtils.readText(routesFile);
 
-      final RegExp pattern = RegExp("static const\\s+(\\w+)\\s*=\\s*'([^']+)';");
+      final RegExp pattern = RegExp(
+        "static const\\s+(\\w+)\\s*=\\s*'([^']+)';",
+      );
       final Map<String, String> values = <String, String>{};
       final List<String> duplicates = <String>[];
 
@@ -24,11 +26,17 @@ void main() {
         }
       }
 
-      expect(duplicates, isEmpty, reason: 'Inconsistent route constants found: $duplicates');
+      expect(
+        duplicates,
+        isEmpty,
+        reason: 'Inconsistent route constants found: $duplicates',
+      );
     });
 
     test('required core route identifiers exist', () {
-      final String routes = SourceTestUtils.readText(File('lib/app/router/route_paths.dart'));
+      final String routes = SourceTestUtils.readText(
+        File('lib/app/router/route_paths.dart'),
+      );
       const List<String> required = <String>[
         'home',
         'creator',
@@ -42,10 +50,15 @@ void main() {
       }
     });
 
-    test('stale internal-engine routes are not exposed as top-level constants', () {
-      final String routes = SourceTestUtils.readText(File('lib/app/router/route_paths.dart')).toLowerCase();
-      expect(routes.contains('static const memories'), isFalse);
-      expect(routes.contains('static const flowmap'), isFalse);
-    });
+    test(
+      'stale internal-engine routes are not exposed as top-level constants',
+      () {
+        final String routes = SourceTestUtils.readText(
+          File('lib/app/router/route_paths.dart'),
+        ).toLowerCase();
+        expect(routes.contains('static const memories'), isFalse);
+        expect(routes.contains('static const flowmap'), isFalse);
+      },
+    );
   });
 }

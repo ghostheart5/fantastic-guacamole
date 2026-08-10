@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 void main() {
   group('profile integration flow', () {
     test('profile route stays under advanced settings namespace', () {
@@ -18,4 +19,3 @@ void main() {
     });
   });
 }
-

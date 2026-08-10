@@ -36,7 +36,9 @@ void main() {
       final List<FrameTiming> timings = <FrameTiming>[];
       void onTimings(List<FrameTiming> value) => timings.addAll(value);
       WidgetsBinding.instance.addTimingsCallback(onTimings);
-      addTearDown(() => WidgetsBinding.instance.removeTimingsCallback(onTimings));
+      addTearDown(
+        () => WidgetsBinding.instance.removeTimingsCallback(onTimings),
+      );
 
       await tester.pumpWidget(
         MaterialApp(
@@ -78,7 +80,9 @@ void main() {
       final List<FrameTiming> timings = <FrameTiming>[];
       void onTimings(List<FrameTiming> value) => timings.addAll(value);
       WidgetsBinding.instance.addTimingsCallback(onTimings);
-      addTearDown(() => WidgetsBinding.instance.removeTimingsCallback(onTimings));
+      addTearDown(
+        () => WidgetsBinding.instance.removeTimingsCallback(onTimings),
+      );
 
       await tester.pumpWidget(
         ProviderScope(
@@ -119,28 +123,26 @@ void main() {
                 completedToday: 2,
               ),
             ),
-            trajectorySimulationProvider.overrideWithValue(
-              const <TrajectorySimulationResult>[
-                TrajectorySimulationResult(
-                  type: TrajectorySimulationType.momentumBoost,
-                  title: 'Deep Focus Plan',
-                  summary: 'Protect one uninterrupted focus block.',
-                  projectedMomentum: 84,
-                  projectedPressure: 41,
-                  projectedRecovery: 'Recovered',
-                  projectedOutcome:
-                      'Momentum compounds when scope stays narrow.',
-                ),
-              ],
-            ),
+            trajectorySimulationProvider
+                .overrideWithValue(const <TrajectorySimulationResult>[
+                  TrajectorySimulationResult(
+                    type: TrajectorySimulationType.momentumBoost,
+                    title: 'Deep Focus Plan',
+                    summary: 'Protect one uninterrupted focus block.',
+                    projectedMomentum: 84,
+                    projectedPressure: 41,
+                    projectedRecovery: 'Recovered',
+                    projectedOutcome:
+                        'Momentum compounds when scope stays narrow.',
+                  ),
+                ]),
             futureTimelineProvider.overrideWithValue(
               const FutureTimelineState(
                 checkpoints: <FutureTimelineCheckpoint>[
                   FutureTimelineCheckpoint(
                     label: '7 DAYS',
                     days: 7,
-                    prediction:
-                        'Execution stabilizes if deferrals remain low.',
+                    prediction: 'Execution stabilizes if deferrals remain low.',
                   ),
                 ],
               ),

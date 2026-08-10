@@ -16,8 +16,10 @@ void main() {
           .toList(growable: false);
 
       expect(labels.toSet().length, labels.length);
-      expect(labels, containsAll(<String>['Tasks', 'Goals', 'Milestones', 'Plan']));
+      expect(
+        labels,
+        containsAll(<String>['Tasks', 'Goals', 'Milestones', 'Plan']),
+      );
     });
   });
 }
-

@@ -49,9 +49,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            isOnlineProvider.overrideWith((Ref ref) => false),
-          ],
+          overrides: [isOnlineProvider.overrideWith((Ref ref) => false)],
           child: const MaterialApp(
             home: Scaffold(body: OfflineBanner(child: Text('Body'))),
           ),
@@ -60,7 +58,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Body'), findsOneWidget);
-      expect(find.textContaining('Offline Mode - actions will sync later'), findsOneWidget);
+      expect(
+        find.textContaining('Offline Mode - actions will sync later'),
+        findsOneWidget,
+      );
     });
   });
 }

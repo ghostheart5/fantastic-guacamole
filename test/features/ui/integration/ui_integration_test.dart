@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 void main() {
   group('ui integration flow', () {
     test('route surface exposes rooted user-facing paths', () {

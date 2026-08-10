@@ -1,4 +1,4 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: login_with_env.yaml
 - runFlow: logout.yaml

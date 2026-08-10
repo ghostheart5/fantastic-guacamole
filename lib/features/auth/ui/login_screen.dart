@@ -639,7 +639,8 @@ class _LoginFormCard extends StatelessWidget {
             SizedBox(height: compact ? 10 : 12),
           ],
           _NeonInput(
-            key: const ValueKey('login-email-field'),
+            fieldKey: const ValueKey('login-email-field'),
+            semanticsIdentifier: 'login-email-field',
             controller: emailController,
             icon: Icons.alternate_email_rounded,
             keyboardType: TextInputType.emailAddress,
@@ -649,7 +650,8 @@ class _LoginFormCard extends StatelessWidget {
           ),
           SizedBox(height: compact ? 8 : 10),
           _NeonInput(
-            key: const ValueKey('login-password-field'),
+            fieldKey: const ValueKey('login-password-field'),
+            semanticsIdentifier: 'login-password-field',
             controller: passwordController,
             icon: Icons.key_rounded,
             keyboardType: TextInputType.visiblePassword,
@@ -796,7 +798,8 @@ class _LoginFormCard extends StatelessWidget {
 
 class _NeonInput extends StatelessWidget {
   const _NeonInput({
-    super.key,
+    required this.fieldKey,
+    required this.semanticsIdentifier,
     required this.controller,
     required this.icon,
     required this.keyboardType,
@@ -806,6 +809,8 @@ class _NeonInput extends StatelessWidget {
     this.trailing,
   });
 
+  final Key fieldKey;
+  final String semanticsIdentifier;
   final TextEditingController controller;
   final IconData icon;
   final TextInputType keyboardType;
@@ -835,23 +840,27 @@ class _NeonInput extends StatelessWidget {
           Icon(icon, color: accentColor.withValues(alpha: 0.8), size: 18),
           const SizedBox(width: 10),
           Expanded(
-            child: TextField(
-              controller: controller,
-              obscureText: obscure,
-              keyboardType: keyboardType,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                letterSpacing: 0.3,
-              ),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                hintText: hintText,
-                hintStyle: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.25),
+            child: Semantics(
+              key: fieldKey,
+              identifier: semanticsIdentifier,
+              child: TextField(
+                controller: controller,
+                obscureText: obscure,
+                keyboardType: keyboardType,
+                style: const TextStyle(
+                  color: Colors.white,
                   fontSize: 14,
+                  letterSpacing: 0.3,
+                ),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  hintText: hintText,
+                  hintStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ),

@@ -22,8 +22,8 @@ void main() {
         final String text = SourceTestUtils.readText(file);
         final String lower = text.toLowerCase();
         final bool externalTextController =
-          text.contains('final TextEditingController controller;') ||
-          text.contains('required this.controller');
+            text.contains('final TextEditingController controller;') ||
+            text.contains('required this.controller');
         final bool hasLifecycleHook =
             text.contains('void dispose()') ||
             text.contains('onDispose(') ||
@@ -37,40 +37,55 @@ void main() {
           if (entry.key == 'TextEditingController' && externalTextController) {
             continue;
           }
-          if (text.contains(entry.key) && !(hasLifecycleHook && hasCleanupCall || lower.contains(entry.value.toLowerCase()))) {
-            offenders.add('${SourceTestUtils.normalizePath(file.path)}::${entry.key}');
+          if (text.contains(entry.key) &&
+              !(hasLifecycleHook && hasCleanupCall ||
+                  lower.contains(entry.value.toLowerCase()))) {
+            offenders.add(
+              '${SourceTestUtils.normalizePath(file.path)}::${entry.key}',
+            );
           }
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Resource lifecycle cleanup missing: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Resource lifecycle cleanup missing: $offenders',
+      );
     });
 
     test('change notifier controllers with resources implement dispose', () {
       final List<String> offenders = <String>[];
 
       for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
+        final String path = SourceTestUtils.normalizePath(
+          file.path,
+        ).toLowerCase();
         if (!path.contains('controller')) {
           continue;
         }
 
         final String text = SourceTestUtils.readText(file);
-        final bool createsResources = text.contains('StreamSubscription<') ||
+        final bool createsResources =
+            text.contains('StreamSubscription<') ||
             text.contains('Timer(') ||
             text.contains('AnimationController(') ||
             text.contains('TextEditingController(');
         final bool hasDispose =
-          text.contains('void dispose()') ||
-          text.contains('ref.onDispose(') ||
-          text.contains('onDispose(');
+            text.contains('void dispose()') ||
+            text.contains('ref.onDispose(') ||
+            text.contains('onDispose(');
 
         if (createsResources && !hasDispose) {
           offenders.add(SourceTestUtils.normalizePath(file.path));
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Controllers missing dispose for owned resources: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Controllers missing dispose for owned resources: $offenders',
+      );
     });
   });
 }

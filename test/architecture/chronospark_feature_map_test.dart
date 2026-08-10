@@ -1,22 +1,18 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   bool existsAny(List<String> paths) {
-    return paths.any((path) => Directory(path).existsSync() || File(path).existsSync());
+    return paths.any(
+      (path) => Directory(path).existsSync() || File(path).existsSync(),
+    );
   }
 
   test('core ChronoSpark user-facing feature areas exist', () {
     final features = <String, List<String>>{
-      'nexus': [
-        'lib/features/nexus',
-        'lib/nexus',
-      ],
-      'creator': [
-        'lib/features/creator',
-        'lib/creator',
-      ],
+      'nexus': ['lib/features/nexus', 'lib/nexus'],
+      'creator': ['lib/features/creator', 'lib/creator'],
       'coach': [
         'lib/features/coach',
         'lib/features/smart_coach',
@@ -24,20 +20,14 @@ void main() {
         'lib/coach',
         'lib/smart_coach',
       ],
-      'timeline': [
-        'lib/features/timeline',
-        'lib/timeline',
-      ],
+      'timeline': ['lib/features/timeline', 'lib/timeline'],
       'profile_or_settings': [
         'lib/features/profile',
         'lib/features/settings',
         'lib/profile',
         'lib/settings',
       ],
-      'progression': [
-        'lib/features/progression',
-        'lib/progression',
-      ],
+      'progression': ['lib/features/progression', 'lib/progression'],
       'trajectory': [
         'lib/features/trajectory',
         'lib/features/trajectory_engine',
@@ -50,10 +40,7 @@ void main() {
         'lib/si_console',
         'lib/si',
       ],
-      'tutorial': [
-        'lib/tutorial',
-        'lib/features/tutorial',
-      ],
+      'tutorial': ['lib/tutorial', 'lib/features/tutorial'],
     };
 
     final missing = <String>[];
@@ -79,13 +66,19 @@ void main() {
       'timeline': ['test/features/timeline'],
       'storage': ['test/features/storage'],
       'sync': ['test/features/sync'],
-      'settings_or_profile': ['test/features/settings', 'test/features/profile'],
+      'settings_or_profile': [
+        'test/features/settings',
+        'test/features/profile',
+      ],
       'ui': ['test/features/ui'],
       'nexus': ['test/features/nexus'],
       'creator': ['test/features/creator'],
       'coach': ['test/features/smart_coach', 'test/features/coach'],
       'progression': ['test/features/progression'],
-      'trajectory': ['test/features/trajectory_engine', 'test/features/trajectory'],
+      'trajectory': [
+        'test/features/trajectory_engine',
+        'test/features/trajectory',
+      ],
       'si_console': ['test/features/si_console', 'test/features/si'],
       'tutorial': ['test/features/tutorial'],
       'action_hub': ['test/features/action_hub'],
@@ -99,10 +92,6 @@ void main() {
       }
     });
 
-    expect(
-      missing,
-      isEmpty,
-      reason: 'Missing test feature areas: $missing',
-    );
+    expect(missing, isEmpty, reason: 'Missing test feature areas: $missing');
   });
 }

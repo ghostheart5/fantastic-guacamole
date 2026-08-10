@@ -40,18 +40,63 @@ void main() {
         final String lower = text.toLowerCase();
 
         final bool hasErrorPath =
-          lower.contains('catch') ||
-          lower.contains('fallback') ||
-          lower.contains('degraded') ||
-          lower.contains('stateerror');
-        final bool importsUi = lower.contains('/screen') || lower.contains('/widget') || lower.contains('material.dart');
+            lower.contains('catch') ||
+            lower.contains('fallback') ||
+            lower.contains('degraded') ||
+            lower.contains('stateerror');
+        final bool importsUi =
+            lower.contains('/screen') ||
+            lower.contains('/widget') ||
+            lower.contains('material.dart');
 
         if (!hasErrorPath || importsUi) {
           offenders.add(SourceTestUtils.normalizePath(file.path));
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Storage contract violations: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Storage contract violations: $offenders',
+      );
+    });
+
+    test('startup opens repository boxes before the app becomes ready', () {
+      final File bootstrap = File('lib/app/startup/app_bootstrap.dart');
+      final String bootstrapText = SourceTestUtils.readText(bootstrap);
+
+      expect(
+        bootstrapText.contains('HiveService.init(warmupBoxes: true)'),
+        isTrue,
+        reason:
+            'Repositories use synchronous Hive access, so startup must open '
+            'their boxes before rendering feature screens.',
+      );
+      expect(
+        bootstrapText.indexOf('HiveService.configureSecureStore') <
+            bootstrapText.indexOf('HiveService.init(warmupBoxes: true)'),
+        isTrue,
+        reason: 'Encrypted boxes need their cipher before they are opened.',
+      );
+
+      final String hiveText = SourceTestUtils.readText(
+        File('lib/data/storage/hive_service.dart'),
+      );
+      expect(
+        hiveText.contains('HiveBoxes.encryptedBoxes.difference('),
+        isTrue,
+        reason:
+            'Warmup must derive secondary boxes from the complete declaration '
+            'so synchronous repositories never receive a closed box.',
+      );
+      expect(
+        hiveText.contains('CHRONOSPARK_HIVE_BOX_OPEN_FAILED') &&
+            hiveText.contains('rethrow;'),
+        isTrue,
+        reason:
+            'A required box open failure must fail startup instead of surfacing '
+            'later as a synchronous repository crash.',
+      );
     });
   });
 }

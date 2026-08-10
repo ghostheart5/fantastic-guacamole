@@ -1,12 +1,19 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - launchApp:
     clearState: true
     stopApp: true
-- tapOn: "NEXT"
+- extendedWaitUntil:
+    visible:
+      id: "onboarding-next"
+    timeout: 60000
+- tapOn:
+    id: "onboarding-next"
 - stopApp
 - launchApp:
     clearState: false
     stopApp: true
-- assertVisible:
-    text: "START SETUP"
+- extendedWaitUntil:
+    visible:
+      id: "onboarding-start-setup"
+    timeout: 60000

@@ -1,12 +1,13 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../_common/go_to_smart_planner.yaml
 - tapOn:
-    text: "Share your current context, friction, or outcome..."
+    id: "smart-planner-context-input"
 - eraseText
 - inputText: "I need a very long planning prompt that checks if the app handles long text without crashing. I want a prioritization strategy with phased actions, fallback plans, and constraints for sleep, work, meals, communication, and execution discipline across this week."
+- hideKeyboard
 - tapOn:
-    text: "Get insight"
+    id: "smart-planner-submit"
 - assertVisible:
     text: "SMART INSIGHT"
     optional: true

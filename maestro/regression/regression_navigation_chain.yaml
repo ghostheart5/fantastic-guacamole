@@ -1,4 +1,4 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../smoke/navigation_works.yaml
 - runFlow: ../timeline/timeline_filters.yaml

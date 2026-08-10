@@ -14,23 +14,26 @@ void main() {
       await SharedPrefsService.init();
     });
 
-    test('tutorial providers can be read and container disposes safely', () async {
-      final ProviderContainer container = ProviderContainer();
-      addTearDown(container.dispose);
+    test(
+      'tutorial providers can be read and container disposes safely',
+      () async {
+        final ProviderContainer container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      final repository = container.read(tutorialRepositoryProvider);
-      final analytics = container.read(tutorialAnalyticsProvider);
-      final controller = container.read(tutorialControllerProvider);
-      final resetService = container.read(tutorialResetServiceProvider);
-      final progress = await container.read(tutorialProgressProvider.future);
+        final repository = container.read(tutorialRepositoryProvider);
+        final analytics = container.read(tutorialAnalyticsProvider);
+        final controller = container.read(tutorialControllerProvider);
+        final resetService = container.read(tutorialResetServiceProvider);
+        final progress = await container.read(tutorialProgressProvider.future);
 
-      expect(repository, isNotNull);
-      expect(analytics, isNotNull);
-      expect(controller, isNotNull);
-      expect(resetService, isNotNull);
-      expect(progress.contentVersion, greaterThan(0));
+        expect(repository, isNotNull);
+        expect(analytics, isNotNull);
+        expect(controller, isNotNull);
+        expect(resetService, isNotNull);
+        expect(progress.contentVersion, greaterThan(0));
 
-      expect(() => container.dispose(), returnsNormally);
-    });
+        expect(() => container.dispose(), returnsNormally);
+      },
+    );
   });
 }

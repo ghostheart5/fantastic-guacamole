@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -31,14 +31,8 @@ void main() {
   group('ChronoSpark core feature architecture', () {
     test('required user-facing feature areas exist', () {
       final requiredFeatures = <String, List<String>>{
-        'Nexus': [
-          'lib/features/nexus',
-          'lib/nexus',
-        ],
-        'Creator': [
-          'lib/features/creator',
-          'lib/creator',
-        ],
+        'Nexus': ['lib/features/nexus', 'lib/nexus'],
+        'Creator': ['lib/features/creator', 'lib/creator'],
         'Smart Planner': [
           'lib/features/smart_coach',
           'lib/features/coach',
@@ -46,19 +40,13 @@ void main() {
           'lib/smart_coach',
           'lib/coach',
         ],
-        'Timeline': [
-          'lib/features/timeline',
-          'lib/timeline',
-        ],
+        'Timeline': ['lib/features/timeline', 'lib/timeline'],
         'Profile': [
           'lib/features/profile',
           'lib/features/settings',
           'lib/profile',
         ],
-        'Progression': [
-          'lib/features/progression',
-          'lib/progression',
-        ],
+        'Progression': ['lib/features/progression', 'lib/progression'],
         'Trajectory Engine': [
           'lib/features/trajectory_engine',
           'lib/features/trajectory',
@@ -83,7 +71,8 @@ void main() {
       expect(
         missing,
         isEmpty,
-        reason: 'Missing required user-facing ChronoSpark feature folders: $missing',
+        reason:
+            'Missing required user-facing ChronoSpark feature folders: $missing',
       );
     });
 
@@ -102,13 +91,15 @@ void main() {
       expect(
         allLib.contains('BottomNavigationBar('),
         isFalse,
-        reason: 'BottomNavigationBar still exists. ChronoSpark should route through Nexus Action Hub.',
+        reason:
+            'BottomNavigationBar still exists. ChronoSpark should route through Nexus Action Hub.',
       );
 
       expect(
         allLib.contains('NavigationDestination('),
         isFalse,
-        reason: 'NavigationDestination still exists. ChronoSpark should route through Nexus Action Hub.',
+        reason:
+            'NavigationDestination still exists. ChronoSpark should route through Nexus Action Hub.',
       );
     });
 
@@ -125,7 +116,9 @@ void main() {
         'SI Console',
       ];
 
-      final missing = requiredLabels.where((label) => !allLib.contains(label)).toList();
+      final missing = requiredLabels
+          .where((label) => !allLib.contains(label))
+          .toList();
 
       final bool hasActionHubMarker =
           allLib.contains('NavigationShell') ||
@@ -135,35 +128,41 @@ void main() {
       expect(
         hasActionHubMarker,
         isTrue,
-        reason: 'Expected action-hub style navigation marker missing from source.',
+        reason:
+            'Expected action-hub style navigation marker missing from source.',
       );
 
       expect(
         missing,
         isEmpty,
-        reason: 'Nexus Action Hub appears to be missing destination labels: $missing',
+        reason:
+            'Nexus Action Hub appears to be missing destination labels: $missing',
       );
     });
 
-    test('internal engine concepts are not exposed as standalone nav destinations', () {
-      final allLib = readAllDartUnder('lib');
+    test(
+      'internal engine concepts are not exposed as standalone nav destinations',
+      () {
+        final allLib = readAllDartUnder('lib');
 
-      final forbiddenScreenNames = <String>[
-        'MemoriesScreen',
-        'MemoryScreen',
-        'InsightsScreen',
-        'InsightScreen',
-        'FlowMapScreen',
-      ];
+        final forbiddenScreenNames = <String>[
+          'MemoriesScreen',
+          'MemoryScreen',
+          'InsightsScreen',
+          'InsightScreen',
+          'FlowMapScreen',
+        ];
 
-      final found = forbiddenScreenNames.where(allLib.contains).toList();
+        final found = forbiddenScreenNames.where(allLib.contains).toList();
 
-      expect(
-        found,
-        isEmpty,
-        reason: 'Internal engine concepts should not be standalone user-facing screens: $found',
-      );
-    });
+        expect(
+          found,
+          isEmpty,
+          reason:
+              'Internal engine concepts should not be standalone user-facing screens: $found',
+        );
+      },
+    );
   });
 
   group('Tutorial feature wiring', () {
@@ -184,27 +183,28 @@ void main() {
         'lib/tutorial/widgets/show_me_again_button.dart',
       ];
 
-      final missing = requiredFiles.where((path) => !File(path).existsSync()).toList();
+      final missing = requiredFiles
+          .where((path) => !File(path).existsSync())
+          .toList();
 
-      expect(
-        missing,
-        isEmpty,
-        reason: 'Missing tutorial files: $missing',
-      );
+      expect(missing, isEmpty, reason: 'Missing tutorial files: $missing');
     });
 
-    test('tutorial progress model is wired through provider and repository', () {
-      final provider = read('lib/tutorial/tutorial_provider.dart');
-      final repository = read('lib/tutorial/tutorial_repository.dart');
-      final progress = read('lib/tutorial/tutorial_progress_store.dart');
+    test(
+      'tutorial progress model is wired through provider and repository',
+      () {
+        final provider = read('lib/tutorial/tutorial_provider.dart');
+        final repository = read('lib/tutorial/tutorial_repository.dart');
+        final progress = read('lib/tutorial/tutorial_progress_store.dart');
 
-      expect(progress.contains('class TutorialProgress'), isTrue);
-      expect(provider.contains('tutorialProgressProvider'), isTrue);
-      expect(provider.contains('TutorialProgressController'), isTrue);
-      expect(repository.contains('loadProgress'), isTrue);
-      expect(repository.contains('saveProgress'), isTrue);
-      expect(repository.contains('TutorialProgress.fromJson'), isTrue);
-    });
+        expect(progress.contains('class TutorialProgress'), isTrue);
+        expect(provider.contains('tutorialProgressProvider'), isTrue);
+        expect(provider.contains('TutorialProgressController'), isTrue);
+        expect(repository.contains('loadProgress'), isTrue);
+        expect(repository.contains('saveProgress'), isTrue);
+        expect(repository.contains('TutorialProgress.fromJson'), isTrue);
+      },
+    );
 
     test('tutorial overlay is wired to controller and target registry', () {
       final overlay = read('lib/tutorial/tutorial_overlay.dart');

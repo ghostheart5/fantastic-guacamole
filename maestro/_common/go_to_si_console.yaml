@@ -1,12 +1,12 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../_common/open_navigation_map.yaml
 - tapOn:
-    text: "Settings"
-    optional: true
+    id: "nav-nexus"
+- scrollUntilVisible:
+    element:
+      id: "nexus-action-si-console"
+    direction: DOWN
+    timeout: 30000
 - tapOn:
-    text: "SI Console"
-    optional: true
-- assertVisible:
-    text: "Mission control is aligned"
-    optional: true
+    id: "nexus-action-si-console"

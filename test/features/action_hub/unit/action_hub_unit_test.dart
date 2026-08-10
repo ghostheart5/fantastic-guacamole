@@ -17,7 +17,11 @@ void main() {
     });
 
     test('SIState.copyWith preserves invariant clamps', () {
-      const SIState base = SIState(energy: 0.4, fatigue: 0.6, completedToday: 2);
+      const SIState base = SIState(
+        energy: 0.4,
+        fatigue: 0.6,
+        completedToday: 2,
+      );
       final SIState updated = base.copyWith(
         energy: 9,
         fatigue: -2,
@@ -30,4 +34,3 @@ void main() {
     });
   });
 }
-

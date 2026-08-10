@@ -174,274 +174,283 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         .where((TimelineEventEntity event) => event.isUpcoming)
         .length;
 
-    return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgProgression,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: CustomScrollView(
-            slivers: <Widget>[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: Row(
-                    children: [
-                      SmartPressable(
-                        onTap: () =>
-                            ref.read(appFlowProvider.notifier).toNexus(),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppColors.neonViolet.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: AppColors.neonViolet.withValues(
-                                alpha: 0.3,
-                              ),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.arrow_back_ios_new,
-                            color: AppColors.neonViolet,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [
-                                AppColors.neonViolet,
-                                AppColors.neonCyan,
-                              ],
-                            ).createShader(bounds),
-                            child: const Text(
-                              'Timeline',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          const Text(
-                            'Review your scheduled items and progress',
-                            style: TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 0.5,
-                              color: Colors.white38,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 14)),
-              if (showFirstActionUnlockBanner)
+    return Semantics(
+      identifier: 'screen-timeline',
+      container: true,
+      child: AnimatedSystemBackground(
+        backgroundAssetPath: AppAssets.bgProgression,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            child: CustomScrollView(
+              slivers: <Widget>[
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                    child: _TimelineUnlockBanner(
-                      hasActionableTimelineItem: hasActionableTimelineItem,
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: Row(
+                      children: [
+                        SmartPressable(
+                          onTap: () =>
+                              ref.read(appFlowProvider.notifier).toNexus(),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppColors.neonViolet.withValues(
+                                alpha: 0.08,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppColors.neonViolet.withValues(
+                                  alpha: 0.3,
+                                ),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.arrow_back_ios_new,
+                              color: AppColors.neonViolet,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [
+                                  AppColors.neonViolet,
+                                  AppColors.neonCyan,
+                                ],
+                              ).createShader(bounds),
+                              child: const Text(
+                                'Timeline',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const Text(
+                              'Review your scheduled items and progress',
+                              style: TextStyle(
+                                fontSize: 10,
+                                letterSpacing: 0.5,
+                                color: Colors.white38,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: _TodaySummaryCard(
-                    todayCount: todayTimelineEvents.length,
-                    upcomingCount: upcomingCount,
-                    overdueCount: overdueCount,
-                    completedCount: timelineCompletedEvents.length,
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 10)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: TextField(
-                    onChanged: (String value) {
-                      _searchDebounce?.cancel();
-                      _searchDebounce = Timer(
-                        const Duration(milliseconds: 180),
-                        () {
-                          if (mounted) setState(() => _query = value);
-                        },
-                      );
-                    },
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Search timeline...',
-                      hintStyle: const TextStyle(color: Colors.white38),
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                        color: Colors.white38,
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xAA091427),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: AppColors.neonViolet.withValues(alpha: 0.25),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.neonCyan),
+                const SliverToBoxAdapter(child: SizedBox(height: 14)),
+                if (showFirstActionUnlockBanner)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                      child: _TimelineUnlockBanner(
+                        hasActionableTimelineItem: hasActionableTimelineItem,
                       ),
                     ),
                   ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 10)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: _WindowChips(
-                    selected: _window,
-                    onSelect: (_TimelineWindow value) =>
-                        setState(() => _window = value),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                    child: _TodaySummaryCard(
+                      todayCount: todayTimelineEvents.length,
+                      upcomingCount: upcomingCount,
+                      overdueCount: overdueCount,
+                      completedCount: timelineCompletedEvents.length,
+                    ),
                   ),
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: <Widget>[
-                      const Text(
-                        'Window',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 10,
-                          letterSpacing: 0.8,
-                          fontWeight: FontWeight.w700,
+                const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                    child: TextField(
+                      onChanged: (String value) {
+                        _searchDebounce?.cancel();
+                        _searchDebounce = Timer(
+                          const Duration(milliseconds: 180),
+                          () {
+                            if (mounted) setState(() => _query = value);
+                          },
+                        );
+                      },
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Search timeline...',
+                        hintStyle: const TextStyle(color: Colors.white38),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          color: Colors.white38,
                         ),
-                      ),
-                      SmartPressable(
-                        onTap: () => setState(
-                          () => _showMoreFilters = !_showMoreFilters,
+                        filled: true,
+                        fillColor: const Color(0xAA091427),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AppColors.neonViolet.withValues(alpha: 0.25),
+                          ),
                         ),
-                        child: Text(
-                          _showMoreFilters ? 'Hide filters' : 'More filters',
-                          style: const TextStyle(
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
                             color: AppColors.neonCyan,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              if (_showMoreFilters) ...<Widget>[
+                const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                    child: _WindowChips(
+                      selected: _window,
+                      onSelect: (_TimelineWindow value) =>
+                          setState(() => _window = value),
+                    ),
+                  ),
+                ),
                 const SliverToBoxAdapter(child: SizedBox(height: 8)),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                    child: _FocusChips(
-                      selected: _focus,
-                      onSelect: (_TimelineFocus value) =>
-                          setState(() => _focus = value),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: <Widget>[
+                        const Text(
+                          'Window',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 10,
+                            letterSpacing: 0.8,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SmartPressable(
+                          onTap: () => setState(
+                            () => _showMoreFilters = !_showMoreFilters,
+                          ),
+                          child: Text(
+                            _showMoreFilters ? 'Hide filters' : 'More filters',
+                            style: const TextStyle(
+                              color: AppColors.neonCyan,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                ),
+                if (_showMoreFilters) ...<Widget>[
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      child: _FocusChips(
+                        selected: _focus,
+                        onSelect: (_TimelineFocus value) =>
+                            setState(() => _focus = value),
+                      ),
+                    ),
+                  ),
+                ],
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                if (filtered.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xAA091427),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.12),
+                          ),
+                        ),
+                        child: const Text(
+                          'No items match this view.\n\nTry another window, clear filters, or create something in Creator.\n\nCreate a task, routine, goal, or note in Creator, then schedule it to see it here.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white60,
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((ctx, i) {
+                        final DateTime day = days[i];
+                        final List<TimelineEventEntity> dayEvents =
+                            grouped[day]!;
+                        final String dayLabel = _timelineDayLabel(day, now);
+                        final String itemLabel = dayEvents.length == 1
+                            ? '1 item'
+                            : '${dayEvents.length} items';
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    dayLabel,
+                                    style: const TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 11,
+                                      letterSpacing: 1.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    itemLabel,
+                                    style: const TextStyle(
+                                      color: Colors.white30,
+                                      fontSize: 10,
+                                      letterSpacing: 0.8,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ...dayEvents.map(
+                              (TimelineEventEntity event) =>
+                                  _TimelineEventTile(event: event),
+                            ),
+                          ],
+                        );
+                      }, childCount: days.length),
+                    ),
+                  ),
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
+                    child: _TimelineHelperPanel(),
                   ),
                 ),
               ],
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              if (filtered.isEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xAA091427),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12),
-                        ),
-                      ),
-                      child: const Text(
-                        'No items match this view.\n\nTry another window, clear filters, or create something in Creator.\n\nCreate a task, routine, goal, or note in Creator, then schedule it to see it here.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white60,
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate((ctx, i) {
-                      final DateTime day = days[i];
-                      final List<TimelineEventEntity> dayEvents = grouped[day]!;
-                      final String dayLabel = _timelineDayLabel(day, now);
-                      final String itemLabel = dayEvents.length == 1
-                          ? '1 item'
-                          : '${dayEvents.length} items';
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Row(
-                              children: [
-                                Text(
-                                  dayLabel,
-                                  style: const TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 11,
-                                    letterSpacing: 1.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  itemLabel,
-                                  style: const TextStyle(
-                                    color: Colors.white30,
-                                    fontSize: 10,
-                                    letterSpacing: 0.8,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          ...dayEvents.map(
-                            (TimelineEventEntity event) =>
-                                _TimelineEventTile(event: event),
-                          ),
-                        ],
-                      );
-                    }, childCount: days.length),
-                  ),
-                ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
-                  child: _TimelineHelperPanel(),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

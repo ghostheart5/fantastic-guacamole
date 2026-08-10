@@ -20,16 +20,15 @@ void main() {
     });
 
     test('result parser maps typed payload', () {
-      final PurchaseVerificationResult result = PurchaseVerificationResult.fromJson(
-        <String, dynamic>{
-          'valid': true,
-          'productId': 'chronospark_premium_monthly',
-          'planId': 'premium_monthly',
-          'creditsGranted': 0,
-          'orderId': 'order-1',
-          'expiryTimeMs': 123,
-        },
-      );
+      final PurchaseVerificationResult result =
+          PurchaseVerificationResult.fromJson(<String, dynamic>{
+            'valid': true,
+            'productId': 'chronospark_premium_monthly',
+            'planId': 'premium_monthly',
+            'creditsGranted': 0,
+            'orderId': 'order-1',
+            'expiryTimeMs': 123,
+          });
 
       expect(result.valid, isTrue);
       expect(result.productId, 'chronospark_premium_monthly');
@@ -38,11 +37,12 @@ void main() {
     });
 
     test('mode resolver keeps release as production', () {
-      final PurchaseVerificationMode mode = resolvePurchaseVerificationModeFromFlags(
-        isReleaseMode: true,
-        isProduction: false,
-        isPaywallDisabled: true,
-      );
+      final PurchaseVerificationMode mode =
+          resolvePurchaseVerificationModeFromFlags(
+            isReleaseMode: true,
+            isProduction: false,
+            isPaywallDisabled: true,
+          );
       expect(mode, PurchaseVerificationMode.production);
     });
   });

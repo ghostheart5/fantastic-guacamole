@@ -23,20 +23,25 @@ void main() {
       );
     });
 
-    test('removes session and credentials when expiresAt is in the past', () async {
-      final DateTime expired = DateTime.now().subtract(const Duration(hours: 1));
-      await store.writeString(
-        StorageKeys.session,
-        jsonEncode(<String, dynamic>{'expiresAt': expired.toIso8601String()}),
-      );
-      await store.writeString(StorageKeys.credentials, 'cred-value');
+    test(
+      'removes session and credentials when expiresAt is in the past',
+      () async {
+        final DateTime expired = DateTime.now().subtract(
+          const Duration(hours: 1),
+        );
+        await store.writeString(
+          StorageKeys.session,
+          jsonEncode(<String, dynamic>{'expiresAt': expired.toIso8601String()}),
+        );
+        await store.writeString(StorageKeys.credentials, 'cred-value');
 
-      final bool removed = await cleanup.run();
+        final bool removed = await cleanup.run();
 
-      expect(removed, isTrue);
-      expect(await store.readString(StorageKeys.session), isNull);
-      expect(await store.readString(StorageKeys.credentials), isNull);
-    });
+        expect(removed, isTrue);
+        expect(await store.readString(StorageKeys.session), isNull);
+        expect(await store.readString(StorageKeys.credentials), isNull);
+      },
+    );
 
     test('retains session when expiresAt is in the future', () async {
       final DateTime valid = DateTime.now().add(const Duration(hours: 2));
@@ -53,19 +58,26 @@ void main() {
       expect(await store.readString(StorageKeys.credentials), 'cred-value');
     });
 
-    test('removes stale session when fallback createdAt exceeds retention policy', () async {
-      final DateTime staleCreatedAt = DateTime.now().subtract(const Duration(days: 60));
-      await store.writeString(
-        StorageKeys.session,
-        jsonEncode(<String, dynamic>{'createdAt': staleCreatedAt.toIso8601String()}),
-      );
-      await store.writeString(StorageKeys.credentials, 'cred-value');
+    test(
+      'removes stale session when fallback createdAt exceeds retention policy',
+      () async {
+        final DateTime staleCreatedAt = DateTime.now().subtract(
+          const Duration(days: 60),
+        );
+        await store.writeString(
+          StorageKeys.session,
+          jsonEncode(<String, dynamic>{
+            'createdAt': staleCreatedAt.toIso8601String(),
+          }),
+        );
+        await store.writeString(StorageKeys.credentials, 'cred-value');
 
-      final bool removed = await cleanup.run();
+        final bool removed = await cleanup.run();
 
-      expect(removed, isTrue);
-      expect(await store.readString(StorageKeys.session), isNull);
-      expect(await store.readString(StorageKeys.credentials), isNull);
-    });
+        expect(removed, isTrue);
+        expect(await store.readString(StorageKeys.session), isNull);
+        expect(await store.readString(StorageKeys.credentials), isNull);
+      },
+    );
   });
 }

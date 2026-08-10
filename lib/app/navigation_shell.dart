@@ -463,26 +463,30 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
             announceIfLocked: false,
           );
           final bool locked = resolvedTarget != target;
-          return ListTile(
-            dense: true,
-            title: Text(title),
-            subtitle: Text(
-              locked ? 'Finish your first setup to continue.' : subtitle,
+          return Semantics(
+            identifier: 'nav-${target.name}',
+            button: true,
+            child: ListTile(
+              dense: true,
+              title: Text(title),
+              subtitle: Text(
+                locked ? 'Finish your first setup to continue.' : subtitle,
+              ),
+              trailing: Icon(locked ? Icons.lock_outline : Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).pop();
+
+                if (!mounted || _disposed) {
+                  return;
+                }
+
+                final AppView next = _enforceActivationView(
+                  target,
+                  announceIfLocked: true,
+                );
+                ref.read(appFlowProvider.notifier).show(next);
+              },
             ),
-            trailing: Icon(locked ? Icons.lock_outline : Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).pop();
-
-              if (!mounted || _disposed) {
-                return;
-              }
-
-              final AppView next = _enforceActivationView(
-                target,
-                announceIfLocked: true,
-              );
-              ref.read(appFlowProvider.notifier).show(next);
-            },
           );
         }
 
@@ -540,9 +544,15 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView.creator ||
       AppView.timeline ||
       AppView.profile => Scaffold(
-        floatingActionButton: FloatingActionButton.small(
-          onPressed: _showNavigationMap,
-          child: const Icon(Icons.map_outlined),
+        floatingActionButton: Semantics(
+          identifier: 'nav-open-map',
+          label: 'Open Navigation Map',
+          button: true,
+          child: FloatingActionButton.small(
+            tooltip: 'Navigation Map',
+            onPressed: _showNavigationMap,
+            child: const Icon(Icons.map_outlined),
+          ),
         ),
         body: _buildTabbedBody(tabIndex),
       ),

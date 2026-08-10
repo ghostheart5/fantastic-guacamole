@@ -82,18 +82,18 @@ void main() {
           detail: 'Close today\'s high-priority execution block.',
           timestamp: now,
           status: TimelineEventStatus.active,
-          dueAt: now.add(const Duration(hours: 2)),
+          dueAt: now,
           phase: 'task',
           relatedId: 'task-1',
         ),
         TimelineEventEntity(
-  id: 'reflection-1',
-  type: TimelineEventType.reflection,
-  title: 'Daily reflection checkpoint',
-  detail: 'Capture one lesson from today\'s effort.',
-  timestamp: now.subtract(const Duration(minutes: 15)),
-  status: TimelineEventStatus.info,
-),
+          id: 'reflection-1',
+          type: TimelineEventType.reflection,
+          title: 'Daily reflection checkpoint',
+          detail: 'Capture one lesson from today\'s effort.',
+          timestamp: now.subtract(const Duration(minutes: 15)),
+          status: TimelineEventStatus.info,
+        ),
       ];
 
       await tester.pumpWidget(
@@ -115,10 +115,20 @@ void main() {
       await tester.pump();
 
       expect(find.text('Timeline'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Ship launch checklist'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('Task'), findsWidgets);
-      
-      expect(find.text('Reflection'), findsWidgets);
       expect(find.text('Ship launch checklist'), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.text('Daily reflection checkpoint'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Reflection'), findsWidgets);
       expect(find.text('Daily reflection checkpoint'), findsOneWidget);
     });
 

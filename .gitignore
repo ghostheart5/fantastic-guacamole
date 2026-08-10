@@ -91,6 +91,10 @@ tool/staging_validation/.core_sync_rls_approved
 key.properties
 *.jks
 *.keystore
+# Firebase app configuration may be committed; service-account credentials may not.
+**/*service-account*.json
+**/*service_account*.json
+**/*firebase-adminsdk*.json
 
 ~$*.docx
 

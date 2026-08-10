@@ -78,7 +78,7 @@ String _resolveInitialLocation({
   required bool hasCompletedTimelineFirstAction,
 }) {
   if (onboardingStatus == OnboardingStatus.unknown) {
-    return RoutePaths.onboarding;
+    return RoutePaths.bootstrap;
   }
   final bool onboardingComplete = onboardingStatus == OnboardingStatus.complete;
   if (!onboardingComplete) {
@@ -104,7 +104,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final _AppRouterRefreshListenable refresh = ref.read(
     _appRouterRefreshListenableProvider,
   );
-  final bool hasAdminAccess = ref.watch(adminAccessGuardProvider);
   final String initialLocation = _resolveInitialLocation(
     isAuthenticated: refresh.isAuthenticated,
     onboardingStatus: refresh.onboardingStatus,
@@ -149,8 +148,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (startupGate == StartupRouteGate.allow) {
         return null;
       }
-      if (startupGate == StartupRouteGate.redirectToOnboarding) {
-        return RoutePaths.onboarding;
+      if (startupGate == StartupRouteGate.redirectToBootstrap) {
+        return RoutePaths.bootstrap;
       }
 
       final bool onboardingComplete =
@@ -167,6 +166,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           .flags
           .mockLoginEnabled;
       final bool hasPremiumAccess = ref.read(premiumAccessGuardProvider);
+      final bool hasAdminAccess = ref.read(adminAccessGuardProvider);
+      final bool canAccessCompletionEvents =
+          shouldRegisterCompletionEventsRoute(
+            isReleaseMode: kReleaseMode,
+            hasAdminAccess: hasAdminAccess,
+          );
       final bool qaSkipOnboarding =
           !kReleaseMode &&
           state.uri.queryParameters['qa_skip_onboarding'] == '1';
@@ -180,7 +185,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           'profile=$hasValidProfile',
         );
       }
-      if (!onboardingComplete && location != RoutePaths.onboarding) {
+      if (!onboardingComplete) {
+        if (location == RoutePaths.onboarding) {
+          return null;
+        }
         if (qaSkipOnboarding &&
             mockLoginEnabled &&
             location == RoutePaths.login) {
@@ -223,6 +231,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (location == RoutePaths.advisor && !hasAdminAccess) {
         return RoutePaths.settings;
       }
+      if (location == RoutePaths.completionEvents &&
+          !canAccessCompletionEvents) {
+        return RoutePaths.settings;
+      }
 
       if (location == RoutePaths.notificationPermissionRecovery &&
           NotificationScheduler.permissionGrantedListenable.value == true) {
@@ -242,6 +254,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: <RouteBase>[
       GoRoute(path: RoutePaths.shell, redirect: (_, _) => RoutePaths.home),
+
+      GoRoute(
+        path: RoutePaths.bootstrap,
+        builder: (BuildContext context, GoRouterState state) => Scaffold(
+          body: Center(
+            child: Semantics(
+              identifier: 'screen-bootstrap',
+              label: 'Preparing ChronoSpark',
+              child: const CircularProgressIndicator(),
+            ),
+          ),
+        ),
+      ),
 
       // Primary surfaces: Now, Plan, Add, Reflect, Settings.
       GoRoute(
@@ -316,15 +341,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (BuildContext context, GoRouterState state) =>
             const ProductAdvisorScreen(),
       ),
-      if (shouldRegisterCompletionEventsRoute(
-        isReleaseMode: kReleaseMode,
-        hasAdminAccess: hasAdminAccess,
-      ))
-        GoRoute(
-          path: RoutePaths.completionEvents,
-          builder: (BuildContext context, GoRouterState state) =>
-              const CompletionEventsDebugScreen(),
-        ),
+      GoRoute(
+        path: RoutePaths.completionEvents,
+        builder: (BuildContext context, GoRouterState state) =>
+            const CompletionEventsDebugScreen(),
+      ),
 
       // Legacy top-level routes redirect into the secondary hierarchy.
       // Sunset target is tracked in docs/LEGACY_ROUTE_SUNSET.md and reviewed by 2026-10-01.

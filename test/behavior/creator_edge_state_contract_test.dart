@@ -14,7 +14,10 @@ void main() {
 
     test('voice handoff application is deduplicated by timestamp', () {
       expect(source, contains('_lastAppliedHandoffAt'));
-      expect(source, contains('if (_lastAppliedHandoffAt == handoff.createdAt)'));
+      expect(
+        source,
+        contains('if (_lastAppliedHandoffAt == handoff.createdAt)'),
+      );
       expect(source, contains('_lastAppliedHandoffAt = handoff.createdAt'));
     });
 

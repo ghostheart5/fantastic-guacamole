@@ -49,7 +49,9 @@ void main() {
     expect(anxiousAfter.style?.color, AppColors.recallRed);
   });
 
-  testWidgets('renders one chip for every EmotionalState value', (tester) async {
+  testWidgets('renders one chip for every EmotionalState value', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(

@@ -14,7 +14,11 @@ class _FakeTutorialAssetLoader extends TutorialAssetLoader {
   @override
   Future<TutorialDefinition> load(String path) async {
     return _definitions[path] ??
-        const TutorialDefinition(id: 'missing', title: 'missing', steps: <TutorialStep>[]);
+        const TutorialDefinition(
+          id: 'missing',
+          title: 'missing',
+          steps: <TutorialStep>[],
+        );
   }
 
   @override
@@ -60,7 +64,9 @@ void main() {
   }
 
   group('TutorialOverlay widget behavior', () {
-    testWidgets('overlay host builds with a TutorialController', (WidgetTester tester) async {
+    testWidgets('overlay host builds with a TutorialController', (
+      WidgetTester tester,
+    ) async {
       final TutorialController controller = TutorialController(
         loader: _FakeTutorialAssetLoader(<String, TutorialDefinition>{
           'demo.json': twoStepDefinition(),
@@ -84,7 +90,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('overlay does not throw when tutorial is inactive', (WidgetTester tester) async {
+    testWidgets('overlay does not throw when tutorial is inactive', (
+      WidgetTester tester,
+    ) async {
       final TutorialController controller = TutorialController(
         loader: const _FakeTutorialAssetLoader(<String, TutorialDefinition>{}),
       );
@@ -106,7 +114,9 @@ void main() {
       expect(find.text('First Step'), findsNothing);
     });
 
-    testWidgets('overlay advances from tap target event to next step', (WidgetTester tester) async {
+    testWidgets('overlay advances from tap target event to next step', (
+      WidgetTester tester,
+    ) async {
       final TutorialController controller = TutorialController(
         loader: _FakeTutorialAssetLoader(<String, TutorialDefinition>{
           'demo.json': twoStepDefinition(),
@@ -147,7 +157,9 @@ void main() {
       expect(find.text('Second Step'), findsOneWidget);
     });
 
-    testWidgets('overlay handles missing target gracefully', (WidgetTester tester) async {
+    testWidgets('overlay handles missing target gracefully', (
+      WidgetTester tester,
+    ) async {
       final TutorialController controller = TutorialController(
         loader: _FakeTutorialAssetLoader(<String, TutorialDefinition>{
           'demo.json': twoStepDefinition(),

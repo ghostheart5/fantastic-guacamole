@@ -194,6 +194,9 @@ $dartDefines = [ordered]@{
     CHRONOSPARK_AI_PROXY_ENDPOINT = $envValues['CHRONOSPARK_AI_PROXY_ENDPOINT']
     CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT = $envValues['CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT']
     CHRONOSPARK_ANDROID_SHA256_CERT = $envValues['CHRONOSPARK_ANDROID_SHA256_CERT']
+    CHRONOSPARK_OAUTH_REDIRECT_URL = 'https://chronospark.app/app/auth/callback'
+    CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL = 'https://chronospark.app/app/auth/callback'
+    CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL = 'https://chronospark.app/app/auth/callback'
 }
 
 if ($envValues.ContainsKey('CHRONOSPARK_IOS_TEAM_ID')) {

@@ -1,6 +1,13 @@
 # SUPABASE INTEGRATION AUDIT
 Date: 2026-07-31
 Scope: lib/, supabase/, test/
+
+> **2026-08-09 correction:** This audit predates the core-sync implementation.
+> `tasks`, `goals`, `habits`, and `settings` now have migrations in
+> `supabase/migrations/20260804130000_create_core_sync_tables_with_rls.sql`
+> and client remote gateways under `lib/data/remote/`. The older entries below
+> that call those four tables absent or disconnected are superseded. Their live
+> deployment and authenticated round-trip behavior remain unverified.
 Mode: Read-only audit (no code changes)
 
 ## 1) Audit Method + Evidence Boundaries

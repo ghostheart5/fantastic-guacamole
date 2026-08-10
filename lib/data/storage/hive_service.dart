@@ -71,7 +71,7 @@ class HiveService {
   static bool _initialized = false;
   static SecureStore? _secureStore;
   static HiveAesCipher? _cipher;
-  static const String _cipherStoreKey = 'chronospark.hive.cipher.v1';
+  static const String cipherStoreKey = 'chronospark.hive.cipher.v1';
 
   static void configureSecureStore(SecureStore store) {
     _secureStore ??= store;
@@ -89,20 +89,16 @@ class HiveService {
         _cipher = await _loadOrCreateCipher(store);
       }
 
-      const List<String> criticalBoxes = <String>[
+      const Set<String> criticalBoxes = <String>{
         HiveBoxes.tasks,
         HiveBoxes.goals,
         HiveBoxes.habits,
         HiveBoxes.progression,
-      ];
+      };
 
-      const List<String> secondaryBoxes = <String>[
-        HiveBoxes.dailyPlans,
-        HiveBoxes.offlineQueue,
-        HiveBoxes.notifications,
-        HiveBoxes.timeline,
-        HiveBoxes.cache,
-      ];
+      final Set<String> secondaryBoxes = HiveBoxes.encryptedBoxes.difference(
+        criticalBoxes,
+      );
 
       final List<Future<void>> warmupFutures = <Future<void>>[
         ...criticalBoxes.map((String box) => _openBoxWithTelemetry(box)),
@@ -186,11 +182,12 @@ class HiveService {
       debugPrint(
         'CHRONOSPARK_HIVE_BOX_OPEN_FAILED: $box in ${boxStopwatch.elapsedMilliseconds}ms: $error',
       );
+      rethrow;
     }
   }
 
   static Future<HiveAesCipher> _loadOrCreateCipher(SecureStore store) async {
-    final String? encoded = await store.readString(_cipherStoreKey);
+    final String? encoded = await store.readString(cipherStoreKey);
     if (encoded != null && encoded.trim().isNotEmpty) {
       try {
         final List<int> bytes = base64Decode(encoded);
@@ -204,14 +201,14 @@ class HiveService {
         Logger.warn('Hive cipher payload was corrupted: $error');
       }
 
-      await store.delete(_cipherStoreKey);
+      await store.delete(cipherStoreKey);
     }
 
     final Random random = Random.secure();
     final Uint8List bytes = Uint8List.fromList(
       List<int>.generate(32, (_) => random.nextInt(256)),
     );
-    await store.writeString(_cipherStoreKey, base64Encode(bytes));
+    await store.writeString(cipherStoreKey, base64Encode(bytes));
     return HiveAesCipher(bytes);
   }
 }

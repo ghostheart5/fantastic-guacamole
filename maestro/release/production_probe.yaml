@@ -1,0 +1,19 @@
+appId: ${APP_ID}
+tags:
+  - production-safe
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- assertNotVisible:
+    text: "Route not found"
+- assertNotVisible:
+    text: "Startup blocked"
+- assertNotVisible:
+    text: "Mock login:"
+- runFlow: ../authentication/login_with_env.yaml
+- assertVisible:
+    id: "nav-open-map"
+- runFlow: ../_common/go_to_timeline.yaml
+- assertVisible:
+    id: "screen-timeline"

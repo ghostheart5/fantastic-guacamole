@@ -40,7 +40,9 @@ class _StaticNotificationPermissionNotifier
 
 void main() {
   group('settings screen golden', () {
-    testWidgets('settings screen matches baseline', (WidgetTester tester) async {
+    testWidgets('settings screen matches baseline', (
+      WidgetTester tester,
+    ) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 

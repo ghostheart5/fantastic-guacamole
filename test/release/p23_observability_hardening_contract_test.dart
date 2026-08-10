@@ -14,15 +14,32 @@ void main() {
 
       expect(text.contains('runZonedGuarded(() async {'), isTrue);
       expect(text.contains('FlutterError.onError = (errorDetails) {'), isTrue);
-      expect(text.contains('PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {'), isTrue);
+      expect(
+        text.contains(
+          'PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {',
+        ),
+        isTrue,
+      );
       expect(text.contains('RuntimeDiagnostics.record('), isTrue);
       expect(text.contains('ErrorBoundary.reportGlobalError('), isTrue);
-      expect(text.contains('FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);'), isTrue);
-      expect(text.contains('FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);'), isTrue);
+      expect(
+        text.contains(
+          'FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);',
+        ),
+        isTrue,
+      );
+      expect(
+        text.contains(
+          'FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);',
+        ),
+        isTrue,
+      );
     });
 
     test('voice telemetry event spine remains present in smart coach', () {
-      final File coachFile = File('lib/features/home/ui/smart_coach_screen.dart');
+      final File coachFile = File(
+        'lib/features/home/ui/smart_coach_screen.dart',
+      );
       expect(coachFile.existsSync(), isTrue);
 
       final String text = SourceTestUtils.readText(coachFile);
@@ -37,15 +54,37 @@ void main() {
     });
 
     test('session recovery failures are observable but non-fatal', () {
-      final File sessionFile = File('lib/state/services/session_recovery_service.dart');
+      final File sessionFile = File(
+        'lib/state/services/session_recovery_service.dart',
+      );
       expect(sessionFile.existsSync(), isTrue);
 
       final String text = SourceTestUtils.readText(sessionFile);
 
-      expect(text.contains('Logger.warn(\'Session recovery: saveState failed (non-fatal).\');'), isTrue);
-      expect(text.contains('Logger.warn(\'Session recovery: loadState failed (non-fatal).\');'), isTrue);
-      expect(text.contains('Logger.warn(\'Session recovery: clearDraft failed (non-fatal).\');'), isTrue);
-      expect(text.contains('Logger.warn(\'Session recovery: clearAll failed (non-fatal).\');'), isTrue);
+      expect(
+        text.contains(
+          'Logger.warn(\'Session recovery: saveState failed (non-fatal).\');',
+        ),
+        isTrue,
+      );
+      expect(
+        text.contains(
+          'Logger.warn(\'Session recovery: loadState failed (non-fatal).\');',
+        ),
+        isTrue,
+      );
+      expect(
+        text.contains(
+          'Logger.warn(\'Session recovery: clearDraft failed (non-fatal).\');',
+        ),
+        isTrue,
+      );
+      expect(
+        text.contains(
+          'Logger.warn(\'Session recovery: clearAll failed (non-fatal).\');',
+        ),
+        isTrue,
+      );
       expect(text.contains('RuntimeDiagnostics.record('), isTrue);
       expect(text.contains('return null;'), isTrue);
     });

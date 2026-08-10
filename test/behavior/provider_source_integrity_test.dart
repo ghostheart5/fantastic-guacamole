@@ -18,7 +18,8 @@ void main() {
       return false;
     }
     final bool inProviderFolder = lower.contains('/providers/');
-    final bool namedProviderFile = lower.endsWith('_provider.dart') || lower.endsWith('providers.dart');
+    final bool namedProviderFile =
+        lower.endsWith('_provider.dart') || lower.endsWith('providers.dart');
     return inProviderFolder || namedProviderFile;
   }
 
@@ -40,7 +41,11 @@ void main() {
         }
       }
 
-      expect(missing, isEmpty, reason: 'Provider-like files without provider declarations: $missing');
+      expect(
+        missing,
+        isEmpty,
+        reason: 'Provider-like files without provider declarations: $missing',
+      );
     });
 
     test('provider files do not contain placeholder providers', () {
@@ -61,7 +66,11 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Provider files contain placeholder markers: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Provider files contain placeholder markers: $offenders',
+      );
     });
 
     test('provider files avoid importing screens directly', () {
@@ -74,17 +83,27 @@ void main() {
           continue;
         }
         final String text = SourceTestUtils.readText(file);
-        final List<String> imports = SourceTestUtils.regexStrings(text, importLine, 1);
+        final List<String> imports = SourceTestUtils.regexStrings(
+          text,
+          importLine,
+          1,
+        );
         final bool importsUi = imports.any((String value) {
           final String l = value.toLowerCase();
-          return l.contains('/screen') || l.contains('/page') || l.contains('/widget');
+          return l.contains('/screen') ||
+              l.contains('/page') ||
+              l.contains('/widget');
         });
         if (importsUi) {
           offenders.add(SourceTestUtils.normalizePath(file.path));
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Provider files should not import UI directly: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Provider files should not import UI directly: $offenders',
+      );
     });
 
     test('duplicate provider variable names are detected', () {
@@ -106,7 +125,11 @@ void main() {
         }
       }
 
-      expect(duplicates, isEmpty, reason: 'Duplicate provider names detected: $duplicates');
+      expect(
+        duplicates,
+        isEmpty,
+        reason: 'Duplicate provider names detected: $duplicates',
+      );
     });
   });
 }

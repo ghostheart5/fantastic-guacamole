@@ -10,7 +10,78 @@ on:
   workflow_dispatch:
 
 jobs:
+  database-gate:
+    uses: ./.github/workflows/supabase-database.yml
+
+  public-infrastructure-gate:
+    runs-on: ubuntu-latest
+    env:
+      PLAY_APP_SIGNING_SHA256: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
+    steps:
+      - name: Verify legal pages, account deletion, and Android App Links
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from urllib.request import Request, urlopen
+
+          def fetch(url: str) -> bytes:
+              request = Request(url, headers={'User-Agent': 'ChronoSpark-Release-Gate/1.0'})
+              with urlopen(request, timeout=20) as response:
+                  if response.status != 200:
+                      raise RuntimeError(f'{url} returned HTTP {response.status}')
+                  return response.read()
+
+          required_pages = {
+              'https://ghostheart5.github.io/fantastic-guacamole/privacy/':
+                  ('ChronoSpark Privacy Policy', 'account-deletion page'),
+              'https://ghostheart5.github.io/fantastic-guacamole/terms/':
+                  ('ChronoSpark Terms of Service', 'does not automatically cancel'),
+              'https://ghostheart5.github.io/fantastic-guacamole/support/':
+                  ('ChronoSpark Support', 'account-deletion page'),
+              'https://ghostheart5.github.io/fantastic-guacamole/delete-account/':
+                  ('Delete a ChronoSpark Account', 'Request deletion without the app'),
+              'https://chronospark.app/app/auth/callback':
+                  ('Return to ChronoSpark', 'never displays or sends authentication parameters'),
+          }
+          for url, markers in required_pages.items():
+              body = fetch(url).decode('utf-8')
+              missing = [marker for marker in markers if marker not in body]
+              if missing:
+                  raise RuntimeError(f'{url} is missing required markers: {missing}')
+
+          expected = re.sub(
+              r'[^0-9A-F]',
+              '',
+              os.environ.get('PLAY_APP_SIGNING_SHA256', '').upper(),
+          )
+          if len(expected) != 64:
+              raise RuntimeError(
+                  'CHRONOSPARK_ANDROID_SHA256_CERT must contain the Play App Signing SHA-256 fingerprint'
+              )
+
+          statements = json.loads(
+              fetch('https://chronospark.app/.well-known/assetlinks.json')
+          )
+          fingerprints = {
+              re.sub(r'[^0-9A-F]', '', fingerprint.upper())
+              for statement in statements
+              if statement.get('target', {}).get('namespace') == 'android_app'
+              and statement.get('target', {}).get('package_name')
+                  == 'com.ghostheart5.chronospark'
+              for fingerprint in statement.get('target', {}).get(
+                  'sha256_cert_fingerprints', []
+              )
+          }
+          if expected not in fingerprints:
+              raise RuntimeError(
+                  'chronospark.app does not publish the configured Play App Signing SHA-256 fingerprint'
+              )
+          PY
+
   build-aab:
+    needs: [database-gate, public-infrastructure-gate]
     runs-on: ubuntu-latest
     env:
       ANDROID_GOOGLE_SERVICES_JSON_BASE64_SECRET: ANDROID_GOOGLE_SERVICES_JSON_BASE64
@@ -21,7 +92,6 @@ jobs:
       CHRONOSPARK_AI_PROXY_ENDPOINT_SECRET: CHRONOSPARK_AI_PROXY_ENDPOINT
       CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT_SECRET: CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT
       CHRONOSPARK_ANDROID_SHA256_CERT_SECRET: CHRONOSPARK_ANDROID_SHA256_CERT
-      CHRONOSPARK_IOS_TEAM_ID_SECRET: CHRONOSPARK_IOS_TEAM_ID
 
     steps:
       - uses: actions/checkout@v5
@@ -31,12 +101,27 @@ jobs:
         with:
           channel: stable
 
+      - name: Write client configuration asset
+        env:
+          SUPABASE_URL: ${{ secrets[env.CHRONOSPARK_SUPABASE_URL_SECRET] }}
+          SUPABASE_ANON_KEY: ${{ secrets[env.CHRONOSPARK_SUPABASE_ANON_KEY_SECRET] }}
+        run: |
+          [ -n "$SUPABASE_URL" ] || { echo "::error::CHRONOSPARK_SUPABASE_URL is required for release."; exit 1; }
+          [ -n "$SUPABASE_ANON_KEY" ] || { echo "::error::CHRONOSPARK_SUPABASE_ANON_KEY is required for release."; exit 1; }
+          cat > .env << EOF
+          CHRONOSPARK_SUPABASE_URL=$SUPABASE_URL
+          CHRONOSPARK_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+          EOF
+
       - name: Install dependencies
         run: flutter pub get
 
       - name: Run security secret guard
         shell: pwsh
         run: ./scripts/security_secret_guard.ps1
+
+      - name: Analyze Dart code
+        run: flutter analyze
 
       - name: Decode keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
@@ -110,22 +195,62 @@ jobs:
           AI_ENDPOINT: ${{ secrets[env.CHRONOSPARK_AI_PROXY_ENDPOINT_SECRET] }}
           DELETE_ENDPOINT: ${{ secrets[env.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT_SECRET] }}
           ANDROID_SHA256: ${{ secrets[env.CHRONOSPARK_ANDROID_SHA256_CERT_SECRET] }}
-          IOS_TEAM_ID: ${{ secrets[env.CHRONOSPARK_IOS_TEAM_ID_SECRET] }}
         run: |
           [ -n "$SUPABASE_URL" ] || { echo "::error::CHRONOSPARK_SUPABASE_URL is required for release."; exit 1; }
           [ -n "$SUPABASE_ANON_KEY" ] || { echo "::error::CHRONOSPARK_SUPABASE_ANON_KEY is required for release."; exit 1; }
           [ -n "$RECEIPT_ENDPOINT" ] || { echo "::error::CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT is required for release."; exit 1; }
           [ -n "$AI_ENDPOINT" ] || { echo "::error::CHRONOSPARK_AI_PROXY_ENDPOINT is required for release."; exit 1; }
           [ -n "$DELETE_ENDPOINT" ] || { echo "::error::CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT is required for release."; exit 1; }
-          [ -n "$ANDROID_SHA256" ] || { echo "::error::CHRONOSPARK_ANDROID_SHA256_CERT is required for release."; exit 1; }
-          [ -n "$IOS_TEAM_ID" ] || { echo "::error::CHRONOSPARK_IOS_TEAM_ID is required for release."; exit 1; }
+          [ -n "$ANDROID_SHA256" ] || { echo "::error::CHRONOSPARK_ANDROID_SHA256_CERT must contain the Google Play App Signing SHA-256 fingerprint."; exit 1; }
           echo "PROD_READINESS=true" >> "$GITHUB_ENV"
+
+      - name: Verify Play signing certificate is published for App Links
+        env:
+          PLAY_APP_SIGNING_SHA256: ${{ secrets[env.CHRONOSPARK_ANDROID_SHA256_CERT_SECRET] }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          def normalize(value: str) -> str:
+              return re.sub(r'[^0-9A-F]', '', value.upper())
+
+          expected = normalize(os.environ['PLAY_APP_SIGNING_SHA256'])
+          if len(expected) != 64:
+              raise SystemExit(
+                  '::error::CHRONOSPARK_ANDROID_SHA256_CERT must be a 32-byte SHA-256 fingerprint from Play Console > App integrity.'
+              )
+
+          statements = json.loads(
+              Path('web/.well-known/assetlinks.json').read_text(encoding='utf-8')
+          )
+          fingerprints = {
+              normalize(fingerprint)
+              for statement in statements
+              if statement.get('target', {}).get('namespace') == 'android_app'
+              and statement.get('target', {}).get('package_name')
+                  == 'com.ghostheart5.chronospark'
+              for fingerprint in statement.get('target', {}).get(
+                  'sha256_cert_fingerprints', []
+              )
+          }
+          if expected not in fingerprints:
+              raise SystemExit(
+                  '::error::The Play App Signing SHA-256 fingerprint is missing from web/.well-known/assetlinks.json.'
+              )
+          PY
+
+      - name: Run tests
+        run: flutter test
 
       - name: Build signed AAB
         run: >-
           flutter build appbundle --release
           --dart-define=CHRONOSPARK_APP_FLAVOR=prod
           --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true
+          --dart-define=CHRONOSPARK_MAESTRO_MODE=false
           --dart-define=CHRONOSPARK_ENABLE_MOCK_LOGIN=false
           --dart-define=CHRONOSPARK_ENABLE_MOCK_MODE=false
           --dart-define=CHRONOSPARK_PAYWALL_DISABLED=false
@@ -136,7 +261,9 @@ jobs:
           --dart-define=CHRONOSPARK_AI_PROXY_ENDPOINT=${{ secrets[env.CHRONOSPARK_AI_PROXY_ENDPOINT_SECRET] }}
           --dart-define=CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=${{ secrets[env.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT_SECRET] }}
           --dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=${{ secrets[env.CHRONOSPARK_ANDROID_SHA256_CERT_SECRET] }}
-          --dart-define=CHRONOSPARK_IOS_TEAM_ID=${{ secrets[env.CHRONOSPARK_IOS_TEAM_ID_SECRET] }}
+          --dart-define=CHRONOSPARK_OAUTH_REDIRECT_URL=https://chronospark.app/app/auth/callback
+          --dart-define=CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL=https://chronospark.app/app/auth/callback
+          --dart-define=CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL=https://chronospark.app/app/auth/callback
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4

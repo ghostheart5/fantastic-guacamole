@@ -27,7 +27,10 @@ void main() {
         r'coverage\s+only',
         caseSensitive: false,
       );
-      final RegExp skipTruePattern = RegExp(r'skip\s*:\s*true', caseSensitive: false);
+      final RegExp skipTruePattern = RegExp(
+        r'skip\s*:\s*true',
+        caseSensitive: false,
+      );
       final RegExp skipEmptyReasonPattern = RegExp(
         r'''skip\s*:\s*['"]\s*['"]''',
         caseSensitive: false,
@@ -58,8 +61,11 @@ void main() {
           issues.add('$normalized contains coverage-only wording.');
         }
 
-        if (skipTruePattern.hasMatch(content) || skipEmptyReasonPattern.hasMatch(content)) {
-          issues.add('$normalized has skipped tests without an explicit reason string.');
+        if (skipTruePattern.hasMatch(content) ||
+            skipEmptyReasonPattern.hasMatch(content)) {
+          issues.add(
+            '$normalized has skipped tests without an explicit reason string.',
+          );
         }
 
         final bool pumpsWidget = content.contains('pumpWidget(');
@@ -73,8 +79,9 @@ void main() {
             content.contains('package:fantastic_guacamole/') ||
             content.contains("import '../") ||
             content.contains('import "../');
-        final bool requiresLibReference =
-            normalized.contains('test/coverage_expansion/');
+        final bool requiresLibReference = normalized.contains(
+          'test/coverage_expansion/',
+        );
 
         if (requiresLibReference && !referencesLib) {
           issues.add('$normalized does not reference application lib code.');

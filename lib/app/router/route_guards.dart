@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
+import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
@@ -31,6 +32,9 @@ final authenticatedGuardProvider = Provider<bool>((ref) {
 });
 
 final profileCompleteGuardProvider = Provider<bool>((ref) {
+  if (Env.maestroMode) {
+    return true;
+  }
   final profile = ref.watch(profileProvider);
   return profile.hasValidProfile;
 });

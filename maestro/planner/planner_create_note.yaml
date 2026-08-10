@@ -1,4 +1,4 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../authentication/login_with_env.yaml
 - runFlow: ../_common/go_to_creator.yaml
@@ -7,9 +7,15 @@ appId: com.keeganradetski.chronospark
 - tapOn:
     text: "Item title *"
 - inputText: "Maestro Note"
+- hideKeyboard
 - tapOn:
     text: "Notes or details (optional)"
 - inputText: "Note body from maestro"
-- tapOn:
-    text: "Create"
-    optional: true
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "Create item"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "Create item"
+- assertVisible: "Note saved."

@@ -103,8 +103,10 @@ end_of_record
 ''';
 
       final _LcovSummary summary = _LcovParser.parse(sample);
-      final tutorial = summary.fileCoverage['lib/tutorial/tutorial_repository.dart'];
-      final auth = summary.fileCoverage['lib/features/auth/application/auth_controller.dart'];
+      final tutorial =
+          summary.fileCoverage['lib/tutorial/tutorial_repository.dart'];
+      final auth = summary
+          .fileCoverage['lib/features/auth/application/auth_controller.dart'];
       final tutorialCoverage = tutorial!;
       final authCoverage = auth!;
 

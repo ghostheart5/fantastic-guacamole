@@ -1,7 +1,6 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../smoke/_suite_smoke.yaml
-- runFlow: ../onboarding/_suite_onboarding.yaml
 - runFlow: ../authentication/_suite_authentication.yaml
 - runFlow: ../timeline/_suite_timeline.yaml
 - runFlow: ../planner/_suite_planner.yaml

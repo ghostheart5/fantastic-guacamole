@@ -28,9 +28,7 @@ void main() {
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(
-            home: Scaffold(
-              body: MicroTutorialCard(step: step),
-            ),
+            home: Scaffold(body: MicroTutorialCard(step: step)),
           ),
         ),
       );

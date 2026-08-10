@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 void main() {
   group('action_hub integration flow', () {
     test('app flow transitions from nexus to smart coach and back', () {
@@ -17,4 +18,3 @@ void main() {
     });
   });
 }
-

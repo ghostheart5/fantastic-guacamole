@@ -53,7 +53,8 @@ void main() {
     });
 
     test('markIntroSeen updates intro visibility flag', () {
-      final TutorialProgress progress = const TutorialProgress().markIntroSeen();
+      final TutorialProgress progress = const TutorialProgress()
+          .markIntroSeen();
       expect(progress.hasSeenIntro, isTrue);
     });
 

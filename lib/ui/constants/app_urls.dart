@@ -1,15 +1,13 @@
-class AppUrls {
-  static const String _base = 'https://chronospark.app';
-  static const String _githubPagesBase =
-      'https://ghostheart5.github.io/fantastic-guacamole';
+import 'package:fantastic_guacamole/config/env.dart';
 
+class AppUrls {
   // Web
-  static const String website = _githubPagesBase;
-  static const String privacy = '$_githubPagesBase/privacy/';
-  static const String deleteAccount = '$_githubPagesBase/delete-account/';
-  static const String terms = '$_githubPagesBase/terms/';
-  static const String support = '$_githubPagesBase/support/';
-  static const String changelog = '$_base/changelog';
+  static const String website = Env.publicWebsiteUrl;
+  static const String privacy = Env.privacyPolicyUrl;
+  static const String deleteAccount = Env.deleteAccountUrl;
+  static const String terms = Env.termsOfServiceUrl;
+  static const String support = Env.supportUrl;
+  static const String changelog = '${Env.publicWebsiteUrl}/changelog/';
 
   // App stores
   static const String googlePlay =
@@ -19,5 +17,6 @@ class AppUrls {
 
   // Deep link scheme
   static const String deepLinkScheme = 'chronospark';
-  static const String deepLinkBase = 'https://chronospark.app/app/';
+  static const String deepLinkBase = '${Env.productionAppLinkOrigin}/app/';
+  static const String authCallback = Env.productionAuthCallbackUrl;
 }

@@ -1,7 +1,10 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../_common/go_to_smart_planner.yaml
 - tapOn:
-    text: "Get insight"
-- assertVisible:
-    text: "Get insight"
+    id: "smart-planner-context-input"
+- eraseText
+- hideKeyboard
+- tapOn:
+    id: "smart-planner-submit"
+- assertNotVisible: "Something went wrong"

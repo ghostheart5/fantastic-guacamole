@@ -11,7 +11,7 @@ import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart'
-  as extended_domain;
+    as extended_domain;
 import 'package:fantastic_guacamole/state/providers/future_decision_engine_provider.dart';
 import 'package:fantastic_guacamole/state/providers/future_timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
@@ -71,7 +71,9 @@ class _StaticNotificationPermissionNotifier
 
 void main() {
   group('widget coverage interactions', () {
-    testWidgets('nexus quick actions update app flow', (WidgetTester tester) async {
+    testWidgets('nexus quick actions update app flow', (
+      WidgetTester tester,
+    ) async {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           nexusStartupSummaryProvider.overrideWithValue(
@@ -112,7 +114,7 @@ void main() {
         'CREATOR': AppView.creator,
         'TIMELINE': AppView.timeline,
         'TRAJECTORY': AppView.trajectoryEngine,
-        'PLANNING OVERVIEW': AppView.console,
+        'SI CONSOLE': AppView.console,
       };
 
       for (final MapEntry<String, AppView> entry in expectations.entries) {
@@ -122,7 +124,9 @@ void main() {
       }
     });
 
-    testWidgets('timeline back action returns to nexus', (WidgetTester tester) async {
+    testWidgets('timeline back action returns to nexus', (
+      WidgetTester tester,
+    ) async {
       final DateTime now = DateTime.now();
       final List<TimelineEventEntity> seededEvents = <TimelineEventEntity>[
         TimelineEventEntity(
@@ -132,7 +136,7 @@ void main() {
           detail: 'Close today\'s high-priority execution block.',
           timestamp: now,
           status: TimelineEventStatus.active,
-          dueAt: now.add(const Duration(hours: 2)),
+          dueAt: now,
           phase: 'task',
           relatedId: 'task-1',
         ),
@@ -140,7 +144,9 @@ void main() {
 
       final ProviderContainer container = ProviderContainer(
         overrides: [
-          timelineProvider.overrideWith(() => _FakeTimelineNotifier(seededEvents)),
+          timelineProvider.overrideWith(
+            () => _FakeTimelineNotifier(seededEvents),
+          ),
           timelineTodayProvider.overrideWith((Ref ref) => seededEvents),
           timelineCompletedEventsProvider.overrideWith(
             (Ref ref) => const <TimelineEventEntity>[],
@@ -166,7 +172,9 @@ void main() {
       expect(container.read(appFlowProvider), AppView.nexus);
     });
 
-    testWidgets('trajectory back action returns to nexus', (WidgetTester tester) async {
+    testWidgets('trajectory back action returns to nexus', (
+      WidgetTester tester,
+    ) async {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           trajectorySummaryProvider.overrideWithValue(
@@ -185,7 +193,8 @@ void main() {
               behaviorDivergence: 21,
               alert: 'trajectory stable',
               predictionTitle: 'focus block',
-              predictionOutcome: 'Trajectory strengthens with focused execution.',
+              predictionOutcome:
+                  'Trajectory strengthens with focused execution.',
               predictionProbability: 0.74,
               predictionExplanation:
                   'Execution consistency remains the leading factor.',
@@ -196,7 +205,8 @@ void main() {
               score: 71,
               trend: 'Rising',
               recovery: 'Recovered',
-              forecast: 'Execution quality determines near-term momentum slope.',
+              forecast:
+                  'Execution quality determines near-term momentum slope.',
               energyPercent: 66,
               pressurePercent: 38,
               streak: 5,
@@ -260,7 +270,9 @@ void main() {
       expect(container.read(appFlowProvider), AppView.nexus);
     });
 
-    testWidgets('settings back action returns to nexus', (WidgetTester tester) async {
+    testWidgets('settings back action returns to nexus', (
+      WidgetTester tester,
+    ) async {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           extended_domain.extendedDomainBootstrapProvider.overrideWith(

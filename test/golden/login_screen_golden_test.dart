@@ -5,8 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('login screen golden', () {
     testWidgets('default state matches baseline', (WidgetTester tester) async {
-      final TextEditingController email = TextEditingController(text: 'pilot@chronospark.app');
-      final TextEditingController password = TextEditingController(text: 'secure-pass-123');
+      final TextEditingController email = TextEditingController(
+        text: 'pilot@chronospark.app',
+      );
+      final TextEditingController password = TextEditingController(
+        text: 'secure-pass-123',
+      );
       addTearDown(email.dispose);
       addTearDown(password.dispose);
 

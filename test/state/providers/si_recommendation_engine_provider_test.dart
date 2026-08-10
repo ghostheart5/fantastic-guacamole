@@ -74,37 +74,44 @@ void main() {
       ]);
     });
 
-    test('no-crash scenarios return safely for empty and non-recommendation data', () {
-      final ProviderContainer emptyContainer = ProviderContainer(
-        overrides: [
-          timelineProvider.overrideWith(
-            () => _StaticTimelineNotifier(const <TimelineEventEntity>[]),
-          ),
-        ],
-      );
-      final ProviderContainer noRecommendationContainer = ProviderContainer(
-        overrides: [
-          timelineProvider.overrideWith(
-            () => _StaticTimelineNotifier(<TimelineEventEntity>[
-              _event(id: 't-1', type: TimelineEventType.task, title: 'Task'),
-              _event(id: 'g-1', type: TimelineEventType.goal, title: 'Goal'),
-            ]),
-          ),
-        ],
-      );
-      addTearDown(emptyContainer.dispose);
-      addTearDown(noRecommendationContainer.dispose);
+    test(
+      'no-crash scenarios return safely for empty and non-recommendation data',
+      () {
+        final ProviderContainer emptyContainer = ProviderContainer(
+          overrides: [
+            timelineProvider.overrideWith(
+              () => _StaticTimelineNotifier(const <TimelineEventEntity>[]),
+            ),
+          ],
+        );
+        final ProviderContainer noRecommendationContainer = ProviderContainer(
+          overrides: [
+            timelineProvider.overrideWith(
+              () => _StaticTimelineNotifier(<TimelineEventEntity>[
+                _event(id: 't-1', type: TimelineEventType.task, title: 'Task'),
+                _event(id: 'g-1', type: TimelineEventType.goal, title: 'Goal'),
+              ]),
+            ),
+          ],
+        );
+        addTearDown(emptyContainer.dispose);
+        addTearDown(noRecommendationContainer.dispose);
 
-      expect(() => emptyContainer.read(timelineRecommendationsProvider),
-          returnsNormally);
-      expect(() => noRecommendationContainer.read(timelineRecommendationsProvider),
-          returnsNormally);
-      expect(emptyContainer.read(timelineRecommendationsProvider), isEmpty);
-      expect(
-        noRecommendationContainer.read(timelineRecommendationsProvider),
-        isEmpty,
-      );
-    });
+        expect(
+          () => emptyContainer.read(timelineRecommendationsProvider),
+          returnsNormally,
+        );
+        expect(
+          () => noRecommendationContainer.read(timelineRecommendationsProvider),
+          returnsNormally,
+        );
+        expect(emptyContainer.read(timelineRecommendationsProvider), isEmpty);
+        expect(
+          noRecommendationContainer.read(timelineRecommendationsProvider),
+          isEmpty,
+        );
+      },
+    );
   });
 }
 

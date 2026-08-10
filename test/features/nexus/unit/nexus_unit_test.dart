@@ -18,7 +18,8 @@ void main() {
         fatigue: 0.28,
         completedToday: 3,
         emotionLabel: 'focused',
-        startupDirective: 'Prime objective locked. Execute one decisive action now.',
+        startupDirective:
+            'Prime objective locked. Execute one decisive action now.',
       );
 
       expect(summary.profile.name, 'Operator');
@@ -31,4 +32,3 @@ void main() {
     });
   });
 }
-

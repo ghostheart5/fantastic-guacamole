@@ -15,7 +15,9 @@ import 'package:go_router/go_router.dart';
 
 void main() {
   group('ProfileHeader', () {
-    testWidgets('renders name and level chip text', (WidgetTester tester) async {
+    testWidgets('renders name and level chip text', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -33,7 +35,9 @@ void main() {
       expect(find.text('Level 7'), findsOneWidget);
     });
 
-    testWidgets('fires back and settings callbacks', (WidgetTester tester) async {
+    testWidgets('fires back and settings callbacks', (
+      WidgetTester tester,
+    ) async {
       int backTaps = 0;
       int settingsTaps = 0;
 
@@ -207,4 +211,3 @@ class _MockAuthSessionFalse extends MockAuthSessionNotifier {
   @override
   bool build() => false;
 }
-

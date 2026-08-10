@@ -7,7 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('offline banner golden', () {
-    testWidgets('offline queue state matches baseline', (WidgetTester tester) async {
+    testWidgets('offline queue state matches baseline', (
+      WidgetTester tester,
+    ) async {
       await tester.binding.setSurfaceSize(const Size(390, 200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -27,11 +29,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
-            home: Scaffold(
-              body: OfflineBanner(
-                child: SizedBox.expand(),
-              ),
-            ),
+            home: Scaffold(body: OfflineBanner(child: SizedBox.expand())),
           ),
         ),
       );

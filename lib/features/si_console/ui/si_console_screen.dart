@@ -1231,208 +1231,218 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         (consoleModel?.aggregation.tasks.isEmpty ?? true) &&
         (consoleModel?.aggregation.goals.isEmpty ?? true);
 
-    return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgSiConsole,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        resizeToAvoidBottomInset: false,
-        body: SafeArea(
-          bottom: false,
-          child: LoadingOverlay(
-            isLoading: consoleModelAsync.isLoading && _messages.isEmpty,
-            message: 'Initializing SI context...',
-            child: Column(
-              children: [
-                _Header(
-                  onBack: () {
-                    unawaited(ref.read(voiceServiceProvider).stop());
-                    ref.read(appFlowProvider.notifier).toNexus();
-                  },
-                  engineSnapshot: engineSnapshot,
-                  seededQueryCount: seededQueryCount,
-                  onSpeakSummary: () {
-                    final List<SIConsoleMessage> recentAssistant = _messages
-                        .where((msg) => !msg.isUser)
-                        .toList(growable: false);
-                    final List<String> points = recentAssistant.reversed
-                        .take(3)
-                        .map((msg) => msg.text)
-                        .toList(growable: false);
-                    unawaited(
-                      ref
-                          .read(voiceServiceProvider)
-                          .speakSummary(
-                            title: 'SI console voice summary',
-                            points: points,
-                          ),
-                    );
-                  },
-                  onSpeakAccessibility: () {
-                    unawaited(_showAccessibilityGuide());
-                  },
-                  executionCompletedToday: executionSignals.completedToday,
-                  executionDeferralsToday:
-                      executionSignals.skippedToday +
-                      executionSignals.delayedToday,
-                  executionStabilityPercent: executionStabilityPercent,
-                  integrationSnapshot: integrationSnapshot,
-                ),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: (consoleError != null && _messages.isEmpty)
-                            ? ErrorView(
-                                title: 'SI Context Error',
-                                message: consoleError.toString(),
-                                onRetry: () {
-                                  ref.invalidate(siConsoleScreenModelProvider);
-                                },
-                              )
-                            : Column(
-                                children: [
-                                  if (consoleError != null)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        14,
-                                        6,
-                                        14,
-                                        0,
-                                      ),
-                                      child: Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.fromLTRB(
-                                          10,
-                                          8,
-                                          10,
-                                          8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF2A1620),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.redAccent.withValues(
-                                              alpha: 0.35,
-                                            ),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'SI context is limited right now.',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                  SizedBox(height: 3),
-                                                  Text(
-                                                    'Some intelligence data could not refresh.',
-                                                    style: TextStyle(
-                                                      color: Colors.white70,
-                                                      fontSize: 10,
-                                                      height: 1.3,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            TextButton(
-                                              onPressed: () {
-                                                ref.invalidate(
-                                                  siConsoleScreenModelProvider,
-                                                );
-                                              },
-                                              child: const Text('Retry'),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  Expanded(
-                                    child: ListView.builder(
-                                      controller: _scroll,
-                                      padding: EdgeInsets.fromLTRB(
-                                        14,
-                                        consoleError != null ? 6 : 6,
-                                        14,
-                                        composerReservedHeight +
-                                            composerBottomInset,
-                                      ),
-                                      itemCount:
-                                          1 +
-                                          _messages.length +
-                                          (_typing ? 1 : 0),
-                                      itemBuilder: (context, i) {
-                                        if (i == 0) {
-                                          return _MissionControlPanel(
-                                            executionCompletedToday:
-                                                executionSignals.completedToday,
-                                            executionDeferralsToday:
-                                                executionSignals.skippedToday +
-                                                executionSignals.delayedToday,
-                                            executionStabilityPercent:
-                                                executionStabilityPercent,
-                                            momentumScore: momentum.score,
-                                            pressurePercent:
-                                                momentum.pressurePercent,
-                                            energyPercent:
-                                                momentum.energyPercent,
-                                            isLowSignalData: isLowSignalData,
-                                            onQuickCommand: _runMissionChannel,
-                                          );
-                                        }
-                                        final int messageIndex = i - 1;
-                                        if (_typing &&
-                                            i == _messages.length + 1) {
-                                          return _TypingIndicator(
-                                            animation: _typingAnim,
-                                          );
-                                        }
-                                        return _BubbleTile(
-                                          msg: _messages[messageIndex],
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: Padding(
-                          padding: EdgeInsets.only(bottom: composerBottomInset),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxHeight: composerMaxHeight,
+    return Semantics(
+      identifier: 'screen-si-console',
+      container: true,
+      child: AnimatedSystemBackground(
+        backgroundAssetPath: AppAssets.bgSiConsole,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          resizeToAvoidBottomInset: false,
+          body: SafeArea(
+            bottom: false,
+            child: LoadingOverlay(
+              isLoading: consoleModelAsync.isLoading && _messages.isEmpty,
+              message: 'Initializing SI context...',
+              child: Column(
+                children: [
+                  _Header(
+                    onBack: () {
+                      unawaited(ref.read(voiceServiceProvider).stop());
+                      ref.read(appFlowProvider.notifier).toNexus();
+                    },
+                    engineSnapshot: engineSnapshot,
+                    seededQueryCount: seededQueryCount,
+                    onSpeakSummary: () {
+                      final List<SIConsoleMessage> recentAssistant = _messages
+                          .where((msg) => !msg.isUser)
+                          .toList(growable: false);
+                      final List<String> points = recentAssistant.reversed
+                          .take(3)
+                          .map((msg) => msg.text)
+                          .toList(growable: false);
+                      unawaited(
+                        ref
+                            .read(voiceServiceProvider)
+                            .speakSummary(
+                              title: 'SI console voice summary',
+                              points: points,
                             ),
-                            child: _InputBar(
-                              controller: _input,
-                              focusNode: _inputFocus,
-                              onSend: _send,
-                              compact: keyboardVisible,
+                      );
+                    },
+                    onSpeakAccessibility: () {
+                      unawaited(_showAccessibilityGuide());
+                    },
+                    executionCompletedToday: executionSignals.completedToday,
+                    executionDeferralsToday:
+                        executionSignals.skippedToday +
+                        executionSignals.delayedToday,
+                    executionStabilityPercent: executionStabilityPercent,
+                    integrationSnapshot: integrationSnapshot,
+                  ),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: (consoleError != null && _messages.isEmpty)
+                              ? ErrorView(
+                                  title: 'SI Context Error',
+                                  message: consoleError.toString(),
+                                  onRetry: () {
+                                    ref.invalidate(
+                                      siConsoleScreenModelProvider,
+                                    );
+                                  },
+                                )
+                              : Column(
+                                  children: [
+                                    if (consoleError != null)
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          14,
+                                          6,
+                                          14,
+                                          0,
+                                        ),
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.fromLTRB(
+                                            10,
+                                            8,
+                                            10,
+                                            8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF2A1620),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.redAccent
+                                                  .withValues(alpha: 0.35),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              const Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      'SI context is limited right now.',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 11,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                    SizedBox(height: 3),
+                                                    Text(
+                                                      'Some intelligence data could not refresh.',
+                                                      style: TextStyle(
+                                                        color: Colors.white70,
+                                                        fontSize: 10,
+                                                        height: 1.3,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              TextButton(
+                                                onPressed: () {
+                                                  ref.invalidate(
+                                                    siConsoleScreenModelProvider,
+                                                  );
+                                                },
+                                                child: const Text('Retry'),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    Expanded(
+                                      child: ListView.builder(
+                                        controller: _scroll,
+                                        padding: EdgeInsets.fromLTRB(
+                                          14,
+                                          consoleError != null ? 6 : 6,
+                                          14,
+                                          composerReservedHeight +
+                                              composerBottomInset,
+                                        ),
+                                        itemCount:
+                                            1 +
+                                            _messages.length +
+                                            (_typing ? 1 : 0),
+                                        itemBuilder: (context, i) {
+                                          if (i == 0) {
+                                            return _MissionControlPanel(
+                                              executionCompletedToday:
+                                                  executionSignals
+                                                      .completedToday,
+                                              executionDeferralsToday:
+                                                  executionSignals
+                                                      .skippedToday +
+                                                  executionSignals.delayedToday,
+                                              executionStabilityPercent:
+                                                  executionStabilityPercent,
+                                              momentumScore: momentum.score,
+                                              pressurePercent:
+                                                  momentum.pressurePercent,
+                                              energyPercent:
+                                                  momentum.energyPercent,
+                                              isLowSignalData: isLowSignalData,
+                                              onQuickCommand:
+                                                  _runMissionChannel,
+                                            );
+                                          }
+                                          final int messageIndex = i - 1;
+                                          if (_typing &&
+                                              i == _messages.length + 1) {
+                                            return _TypingIndicator(
+                                              animation: _typingAnim,
+                                            );
+                                          }
+                                          return _BubbleTile(
+                                            msg: _messages[messageIndex],
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              bottom: composerBottomInset,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: composerMaxHeight,
+                              ),
+                              child: _InputBar(
+                                controller: _input,
+                                focusNode: _inputFocus,
+                                onSend: _send,
+                                compact: keyboardVisible,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1945,57 +1955,64 @@ class _BubbleTile extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isUser
-                        ? const Color(0xFF1E1330)
-                        : const Color(0xFF0D1A2A),
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: Radius.circular(isUser ? 16 : 4),
-                      bottomRight: Radius.circular(isUser ? 4 : 16),
+                Semantics(
+                  identifier: msg.text.startsWith('SI Console guide')
+                      ? 'si-console-guide-response'
+                      : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    border: Border.all(
+                    decoration: BoxDecoration(
                       color: isUser
-                          ? Colors.purple.withValues(alpha: 0.25)
-                          : AppColors.neonCyan.withValues(alpha: 0.18),
-                    ),
-                    boxShadow: isUser
-                        ? null
-                        : [
-                            BoxShadow(
-                              color: AppColors.neonCyan.withValues(alpha: 0.06),
-                              blurRadius: 12,
-                            ),
-                          ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (!isUser && emotion != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 5),
-                          child: _EmotionTag(emotion: emotion),
-                        ),
-                      TypingText(
-                        msg.text,
-                        key: ValueKey<String>(
-                          'si-msg-${msg.isUser}-${msg.text}',
-                        ),
-                        animate: false,
-                        style: TextStyle(
-                          fontSize: 12,
-                          height: 1.45,
-                          color: isUser ? Colors.white70 : Colors.white,
-                          fontFamily: isUser ? null : 'monospace',
-                        ),
+                          ? const Color(0xFF1E1330)
+                          : const Color(0xFF0D1A2A),
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(16),
+                        topRight: const Radius.circular(16),
+                        bottomLeft: Radius.circular(isUser ? 16 : 4),
+                        bottomRight: Radius.circular(isUser ? 4 : 16),
                       ),
-                    ],
+                      border: Border.all(
+                        color: isUser
+                            ? Colors.purple.withValues(alpha: 0.25)
+                            : AppColors.neonCyan.withValues(alpha: 0.18),
+                      ),
+                      boxShadow: isUser
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: AppColors.neonCyan.withValues(
+                                  alpha: 0.06,
+                                ),
+                                blurRadius: 12,
+                              ),
+                            ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!isUser && emotion != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 5),
+                            child: _EmotionTag(emotion: emotion),
+                          ),
+                        TypingText(
+                          msg.text,
+                          key: ValueKey<String>(
+                            'si-msg-${msg.isUser}-${msg.text}',
+                          ),
+                          animate: false,
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.45,
+                            color: isUser ? Colors.white70 : Colors.white,
+                            fontFamily: isUser ? null : 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 if (!isUser) ...[
@@ -2253,69 +2270,83 @@ class _InputBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
-                      child: TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        minLines: 1,
-                        maxLines: 1,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
+                      child: Semantics(
+                        identifier: 'si-console-input',
+                        textField: true,
+                        child: TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          minLines: 1,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
+                          cursorColor: AppColors.neonCyan,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: InputDecoration(
+                            hintText:
+                                'Ask about momentum, risk, or your next move...',
+                            hintStyle: const TextStyle(
+                              color: Colors.white24,
+                              fontSize: 12,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFF0A1520),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(
+                                color: AppColors.neonCyan.withValues(
+                                  alpha: 0.2,
+                                ),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(
+                                color: AppColors.neonCyan.withValues(
+                                  alpha: 0.15,
+                                ),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(
+                                color: AppColors.neonCyan.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                          onSubmitted: (_) => onSend(),
                         ),
-                        cursorColor: AppColors.neonCyan,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: InputDecoration(
-                          hintText:
-                              'Ask about momentum, risk, or your next move...',
-                          hintStyle: const TextStyle(
-                            color: Colors.white24,
-                            fontSize: 12,
-                          ),
-                          filled: true,
-                          fillColor: const Color(0xFF0A1520),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide(
-                              color: AppColors.neonCyan.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide(
-                              color: AppColors.neonCyan.withValues(alpha: 0.15),
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide(
-                              color: AppColors.neonCyan.withValues(alpha: 0.5),
-                            ),
-                          ),
-                        ),
-                        onSubmitted: (_) => onSend(),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: onSend,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.neonCyan.withValues(alpha: 0.12),
-                          border: Border.all(
-                            color: AppColors.neonCyan.withValues(alpha: 0.4),
+                    Semantics(
+                      identifier: 'si-console-send',
+                      button: true,
+                      child: GestureDetector(
+                        onTap: onSend,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.neonCyan.withValues(alpha: 0.12),
+                            border: Border.all(
+                              color: AppColors.neonCyan.withValues(alpha: 0.4),
+                            ),
                           ),
-                        ),
-                        child: const Icon(
-                          Icons.send_rounded,
-                          color: AppColors.neonCyan,
-                          size: 16,
+                          child: const Icon(
+                            Icons.send_rounded,
+                            color: AppColors.neonCyan,
+                            size: 16,
+                          ),
                         ),
                       ),
                     ),

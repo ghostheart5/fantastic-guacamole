@@ -9,9 +9,7 @@ Map<String, dynamic>? _decodeIfValid(String? raw) {
     final dynamic decoded = jsonDecode(raw);
     if (decoded is Map<String, dynamic>) return decoded;
     if (decoded is Map) {
-      return decoded.map(
-        (dynamic k, dynamic v) => MapEntry(k.toString(), v),
-      );
+      return decoded.map((dynamic k, dynamic v) => MapEntry(k.toString(), v));
     }
   } catch (_) {
     // Try salvage path below.
@@ -115,17 +113,21 @@ Future<void> main() async {
   String recoveredFrom = 'none';
 
   if (rawPrimary is String) {
-    recovered = _decodeIfValid(rawPrimary) ?? _bestCandidateFromCorrupt(rawPrimary);
+    recovered =
+        _decodeIfValid(rawPrimary) ?? _bestCandidateFromCorrupt(rawPrimary);
     if (recovered != null) recoveredFrom = 'runtime_state_v3';
   }
 
   if (recovered == null && rawBackup is String) {
-    recovered = _decodeIfValid(rawBackup) ?? _bestCandidateFromCorrupt(rawBackup);
+    recovered =
+        _decodeIfValid(rawBackup) ?? _bestCandidateFromCorrupt(rawBackup);
     if (recovered != null) recoveredFrom = 'runtime_state_v3_backup';
   }
 
   if (recovered == null) {
-    stderr.writeln('No recoverable runtime snapshot found in primary or backup state.');
+    stderr.writeln(
+      'No recoverable runtime snapshot found in primary or backup state.',
+    );
     await box.close();
     exitCode = 1;
     return;
@@ -137,8 +139,12 @@ Future<void> main() async {
 
   final List<dynamic> logs = recovered['logs'] as List<dynamic>? ?? <dynamic>[];
   stdout.writeln('Recovered runtime snapshot from $recoveredFrom.');
-  stdout.writeln('Schema: ${recovered['schemaVersion']}, tasks: ${(recovered['tasks'] as List<dynamic>? ?? <dynamic>[]).length}, logs: ${logs.length}');
-  stdout.writeln('Saved cleaned snapshot to runtime_state_v3 and runtime_state_v3_backup.');
+  stdout.writeln(
+    'Schema: ${recovered['schemaVersion']}, tasks: ${(recovered['tasks'] as List<dynamic>? ?? <dynamic>[]).length}, logs: ${logs.length}',
+  );
+  stdout.writeln(
+    'Saved cleaned snapshot to runtime_state_v3 and runtime_state_v3_backup.',
+  );
 
   await box.close();
 }

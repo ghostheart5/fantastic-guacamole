@@ -1,10 +1,16 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../authentication/login_with_env.yaml
 - runFlow: ../_common/go_to_creator.yaml
 - tapOn: "Daily rhythm"
 - tapOn: "Item title *"
 - inputText: "Maestro Habit"
+- hideKeyboard
 - tapOn: "Every day"
-- tapOn: "Create"
-    optional: true
+- scrollUntilVisible:
+    element:
+      text: "Create item"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "Create item"
+- assertVisible: "Habit saved."

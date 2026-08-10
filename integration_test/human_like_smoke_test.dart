@@ -55,33 +55,27 @@ void main() {
   Future<void> completeOnboardingIfPresent(WidgetTester tester) async {
     // Advance onboarding if currently shown.
     for (int i = 0; i < 3; i++) {
-      final Finder? skip = await waitForFirst(
-        tester,
-        <Finder>[find.text('SKIP')],
-        timeout: const Duration(seconds: 1),
-      );
+      final Finder? skip = await waitForFirst(tester, <Finder>[
+        find.text('SKIP'),
+      ], timeout: const Duration(seconds: 1));
       if (skip != null) {
         await tester.tap(skip);
         await pumpFor(tester, const Duration(seconds: 2));
         return;
       }
 
-      final Finder? startSetup = await waitForFirst(
-        tester,
-        <Finder>[find.text('START SETUP')],
-        timeout: const Duration(seconds: 1),
-      );
+      final Finder? startSetup = await waitForFirst(tester, <Finder>[
+        find.text('START SETUP'),
+      ], timeout: const Duration(seconds: 1));
       if (startSetup != null) {
         await tester.tap(startSetup);
         await pumpFor(tester, const Duration(seconds: 2));
         return;
       }
 
-      final Finder? next = await waitForFirst(
-        tester,
-        <Finder>[find.text('NEXT')],
-        timeout: const Duration(seconds: 1),
-      );
+      final Finder? next = await waitForFirst(tester, <Finder>[
+        find.text('NEXT'),
+      ], timeout: const Duration(seconds: 1));
       if (next == null) {
         return;
       }
@@ -97,25 +91,19 @@ void main() {
       await completeOnboardingIfPresent(tester);
       await pumpFor(tester, const Duration(seconds: 1));
 
-      final Finder? plannerEntry = await waitForFirst(
-        tester,
-        <Finder>[
-          find.text('Smart Planner'),
-          find.text('Coach'),
-          find.byTooltip('Smart Planner'),
-        ],
-        timeout: const Duration(seconds: 4),
-      );
+      final Finder? plannerEntry = await waitForFirst(tester, <Finder>[
+        find.text('Smart Planner'),
+        find.text('Coach'),
+        find.byTooltip('Smart Planner'),
+      ], timeout: const Duration(seconds: 4));
 
       if (plannerEntry != null) {
         await tester.tap(plannerEntry);
         await pumpFor(tester, const Duration(seconds: 1));
 
-        final Finder? resolvedBackButton = await waitForFirst(
-          tester,
-          <Finder>[find.byKey(const Key('smart_coach_back_button'))],
-          timeout: const Duration(seconds: 3),
-        );
+        final Finder? resolvedBackButton = await waitForFirst(tester, <Finder>[
+          find.byKey(const Key('smart_coach_back_button')),
+        ], timeout: const Duration(seconds: 3));
         expect(resolvedBackButton, isNotNull);
         await tester.tap(resolvedBackButton!);
         await pumpFor(tester, const Duration(seconds: 1));
@@ -125,26 +113,20 @@ void main() {
         );
       }
 
-      final Finder? addButton = await waitForFirst(
-        tester,
-        <Finder>[find.byKey(const Key('goals_add_button'))],
-        timeout: const Duration(seconds: 4),
-      );
+      final Finder? addButton = await waitForFirst(tester, <Finder>[
+        find.byKey(const Key('goals_add_button')),
+      ], timeout: const Duration(seconds: 4));
       if (addButton != null) {
         const String smokeTitle = 'Smoke Task';
         await tester.tap(addButton);
         await pumpFor(tester, const Duration(milliseconds: 600));
 
-        final Finder? titleInput = await waitForFirst(
-          tester,
-          <Finder>[find.byKey(const Key('goal_title_input'))],
-          timeout: const Duration(seconds: 3),
-        );
-        final Finder? saveButton = await waitForFirst(
-          tester,
-          <Finder>[find.byKey(const Key('goal_save_button'))],
-          timeout: const Duration(seconds: 3),
-        );
+        final Finder? titleInput = await waitForFirst(tester, <Finder>[
+          find.byKey(const Key('goal_title_input')),
+        ], timeout: const Duration(seconds: 3));
+        final Finder? saveButton = await waitForFirst(tester, <Finder>[
+          find.byKey(const Key('goal_save_button')),
+        ], timeout: const Duration(seconds: 3));
         expect(titleInput, isNotNull);
         expect(saveButton, isNotNull);
 
@@ -156,24 +138,18 @@ void main() {
         expect(find.text(smokeTitle), findsWidgets);
       }
 
-      final Finder? settingsEntry = await waitForFirst(
-        tester,
-        <Finder>[
-          find.text('Settings'),
-          find.text('SETTINGS'),
-          find.byTooltip('Settings'),
-        ],
-        timeout: const Duration(seconds: 4),
-      );
+      final Finder? settingsEntry = await waitForFirst(tester, <Finder>[
+        find.text('Settings'),
+        find.text('SETTINGS'),
+        find.byTooltip('Settings'),
+      ], timeout: const Duration(seconds: 4));
       if (settingsEntry != null) {
         await tester.tap(settingsEntry);
         await pumpFor(tester, const Duration(milliseconds: 600));
 
-        final Finder? darkModeToggle = await waitForFirst(
-          tester,
-          <Finder>[find.byKey(const Key('settings_dark_mode_toggle'))],
-          timeout: const Duration(seconds: 3),
-        );
+        final Finder? darkModeToggle = await waitForFirst(tester, <Finder>[
+          find.byKey(const Key('settings_dark_mode_toggle')),
+        ], timeout: const Duration(seconds: 3));
         expect(darkModeToggle, isNotNull);
 
         final bool initialValue = tester.widget<Switch>(darkModeToggle!).value;
@@ -194,8 +170,9 @@ void main() {
           timeout: const Duration(seconds: 3),
         );
         expect(darkModeToggleAfterRestart, isNotNull);
-        final bool persistedValue =
-            tester.widget<Switch>(darkModeToggleAfterRestart!).value;
+        final bool persistedValue = tester
+            .widget<Switch>(darkModeToggleAfterRestart!)
+            .value;
         expect(persistedValue, equals(toggledValue));
       }
 

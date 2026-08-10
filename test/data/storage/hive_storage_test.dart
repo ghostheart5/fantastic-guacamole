@@ -44,10 +44,13 @@ void main() {
       await expectLater(HiveService.init(warmupBoxes: false), completes);
     });
 
-    test('sensitive prefs init completes even if secure storage is unavailable', () async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      await expectLater(SensitivePrefsStore.instance.init(), completes);
-      expect(SensitivePrefsStore.instance.load('missing_key'), isNull);
-    });
+    test(
+      'sensitive prefs init completes even if secure storage is unavailable',
+      () async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        await expectLater(SensitivePrefsStore.instance.init(), completes);
+        expect(SensitivePrefsStore.instance.load('missing_key'), isNull);
+      },
+    );
   });
 }

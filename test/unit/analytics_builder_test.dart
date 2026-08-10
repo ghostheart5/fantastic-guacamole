@@ -7,40 +7,44 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('Analytics Builder', () {
     test('event processing handles sparse and mixed metric rows safely', () {
-      final GlobalMetrics metrics = GlobalMetrics.fromRows(<Map<String, dynamic>>[
-        <String, dynamic>{
-          'tasks_created': 5,
-          'tasks_completed': 4,
-          'momentum_peak': 6.0,
-        },
-        <String, dynamic>{
-          'tasks_created': 0,
-          'tasks_completed': 3,
-          'momentum_peak': 2.0,
-        },
-        <String, dynamic>{
-          'tasks_created': 10,
-          'tasks_completed': 5,
-        },
-      ]);
+      final GlobalMetrics metrics = GlobalMetrics.fromRows(
+        <Map<String, dynamic>>[
+          <String, dynamic>{
+            'tasks_created': 5,
+            'tasks_completed': 4,
+            'momentum_peak': 6.0,
+          },
+          <String, dynamic>{
+            'tasks_created': 0,
+            'tasks_completed': 3,
+            'momentum_peak': 2.0,
+          },
+          <String, dynamic>{'tasks_created': 10, 'tasks_completed': 5},
+        ],
+      );
 
-      expect(metrics.avgTaskCompletionRate, closeTo((0.8 + 0.0 + 0.5) / 3, 1e-9));
+      expect(
+        metrics.avgTaskCompletionRate,
+        closeTo((0.8 + 0.0 + 0.5) / 3, 1e-9),
+      );
       expect(metrics.avgMomentumPeak, closeTo((6.0 + 2.0 + 0.0) / 3, 1e-9));
     });
 
     test('KPI calculations return expected averages', () {
-      final GlobalMetrics metrics = GlobalMetrics.fromRows(<Map<String, dynamic>>[
-        <String, dynamic>{
-          'tasks_created': 10,
-          'tasks_completed': 8,
-          'momentum_peak': 4.5,
-        },
-        <String, dynamic>{
-          'tasks_created': 4,
-          'tasks_completed': 1,
-          'momentum_peak': 2.0,
-        },
-      ]);
+      final GlobalMetrics metrics = GlobalMetrics.fromRows(
+        <Map<String, dynamic>>[
+          <String, dynamic>{
+            'tasks_created': 10,
+            'tasks_completed': 8,
+            'momentum_peak': 4.5,
+          },
+          <String, dynamic>{
+            'tasks_created': 4,
+            'tasks_completed': 1,
+            'momentum_peak': 2.0,
+          },
+        ],
+      );
 
       expect(metrics.avgTaskCompletionRate, 0.525);
       expect(metrics.avgMomentumPeak, 3.25);
@@ -50,11 +54,31 @@ void main() {
       final DateTime now = DateTime.now();
       final ViewGoalTrendsUsecase usecase = ViewGoalTrendsUsecase(
         _FakeGoalRepository(<GoalEntity>[
-          GoalEntity(id: 'g1', title: 'Recent', createdAt: now.subtract(const Duration(days: 2))),
-          GoalEntity(id: 'g2', title: 'WeekEdge', createdAt: now.subtract(const Duration(days: 7))),
-          GoalEntity(id: 'g3', title: 'Month', createdAt: now.subtract(const Duration(days: 20))),
-          GoalEntity(id: 'g4', title: 'Year', createdAt: now.subtract(const Duration(days: 200))),
-          GoalEntity(id: 'g5', title: 'Old', createdAt: now.subtract(const Duration(days: 500))),
+          GoalEntity(
+            id: 'g1',
+            title: 'Recent',
+            createdAt: now.subtract(const Duration(days: 2)),
+          ),
+          GoalEntity(
+            id: 'g2',
+            title: 'WeekEdge',
+            createdAt: now.subtract(const Duration(days: 7)),
+          ),
+          GoalEntity(
+            id: 'g3',
+            title: 'Month',
+            createdAt: now.subtract(const Duration(days: 20)),
+          ),
+          GoalEntity(
+            id: 'g4',
+            title: 'Year',
+            createdAt: now.subtract(const Duration(days: 200)),
+          ),
+          GoalEntity(
+            id: 'g5',
+            title: 'Old',
+            createdAt: now.subtract(const Duration(days: 500)),
+          ),
         ]),
       );
 

@@ -20,9 +20,7 @@ void main() {
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(
-            home: Scaffold(
-              body: ShowMeAgainButton(stepId: 'nexus_overview'),
-            ),
+            home: Scaffold(body: ShowMeAgainButton(stepId: 'nexus_overview')),
           ),
         ),
       );
@@ -38,9 +36,7 @@ void main() {
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(
-            home: Scaffold(
-              body: ShowMeAgainButton(stepId: 'nexus_overview'),
-            ),
+            home: Scaffold(body: ShowMeAgainButton(stepId: 'nexus_overview')),
           ),
         ),
       );
@@ -50,7 +46,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.text('Tutorial tip re-enabled for this screen.'), findsOneWidget);
+      expect(
+        find.text('Tutorial tip re-enabled for this screen.'),
+        findsOneWidget,
+      );
     });
   });
 }

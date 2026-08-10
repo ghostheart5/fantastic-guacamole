@@ -17,17 +17,22 @@ void main() {
         caseSensitive: false,
       );
 
-      final List<File> files = <File>[
-        ...SourceTestUtils.filesUnder('test'),
-        ...SourceTestUtils.filesUnder('integration_test'),
-      ].where((File file) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
-        return path.endsWith('.dart') ||
-            path.endsWith('.yml') ||
-            path.endsWith('.yaml') ||
-            path.endsWith('.json') ||
-            path.endsWith('.md');
-      }).toList(growable: false);
+      final List<File> files =
+          <File>[
+                ...SourceTestUtils.filesUnder('test'),
+                ...SourceTestUtils.filesUnder('integration_test'),
+              ]
+              .where((File file) {
+                final String path = SourceTestUtils.normalizePath(
+                  file.path,
+                ).toLowerCase();
+                return path.endsWith('.dart') ||
+                    path.endsWith('.yml') ||
+                    path.endsWith('.yaml') ||
+                    path.endsWith('.json') ||
+                    path.endsWith('.md');
+              })
+              .toList(growable: false);
 
       for (final File file in files) {
         final String path = SourceTestUtils.normalizePath(file.path);
@@ -43,11 +48,15 @@ void main() {
           final int start = match.start;
           final int end = match.end;
           final int contextStart = start - 80 < 0 ? 0 : start - 80;
-          final int contextEnd = end + 80 > text.length ? text.length : end + 80;
-          final String context = text.substring(contextStart, contextEnd).toLowerCase();
+          final int contextEnd = end + 80 > text.length
+              ? text.length
+              : end + 80;
+          final String context = text
+              .substring(contextStart, contextEnd)
+              .toLowerCase();
 
-            final bool looksLikeIntentionalPlaceholder =
-              allowlist.isContextAllowed(context);
+          final bool looksLikeIntentionalPlaceholder = allowlist
+              .isContextAllowed(context);
 
           if (!looksLikeIntentionalPlaceholder) {
             offenders.add(path);
@@ -56,13 +65,20 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Potential secret/key leakage in tests: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Potential secret/key leakage in tests: $offenders',
+      );
     });
   });
 }
 
 class _SecretAllowlist {
-  _SecretAllowlist({required this.allowedPathSuffixes, required this.allowedContextMarkers});
+  _SecretAllowlist({
+    required this.allowedPathSuffixes,
+    required this.allowedContextMarkers,
+  });
 
   final List<String> allowedPathSuffixes;
   final List<String> allowedContextMarkers;
@@ -106,7 +122,9 @@ class _SecretAllowlist {
       if (line.startsWith('path:')) {
         pathSuffixes.add(line.substring('path:'.length).trim().toLowerCase());
       } else if (line.startsWith('context:')) {
-        contextMarkers.add(line.substring('context:'.length).trim().toLowerCase());
+        contextMarkers.add(
+          line.substring('context:'.length).trim().toLowerCase(),
+        );
       }
     }
 

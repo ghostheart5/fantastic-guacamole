@@ -1,19 +1,20 @@
-﻿import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
+import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('OfflineSyncQueueItem', () {
     test('fromJson rejects a non-integer attempt count', () {
-      expect(() => OfflineSyncQueueItem.fromJson(
-        <String, dynamic>{
+      expect(
+        () => OfflineSyncQueueItem.fromJson(<String, dynamic>{
           'id': 'evt-1',
           'actionType': 'upsert_task',
           'dedupeKey': 'task:1',
           'payload': <dynamic, dynamic>{1: 'a', 'b': 2},
           'enqueuedAtUtc': '2026-08-01T00:00:00.000Z',
           'attempts': 2.0,
-        },
-      ), throwsFormatException);
+        }),
+        throwsFormatException,
+      );
     });
 
     test('toJson and copyWith preserve immutable queue item fields', () {

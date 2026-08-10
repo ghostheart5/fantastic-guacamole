@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart'
     as secure_endpoint;
+import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/services/local_user_data_cleanup_service.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
@@ -21,24 +22,36 @@ class AuthService implements AuthServiceContract {
     required SecureStore store,
     http.Client? httpClient,
     String? accountDeleteEndpoint,
+    String? supabaseUrl,
     String? oauthGoogleRedirectUrl,
     String? passwordRecoveryRedirectUrl,
     LocalUserDataCleanupService? localUserDataCleanupService,
+    Duration accountDeletionRecentSignInWindow =
+        defaultAccountDeletionRecentSignInWindow,
+    DateTime Function()? clock,
   }) : _auth = supabaseClient,
        _store = store,
        _httpClient = httpClient ?? _sharedHttpClient,
        _accountDeleteEndpoint =
            accountDeleteEndpoint ?? Env.accountDeleteEndpoint,
+       _supabaseUrl = supabaseUrl ?? Env.supabaseUrl,
        _oauthGoogleRedirectUrl = oauthGoogleRedirectUrl ?? Env.oauthRedirectUrl,
        _passwordRecoveryRedirectUrl =
            passwordRecoveryRedirectUrl ?? Env.passwordRecoveryRedirectUrl,
+       _accountDeletionRecentSignInWindow = accountDeletionRecentSignInWindow,
+       _clock = clock ?? _utcNow,
        _localUserDataCleanupService =
            localUserDataCleanupService ??
            LocalUserDataCleanupService(
              preferences: const SharedPrefsStoreAdapter(),
              hive: const HiveStoreAdapter(),
              secureStore: store,
-           );
+             disassociateFirebaseMessagingToken: () =>
+                 FirebaseSupabaseBridgeRepository(
+                   store: store,
+                 ).disassociateFirebaseMessagingToken(supabaseClient),
+           ),
+       assert(accountDeletionRecentSignInWindow > Duration.zero);
 
   static final http.Client _sharedHttpClient = http.Client();
 
@@ -46,8 +59,11 @@ class AuthService implements AuthServiceContract {
   final SecureStore _store;
   final http.Client _httpClient;
   final String _accountDeleteEndpoint;
+  final String _supabaseUrl;
   final String _oauthGoogleRedirectUrl;
   final String _passwordRecoveryRedirectUrl;
+  final Duration _accountDeletionRecentSignInWindow;
+  final DateTime Function() _clock;
   final LocalUserDataCleanupService _localUserDataCleanupService;
   int _failedSignInAttempts = 0;
   DateTime? _signInBlockedUntil;
@@ -382,14 +398,26 @@ class AuthService implements AuthServiceContract {
   @override
   Future<void> signOut() async {
     final String? userId = _auth.auth.currentUser?.id;
+    Object? cleanupError;
+    try {
+      await _localUserDataCleanupService.clear(userId: userId);
+    } on Object catch (error) {
+      cleanupError = error;
+    }
+
     Object? signOutError;
     try {
       await _auth.auth.signOut();
     } on Object catch (error) {
       signOutError = error;
-      Logger.warn('Remote sign-out failed; clearing local auth state: $error');
-    } finally {
-      await _localUserDataCleanupService.clear(userId: userId);
+      Logger.warn('Remote sign-out failed after local account cleanup.');
+    }
+    if (cleanupError != null) {
+      throw FirebaseAuthException(
+        code: 'local-cleanup-failed',
+        message:
+            'Sign-out could not clear all private data from this device. Clear ChronoSpark app storage before another person signs in.',
+      );
     }
     if (signOutError is sb.AuthException) {
       throw _mapAuthException(signOutError);
@@ -404,26 +432,15 @@ class AuthService implements AuthServiceContract {
 
   @override
   Future<void> deleteCurrentAccount({required String password}) async {
-    final User? user = currentUser;
-    if (user == null) {
+    final sb.User? supabaseUser = _auth.auth.currentUser;
+    final User? user = _mapUser(supabaseUser);
+    if (user == null || supabaseUser == null) {
       throw FirebaseAuthException(
         code: 'no-current-user',
         message: 'No signed-in user found.',
       );
     }
     final String email = user.email?.trim() ?? '';
-    if (email.isEmpty) {
-      throw FirebaseAuthException(
-        code: 'missing-email',
-        message: 'Current account email is unavailable.',
-      );
-    }
-    if (password.trim().isEmpty) {
-      throw FirebaseAuthException(
-        code: 'missing-password',
-        message: 'Password is required to delete this account.',
-      );
-    }
 
     final String endpoint = _accountDeleteEndpoint.trim();
     if (endpoint.isEmpty) {
@@ -434,18 +451,26 @@ class AuthService implements AuthServiceContract {
       );
     }
 
-    final Uri? uri = parseSecureHttpsEndpoint(endpoint);
-    if (uri == null) {
+    if (!Env.resolveIsTrustedEdgeFunctionEndpoint(
+      endpoint: endpoint,
+      supabaseUrl: _supabaseUrl,
+      functionName: 'account-delete',
+    )) {
       throw FirebaseAuthException(
         code: 'operation-not-supported',
-        message: 'Account deletion endpoint must be a valid HTTPS URL.',
+        message:
+            'Account deletion endpoint must be the configured Supabase account-delete function.',
       );
     }
-
-    bool deleted = false;
+    final Uri uri = Uri.parse(endpoint);
 
     try {
-      await _auth.auth.signInWithPassword(email: email, password: password);
+      await _reauthenticateForAccountDeletion(
+        user: supabaseUser,
+        password: password,
+      );
+
+      await _localUserDataCleanupService.prepareForAccountDeletion();
 
       final String? accessToken = _auth.auth.currentSession?.accessToken;
       if (accessToken == null || accessToken.trim().isEmpty) {
@@ -467,7 +492,7 @@ class AuthService implements AuthServiceContract {
                 },
                 body: jsonEncode(<String, String>{
                   'userId': user.id,
-                  'email': email,
+                  if (email.isNotEmpty) 'email': email,
                 }),
               )
               .timeout(const Duration(seconds: 20));
@@ -487,6 +512,13 @@ class AuthService implements AuthServiceContract {
       );
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (response.statusCode == 428) {
+          throw FirebaseAuthException(
+            code: 'recent-sign-in-required',
+            message:
+                'For security, sign out and sign back in with your account provider, then retry deletion within ${_accountDeletionRecentSignInWindow.inMinutes} minutes.',
+          );
+        }
         throw FirebaseAuthException(
           code: 'operation-failed',
           message: deletionFailureMessage(
@@ -495,8 +527,6 @@ class AuthService implements AuthServiceContract {
           ),
         );
       }
-
-      deleted = true;
     } on sb.AuthException catch (error) {
       throw _mapAuthException(error);
     } on TimeoutException {
@@ -504,15 +534,30 @@ class AuthService implements AuthServiceContract {
         code: 'network-request-failed',
         message: 'Account deletion timed out. Check your connection and retry.',
       );
-    } finally {
-      if (deleted) {
-        await _localUserDataCleanupService.clear(userId: user.id);
-        try {
-          await _auth.auth.signOut();
-        } on Object catch (error) {
-          Logger.warn('Final sign-out after account deletion failed: $error');
-        }
-      }
+    } on http.ClientException {
+      throw FirebaseAuthException(
+        code: 'network-request-failed',
+        message: 'Account deletion could not reach the server. Retry online.',
+      );
+    }
+
+    Object? localCleanupError;
+    try {
+      await _localUserDataCleanupService.clearLocalData(userId: user.id);
+    } on Object catch (error) {
+      localCleanupError = error;
+    }
+    try {
+      await _auth.auth.signOut();
+    } on Object {
+      Logger.warn('Final local sign-out after account deletion failed.');
+    }
+    if (localCleanupError != null) {
+      throw FirebaseAuthException(
+        code: 'local-cleanup-failed',
+        message:
+            'Your cloud account was deleted, but this device could not finish clearing private data. Clear ChronoSpark app storage before another person uses it.',
+      );
     }
   }
 
@@ -525,6 +570,65 @@ class AuthService implements AuthServiceContract {
     required String responseBody,
   }) {
     return 'Account deletion failed ($statusCode). Please try again later.';
+  }
+
+  Future<void> _reauthenticateForAccountDeletion({
+    required sb.User user,
+    required String password,
+  }) async {
+    final User mappedUser = _mapUser(user)!;
+    switch (mappedUser.accountDeletionReauthenticationMethod) {
+      case AccountDeletionReauthenticationMethod.password:
+        final String email = user.email?.trim() ?? '';
+        if (email.isEmpty) {
+          throw FirebaseAuthException(
+            code: 'missing-email',
+            message: 'Current account email is unavailable.',
+          );
+        }
+        if (password.trim().isEmpty) {
+          throw FirebaseAuthException(
+            code: 'missing-password',
+            message: 'Password is required to delete this account.',
+          );
+        }
+        final sb.AuthResponse response = await _auth.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
+        if (response.user?.id != user.id) {
+          throw FirebaseAuthException(
+            code: 'account-mismatch',
+            message:
+                'Reauthentication returned a different account. Deletion was stopped.',
+          );
+        }
+        return;
+      case AccountDeletionReauthenticationMethod.recentGoogleSignIn:
+      case AccountDeletionReauthenticationMethod.recentPhoneSignIn:
+        _requireRecentProviderSignIn(mappedUser.lastSignInAt);
+        return;
+      case AccountDeletionReauthenticationMethod.unsupported:
+        throw FirebaseAuthException(
+          code: 'operation-not-supported',
+          message:
+              'This account provider cannot be reauthenticated safely for deletion. Contact support without sharing credentials.',
+        );
+    }
+  }
+
+  void _requireRecentProviderSignIn(DateTime? lastSignInAt) {
+    if (!isAccountDeletionSignInRecent(
+      lastSignInAt,
+      now: _clock(),
+      recentSignInWindow: _accountDeletionRecentSignInWindow,
+    )) {
+      throw FirebaseAuthException(
+        code: 'recent-sign-in-required',
+        message:
+            'For security, sign out and sign back in with your account provider, then retry deletion within ${_accountDeletionRecentSignInWindow.inMinutes} minutes.',
+      );
+    }
   }
 
   bool _isCredentialFailure(String code) {
@@ -541,6 +645,23 @@ class AuthService implements AuthServiceContract {
     final String? email = supabaseUser.email;
     final Map<String, dynamic> metadata =
         supabaseUser.userMetadata ?? const <String, dynamic>{};
+    final String? primaryProvider = supabaseUser.appMetadata['provider']
+        ?.toString()
+        .trim();
+    final Object? rawProviders = supabaseUser.appMetadata['providers'];
+    final Iterable<dynamic> metadataProviders = rawProviders is List<dynamic>
+        ? rawProviders
+        : const <dynamic>[];
+    final Set<String> providers = <String>{
+      if (primaryProvider != null && primaryProvider.isNotEmpty)
+        primaryProvider,
+      ...metadataProviders.map(
+        (dynamic provider) => provider.toString().trim(),
+      ),
+      ...?supabaseUser.identities?.map(
+        (sb.UserIdentity identity) => identity.provider.trim(),
+      ),
+    }..removeWhere((String provider) => provider.isEmpty);
     final String? fullName = metadata['full_name']?.toString().trim();
     final String? name = metadata['name']?.toString().trim();
     final bool verified = supabaseUser.emailConfirmedAt != null;
@@ -551,8 +672,13 @@ class AuthService implements AuthServiceContract {
           ? fullName
           : ((name?.isNotEmpty ?? false) ? name : null),
       emailVerified: verified,
+      authenticationProvider: primaryProvider,
+      authenticationProviders: List<String>.unmodifiable(providers),
+      lastSignInAt: DateTime.tryParse(supabaseUser.lastSignInAt ?? '')?.toUtc(),
     );
   }
+
+  static DateTime _utcNow() => DateTime.now().toUtc();
 
   FirebaseAuthException _mapAuthException(sb.AuthException error) {
     final String rawCode = (error.statusCode ?? '').toString().toLowerCase();

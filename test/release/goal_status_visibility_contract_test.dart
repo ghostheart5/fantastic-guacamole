@@ -57,9 +57,12 @@ void main() {
       ]);
 
       final List<GoalEntity> active = ViewActiveGoalsUsecase(repository).call();
-      final List<GoalEntity> completed =
-          ViewCompletedGoalsUsecase(repository).call();
-      final List<GoalEntity> archived = ViewArchivedGoalsUsecase(repository).call();
+      final List<GoalEntity> completed = ViewCompletedGoalsUsecase(
+        repository,
+      ).call();
+      final List<GoalEntity> archived = ViewArchivedGoalsUsecase(
+        repository,
+      ).call();
 
       expect(active.map((GoalEntity g) => g.id), <String>['g-active-weird']);
       expect(completed.map((GoalEntity g) => g.id), <String>['g-completed']);

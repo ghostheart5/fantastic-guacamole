@@ -66,92 +66,136 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    Hive.init(Directory.systemTemp.createTempSync('chronospark-corruption-').path);
-  });
-
-  test('shared preference JSON distinguishes an absent key from corruption', () async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    final SharedPrefsStorage storage = SharedPrefsStorage(
-      await SharedPreferences.getInstance(),
-    );
-    expect(storage.getJson('preferences'), isEmpty);
-    await storage.setString('preferences', '{bad-json');
-    expect(() => storage.getJson('preferences'), throwsA(isA<StorageException>()));
-  });
-
-  test('project, subtask, and progression corruption does not become first-run data', () async {
-    final HiveStorage<String> projects = _hiveStorage('corrupt_projects');
-    final HiveStorage<String> subtasks = _hiveStorage('corrupt_subtasks');
-    final HiveStorage<String> progression = _hiveStorage('corrupt_progression');
-    await projects.put('projects_v1', '{bad');
-    await subtasks.put('subtasks_v1', '{bad');
-    await progression.put('progression_entity_v1', '{"xp":4}');
-
-    expect(() => ProjectRepository(projects).getProjects(), throwsA(isA<StorageException>()));
-    expect(() => SubtaskRepository(subtasks).getSubtasks(), throwsA(isA<StorageException>()));
-    await expectLater(
-      ProgressionRepository(progression).getProgression(),
-      throwsA(isA<StorageException>()),
+    Hive.init(
+      Directory.systemTemp.createTempSync('chronospark-corruption-').path,
     );
   });
 
-  test('timeline and insight corruption is not converted to an empty collection', () async {
-    final _MemoryPrefsStore store = _MemoryPrefsStore(<String, String>{
-      'timeline_events_v1': '{bad',
-      'insights_v1': '[{"id":"i","title":"x","summary":"x","createdAt":"bad","tags":[]}]',
-    });
-    expect(TimelineRepository(store).getEvents, throwsA(isA<StorageException>()));
-    expect(InsightRepository(store).getInsights, throwsA(isA<StorageException>()));
-  });
+  test(
+    'shared preference JSON distinguishes an absent key from corruption',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final SharedPrefsStorage storage = SharedPrefsStorage(
+        await SharedPreferences.getInstance(),
+      );
+      expect(storage.getJson('preferences'), isEmpty);
+      await storage.setString('preferences', '{bad-json');
+      expect(
+        () => storage.getJson('preferences'),
+        throwsA(isA<StorageException>()),
+      );
+    },
+  );
 
-  test('corrupt workspace and mission state do not seed initial data', () async {
-    final SecureStore secure = SecureStore(backend: InMemorySecureStoreBackend());
-    await secure.writeString('workspace_creator_v1', '{bad');
-    await expectLater(
-      WorkspaceStoreService(store: secure).loadCreatorState(),
-      throwsA(isA<StorageException>()),
-    );
+  test(
+    'project, subtask, and progression corruption does not become first-run data',
+    () async {
+      final HiveStorage<String> projects = _hiveStorage('corrupt_projects');
+      final HiveStorage<String> subtasks = _hiveStorage('corrupt_subtasks');
+      final HiveStorage<String> progression = _hiveStorage(
+        'corrupt_progression',
+      );
+      await projects.put('projects_v1', '{bad');
+      await subtasks.put('subtasks_v1', '{bad');
+      await progression.put('progression_entity_v1', '{"xp":4}');
 
-    final _MemoryPrefsStore missionStore = _MemoryPrefsStore(<String, String>{
-      MissionRepository.storageKey: '{bad',
-    });
-    await expectLater(
-      MissionRepository(store: missionStore).load(),
-      throwsA(isA<StorageException>()),
-    );
-  });
+      expect(
+        () => ProjectRepository(projects).getProjects(),
+        throwsA(isA<StorageException>()),
+      );
+      expect(
+        () => SubtaskRepository(subtasks).getSubtasks(),
+        throwsA(isA<StorageException>()),
+      );
+      await expectLater(
+        ProgressionRepository(progression).getProgression(),
+        throwsA(isA<StorageException>()),
+      );
+    },
+  );
 
-  test('corrupt credit wallet and offline queue are not replaced by defaults', () async {
-    final _MemoryPrefsStore walletStore = _MemoryPrefsStore(<String, String>{
-      'ai_credit_wallet': '{bad',
-    });
-    await expectLater(
-      CreditService(prefs: walletStore).loadWallet(premium: false),
-      throwsA(isA<StorageException>()),
-    );
-    expect(walletStore.load('ai_credit_wallet'), '{bad');
+  test(
+    'timeline and insight corruption is not converted to an empty collection',
+    () async {
+      final _MemoryPrefsStore store = _MemoryPrefsStore(<String, String>{
+        'timeline_events_v1': '{bad',
+        'insights_v1':
+            '[{"id":"i","title":"x","summary":"x","createdAt":"bad","tags":[]}]',
+      });
+      expect(
+        TimelineRepository(store).getEvents,
+        throwsA(isA<StorageException>()),
+      );
+      expect(
+        InsightRepository(store).getInsights,
+        throwsA(isA<StorageException>()),
+      );
+    },
+  );
 
-    final HiveStorage<String> queueStorage = _hiveStorage('corrupt_offline_queue');
-    await queueStorage.put(OfflineSyncQueueService.storageKey, '{bad');
-    final OfflineSyncQueueService queue = OfflineSyncQueueService(queueStorage);
-    await expectLater(queue.loadQueue(), throwsA(isA<StorageException>()));
-    await expectLater(
-      queue.enqueue(actionType: 'task_update', dedupeKey: 'task-1'),
-      throwsA(isA<StorageException>()),
-    );
-    expect(queueStorage.get(OfflineSyncQueueService.storageKey), '{bad');
-  });
+  test(
+    'corrupt workspace and mission state do not seed initial data',
+    () async {
+      final SecureStore secure = SecureStore(
+        backend: InMemorySecureStoreBackend(),
+      );
+      await secure.writeString('workspace_creator_v1', '{bad');
+      await expectLater(
+        WorkspaceStoreService(store: secure).loadCreatorState(),
+        throwsA(isA<StorageException>()),
+      );
 
-  test('corrupt user preferences cannot be overwritten by a mutation', () async {
-    await SharedPrefsService.init();
-    await SharedPrefsService.save('user_preferences_json', '{bad');
-    final PreferenceService service = PreferenceService();
+      final _MemoryPrefsStore missionStore = _MemoryPrefsStore(<String, String>{
+        MissionRepository.storageKey: '{bad',
+      });
+      await expectLater(
+        MissionRepository(store: missionStore).load(),
+        throwsA(isA<StorageException>()),
+      );
+    },
+  );
 
-    expect(service.getUserPreferences, throwsA(isA<StorageException>()));
-    await expectLater(
-      service.setUserPreference('density', 'compact'),
-      throwsA(isA<StorageException>()),
-    );
-    expect(SharedPrefsService.load('user_preferences_json'), '{bad');
-  });
+  test(
+    'corrupt credit wallet and offline queue are not replaced by defaults',
+    () async {
+      final _MemoryPrefsStore walletStore = _MemoryPrefsStore(<String, String>{
+        'ai_credit_wallet': '{bad',
+      });
+      await expectLater(
+        CreditService(prefs: walletStore).loadWallet(premium: false),
+        throwsA(isA<StorageException>()),
+      );
+      expect(walletStore.load('ai_credit_wallet'), '{bad');
+
+      final HiveStorage<String> queueStorage = _hiveStorage(
+        'corrupt_offline_queue',
+      );
+      await queueStorage.put(OfflineSyncQueueService.storageKey, '{bad');
+      final OfflineSyncQueueService queue = OfflineSyncQueueService(
+        queueStorage,
+      );
+      await expectLater(queue.loadQueue(), throwsA(isA<StorageException>()));
+      await expectLater(
+        queue.enqueue(actionType: 'task_update', dedupeKey: 'task-1'),
+        throwsA(isA<StorageException>()),
+      );
+      expect(queueStorage.get(OfflineSyncQueueService.storageKey), '{bad');
+    },
+  );
+
+  test(
+    'corrupt user preferences cannot be overwritten by a mutation',
+    () async {
+      await SharedPrefsService.init();
+      await SharedPrefsService.save('user_preferences_json', '{bad');
+      final PreferenceService service = PreferenceService();
+
+      expect(service.getUserPreferences, throwsA(isA<StorageException>()));
+      await expectLater(
+        service.setUserPreference('density', 'compact'),
+        throwsA(isA<StorageException>()),
+      );
+      expect(SharedPrefsService.load('user_preferences_json'), '{bad');
+    },
+  );
 }

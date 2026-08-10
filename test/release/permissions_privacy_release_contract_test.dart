@@ -7,21 +7,38 @@ import '../behavior/_support/source_test_utils.dart';
 void main() {
   group('Permissions and privacy release contract', () {
     test('permission dependencies have rationale source paths', () {
-      final String pubspec = SourceTestUtils.readText(File('pubspec.yaml')).toLowerCase();
+      final String pubspec = SourceTestUtils.readText(
+        File('pubspec.yaml'),
+      ).toLowerCase();
       final bool usesPermissionHandler = pubspec.contains('permission_handler');
       final bool usesMic = pubspec.contains('speech_to_text');
-      final bool usesNotifications = pubspec.contains('flutter_local_notifications') || pubspec.contains('firebase_messaging');
-      final bool usesCameraOrPicker = pubspec.contains('image_picker') || pubspec.contains('camera');
+      final bool usesNotifications =
+          pubspec.contains('flutter_local_notifications') ||
+          pubspec.contains('firebase_messaging');
+      final bool usesCameraOrPicker =
+          pubspec.contains('image_picker') || pubspec.contains('camera');
 
-      final String libText = SourceTestUtils.readAllConcatenated('lib').toLowerCase();
+      final String libText = SourceTestUtils.readAllConcatenated(
+        'lib',
+      ).toLowerCase();
 
-      if (usesPermissionHandler || usesMic || usesNotifications || usesCameraOrPicker) {
-        expect(libText.contains('permission') || libText.contains('rationale') || libText.contains('allow'), isTrue);
+      if (usesPermissionHandler ||
+          usesMic ||
+          usesNotifications ||
+          usesCameraOrPicker) {
+        expect(
+          libText.contains('permission') ||
+              libText.contains('rationale') ||
+              libText.contains('allow'),
+          isTrue,
+        );
       }
     });
 
     test('privacy policy and security docs are present', () {
-      final bool hasPrivacyDoc = File('privacy.html').existsSync() || File('assets/legal/privacy_policy.txt').existsSync();
+      final bool hasPrivacyDoc =
+          File('privacy.html').existsSync() ||
+          File('assets/legal/privacy_policy.txt').existsSync();
       final bool hasSecurityDoc = File('SECURITY.md').existsSync();
       expect(hasPrivacyDoc, isTrue);
       expect(hasSecurityDoc, isTrue);
@@ -30,7 +47,9 @@ void main() {
     test('permission prompts are not hidden inside build methods', () {
       final List<String> offenders = <String>[];
       for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
+        final String path = SourceTestUtils.normalizePath(
+          file.path,
+        ).toLowerCase();
         if (!path.contains('/ui/') && !path.contains('/widgets/')) {
           continue;
         }
@@ -47,7 +66,12 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Permission prompts should not run in build methods: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'Permission prompts should not run in build methods: $offenders',
+      );
     });
   });
 }

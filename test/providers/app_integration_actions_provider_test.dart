@@ -98,72 +98,84 @@ void main() {
       expect(actions.monetizationStackType, MonetizationStackType.legacy);
     });
 
-    test('sync operations fail safely when sync service is unavailable', () async {
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          syncServiceProvider.overrideWithValue(null),
-          monetizationActionsCompatProvider.overrideWithValue(
-            const _FakeMonetizationActionsCompat(),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'sync operations fail safely when sync service is unavailable',
+      () async {
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            syncServiceProvider.overrideWithValue(null),
+            monetizationActionsCompatProvider.overrideWithValue(
+              const _FakeMonetizationActionsCompat(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final actions = container.read(appIntegrationActionsProvider);
-      final bool syncToCloud = await actions.syncToCloud();
-      final bool syncDelta = await actions.syncDelta();
-      final bool restore = await actions.restoreFromCloud();
+        final actions = container.read(appIntegrationActionsProvider);
+        final bool syncToCloud = await actions.syncToCloud();
+        final bool syncDelta = await actions.syncDelta();
+        final bool restore = await actions.restoreFromCloud();
 
-      expect(syncToCloud, isFalse);
-      expect(syncDelta, isFalse);
-      expect(restore, isFalse);
-    });
+        expect(syncToCloud, isFalse);
+        expect(syncDelta, isFalse);
+        expect(restore, isFalse);
+      },
+    );
 
-    test('fetches monetization snapshot from the shared compat layer', () async {
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          syncServiceProvider.overrideWithValue(null),
-          monetizationActionsCompatProvider.overrideWithValue(
-            const _FakeMonetizationActionsCompat(),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'fetches monetization snapshot from the shared compat layer',
+      () async {
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            syncServiceProvider.overrideWithValue(null),
+            monetizationActionsCompatProvider.overrideWithValue(
+              const _FakeMonetizationActionsCompat(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final actions = container.read(appIntegrationActionsProvider);
-      final MonetizationStatusSnapshot snapshot = await actions
-          .fetchMonetizationSnapshot();
-      final List<MonetizationPlanOption> plans = await actions
-          .fetchMonetizationPlanOptions();
-      final List<MonetizationCreditOption> credits = await actions
-          .fetchMonetizationCreditOptions();
+        final actions = container.read(appIntegrationActionsProvider);
+        final MonetizationStatusSnapshot snapshot = await actions
+            .fetchMonetizationSnapshot();
+        final List<MonetizationPlanOption> plans = await actions
+            .fetchMonetizationPlanOptions();
+        final List<MonetizationCreditOption> credits = await actions
+            .fetchMonetizationCreditOptions();
 
-      expect(snapshot.stackType, MonetizationStackType.legacy);
-      expect(snapshot.isPremium, isTrue);
-      expect(plans, hasLength(1));
-      expect(credits, hasLength(1));
-    });
+        expect(snapshot.stackType, MonetizationStackType.legacy);
+        expect(snapshot.isPremium, isTrue);
+        expect(plans, hasLength(1));
+        expect(credits, hasLength(1));
+      },
+    );
 
-    test('fetches a safe integration snapshot without requiring sync', () async {
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          syncServiceProvider.overrideWithValue(null),
-          monetizationActionsCompatProvider.overrideWithValue(
-            const _FakeMonetizationActionsCompat(),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'fetches a safe integration snapshot without requiring sync',
+      () async {
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            syncServiceProvider.overrideWithValue(null),
+            monetizationActionsCompatProvider.overrideWithValue(
+              const _FakeMonetizationActionsCompat(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final actions = container.read(appIntegrationActionsProvider);
-      final AppIntegrationSnapshot snapshot = await actions
-          .fetchIntegrationSnapshot();
+        final actions = container.read(appIntegrationActionsProvider);
+        final AppIntegrationSnapshot snapshot = await actions
+            .fetchIntegrationSnapshot();
 
-      expect(snapshot.currentUserId, isNull);
-      expect(snapshot.offlineQueueCount, 0);
-      expect(snapshot.syncErrorMessage, isNull);
-      expect(snapshot.monetizationStatus.stackType, MonetizationStackType.legacy);
-      expect(snapshot.supabaseHealth.configured, isFalse);
-    });
+        expect(snapshot.currentUserId, isNull);
+        expect(snapshot.offlineQueueCount, 0);
+        expect(snapshot.syncErrorMessage, isNull);
+        expect(
+          snapshot.monetizationStatus.stackType,
+          MonetizationStackType.legacy,
+        );
+        expect(snapshot.supabaseHealth.configured, isFalse);
+      },
+    );
   });
 }

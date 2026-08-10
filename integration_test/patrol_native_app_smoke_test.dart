@@ -19,11 +19,7 @@ void main() {
   }
 
   patrolTest('native patrol app root flow boots', ($) async {
-    await $.pumpWidgetAndSettle(
-      const ProviderScope(
-        child: AppRoot(),
-      ),
-    );
+    await $.pumpWidgetAndSettle(const ProviderScope(child: AppRoot()));
 
     expect(find.byType(AppRoot), findsOneWidget);
   });

@@ -55,7 +55,8 @@ class _FeatureCoverageParser {
 
     closeRecord();
 
-    final Map<String, ({int found, int hit})> accum = <String, ({int found, int hit})>{};
+    final Map<String, ({int found, int hit})> accum =
+        <String, ({int found, int hit})>{};
     byFile.forEach((String file, _CoverageTuple c) {
       final String feature = _featureKey(file);
       final current = accum[feature];
@@ -74,7 +75,9 @@ class _FeatureCoverageParser {
       );
     });
 
-    final double globalPercent = totalFound == 0 ? 0 : (totalHit / totalFound) * 100;
+    final double globalPercent = totalFound == 0
+        ? 0
+        : (totalHit / totalFound) * 100;
 
     return _FeatureCoverageResult(
       globalPercent: globalPercent,
@@ -121,10 +124,15 @@ LH:0
 end_of_record
 ''';
 
-      final _FeatureCoverageResult result = _FeatureCoverageParser.parse(sample);
+      final _FeatureCoverageResult result = _FeatureCoverageParser.parse(
+        sample,
+      );
 
       expect(result.byFeature['lib/tutorial']!.percent, closeTo(80, 0.001));
-      expect(result.byFeature['lib/features/auth']!.percent, closeTo(50, 0.001));
+      expect(
+        result.byFeature['lib/features/auth']!.percent,
+        closeTo(50, 0.001),
+      );
       expect(result.byFeature['lib/features/tasks']!.percent, 0);
       expect(result.globalPercent, closeTo(56, 0.001));
     });
@@ -145,9 +153,12 @@ LH:1
 end_of_record
 ''';
 
-      final _FeatureCoverageResult result = _FeatureCoverageParser.parse(sample);
-      final List<MapEntry<String, _CoverageTuple>> sorted = result.byFeature.entries.toList()
-        ..sort((a, b) => a.value.percent.compareTo(b.value.percent));
+      final _FeatureCoverageResult result = _FeatureCoverageParser.parse(
+        sample,
+      );
+      final List<MapEntry<String, _CoverageTuple>> sorted =
+          result.byFeature.entries.toList()
+            ..sort((a, b) => a.value.percent.compareTo(b.value.percent));
 
       expect(sorted.first.key, 'lib/features/tasks');
       expect(sorted.first.value.percent, closeTo(10, 0.001));

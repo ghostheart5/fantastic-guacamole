@@ -1,4 +1,4 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: settings_open.yaml
 - tapOn:
@@ -15,4 +15,5 @@ appId: com.keeganradetski.chronospark
     clearState: false
     stopApp: true
 - runFlow: ../_common/go_to_settings.yaml
-- assertVisible: "App Preferences"
+- assertVisible:
+    id: "screen-settings"

@@ -40,6 +40,11 @@ class NotificationScheduler {
     return payload;
   }
 
+  static void clearAccountRoutingState() {
+    _pendingNotificationPayload = null;
+    notificationPayloadListenable.value = null;
+  }
+
   static void queueExternalNotificationPayload(String payload) {
     final String normalized = payload.trim();
     if (normalized.isEmpty) {
@@ -311,6 +316,16 @@ class NotificationScheduler {
       RuntimeDiagnostics.record(
         'Skipped notification cancel-all because scheduler is not initialized.',
       );
+      return;
+    }
+    await _plugin.cancelAll();
+  }
+
+  Future<void> cancelAllForAccountRemoval() async {
+    if (!_initialized) {
+      await init(requestPermissions: false);
+    }
+    if (!_initialized) {
       return;
     }
     await _plugin.cancelAll();

@@ -1253,10 +1253,15 @@ class _ActionGrid extends ConsumerWidget {
       required String label,
       required VoidCallback onTap,
       Color? color,
+      String? semanticsIdentifier,
     }) {
-      return SizedBox(
-        width: buttonWidth,
-        child: HoloButton(label: label, color: color, onTap: onTap),
+      return Semantics(
+        identifier: semanticsIdentifier,
+        button: true,
+        child: SizedBox(
+          width: buttonWidth,
+          child: HoloButton(label: label, color: color, onTap: onTap),
+        ),
       );
     }
 
@@ -1315,6 +1320,7 @@ class _ActionGrid extends ConsumerWidget {
             children: [
               actionButton(
                 label: 'Smart Planner',
+                semanticsIdentifier: 'nexus-action-smart-planner',
                 onTap: () => ref.read(appFlowProvider.notifier).toSmartCoach(),
               ),
               actionButton(
@@ -1343,7 +1349,8 @@ class _ActionGrid extends ConsumerWidget {
                     ref.read(appFlowProvider.notifier).toTrajectoryEngine(),
               ),
               actionButton(
-                label: 'Planning overview',
+                label: 'SI Console',
+                semanticsIdentifier: 'nexus-action-si-console',
                 onTap: () => ref.read(appFlowProvider.notifier).toConsole(),
               ),
             ],

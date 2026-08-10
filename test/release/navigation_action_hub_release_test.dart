@@ -23,7 +23,11 @@ void main() {
       ];
 
       for (final String symbol in requiredSymbols) {
-        expect(text.contains(symbol), isTrue, reason: 'Missing required navigation destination: $symbol');
+        expect(
+          text.contains(symbol),
+          isTrue,
+          reason: 'Missing required navigation destination: $symbol',
+        );
       }
     });
 

@@ -24,18 +24,28 @@ void main() {
       final List<String> offenders = <String>[];
 
       for (final File file in SourceTestUtils.dartFilesUnder('lib/features')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
+        final String path = SourceTestUtils.normalizePath(
+          file.path,
+        ).toLowerCase();
         if (!(path.contains('screen') || path.contains('view'))) {
           continue;
         }
         final String text = SourceTestUtils.readText(file);
-        final int colorLiteralCount = RegExp(r'Color\(0x[0-9A-Fa-f]{8}\)').allMatches(text).length;
+        final int colorLiteralCount = RegExp(
+          r'Color\(0x[0-9A-Fa-f]{8}\)',
+        ).allMatches(text).length;
         if (colorLiteralCount > 40) {
-          offenders.add('${SourceTestUtils.normalizePath(file.path)}::$colorLiteralCount');
+          offenders.add(
+            '${SourceTestUtils.normalizePath(file.path)}::$colorLiteralCount',
+          );
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Potentially excessive hard-coded colors: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Potentially excessive hard-coded colors: $offenders',
+      );
     });
   });
 }

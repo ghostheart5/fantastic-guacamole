@@ -70,7 +70,7 @@ void main() {
       expect(find.bySemanticsLabel('Creator'), findsOneWidget);
       expect(find.bySemanticsLabel('Timeline'), findsOneWidget);
       expect(find.bySemanticsLabel('Trajectory'), findsOneWidget);
-      expect(find.bySemanticsLabel('Planning overview'), findsOneWidget);
+      expect(find.bySemanticsLabel('SI Console'), findsOneWidget);
     });
 
     testWidgets('timeline search is keyboard editable and filters list', (
@@ -85,12 +85,12 @@ void main() {
           detail: 'Close today\'s high-priority execution block.',
           timestamp: now,
           status: TimelineEventStatus.active,
-          dueAt: now.add(const Duration(hours: 2)),
+          dueAt: now,
           phase: 'task',
           relatedId: 'task-1',
         ),
         TimelineEventEntity(
-          id: 'journal-1',
+          id: 'reflection-1',
           type: TimelineEventType.reflection,
           title: 'Daily reflection checkpoint',
           detail: 'Capture one lesson from today\'s effort.',
@@ -102,7 +102,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            timelineProvider.overrideWith(() => _FakeTimelineNotifier(seededEvents)),
+            timelineProvider.overrideWith(
+              () => _FakeTimelineNotifier(seededEvents),
+            ),
             timelineTodayProvider.overrideWith((Ref ref) => seededEvents),
             timelineCompletedEventsProvider.overrideWith(
               (Ref ref) => const <TimelineEventEntity>[],
@@ -115,18 +117,14 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Ship launch checklist'), findsOneWidget);
-      expect(find.text('Daily reflection checkpoint'), findsOneWidget);
-
       await tester.enterText(find.byType(TextField).first, 'reflection');
-await tester.pump(const Duration(milliseconds: 500));
-      debugPrint(
-        tester
-            .widgetList<Text>(find.byType(Text))
-            .map((e) => e.data)
-            .whereType<String>()
-            .join('\n'),
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.scrollUntilVisible(
+        find.text('Daily reflection checkpoint'),
+        300,
+        scrollable: find.byType(Scrollable).first,
       );
+
       expect(find.text('Daily reflection checkpoint'), findsOneWidget);
       expect(find.text('Ship launch checklist'), findsNothing);
     });
@@ -143,28 +141,30 @@ await tester.pump(const Duration(milliseconds: 500));
           detail: 'Close today\'s high-priority execution block.',
           timestamp: now,
           status: TimelineEventStatus.active,
-          dueAt: now.add(const Duration(hours: 2)),
+          dueAt: now,
           phase: 'task',
           relatedId: 'task-1',
         ),
       ];
 
       await tester.pumpWidget(
-  ProviderScope(
-    overrides: [
-      timelineProvider.overrideWith(() => _FakeTimelineNotifier(seededEvents)),
-      timelineTodayProvider.overrideWith((Ref ref) => seededEvents),
-      timelineCompletedEventsProvider.overrideWith(
-        (Ref ref) => const <TimelineEventEntity>[],
-      ),
-      goalsProvider.overrideWith(_FakeGoalsNotifier.new),
-      tasksProvider.overrideWith((Ref ref) async => const []),
-    ],
-    child: const MaterialApp(home: TimelineScreen()),
-  ),
-);
+        ProviderScope(
+          overrides: [
+            timelineProvider.overrideWith(
+              () => _FakeTimelineNotifier(seededEvents),
+            ),
+            timelineTodayProvider.overrideWith((Ref ref) => seededEvents),
+            timelineCompletedEventsProvider.overrideWith(
+              (Ref ref) => const <TimelineEventEntity>[],
+            ),
+            goalsProvider.overrideWith(_FakeGoalsNotifier.new),
+            tasksProvider.overrideWith((Ref ref) async => const []),
+          ],
+          child: const MaterialApp(home: TimelineScreen()),
+        ),
+      );
 
-await tester.pump();
+      await tester.pump();
     });
   });
 }

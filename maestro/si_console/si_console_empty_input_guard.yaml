@@ -1,9 +1,12 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: si_console_open.yaml
 - tapOn:
-    id: "send_rounded"
-    optional: true
+    id: "si-console-input"
+- eraseText
+- hideKeyboard
+- tapOn:
+    id: "si-console-send"
 - assertVisible:
-    text: "Mission control is aligned"
-    optional: true
+    id: "si-console-input"
+- assertNotVisible: "Something went wrong"

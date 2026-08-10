@@ -1,7 +1,8 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../authentication/login_with_env.yaml
 - runFlow: ../_common/go_to_si_console.yaml
 - assertVisible:
-    text: "SI Console"
-    optional: true
+    id: "screen-si-console"
+- assertVisible:
+    id: "si-console-input"

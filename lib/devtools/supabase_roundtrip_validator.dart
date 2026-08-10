@@ -438,7 +438,7 @@ class SupabaseRoundtripValidator {
     try {
       await _client
           .from('user_daily_metrics')
-          .upsert(row, onConflict: 'device_id,date');
+          .upsert(row, onConflict: 'user_id,date');
       items.add(
         const ValidationItem(
           category: 'USER DAILY METRICS',

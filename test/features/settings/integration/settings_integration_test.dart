@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 void main() {
   group('settings integration flow', () {
     test('settings actions delegate reminder and planning updates', () async {
@@ -29,7 +30,9 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      final SettingsUiActions actions = container.read(settingsUiActionsProvider);
+      final SettingsUiActions actions = container.read(
+        settingsUiActionsProvider,
+      );
       final bool enabled = await actions.setReflectionReminderEnabled(
         enabled: true,
         time: const TimeOfDay(hour: 20, minute: 30),
@@ -53,9 +56,7 @@ void main() {
         accepted: <String>{'app-prefs:root'},
       );
       final ProviderContainer container = ProviderContainer(
-        overrides: [
-          externalUrlServiceProvider.overrideWithValue(external),
-        ],
+        overrides: [externalUrlServiceProvider.overrideWithValue(external)],
       );
       addTearDown(container.dispose);
 
@@ -69,34 +70,37 @@ void main() {
       expect(external.openedUris.last.toString(), 'app-prefs:root');
     });
 
-    test('notification permission snapshot reflects reminder service state', () async {
-      final _FakeReflectionReminderService reminder =
-          _FakeReflectionReminderService(
-            initialGranted: false,
-            permissionState: NotificationPermissionState.denied,
-          );
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          reflectionReminderServiceProvider.overrideWithValue(reminder),
-        ],
-      );
-      addTearDown(container.dispose);
+    test(
+      'notification permission snapshot reflects reminder service state',
+      () async {
+        final _FakeReflectionReminderService reminder =
+            _FakeReflectionReminderService(
+              initialGranted: false,
+              permissionState: NotificationPermissionState.denied,
+            );
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            reflectionReminderServiceProvider.overrideWithValue(reminder),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final NotificationPermissionSnapshot before = await container
-          .read(notificationPermissionProvider.notifier)
-          .refresh();
-      expect(before.granted, isFalse);
-      expect(before.permissionState, NotificationPermissionState.denied);
+        final NotificationPermissionSnapshot before = await container
+            .read(notificationPermissionProvider.notifier)
+            .refresh();
+        expect(before.granted, isFalse);
+        expect(before.permissionState, NotificationPermissionState.denied);
 
-      reminder.setGranted(true, NotificationPermissionState.granted);
-      final NotificationPermissionSnapshot after = await container
-          .read(notificationPermissionProvider.notifier)
-          .requestPermission();
+        reminder.setGranted(true, NotificationPermissionState.granted);
+        final NotificationPermissionSnapshot after = await container
+            .read(notificationPermissionProvider.notifier)
+            .requestPermission();
 
-      expect(after.granted, isTrue);
-      expect(after.permissionState, NotificationPermissionState.granted);
-      expect(after.isGranted, isTrue);
-    });
+        expect(after.granted, isTrue);
+        expect(after.permissionState, NotificationPermissionState.granted);
+        expect(after.isGranted, isTrue);
+      },
+    );
   });
 }
 

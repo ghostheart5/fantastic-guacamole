@@ -1,12 +1,13 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../_common/go_to_smart_planner.yaml
 - tapOn:
-    text: "Share your current context, friction, or outcome..."
+    id: "smart-planner-context-input"
 - eraseText
 - inputText: "What should I do next?"
+- hideKeyboard
 - tapOn:
-    text: "Get insight"
+    id: "smart-planner-submit"
 - assertVisible:
     text: "Getting insight..."
     optional: true

@@ -1,4 +1,4 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: onboarding_first_launch.yaml
 - runFlow: onboarding_walkthrough.yaml

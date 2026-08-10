@@ -1,21 +1,30 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - launchApp:
     clearState: false
     stopApp: true
-- tapOn:
+- waitForAnimationToEnd:
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "login-email-field|nav-open-map"
+    timeout: 60000
+- runFlow:
+    when:
+      visible:
+        id: "login-email-field"
+    commands:
+      - tapOn:
+          id: "login-email-field"
+      - eraseText
+      - inputText: ${MAESTRO_EMAIL}
+      - hideKeyboard
+      - tapOn:
+          id: "login-password-field"
+      - eraseText
+      - inputText: ${MAESTRO_PASSWORD}
+      - hideKeyboard
+      - tapOn:
+          text: "ENTER SYSTEM"
+- assertNotVisible:
     id: "login-email-field"
-    optional: true
-- eraseText
-- inputText: ${MAESTRO_EMAIL}
-- tapOn:
-    id: "login-password-field"
-    optional: true
-- eraseText
-- inputText: ${MAESTRO_PASSWORD}
-- tapOn:
-    text: "ENTER SYSTEM"
-    optional: true
-- assertVisible:
-    text: "Navigation Map"
-    optional: true

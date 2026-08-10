@@ -265,7 +265,6 @@ class _InMemorySecureStore implements SecureStore {
     _values.remove(key);
   }
 
-  @override
   Future<void> clear() async {
     _values.clear();
   }

@@ -188,7 +188,9 @@ ProviderContainer _buildContainer({
   final ProfileState resolvedProfile = profile ?? ProfileState();
   return ProviderContainer(
     overrides: [
-      profileProvider.overrideWith(() => _StaticProfileController(resolvedProfile)),
+      profileProvider.overrideWith(
+        () => _StaticProfileController(resolvedProfile),
+      ),
       siStateProvider.overrideWith(() => _StaticSiStateController(siState)),
       trajectorySummaryProvider.overrideWithValue(
         trajectory ?? _trajectory(momentum: 0.6),

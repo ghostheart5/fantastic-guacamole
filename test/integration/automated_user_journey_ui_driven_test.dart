@@ -61,258 +61,285 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  testWidgets('automated UI journey performs human-like actions', (
-    WidgetTester tester,
-  ) async {
-    final _FakeAuthRepository authRepository = _FakeAuthRepository(
-      initialSession: null,
-    );
-    final _FakeGoalRepository goalRepository = _FakeGoalRepository();
-    final _FakeRoutineRepository routineRepository = _FakeRoutineRepository();
-    final _FakeTaskRepository taskRepository = _FakeTaskRepository();
-    final _TimelineProbe timeline = _TimelineProbe();
-    final _LogProbe logs = _LogProbe();
-    final _FakeLocalMetricsAccumulator metrics = _FakeLocalMetricsAccumulator();
-    final EventBus bus = EventBus();
+  testWidgets(
+    'automated UI journey performs human-like actions',
+    (WidgetTester tester) async {
+      final _FakeAuthRepository authRepository = _FakeAuthRepository(
+        initialSession: null,
+      );
+      final _FakeGoalRepository goalRepository = _FakeGoalRepository();
+      final _FakeRoutineRepository routineRepository = _FakeRoutineRepository();
+      final _FakeTaskRepository taskRepository = _FakeTaskRepository();
+      final _TimelineProbe timeline = _TimelineProbe();
+      final _LogProbe logs = _LogProbe();
+      final _FakeLocalMetricsAccumulator metrics =
+          _FakeLocalMetricsAccumulator();
+      final EventBus bus = EventBus();
 
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        authRepositoryProvider.overrideWithValue(authRepository),
-        eventBusProvider.overrideWithValue(bus),
-        profileProvider.overrideWith(_TestProfileController.new),
-        reminderOrchestratorServiceProvider.overrideWithValue(
-          _buildReminderOrchestrator(),
-        ),
-        domainGoalRepositoryProvider.overrideWithValue(goalRepository),
-        getGoalsUseCaseProvider.overrideWithValue(GetGoals(goalRepository)),
-        featureCreateGoalUseCaseProvider.overrideWithValue(
-          CreateGoalUsecase(goalRepository),
-        ),
-        domainRoutineRepositoryProvider.overrideWithValue(routineRepository),
-        getRoutinesUseCaseProvider.overrideWithValue(
-          GetRoutines(routineRepository),
-        ),
-        createRoutineUseCaseProvider.overrideWithValue(
-          CreateRoutine(routineRepository),
-        ),
-        domainTaskRepositoryProvider.overrideWithValue(taskRepository),
-        createTaskUseCaseProvider.overrideWithValue(CreateTask(taskRepository)),
-        completeTaskUseCaseProvider.overrideWithValue(
-          CompleteTask(taskRepository),
-        ),
-        tasksProvider.overrideWith((Ref ref) async => const <Task>[]),
-        timelineActionsProvider.overrideWith(
-          (Ref ref) => _FakeTimelineActions(ref, timeline),
-        ),
-        logsActionsProvider.overrideWith((Ref ref) => _FakeLogsActions(ref, logs)),
-        localMetricsAccumulatorProvider.overrideWithValue(metrics),
-        nexusStartupSummaryProvider.overrideWithValue(
-          NexusStartupSummary(
-            profile: ProfileState(
-              name: 'Journey Operator',
-              level: 2,
-              streak: 2,
-              profileReady: true,
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(authRepository),
+          eventBusProvider.overrideWithValue(bus),
+          profileProvider.overrideWith(_TestProfileController.new),
+          reminderOrchestratorServiceProvider.overrideWithValue(
+            _buildReminderOrchestrator(),
+          ),
+          domainGoalRepositoryProvider.overrideWithValue(goalRepository),
+          getGoalsUseCaseProvider.overrideWithValue(GetGoals(goalRepository)),
+          featureCreateGoalUseCaseProvider.overrideWithValue(
+            CreateGoalUsecase(goalRepository),
+          ),
+          domainRoutineRepositoryProvider.overrideWithValue(routineRepository),
+          getRoutinesUseCaseProvider.overrideWithValue(
+            GetRoutines(routineRepository),
+          ),
+          createRoutineUseCaseProvider.overrideWithValue(
+            CreateRoutine(routineRepository),
+          ),
+          domainTaskRepositoryProvider.overrideWithValue(taskRepository),
+          createTaskUseCaseProvider.overrideWithValue(
+            CreateTask(taskRepository),
+          ),
+          completeTaskUseCaseProvider.overrideWithValue(
+            CompleteTask(taskRepository),
+          ),
+          tasksProvider.overrideWith((Ref ref) async => const <Task>[]),
+          timelineActionsProvider.overrideWith(
+            (Ref ref) => _FakeTimelineActions(ref, timeline),
+          ),
+          logsActionsProvider.overrideWith(
+            (Ref ref) => _FakeLogsActions(ref, logs),
+          ),
+          localMetricsAccumulatorProvider.overrideWithValue(metrics),
+          nexusStartupSummaryProvider.overrideWithValue(
+            NexusStartupSummary(
+              profile: ProfileState(
+                name: 'Journey Operator',
+                level: 2,
+                streak: 2,
+                profileReady: true,
+              ),
+              energy: 0.67,
+              fatigue: 0.22,
+              completedToday: 0,
+              emotionLabel: 'focused',
+              startupDirective: 'Execute one decisive action now.',
             ),
-            energy: 0.67,
-            fatigue: 0.22,
-            completedToday: 0,
-            emotionLabel: 'focused',
-            startupDirective: 'Execute one decisive action now.',
+          ),
+        ],
+      );
+      addTearDown(() async {
+        await bus.dispose();
+        container.dispose();
+      });
+
+      // 1) Launch app
+      expect(container.read(appFlowProvider), AppView.nexus);
+
+      // 2) Login via UI interactions
+      final TextEditingController emailController = TextEditingController();
+      final TextEditingController passwordController = TextEditingController();
+      addTearDown(emailController.dispose);
+      addTearDown(passwordController.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: LoginScreen(
+              emailController: emailController,
+              passwordController: passwordController,
+              obscurePassword: true,
+              isSubmitting: false,
+              isSignUpMode: false,
+              onPrimaryAction: () {
+                unawaited(
+                  container
+                      .read(authControllerProvider.notifier)
+                      .signInWithEmail(
+                        email: emailController.text,
+                        password: passwordController.text,
+                      ),
+                );
+              },
+              onForgotPassword: () {},
+              onGoogleSignIn: () {},
+              onToggleMode: () {},
+              onTogglePassword: () {},
+            ),
           ),
         ),
-      ],
-    );
-    addTearDown(() async {
-      await bus.dispose();
-      container.dispose();
-    });
+      );
+      await tester.pump();
 
-    // 1) Launch app
-    expect(container.read(appFlowProvider), AppView.nexus);
+      await tester.enterText(
+        find.byKey(const ValueKey('login-email-field')),
+        'journey@example.com',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('login-password-field')),
+        'Password123',
+      );
+      await tester.tap(find.text('ENTER SYSTEM'));
+      await tester.pump();
+      await tester.pump();
 
-    // 2) Login via UI interactions
-    final TextEditingController emailController = TextEditingController();
-    final TextEditingController passwordController = TextEditingController();
-    addTearDown(emailController.dispose);
-    addTearDown(passwordController.dispose);
+      expect(
+        container.read(authControllerProvider).status,
+        AuthStatus.authenticated,
+      );
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          home: LoginScreen(
-            emailController: emailController,
-            passwordController: passwordController,
-            obscurePassword: true,
-            isSubmitting: false,
-            isSignUpMode: false,
-            onPrimaryAction: () {
-              unawaited(
-                container.read(authControllerProvider.notifier).signInWithEmail(
-                      email: emailController.text,
-                      password: passwordController.text,
-                    ),
-              );
-            },
-            onForgotPassword: () {},
-            onGoogleSignIn: () {},
-            onToggleMode: () {},
-            onTogglePassword: () {},
-          ),
+      // 3) Create Goal
+      await container
+          .read(goalsProvider.notifier)
+          .add(
+            title: 'Journey Goal',
+            description: 'Reach mission-ready state.',
+          );
+
+      // 4) Create Habit
+      final RoutineEntity habit = RoutineEntity(
+        id: 'habit-journey-1',
+        name: 'Daily Focus Sprint',
+        createdAt: DateTime.now(),
+        cadence: RoutineCadence.daily,
+        targetCount: 1,
+      );
+      await container.read(routinesProvider.notifier).addHabit(habit);
+
+      // 5) Create Task
+      final TaskEntity task = TaskEntity(
+        id: 'task-journey-1',
+        title: 'Ship milestone task',
+        createdAt: DateTime.now(),
+        priority: 3,
+        difficulty: 2,
+        energyRequired: 2,
+      );
+      await container
+          .read(taskActionsProvider)
+          .createTask(task, actionSource: 'automated_ui_journey');
+
+      // 6) Create Note
+      await container
+          .read(logsActionsProvider)
+          .addStandaloneEntry(
+            source: 'note',
+            message: 'Captured mission context for SI.',
+          );
+
+      // 7) Open Timeline via visible UI quick action
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: NexusScreen()),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    await tester.enterText(
-      find.byKey(const ValueKey('login-email-field')),
-      'journey@example.com',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('login-password-field')),
-      'Password123',
-    );
-    await tester.tap(find.text('ENTER SYSTEM'));
-    await tester.pump();
-    await tester.pump();
+      await tester.scrollUntilVisible(
+        find.text('Quick actions'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
 
-    expect(container.read(authControllerProvider).status, AuthStatus.authenticated);
+      await _tapAnyLabel(tester, <String>['Timeline', 'TIMELINE']);
+      await tester.pump();
+      expect(container.read(appFlowProvider), AppView.timeline);
 
-    // 3) Create Goal
-    await container.read(goalsProvider.notifier).add(
-          title: 'Journey Goal',
-          description: 'Reach mission-ready state.',
-        );
+      // 8) Open SI Console via visible UI quick action
+      await _tapAnyLabel(tester, <String>['SI Console', 'SI CONSOLE']);
+      await tester.pump();
+      expect(container.read(appFlowProvider), AppView.console);
 
-    // 4) Create Habit
-    final RoutineEntity habit = RoutineEntity(
-      id: 'habit-journey-1',
-      name: 'Daily Focus Sprint',
-      createdAt: DateTime.now(),
-      cadence: RoutineCadence.daily,
-      targetCount: 1,
-    );
-    await container.read(routinesProvider.notifier).addHabit(habit);
+      // 9) Open Profile and Settings via visible UI actions
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: NexusScreen()),
+        ),
+      );
+      await tester.pump();
 
-    // 5) Create Task
-    final TaskEntity task = TaskEntity(
-      id: 'task-journey-1',
-      title: 'Ship milestone task',
-      createdAt: DateTime.now(),
-      priority: 3,
-      difficulty: 2,
-      energyRequired: 2,
-    );
-    await container
-        .read(taskActionsProvider)
-        .createTask(task, actionSource: 'automated_ui_journey');
+      await tester.scrollUntilVisible(
+        find.text('Quick actions'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
 
-    // 6) Create Note
-    await container.read(logsActionsProvider).addStandaloneEntry(
-          source: 'note',
-          message: 'Captured mission context for SI.',
-        );
+      await _tapAnyLabel(tester, <String>['Profile', 'PROFILE']);
+      await tester.pump();
+      expect(container.read(appFlowProvider), AppView.profile);
 
-    // 7) Open Timeline via visible UI quick action
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: NexusScreen()),
-      ),
-    );
-    await tester.pump();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: ProfileScreen()),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.settings).first);
+      await tester.pump();
+      expect(container.read(appFlowProvider), AppView.settings);
 
-    await tester.scrollUntilVisible(
-      find.text('Quick actions'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pump();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: SettingsScreen()),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new).first);
+      await tester.pump();
+      expect(container.read(appFlowProvider), AppView.nexus);
 
-    await _tapAnyLabel(tester, <String>['Timeline', 'TIMELINE']);
-    await tester.pump();
-    expect(container.read(appFlowProvider), AppView.timeline);
+      // 10) Verify values exist and interact with SI input UI
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: SIConsoleScreen()),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
 
-    // 8) Open SI Console via visible UI quick action
-    await _tapAnyLabel(
-      tester,
-      <String>['Planning overview', 'PLANNING OVERVIEW'],
-    );
-    await tester.pump();
-    expect(container.read(appFlowProvider), AppView.console);
+      await tester.enterText(find.byType(TextField), 'verify journey values');
+      await tester.pump();
 
-    // 9) Open Profile and Settings via visible UI actions
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: NexusScreen()),
-      ),
-    );
-    await tester.pump();
+      final List<GoalEntity> goals = container.read(goalsProvider);
+      final List<RoutineEntity> habits = container.read(routinesProvider);
 
-    await tester.scrollUntilVisible(
-      find.text('Quick actions'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pump();
+      expect(goals.any((GoalEntity g) => g.title == 'Journey Goal'), isTrue);
+      expect(
+        habits.any((RoutineEntity h) => h.name == 'Daily Focus Sprint'),
+        isTrue,
+      );
+      expect(
+        taskRepository.savedTasks.any(
+          (TaskEntity t) => t.id == 'task-journey-1',
+        ),
+        isTrue,
+      );
+      expect(
+        logs.notes.any((String n) => n.contains('mission context')),
+        isTrue,
+      );
+      expect(
+        timeline.connectedTasks.map((TaskEntity t) => t.id),
+        contains('task-journey-1'),
+      );
+      expect(find.byType(TextField), findsOneWidget);
 
-    await _tapAnyLabel(tester, <String>['Profile', 'PROFILE']);
-    await tester.pump();
-    expect(container.read(appFlowProvider), AppView.profile);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: ProfileScreen()),
-      ),
-    );
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.settings).first);
-    await tester.pump();
-    expect(container.read(appFlowProvider), AppView.settings);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: SettingsScreen()),
-      ),
-    );
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new).first);
-    await tester.pump();
-    expect(container.read(appFlowProvider), AppView.nexus);
-
-    // 10) Verify values exist and interact with SI input UI
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: SIConsoleScreen()),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 300));
-
-    await tester.enterText(find.byType(TextField), 'verify journey values');
-    await tester.pump();
-
-    final List<GoalEntity> goals = container.read(goalsProvider);
-    final List<RoutineEntity> habits = container.read(routinesProvider);
-
-    expect(goals.any((GoalEntity g) => g.title == 'Journey Goal'), isTrue);
-    expect(habits.any((RoutineEntity h) => h.name == 'Daily Focus Sprint'), isTrue);
-    expect(
-      taskRepository.savedTasks.any((TaskEntity t) => t.id == 'task-journey-1'),
-      isTrue,
-    );
-    expect(logs.notes.any((String n) => n.contains('mission context')), isTrue);
-    expect(timeline.connectedTasks.map((TaskEntity t) => t.id), contains('task-journey-1'));
-    expect(find.byType(TextField), findsOneWidget);
-
-    // 11) Logout
-    await container.read(authControllerProvider.notifier).signOut();
-    expect(container.read(authControllerProvider).status, AuthStatus.unauthenticated);
-  }, tags: <String>['smoke', 'journey']);
+      // 11) Logout
+      await container.read(authControllerProvider.notifier).signOut();
+      expect(
+        container.read(authControllerProvider).status,
+        AuthStatus.unauthenticated,
+      );
+    },
+    tags: <String>['smoke', 'journey'],
+  );
 }
 
 Future<void> _tapAnyLabel(WidgetTester tester, List<String> labels) async {
@@ -389,7 +416,7 @@ class _FakeNotificationRepository implements INotificationRepository {
 
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository({required AuthSessionEntity? initialSession})
-      : _session = initialSession;
+    : _session = initialSession;
 
   final StreamController<Result<AuthSessionEntity?>> _sessionStream =
       StreamController<Result<AuthSessionEntity?>>.broadcast();

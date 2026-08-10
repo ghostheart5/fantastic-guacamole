@@ -28,11 +28,14 @@ void main() {
     }
   });
 
-  test('rejects invalid operation metadata instead of defaulting to update', () {
-    final Map<String, dynamic> payload = validPayload()
-      ..['operationType'] = 'unknown'
-      ..['createdAtUtc'] = 'not-a-date';
+  test(
+    'rejects invalid operation metadata instead of defaulting to update',
+    () {
+      final Map<String, dynamic> payload = validPayload()
+        ..['operationType'] = 'unknown'
+        ..['createdAtUtc'] = 'not-a-date';
 
-    expect(() => SyncOperation.fromJson(payload), throwsFormatException);
-  });
+      expect(() => SyncOperation.fromJson(payload), throwsFormatException);
+    },
+  );
 }

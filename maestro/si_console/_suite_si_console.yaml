@@ -1,4 +1,4 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: si_console_open.yaml
 - runFlow: si_console_command_roundtrip.yaml

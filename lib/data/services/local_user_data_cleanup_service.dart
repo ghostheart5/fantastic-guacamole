@@ -3,99 +3,138 @@ import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
-import 'package:fantastic_guacamole/state/core/app_providers.dart';
+import 'package:fantastic_guacamole/data/storage/storage_keys.dart';
+import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
+import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
+
+typedef LocalUserDataCleanupAction = Future<void> Function();
+
+class LocalUserDataCleanupException implements Exception {
+  LocalUserDataCleanupException(Iterable<String> failedSteps)
+    : failedSteps = List<String>.unmodifiable(failedSteps);
+
+  final List<String> failedSteps;
+
+  @override
+  String toString() {
+    return 'Local user data cleanup failed for: ${failedSteps.join(', ')}';
+  }
+}
 
 class LocalUserDataCleanupService {
-  const LocalUserDataCleanupService({
+  LocalUserDataCleanupService({
     required this.preferences,
     required this.hive,
     required this.secureStore,
-  });
+    LocalUserDataCleanupAction? cancelNotifications,
+    LocalUserDataCleanupAction? deleteFirebaseMessagingToken,
+    LocalUserDataCleanupAction? disassociateFirebaseMessagingToken,
+    LocalUserDataCleanupAction? clearNotificationRoutingState,
+  }) : _cancelNotifications =
+           cancelNotifications ??
+           (() => NotificationScheduler().cancelAllForAccountRemoval()),
+       _deleteFirebaseMessagingToken =
+           deleteFirebaseMessagingToken ??
+           (() => const FirebaseMessagingBootstrap()
+               .deleteTokenForAccountRemoval()),
+       _disassociateFirebaseMessagingToken =
+           disassociateFirebaseMessagingToken ?? (() async {}),
+       _clearNotificationRoutingState =
+           clearNotificationRoutingState ??
+           (() async => NotificationScheduler.clearAccountRoutingState());
 
   final SharedPrefsStore preferences;
   final HiveStore hive;
   final SecureStore secureStore;
+  final LocalUserDataCleanupAction _cancelNotifications;
+  final LocalUserDataCleanupAction _deleteFirebaseMessagingToken;
+  final LocalUserDataCleanupAction _disassociateFirebaseMessagingToken;
+  final LocalUserDataCleanupAction _clearNotificationRoutingState;
 
-  static const List<String> _hiveBoxes = <String>[
-    HiveBoxes.tasks,
-    HiveBoxes.goals,
-    HiveBoxes.routines,
-    HiveBoxes.projects,
-    HiveBoxes.subtasks,
-    HiveBoxes.progression,
-    HiveBoxes.dailyPlans,
-    HiveBoxes.timeline,
-    HiveBoxes.offlineQueue,
+  static const Set<String> _additionalHiveBoxes = <String>{
     'profile_box',
-  ];
+    'tasks',
+    StorageKeys.credentials,
+    StorageKeys.session,
+    StorageKeys.identity,
+    StorageKeys.notifications,
+    StorageKeys.theme,
+    StorageKeys.settings,
+  };
 
-  static const List<String> _secureKeys = <String>[
-    'auth.cached_session',
-    'identity_id',
-    'identity_profile_v1',
-    'profile_entity_v1',
-    'profile_state_v2',
-    'sessions_entity_v1',
-    'chrono_log_entries_v2',
-    'milestones_v1',
-    'si_engine_state_v1',
-    'si_decision_snapshot_v1',
-    'paywall_subscription_state_v1',
-    'workspace_creator_v1',
-    'workspace_temporal_v1',
-    'workspace_si_v1',
-  ];
+  Future<void> prepareForAccountDeletion() {
+    return _runMandatorySteps(_externalCleanupSteps());
+  }
 
-  static const List<String> _prefsKeys = <String>[
-    'emotion_state_v1',
-    'user_preferences_json',
-    'settings_entity_v1',
-    'app_theme_entity_v1',
-    'primary_goal_type',
-    'rec_last_route',
-    'rec_active_task',
-    'rec_draft_title',
-  ];
+  Future<void> clearLocalData({String? userId}) {
+    _validateUserId(userId);
+    return _runMandatorySteps(_localStorageCleanupSteps());
+  }
 
-  Future<void> clear({String? userId}) async {
-    await preferences.init();
-    await hive.init();
+  Future<void> clear({String? userId}) {
+    _validateUserId(userId);
+    return _runMandatorySteps(<String, LocalUserDataCleanupAction>{
+      ..._externalCleanupSteps(),
+      ..._localStorageCleanupSteps(),
+    });
+  }
 
-    final List<Future<void> Function()> steps = <Future<void> Function()>[
-      for (final String box in _hiveBoxes) () => hive.clearBox(box),
-      for (final String key in _secureKeys) () => secureStore.delete(key),
-      for (final String key in _prefsKeys) () => preferences.delete(key),
-      () => preferences.delete(onboardingCompleteStorageKey),
-      () => preferences.delete(onboardingContentVersionStorageKey),
-      () => preferences.delete(onboardingStepStorageKey),
-      () => preferences.delete(creatorFirstItemCreatedStorageKey),
-      () => preferences.delete(timelineFirstActionCompletedStorageKey),
-      () => preferences.delete('onboarding_state_v1'),
-    ];
+  Map<String, LocalUserDataCleanupAction> _externalCleanupSteps() {
+    return <String, LocalUserDataCleanupAction>{
+      'notification routing state': _clearNotificationRoutingState,
+      'scheduled notifications': _cancelNotifications,
+      'Supabase messaging-token association':
+          _disassociateFirebaseMessagingToken,
+      'Firebase messaging token': _deleteFirebaseMessagingToken,
+    };
+  }
 
-    if (userId != null && userId.trim().isNotEmpty) {
-      steps.addAll(<Future<void> Function()>[
-        () => preferences.delete(onboardingCompleteStorageKeyForUser(userId)),
-        () => preferences.delete(
-          onboardingContentVersionStorageKeyForUser(userId),
-        ),
-        () => preferences.delete(onboardingStepStorageKeyForUser(userId)),
-        () => preferences.delete(
-          creatorFirstItemCreatedStorageKeyForUser(userId),
-        ),
-        () => preferences.delete(
-          timelineFirstActionCompletedStorageKeyForUser(userId),
-        ),
-        () => preferences.delete('onboarding_state_v1_$userId'),
-      ]);
+  Map<String, LocalUserDataCleanupAction> _localStorageCleanupSteps() {
+    final Set<String> hiveBoxes = <String>{
+      ...HiveBoxes.encryptedBoxes,
+      ..._additionalHiveBoxes,
+    };
+    return <String, LocalUserDataCleanupAction>{
+      'Hive initialization': hive.init,
+      for (final String box in hiveBoxes)
+        'Hive box $box': () => hive.clearBox(box),
+      'SharedPreferences initialization': preferences.init,
+      'SharedPreferences': preferences.clear,
+      'secure storage': _clearSecureStoragePreservingHiveCipher,
+    };
+  }
+
+  Future<void> _clearSecureStoragePreservingHiveCipher() async {
+    final String? hiveCipher = await secureStore.readString(
+      HiveService.cipherStoreKey,
+    );
+    await secureStore.deleteAll();
+    if (hiveCipher != null && hiveCipher.trim().isNotEmpty) {
+      await secureStore.writeString(HiveService.cipherStoreKey, hiveCipher);
     }
+  }
 
-    for (final Future<void> Function() step in steps) {
+  Future<void> _runMandatorySteps(
+    Map<String, LocalUserDataCleanupAction> steps,
+  ) async {
+    final List<String> failedSteps = <String>[];
+    for (final MapEntry<String, LocalUserDataCleanupAction> step
+        in steps.entries) {
       try {
-        await step();
-      } on Object catch (error) {
-        Logger.warn('Local user data cleanup step failed: $error');
+        await step.value();
+      } on Object {
+        failedSteps.add(step.key);
+        Logger.warn('Mandatory local cleanup step failed: ${step.key}.');
       }
+    }
+    if (failedSteps.isNotEmpty) {
+      throw LocalUserDataCleanupException(failedSteps);
+    }
+  }
+
+  void _validateUserId(String? userId) {
+    if (userId != null && userId.trim().isEmpty) {
+      throw ArgumentError.value(userId, 'userId', 'must not be blank');
     }
   }
 }

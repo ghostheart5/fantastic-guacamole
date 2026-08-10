@@ -52,19 +52,19 @@ void main() {
       );
     });
 
-    test('redirects normal unresolved startup routes to onboarding', () {
+    test('holds normal unresolved startup routes on bootstrap', () {
       expect(
         resolveStartupRouteGate(
           location: RoutePaths.home,
           uri: Uri.parse(RoutePaths.home),
           onboardingStatus: OnboardingStatus.unknown,
         ),
-        StartupRouteGate.redirectToOnboarding,
+        StartupRouteGate.redirectToBootstrap,
       );
       expect(
         resolveStartupRouteGate(
-          location: RoutePaths.onboarding,
-          uri: Uri.parse(RoutePaths.onboarding),
+          location: RoutePaths.bootstrap,
+          uri: Uri.parse(RoutePaths.bootstrap),
           onboardingStatus: OnboardingStatus.unknown,
         ),
         StartupRouteGate.allow,

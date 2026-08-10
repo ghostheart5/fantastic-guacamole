@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -64,7 +64,8 @@ void main() {
       expect(
         offenders,
         isEmpty,
-        reason: 'Production lib code must not import test-only code: $offenders',
+        reason:
+            'Production lib code must not import test-only code: $offenders',
       );
     });
   });

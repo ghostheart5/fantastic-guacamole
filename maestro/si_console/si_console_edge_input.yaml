@@ -1,10 +1,11 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: si_console_open.yaml
-- inputText: "../../../../ ;;; ::: ???"
 - tapOn:
-    id: "send_rounded"
-    optional: true
-- assertVisible:
-    text: "Task sync"
-    optional: true
+    id: "si-console-input"
+- eraseText
+- inputText: "../../../../ ;;; ::: ???"
+- hideKeyboard
+- tapOn:
+    id: "si-console-send"
+- assertNotVisible: "Something went wrong"

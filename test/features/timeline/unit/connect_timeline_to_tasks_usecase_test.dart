@@ -14,7 +14,8 @@ class _RecordingTimelineRepository implements ITimelineRepository {
   }
 
   @override
-  List<TimelineEventEntity> getEvents() => List<TimelineEventEntity>.from(events);
+  List<TimelineEventEntity> getEvents() =>
+      List<TimelineEventEntity>.from(events);
 
   @override
   Future<void> removeEvent(String id) async {

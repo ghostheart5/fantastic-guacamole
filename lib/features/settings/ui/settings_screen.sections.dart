@@ -78,45 +78,50 @@ class _ReflectionReminderSectionState
             title: 'Reflection Reminder',
             value: _enabled,
             onChanged: _toggle,
+            semanticsIdentifier: 'settings-reflection-reminder-toggle',
           ),
           if (_enabled)
-            GestureDetector(
-              onTap: _pickTime,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Reminder Time',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+            Semantics(
+              identifier: 'settings-reflection-reminder-time',
+              container: true,
+              child: GestureDetector(
+                onTap: _pickTime,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Reminder Time',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
-                      decoration: BoxDecoration(
-                        color: AppColors.neonViolet.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.neonViolet.withValues(alpha: 0.4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.neonViolet.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.neonViolet.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Text(
+                          _time.format(context),
+                          style: const TextStyle(
+                            color: AppColors.neonViolet,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                      child: Text(
-                        _time.format(context),
-                        style: const TextStyle(
-                          color: AppColors.neonViolet,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -367,11 +372,13 @@ class _NeonToggleTile extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.switchKey,
+    this.semanticsIdentifier,
   });
   final String title;
   final bool value;
   final ValueChanged<bool> onChanged;
   final Key? switchKey;
+  final String? semanticsIdentifier;
 
   @override
   Widget build(BuildContext context) {
@@ -384,14 +391,17 @@ class _NeonToggleTile extends StatelessWidget {
             title,
             style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
-          Switch(
-            key: switchKey,
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: AppColors.neonCyan,
-            activeTrackColor: AppColors.neonCyan.withValues(alpha: 0.3),
-            inactiveTrackColor: Colors.white12,
-            inactiveThumbColor: Colors.white38,
+          Semantics(
+            identifier: semanticsIdentifier,
+            child: Switch(
+              key: switchKey,
+              value: value,
+              onChanged: onChanged,
+              activeThumbColor: AppColors.neonCyan,
+              activeTrackColor: AppColors.neonCyan.withValues(alpha: 0.3),
+              inactiveTrackColor: Colors.white12,
+              inactiveThumbColor: Colors.white38,
+            ),
           ),
         ],
       ),

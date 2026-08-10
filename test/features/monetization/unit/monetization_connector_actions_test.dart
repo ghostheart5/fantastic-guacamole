@@ -71,7 +71,9 @@ class _FakePurchaseRepository implements PurchaseRepository {
   }
 
   @override
-  Future<PurchaseOperationResult> startCreditPurchase(AiCreditPackage pack) async {
+  Future<PurchaseOperationResult> startCreditPurchase(
+    AiCreditPackage pack,
+  ) async {
     return PurchaseOperationResult(
       success: true,
       message: 'credits',
@@ -80,7 +82,9 @@ class _FakePurchaseRepository implements PurchaseRepository {
   }
 
   @override
-  Future<PurchaseOperationResult> startSubscriptionPurchase(SubscriptionPlan plan) async {
+  Future<PurchaseOperationResult> startSubscriptionPurchase(
+    SubscriptionPlan plan,
+  ) async {
     return PurchaseOperationResult(
       success: true,
       message: 'subscription',
@@ -113,10 +117,13 @@ void main() {
     );
 
     test('fetches status/events/wallet/history', () async {
-      final SubscriptionStatus fetchedStatus = await actions.fetchSubscriptionStatus();
-      final List<EntitlementEvent> fetchedEvents = await actions.fetchEntitlementEvents();
+      final SubscriptionStatus fetchedStatus = await actions
+          .fetchSubscriptionStatus();
+      final List<EntitlementEvent> fetchedEvents = await actions
+          .fetchEntitlementEvents();
       final AiCreditWallet fetchedWallet = await actions.fetchWallet();
-      final List<AiCreditTransaction> fetchedHistory = await actions.fetchCreditHistory();
+      final List<AiCreditTransaction> fetchedHistory = await actions
+          .fetchCreditHistory();
 
       expect(fetchedStatus.planId, 'free');
       expect(fetchedEvents.length, 1);
@@ -147,7 +154,9 @@ void main() {
       );
 
       final PurchaseOperationResult sub = await actions.purchasePlanById(plan);
-      final PurchaseOperationResult credit = await actions.purchaseCreditsById(pack);
+      final PurchaseOperationResult credit = await actions.purchaseCreditsById(
+        pack,
+      );
       final PurchaseOperationResult restore = await actions.restorePurchases();
 
       expect(sub.success, isTrue);

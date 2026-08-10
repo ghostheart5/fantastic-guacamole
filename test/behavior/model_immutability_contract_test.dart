@@ -10,13 +10,16 @@ void main() {
       final List<String> offenders = <String>[];
 
       for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
+        final String path = SourceTestUtils.normalizePath(
+          file.path,
+        ).toLowerCase();
         if (!path.contains('model') && !path.contains('/entities/')) {
           continue;
         }
 
         final String text = SourceTestUtils.readText(file);
-        final bool isBarrel = path.endsWith('/models.dart') || path.endsWith('/entities.dart');
+        final bool isBarrel =
+            path.endsWith('/models.dart') || path.endsWith('/entities.dart');
         final bool isEnumOnly =
             RegExp(r'^\s*enum\s+\w+', multiLine: true).hasMatch(text) &&
             !RegExp(r'\bclass\s+\w+').hasMatch(text);
@@ -26,36 +29,51 @@ void main() {
         final bool hasField =
             RegExp(r'\n\s*(?:final|late\s+final|const)\s+').hasMatch(text) ||
             RegExp(r'\bclass\s+\w+').hasMatch(text);
-        final bool importsUi = text.contains('package:flutter/material.dart') || text.contains('package:flutter/widgets.dart');
+        final bool importsUi =
+            text.contains('package:flutter/material.dart') ||
+            text.contains('package:flutter/widgets.dart');
 
         if (!hasField || importsUi) {
           offenders.add(SourceTestUtils.normalizePath(file.path));
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Model immutability or UI-boundary issues: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Model immutability or UI-boundary issues: $offenders',
+      );
     });
 
-    test('copyWith and equality/hashCode implementations are paired when present', () {
-      final List<String> offenders = <String>[];
+    test(
+      'copyWith and equality/hashCode implementations are paired when present',
+      () {
+        final List<String> offenders = <String>[];
 
-      for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
-        if (!path.contains('model') && !path.contains('/entities/')) {
-          continue;
+        for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
+          final String path = SourceTestUtils.normalizePath(
+            file.path,
+          ).toLowerCase();
+          if (!path.contains('model') && !path.contains('/entities/')) {
+            continue;
+          }
+
+          final String text = SourceTestUtils.readText(file);
+          final bool hasCopyWith = text.contains('copyWith(');
+          final bool hasEq = text.contains('operator ==');
+          final bool hasHash = text.contains('hashCode');
+
+          if (hasCopyWith && (hasEq != hasHash)) {
+            offenders.add(SourceTestUtils.normalizePath(file.path));
+          }
         }
 
-        final String text = SourceTestUtils.readText(file);
-        final bool hasCopyWith = text.contains('copyWith(');
-        final bool hasEq = text.contains('operator ==');
-        final bool hasHash = text.contains('hashCode');
-
-        if (hasCopyWith && (hasEq != hasHash)) {
-          offenders.add(SourceTestUtils.normalizePath(file.path));
-        }
-      }
-
-      expect(offenders, isEmpty, reason: 'Model equality/hashCode pairing issues: $offenders');
-    });
+        expect(
+          offenders,
+          isEmpty,
+          reason: 'Model equality/hashCode pairing issues: $offenders',
+        );
+      },
+    );
   });
 }

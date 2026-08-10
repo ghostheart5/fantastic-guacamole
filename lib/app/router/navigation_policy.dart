@@ -4,7 +4,7 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 
-enum StartupRouteGate { continueRouting, allow, redirectToOnboarding }
+enum StartupRouteGate { continueRouting, allow, redirectToBootstrap }
 
 StartupRouteGate resolveStartupRouteGate({
   required String location,
@@ -15,9 +15,9 @@ StartupRouteGate resolveStartupRouteGate({
     return StartupRouteGate.allow;
   }
   if (onboardingStatus == OnboardingStatus.unknown) {
-    return location == RoutePaths.onboarding
+    return location == RoutePaths.bootstrap
         ? StartupRouteGate.allow
-        : StartupRouteGate.redirectToOnboarding;
+        : StartupRouteGate.redirectToBootstrap;
   }
   return StartupRouteGate.continueRouting;
 }

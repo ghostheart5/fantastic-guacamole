@@ -15,7 +15,8 @@ void main() {
     });
 
     test('loadProgress returns default when no data exists', () {
-      final TutorialProgress progress = const TutorialRepository().loadProgress();
+      final TutorialProgress progress = const TutorialRepository()
+          .loadProgress();
 
       expect(progress, equals(const TutorialProgress()));
       expect(progress.contentVersion, 1);
@@ -45,19 +46,21 @@ void main() {
       expect(loaded, equals(const TutorialProgress()));
     });
 
-    test('loadProgressWithVersion migrates contentVersion and persists', () async {
-      final TutorialRepository repository = const TutorialRepository();
-      await repository.saveProgress(
-        const TutorialProgress(contentVersion: 1).markIntroSeen(),
-      );
+    test(
+      'loadProgressWithVersion migrates contentVersion and persists',
+      () async {
+        final TutorialRepository repository = const TutorialRepository();
+        await repository.saveProgress(
+          const TutorialProgress(contentVersion: 1).markIntroSeen(),
+        );
 
-      final TutorialProgress migrated = await repository.loadProgressWithVersion(
-        contentVersion: 7,
-      );
+        final TutorialProgress migrated = await repository
+            .loadProgressWithVersion(contentVersion: 7);
 
-      expect(migrated.contentVersion, 7);
-      final TutorialProgress persisted = repository.loadProgress();
-      expect(persisted.contentVersion, 7);
-    });
+        expect(migrated.contentVersion, 7);
+        final TutorialProgress persisted = repository.loadProgress();
+        expect(persisted.contentVersion, 7);
+      },
+    );
   });
 }

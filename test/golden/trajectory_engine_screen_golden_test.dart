@@ -104,28 +104,28 @@ void main() {
       );
 
       await tester.pump();
-await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
 
-debugPrint(
-  tester
-      .widgetList<Text>(find.byType(Text))
-      .map((Text widget) => widget.data)
-      .whereType<String>()
-      .join('\n'),
-);
+      debugPrint(
+        tester
+            .widgetList<Text>(find.byType(Text))
+            .map((Text widget) => widget.data)
+            .whereType<String>()
+            .join('\n'),
+      );
 
-expect(find.text('Deep Focus Plan'), findsOneWidget);
-expect(find.text('7 DAYS'), findsOneWidget);
+      expect(find.text('Deep Focus Plan'), findsOneWidget);
+      expect(find.text('7 DAYS'), findsOneWidget);
 
-expect(
-  find.textContaining('Ship the focused milestone block'),
-  findsOneWidget,
-);
+      expect(
+        find.textContaining('Ship the focused milestone block'),
+        findsOneWidget,
+      );
 
-expect(
-  find.textContaining('Behavior and direction are aligned.'),
-  findsOneWidget,
-);
+      expect(
+        find.textContaining('Behavior and direction are aligned.'),
+        findsOneWidget,
+      );
 
       await expectLater(
         find.byType(MaterialApp),

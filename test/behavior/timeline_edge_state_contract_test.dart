@@ -21,13 +21,18 @@ void main() {
       expect(source, contains('No items match this view.'));
       expect(
         source,
-        contains('Try another window, clear filters, or create something in Creator.'),
+        contains(
+          'Try another window, clear filters, or create something in Creator.',
+        ),
       );
     });
 
     test('first-action unlock banner logic remains wired', () {
       expect(source, contains('showFirstActionUnlockBanner'));
-      expect(source, contains('hasCreatedFirstItem && !hasCompletedTimelineFirstAction'));
+      expect(
+        source,
+        contains('hasCreatedFirstItem && !hasCompletedTimelineFirstAction'),
+      );
       expect(source, contains('_TimelineUnlockBanner'));
     });
   });

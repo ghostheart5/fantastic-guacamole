@@ -1,4 +1,4 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: planner_create_task.yaml
 - runFlow: planner_create_goal.yaml

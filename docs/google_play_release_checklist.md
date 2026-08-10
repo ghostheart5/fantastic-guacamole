@@ -23,7 +23,7 @@ Quick release gate audit: [GOOGLE_PLAY_READINESS_AUDIT.md](GOOGLE_PLAY_READINESS
 ## Android Compliance
 - [x] INTERNET permission in `AndroidManifest.xml`
 - [x] BILLING permission in `AndroidManifest.xml`
-- [x] Billing dependency `com.android.billingclient:billing:6.0.1`
+- [x] Billing dependency `com.android.billingclient:billing:8.0.0` (aligned with `in_app_purchase_android`)
 - [x] Release signing scaffold in `android/app/build.gradle.kts`
 - [x] `android/key.properties.example` added
 - [ ] Create real `android/key.properties` (not committed)
@@ -33,10 +33,11 @@ Quick release gate audit: [GOOGLE_PLAY_READINESS_AUDIT.md](GOOGLE_PLAY_READINESS
 - [x] Privacy policy file at `assets/legal/privacy_policy.txt`
 - [x] Terms of service file at `assets/legal/terms_of_service.html`
 - [x] Support page file added at `web/support/index.html`
-- [x] Host privacy policy at public URL (`https://chronospark.app/privacy/` or equivalent deployed path)
-- [x] Host terms URL (`https://chronospark.app/terms/` or equivalent deployed path)
-- [x] Host support URL (`https://chronospark.app/support/` or equivalent deployed path)
-- [ ] Set Play Console privacy policy field to `https://chronospark.app/privacy`
+- [ ] Deploy and verify privacy policy at `https://ghostheart5.github.io/fantastic-guacamole/privacy/`
+- [ ] Deploy and verify terms at `https://ghostheart5.github.io/fantastic-guacamole/terms/`
+- [ ] Deploy and verify support at `https://ghostheart5.github.io/fantastic-guacamole/support/`
+- [ ] Deploy and verify account deletion at `https://ghostheart5.github.io/fantastic-guacamole/delete-account/`
+- [ ] Set the Play Console privacy-policy and account-deletion fields to the verified deployed URLs
 - [ ] Add Play Console microphone disclosure: optional voice-to-text for coaching and SI console, only after user taps voice controls
 - [ ] Confirm Play Console developer support email/contact is configured
 

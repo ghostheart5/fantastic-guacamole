@@ -28,41 +28,53 @@ class _MemoryPrefsStore implements SharedPrefsStore {
 }
 
 void main() {
-  test('corrupt memory snapshot throws and cannot be overwritten by save', () async {
-    const String corrupt = '{not-json';
-    final _MemoryPrefsStore store = _MemoryPrefsStore(<String, String>{
-      'memories_v1': corrupt,
-    });
-    final MemoryRepository repository = MemoryRepository(store);
+  test(
+    'corrupt memory snapshot throws and cannot be overwritten by save',
+    () async {
+      const String corrupt = '{not-json';
+      final _MemoryPrefsStore store = _MemoryPrefsStore(<String, String>{
+        'memories_v1': corrupt,
+      });
+      final MemoryRepository repository = MemoryRepository(store);
 
-    expect(repository.getMemories, throwsA(isA<StorageException>()));
-    expect(
-      () => repository.saveMemory(
-        MemoryEntity(id: 'memory-1', text: 'Keep data safe', date: DateTime.utc(2026)),
-      ),
-      throwsA(isA<StorageException>()),
-    );
-    expect(store.load('memories_v1'), corrupt);
-  });
-
-  test('corrupt completion-event snapshot throws and cannot be overwritten', () async {
-    const String corrupt = '[not-json';
-    final _MemoryPrefsStore store = _MemoryPrefsStore(<String, String>{
-      'completion_events_v1': corrupt,
-    });
-    final CompletionEventRepository repository = CompletionEventRepository(store);
-
-    expect(repository.getEvents, throwsA(isA<StorageException>()));
-    expect(
-      () => repository.addEvent(
-        CompletionEventEntity(
-          id: 'event-1',
-          eventType: CompletionEventType.completed,
-          eventAt: DateTime.utc(2026),
+      expect(repository.getMemories, throwsA(isA<StorageException>()));
+      expect(
+        () => repository.saveMemory(
+          MemoryEntity(
+            id: 'memory-1',
+            text: 'Keep data safe',
+            date: DateTime.utc(2026),
+          ),
         ),
-      ),
-      throwsA(isA<StorageException>()),
-    );
-    expect(store.load('completion_events_v1'), corrupt);
-  });
+        throwsA(isA<StorageException>()),
+      );
+      expect(store.load('memories_v1'), corrupt);
+    },
+  );
+
+  test(
+    'corrupt completion-event snapshot throws and cannot be overwritten',
+    () async {
+      const String corrupt = '[not-json';
+      final _MemoryPrefsStore store = _MemoryPrefsStore(<String, String>{
+        'completion_events_v1': corrupt,
+      });
+      final CompletionEventRepository repository = CompletionEventRepository(
+        store,
+      );
+
+      expect(repository.getEvents, throwsA(isA<StorageException>()));
+      expect(
+        () => repository.addEvent(
+          CompletionEventEntity(
+            id: 'event-1',
+            eventType: CompletionEventType.completed,
+            eventAt: DateTime.utc(2026),
+          ),
+        ),
+        throwsA(isA<StorageException>()),
+      );
+      expect(store.load('completion_events_v1'), corrupt);
+    },
+  );
 }

@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -6,7 +6,8 @@ void main() {
   bool isBehaviorServiceFile(String path) {
     final normalized = path.replaceAll('\\', '/').toLowerCase();
     if (!normalized.endsWith('.dart')) return false;
-    if (normalized.endsWith('.g.dart') || normalized.endsWith('.freezed.dart')) {
+    if (normalized.endsWith('.g.dart') ||
+        normalized.endsWith('.freezed.dart')) {
       return false;
     }
     if (normalized.contains('/test/')) return false;
@@ -15,8 +16,8 @@ void main() {
     final bool namedService = normalized.endsWith('_service.dart');
     final bool isContainerOnly =
         normalized.endsWith('_dependencies.dart') ||
-      normalized.endsWith('_events.dart') ||
-      normalized.endsWith('/services.dart') ||
+        normalized.endsWith('_events.dart') ||
+        normalized.endsWith('/services.dart') ||
         normalized.contains('/di/') ||
         normalized.endsWith('providers.dart');
     return (inServiceLayer || namedService) && !isContainerOnly;
@@ -34,31 +35,37 @@ void main() {
   }
 
   group('Service and controller contracts', () {
-    test('service files expose behavior methods and are not empty wrappers', () {
-      final emptyServices = <String>[];
+    test(
+      'service files expose behavior methods and are not empty wrappers',
+      () {
+        final emptyServices = <String>[];
 
-      final methodPattern = RegExp(
-        r'\b[a-zA-Z_]\w*\s*\([^;{}]*\)\s*(?:async\s*)?(?:=>|\{|;)',
-      );
+        final methodPattern = RegExp(
+          r'\b[a-zA-Z_]\w*\s*\([^;{}]*\)\s*(?:async\s*)?(?:=>|\{|;)',
+        );
 
-      for (final file in dartFilesUnder('lib')) {
-        if (!isBehaviorServiceFile(file.path)) continue;
+        for (final file in dartFilesUnder('lib')) {
+          if (!isBehaviorServiceFile(file.path)) continue;
 
-        final text = file.readAsStringSync();
-        final methodCount = methodPattern.allMatches(text).length;
-        final getterCount = RegExp(r'\bget\s+[a-zA-Z_]\w*\s*=>').allMatches(text).length;
+          final text = file.readAsStringSync();
+          final methodCount = methodPattern.allMatches(text).length;
+          final getterCount = RegExp(
+            r'\bget\s+[a-zA-Z_]\w*\s*=>',
+          ).allMatches(text).length;
 
-        if (methodCount + getterCount < 1) {
-          emptyServices.add(file.path);
+          if (methodCount + getterCount < 1) {
+            emptyServices.add(file.path);
+          }
         }
-      }
 
-      expect(
-        emptyServices,
-        isEmpty,
-        reason: 'Service files with no obvious behavior methods: $emptyServices',
-      );
-    });
+        expect(
+          emptyServices,
+          isEmpty,
+          reason:
+              'Service files with no obvious behavior methods: $emptyServices',
+        );
+      },
+    );
 
     test('controller files expose action methods and state intent', () {
       final suspicious = <String>[];
@@ -113,37 +120,44 @@ void main() {
       expect(
         suspicious,
         isEmpty,
-        reason: 'Controller files without obvious action/state behavior: $suspicious',
+        reason:
+            'Controller files without obvious action/state behavior: $suspicious',
       );
     });
 
-    test('providers do not create duplicate global instances of the same controller class', () {
-      final providerFiles = dartFilesUnder('lib')
-          .where((file) => file.path.toLowerCase().contains('provider'))
-          .toList();
+    test(
+      'providers do not create duplicate global instances of the same controller class',
+      () {
+        final providerFiles = dartFilesUnder('lib')
+            .where((file) => file.path.toLowerCase().contains('provider'))
+            .toList();
 
-      final creations = <String, List<String>>{};
-      final creationPattern = RegExp(r'=\s*(?:Provider|ChangeNotifierProvider|StateNotifierProvider|NotifierProvider|AsyncNotifierProvider)<[^>]+>\([^)]*=>\s*([A-Z]\w+)\(');
+        final creations = <String, List<String>>{};
+        final creationPattern = RegExp(
+          r'=\s*(?:Provider|ChangeNotifierProvider|StateNotifierProvider|NotifierProvider|AsyncNotifierProvider)<[^>]+>\([^)]*=>\s*([A-Z]\w+)\(',
+        );
 
-      for (final file in providerFiles) {
-        final text = file.readAsStringSync();
+        for (final file in providerFiles) {
+          final text = file.readAsStringSync();
 
-        for (final match in creationPattern.allMatches(text)) {
-          final className = match.group(1)!;
-          creations.putIfAbsent(className, () => <String>[]).add(file.path);
+          for (final match in creationPattern.allMatches(text)) {
+            final className = match.group(1)!;
+            creations.putIfAbsent(className, () => <String>[]).add(file.path);
+          }
         }
-      }
 
-      final duplicates = creations.entries
-          .where((entry) => entry.value.length > 1)
-          .map((entry) => '${entry.key}: ${entry.value}')
-          .toList();
+        final duplicates = creations.entries
+            .where((entry) => entry.value.length > 1)
+            .map((entry) => '${entry.key}: ${entry.value}')
+            .toList();
 
-      expect(
-        duplicates,
-        isEmpty,
-        reason: 'Possible duplicate provider-created controller/service instances: $duplicates',
-      );
-    });
+        expect(
+          duplicates,
+          isEmpty,
+          reason:
+              'Possible duplicate provider-created controller/service instances: $duplicates',
+        );
+      },
+    );
   });
 }

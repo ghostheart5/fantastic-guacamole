@@ -1,12 +1,34 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: settings_open.yaml
-- tapOn:
-    text: "Reflection Reminder"
-    optional: true
+- scrollUntilVisible:
+    element:
+      id: "settings-reflection-reminder-toggle"
+    direction: DOWN
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible:
+        id: "settings-reflection-reminder-time"
+    commands:
+      - tapOn:
+          id: "settings-reflection-reminder-toggle"
+      - tapOn:
+          text: "Allow"
+          optional: true
+- extendedWaitUntil:
+    visible:
+      id: "settings-reflection-reminder-time"
+    timeout: 30000
 - stopApp
 - launchApp:
     clearState: false
     stopApp: true
 - runFlow: ../_common/go_to_settings.yaml
-- assertVisible: "Daily Reflection"
+- scrollUntilVisible:
+    element:
+      id: "settings-reflection-reminder-time"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    id: "settings-reflection-reminder-time"

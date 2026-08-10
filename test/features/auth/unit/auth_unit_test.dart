@@ -1,4 +1,4 @@
-﻿import 'package:fantastic_guacamole/features/auth/application/auth_state.dart';
+import 'package:fantastic_guacamole/features/auth/application/auth_state.dart';
 import 'package:fantastic_guacamole/features/auth/domain/core/failure.dart';
 import 'package:fantastic_guacamole/features/auth/domain/entities/auth_session_entity.dart';
 import 'package:fantastic_guacamole/features/auth/domain/entities/auth_user_entity.dart';
@@ -59,33 +59,38 @@ void main() {
         roles: <String>['member', 'admin'],
       );
 
-      final AuthUserEntity reconstructed = AuthUserEntity.fromMap(original.toMap());
+      final AuthUserEntity reconstructed = AuthUserEntity.fromMap(
+        original.toMap(),
+      );
       expect(reconstructed, original);
     });
 
-    test('AuthSessionEntity map conversion preserves key fields and expiry flag', () {
-      const AuthUserEntity user = AuthUserEntity(
-        id: 'user-2',
-        email: 'u2@example.com',
-        displayName: 'U2',
-        emailVerified: false,
-        isAnonymous: false,
-      );
-      final AuthSessionEntity futureSession = AuthSessionEntity(
-        accessToken: 'token-a',
-        refreshToken: 'token-r',
-        issuedAt: DateTime(2026, 8, 1),
-        expiresAt: DateTime(2099, 8, 1),
-        user: user,
-      );
+    test(
+      'AuthSessionEntity map conversion preserves key fields and expiry flag',
+      () {
+        const AuthUserEntity user = AuthUserEntity(
+          id: 'user-2',
+          email: 'u2@example.com',
+          displayName: 'U2',
+          emailVerified: false,
+          isAnonymous: false,
+        );
+        final AuthSessionEntity futureSession = AuthSessionEntity(
+          accessToken: 'token-a',
+          refreshToken: 'token-r',
+          issuedAt: DateTime(2026, 8, 1),
+          expiresAt: DateTime(2099, 8, 1),
+          user: user,
+        );
 
-      final AuthSessionEntity reconstructed = AuthSessionEntity.fromMap(
-        futureSession.toMap(),
-      );
+        final AuthSessionEntity reconstructed = AuthSessionEntity.fromMap(
+          futureSession.toMap(),
+        );
 
-      expect(reconstructed.accessToken, 'token-a');
-      expect(reconstructed.user.email, 'u2@example.com');
-      expect(reconstructed.isExpired, isFalse);
-    });
+        expect(reconstructed.accessToken, 'token-a');
+        expect(reconstructed.user.email, 'u2@example.com');
+        expect(reconstructed.isExpired, isFalse);
+      },
+    );
   });
 }

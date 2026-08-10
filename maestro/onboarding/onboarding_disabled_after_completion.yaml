@@ -1,10 +1,13 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: onboarding_walkthrough.yaml
 - stopApp
 - launchApp:
     clearState: false
     stopApp: true
+- extendedWaitUntil:
+    visible:
+      id: "login-email-field"
+    timeout: 60000
 - assertNotVisible:
-    text: "START SETUP"
-    optional: true
+    id: "screen-onboarding"

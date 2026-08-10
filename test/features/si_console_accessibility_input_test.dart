@@ -13,8 +13,8 @@ void main() {
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_flutterTtsChannel, (MethodCall call) async {
-      return null;
-    });
+          return null;
+        });
   });
 
   tearDown(() {
@@ -61,6 +61,10 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 200));
 
+      expect(find.bySemanticsIdentifier('screen-si-console'), findsOneWidget);
+      expect(find.bySemanticsIdentifier('si-console-input'), findsOneWidget);
+      expect(find.bySemanticsIdentifier('si-console-send'), findsOneWidget);
+
       await tester.tap(find.byType(TextField));
       await tester.pump();
       await tester.enterText(find.byType(TextField), 'status check');
@@ -69,6 +73,53 @@ void main() {
       await tester.pump(const Duration(milliseconds: 16));
 
       expect(find.text('status check'), findsOneWidget);
+    });
+
+    testWidgets('help command exposes a stable response semantic', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            extendedDomainBootstrapProvider.overrideWith((Ref ref) async {}),
+            executionSignalsProvider.overrideWith(
+              (Ref ref) => const ExecutionSignals(
+                createdToday: 0,
+                completedToday: 0,
+                skippedToday: 0,
+                delayedToday: 0,
+                created7d: 0,
+                completed7d: 0,
+                skipped7d: 0,
+                delayed7d: 0,
+              ),
+            ),
+            momentumEngineProvider.overrideWithValue(
+              const MomentumEngineState(
+                score: 0,
+                trend: 'Stable',
+                recovery: 'Stable',
+                forecast: 'No forecast yet.',
+                energyPercent: 50,
+                pressurePercent: 0,
+                streak: 0,
+                completedToday: 0,
+              ),
+            ),
+          ],
+          child: const MaterialApp(home: SIConsoleScreen()),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.enterText(find.byType(TextField), '/help');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+
+      expect(
+        find.bySemanticsIdentifier('si-console-guide-response'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('daily command chip is visible and can be triggered', (

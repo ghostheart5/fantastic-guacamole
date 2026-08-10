@@ -10,12 +10,20 @@ void main() {
       final List<String> offenders = <String>[];
 
       for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
-        if (!(path.contains('repository') || path.contains('service') || path.contains('storage'))) {
+        final String path = SourceTestUtils.normalizePath(
+          file.path,
+        ).toLowerCase();
+        if (!(path.contains('repository') ||
+            path.contains('service') ||
+            path.contains('storage'))) {
           continue;
         }
-        if (path.endsWith('/features/auth/data/repositories/local_identity_repository.dart') ||
-            path.endsWith('/features/monetization/data/services/purchase_verification_service.dart') ||
+        if (path.endsWith(
+              '/features/auth/data/repositories/local_identity_repository.dart',
+            ) ||
+            path.endsWith(
+              '/features/monetization/data/services/purchase_verification_service.dart',
+            ) ||
             path.endsWith('/state/services/credit_service.dart') ||
             path.endsWith('/state/services/extended_domain_service.dart')) {
           continue;
@@ -37,7 +45,11 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty, reason: 'jsonDecode without error handling: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'jsonDecode without error handling: $offenders',
+      );
     });
 
     test('auth and storage paths include failure handling', () {
@@ -49,9 +61,18 @@ void main() {
 
       for (final String path in files) {
         final File file = File(path);
-        expect(file.existsSync(), isTrue, reason: 'Required file missing: $path');
+        expect(
+          file.existsSync(),
+          isTrue,
+          reason: 'Required file missing: $path',
+        );
         final String text = SourceTestUtils.readText(file).toLowerCase();
-        expect(text.contains('catch') || text.contains('error') || text.contains('failure'), isTrue);
+        expect(
+          text.contains('catch') ||
+              text.contains('error') ||
+              text.contains('failure'),
+          isTrue,
+        );
       }
     });
 
@@ -60,7 +81,9 @@ void main() {
       final RegExp emptyCatch = RegExp(r'catch\s*(\([^)]*\))?\s*\{\s*\}');
 
       for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
+        final String path = SourceTestUtils.normalizePath(
+          file.path,
+        ).toLowerCase();
         if (path.endsWith('/data/repositories/identity_repository.dart') ||
             path.endsWith('/state/controllers/profile_controller.dart') ||
             path.endsWith('/state/providers/behavior_provider.dart') ||
@@ -73,7 +96,11 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Empty catch blocks found: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Empty catch blocks found: $offenders',
+      );
     });
   });
 }

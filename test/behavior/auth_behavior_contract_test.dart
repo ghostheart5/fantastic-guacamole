@@ -7,7 +7,9 @@ import '_support/source_test_utils.dart';
 void main() {
   group('Auth behavior contract', () {
     test('auth controller contains required session and credential flows', () {
-      final File file = File('lib/features/auth/application/auth_controller.dart');
+      final File file = File(
+        'lib/features/auth/application/auth_controller.dart',
+      );
       expect(file.existsSync(), isTrue);
       final String text = SourceTestUtils.readText(file);
 
@@ -18,11 +20,14 @@ void main() {
     });
 
     test('auth source includes email verification and phone flow paths', () {
-      final String allAuth = SourceTestUtils
-          .readAllConcatenated('lib/features/auth')
-          .toLowerCase();
+      final String allAuth = SourceTestUtils.readAllConcatenated(
+        'lib/features/auth',
+      ).toLowerCase();
 
-      expect(allAuth.contains('verify-email') || allAuth.contains('verifyemail'), isTrue);
+      expect(
+        allAuth.contains('verify-email') || allAuth.contains('verifyemail'),
+        isTrue,
+      );
       expect(allAuth.contains('phone') || allAuth.contains('otp'), isTrue);
     });
 

@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
@@ -23,9 +23,8 @@ jobs:
           flutter test test/smoke
           flutter test test/behavior/secrets_guard_test.dart test/behavior/no_network_in_unit_tests_test.dart test/behavior/test_secret_hygiene_contract_test.dart
 
-      - name: Run Extended Flutter Tests (non-blocking)
+      - name: Run Extended Flutter Tests
         id: extended_tests
-        continue-on-error: true
         run: |
           flutter test --coverage
           flutter test test/integration
@@ -45,12 +44,12 @@ jobs:
         continue-on-error: true
         run: robot test/robot
 
-      - name: Publish Nonblocking Test Summary
+      - name: Publish Test Summary
         if: always()
         run: |
           echo "## ChronoSpark Test Summary" >> $GITHUB_STEP_SUMMARY
           echo "- Build-critical tests: ${{ steps.critical_tests.outcome }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Extended tests (non-blocking): ${{ steps.extended_tests.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Extended tests: ${{ steps.extended_tests.outcome }}" >> $GITHUB_STEP_SUMMARY
           echo "- Robot install (non-blocking): ${{ steps.install_robot.outcome }}" >> $GITHUB_STEP_SUMMARY
           echo "- Robot tests (non-blocking): ${{ steps.robot_tests.outcome }}" >> $GITHUB_STEP_SUMMARY
 
@@ -60,7 +59,7 @@ jobs:
 
       - name: Upload Coverage
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: coverage/lcov.info

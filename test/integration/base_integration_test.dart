@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/ui/widgets/offline_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 void main() {
   group('base integration coverage', () {
     test('app flow controller supports primary navigation transitions', () {
@@ -39,18 +40,20 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
-            home: Scaffold(
-              body: OfflineBanner(
-                child: SizedBox.expand(),
-              ),
-            ),
+            home: Scaffold(body: OfflineBanner(child: SizedBox.expand())),
           ),
         ),
       );
       await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.byKey(const Key('offline_banner_live_region')), findsOneWidget);
-      expect(find.textContaining('Offline Mode - Cloud sync failed. retry queued.'), findsOneWidget);
+      expect(
+        find.byKey(const Key('offline_banner_live_region')),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Offline Mode - Cloud sync failed. retry queued.'),
+        findsOneWidget,
+      );
     });
   });
 }

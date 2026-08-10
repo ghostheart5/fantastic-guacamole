@@ -34,9 +34,11 @@ void main() {
     ];
 
     test('every user-facing feature has unit and integration tests', () {
-      final List<String> files = SourceTestUtils
-          .dartFilesUnder('test')
-          .map((File file) => SourceTestUtils.normalizePath(file.path).toLowerCase())
+      final List<String> files = SourceTestUtils.dartFilesUnder('test')
+          .map(
+            (File file) =>
+                SourceTestUtils.normalizePath(file.path).toLowerCase(),
+          )
           .toList(growable: false);
 
       final List<String> missingUnit = <String>[];
@@ -44,10 +46,12 @@ void main() {
 
       for (final String feature in userFacingFeatures) {
         final bool hasUnit = files.any(
-          (String path) => path.contains('/unit/') && matchesFeature(path, feature),
+          (String path) =>
+              path.contains('/unit/') && matchesFeature(path, feature),
         );
         final bool hasIntegration = files.any(
-          (String path) => path.contains('/integration/') && matchesFeature(path, feature),
+          (String path) =>
+              path.contains('/integration/') && matchesFeature(path, feature),
         );
 
         if (!hasUnit) {
@@ -58,24 +62,37 @@ void main() {
         }
       }
 
-      final int coveredUnitCount = userFacingFeatures.length - missingUnit.length;
-      final int coveredIntegrationCount = userFacingFeatures.length - missingIntegration.length;
-      expect(coveredUnitCount, greaterThanOrEqualTo(10), reason: 'Missing unit tests for: $missingUnit');
-      expect(coveredIntegrationCount, greaterThanOrEqualTo(10), reason: 'Missing integration tests for: $missingIntegration');
+      final int coveredUnitCount =
+          userFacingFeatures.length - missingUnit.length;
+      final int coveredIntegrationCount =
+          userFacingFeatures.length - missingIntegration.length;
+      expect(
+        coveredUnitCount,
+        greaterThanOrEqualTo(10),
+        reason: 'Missing unit tests for: $missingUnit',
+      );
+      expect(
+        coveredIntegrationCount,
+        greaterThanOrEqualTo(10),
+        reason: 'Missing integration tests for: $missingIntegration',
+      );
     });
 
     test('every user-facing feature has behavior or architecture coverage', () {
-      final List<String> files = SourceTestUtils
-          .dartFilesUnder('test')
-          .map((File file) => SourceTestUtils.normalizePath(file.path).toLowerCase())
+      final List<String> files = SourceTestUtils.dartFilesUnder('test')
+          .map(
+            (File file) =>
+                SourceTestUtils.normalizePath(file.path).toLowerCase(),
+          )
           .toList(growable: false);
 
       final List<String> missing = <String>[];
       for (final String feature in userFacingFeatures) {
         final bool hasCoverage = files.any(
           (String path) =>
-              (path.contains('/behavior/') || path.contains('/architecture/')) &&
-                matchesFeature(path, feature),
+              (path.contains('/behavior/') ||
+                  path.contains('/architecture/')) &&
+              matchesFeature(path, feature),
         );
         if (!hasCoverage) {
           missing.add(feature);
@@ -83,7 +100,11 @@ void main() {
       }
 
       final int covered = userFacingFeatures.length - missing.length;
-      expect(covered, greaterThanOrEqualTo(7), reason: 'Missing behavior/architecture coverage for: $missing');
+      expect(
+        covered,
+        greaterThanOrEqualTo(7),
+        reason: 'Missing behavior/architecture coverage for: $missing',
+      );
     });
 
     test('tests are not placeholder-style stubs', () {
@@ -96,7 +117,9 @@ void main() {
       ];
 
       for (final File file in SourceTestUtils.dartFilesUnder('test')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
+        final String path = SourceTestUtils.normalizePath(
+          file.path,
+        ).toLowerCase();
         if (path.endsWith('/feature_test_coverage_map_test.dart') ||
             path.endsWith('/test_quality_guard_test.dart') ||
             path.endsWith('/release_readiness_contract_test.dart') ||
@@ -112,7 +135,11 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Placeholder-style tests detected: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Placeholder-style tests detected: $offenders',
+      );
     });
   });
 }

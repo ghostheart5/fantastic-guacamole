@@ -1,13 +1,14 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: si_console_open.yaml
 - tapOn:
-    text: "Type a prompt"
-    optional: true
+    id: "si-console-input"
+- eraseText
 - inputText: "/help"
+- hideKeyboard
 - tapOn:
-    id: "send_rounded"
-    optional: true
-- assertVisible:
-    text: "SI Console guide"
-    optional: true
+    id: "si-console-send"
+- extendedWaitUntil:
+    visible:
+      id: "si-console-guide-response"
+    timeout: 30000

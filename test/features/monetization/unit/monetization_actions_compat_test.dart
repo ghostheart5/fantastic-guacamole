@@ -104,12 +104,16 @@ class _FeatureAiRepo implements feature_repos.AiCreditRepository {
   }
 
   @override
-  Future<List<feature_models.AiCreditPurchase>> getPurchaseHistory({int limit = 50}) async {
+  Future<List<feature_models.AiCreditPurchase>> getPurchaseHistory({
+    int limit = 50,
+  }) async {
     return const <feature_models.AiCreditPurchase>[];
   }
 
   @override
-  Future<List<feature_models.AiCreditTransaction>> getTransactions({int limit = 50}) async {
+  Future<List<feature_models.AiCreditTransaction>> getTransactions({
+    int limit = 50,
+  }) async {
     return const <feature_models.AiCreditTransaction>[];
   }
 
@@ -130,7 +134,9 @@ class _FeatureAiRepo implements feature_repos.AiCreditRepository {
 
 class _FeatureEntRepo implements feature_repos.EntitlementRepository {
   @override
-  Future<List<feature_models.EntitlementEvent>> getEntitlementEvents({int limit = 30}) async {
+  Future<List<feature_models.EntitlementEvent>> getEntitlementEvents({
+    int limit = 30,
+  }) async {
     return const <feature_models.EntitlementEvent>[];
   }
 
@@ -151,7 +157,9 @@ class _FeaturePurchaseRepo implements feature_repos.PurchaseRepository {
       const Stream<List<PurchaseDetails>>.empty();
 
   @override
-  Future<feature_repos.PurchaseResult> purchaseCredits(feature_models.AiCreditPackage pack) async {
+  Future<feature_repos.PurchaseResult> purchaseCredits(
+    feature_models.AiCreditPackage pack,
+  ) async {
     return feature_repos.PurchaseResult(
       success: true,
       productId: pack.productId,
@@ -160,7 +168,9 @@ class _FeaturePurchaseRepo implements feature_repos.PurchaseRepository {
   }
 
   @override
-  Future<feature_repos.PurchaseResult> purchaseSubscription(feature_models.SubscriptionPlan plan) async {
+  Future<feature_repos.PurchaseResult> purchaseSubscription(
+    feature_models.SubscriptionPlan plan,
+  ) async {
     return feature_repos.PurchaseResult(
       success: true,
       productId: plan.productId,
@@ -244,7 +254,9 @@ class _LegacyPurchaseRepo implements legacy_repos.PurchaseRepository {
   }
 
   @override
-  Future<PurchaseOperationResult> startCreditPurchase(legacy_models.AiCreditPackage pack) async {
+  Future<PurchaseOperationResult> startCreditPurchase(
+    legacy_models.AiCreditPackage pack,
+  ) async {
     return PurchaseOperationResult(
       success: true,
       message: 'credits',
@@ -253,7 +265,9 @@ class _LegacyPurchaseRepo implements legacy_repos.PurchaseRepository {
   }
 
   @override
-  Future<PurchaseOperationResult> startSubscriptionPurchase(legacy_models.SubscriptionPlan plan) async {
+  Future<PurchaseOperationResult> startSubscriptionPurchase(
+    legacy_models.SubscriptionPlan plan,
+  ) async {
     return PurchaseOperationResult(
       success: true,
       message: 'sub',
@@ -288,13 +302,14 @@ void main() {
             aiCreditRepository: _LegacyAiRepo(),
             purchaseRepository: _LegacyPurchaseRepo(),
           );
-      final MonetizationActionsCompat adapter =
-          LegacyMonetizationActionsCompat(actions);
+      final MonetizationActionsCompat adapter = LegacyMonetizationActionsCompat(
+        actions,
+      );
 
-      final MonetizationPurchaseOutcome purchase =
-          await adapter.purchaseCreditsByProductId('chronospark_credits_100');
-      final MonetizationPurchaseOutcome restore =
-          await adapter.restorePurchases();
+      final MonetizationPurchaseOutcome purchase = await adapter
+          .purchaseCreditsByProductId('chronospark_credits_100');
+      final MonetizationPurchaseOutcome restore = await adapter
+          .restorePurchases();
 
       expect(purchase.success, isTrue);
       expect(restore.productId, '__restore__');

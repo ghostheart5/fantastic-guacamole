@@ -31,6 +31,38 @@ class FirebaseSupabaseBridgeRepository {
     return token.trim();
   }
 
+  Future<void> disassociateFirebaseMessagingToken(
+    sb.SupabaseClient client,
+  ) async {
+    Object? associationError;
+    StackTrace? associationStackTrace;
+    final sb.User? user = client.auth.currentUser;
+    if (user != null) {
+      try {
+        await client.auth.updateUser(
+          sb.UserAttributes(
+            data: const <String, dynamic>{
+              'firebase_messaging_token': null,
+              'firebase_messaging_token_source': null,
+              'firebase_messaging_token_updated_at': null,
+            },
+          ),
+        );
+      } on Object catch (error, stackTrace) {
+        associationError = error;
+        associationStackTrace = stackTrace;
+      }
+    }
+
+    await _store.delete(_cachedFirebaseMessagingTokenKey);
+    _lastSyncedToken = null;
+    _lastSyncedAt = null;
+
+    if (associationError != null) {
+      Error.throwWithStackTrace(associationError, associationStackTrace!);
+    }
+  }
+
   Future<void> syncCachedFirebaseMessagingToken(
     sb.SupabaseClient client, {
     String source = 'startup',

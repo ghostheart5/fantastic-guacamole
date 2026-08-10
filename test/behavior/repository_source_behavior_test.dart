@@ -41,7 +41,11 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Repository files missing operation methods: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Repository files missing operation methods: $offenders',
+      );
     });
 
     test('repositories do not import Flutter widget or material UI', () {
@@ -54,41 +58,57 @@ void main() {
         }
 
         final String text = SourceTestUtils.readText(file);
-        if (text.contains("package:flutter/material.dart") || text.contains("package:flutter/widgets.dart")) {
+        if (text.contains("package:flutter/material.dart") ||
+            text.contains("package:flutter/widgets.dart")) {
           offenders.add(SourceTestUtils.normalizePath(file.path));
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Repositories should not depend on UI widgets: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Repositories should not depend on UI widgets: $offenders',
+      );
     });
 
-    test('repositories avoid direct screen/page/widget imports and placeholder bodies', () {
-      final List<String> offenders = <String>[];
-      final List<String> placeholders = <String>[
-        'placeholder repository',
-        'no operation repository',
-      ];
+    test(
+      'repositories avoid direct screen/page/widget imports and placeholder bodies',
+      () {
+        final List<String> offenders = <String>[];
+        final List<String> placeholders = <String>[
+          'placeholder repository',
+          'no operation repository',
+        ];
 
-      for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
-        final String normalizedPath = SourceTestUtils.normalizePath(file.path);
-        if (!isConcreteRepositoryPath(normalizedPath)) {
-          continue;
+        for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
+          final String normalizedPath = SourceTestUtils.normalizePath(
+            file.path,
+          );
+          if (!isConcreteRepositoryPath(normalizedPath)) {
+            continue;
+          }
+
+          final String text = SourceTestUtils.readText(file);
+          final String lower = text.toLowerCase();
+          final bool hasUiImport = RegExp(
+            r'''import\s+['\"][^'\"]*(/ui/|/presentation/)[^'\"]*['\"]''',
+          ).hasMatch(lower);
+          final bool hasPlaceholder = placeholders.any(text.contains);
+          final bool emptyClass = RegExp(
+            r'class\s+\w+\s*\{\s*\}',
+          ).hasMatch(text);
+
+          if (hasUiImport || hasPlaceholder || emptyClass) {
+            offenders.add(SourceTestUtils.normalizePath(file.path));
+          }
         }
 
-        final String text = SourceTestUtils.readText(file);
-        final String lower = text.toLowerCase();
-        final bool hasUiImport = RegExp(
-          r'''import\s+['\"][^'\"]*(/ui/|/presentation/)[^'\"]*['\"]''',
-        ).hasMatch(lower);
-        final bool hasPlaceholder = placeholders.any(text.contains);
-        final bool emptyClass = RegExp(r'class\s+\w+\s*\{\s*\}').hasMatch(text);
-
-        if (hasUiImport || hasPlaceholder || emptyClass) {
-          offenders.add(SourceTestUtils.normalizePath(file.path));
-        }
-      }
-
-      expect(offenders, isEmpty, reason: 'Repository boundary or quality violations: $offenders');
-    });
+        expect(
+          offenders,
+          isEmpty,
+          reason: 'Repository boundary or quality violations: $offenders',
+        );
+      },
+    );
   });
 }

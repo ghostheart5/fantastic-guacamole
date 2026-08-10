@@ -154,9 +154,7 @@ const Map<String, FeatureTestSpec> _featureSpecs = <String, FeatureTestSpec>{
     ],
   ),
   'timeline': FeatureTestSpec(
-    unitFiles: <String>[
-      'lib/features/timeline/ui/timeline_screen.dart',
-    ],
+    unitFiles: <String>['lib/features/timeline/ui/timeline_screen.dart'],
     integrationFiles: <String>[
       'lib/features/timeline/ui/timeline_screen.dart',
       'lib/app/navigation_shell.dart',
@@ -200,8 +198,7 @@ final RegExp _implementationPattern = RegExp(
 );
 
 final RegExp _integrationPattern = RegExp(
-  r'(StatelessWidget|StatefulWidget|ConsumerWidget|ConsumerStatefulWidget|Scaffold|MaterialApp|GoRoute|Widget build\(|Navigator\.|showDialog|ref\.watch\(|ref\.read\(|Provider<|StateNotifierProvider<|FutureProvider<|StreamProvider<)'
-  ,
+  r'(StatelessWidget|StatefulWidget|ConsumerWidget|ConsumerStatefulWidget|Scaffold|MaterialApp|GoRoute|Widget build\(|Navigator\.|showDialog|ref\.watch\(|ref\.read\(|Provider<|StateNotifierProvider<|FutureProvider<|StreamProvider<)',
   multiLine: true,
 );
 
@@ -221,7 +218,11 @@ FeatureTestSpec _specFor(String featureName) {
 
 String _readProjectFile(String relativePath) {
   final File file = File(_normalizePath(relativePath));
-  expect(file.existsSync(), isTrue, reason: 'Expected source file to exist: $relativePath');
+  expect(
+    file.existsSync(),
+    isTrue,
+    reason: 'Expected source file to exist: $relativePath',
+  );
   return file.readAsStringSync();
 }
 
@@ -236,7 +237,11 @@ void _expectFilesExist(List<String> relativePaths) {
 }
 
 void _expectConcreteSource(String combinedSource, RegExp pattern, String kind) {
-  expect(combinedSource.trim(), isNotEmpty, reason: '$kind source should not be empty.');
+  expect(
+    combinedSource.trim(),
+    isNotEmpty,
+    reason: '$kind source should not be empty.',
+  );
   expect(
     pattern.hasMatch(combinedSource),
     isTrue,
@@ -273,7 +278,11 @@ void defineFeatureUnitTests(String featureName) {
       final Set<String> uniquePaths = spec.unitFiles.toSet();
       expect(uniquePaths.length, spec.unitFiles.length);
       for (final String path in uniquePaths) {
-        expect(path.contains('.bak'), isFalse, reason: 'Unit path should not target backup files: $path');
+        expect(
+          path.contains('.bak'),
+          isFalse,
+          reason: 'Unit path should not target backup files: $path',
+        );
       }
     });
   });
@@ -298,7 +307,11 @@ void defineFeatureIntegrationTests(String featureName) {
       final Set<String> uniquePaths = spec.integrationFiles.toSet();
       expect(uniquePaths.length, spec.integrationFiles.length);
       for (final String path in uniquePaths) {
-        expect(path.contains('.bak'), isFalse, reason: 'Integration path should not target backup files: $path');
+        expect(
+          path.contains('.bak'),
+          isFalse,
+          reason: 'Integration path should not target backup files: $path',
+        );
       }
     });
   });

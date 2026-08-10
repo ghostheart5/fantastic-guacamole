@@ -113,7 +113,11 @@ void main() {
         final String policyText = SourceTestUtils.readText(policyFile);
 
         expect(
-          routerText.contains('ref.watch(adminAccessGuardProvider)'),
+          routerText.contains('ref.read(adminAccessGuardProvider)'),
+          isTrue,
+        );
+        expect(
+          routerText.contains('_ref.listen(intelligenceStateProvider'),
           isTrue,
         );
         expect(

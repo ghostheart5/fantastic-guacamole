@@ -32,17 +32,16 @@ try {
     if ($path -match '(?i)\.(jks|keystore|p12|pfx)$') {
       Add-Failure("Forbidden tracked credential artifact: $path")
     }
+    if ($path -match '(?i)(service[-_]?account|firebase-adminsdk).*\.json$') {
+      Add-Failure("Forbidden tracked service-account credential file: $path")
+    }
   }
 
-  $possibleKeyFile = Join-Path $root 'android/key.properties'
-  if (Test-Path $possibleKeyFile) {
-    $raw = Get-Content -Path $possibleKeyFile -Raw
-    if ($raw -match '(?im)^\s*storePassword\s*=\s*(?!YOUR_).+') {
-      Add-Failure('android/key.properties contains a non-placeholder storePassword. Keep real signing secrets out of the repo.')
-    }
-    if ($raw -match '(?im)^\s*keyPassword\s*=\s*(?!YOUR_).+') {
-      Add-Failure('android/key.properties contains a non-placeholder keyPassword. Keep real signing secrets out of the repo.')
-    }
+  $embeddedPrivateKeys = git grep -n -I -E '"private_key"[[:space:]]*:[[:space:]]*"-----BEGIN' -- ':!test/**' ':!**/*.md'
+  if ($LASTEXITCODE -eq 0) {
+    Add-Failure('A tracked file contains a private key in JSON. Store service-account JSON only in a secret manager.')
+  } elseif ($LASTEXITCODE -ne 1) {
+    throw 'git grep for embedded private keys failed.'
   }
 
   if ($failures.Count -gt 0) {

@@ -33,7 +33,10 @@ void main() {
       expect(restored.priority, original.priority);
       expect(restored.recurrenceRule, RecurrenceRule.weekly);
       expect(restored.scheduledFor, DateTime.utc(2026, 7, 28, 14, 30));
-      expect(restored.subtasks, orderedEquals(const <String>['sub-1', 'sub-2']));
+      expect(
+        restored.subtasks,
+        orderedEquals(const <String>['sub-1', 'sub-2']),
+      );
     });
 
     test('Task.fromJson handles missing values with fallbacks', () {
@@ -89,25 +92,28 @@ void main() {
       expect(copied.targetDate, original.targetDate);
     });
 
-    test('ProjectEntity fromJson falls back for malformed status and dates', () {
-      final ProjectEntity restored = ProjectEntity.fromJson(<String, dynamic>{
-        'id': 'p-1',
-        'name': 'Momentum',
-        'createdAt': 'bad-date',
-        'updatedAt': 'also-bad',
-        'status': 'not-a-status',
-        'archived': true,
-      });
+    test(
+      'ProjectEntity fromJson falls back for malformed status and dates',
+      () {
+        final ProjectEntity restored = ProjectEntity.fromJson(<String, dynamic>{
+          'id': 'p-1',
+          'name': 'Momentum',
+          'createdAt': 'bad-date',
+          'updatedAt': 'also-bad',
+          'status': 'not-a-status',
+          'archived': true,
+        });
 
-      expect(restored.name, 'Momentum');
-      expect(restored.status, ProjectStatus.archived);
-      expect(restored.updatedAt, DateTime.fromMillisecondsSinceEpoch(0));
+        expect(restored.name, 'Momentum');
+        expect(restored.status, ProjectStatus.archived);
+        expect(restored.updatedAt, DateTime.fromMillisecondsSinceEpoch(0));
 
-      final ProjectEntity copied = restored.copyWith(description: 'desc');
-      expect(copied.description, 'desc');
-      expect(copied.name, restored.name);
-      expect(copied.id, restored.id);
-    });
+        final ProjectEntity copied = restored.copyWith(description: 'desc');
+        expect(copied.description, 'desc');
+        expect(copied.name, restored.name);
+        expect(copied.id, restored.id);
+      },
+    );
 
     test('WorkWindowEntity roundtrip and range behavior stay stable', () {
       final WorkWindowEntity original = WorkWindowEntity(
@@ -119,40 +125,50 @@ void main() {
         status: WorkWindowStatus.active,
       );
 
-      final WorkWindowEntity restored = WorkWindowEntity.fromJson(original.toJson());
+      final WorkWindowEntity restored = WorkWindowEntity.fromJson(
+        original.toJson(),
+      );
       expect(restored.id, original.id);
       expect(restored.duration, const Duration(minutes: 90));
       expect(restored.isValidRange, isTrue);
       expect(restored.status, WorkWindowStatus.active);
-      expect(restored.preferredTaskIds, orderedEquals(const <String>['a', 'b']));
+      expect(
+        restored.preferredTaskIds,
+        orderedEquals(const <String>['a', 'b']),
+      );
 
-      final WorkWindowEntity invalid = WorkWindowEntity.fromJson(<String, dynamic>{
-        'id': 'window-2',
-        'start': 'nope',
-        'end': 'still-nope',
-        'status': 'bad',
-      });
+      final WorkWindowEntity invalid = WorkWindowEntity.fromJson(
+        <String, dynamic>{
+          'id': 'window-2',
+          'start': 'nope',
+          'end': 'still-nope',
+          'status': 'bad',
+        },
+      );
       expect(invalid.status, WorkWindowStatus.planned);
     });
 
-    test('TutorialProgress copyWith and equality/hashCode remain consistent', () {
-      const TutorialProgress baseline = TutorialProgress(
-        completedStepIds: <String>{'a'},
-        dismissedStepIds: <String>{'b'},
-        skippedForeverStepIds: <String>{'c'},
-        started: true,
-        hasSeenIntro: true,
-        contentVersion: 6,
-      );
+    test(
+      'TutorialProgress copyWith and equality/hashCode remain consistent',
+      () {
+        const TutorialProgress baseline = TutorialProgress(
+          completedStepIds: <String>{'a'},
+          dismissedStepIds: <String>{'b'},
+          skippedForeverStepIds: <String>{'c'},
+          started: true,
+          hasSeenIntro: true,
+          contentVersion: 6,
+        );
 
-      final TutorialProgress copy = baseline.copyWith();
-      expect(copy, baseline);
-      expect(copy.hashCode, baseline.hashCode);
+        final TutorialProgress copy = baseline.copyWith();
+        expect(copy, baseline);
+        expect(copy.hashCode, baseline.hashCode);
 
-      final TutorialProgress changed = baseline.copyWith(contentVersion: 7);
-      expect(changed, isNot(baseline));
-      expect(changed.contentVersion, 7);
-      expect(changed.completedStepIds, baseline.completedStepIds);
-    });
+        final TutorialProgress changed = baseline.copyWith(contentVersion: 7);
+        expect(changed, isNot(baseline));
+        expect(changed.contentVersion, 7);
+        expect(changed.completedStepIds, baseline.completedStepIds);
+      },
+    );
   });
 }

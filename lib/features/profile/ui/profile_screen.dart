@@ -27,104 +27,111 @@ class ProfileScreen extends ConsumerWidget {
     final ChronoSparkIdentity? identity = ref.watch(identityAccountProvider);
     final bool hasMockSession = ref.watch(mockAuthSessionProvider);
 
-    return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgProfile,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            children: [
-              ProfileHeader(
-                name: data.name,
-                level: data.level,
-                onBack: () => ref.read(appFlowProvider.notifier).toNexus(),
-                onOpenSettings: () =>
-                    ref.read(appFlowProvider.notifier).toSettings(),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Keep your identity, linked services, and billing in one place.',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                  height: 1.45,
+    return Semantics(
+      identifier: 'screen-profile',
+      container: true,
+      child: AnimatedSystemBackground(
+        backgroundAssetPath: AppAssets.bgProfile,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              children: [
+                ProfileHeader(
+                  name: data.name,
+                  level: data.level,
+                  onBack: () => ref.read(appFlowProvider.notifier).toNexus(),
+                  onOpenSettings: () =>
+                      ref.read(appFlowProvider.notifier).toSettings(),
                 ),
-              ),
-              const SizedBox(height: 12),
-              _IdentityStatusCard(session: identitySession, identity: identity),
-              const SizedBox(height: 8),
-              _ProgressionStatusCard(
-                level: data.level,
-                xp: data.xp,
-                streak: data.streak,
-                longestStreak: data.longestStreak,
-                onOpenProgression: () =>
-                    ref.read(appFlowProvider.notifier).toProgression(),
-              ),
-              const SizedBox(height: 8),
-              _DangerZoneCard(
-                hasMockSession: hasMockSession,
-                onSignOut: () =>
-                    _signOut(context, ref, hasMockSession: hasMockSession),
-                onDeleteAccount: hasMockSession
-                    ? null
-                    : () => context.push(
-                        ref.read(routeSurfaceProvider).deleteAccount,
-                      ),
-              ),
-              const SizedBox(height: 8),
-              _ConnectedAccountsCard(connections: accountConnections),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                decoration: BoxDecoration(
-                  color: const Color(0x9907111F),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: AppColors.neonViolet.withValues(alpha: 0.16),
+                const SizedBox(height: 10),
+                const Text(
+                  'Keep your identity, linked services, and billing in one place.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.45,
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Billing',
-                      style: TextStyle(
-                        color: AppColors.neonViolet,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                      ),
+                const SizedBox(height: 12),
+                _IdentityStatusCard(
+                  session: identitySession,
+                  identity: identity,
+                ),
+                const SizedBox(height: 8),
+                _ProgressionStatusCard(
+                  level: data.level,
+                  xp: data.xp,
+                  streak: data.streak,
+                  longestStreak: data.longestStreak,
+                  onOpenProgression: () =>
+                      ref.read(appFlowProvider.notifier).toProgression(),
+                ),
+                const SizedBox(height: 8),
+                _DangerZoneCard(
+                  hasMockSession: hasMockSession,
+                  onSignOut: () =>
+                      _signOut(context, ref, hasMockSession: hasMockSession),
+                  onDeleteAccount: hasMockSession
+                      ? null
+                      : () => context.push(
+                          ref.read(routeSurfaceProvider).deleteAccount,
+                        ),
+                ),
+                const SizedBox(height: 8),
+                _ConnectedAccountsCard(connections: accountConnections),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0x9907111F),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppColors.neonViolet.withValues(alpha: 0.16),
                     ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Manage subscription and billing options.',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton.icon(
-                        onPressed: () =>
-                            context.push(RoutePaths.subscriptionManagement),
-                        icon: const Icon(Icons.credit_card, size: 18),
-                        label: const Text('Billing center'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.neonViolet,
-                          alignment: Alignment.centerLeft,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Billing',
+                        style: TextStyle(
+                          color: AppColors.neonViolet,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Manage subscription and billing options.',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton.icon(
+                          onPressed: () =>
+                              context.push(RoutePaths.subscriptionManagement),
+                          icon: const Icon(Icons.credit_card, size: 18),
+                          label: const Text('Billing center'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.neonViolet,
+                            alignment: Alignment.centerLeft,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-            ],
+                const SizedBox(height: 12),
+              ],
+            ),
           ),
         ),
       ),
@@ -433,13 +440,19 @@ class _DangerZoneCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              OutlinedButton.icon(
-                onPressed: onSignOut,
-                icon: const Icon(Icons.logout_rounded, size: 16),
-                label: const Text('Log out'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
+              Semantics(
+                identifier: 'profile-logout',
+                button: true,
+                child: OutlinedButton.icon(
+                  onPressed: onSignOut,
+                  icon: const Icon(Icons.logout_rounded, size: 16),
+                  label: const Text('Log out'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.22),
+                    ),
+                  ),
                 ),
               ),
               if (!hasMockSession)

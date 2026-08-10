@@ -7,6 +7,8 @@ import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 class _FakeCleanupService extends LocalUserDataCleanupService {
@@ -18,7 +20,21 @@ class _FakeCleanupService extends LocalUserDataCleanupService {
       );
 
   int clearCalls = 0;
+  int prepareCalls = 0;
+  int clearLocalDataCalls = 0;
   String? clearedUserId;
+
+  @override
+  Future<void> prepareForAccountDeletion() async {
+    prepareCalls += 1;
+  }
+
+  @override
+  Future<void> clearLocalData({String? userId}) async {
+    clearLocalDataCalls += 1;
+    clearedUserId = userId;
+    await secureStore.deleteAll();
+  }
 
   @override
   Future<void> clear({String? userId}) async {
@@ -40,7 +56,8 @@ class _FakeSupabaseClient extends sb.SupabaseClient {
 }
 
 class _FakeGoTrueClient extends sb.GoTrueClient {
-  _FakeGoTrueClient(this._authState) : super(url: 'https://example.supabase.co');
+  _FakeGoTrueClient(this._authState)
+    : super(url: 'https://example.supabase.co');
 
   final StreamController<sb.AuthState> _authState;
   bool failNextRefreshSessionWithNetworkError = false;
@@ -66,7 +83,10 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
     if (email == 'bad@example.com') {
       throw const sb.AuthException('Invalid login credentials');
     }
-    return _buildAuthResponse(userId: 'u1', email: email ?? 'person@example.com');
+    return _buildAuthResponse(
+      userId: 'u1',
+      email: email ?? 'person@example.com',
+    );
   }
 
   @override
@@ -94,7 +114,10 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
       _currentSession = null;
       return sb.AuthResponse(user: user, session: null);
     }
-    return _buildAuthResponse(userId: 'u2', email: email ?? 'person@example.com');
+    return _buildAuthResponse(
+      userId: 'u2',
+      email: email ?? 'person@example.com',
+    );
   }
 
   @override
@@ -113,7 +136,10 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
       failNextRefreshSessionWithNetworkError = false;
       throw TimeoutException('Transient network timeout during refreshSession');
     }
-    return _buildAuthResponse(userId: 'u-refresh', email: 'refresh@example.com');
+    return _buildAuthResponse(
+      userId: 'u-refresh',
+      email: 'refresh@example.com',
+    );
   }
 
   @override
@@ -174,7 +200,10 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
     });
   }
 
-  Future<void> signInWithOAuth(sb.OAuthProvider provider, {String? redirectTo}) async {}
+  Future<void> signInWithOAuth(
+    sb.OAuthProvider provider, {
+    String? redirectTo,
+  }) async {}
 
   @override
   sb.User? get currentUser => _currentUser;
@@ -185,11 +214,30 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
   sb.User? _currentUser;
   sb.Session? _currentSession;
 
+  void setAuthenticatedUser({
+    required String provider,
+    required String lastSignInAt,
+  }) {
+    _buildAuthResponse(
+      userId: 'u1',
+      email: provider == 'phone' ? '' : 'person@example.com',
+      provider: provider,
+      lastSignInAt: lastSignInAt,
+    );
+  }
+
   sb.AuthResponse _buildAuthResponse({
     required String userId,
     required String email,
+    String provider = 'email',
+    String? lastSignInAt,
   }) {
-    final sb.User user = _buildUser(userId: userId, email: email);
+    final sb.User user = _buildUser(
+      userId: userId,
+      email: email,
+      provider: provider,
+      lastSignInAt: lastSignInAt,
+    );
     final session = sb.Session(
       accessToken: 'abc',
       tokenType: 'bearer',
@@ -206,15 +254,23 @@ class _FakeGoTrueClient extends sb.GoTrueClient {
     required String userId,
     required String email,
     bool emailConfirmed = true,
+    String provider = 'email',
+    String? lastSignInAt,
   }) {
     return sb.User(
       id: userId,
       email: email,
-      appMetadata: const {},
+      appMetadata: <String, dynamic>{
+        'provider': provider,
+        'providers': <String>[provider],
+      },
       userMetadata: const {},
       aud: 'authenticated',
       createdAt: DateTime.now().toIso8601String(),
-      emailConfirmedAt: emailConfirmed ? DateTime.now().toIso8601String() : null,
+      lastSignInAt: lastSignInAt ?? DateTime.now().toUtc().toIso8601String(),
+      emailConfirmedAt: emailConfirmed
+          ? DateTime.now().toIso8601String()
+          : null,
     );
   }
 }
@@ -225,6 +281,8 @@ void main() {
     late _FakeGoTrueClient auth;
     late SecureStore store;
     late _FakeCleanupService cleanup;
+    late DateTime now;
+    late int deletionRequestCount;
 
     setUp(() {
       final authState = StreamController<sb.AuthState>.broadcast();
@@ -232,12 +290,22 @@ void main() {
       final fakeClient = _FakeSupabaseClient(authClient: auth);
       store = SecureStore(backend: InMemorySecureStoreBackend());
       cleanup = _FakeCleanupService(store: store);
+      now = DateTime.utc(2026, 8, 9, 18);
+      deletionRequestCount = 0;
       service = AuthService(
         supabaseClient: fakeClient,
         store: store,
+        httpClient: MockClient((http.Request request) async {
+          deletionRequestCount += 1;
+          return http.Response('{"deleted":true}', 200);
+        }),
+        accountDeleteEndpoint:
+            'https://example.supabase.co/functions/v1/account-delete',
+        supabaseUrl: 'https://example.supabase.co',
         oauthGoogleRedirectUrl: 'chronospark://auth-callback',
         passwordRecoveryRedirectUrl: 'chronospark://auth-callback',
         localUserDataCleanupService: cleanup,
+        clock: () => now,
       );
     });
 
@@ -250,45 +318,61 @@ void main() {
       expect(credential.user!.email, 'person@example.com');
     });
 
-    test('unconfirmed sign-up does not overwrite durable profile state', () async {
-      auth.signUpRequiresConfirmation = true;
-      await store.writeString('profile_state_v2', '{"name":"Existing"}');
+    test(
+      'unconfirmed sign-up does not overwrite durable profile state',
+      () async {
+        auth.signUpRequiresConfirmation = true;
+        await store.writeString('profile_state_v2', '{"name":"Existing"}');
 
-      await service.signUp(
-        email: 'new@example.com',
-        password: 'Password123!',
-      );
+        await service.signUp(
+          email: 'new@example.com',
+          password: 'Password123!',
+        );
 
-      expect(await store.readString('profile_state_v2'), '{"name":"Existing"}');
-      expect(auth.signUpCallCount, 1);
-      expect(auth.resendCallCount, 0);
-      expect(auth.lastSignUpRedirect, 'chronospark://auth-callback');
-    });
+        expect(
+          await store.readString('profile_state_v2'),
+          '{"name":"Existing"}',
+        );
+        expect(auth.signUpCallCount, 1);
+        expect(auth.resendCallCount, 0);
+        expect(auth.lastSignUpRedirect, 'chronospark://auth-callback');
+      },
+    );
 
-    test('verified sign-up session hydrates a missing durable profile', () async {
-      await service.signUp(
-        email: 'verified@example.com',
-        password: 'Password123!',
-      );
+    test(
+      'verified sign-up session hydrates a missing durable profile',
+      () async {
+        await service.signUp(
+          email: 'verified@example.com',
+          password: 'Password123!',
+        );
 
-      final String? profile = await store.readString('profile_state_v2');
-      expect(profile, isNotNull);
-      expect(profile, contains('verified'));
-    });
+        final String? profile = await store.readString('profile_state_v2');
+        expect(profile, isNotNull);
+        expect(profile, contains('verified'));
+      },
+    );
 
     test('signUp surfaces sign-up failure', () async {
       expect(
-        () => service.signUp(email: 'fail@example.com', password: 'Password123!'),
+        () =>
+            service.signUp(email: 'fail@example.com', password: 'Password123!'),
         throwsA(isA<FirebaseAuthException>()),
       );
     });
 
-    test('signIn maps invalid credentials to a validation-style auth exception', () async {
-      expect(
-        () => service.signIn(email: 'bad@example.com', password: 'Password123!'),
-        throwsA(isA<FirebaseAuthException>()),
-      );
-    });
+    test(
+      'signIn maps invalid credentials to a validation-style auth exception',
+      () async {
+        expect(
+          () => service.signIn(
+            email: 'bad@example.com',
+            password: 'Password123!',
+          ),
+          throwsA(isA<FirebaseAuthException>()),
+        );
+      },
+    );
 
     test('sendPhoneOtp and verifyPhoneOtp succeed with valid inputs', () async {
       await expectLater(service.sendPhoneOtp('+15551234567'), completes);
@@ -303,25 +387,136 @@ void main() {
       await expectLater(service.signOut(), completes);
     });
 
-    test('failed remote sign-out still clears cached auth and local profile', () async {
-      await service.signIn(email: 'person@example.com', password: 'Password123!');
-      await store.writeString('auth.cached_session', 'cached');
-      await store.writeString('profile_state_v2', '{"name":"Person"}');
-      auth.failSignOut = true;
+    test(
+      'failed remote sign-out still clears cached auth and local profile',
+      () async {
+        await service.signIn(
+          email: 'person@example.com',
+          password: 'Password123!',
+        );
+        await store.writeString('auth.cached_session', 'cached');
+        await store.writeString('profile_state_v2', '{"name":"Person"}');
+        auth.failSignOut = true;
 
-      await expectLater(
-        service.signOut,
-        throwsA(isA<FirebaseAuthException>()),
-      );
+        await expectLater(
+          service.signOut,
+          throwsA(isA<FirebaseAuthException>()),
+        );
 
-      expect(cleanup.clearCalls, 1);
-      expect(cleanup.clearedUserId, 'u1');
-      expect(await store.readString('auth.cached_session'), isNull);
-      expect(await store.readString('profile_state_v2'), isNull);
-    });
+        expect(cleanup.clearCalls, 1);
+        expect(cleanup.clearedUserId, 'u1');
+        expect(await store.readString('auth.cached_session'), isNull);
+        expect(await store.readString('profile_state_v2'), isNull);
+      },
+    );
+
+    test(
+      'password deletion reauthenticates and completes both purge stages',
+      () async {
+        await service.signIn(
+          email: 'person@example.com',
+          password: 'Password123!',
+        );
+
+        await service.deleteCurrentAccount(password: 'Password123!');
+
+        expect(deletionRequestCount, 1);
+        expect(cleanup.prepareCalls, 1);
+        expect(cleanup.clearLocalDataCalls, 1);
+        expect(cleanup.clearedUserId, 'u1');
+        expect(auth.currentUser, isNull);
+      },
+    );
+
+    test(
+      'fresh phone sign-in can delete without inventing a password',
+      () async {
+        auth.setAuthenticatedUser(
+          provider: 'phone',
+          lastSignInAt: now
+              .subtract(const Duration(minutes: 9))
+              .toIso8601String(),
+        );
+
+        await service.deleteCurrentAccount(password: '');
+
+        expect(deletionRequestCount, 1);
+        expect(cleanup.prepareCalls, 1);
+        expect(cleanup.clearLocalDataCalls, 1);
+      },
+    );
+
+    test(
+      'stale Google sign-in is rejected before destructive cleanup',
+      () async {
+        auth.setAuthenticatedUser(
+          provider: 'google',
+          lastSignInAt: now
+              .subtract(defaultAccountDeletionRecentSignInWindow)
+              .toIso8601String(),
+        );
+
+        await expectLater(
+          () => service.deleteCurrentAccount(password: ''),
+          throwsA(
+            isA<FirebaseAuthException>().having(
+              (FirebaseAuthException error) => error.code,
+              'code',
+              'recent-sign-in-required',
+            ),
+          ),
+        );
+
+        expect(deletionRequestCount, 0);
+        expect(cleanup.prepareCalls, 0);
+        expect(cleanup.clearLocalDataCalls, 0);
+      },
+    );
+
+    test(
+      'account deletion never sends a bearer token off the Supabase origin',
+      () async {
+        await service.signIn(
+          email: 'person@example.com',
+          password: 'Password123!',
+        );
+        final AuthService untrustedEndpointService = AuthService(
+          supabaseClient: _FakeSupabaseClient(authClient: auth),
+          store: store,
+          httpClient: MockClient((http.Request request) async {
+            deletionRequestCount += 1;
+            return http.Response('{}', 200);
+          }),
+          accountDeleteEndpoint:
+              'https://attacker.example/functions/v1/account-delete',
+          supabaseUrl: 'https://example.supabase.co',
+          localUserDataCleanupService: cleanup,
+        );
+
+        await expectLater(
+          () => untrustedEndpointService.deleteCurrentAccount(
+            password: 'Password123!',
+          ),
+          throwsA(
+            isA<FirebaseAuthException>().having(
+              (FirebaseAuthException error) => error.code,
+              'code',
+              'operation-not-supported',
+            ),
+          ),
+        );
+
+        expect(deletionRequestCount, 0);
+        expect(cleanup.prepareCalls, 0);
+        expect(cleanup.clearLocalDataCalls, 0);
+      },
+    );
 
     test('explicit verification resend uses the configured callback', () async {
-      await service.signIn(email: 'person@example.com', password: 'Password123!');
+      await service.signIn(
+        email: 'person@example.com',
+        password: 'Password123!',
+      );
 
       await service.sendEmailVerification();
 
@@ -335,29 +530,35 @@ void main() {
       expect(auth.lastPasswordResetRedirect, 'chronospark://auth-callback');
     });
 
-    test('getCurrentSessionSnapshot exposes session details without logging secrets', () async {
-      final snapshot = await service.getCurrentSessionSnapshot();
-      expect(snapshot, isNull);
-    });
+    test(
+      'getCurrentSessionSnapshot exposes session details without logging secrets',
+      () async {
+        final snapshot = await service.getCurrentSessionSnapshot();
+        expect(snapshot, isNull);
+      },
+    );
 
-    test('transient refresh failure maps to auth-unavailable and next refresh recovers', () async {
-      auth.failNextRefreshSessionWithNetworkError = true;
+    test(
+      'transient refresh failure maps to auth-unavailable and next refresh recovers',
+      () async {
+        auth.failNextRefreshSessionWithNetworkError = true;
 
-      await expectLater(
-        () => service.getIdToken(forceRefresh: true),
-        throwsA(
-          isA<FirebaseAuthException>().having(
-            (FirebaseAuthException e) => e.code,
-            'code',
-            'auth-unavailable',
+        await expectLater(
+          () => service.getIdToken(forceRefresh: true),
+          throwsA(
+            isA<FirebaseAuthException>().having(
+              (FirebaseAuthException e) => e.code,
+              'code',
+              'auth-unavailable',
+            ),
           ),
-        ),
-      );
+        );
 
-      final token = await service.getIdToken(forceRefresh: true);
-      expect(token, 'abc');
-      expect(auth.refreshSessionCallCount, greaterThanOrEqualTo(2));
-    });
+        final token = await service.getIdToken(forceRefresh: true);
+        expect(token, 'abc');
+        expect(auth.refreshSessionCallCount, greaterThanOrEqualTo(2));
+      },
+    );
 
     test('session snapshot recovers after transient refresh failure', () async {
       auth.failNextRefreshSessionWithNetworkError = true;
@@ -373,7 +574,9 @@ void main() {
         ),
       );
 
-      final snapshot = await service.getCurrentSessionSnapshot(forceRefresh: true);
+      final snapshot = await service.getCurrentSessionSnapshot(
+        forceRefresh: true,
+      );
       expect(snapshot, isNotNull);
       expect(snapshot!.accessToken, 'abc');
       expect(snapshot.refreshToken, isNotEmpty);

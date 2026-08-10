@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -25,43 +25,49 @@ void main() {
     expect(
       lib.contains('BottomNavigationBar('),
       isFalse,
-      reason: 'BottomNavigationBar found. Navigation should route through Nexus Action Hub.',
+      reason:
+          'BottomNavigationBar found. Navigation should route through Nexus Action Hub.',
     );
 
     expect(
       lib.contains('NavigationBar('),
       isFalse,
-      reason: 'Material NavigationBar found. ChronoSpark should not use bottom nav shell.',
+      reason:
+          'Material NavigationBar found. ChronoSpark should not use bottom nav shell.',
     );
 
     expect(
       lib.contains('NavigationDestination('),
       isFalse,
-      reason: 'NavigationDestination found. Action Hub should own destinations.',
+      reason:
+          'NavigationDestination found. Action Hub should own destinations.',
     );
   });
 
-  test('Action Hub required destinations are represented somewhere in app code', () {
-    final lib = readAllLib();
+  test(
+    'Action Hub required destinations are represented somewhere in app code',
+    () {
+      final lib = readAllLib();
 
-    final required = <String>[
-      'Coach',
-      'Creator',
-      'Timeline',
-      'Profile',
-      'Progression',
-      'Trajectory',
-      'SI Console',
-    ];
+      final required = <String>[
+        'Coach',
+        'Creator',
+        'Timeline',
+        'Profile',
+        'Progression',
+        'Trajectory',
+        'SI Console',
+      ];
 
-    final missing = required.where((label) => !lib.contains(label)).toList();
+      final missing = required.where((label) => !lib.contains(label)).toList();
 
-    expect(
-      missing,
-      isEmpty,
-      reason: 'Missing Action Hub destination labels or references: $missing',
-    );
-  });
+      expect(
+        missing,
+        isEmpty,
+        reason: 'Missing Action Hub destination labels or references: $missing',
+      );
+    },
+  );
 
   test('internal engine concepts are not standalone public screens', () {
     final lib = readAllLib();
@@ -80,7 +86,8 @@ void main() {
     expect(
       found,
       isEmpty,
-      reason: 'Internal engine concepts should not be standalone screens: $found',
+      reason:
+          'Internal engine concepts should not be standalone screens: $found',
     );
   });
 }

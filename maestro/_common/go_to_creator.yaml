@@ -1,8 +1,7 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../_common/open_navigation_map.yaml
 - tapOn:
-    text: "Creator"
-    optional: true
+    id: "nav-creator"
 - assertVisible:
     text: "Creator"

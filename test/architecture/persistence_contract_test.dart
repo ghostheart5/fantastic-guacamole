@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -24,7 +24,8 @@ void main() {
 
     final hasHive = lib.contains('Hive') || lib.contains('HiveService');
     final hasSharedPrefs = lib.contains('SharedPreferences');
-    final hasStorageService = lib.contains('StorageService') || lib.contains('storage');
+    final hasStorageService =
+        lib.contains('StorageService') || lib.contains('storage');
 
     expect(
       hasHive || hasSharedPrefs || hasStorageService,
@@ -51,7 +52,8 @@ void main() {
     expect(
       hasPersistenceBackend,
       isTrue,
-      reason: 'Tutorial repository does not appear to persist progress through a backend/json mechanism.',
+      reason:
+          'Tutorial repository does not appear to persist progress through a backend/json mechanism.',
     );
   });
 

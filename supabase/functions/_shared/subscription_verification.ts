@@ -29,7 +29,7 @@ export function verifySubscriptionLineItem(
     return null;
   }
 
-  finalLineItem: for (const item of lineItems) {
+  for (const item of lineItems) {
     if (!item || typeof item !== "object") {
       continue;
     }

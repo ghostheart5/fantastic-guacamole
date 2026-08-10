@@ -10,23 +10,47 @@ void main() {
       final Directory dir = Directory('lib/features/creator');
       expect(dir.existsSync(), isTrue);
 
-      final String creatorText = SourceTestUtils.readAllConcatenated('lib/features/creator').toLowerCase();
-      expect(creatorText.contains('create') || creatorText.contains('creator'), isTrue);
-      expect(creatorText.contains('task') || creatorText.contains('goal') || creatorText.contains('event') || creatorText.contains('note'), isTrue);
+      final String creatorText = SourceTestUtils.readAllConcatenated(
+        'lib/features/creator',
+      ).toLowerCase();
+      expect(
+        creatorText.contains('create') || creatorText.contains('creator'),
+        isTrue,
+      );
+      expect(
+        creatorText.contains('task') ||
+            creatorText.contains('goal') ||
+            creatorText.contains('event') ||
+            creatorText.contains('note'),
+        isTrue,
+      );
     });
 
     test('creator wiring appears in app navigation', () {
-      final String navText = SourceTestUtils.readText(File('lib/app/navigation_shell.dart'));
+      final String navText = SourceTestUtils.readText(
+        File('lib/app/navigation_shell.dart'),
+      );
       expect(navText.contains('CreatorScreen'), isTrue);
-      expect(navText.contains('AppView.creator') || navText.contains('creator'), isTrue);
+      expect(
+        navText.contains('AppView.creator') || navText.contains('creator'),
+        isTrue,
+      );
     });
 
     test('creator ui avoids placeholder text markers', () {
       final List<String> offenders = <String>[];
-      const List<String> bad = <String>['Placeholder', 'Coming soon', 'lorem ipsum'];
+      const List<String> bad = <String>[
+        'Placeholder',
+        'Coming soon',
+        'lorem ipsum',
+      ];
 
-      for (final File file in SourceTestUtils.dartFilesUnder('lib/features/creator')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
+      for (final File file in SourceTestUtils.dartFilesUnder(
+        'lib/features/creator',
+      )) {
+        final String path = SourceTestUtils.normalizePath(
+          file.path,
+        ).toLowerCase();
         if (!path.contains('/ui/') && !path.contains('/presentation/')) {
           continue;
         }
@@ -37,7 +61,11 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Creator UI placeholder markers found: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Creator UI placeholder markers found: $offenders',
+      );
     });
   });
 }

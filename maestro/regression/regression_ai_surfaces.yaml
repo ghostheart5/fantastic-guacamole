@@ -1,4 +1,4 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../smart_planner/prompt_simple.yaml
 - runFlow: ../smart_planner/prompt_complex.yaml

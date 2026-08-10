@@ -24,12 +24,26 @@ void main() {
       expect(text.contains('memory') || text.contains('note'), isTrue);
     });
 
-    test('Creator keeps provider/controller/service/repository wiring references', () {
-      final String all = SourceTestUtils.readAllConcatenated('lib/features/creator').toLowerCase();
-      final String state = SourceTestUtils.readAllConcatenated('lib/state/providers').toLowerCase();
+    test(
+      'Creator keeps provider/controller/service/repository wiring references',
+      () {
+        final String all = SourceTestUtils.readAllConcatenated(
+          'lib/features/creator',
+        ).toLowerCase();
+        final String state = SourceTestUtils.readAllConcatenated(
+          'lib/state/providers',
+        ).toLowerCase();
 
-      expect(all.contains('provider') || state.contains('creator_provider'), isTrue);
-      expect(all.contains('creatoractionsprovider') || state.contains('creatoractionsprovider'), isTrue);
-    });
+        expect(
+          all.contains('provider') || state.contains('creator_provider'),
+          isTrue,
+        );
+        expect(
+          all.contains('creatoractionsprovider') ||
+              state.contains('creatoractionsprovider'),
+          isTrue,
+        );
+      },
+    );
   });
 }

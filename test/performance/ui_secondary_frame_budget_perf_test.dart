@@ -57,7 +57,9 @@ void main() {
       final List<FrameTiming> timings = <FrameTiming>[];
       void onTimings(List<FrameTiming> value) => timings.addAll(value);
       WidgetsBinding.instance.addTimingsCallback(onTimings);
-      addTearDown(() => WidgetsBinding.instance.removeTimingsCallback(onTimings));
+      addTearDown(
+        () => WidgetsBinding.instance.removeTimingsCallback(onTimings),
+      );
 
       await tester.pumpWidget(
         ProviderScope(
@@ -107,7 +109,9 @@ void main() {
       final List<FrameTiming> timings = <FrameTiming>[];
       void onTimings(List<FrameTiming> value) => timings.addAll(value);
       WidgetsBinding.instance.addTimingsCallback(onTimings);
-      addTearDown(() => WidgetsBinding.instance.removeTimingsCallback(onTimings));
+      addTearDown(
+        () => WidgetsBinding.instance.removeTimingsCallback(onTimings),
+      );
 
       await tester.pumpWidget(
         ProviderScope(

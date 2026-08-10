@@ -41,6 +41,22 @@ void main() {
         find.byKey(const ValueKey<String>('login-password-field')),
         findsOneWidget,
       );
+      expect(
+        tester
+            .getSemantics(
+              find.byKey(const ValueKey<String>('login-email-field')),
+            )
+            .identifier,
+        'login-email-field',
+      );
+      expect(
+        tester
+            .getSemantics(
+              find.byKey(const ValueKey<String>('login-password-field')),
+            )
+            .identifier,
+        'login-password-field',
+      );
       expect(find.text('ENTER SYSTEM'), findsOneWidget);
     });
 

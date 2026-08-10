@@ -1,4 +1,4 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../subscriptions/free_plan_restrictions.yaml
 - runFlow: ../subscriptions/purchase_flow_launch.yaml

@@ -2,6 +2,7 @@ class RoutePaths {
   static const shell = '/';
 
   // Entry and auth routes.
+  static const bootstrap = '/bootstrap';
   static const onboarding = '/onboarding';
   static const login = '/login';
   static const unsupportedLink = '/unsupported-link';

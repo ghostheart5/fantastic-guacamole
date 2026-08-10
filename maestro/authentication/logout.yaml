@@ -1,9 +1,7 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../_common/go_to_profile.yaml
 - tapOn:
-    text: "Sign out"
-    optional: true
+    id: "profile-logout"
 - assertVisible:
     id: "login-email-field"
-    optional: true

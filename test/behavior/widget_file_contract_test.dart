@@ -1,10 +1,11 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
 bool _isWidgetSurfacePath(String path) {
   final normalized = path.replaceAll('\\', '/').toLowerCase();
-  final inSurface = normalized.contains('/ui/') ||
+  final inSurface =
+      normalized.contains('/ui/') ||
       normalized.contains('/widgets/') ||
       normalized.contains('/presentation/') ||
       normalized.contains('/app/');
@@ -42,52 +43,57 @@ void main() {
   }
 
   group('Widget file contracts', () {
-    test('files named screen page view panel card button tile overlay define widgets', () {
-      final suspicious = <String>[];
+    test(
+      'files named screen page view panel card button tile overlay define widgets',
+      () {
+        final suspicious = <String>[];
 
-      final widgetKeywords = <String>[
-        'extends StatelessWidget',
-        'extends StatefulWidget',
-        'extends ConsumerWidget',
-        'extends HookWidget',
-        'extends ConsumerStatefulWidget',
-        'Widget build(',
-      ];
+        final widgetKeywords = <String>[
+          'extends StatelessWidget',
+          'extends StatefulWidget',
+          'extends ConsumerWidget',
+          'extends HookWidget',
+          'extends ConsumerStatefulWidget',
+          'Widget build(',
+        ];
 
-      for (final file in dartFilesUnder('lib')) {
-        final lowerPath = file.path.toLowerCase();
+        for (final file in dartFilesUnder('lib')) {
+          final lowerPath = file.path.toLowerCase();
 
-        if (!_isWidgetSurfacePath(lowerPath) || !_hasWidgetHintInFileName(lowerPath)) {
-          continue;
+          if (!_isWidgetSurfacePath(lowerPath) ||
+              !_hasWidgetHintInFileName(lowerPath)) {
+            continue;
+          }
+
+          final text = file.readAsStringSync();
+          if (lowerPath.contains('/presentation/') &&
+              !text.contains('package:flutter/') &&
+              !text.contains('package:flutter_riverpod/')) {
+            continue;
+          }
+          final bool hasFlutterImport =
+              text.contains('package:flutter/') ||
+              text.contains('package:flutter_riverpod/');
+          final bool hasWidgetClassHint =
+              text.contains('Widget ') || text.contains('build(BuildContext');
+          if (!hasFlutterImport && !hasWidgetClassHint) {
+            continue;
+          }
+          final hasWidgetShape = widgetKeywords.any(text.contains);
+
+          if (!hasWidgetShape) {
+            suspicious.add(file.path);
+          }
         }
 
-        final text = file.readAsStringSync();
-        if (lowerPath.contains('/presentation/') &&
-            !text.contains('package:flutter/') &&
-            !text.contains('package:flutter_riverpod/')) {
-          continue;
-        }
-        final bool hasFlutterImport =
-            text.contains('package:flutter/') ||
-            text.contains('package:flutter_riverpod/');
-        final bool hasWidgetClassHint =
-            text.contains('Widget ') || text.contains('build(BuildContext');
-        if (!hasFlutterImport && !hasWidgetClassHint) {
-          continue;
-        }
-        final hasWidgetShape = widgetKeywords.any(text.contains);
-
-        if (!hasWidgetShape) {
-          suspicious.add(file.path);
-        }
-      }
-
-      expect(
-        suspicious,
-        isEmpty,
-        reason: 'Widget-like files that do not define obvious widgets: $suspicious',
-      );
-    });
+        expect(
+          suspicious,
+          isEmpty,
+          reason:
+              'Widget-like files that do not define obvious widgets: $suspicious',
+        );
+      },
+    );
 
     test('widget files do not contain TODO placeholder UI text', () {
       final offenders = <String>[];
@@ -104,7 +110,8 @@ void main() {
       for (final file in dartFilesUnder('lib')) {
         final lowerPath = file.path.toLowerCase();
 
-        if (!_isWidgetSurfacePath(lowerPath) || !_hasWidgetHintInFileName(lowerPath)) {
+        if (!_isWidgetSurfacePath(lowerPath) ||
+            !_hasWidgetHintInFileName(lowerPath)) {
           continue;
         }
 
@@ -118,7 +125,8 @@ void main() {
       expect(
         offenders,
         isEmpty,
-        reason: 'User-facing widget files still contain placeholder/TODO text: $offenders',
+        reason:
+            'User-facing widget files still contain placeholder/TODO text: $offenders',
       );
     });
   });

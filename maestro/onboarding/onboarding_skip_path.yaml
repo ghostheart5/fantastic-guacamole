@@ -1,9 +1,15 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - launchApp:
     clearState: true
     stopApp: true
-- tapOn: "SKIP"
-- assertVisible:
-    id: "login-email-field"
-    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "screen-onboarding"
+    timeout: 60000
+- tapOn:
+    id: "onboarding-skip"
+- extendedWaitUntil:
+    visible:
+      id: "login-email-field"
+    timeout: 60000

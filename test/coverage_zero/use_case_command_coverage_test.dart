@@ -139,40 +139,43 @@ void main() {
       expect(repository.addedEvents.single.title, 'Task updated');
     });
 
-    test('goal use cases preserve lifecycle transitions and explicit delete', () async {
-      final _FakeGoalRepository repository = _FakeGoalRepository();
-      final CreateGoal createGoal = CreateGoal(repository);
-      final CompleteGoal completeGoal = CompleteGoal(repository);
-      final ArchiveGoal archiveGoal = ArchiveGoal(repository);
-      final ReopenGoal reopenGoal = ReopenGoal(repository);
-      final DeleteGoal deleteGoal = DeleteGoal(repository);
-      final GoalEntity goal = GoalEntity(
-        id: 'g-1',
-        title: 'Ship coverage gate',
-        createdAt: DateTime.utc(2025, 2, 1),
-      );
+    test(
+      'goal use cases preserve lifecycle transitions and explicit delete',
+      () async {
+        final _FakeGoalRepository repository = _FakeGoalRepository();
+        final CreateGoal createGoal = CreateGoal(repository);
+        final CompleteGoal completeGoal = CompleteGoal(repository);
+        final ArchiveGoal archiveGoal = ArchiveGoal(repository);
+        final ReopenGoal reopenGoal = ReopenGoal(repository);
+        final DeleteGoal deleteGoal = DeleteGoal(repository);
+        final GoalEntity goal = GoalEntity(
+          id: 'g-1',
+          title: 'Ship coverage gate',
+          createdAt: DateTime.utc(2025, 2, 1),
+        );
 
-      await createGoal.call(goal);
-      await completeGoal.call('g-1');
-      GoalEntity persistedGoal = repository.savedGoals.single;
-      expect(persistedGoal.status, GoalStatus.completed);
-      expect(persistedGoal.completedAt, isNotNull);
+        await createGoal.call(goal);
+        await completeGoal.call('g-1');
+        GoalEntity persistedGoal = repository.savedGoals.single;
+        expect(persistedGoal.status, GoalStatus.completed);
+        expect(persistedGoal.completedAt, isNotNull);
 
-      await archiveGoal.call('g-1');
-      persistedGoal = repository.savedGoals.single;
-      expect(persistedGoal.status, GoalStatus.archived);
-      expect(persistedGoal.archivedAt, isNotNull);
+        await archiveGoal.call('g-1');
+        persistedGoal = repository.savedGoals.single;
+        expect(persistedGoal.status, GoalStatus.archived);
+        expect(persistedGoal.archivedAt, isNotNull);
 
-      await reopenGoal.call('g-1');
-      persistedGoal = repository.savedGoals.single;
-      expect(persistedGoal.status, GoalStatus.active);
+        await reopenGoal.call('g-1');
+        persistedGoal = repository.savedGoals.single;
+        expect(persistedGoal.status, GoalStatus.active);
 
-      await deleteGoal.call('g-2');
+        await deleteGoal.call('g-2');
 
-      expect(repository.savedGoals, hasLength(1));
-      expect(persistedGoal.id, 'g-1');
-      expect(repository.deletedGoalIds, <String>['g-2']);
-    });
+        expect(repository.savedGoals, hasLength(1));
+        expect(persistedGoal.id, 'g-1');
+        expect(repository.deletedGoalIds, <String>['g-2']);
+      },
+    );
 
     test('project, routine, and subtask use cases delegate save', () async {
       final _FakeProjectRepository projectRepository = _FakeProjectRepository();

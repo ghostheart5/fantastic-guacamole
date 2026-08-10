@@ -18,15 +18,20 @@ void main() {
     test('rejects invalid placeholder SI responses', () {
       expect(SIConsoleResponseValidator.isInvalid('undefined'), isTrue);
       expect(SIConsoleResponseValidator.isInvalid(' null '), isTrue);
-      expect(SIConsoleResponseValidator.isInvalid('Undefined Response'), isTrue);
+      expect(
+        SIConsoleResponseValidator.isInvalid('Undefined Response'),
+        isTrue,
+      );
       expect(SIConsoleResponseValidator.isInvalid('no response'), isTrue);
     });
 
     test('accepts real non-placeholder SI responses', () {
-      expect(SIConsoleResponseValidator.isInvalid('Trajectory updated.'), isFalse);
+      expect(
+        SIConsoleResponseValidator.isInvalid('Trajectory updated.'),
+        isFalse,
+      );
       expect(SIConsoleResponseValidator.isInvalid('/help'), isFalse);
       expect(SIConsoleResponseValidator.isInvalid('0'), isFalse);
     });
   });
 }
-

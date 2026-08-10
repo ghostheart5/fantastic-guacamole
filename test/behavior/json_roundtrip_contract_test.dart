@@ -14,7 +14,9 @@ void main() {
         hasSeenIntro: true,
       ).markCompleted('step.a');
 
-      final TutorialProgress restored = TutorialProgress.fromJson(original.toJson());
+      final TutorialProgress restored = TutorialProgress.fromJson(
+        original.toJson(),
+      );
       expect(restored, equals(original));
     });
 
@@ -22,7 +24,9 @@ void main() {
       final List<String> offenders = <String>[];
 
       for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
+        final String path = SourceTestUtils.normalizePath(
+          file.path,
+        ).toLowerCase();
         if (!path.contains('model')) {
           continue;
         }
@@ -33,32 +37,44 @@ void main() {
           continue;
         }
         final String text = SourceTestUtils.readText(file);
-        final bool isBarrel = path.endsWith('/models.dart') || path.endsWith('/entities.dart');
+        final bool isBarrel =
+            path.endsWith('/models.dart') || path.endsWith('/entities.dart');
         final bool hasClass = RegExp(r'\bclass\s+\w+').hasMatch(text);
         if (isBarrel || !hasClass) {
           continue;
         }
         final bool hasToJson = text.contains('toJson(');
         final bool hasFromJson = text.contains('fromJson(');
-        final bool hasMapFactory = text.contains('fromMap(') || text.contains('toMap(');
+        final bool hasMapFactory =
+            text.contains('fromMap(') || text.contains('toMap(');
         if (hasToJson != hasFromJson && !hasMapFactory) {
           offenders.add(SourceTestUtils.normalizePath(file.path));
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Model files with one-sided JSON APIs: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Model files with one-sided JSON APIs: $offenders',
+      );
     });
 
     test('repositories and services using jsonDecode include safety handling', () {
       final List<String> offenders = <String>[];
 
       for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
+        final String path = SourceTestUtils.normalizePath(
+          file.path,
+        ).toLowerCase();
         if (!(path.contains('repository') || path.contains('service'))) {
           continue;
         }
-        if (path.endsWith('/features/auth/data/repositories/local_identity_repository.dart') ||
-            path.endsWith('/features/monetization/data/services/purchase_verification_service.dart') ||
+        if (path.endsWith(
+              '/features/auth/data/repositories/local_identity_repository.dart',
+            ) ||
+            path.endsWith(
+              '/features/monetization/data/services/purchase_verification_service.dart',
+            ) ||
             path.endsWith('/state/services/credit_service.dart') ||
             path.endsWith('/state/services/extended_domain_service.dart')) {
           continue;
@@ -66,7 +82,9 @@ void main() {
         final String text = SourceTestUtils.readText(file);
         if (text.contains('jsonDecode(')) {
           final bool guarded =
-              (text.contains('try {') && (text.contains('catch') || text.contains('FormatException'))) ||
+              (text.contains('try {') &&
+                  (text.contains('catch') ||
+                      text.contains('FormatException'))) ||
               text.contains('jsonDecodeSafe(') ||
               text.contains('??') ||
               text.contains('as Map<String, dynamic>');
@@ -76,7 +94,11 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty, reason: 'jsonDecode usage without fallback/guard: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'jsonDecode usage without fallback/guard: $offenders',
+      );
     });
   });
 }

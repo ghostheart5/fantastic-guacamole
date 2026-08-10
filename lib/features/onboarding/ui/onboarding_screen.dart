@@ -383,143 +383,162 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   Widget build(BuildContext context) {
     final media = MediaQuery.sizeOf(context);
     final bool landscape = media.width > media.height;
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (bool didPop, Object? _) {
-        if (didPop) {
-          return;
-        }
-        unawaited(_handleBackNavigation());
-      },
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: Stack(
-          children: [
-            // Starfield background
-            const Positioned.fill(child: _StarfieldBackground()),
-            const Positioned.fill(child: _HudPulseOverlay()),
+    return Semantics(
+      identifier: 'screen-onboarding',
+      container: true,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, Object? _) {
+          if (didPop) {
+            return;
+          }
+          unawaited(_handleBackNavigation());
+        },
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          body: Stack(
+            children: [
+              // Starfield background
+              const Positioned.fill(child: _StarfieldBackground()),
+              const Positioned.fill(child: _HudPulseOverlay()),
 
-            // Page content
-            PageView.builder(
-              controller: _page,
-              onPageChanged: (i) {
-                setState(() => _current = i);
-                unawaited(_persistOnboardingProgress(i));
-              },
-              itemCount: _totalPages,
-              itemBuilder: (context, i) {
-                if (i < _slides.length) {
-                  return _SlideView(slide: _slides[i]);
-                }
-                return _SlideView(slide: _slides.last);
-              },
-            ),
+              // Page content
+              PageView.builder(
+                controller: _page,
+                onPageChanged: (i) {
+                  setState(() => _current = i);
+                  unawaited(_persistOnboardingProgress(i));
+                },
+                itemCount: _totalPages,
+                itemBuilder: (context, i) {
+                  if (i < _slides.length) {
+                    return _SlideView(slide: _slides[i]);
+                  }
+                  return _SlideView(slide: _slides.last);
+                },
+              ),
 
-            // Bottom controls
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: SafeArea(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(24, 0, 24, landscape ? 14 : 24),
-                  child: landscape
-                      ? Row(
-                          children: [
-                            Expanded(
-                              child: _PhaseIndicator(
+              // Bottom controls
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      24,
+                      0,
+                      24,
+                      landscape ? 14 : 24,
+                    ),
+                    child: landscape
+                        ? Row(
+                            children: [
+                              Expanded(
+                                child: _PhaseIndicator(
+                                  current: _current,
+                                  total: _totalPages,
+                                ),
+                              ),
+                              const SizedBox(width: 18),
+                              SizedBox(
+                                width: 220,
+                                child: _GradientButton(
+                                  label: _current < _totalPages - 1
+                                      ? 'NEXT'
+                                      : 'START SETUP',
+                                  onTap: _next,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              if (_current < _totalPages - 1)
+                                Semantics(
+                                  identifier: 'onboarding-skip',
+                                  button: true,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      _trackCompat(
+                                        legacyEvent:
+                                            _eventOnboardingSkippedLegacy,
+                                        canonicalEvent:
+                                            _eventOnboardingSkippedCanonical,
+                                        params: <String, Object?>{
+                                          'step_index': _current,
+                                        },
+                                      );
+                                      _beginMissionZero();
+                                    },
+                                    child: const Text(
+                                      'SKIP',
+                                      style: TextStyle(
+                                        color: Colors.white38,
+                                        fontSize: 12,
+                                        letterSpacing: 2,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              else
+                                const SizedBox(width: 40),
+                            ],
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _PhaseIndicator(
                                 current: _current,
                                 total: _totalPages,
                               ),
-                            ),
-                            const SizedBox(width: 18),
-                            SizedBox(
-                              width: 220,
-                              child: _GradientButton(
+                              const SizedBox(height: 20),
+
+                              // Primary action button
+                              _GradientButton(
                                 label: _current < _totalPages - 1
                                     ? 'NEXT'
                                     : 'START SETUP',
                                 onTap: _next,
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            if (_current < _totalPages - 1)
-                              GestureDetector(
-                                onTap: () {
-                                  _trackCompat(
-                                    legacyEvent: _eventOnboardingSkippedLegacy,
-                                    canonicalEvent:
-                                        _eventOnboardingSkippedCanonical,
-                                    params: <String, Object?>{
-                                      'step_index': _current,
-                                    },
-                                  );
-                                  _beginMissionZero();
-                                },
-                                child: const Text(
-                                  'SKIP',
-                                  style: TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 12,
-                                    letterSpacing: 2,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              )
-                            else
-                              const SizedBox(width: 40),
-                          ],
-                        )
-                      : Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _PhaseIndicator(
-                              current: _current,
-                              total: _totalPages,
-                            ),
-                            const SizedBox(height: 20),
+                              const SizedBox(height: 14),
 
-                            // Primary action button
-                            _GradientButton(
-                              label: _current < _totalPages - 1
-                                  ? 'NEXT'
-                                  : 'START SETUP',
-                              onTap: _next,
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Skip link
-                            if (_current < _totalPages - 1)
-                              GestureDetector(
-                                onTap: () {
-                                  _trackCompat(
-                                    legacyEvent: _eventOnboardingSkippedLegacy,
-                                    canonicalEvent:
-                                        _eventOnboardingSkippedCanonical,
-                                    params: <String, Object?>{
-                                      'step_index': _current,
+                              // Skip link
+                              if (_current < _totalPages - 1)
+                                Semantics(
+                                  identifier: 'onboarding-skip',
+                                  button: true,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      _trackCompat(
+                                        legacyEvent:
+                                            _eventOnboardingSkippedLegacy,
+                                        canonicalEvent:
+                                            _eventOnboardingSkippedCanonical,
+                                        params: <String, Object?>{
+                                          'step_index': _current,
+                                        },
+                                      );
+                                      _beginMissionZero();
                                     },
-                                  );
-                                  _beginMissionZero();
-                                },
-                                child: const Text(
-                                  'SKIP',
-                                  style: TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 12,
-                                    letterSpacing: 2,
-                                    fontWeight: FontWeight.w600,
+                                    child: const Text(
+                                      'SKIP',
+                                      style: TextStyle(
+                                        color: Colors.white38,
+                                        fontSize: 12,
+                                        letterSpacing: 2,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              )
-                            else
-                              const SizedBox(height: 17),
-                          ],
-                        ),
+                                )
+                              else
+                                const SizedBox(height: 17),
+                            ],
+                          ),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -904,31 +923,37 @@ class _GradientButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 52,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF00E5FF).withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
+    return Semantics(
+      identifier: label == 'NEXT'
+          ? 'onboarding-next'
+          : 'onboarding-start-setup',
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF00E5FF), Color(0xFF6C8CFF)],
             ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2.2,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.2,
+            ),
           ),
         ),
       ),

@@ -65,7 +65,11 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Potential secret leakage detected: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Potential secret leakage detected: $offenders',
+      );
     });
   });
 }

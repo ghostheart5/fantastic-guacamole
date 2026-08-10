@@ -27,10 +27,7 @@ void main() {
       );
 
       expect(selected.length, lessThanOrEqualTo(6));
-      expect(
-        selected.every((String item) => item.length <= 123),
-        isTrue,
-      );
+      expect(selected.every((String item) => item.length <= 123), isTrue);
     });
 
     test('recentResponseSummaries keeps bounded compact output', () {

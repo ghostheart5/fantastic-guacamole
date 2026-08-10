@@ -11,19 +11,28 @@ void main() {
     test('SI Console screen is importable and present', () {
       const Widget widget = SIConsoleScreen();
       expect(widget, isA<SIConsoleScreen>());
-      expect(File('lib/features/si_console/ui/si_console_screen.dart').existsSync(), isTrue);
-    });
-
-    test('SI Console source does not contain hard-coded Supabase keys or bearer tokens', () {
-      final String text = SourceTestUtils.readText(
-        File('lib/features/si_console/ui/si_console_screen.dart'),
+      expect(
+        File('lib/features/si_console/ui/si_console_screen.dart').existsSync(),
+        isTrue,
       );
-      final String lower = text.toLowerCase();
-
-      expect(lower.contains('service_role'), isFalse);
-      expect(lower.contains('bearer '), isFalse);
-      expect(lower.contains('supabase.co') && lower.contains('anon'), isFalse);
     });
+
+    test(
+      'SI Console source does not contain hard-coded Supabase keys or bearer tokens',
+      () {
+        final String text = SourceTestUtils.readText(
+          File('lib/features/si_console/ui/si_console_screen.dart'),
+        );
+        final String lower = text.toLowerCase();
+
+        expect(lower.contains('service_role'), isFalse);
+        expect(lower.contains('bearer '), isFalse);
+        expect(
+          lower.contains('supabase.co') && lower.contains('anon'),
+          isFalse,
+        );
+      },
+    );
 
     test('SI Console uses service/provider boundaries for data access', () {
       final String text = SourceTestUtils.readText(

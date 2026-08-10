@@ -70,8 +70,9 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      final List<OpportunityInsight> opportunities =
-          container.read(opportunityEngineProvider).opportunities;
+      final List<OpportunityInsight> opportunities = container
+          .read(opportunityEngineProvider)
+          .opportunities;
 
       expect(opportunities.map((o) => o.title).toList(), <String>[
         'Momentum Expansion Window',
@@ -107,8 +108,9 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      final List<OpportunityInsight> opportunities =
-          container.read(opportunityEngineProvider).opportunities;
+      final List<OpportunityInsight> opportunities = container
+          .read(opportunityEngineProvider)
+          .opportunities;
 
       expect(opportunities[0].level, OpportunityLevel.medium);
       expect(opportunities[1].level, OpportunityLevel.medium);
@@ -142,8 +144,9 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      final List<OpportunityInsight> opportunities =
-          container.read(opportunityEngineProvider).opportunities;
+      final List<OpportunityInsight> opportunities = container
+          .read(opportunityEngineProvider)
+          .opportunities;
 
       expect(opportunities, hasLength(3));
       for (final OpportunityInsight insight in opportunities) {

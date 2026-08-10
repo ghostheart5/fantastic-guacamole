@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+/// <reference lib="deno.ns" />
 import { verifySubscriptionLineItem } from "../_shared/subscription_verification.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -21,29 +21,33 @@ const PRODUCT_CONFIG: Record<string, {
 };
 const ALLOWED_PRODUCT_IDS = new Set(Object.keys(PRODUCT_CONFIG));
 const ALLOWED_ORIGINS = new Set(
-  (Deno.env.get("ALLOWED_ORIGINS") ?? "https://chronospark.app,https://www.chronospark.app")
+  (Deno.env.get("ALLOWED_ORIGINS") ??
+    "https://chronospark.app,https://www.chronospark.app")
     .split(",")
     .map((value: string) => value.trim())
     .filter(Boolean),
 );
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX_REQUESTS = 10;
 const MAX_PURCHASE_TOKEN_LENGTH = 4096;
-const requestWindows = new Map<string, number[]>();
 
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") ?? "";
   return {
-    ...(ALLOWED_ORIGINS.has(origin) ? { "Access-Control-Allow-Origin": origin } : {}),
+    ...(ALLOWED_ORIGINS.has(origin)
+      ? { "Access-Control-Allow-Origin": origin }
+      : {}),
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
     "Vary": "Origin",
   };
 }
 
 async function authenticatedUserId(req: Request): Promise<string | null> {
   const authorization = req.headers.get("authorization") ?? "";
-  if (!authorization.startsWith("Bearer ") || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return null;
+  if (
+    !authorization.startsWith("Bearer ") || !SUPABASE_URL ||
+    !SUPABASE_PUBLISHABLE_KEY
+  ) return null;
   const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: { Authorization: authorization, apikey: SUPABASE_PUBLISHABLE_KEY },
   });
@@ -52,13 +56,20 @@ async function authenticatedUserId(req: Request): Promise<string | null> {
   return typeof user?.id === "string" ? user.id : null;
 }
 
-function withinRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const recent = (requestWindows.get(userId) ?? []).filter((time) => now - time < RATE_LIMIT_WINDOW_MS);
-  if (recent.length >= RATE_LIMIT_MAX_REQUESTS) return false;
-  recent.push(now);
-  requestWindows.set(userId, recent);
-  return true;
+async function consumeRateLimit(authorization: string): Promise<boolean> {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/rpc/consume_monetization_verify_rate_limit`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: authorization,
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    },
+  );
+  return response.ok;
 }
 
 async function readVerifyRequest(req: Request): Promise<VerifyRequest | null> {
@@ -76,7 +87,9 @@ async function readVerifyRequest(req: Request): Promise<VerifyRequest | null> {
     return {
       productId: record.productId,
       purchaseToken: record.purchaseToken,
-      purchaseType: record.purchaseType === "subscription" ? "subscription" : "inapp",
+      purchaseType: record.purchaseType === "subscription"
+        ? "subscription"
+        : "inapp",
     };
   } catch {
     return null;
@@ -84,7 +97,10 @@ async function readVerifyRequest(req: Request): Promise<VerifyRequest | null> {
 }
 
 async function sha256(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
@@ -155,24 +171,27 @@ async function applyVerifiedPurchase(
 ): Promise<Record<string, unknown> | null> {
   if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) return null;
   const purchaseTokenHash = await sha256(purchaseToken);
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/apply_verified_purchase`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_SECRET_KEY,
-      Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
-      "Content-Type": "application/json",
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/rpc/apply_verified_purchase`,
+    {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        target_user_id: userId,
+        product_id: productId,
+        purchase_type: purchaseType,
+        purchase_token_hash: purchaseTokenHash,
+        order_id: orderId ?? null,
+        verified_at: new Date().toISOString(),
+        expires_at: expiryTimeMs ? new Date(expiryTimeMs).toISOString() : null,
+        payload,
+      }),
     },
-    body: JSON.stringify({
-      target_user_id: userId,
-      product_id: productId,
-      purchase_type: purchaseType,
-      purchase_token_hash: purchaseTokenHash,
-      order_id: orderId ?? null,
-      verified_at: new Date().toISOString(),
-      expires_at: expiryTimeMs ? new Date(expiryTimeMs).toISOString() : null,
-      payload,
-    }),
-  });
+  );
   if (!response.ok) {
     return null;
   }
@@ -186,14 +205,14 @@ const serviceAccount = JSON.parse(
 ) as { client_email?: string; private_key?: string } | null;
 
 interface VerifyRequest {
-  productId: string;         // e.g. "chronospark_premium_monthly"
-  purchaseToken: string;     // from in_app_purchase PurchaseDetails
+  productId: string; // e.g. "chronospark_premium_monthly"
+  purchaseToken: string; // from in_app_purchase PurchaseDetails
   purchaseType: "subscription" | "inapp";
 }
 
 interface VerifyResponse {
   valid: boolean;
-  expiryTimeMs?: number;     // epoch ms — subscriptions only
+  expiryTimeMs?: number; // epoch ms — subscriptions only
   orderId?: string;
   productId?: string;
   creditsGranted?: unknown;
@@ -251,9 +270,10 @@ async function getAccessToken(
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${
-      encodeURIComponent(jwt)
-    }`,
+    body:
+      `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${
+        encodeURIComponent(jwt)
+      }`,
   });
   if (!res.ok) {
     throw new Error("google_oauth_failed");
@@ -265,7 +285,7 @@ async function getAccessToken(
   return data.access_token as string;
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   const headers = cors(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers });
@@ -277,48 +297,83 @@ serve(async (req: Request) => {
     }
     const userId = await authenticatedUserId(req);
     if (!userId) {
-      return new Response(JSON.stringify({ valid: false, error: "unauthorized" }), {
-        status: 401,
-        headers: { ...headers, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ valid: false, error: "unauthorized" }),
+        {
+          status: 401,
+          headers: { ...headers, "Content-Type": "application/json" },
+        },
+      );
     }
-    if (!withinRateLimit(userId)) {
-      return new Response(JSON.stringify({ valid: false, error: "rate limit exceeded" }), {
-        status: 429,
-        headers: { ...headers, "Content-Type": "application/json" },
-      });
+    const authorization = req.headers.get("authorization")!;
+    if (!await consumeRateLimit(authorization)) {
+      return new Response(
+        JSON.stringify({ valid: false, error: "rate limit exceeded" }),
+        {
+          status: 429,
+          headers: { ...headers, "Content-Type": "application/json" },
+        },
+      );
     }
     const body = await readVerifyRequest(req);
     if (!body) {
       return new Response(
-        JSON.stringify({ valid: false, error: "invalid request body" } satisfies VerifyResponse),
-        { status: 400, headers: { ...headers, "Content-Type": "application/json" } },
+        JSON.stringify(
+          {
+            valid: false,
+            error: "invalid request body",
+          } satisfies VerifyResponse,
+        ),
+        {
+          status: 400,
+          headers: { ...headers, "Content-Type": "application/json" },
+        },
       );
     }
     const { productId, purchaseToken, purchaseType } = body;
     const productConfig = PRODUCT_CONFIG[productId];
     const token = purchaseToken.trim();
 
-    if (!productId || !ALLOWED_PRODUCT_IDS.has(productId) || !productConfig || !token ||
+    if (
+      !productId || !ALLOWED_PRODUCT_IDS.has(productId) || !productConfig ||
+      !token ||
       token.length > MAX_PURCHASE_TOKEN_LENGTH ||
       (purchaseType !== "subscription" && purchaseType !== "inapp") ||
-      purchaseType !== productConfig.purchaseType) {
+      purchaseType !== productConfig.purchaseType
+    ) {
       return new Response(
-        JSON.stringify({ valid: false, error: "Missing required fields" } satisfies VerifyResponse),
-        { status: 400, headers: { ...headers, "Content-Type": "application/json" } },
+        JSON.stringify(
+          {
+            valid: false,
+            error: "Missing required fields",
+          } satisfies VerifyResponse,
+        ),
+        {
+          status: 400,
+          headers: { ...headers, "Content-Type": "application/json" },
+        },
       );
     }
 
     if (!serviceAccount) {
       return new Response(
-        JSON.stringify({ valid: false, error: "Service account not configured" } satisfies VerifyResponse),
-        { status: 500, headers: { ...headers, "Content-Type": "application/json" } },
+        JSON.stringify(
+          {
+            valid: false,
+            error: "Service account not configured",
+          } satisfies VerifyResponse,
+        ),
+        {
+          status: 500,
+          headers: { ...headers, "Content-Type": "application/json" },
+        },
       );
     }
 
     const accessToken = await getAccessToken(serviceAccount);
 
-    const apiBase = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications";
+    const apiBase =
+      "https://androidpublisher.googleapis.com/androidpublisher/v3/applications";
     const encodedPackage = encodeURIComponent(ANDROID_PACKAGE_NAME);
     const encodedProduct = encodeURIComponent(productId);
     const encodedToken = encodeURIComponent(purchaseToken);
@@ -334,8 +389,16 @@ serve(async (req: Request) => {
       await gpRes.body?.cancel();
       console.error("Google Play receipt verification failed");
       return new Response(
-        JSON.stringify({ valid: false, error: "Google Play API error" } satisfies VerifyResponse),
-        { status: 502, headers: { ...headers, "Content-Type": "application/json" } },
+        JSON.stringify(
+          {
+            valid: false,
+            error: "Google Play API error",
+          } satisfies VerifyResponse,
+        ),
+        {
+          status: 502,
+          headers: { ...headers, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -363,17 +426,21 @@ serve(async (req: Request) => {
         )
         : null;
       return new Response(
-        JSON.stringify({
-          valid: valid && bound && applied !== null,
-          expiryTimeMs,
-          orderId: gpData.latestOrderId,
-          productId,
-          creditsGranted: applied?.creditsGranted,
-          planId: applied?.planId,
-          eventType: applied?.eventType,
-          ...(!bound ? { error: "purchase binding failed" } : {}),
-          ...(bound && applied === null ? { error: "purchase application failed" } : {}),
-        } satisfies VerifyResponse),
+        JSON.stringify(
+          {
+            valid: valid && bound && applied !== null,
+            expiryTimeMs,
+            orderId: gpData.latestOrderId,
+            productId,
+            creditsGranted: applied?.creditsGranted,
+            planId: applied?.planId,
+            eventType: applied?.eventType,
+            ...(!bound ? { error: "purchase binding failed" } : {}),
+            ...(bound && applied === null
+              ? { error: "purchase application failed" }
+              : {}),
+          } satisfies VerifyResponse,
+        ),
         { headers: { ...headers, "Content-Type": "application/json" } },
       );
     }
@@ -394,23 +461,32 @@ serve(async (req: Request) => {
       )
       : null;
     return new Response(
-      JSON.stringify({
-        valid: valid && bound && applied !== null,
-        orderId: gpData.orderId,
-        productId,
-        creditsGranted: applied?.creditsGranted,
-        planId: applied?.planId,
-        eventType: applied?.eventType,
-        ...(!bound ? { error: "purchase binding failed" } : {}),
-        ...(bound && applied === null ? { error: "purchase application failed" } : {}),
-      } satisfies VerifyResponse),
+      JSON.stringify(
+        {
+          valid: valid && bound && applied !== null,
+          orderId: gpData.orderId,
+          productId,
+          creditsGranted: applied?.creditsGranted,
+          planId: applied?.planId,
+          eventType: applied?.eventType,
+          ...(!bound ? { error: "purchase binding failed" } : {}),
+          ...(bound && applied === null
+            ? { error: "purchase application failed" }
+            : {}),
+        } satisfies VerifyResponse,
+      ),
       { headers: { ...headers, "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("Receipt verification request failed", error);
     return new Response(
-      JSON.stringify({ valid: false, error: "request failed" } satisfies VerifyResponse),
-      { status: 500, headers: { ...headers, "Content-Type": "application/json" } },
+      JSON.stringify(
+        { valid: false, error: "request failed" } satisfies VerifyResponse,
+      ),
+      {
+        status: 500,
+        headers: { ...headers, "Content-Type": "application/json" },
+      },
     );
   }
 });

@@ -1,4 +1,4 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: app_launch.yaml
 - runFlow: splash_no_startup_crash.yaml

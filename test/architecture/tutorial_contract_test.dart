@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -52,11 +52,14 @@ void main() {
     expect(reset.contains('tutorialProgressProvider.notifier'), isTrue);
   });
 
-  test('tutorial overlay uses target registry for anchored overlay placement', () {
-    final overlay = read('lib/tutorial/tutorial_overlay.dart');
+  test(
+    'tutorial overlay uses target registry for anchored overlay placement',
+    () {
+      final overlay = read('lib/tutorial/tutorial_overlay.dart');
 
-    expect(overlay.contains('TutorialTargetRegistry'), isTrue);
-    expect(overlay.contains('rectFor'), isTrue);
-    expect(overlay.contains('TutorialController'), isTrue);
-  });
+      expect(overlay.contains('TutorialTargetRegistry'), isTrue);
+      expect(overlay.contains('rectFor'), isTrue);
+      expect(overlay.contains('TutorialController'), isTrue);
+    },
+  );
 }

@@ -283,289 +283,303 @@ class _SmartCoachScreenState extends ConsumerState<SmartCoachScreen> {
               ? 'SI recommendation unavailable right now. Retry sync or create one task manually.'
               : 'No active recommendation yet. Capture one task or tap GET INSIGHT.');
     final bool hasCoachMessage = effectiveCoachMessage.trim().isNotEmpty;
-    return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgHome,
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: ListView(
-                  controller: _scroll,
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    20,
-                    20,
-                    hasCoachMessage ? 20 : 12,
-                  ),
-                  children: [
-                    SmartCoachHero(
-                      coachMessage: effectiveCoachMessage,
-                      nextAction: modelNextAction,
-                      taskCount: suggestedTasks.length,
-                      coachOnline: !siUnavailable,
-                      executionCompletedToday: executionSignals.completedToday,
-                      executionDeferralsToday:
-                          executionSignals.skippedToday +
-                          executionSignals.delayedToday,
-                      executionStabilityPercent: executionStabilityPercent,
+    return Semantics(
+      identifier: 'screen-smart-planner',
+      container: true,
+      child: AnimatedSystemBackground(
+        backgroundAssetPath: AppAssets.bgHome,
+        child: Scaffold(
+          resizeToAvoidBottomInset: false,
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    controller: _scroll,
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      20,
+                      20,
+                      hasCoachMessage ? 20 : 12,
                     ),
-                    const SizedBox(height: 4),
-                    const _DisclaimerText(),
-                    const SizedBox(height: 12),
+                    children: [
+                      SmartCoachHero(
+                        coachMessage: effectiveCoachMessage,
+                        nextAction: modelNextAction,
+                        taskCount: suggestedTasks.length,
+                        coachOnline: !siUnavailable,
+                        executionCompletedToday:
+                            executionSignals.completedToday,
+                        executionDeferralsToday:
+                            executionSignals.skippedToday +
+                            executionSignals.delayedToday,
+                        executionStabilityPercent: executionStabilityPercent,
+                      ),
+                      const SizedBox(height: 4),
+                      const _DisclaimerText(),
+                      const SizedBox(height: 12),
 
-                    const SizedBox(height: 8),
-                    _CoachPanel(
-                      label: 'ENERGY',
-                      accentColor: AppColors.neonCyan,
-                      child: _EnergySlider(
-                        value: _energy,
-                        color: AppColors.neonCyan,
-                        onChanged: (v) => setState(() {
-                          _energy = v;
-                          _saved = false;
-                        }),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _CoachPanel(
-                      label: 'EMOTIONAL STATE',
-                      accentColor: AppColors.neonViolet,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Helps Smart Planner adjust the tone and intensity of guidance.',
-                            style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 11,
-                              height: 1.35,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          EmotionSelector(
-                            selected: _emotion,
-                            onSelect: (e) {
-                              if (_emotion == e) {
-                                return;
-                              }
-                              setState(() {
-                                _emotion = e;
-                                _saved = false;
-                              });
-                              ref.read(emotionProvider.notifier).set(e);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _CoachPanel(
-                      label: 'FOCUS CONTEXT',
-                      accentColor: AppColors.neonViolet,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Add what is on your mind, what feels blocked, or what outcome you want.',
-                            style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 11,
-                              height: 1.35,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _notesController,
-                            minLines: 3,
-                            maxLines: 4,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              height: 1.6,
-                            ),
-                            decoration: const InputDecoration(
-                              hintText:
-                                  'Share your current context, friction, or outcome...',
-                              hintStyle: TextStyle(color: Colors.white24),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            onChanged: (_) {
-                              if (_saved) {
-                                setState(() => _saved = false);
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (!missionTutorialEnabled) ...[
-                      const _InsightCheatSheet(),
                       const SizedBox(height: 8),
-                    ],
-                    const SizedBox(height: 20),
-                    HoloButton(
-                      label: _gettingCoaching
-                          ? 'Getting insight...'
-                          : (_saved ? 'Refresh insight' : 'Get insight'),
-                      color: AppColors.neonCyan,
-                      onTap: _gettingCoaching ? () {} : _getCoaching,
-                    ),
-                    if (hasCoachMessage) ...[
-                      const SizedBox(height: 16),
                       _CoachPanel(
-                        label: 'SMART INSIGHT',
-                        accentColor: AppColors.memoryAmber,
+                        label: 'ENERGY',
+                        accentColor: AppColors.neonCyan,
+                        child: _EnergySlider(
+                          value: _energy,
+                          color: AppColors.neonCyan,
+                          onChanged: (v) => setState(() {
+                            _energy = v;
+                            _saved = false;
+                          }),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _CoachPanel(
+                        label: 'EMOTIONAL STATE',
+                        accentColor: AppColors.neonViolet,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // existing coach message
-                            Text(effectiveCoachMessage),
-
-                            // <-- INSERT HERE
-                            Container(
-                              margin: const EdgeInsets.only(top: 12),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.neonCyan.withValues(
-                                  alpha: 0.06,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: AppColors.neonCyan.withValues(
-                                    alpha: 0.20,
-                                  ),
-                                ),
+                            const Text(
+                              'Helps Smart Planner adjust the tone and intensity of guidance.',
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
+                                height: 1.35,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Why this action?',
-                                    style: TextStyle(
-                                      color: AppColors.neonCyan,
-                                      fontSize: 10,
-                                      letterSpacing: 2,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    explainable.primaryReason,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ...explainable.reasons.map(
-                                    (reason) => Padding(
-                                      padding: const EdgeInsets.only(bottom: 5),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '${reason.label}: ',
-                                            style: const TextStyle(
-                                              color: AppColors.neonCyan,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: Text(
-                                              reason.detail,
-                                              style: const TextStyle(
-                                                color: Colors.white60,
-                                                fontSize: 12,
-                                                height: 1.35,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Recommended move: ${explainable.recommendation}',
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                      height: 1.4,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      _VoiceButton(
-                                        message: effectiveCoachMessage,
-                                      ),
-                                      const _VoiceAccessibilityButton(),
-                                      const _MicButton(),
-                                    ],
-                                  ),
-                                ],
+                            ),
+                            const SizedBox(height: 6),
+                            EmotionSelector(
+                              selected: _emotion,
+                              onSelect: (e) {
+                                if (_emotion == e) {
+                                  return;
+                                }
+                                setState(() {
+                                  _emotion = e;
+                                  _saved = false;
+                                });
+                                ref.read(emotionProvider.notifier).set(e);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _CoachPanel(
+                        label: 'FOCUS CONTEXT',
+                        accentColor: AppColors.neonViolet,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Add what is on your mind, what feels blocked, or what outcome you want.',
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Semantics(
+                              identifier: 'smart-planner-context-input',
+                              child: TextField(
+                                controller: _notesController,
+                                minLines: 3,
+                                maxLines: 4,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  height: 1.6,
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText:
+                                      'Share your current context, friction, or outcome...',
+                                  hintStyle: TextStyle(color: Colors.white24),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onChanged: (_) {
+                                  if (_saved) {
+                                    setState(() => _saved = false);
+                                  }
+                                },
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      ...SmartCoachConversationState(
-                        coachingMessage: _coachingMessage,
-                        coachingPrompt: _coachingPrompt,
-                        followUpError: _followUpError,
-                        followUps: _followUps,
-                      ).visibleFollowUps().map(
-                        (ex) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                      const SizedBox(height: 8),
+                      if (!missionTutorialEnabled) ...[
+                        const _InsightCheatSheet(),
+                        const SizedBox(height: 8),
+                      ],
+                      const SizedBox(height: 20),
+                      Semantics(
+                        identifier: 'smart-planner-submit',
+                        button: true,
+                        child: HoloButton(
+                          label: _gettingCoaching
+                              ? 'Getting insight...'
+                              : (_saved ? 'Refresh insight' : 'Get insight'),
+                          color: AppColors.neonCyan,
+                          onTap: _gettingCoaching ? () {} : _getCoaching,
+                        ),
+                      ),
+                      if (hasCoachMessage) ...[
+                        const SizedBox(height: 16),
+                        _CoachPanel(
+                          label: 'SMART INSIGHT',
+                          accentColor: AppColors.memoryAmber,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _bubble(ex.question, isUser: true),
-                              const SizedBox(height: 6),
-                              _bubble(ex.answer, isUser: false),
+                              // existing coach message
+                              Text(effectiveCoachMessage),
+
+                              // <-- INSERT HERE
+                              Container(
+                                margin: const EdgeInsets.only(top: 12),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.neonCyan.withValues(
+                                    alpha: 0.06,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppColors.neonCyan.withValues(
+                                      alpha: 0.20,
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Why this action?',
+                                      style: TextStyle(
+                                        color: AppColors.neonCyan,
+                                        fontSize: 10,
+                                        letterSpacing: 2,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      explainable.primaryReason,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    ...explainable.reasons.map(
+                                      (reason) => Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 5,
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${reason.label}: ',
+                                              style: const TextStyle(
+                                                color: AppColors.neonCyan,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Text(
+                                                reason.detail,
+                                                style: const TextStyle(
+                                                  color: Colors.white60,
+                                                  fontSize: 12,
+                                                  height: 1.35,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Recommended move: ${explainable.recommendation}',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                        height: 1.4,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        _VoiceButton(
+                                          message: effectiveCoachMessage,
+                                        ),
+                                        const _VoiceAccessibilityButton(),
+                                        const _MicButton(),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 14),
+                        ...SmartCoachConversationState(
+                          coachingMessage: _coachingMessage,
+                          coachingPrompt: _coachingPrompt,
+                          followUpError: _followUpError,
+                          followUps: _followUps,
+                        ).visibleFollowUps().map(
+                          (ex) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _bubble(ex.question, isUser: true),
+                                const SizedBox(height: 6),
+                                _bubble(ex.answer, isUser: false),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 8),
                     ],
-                    const SizedBox(height: 8),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          bottomNavigationBar: hasCoachMessage
+              ? Builder(
+                  builder: (context) => AnimatedPadding(
+                    duration: const Duration(milliseconds: 140),
+                    curve: Curves.easeOut,
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.viewInsetsOf(context).bottom,
+                    ),
+                    child: _FollowUpBar(
+                      controller: _followUpController,
+                      onSend: _sendFollowUp,
+                      sending: _sendingFollowUp,
+                      errorText: _followUpError,
+                    ),
+                  ),
+                )
+              : null,
         ),
-        bottomNavigationBar: hasCoachMessage
-            ? Builder(
-                builder: (context) => AnimatedPadding(
-                  duration: const Duration(milliseconds: 140),
-                  curve: Curves.easeOut,
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.viewInsetsOf(context).bottom,
-                  ),
-                  child: _FollowUpBar(
-                    controller: _followUpController,
-                    onSend: _sendFollowUp,
-                    sending: _sendingFollowUp,
-                    errorText: _followUpError,
-                  ),
-                ),
-              )
-            : null,
       ),
     );
   }

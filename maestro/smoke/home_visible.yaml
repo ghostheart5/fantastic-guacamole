@@ -1,6 +1,5 @@
-appId: com.keeganradetski.chronospark
+appId: ${APP_ID}
 ---
 - runFlow: ../authentication/login_with_env.yaml
-- assertVisible:
-    text: "Navigation Map"
-    optional: true
+- assertNotVisible:
+    id: "login-email-field"

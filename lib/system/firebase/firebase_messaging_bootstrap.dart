@@ -94,6 +94,17 @@ class FirebaseMessagingBootstrap {
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   }
 
+  Future<void> deleteTokenForAccountRemoval() async {
+    _tokenRefreshHandler = null;
+    _latestToken = null;
+    if (kIsWeb || _isTestBuild || Firebase.apps.isEmpty) {
+      return;
+    }
+    await FirebaseMessaging.instance.deleteToken().timeout(
+      const Duration(seconds: 10),
+    );
+  }
+
   Future<String?> initialize({required bool isMockMode}) async {
     if (isMockMode || kIsWeb || _isTestBuild) {
       return null;

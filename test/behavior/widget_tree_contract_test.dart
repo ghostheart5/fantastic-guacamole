@@ -49,7 +49,9 @@ void main() {
       ];
 
       for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
+        final String path = SourceTestUtils.normalizePath(
+          file.path,
+        ).toLowerCase();
         if (!_isWidgetSurfacePath(path) || !_hasWidgetHintInFilename(path)) {
           continue;
         }
@@ -65,33 +67,47 @@ void main() {
         }
       }
 
-      expect(offenders, isEmpty, reason: 'Widget-like files without widget signatures: $offenders');
+      expect(
+        offenders,
+        isEmpty,
+        reason: 'Widget-like files without widget signatures: $offenders',
+      );
     });
 
-    test('user-facing widget files do not contain placeholders or corruption markers', () {
-      final List<String> offenders = <String>[];
-      const List<String> badTokens = <String>[
-        'TODO',
-        'Placeholder',
-        'Coming soon',
-        'lorem ipsum',
-        'corrupt',
-        'fixed_fixed',
-      ];
+    test(
+      'user-facing widget files do not contain placeholders or corruption markers',
+      () {
+        final List<String> offenders = <String>[];
+        const List<String> badTokens = <String>[
+          'TODO',
+          'Placeholder',
+          'Coming soon',
+          'lorem ipsum',
+          'corrupt',
+          'fixed_fixed',
+        ];
 
-      for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
-        final String path = SourceTestUtils.normalizePath(file.path).toLowerCase();
-        if (!_isWidgetSurfacePath(path) || !_hasWidgetHintInFilename(path)) {
-          continue;
+        for (final File file in SourceTestUtils.dartFilesUnder('lib')) {
+          final String path = SourceTestUtils.normalizePath(
+            file.path,
+          ).toLowerCase();
+          if (!_isWidgetSurfacePath(path) || !_hasWidgetHintInFilename(path)) {
+            continue;
+          }
+
+          final String text = SourceTestUtils.readText(file);
+          if (badTokens.any(text.contains) ||
+              text.contains('package:flutter_test')) {
+            offenders.add(SourceTestUtils.normalizePath(file.path));
+          }
         }
 
-        final String text = SourceTestUtils.readText(file);
-        if (badTokens.any(text.contains) || text.contains('package:flutter_test')) {
-          offenders.add(SourceTestUtils.normalizePath(file.path));
-        }
-      }
-
-      expect(offenders, isEmpty, reason: 'Widget contract violations detected: $offenders');
-    });
+        expect(
+          offenders,
+          isEmpty,
+          reason: 'Widget contract violations detected: $offenders',
+        );
+      },
+    );
   });
 }

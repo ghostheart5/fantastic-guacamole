@@ -24,25 +24,44 @@ void main() {
       expect(prefsText.contains('StateError'), isTrue);
     });
 
-    test('storage source avoids UI imports and has migration-friendly behavior', () {
-      final List<String> offenders = <String>[];
+    test(
+      'storage source avoids UI imports and has migration-friendly behavior',
+      () {
+        final List<String> offenders = <String>[];
 
-      for (final File file in SourceTestUtils.dartFilesUnder('lib/data/storage')) {
-        final String path = SourceTestUtils.normalizePath(file.path);
-        final String text = SourceTestUtils.readText(file).toLowerCase();
-        if (text.contains('/ui/') || text.contains('material.dart')) {
-          offenders.add(path);
+        for (final File file in SourceTestUtils.dartFilesUnder(
+          'lib/data/storage',
+        )) {
+          final String path = SourceTestUtils.normalizePath(file.path);
+          final String text = SourceTestUtils.readText(file).toLowerCase();
+          if (text.contains('/ui/') || text.contains('material.dart')) {
+            offenders.add(path);
+          }
         }
-      }
 
-      expect(offenders, isEmpty, reason: 'Storage should not depend on UI layers: $offenders');
+        expect(
+          offenders,
+          isEmpty,
+          reason: 'Storage should not depend on UI layers: $offenders',
+        );
 
-      final String storageText = SourceTestUtils.readAllConcatenated('lib/data/storage').toLowerCase();
-      expect(storageText.contains('fallback') || storageText.contains('legacy') || storageText.contains('migration') || storageText.contains('encrypted open failed'), isTrue);
-    });
+        final String storageText = SourceTestUtils.readAllConcatenated(
+          'lib/data/storage',
+        ).toLowerCase();
+        expect(
+          storageText.contains('fallback') ||
+              storageText.contains('legacy') ||
+              storageText.contains('migration') ||
+              storageText.contains('encrypted open failed'),
+          isTrue,
+        );
+      },
+    );
 
     test('storage source has no obvious infinite init loops', () {
-      final String text = SourceTestUtils.readText(File('lib/data/storage/hive_service.dart')).toLowerCase();
+      final String text = SourceTestUtils.readText(
+        File('lib/data/storage/hive_service.dart'),
+      ).toLowerCase();
       expect(text.contains('while (true)'), isFalse);
       expect(text.contains('for (;;)'), isFalse);
     });

@@ -44,11 +44,13 @@ void main() {
       final _FakeGoalRepository goalRepository = _FakeGoalRepository();
       final _LogProbe logs = _LogProbe();
       final _TimelineProbe timeline = _TimelineProbe();
-      final _FakeLocalMetricsAccumulator metrics = _FakeLocalMetricsAccumulator();
+      final _FakeLocalMetricsAccumulator metrics =
+          _FakeLocalMetricsAccumulator();
       final EventBus bus = EventBus();
       final List<GoalLifecycleEvent> emittedEvents = <GoalLifecycleEvent>[];
-      final StreamSubscription<GoalLifecycleEvent> sub =
-          bus.on<GoalLifecycleEvent>().listen(emittedEvents.add);
+      final StreamSubscription<GoalLifecycleEvent> sub = bus
+          .on<GoalLifecycleEvent>()
+          .listen(emittedEvents.add);
 
       final ProviderContainer container = ProviderContainer(
         overrides: [
@@ -86,7 +88,9 @@ void main() {
       expect(logs.mirroredSources, contains('goal_created'));
       expect(timeline.mirroredEvents, isNotEmpty);
       expect(
-        timeline.mirroredEvents.any((TimelineEventEntity e) => e.type == TimelineEventType.goal),
+        timeline.mirroredEvents.any(
+          (TimelineEventEntity e) => e.type == TimelineEventType.goal,
+        ),
         isTrue,
       );
       expect(emittedEvents, isNotEmpty);
@@ -94,94 +98,112 @@ void main() {
       expect(metrics.checkpoints, contains('goal_created_event_emitted'));
     });
 
-    test('task create orchestrates save, timeline connect, lifecycle event', () async {
-      final _FakeTaskRepository repository = _FakeTaskRepository();
-      final _LogProbe logs = _LogProbe();
-      final _TimelineProbe timeline = _TimelineProbe();
-      final _FakeLocalMetricsAccumulator metrics = _FakeLocalMetricsAccumulator();
-      final EventBus bus = EventBus();
-      final List<TaskLifecycleEvent> emittedEvents = <TaskLifecycleEvent>[];
-      final StreamSubscription<TaskLifecycleEvent> sub =
-          bus.on<TaskLifecycleEvent>().listen(emittedEvents.add);
+    test(
+      'task create orchestrates save, timeline connect, lifecycle event',
+      () async {
+        final _FakeTaskRepository repository = _FakeTaskRepository();
+        final _LogProbe logs = _LogProbe();
+        final _TimelineProbe timeline = _TimelineProbe();
+        final _FakeLocalMetricsAccumulator metrics =
+            _FakeLocalMetricsAccumulator();
+        final EventBus bus = EventBus();
+        final List<TaskLifecycleEvent> emittedEvents = <TaskLifecycleEvent>[];
+        final StreamSubscription<TaskLifecycleEvent> sub = bus
+            .on<TaskLifecycleEvent>()
+            .listen(emittedEvents.add);
 
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          eventBusProvider.overrideWithValue(bus),
-          domainTaskRepositoryProvider.overrideWithValue(repository),
-          createTaskUseCaseProvider.overrideWithValue(CreateTask(repository)),
-          timelineActionsProvider.overrideWith(
-            (Ref ref) => _FakeTimelineActions(ref, timeline),
-          ),
-          logsActionsProvider.overrideWith(
-            (Ref ref) => _FakeLogsActions(ref, logs),
-          ),
-          localMetricsAccumulatorProvider.overrideWithValue(metrics),
-        ],
-      );
-      addTearDown(() async {
-        await sub.cancel();
-        await bus.dispose();
-        container.dispose();
-      });
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            eventBusProvider.overrideWithValue(bus),
+            domainTaskRepositoryProvider.overrideWithValue(repository),
+            createTaskUseCaseProvider.overrideWithValue(CreateTask(repository)),
+            timelineActionsProvider.overrideWith(
+              (Ref ref) => _FakeTimelineActions(ref, timeline),
+            ),
+            logsActionsProvider.overrideWith(
+              (Ref ref) => _FakeLogsActions(ref, logs),
+            ),
+            localMetricsAccumulatorProvider.overrideWithValue(metrics),
+          ],
+        );
+        addTearDown(() async {
+          await sub.cancel();
+          await bus.dispose();
+          container.dispose();
+        });
 
-      final TaskEntity input = TaskEntity(
-        id: 'task-1',
-        title: '  Draft launch plan  ',
-        createdAt: DateTime(2026, 1, 1),
-        priority: 3,
-        difficulty: 3,
-        energyRequired: 3,
-      );
+        final TaskEntity input = TaskEntity(
+          id: 'task-1',
+          title: '  Draft launch plan  ',
+          createdAt: DateTime(2026, 1, 1),
+          priority: 3,
+          difficulty: 3,
+          energyRequired: 3,
+        );
 
-      await container
-          .read(taskActionsProvider)
-          .createTask(input, actionSource: 'creator_task');
-      await _flushMicrotasks();
+        await container
+            .read(taskActionsProvider)
+            .createTask(input, actionSource: 'creator_task');
+        await _flushMicrotasks();
 
-      expect(repository.savedTasks, isNotEmpty);
-      expect(repository.savedTasks.last.title, 'Draft launch plan');
-      expect(timeline.connectedTasks, isNotEmpty);
-      expect(timeline.connectedTasks.last.title, 'Draft launch plan');
-      expect(logs.mirroredSources, contains('task_created'));
-      expect(emittedEvents, isNotEmpty);
-      expect(emittedEvents.last.action, 'created');
-      expect(emittedEvents.last.actionSource, 'creator_task');
-      expect(metrics.checkpoints, contains('task_created_event_emitted'));
-    });
+        expect(repository.savedTasks, isNotEmpty);
+        expect(repository.savedTasks.last.title, 'Draft launch plan');
+        expect(timeline.connectedTasks, isNotEmpty);
+        expect(timeline.connectedTasks.last.title, 'Draft launch plan');
+        expect(logs.mirroredSources, contains('task_created'));
+        expect(emittedEvents, isNotEmpty);
+        expect(emittedEvents.last.action, 'created');
+        expect(emittedEvents.last.actionSource, 'creator_task');
+        expect(metrics.checkpoints, contains('task_created_event_emitted'));
+      },
+    );
 
-    test('task complete timeline action dedup suppresses repeated mutation', () async {
-      final _FakeTaskRepository repository = _FakeTaskRepository(
-        initialTasks: <TaskEntity>[
-          TaskEntity(
-            id: 'timeline-task-1',
-            title: 'Close loop',
-            createdAt: DateTime.utc(2026, 1, 1),
-            priority: 3,
-            difficulty: 2,
-            energyRequired: 2,
-          ),
-        ],
-      );
+    test(
+      'task complete timeline action dedup suppresses repeated mutation',
+      () async {
+        final _FakeTaskRepository repository = _FakeTaskRepository(
+          initialTasks: <TaskEntity>[
+            TaskEntity(
+              id: 'timeline-task-1',
+              title: 'Close loop',
+              createdAt: DateTime.utc(2026, 1, 1),
+              priority: 3,
+              difficulty: 2,
+              energyRequired: 2,
+            ),
+          ],
+        );
 
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          profileProvider.overrideWith(_TestProfileController.new),
-          domainTaskRepositoryProvider.overrideWithValue(repository),
-          completeTaskUseCaseProvider.overrideWithValue(CompleteTask(repository)),
-          tasksProvider.overrideWith((Ref ref) async => <Task>[]),
-        ],
-      );
-      addTearDown(container.dispose);
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            profileProvider.overrideWith(_TestProfileController.new),
+            domainTaskRepositoryProvider.overrideWithValue(repository),
+            completeTaskUseCaseProvider.overrideWithValue(
+              CompleteTask(repository),
+            ),
+            tasksProvider.overrideWith((Ref ref) async => <Task>[]),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      await container
-          .read(taskActionsProvider)
-          .completeTask('timeline-task-1', actionSource: 'timeline', notify: false);
-      await container
-          .read(taskActionsProvider)
-          .completeTask('timeline-task-1', actionSource: 'timeline', notify: false);
+        await container
+            .read(taskActionsProvider)
+            .completeTask(
+              'timeline-task-1',
+              actionSource: 'timeline',
+              notify: false,
+            );
+        await container
+            .read(taskActionsProvider)
+            .completeTask(
+              'timeline-task-1',
+              actionSource: 'timeline',
+              notify: false,
+            );
 
-      expect(repository.completedSaveCount, 1);
-    });
+        expect(repository.completedSaveCount, 1);
+      },
+    );
   });
 }
 

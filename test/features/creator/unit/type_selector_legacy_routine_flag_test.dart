@@ -10,10 +10,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: TypeSelector(
-              selected: 'Task',
-              onSelect: (_) {},
-            ),
+            body: TypeSelector(selected: 'Task', onSelect: (_) {}),
           ),
         ),
       );
