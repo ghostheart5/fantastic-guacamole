@@ -1,10 +1,8 @@
 appId: ${APP_ID}
 ---
 - runFlow: ../authentication/login_with_env.yaml
-- runFlow: ../_common/go_to_settings.yaml
+- runFlow: ../_common/go_to_profile.yaml
 - tapOn:
-    text: "Log Out"
-    optional: true
+    id: "profile-logout"
 - assertVisible:
     id: "login-email-field"
-    optional: true

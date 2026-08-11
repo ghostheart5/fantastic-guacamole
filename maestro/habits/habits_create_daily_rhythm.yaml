@@ -1,3 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: ../planner/planner_create_habit.yaml

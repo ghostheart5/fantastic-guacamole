@@ -1,3 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: habits_create_daily_rhythm.yaml

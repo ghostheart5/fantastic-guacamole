@@ -10,4 +10,3 @@ appId: ${APP_ID}
     id: "smart-planner-submit"
 - assertVisible:
     text: "SMART INSIGHT"
-    optional: true

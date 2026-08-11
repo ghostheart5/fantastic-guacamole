@@ -1,8 +1,9 @@
 appId: ${APP_ID}
+tags:
+  - nightly-feature-e2e
 ---
-- runFlow: ../onboarding/_suite_onboarding.yaml
-- runFlow: ../smoke/_suite_smoke.yaml
 - runFlow: ../authentication/_suite_authentication.yaml
+- runFlow: ../onboarding/_suite_onboarding.yaml
 - runFlow: ../nexus/_suite_nexus.yaml
 - runFlow: ../creator/_suite_creator.yaml
 - runFlow: ../timeline/_suite_timeline.yaml

@@ -3,7 +3,5 @@ appId: ${APP_ID}
 - runFlow: paywall_open.yaml
 - assertVisible:
     text: "Select"
-    optional: true
 - tapOn:
     text: "Select"
-    optional: true

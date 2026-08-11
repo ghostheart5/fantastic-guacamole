@@ -3,10 +3,8 @@ appId: ${APP_ID}
 - runFlow: paywall_open.yaml
 - tapOn:
     text: "Subscription Details"
-    optional: true
 - assertVisible:
     text: "Plan:"
-    optional: true
 - stopApp
 - launchApp:
     clearState: false
@@ -14,4 +12,3 @@ appId: ${APP_ID}
 - runFlow: ../_common/go_to_settings.yaml
 - tapOn:
     text: "Billing Center"
-    optional: true

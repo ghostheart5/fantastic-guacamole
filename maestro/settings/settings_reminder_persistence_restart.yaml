@@ -15,7 +15,6 @@ appId: ${APP_ID}
           id: "settings-reflection-reminder-toggle"
       - tapOn:
           text: "Allow"
-          optional: true
 - extendedWaitUntil:
     visible:
       id: "settings-reflection-reminder-time"

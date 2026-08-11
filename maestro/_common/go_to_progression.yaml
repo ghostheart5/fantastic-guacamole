@@ -2,6 +2,6 @@ appId: ${APP_ID}
 ---
 - runFlow: ../_common/open_navigation_map.yaml
 - tapOn:
-    id: "nav-creator"
+    id: "nav-progression"
 - assertVisible:
-    id: "creator-title-input"
+    text: "Progress"

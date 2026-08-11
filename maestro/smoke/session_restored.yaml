@@ -7,4 +7,3 @@ appId: ${APP_ID}
     stopApp: true
 - assertNotVisible:
     id: "login-email-field"
-    optional: true

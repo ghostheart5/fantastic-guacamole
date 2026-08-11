@@ -62,3 +62,27 @@ attached to the candidate release evidence.
 
 Until these blockers are resolved and the required runs are green for the exact
 candidate, device integration remains a release veto.
+
+## Phase 7 Maestro release gate
+
+The Maestro release gate has four distinct execution levels. They are not
+interchangeable and none may silently fall back to an optional assertion:
+
+| Level | Command | Required evidence |
+|---|---|---|
+| PR smoke | `pwsh ./scripts/run_maestro.ps1 -Profile maestro -Level pr-smoke` | APK package-ID match, reset isolated package, passing JUnit and artifacts |
+| Nightly feature E2E | `pwsh ./scripts/run_maestro.ps1 -Profile maestro -Level nightly-feature-e2e` | All feature suites, regression isolation, debug artifact bundle |
+| Pre-release full | `pwsh ./scripts/run_maestro.ps1 -Profile maestro-onboarding -Level pre-release-full` | Onboarding plus Nexus, Creator, Timeline, Smart Planner, SI Console, Trajectory, Progression, Profile, Settings, notifications, and regressions |
+| Sandbox subscriptions | `pwsh ./scripts/run_maestro.ps1 -Profile maestro -Level sandbox-subscriptions` | Isolated sandbox account/store configuration and all required billing controls |
+
+The runner supplies `APP_ID` from its actual selected build profile and rejects
+an APK whose package ID differs. It resets only
+`com.ghostheart5.chronospark.maestro`; staging and production accounts are not
+valid targets for these isolated levels. A failed Maestro process is a failed
+gate even if a partial JUnit file appears clean. Maestro debug output, device
+logcat, and device screenshots are failure diagnostics—not visual baselines.
+
+The pre-release gate is blocked until all four levels pass for the exact
+candidate binary, with screenshots/logs retained for human review. The
+subscription level remains blocked until a sandbox store account is explicitly
+available; it must never be recorded as a skipped or optional pass.

@@ -2,9 +2,12 @@ param(
   [ValidateSet('maestro', 'maestro-onboarding', 'staging', 'production')]
   [string]$Profile = 'maestro',
 
-  [string]$Suite = 'maestro/smoke/_suite_smoke.yaml',
+  [ValidateSet('pr-smoke', 'nightly-feature-e2e', 'pre-release-full', 'sandbox-subscriptions')]
+  [string]$Level = 'pr-smoke',
+  [string]$Suite,
   [string]$Device = 'emulator-5554',
   [switch]$SkipBuild,
+  [switch]$PreserveTestState,
   [switch]$ReinstallDriver
 )
 
@@ -41,7 +44,37 @@ $profiles = @{
   }
 }
 
+$levels = @{
+  'pr-smoke' = @{
+    Suite = 'maestro/levels/pr_smoke.yaml'
+    AllowedProfiles = @('maestro')
+  }
+  'nightly-feature-e2e' = @{
+    Suite = 'maestro/levels/nightly_feature_e2e.yaml'
+    AllowedProfiles = @('maestro', 'maestro-onboarding')
+  }
+  'pre-release-full' = @{
+    Suite = 'maestro/levels/pre_release_full_validation.yaml'
+    AllowedProfiles = @('maestro-onboarding')
+  }
+  'sandbox-subscriptions' = @{
+    Suite = 'maestro/levels/sandbox_subscription_validation.yaml'
+    AllowedProfiles = @('maestro')
+  }
+}
+
 $selected = $profiles[$Profile]
+$usesLevel = [string]::IsNullOrWhiteSpace($Suite)
+if ($usesLevel) {
+  $Suite = $levels[$Level].Suite
+}
+if (!(Test-Path -LiteralPath $Suite)) {
+  throw "Maestro suite '$Suite' does not exist."
+}
+if ($usesLevel -and $levels.ContainsKey($Level) -and $profiles.ContainsKey($Profile) -and
+     $levels[$Level].AllowedProfiles -notcontains $Profile)) {
+  throw "Execution level '$Level' cannot run with profile '$Profile'."
+}
 $email = $env:MAESTRO_EMAIL
 $password = $env:MAESTRO_PASSWORD
 
@@ -105,6 +138,16 @@ if (!$SkipBuild) {
   if ($LASTEXITCODE -ne 0) { throw 'APK installation failed.' }
 }
 
+if (!$PreserveTestState) {
+  if ($Profile -notin @('maestro', 'maestro-onboarding')) {
+    throw 'Only isolated Maestro profiles may be reset automatically.'
+  }
+  & $adbCommand -s $Device shell pm clear $selected.AppId | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "Could not reset isolated test package '$($selected.AppId)'."
+  }
+}
+
 $safeSuiteName = [IO.Path]::GetFileNameWithoutExtension($Suite)
 $artifactRoot = "artifacts/maestro/$Profile/$safeSuiteName"
 New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
@@ -112,6 +155,8 @@ $resultPath = Join-Path $artifactRoot 'results.xml'
 if (Test-Path -LiteralPath $resultPath) {
   Remove-Item -LiteralPath $resultPath -Force
 }
+
+& $adbCommand -s $Device logcat -c | Out-Null
 
 $maestroArguments = @(
   '--device', $Device,
@@ -127,47 +172,15 @@ $maestroArguments = @(
 )
 if ($ReinstallDriver) { $maestroArguments += '--reinstall-driver' }
 
-& maestro @maestroArguments
-$maestroExitCode = $LASTEXITCODE
-if ($maestroExitCode -ne 0) {
-  $junitSucceeded = $false
-  if (Test-Path -LiteralPath $resultPath) {
-    try {
-      [xml]$junit = Get-Content -LiteralPath $resultPath -Raw
-      $suiteNodes = @($junit.testsuites.testsuite)
-      $testCount = 0
-      $failureCount = 0
-      $errorCount = 0
-      foreach ($suiteNode in $suiteNodes) {
-        $testCount += [int]$suiteNode.tests
-        $failureCount += [int]$suiteNode.failures
-        if ($null -ne $suiteNode.errors) {
-          $errorCount += [int]$suiteNode.errors
-        }
-      }
-      $failedCases = @(
-        $junit.SelectNodes(
-          '//testcase[failure or error or @status="ERROR" or @status="FAILED"]'
-        )
-      )
-      $junitSucceeded =
-        $testCount -gt 0 -and
-        $failureCount -eq 0 -and
-        $errorCount -eq 0 -and
-        $failedCases.Count -eq 0
-    } catch {
-      Write-Warning "Maestro JUnit result could not be validated: $($_.Exception.Message)"
-    }
+try {
+  & maestro @maestroArguments
+  if ($LASTEXITCODE -ne 0) {
+    throw "Maestro suite failed with exit code $LASTEXITCODE. See $artifactRoot."
   }
-
-  if (!$junitSucceeded) {
-    throw "Maestro suite failed. See $artifactRoot."
-  }
-
-  Write-Warning (
-    "Maestro exited with code $maestroExitCode after writing a complete " +
-    'zero-failure JUnit report; accepting the report as authoritative.'
-  )
+} finally {
+  # These artifacts contain device diagnostics only. They are never baselines.
+  & $adbCommand -s $Device logcat -d -t 300 | Out-File -LiteralPath (Join-Path $artifactRoot 'device-logcat.txt') -Encoding utf8
+  & $adbCommand -s $Device exec-out screencap -p | Set-Content -LiteralPath (Join-Path $artifactRoot 'device-final.png') -AsByteStream
 }
 
-Write-Host "Maestro $Profile suite passed: $Suite" -ForegroundColor Green
+Write-Host "Maestro $Profile $Level suite passed: $Suite" -ForegroundColor Green

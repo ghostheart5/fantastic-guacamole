@@ -3,19 +3,16 @@ appId: ${APP_ID}
 - runFlow: ../authentication/login_with_env.yaml
 - runFlow: ../_common/go_to_creator.yaml
 - tapOn:
-    text: "Note"
+    text: "Goal"
 - tapOn:
-    text: "Item title *"
-- inputText: "Maestro Note"
-- hideKeyboard
-- tapOn:
-    text: "Notes or details (optional)"
-- inputText: "Note body from maestro"
+    id: "creator-title-input"
+- inputText: "Maestro Goal"
 - hideKeyboard
 - scrollUntilVisible:
     element:
       text: "Create item"
     direction: DOWN
     timeout: 30000
-- tapOn: "Create item"
-- assertVisible: "Note saved."
+- tapOn:
+    id: "creator-submit"
+- assertVisible: "Goal saved."

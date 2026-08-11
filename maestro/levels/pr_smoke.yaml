@@ -1,0 +1,9 @@
+appId: ${APP_ID}
+tags:
+  - pr-smoke
+---
+- runFlow: ../smoke/app_launch.yaml
+- runFlow: ../authentication/login_with_env.yaml
+- runFlow: ../nexus/nexus_arrival.yaml
+- runFlow: ../timeline/timeline_load.yaml
+- runFlow: ../creator/creator_empty_input_guard.yaml

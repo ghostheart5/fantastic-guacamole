@@ -1,7 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: planner_create_task.yaml
-- runFlow: planner_create_goal.yaml
-- runFlow: planner_create_note.yaml
-- runFlow: planner_create_habit.yaml
-- runFlow: planner_empty_input_guard.yaml

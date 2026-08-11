@@ -4,7 +4,5 @@ appId: ${APP_ID}
 - runFlow: ../_common/go_to_settings.yaml
 - tapOn:
     text: "Notifications"
-    optional: true
 - assertVisible:
     text: "SIGNAL CENTER"
-    optional: true

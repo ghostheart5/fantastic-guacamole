@@ -1,3 +1,0 @@
-appId: ${APP_ID}
----
-- runFlow: goals_create_goal.yaml

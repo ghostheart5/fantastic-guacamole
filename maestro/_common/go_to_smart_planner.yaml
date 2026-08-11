@@ -1,20 +1,15 @@
 appId: ${APP_ID}
 ---
-- runFlow:
-    when:
-      visible:
-        id: "nav-open-map"
-    commands:
-      - runFlow: ../_common/open_navigation_map.yaml
-      - tapOn:
-          id: "nav-nexus"
-      - scrollUntilVisible:
-          element:
-            id: "nexus-action-smart-planner"
-          direction: DOWN
-          timeout: 30000
-      - tapOn:
-          id: "nexus-action-smart-planner"
+- runFlow: ../_common/open_navigation_map.yaml
+- tapOn:
+    id: "nav-nexus"
+- scrollUntilVisible:
+    element:
+      id: "nexus-action-smart-planner"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "nexus-action-smart-planner"
 - scrollUntilVisible:
     element:
       id: "smart-planner-context-input"

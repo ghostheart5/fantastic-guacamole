@@ -1,15 +1,6 @@
 appId: ${APP_ID}
 ---
 - runFlow: settings_open.yaml
-- tapOn:
-    id: "settings_dark_mode_toggle"
-    optional: true
-- tapOn:
-    text: "Audio effects"
-    optional: true
-- tapOn:
-    text: "Haptic feedback"
-    optional: true
 - stopApp
 - launchApp:
     clearState: false

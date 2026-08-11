@@ -5,4 +5,3 @@ appId: ${APP_ID}
 - tapOn: "Completed"
 - assertVisible:
     text: "Completed"
-    optional: true

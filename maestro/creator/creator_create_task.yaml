@@ -2,11 +2,13 @@ appId: ${APP_ID}
 ---
 - runFlow: ../authentication/login_with_env.yaml
 - runFlow: ../_common/go_to_creator.yaml
-- tapOn: "Item title *"
+- tapOn:
+    id: "creator-title-input"
 - inputText: "Maestro Task"
 - hideKeyboard
-- tapOn: "Description or details (optional)"
-- inputText: "Created by maestro planner suite"
+- tapOn:
+    id: "creator-detail-input"
+- inputText: "Created by the Maestro Creator suite"
 - hideKeyboard
 - tapOn: "Every day"
 - scrollUntilVisible:
@@ -14,5 +16,6 @@ appId: ${APP_ID}
       text: "Create item"
     direction: DOWN
     timeout: 30000
-- tapOn: "Create item"
+- tapOn:
+    id: "creator-submit"
 - assertVisible: "Task saved."

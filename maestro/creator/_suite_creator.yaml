@@ -1,0 +1,7 @@
+appId: ${APP_ID}
+---
+- runFlow: creator_create_task.yaml
+- runFlow: creator_create_goal.yaml
+- runFlow: creator_create_note.yaml
+- runFlow: creator_create_routine.yaml
+- runFlow: creator_empty_input_guard.yaml

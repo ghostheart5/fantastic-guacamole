@@ -8,9 +8,9 @@ appId: ${APP_ID}
 - hideKeyboard
 - tapOn:
     id: "smart-planner-submit"
-- assertVisible:
-    text: "Getting insight..."
-    optional: true
+- extendedWaitUntil:
+    visible:
+      text: "Getting insight...|SMART INSIGHT"
+    timeout: 30000
 - assertVisible:
     text: "SMART INSIGHT"
-    optional: true

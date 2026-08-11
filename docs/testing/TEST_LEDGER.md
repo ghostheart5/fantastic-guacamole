@@ -132,3 +132,66 @@ are custom pressables without explicit semantic labels/roles. A compliant
 TalkBack/VoiceOver assertion therefore requires a production accessibility
 change. Per the Phase 5 instruction, implementation and validation stop here
 pending owner approval for that production fix. No Phase 5 commit was made.
+
+## Phase 7 Maestro E2E foundation and coverage
+
+### Flow dependency map
+
+`isolated .maestro build -> package-ID verification -> package reset -> app
+launch/onboarding -> mock authentication -> Nexus -> Creator / Timeline /
+Smart Planner / SI Console / Trajectory / Progression / Profile / Settings ->
+notifications, sandbox subscriptions, and regression chains -> mandatory final
+assertion -> JUnit + Maestro debug + logcat + screenshot artifacts`.
+
+Creation is owned solely by the `maestro/creator` suite: task, goal, routine,
+and note. Smart Planner is guidance and SI Console is explanatory; their
+separate suites are joined only by a UI-isolation regression check and neither
+one is connected to a chat feature.
+
+### Phase 7 dispositions
+
+| Area | Evidence after Phase 7 | Remaining gap / owner | Blocking status | Runtime |
+|---|---|---|---|---|
+| App identity and reset | `run_maestro.ps1` resolves the selected actual test build ID, validates APK badging, and clears only the isolated package unless explicitly retained | Runner requires connected Android device; Test Infrastructure | Blocking for device evidence | Build + 1–5 min |
+| PR smoke | launch, auth, Nexus, Timeline, Creator input guard | Candidate-device run required; Release Engineering | Blocking until run | <5 min |
+| Feature E2E | authentication, onboarding, Nexus, Creator, Timeline, Smart Planner, SI Console, Trajectory, Progression, Profile, Settings, notifications, subscriptions, regression | Sandbox billing/store implementation must be configured; Monetization | Amber | 15–30 min |
+| Creator | canonical task, goal, routine, note creation flows use Creator selectors | End-to-end persistence/duplicate lifecycle remains Patrol/integration owner | Amber | 3–6 min |
+| Smart Planner / SI Console | separate suites plus visible draft/guide isolation regression | This does not validate memory retention or model correctness; Phase 7 intelligence owner | Amber | 2–5 min |
+| Trajectory / Progression | new arrival suites and release inclusion | Scenario correctness remains runtime/provider coverage | Amber | <2 min |
+| Notifications | open plus explicit empty-or-list alternate assertion | OS permission denial stays device/Patrol coverage | Amber | <2 min |
+| Subscriptions | sandbox-only selection, restore, free-plan, and persistence probes with mandatory controls | Store purchase completion needs an isolated sandbox account; Monetization | Blocking for subscription release gate | 5–10 min |
+| Release guard | full suite includes onboarding, Nexus, Creator, Timeline, Smart Planner, SI Console, Trajectory, Progression, Profile, Settings, notifications, regression; subscriptions are a separately required sandbox gate | Needs candidate run and human artifact review; Release Engineering | Blocking | 30–45 min |
+
+### Removed false-green and disconnected coverage
+
+- Removed all 33 `optional: true` usages from the Maestro tree. Critical
+  navigation, actions, and terminal assertions now fail when absent.
+- Removed generic `planner` creation terminology and moved those flows under
+  `maestro/creator`; Smart Planner remains a distinct surface name.
+- Repaired the release-suite disconnect by adding onboarding, Nexus, Creator,
+  Trajectory, Progression, and regression chains. Subscriptions are not folded
+  into a normal candidate run: the separate sandbox level makes its external
+  prerequisite visible.
+- Settings restart coverage now asserts only a verified re-entry to the real
+  Settings surface. The previous toggle assertions depended on a Flutter key,
+  not an accessible Maestro identifier, so asserting persisted preference
+  state would be false evidence without a separately approved semantic ID.
+- Notification-denied recovery remains a required real-device/Patrol path;
+  the Maestro feature suite covers ordinary notification arrival/list states
+  without pretending a non-denied device is in the recovery state.
+- The runner no longer accepts a zero-failure JUnit file after a nonzero
+  Maestro process exit. Artifacts are diagnostic outputs, never baselines.
+
+### Phase 7 validation record
+
+- Static flow check: passed. Every YAML flow has `appId: ${APP_ID}` and every
+  `runFlow` target resolves to a file in the tree.
+- Runner syntax check: passed through the PowerShell parser.
+- Maestro CLI syntax check: unexecuted. The globally installed `maestro.cmd`
+  points to a missing temporary installation, so `maestro test --help` fails
+  before command parsing.
+- Smallest device command attempted:
+  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\run_maestro.ps1 -Profile maestro -Level pr-smoke -Device emulator-5554`.
+  The isolated Android 17/API 37 emulator was connected, but the build/runner
+  produced no result within the bounded 60-second command window. It was
+  stopped and is **unexecuted**, not passed or failed.

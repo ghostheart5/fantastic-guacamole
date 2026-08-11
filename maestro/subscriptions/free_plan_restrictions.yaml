@@ -3,4 +3,3 @@ appId: ${APP_ID}
 - runFlow: paywall_open.yaml
 - assertVisible:
     text: "Free plan"
-    optional: true

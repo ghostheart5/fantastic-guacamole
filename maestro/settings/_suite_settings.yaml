@@ -1,6 +1,5 @@
 appId: ${APP_ID}
 ---
 - runFlow: settings_open.yaml
-- runFlow: settings_persistence_restart.yaml
+- runFlow: settings_restart_available.yaml
 - runFlow: settings_reminder_persistence_restart.yaml
-- runFlow: settings_notification_recovery_entry.yaml

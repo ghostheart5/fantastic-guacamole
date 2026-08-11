@@ -10,3 +10,5 @@ appId: ${APP_ID}
     timeout: 30000
 - tapOn:
     id: "nexus-action-si-console"
+- assertVisible:
+    id: "screen-si-console"
