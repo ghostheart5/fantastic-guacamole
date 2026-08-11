@@ -1,7 +1,7 @@
 # ChronoSpark test ledger
 
 Date: 2026-08-11
-Scope: Phase 8 backend, staging, authorization, and data-isolation testing
+Scope: Phase 9 Advanced Human Root Testing (Phase 8 evidence retained below)
 Source inventory: `ADVANCED_TEST_PLAN.md` (the four legacy ledger documents named
 by the Phase 0 request are not present in this checkout).  `AGENTS.md` is present
 but empty.
@@ -259,3 +259,33 @@ historical transcripts are not current-head passing evidence.
 
 No production, migration, schema, deployment, credential, UI, or chat file was
 changed by Phase 8.
+
+## Phase 9 Advanced Human Root Testing
+
+Phase 9 adds a versioned, black-box Human Root Testing system for exact release
+candidates. It is documentation and governed templates only: **zero human cases
+have been executed and zero human results are claimed**.
+
+| Coverage class | Phase 9 evidence | Current status | Primary owner |
+|---|---|---|---|
+| Human/UAT | 17 versioned case definitions, canonical core journey, root, interruption, persona and dataset procedures | Defined; all cases NOT RUN | Release Engineering / Human QA |
+| Accessibility | Human all-root checklist plus device matrix and evidence requirements | Defined; NOT RUN | Accessibility owner |
+| Release guard | Candidate passport, severity/veto rules, retest/independent-verification and sign-off templates | Defined; human release gate remains BLOCKED | Release Engineering |
+| Backend/security | Persona and environment boundaries reference approved non-production only | No environment contacted; NOT RUN | Security / backend owner |
+
+### Human Root release blockers
+
+- No exact candidate passport has been completed with commit SHA, binary hash,
+  flavor, backend, schema, device and evidence chain.
+- HR-CORE-001 and all applicable persona/root/interruption/accessibility cases
+  are NOT RUN; no human release decision can be inferred.
+- Required independent verification is absent until a separate human execution
+  phase records it.
+- Automatic veto categories remain mandatory checks: data loss, cross-user
+  data, auth bypass, duplicate payment/credits, irreversible incorrect state,
+  crash loop, broken core journey, inaccessible primary action, account
+  deletion failure, sensitive-data exposure, and unauthorized chat connection.
+
+Phase 9 modified only docs/testing human-test governance and templates. It did
+not execute tests or human cases and did not modify production, backend,
+credentials, persistence, or chat code.
