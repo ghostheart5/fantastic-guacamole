@@ -140,3 +140,29 @@ drift-manifest test fails on source-hash mismatches for `ai-proxy`,
 so pgTAP was not executed. No staging/sandbox case was run because this phase did
 not receive a fresh explicit environment/mutation approval. Those cases are
 pending, not passing.
+
+## Phase 10 fuzz, Monkey, and chaos release gate
+
+Phase 10 local deterministic tests are a release-supporting layer only. They
+must not contact a remote environment and cannot satisfy the Android/device
+resilience gate by themselves.
+
+- PR smoke requires an explicitly approved isolated APK/device Monkey run of
+  1,000 events for each selected seed.
+- Nightly requires 10,000 events for each configured nightly seed.
+- Pre-release requires 50,000 to 100,000 events for each configured
+  pre-release seed and distribution.
+- The runner must derive the application ID from the inspected APK and reject
+  a package that is not an isolated maestro, staging, debug, or test package.
+- Evidence must include binary SHA-256, seed, count, distribution, device/OS,
+  crash, ANR, native-crash, dropped-event, and final-state records.
+- A failed run creates an exact replay command. It may not be silently retried
+  or converted into a skipped pass.
+
+This gate is currently BLOCKED: no current candidate APK/device campaign was
+authorized or executed in Phase 10.
+
+Phase 10 static validation passed for the Monkey runner PowerShell syntax and
+profile distributions. The targeted local Flutter command produced no result
+within its 60-second bounded window and is unexecuted; it is not release
+evidence.

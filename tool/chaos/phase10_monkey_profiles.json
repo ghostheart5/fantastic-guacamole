@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "levels": {
+    "pr-smoke": {
+      "eventCount": 1000,
+      "seeds": [260726, 704404],
+      "distribution": {
+        "touch": 55,
+        "motion": 15,
+        "nav": 15,
+        "majorNav": 10,
+        "appSwitch": 3,
+        "systemKeys": 0,
+        "anyEvent": 2
+      }
+    },
+    "nightly": {
+      "eventCount": 10000,
+      "seeds": [260801, 260802, 704404],
+      "distribution": {
+        "touch": 45,
+        "motion": 20,
+        "nav": 15,
+        "majorNav": 10,
+        "appSwitch": 5,
+        "systemKeys": 0,
+        "anyEvent": 5
+      }
+    },
+    "pre-release": {
+      "eventCount": 50000,
+      "seeds": [260726, 260801, 260802, 260803, 704404],
+      "distribution": {
+        "touch": 40,
+        "motion": 20,
+        "nav": 15,
+        "majorNav": 10,
+        "appSwitch": 5,
+        "systemKeys": 0,
+        "anyEvent": 10
+      }
+    }
+  }
+}

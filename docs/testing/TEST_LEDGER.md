@@ -289,3 +289,29 @@ have been executed and zero human results are claimed**.
 Phase 9 modified only docs/testing human-test governance and templates. It did
 not execute tests or human cases and did not modify production, backend,
 credentials, persistence, or chat code.
+
+## Phase 10 property, fuzz, Monkey, and chaos testing
+
+Phase 10 adds fixed-seed local property tests, an opt-in Android Monkey profile
+and replay runner, and a documented fault-injection matrix. It adds no
+production, chat, backend, credential, or UI change.
+
+| Coverage class | Evidence | Status |
+|---|---|---|
+| Property/model behavior | Deterministic lifecycle/serialization, sync/fault, progression, and Trajectory tests | Local execution recorded separately; no device claim |
+| Fuzz/chaos | Seed bank 260726/260801/260802/260803/704404 and profile definitions | Historical seeds are replay-only; no current Monkey run |
+| Device Monkey | Explicit runner derives isolated app ID from APK and requires Execute switch | NOT RUN; release-blocking where required |
+| Fault injection | Local queue-response/storage categories plus documented device/staging matrix | Local subset only; device/staging NOT RUN |
+
+The Phase 10 gate remains blocked until an approved isolated binary/device run
+captures evidence for the required Monkey level and any device-only chaos cases.
+
+### Phase 10 validation record
+
+- PowerShell parser validation for tool/chaos/run_phase10_monkey.ps1: passed.
+- Monkey profile distribution validation: passed; every profile totals 100 and
+  has system-key events disabled.
+- Targeted local command flutter test test/phase10: stopped after 60 seconds
+  with no runner output. It is unexecuted, not passing or failing.
+- Android Monkey, device fault injection, staging fault injection, and any
+  production target: not invoked.
