@@ -64,9 +64,11 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     final double fatigue = startup.fatigue;
     final int completedToday = startup.completedToday;
 
-    return AnimatedSystemBackground(
-      backgroundAssetPath: AppAssets.bgNexus,
-      child: Scaffold(
+    return Semantics(
+      identifier: 'screen-nexus',
+      child: AnimatedSystemBackground(
+        backgroundAssetPath: AppAssets.bgNexus,
+        child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: CustomScrollView(
@@ -128,6 +130,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
               ),
             ],
           ),
+        ),
         ),
       ),
     );

@@ -738,9 +738,13 @@ class _LoginFormCard extends StatelessWidget {
             ),
           if (showMockHint && onMockLogin != null) ...[
             const SizedBox(height: 10),
-            SmartPressable(
-              onTap: mockLoginTap,
-              child: Container(
+            Semantics(
+              identifier: 'auth-test-access',
+              label: 'Test access login',
+              button: true,
+              child: SmartPressable(
+                onTap: mockLoginTap,
+                child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 10,
@@ -774,6 +778,7 @@ class _LoginFormCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
                 ),
               ),
             ),

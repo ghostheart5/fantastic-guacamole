@@ -1,7 +1,7 @@
 # ChronoSpark test ledger
 
-Date: 2026-08-11  
-Scope: Phase 4 behavior-first unit and widget coverage  
+Date: 2026-08-11
+Scope: Phase 6 real-application Android device integration and Patrol coverage
 Source inventory: `ADVANCED_TEST_PLAN.md` (the four legacy ledger documents named
 by the Phase 0 request are not present in this checkout).  `AGENTS.md` is present
 but empty.
@@ -70,3 +70,65 @@ workflow file was changed.
    phase.
 3. The existing worktree contains unrelated user changes; they were preserved
    and excluded from the Phase 4 change set.
+
+## Phase 6 device and Patrol inventory
+
+| Asset | Classification before Phase 6 | Phase 6 disposition | Coverage / remaining gap | Gate status |
+|---|---|---|---|---|
+| `integration_test/human_like_smoke_test.dart` | Real application boot, but conditional discovery and `pumpFor` timing make it false-green-prone | Retained as non-gating historical smoke evidence | Does not prove required controls or device lifecycle behavior | Non-blocking |
+| `integration_test/patrol_smoke_test.dart` | Synthetic `MaterialApp` text harness | Replaced with the real `main()` root: cold launch, onboarding completion, and explicit authentication gate | Requires isolated Android device and mock-only configuration | Required, unexecuted |
+| `integration_test/patrol_native_app_smoke_test.dart` | Conditional native root boot with hard skip | Replaced with real login, Nexus arrival, background/foreground, and mandatory final assertions | Warm launch only; process death is in the dedicated test | Required, unexecuted |
+| `integration_test/patrol_application_journey_test.dart` | Absent | Added real Creator save, Timeline verification, settings write, verified-app-link navigation, logout/login, screenshots | Deep-link host verification must be present on the test device | Required, unexecuted |
+| `integration_test/patrol_process_restart_test.dart` | Absent | Added process-restart verification of the saved task and persisted dark-mode setting | Runner force-stops the nonproduction `.maestro` application before this test | Required, unexecuted |
+| `integration_test/patrol_permission_denied_test.dart` | Absent | Added real Android notification-denial and recovery-state journey | Runner revokes only `POST_NOTIFICATIONS` from the isolated test package | Required, unexecuted |
+| `integration_test/patrol_offline_state_test.dart` | Absent | Added externally controlled offline interruption and recovery assertions against the real root | Runner disables then restores only selected device radios | Required, unexecuted |
+| `tool/run_patrol_device_tests.ps1` | Absent | Added one-device, mock-only Android runner with package/OS metadata, logcat, final screenshot, bounded Patrol targets, and failure propagation | No iOS runner in this phase | Required on Android candidate |
+
+### Device coverage classification
+
+- Real application device integration: cold launch, onboarding, authentication
+  gate, Nexus arrival, Creator save, Timeline verification, settings persistence,
+  background/foreground, process restart, verified deep link, logout/login,
+  denied notification permission, and offline interruption/recovery.
+- Synthetic: none of the Phase 6 Patrol targets; each calls `main()` and asserts
+  real navigation controls.
+- Conditional: the legacy human-like smoke remains conditional and is explicitly
+  non-gating. New Patrol targets fail configuration when their mandatory mock
+  defines or deterministic fixture title are absent; they are never skipped.
+- Not yet executable / release-blocking: controlled session expiry. The current
+  application exposes no isolated device fixture that can expire an otherwise
+  valid mock session without contacting a live service or relying on a
+  production account. This is tracked as a Phase 6 follow-up requirement, not
+  represented by a skipped or synthetic pass.
+
+### Phase 6 execution record
+
+- Android SDK/device discovery: `adb` is available through `ANDROID_HOME` and
+  the isolated `emulator-5554` Android 17/API 37 emulator is connected. Patrol
+  CLI is not installed/discoverable, so the runner stopped during preflight
+  before clearing or launching the test package.
+- Executed device tests: none. No device test is claimed to pass.
+- Formatting attempt: the local Dart formatter did not initialize within the
+  bounded command window and was stopped. This is an environment warning, not
+  a test result.
+- Runner attempt: Patrol CLI 4.6.1 was first rejected as incompatible with the
+  app's Patrol 3.20.0 package; it was replaced with compatible Patrol CLI
+  3.11.0. The corrected runner selected `emulator-5554` and started, but did
+  not emit a test result before the 124-second bounded command deadline. It
+  was stopped with only device metadata captured; this is neither a pass nor a
+  product-test failure.
+- Required isolated runner: `tool/run_patrol_device_tests.ps1` with exactly one
+  Android 10/API 29+ emulator or USB-debuggable physical device, Patrol CLI,
+  Android platform-tools, `CHRONOSPARK_BUILD_PROFILE=maestro`, and the runner's
+  nonproduction mock/cloud-off defines. The runner uses
+  `com.ghostheart5.chronospark.maestro`, records device model/API, clears only
+  that test package, and writes artifacts under `artifacts/device-e2e/`.
+
+## Phase 5 stop condition
+
+The Phase 5 accessibility test exposed a confirmed production defect: the
+back/settings controls in `lib/features/profile/ui/widgets/profile_header.dart`
+are custom pressables without explicit semantic labels/roles. A compliant
+TalkBack/VoiceOver assertion therefore requires a production accessibility
+change. Per the Phase 5 instruction, implementation and validation stop here
+pending owner approval for that production fix. No Phase 5 commit was made.

@@ -219,13 +219,19 @@ class _DynamicFormState extends State<DynamicForm> {
         children: [
           _sectionLabel('ITEM DETAILS', AppColors.memoryAmber),
           const SizedBox(height: 14),
-          _buildTextField(_titleController, 'Item title *', maxLines: 1),
+          _buildTextField(
+            _titleController,
+            'Item title *',
+            semanticsIdentifier: 'creator-title-input',
+            maxLines: 1,
+          ),
           const SizedBox(height: 10),
           _buildTextField(
             _detailController,
             _selectedType.toLowerCase() == 'note'
                 ? 'Notes or details (optional)'
                 : 'Description or details (optional)',
+            semanticsIdentifier: 'creator-detail-input',
             maxLines: _selectedType.toLowerCase() == 'note' ? 5 : 3,
           ),
           const SizedBox(height: 20),
@@ -267,9 +273,12 @@ class _DynamicFormState extends State<DynamicForm> {
             ),
           ],
           const SizedBox(height: 20),
-          SmartPressable(
-            onTap: _submitting ? () {} : _submit,
-            child: Container(
+          Semantics(
+            identifier: 'creator-submit',
+            button: true,
+            child: SmartPressable(
+              onTap: _submitting ? () {} : _submit,
+              child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
@@ -306,6 +315,7 @@ class _DynamicFormState extends State<DynamicForm> {
                         color: AppColors.memoryAmber,
                       ),
                     ),
+              ),
             ),
           ),
         ],
@@ -316,13 +326,17 @@ class _DynamicFormState extends State<DynamicForm> {
   Widget _buildTextField(
     TextEditingController controller,
     String hint, {
+    required String semanticsIdentifier,
     int maxLines = 1,
   }) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
-      decoration: InputDecoration(
+    return Semantics(
+      identifier: semanticsIdentifier,
+      textField: true,
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
+        decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
         filled: true,
@@ -348,6 +362,7 @@ class _DynamicFormState extends State<DynamicForm> {
           borderSide: BorderSide(
             color: AppColors.neonCyan.withValues(alpha: 0.5),
           ),
+        ),
         ),
       ),
     );

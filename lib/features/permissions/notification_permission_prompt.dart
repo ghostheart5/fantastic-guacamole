@@ -62,21 +62,25 @@ class NotificationPermissionPrompt extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           if (!permanentlyDenied)
-            FilledButton(
-              onPressed: () async {
-                await showPermissionRationaleSheet<void>(
-                  context: context,
-                  explainer: PermissionExplainers.notification,
-                  onPrimary: () async {
-                    await onRequestPermission();
-                  },
-                );
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.neonCyan,
-                foregroundColor: Colors.black,
+            Semantics(
+              identifier: 'notification-request-permission',
+              button: true,
+              child: FilledButton(
+                onPressed: () async {
+                  await showPermissionRationaleSheet<void>(
+                    context: context,
+                    explainer: PermissionExplainers.notification,
+                    onPrimary: () async {
+                      await onRequestPermission();
+                    },
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.neonCyan,
+                  foregroundColor: Colors.black,
+                ),
+                child: const Text('Enable Notifications'),
               ),
-              child: const Text('Enable Notifications'),
             ),
           if (denied) ...<Widget>[
             const SizedBox(height: 10),
