@@ -9,6 +9,7 @@ import 'package:fantastic_guacamole/data/di/services_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_result.dart';
+import 'package:fantastic_guacamole/data/services/ai/agents/chat_agent.dart';
 import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchestrator.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/completion_event_entity.dart';
@@ -32,8 +33,7 @@ import 'package:fantastic_guacamole/engine/si/si_decision.dart';
 import 'package:fantastic_guacamole/engine/si/si_response_policy.dart';
 import 'package:fantastic_guacamole/engine/si/si_task_core.dart';
 import 'package:fantastic_guacamole/engine/si/synthetic_intelligence_engine.dart';
-import 'package:fantastic_guacamole/features/monetization/guards/monetization_guards.dart';
-import 'package:fantastic_guacamole/features/monetization/providers/monetization_providers.dart';
+import 'package:fantastic_guacamole/features/monetization/providers/monetization_feature_providers.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_memory_selection.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
@@ -126,10 +126,16 @@ class AIController {
     }
 
     final List<TaskEntity> taskEntities = await _loadConsoleTaskEntities();
+    if (!_ref.mounted) {
+      return null;
+    }
     final List<Task> tasks = _mapTaskEntitiesToTasks(taskEntities);
     final Map<String, dynamic>? previousState = await _ref
         .read(siEngineServiceProvider)
         .loadState();
+    if (!_ref.mounted) {
+      return null;
+    }
     final si = _ref.read(siStateProvider);
     final learning = _ref.read(learningProvider);
     final profile = _ref.read(profileProvider);
@@ -628,6 +634,9 @@ class AIController {
           context: context,
           requestOverride: request,
         );
+    if (!_ref.mounted) {
+      return null;
+    }
 
     if (recommendation == null ||
         !_isStructuredSIResponse(recommendation.message)) {

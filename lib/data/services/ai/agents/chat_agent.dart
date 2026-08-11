@@ -6,13 +6,27 @@ import 'package:fantastic_guacamole/core/network/retry_executor.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart';
 import 'package:fantastic_guacamole/data/services/ai/agents/ai_agent.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
-import 'package:fantastic_guacamole/engine/assistant/chronospark_prompt_architecture.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
 import 'package:fantastic_guacamole/engine/si/ai_response.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/si/si_ai_service.dart';
 import 'package:http/http.dart' as http;
+
+class AiProxyCreditsExhaustedException implements Exception {
+  const AiProxyCreditsExhaustedException({required this.remainingCredits});
+
+  final int remainingCredits;
+}
+
+class AiProxyUnavailableException implements Exception {
+  const AiProxyUnavailableException(this.reason);
+
+  final String reason;
+
+  @override
+  String toString() => 'AI service unavailable: $reason';
+}
 
 class ChatAgent extends AiAgent {
   const ChatAgent({this.service});
@@ -73,6 +87,10 @@ class ChatAgent extends AiAgent {
       'confidence': response.confidence,
       'response': response.message,
       'status': 'ready',
+      'requestId': response.metadata['requestId'],
+      'creditsCharged': response.metadata['creditsCharged'],
+      'remainingCredits': response.metadata['remainingCredits'],
+      'safety': response.metadata['safety'],
     };
   }
 
@@ -84,13 +102,15 @@ class ChatAgent extends AiAgent {
   }) async {
     final Uri? endpoint = parseSecureHttpsEndpoint(Env.aiProxyEndpoint);
     if (endpoint == null || prompt.trim().isEmpty) {
+      if (Env.isProduction && prompt.trim().isNotEmpty) {
+        throw const AiProxyUnavailableException('invalid endpoint');
+      }
       return null;
     }
     final String? accessToken = currentSupabaseAccessToken();
-    if (Env.isProduction && accessToken == null) return null;
-    final Map<String, dynamic> minimizedContext = _minimizeProxyContext(
-      context,
-    );
+    if (Env.isProduction && accessToken == null) {
+      throw const AiProxyUnavailableException('missing authenticated session');
+    }
     final List<Map<String, String>> minimizedHistory = history
         .skip(history.length > 6 ? history.length - 6 : 0)
         .map(
@@ -100,6 +120,7 @@ class ChatAgent extends AiAgent {
           },
         )
         .toList(growable: false);
+    final String requestId = context['requestId']?.toString() ?? '';
 
     try {
       final http.Response response = await runWithRetry<http.Response>(
@@ -116,7 +137,8 @@ class ChatAgent extends AiAgent {
                 body: jsonEncode(<String, dynamic>{
                   'prompt': prompt.trim(),
                   'history': minimizedHistory,
-                  'system': _systemPrompt(personality, minimizedContext),
+                  'personality': personality.name,
+                  'requestId': requestId,
                 }),
               )
               .timeout(const Duration(seconds: 15));
@@ -134,12 +156,28 @@ class ChatAgent extends AiAgent {
           return error is TimeoutException || error is http.ClientException;
         },
       );
+      if (response.statusCode == 402) {
+        final Object? decoded = jsonDecode(response.body);
+        final Map<dynamic, dynamic>? payload = decoded is Map ? decoded : null;
+        throw AiProxyCreditsExhaustedException(
+          remainingCredits:
+              (payload?['remainingCredits'] as num?)?.toInt() ?? 0,
+        );
+      }
       if (response.statusCode != 200) {
+        if (Env.isProduction) {
+          throw AiProxyUnavailableException(
+            'proxy returned HTTP ${response.statusCode}',
+          );
+        }
         return null;
       }
 
       final Object? decoded = jsonDecode(response.body);
       if (decoded is! Map) {
+        if (Env.isProduction) {
+          throw const AiProxyUnavailableException('invalid proxy response');
+        }
         return null;
       }
       final Map<String, dynamic> payload = decoded.map(
@@ -150,6 +188,9 @@ class ChatAgent extends AiAgent {
           payload['reply']?.toString().trim() ??
           '';
       if (message.isEmpty || _repeatsRecentAssistant(message, history)) {
+        if (Env.isProduction) {
+          throw const AiProxyUnavailableException('empty proxy response');
+        }
         return null;
       }
 
@@ -160,10 +201,26 @@ class ChatAgent extends AiAgent {
             'Generated from the current state and recent conversation.',
         emotion: payload['emotion']?.toString() ?? 'balanced',
         confidence: (payload['confidence'] as num?)?.toDouble() ?? 0.8,
+        metadata: <String, dynamic>{
+          'requestId': payload['requestId'],
+          'creditsCharged': payload['creditsCharged'],
+          'remainingCredits': payload['remainingCredits'],
+          'safety': payload['safety'],
+        },
       );
+    } on AiProxyCreditsExhaustedException {
+      rethrow;
+    } on AiProxyUnavailableException {
+      rethrow;
     } on TimeoutException {
+      if (Env.isProduction) {
+        throw const AiProxyUnavailableException('request timed out');
+      }
       return null;
-    } on Exception {
+    } on Exception catch (error) {
+      if (Env.isProduction) {
+        throw AiProxyUnavailableException(error.runtimeType.toString());
+      }
       return null;
     }
   }
@@ -185,55 +242,6 @@ class ChatAgent extends AiAgent {
               item['content']?.trim().isNotEmpty ?? false,
         )
         .toList(growable: false);
-  }
-
-  String _systemPrompt(
-    AIPersonality personality,
-    Map<String, dynamic> context,
-  ) {
-    return ChronoSparkPromptArchitecture.proxySystemPrompt(
-      personality: personality,
-      context: context,
-    );
-  }
-
-  Map<String, dynamic> _minimizeProxyContext(Map<String, dynamic> context) {
-    final String surface = context['querySurface']?.toString() ?? '';
-    final Object? rawSnapshot = context['featureSnapshot'];
-    final Map<String, dynamic> featureSnapshot =
-        rawSnapshot is Map<String, dynamic>
-        ? rawSnapshot
-        : const <String, dynamic>{};
-    final Object? rawGrounded = context['grounded'];
-    final Map<String, dynamic> grounded = rawGrounded is Map<String, dynamic>
-        ? rawGrounded
-        : const <String, dynamic>{};
-    final List<String> memories =
-        (grounded['memorySummaries'] as List<dynamic>? ?? const <dynamic>[])
-            .take(4)
-            .map((dynamic value) => _truncate(value.toString(), 240))
-            .toList(growable: false);
-
-    return <String, dynamic>{
-      for (final String key in <String>[
-        'mode',
-        'intent',
-        'querySurface',
-        'responseContract',
-        'energy',
-        'emotion',
-        'fatigue',
-        'completedToday',
-      ])
-        if (context[key] != null) key: context[key],
-      if (surface.isNotEmpty && featureSnapshot[surface] != null)
-        'featureSnapshot': <String, dynamic>{surface: featureSnapshot[surface]},
-      'grounded': <String, dynamic>{
-        'taskCount': grounded['taskCount'] ?? 0,
-        'memoryCount': memories.length,
-        if (memories.isNotEmpty) 'memorySummaries': memories,
-      },
-    };
   }
 
   String _truncate(String value, int maxLength) {

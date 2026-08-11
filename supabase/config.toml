@@ -1,17 +1,23 @@
 [functions.ai-proxy]
-verify_jwt = true
+verify_jwt = false
 
 [functions.monetization-verify]
-verify_jwt = true
+verify_jwt = false
 
 [functions.account-delete]
-verify_jwt = true
+verify_jwt = false
+
+[functions.account-delete-reconcile]
+verify_jwt = false
+
+[functions.google-play-rtdn]
+verify_jwt = false
 
 [functions.verify-receipt]
-verify_jwt = true
+verify_jwt = false
 
 [functions.delete-account]
-verify_jwt = true
+verify_jwt = false
 
 [functions.webhook-ingest]
-verify_jwt = true
+verify_jwt = false

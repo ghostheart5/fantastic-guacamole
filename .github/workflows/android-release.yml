@@ -1,7 +1,7 @@
 name: Android Release
 
 permissions:
-  contents: write
+  contents: read
 
 on:
   push:
@@ -80,10 +80,114 @@ jobs:
               )
           PY
 
-  build-aab:
-    needs: [database-gate, public-infrastructure-gate]
+  production-backend-gate:
     runs-on: ubuntu-latest
     environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      CHRONOSPARK_SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      RTDN_PUBSUB_SUBSCRIPTION: ${{ secrets.RTDN_PUBSUB_SUBSCRIPTION }}
+      RTDN_AUDIENCE: ${{ secrets.RTDN_AUDIENCE }}
+      RTDN_SERVICE_ACCOUNT_EMAIL: ${{ secrets.RTDN_SERVICE_ACCOUNT_EMAIL }}
+      ACCOUNT_DELETE_RECONCILE_SECRET: ${{ secrets.ACCOUNT_DELETE_RECONCILE_SECRET }}
+      ANDROID_PACKAGE_NAME: com.ghostheart5.chronospark
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Require production verification credentials
+        run: |
+          set -euo pipefail
+          for name in \
+            SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD \
+            CHRONOSPARK_SUPABASE_URL SUPABASE_SECRET_KEY GOOGLE_SERVICE_ACCOUNT_JSON \
+            RTDN_PUBSUB_SUBSCRIPTION RTDN_AUDIENCE RTDN_SERVICE_ACCOUNT_EMAIL \
+            ACCOUNT_DELETE_RECONCILE_SECRET
+          do
+            [ -n "${!name:-}" ] || { echo "::error::$name is required for the production backend gate."; exit 1; }
+          done
+
+      - name: Verify deployed migrations, functions, and Edge secrets
+        run: |
+          set -euo pipefail
+          mkdir -p build/release-evidence
+          npx --yes supabase@2.113.0 link \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD"
+          npx --yes supabase@2.113.0 migration list --linked \
+            > build/release-evidence/production-migrations.txt
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path('build/release-evidence/production-migrations.txt').read_text(encoding='utf-8')
+          mismatches = []
+          rows = 0
+          for line in text.splitlines():
+              parts = [part.strip() for part in line.replace('│', '|').split('|')]
+              if len(parts) < 3:
+                  continue
+              local = parts[0] if re.fullmatch(r'\d{14}', parts[0]) else ''
+              remote = parts[1] if re.fullmatch(r'\d{14}', parts[1]) else ''
+              if not local and not remote:
+                  continue
+              rows += 1
+              if local != remote:
+                  mismatches.append((local or 'missing', remote or 'missing'))
+          if rows == 0:
+              raise SystemExit('::error::Unable to parse linked Supabase migration inventory.')
+          if mismatches:
+              raise SystemExit(f'::error::Production migration drift: {mismatches}')
+          PY
+
+          npx --yes supabase@2.113.0 functions list \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            > build/release-evidence/production-functions.txt
+          for function_name in \
+            ai-proxy monetization-verify google-play-rtdn account-delete \
+            account-delete-reconcile delete-account verify-receipt webhook-ingest
+          do
+            grep -Eq "(^|[[:space:]|])${function_name}([[:space:]|]|$)" \
+              build/release-evidence/production-functions.txt || {
+                echo "::error::Production Edge Function is missing: $function_name"
+                exit 1
+              }
+          done
+
+          npx --yes supabase@2.113.0 secrets list \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            > build/release-evidence/production-secret-names.txt
+          for secret_name in \
+            ANTHROPIC_API_KEY GOOGLE_SERVICE_ACCOUNT_JSON ANDROID_PACKAGE_NAME \
+            RTDN_AUDIENCE RTDN_SERVICE_ACCOUNT_EMAIL ACCOUNT_DELETE_RECONCILE_SECRET
+          do
+            grep -Eq "(^|[[:space:]|])${secret_name}([[:space:]|]|$)" \
+              build/release-evidence/production-secret-names.txt || {
+                echo "::error::Production Edge secret is missing: $secret_name"
+                exit 1
+              }
+          done
+
+      - name: Verify live catalog, endpoint posture, and Play configuration
+        run: node scripts/verify_production_backend.mjs > build/release-evidence/production-backend.json
+
+      - name: Upload backend verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronospark-production-backend-${{ github.ref_name }}
+          path: build/release-evidence/
+          if-no-files-found: error
+          retention-days: 90
+
+  build-aab:
+    needs: [database-gate, public-infrastructure-gate, production-backend-gate]
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: write
     env:
       ANDROID_GOOGLE_SERVICES_JSON_BASE64_SECRET: ANDROID_GOOGLE_SERVICES_JSON_BASE64
       ANDROID_GOOGLE_SERVICES_JSON_SECRET: ANDROID_GOOGLE_SERVICES_JSON
@@ -154,17 +258,13 @@ jobs:
           channel: stable
           flutter-version: '3.44.6'
 
-      - name: Write client configuration asset
+      - name: Validate client configuration secrets
         env:
           SUPABASE_URL: ${{ secrets[env.CHRONOSPARK_SUPABASE_URL_SECRET] }}
           SUPABASE_ANON_KEY: ${{ secrets[env.CHRONOSPARK_SUPABASE_ANON_KEY_SECRET] }}
         run: |
           [ -n "$SUPABASE_URL" ] || { echo "::error::CHRONOSPARK_SUPABASE_URL is required for release."; exit 1; }
           [ -n "$SUPABASE_ANON_KEY" ] || { echo "::error::CHRONOSPARK_SUPABASE_ANON_KEY is required for release."; exit 1; }
-          cat > .env << EOF
-          CHRONOSPARK_SUPABASE_URL=$SUPABASE_URL
-          CHRONOSPARK_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
-          EOF
 
       - name: Install dependencies
         run: flutter pub get

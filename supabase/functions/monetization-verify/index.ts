@@ -1,5 +1,10 @@
 /// <reference lib="deno.ns" />
 import { verifySubscriptionLineItem } from "../_shared/subscription_verification.ts";
+import {
+  getGoogleAccessToken,
+  type GoogleServiceAccount,
+  sha256Hex,
+} from "../_shared/google_auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
@@ -39,6 +44,7 @@ function cors(req: Request): Record<string, string> {
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
     "Vary": "Origin",
+    "X-ChronoSpark-Contract": "monetization-v2",
   };
 }
 
@@ -97,13 +103,7 @@ async function readVerifyRequest(req: Request): Promise<VerifyRequest | null> {
 }
 
 async function sha256(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(value),
-  );
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  return await sha256Hex(value);
 }
 
 async function bindPurchaseToken(
@@ -198,11 +198,35 @@ async function applyVerifiedPurchase(
   return await response.json() as Record<string, unknown>;
 }
 
+async function serviceRpc(
+  name: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown> | null> {
+  if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) return null;
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_SECRET_KEY,
+      Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    await response.body?.cancel();
+    return null;
+  }
+  const value = await response.json();
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
 // Set GOOGLE_SERVICE_ACCOUNT_JSON as a Supabase secret:
 //   supabase secrets set GOOGLE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'
 const serviceAccount = JSON.parse(
   Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON") ?? "null",
-) as { client_email?: string; private_key?: string } | null;
+) as GoogleServiceAccount | null;
 
 interface VerifyRequest {
   productId: string; // e.g. "chronospark_premium_monthly"
@@ -219,70 +243,6 @@ interface VerifyResponse {
   planId?: unknown;
   eventType?: unknown;
   error?: string;
-}
-
-async function getAccessToken(
-  sa: { client_email?: string; private_key?: string },
-): Promise<string> {
-  if (!sa?.client_email || !sa?.private_key) {
-    throw new Error("invalid_service_account_json");
-  }
-  const now = Math.floor(Date.now() / 1000);
-  const base64Url = (value: string | Uint8Array): string => {
-    const bytes = typeof value === "string"
-      ? new TextEncoder().encode(value)
-      : value;
-    return btoa(String.fromCharCode(...bytes))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
-  };
-  const header = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const claim = base64Url(JSON.stringify({
-    iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/androidpublisher",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
-  }));
-  const payload = `${header}.${claim}`;
-
-  const keyData = sa.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\n/g, "");
-  const keyBytes = Uint8Array.from(atob(keyData), (c) => c.charCodeAt(0));
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    keyBytes,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    cryptoKey,
-    new TextEncoder().encode(payload),
-  );
-  const sig = base64Url(new Uint8Array(signature));
-  const jwt = `${payload}.${sig}`;
-
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body:
-      `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${
-        encodeURIComponent(jwt)
-      }`,
-  });
-  if (!res.ok) {
-    throw new Error("google_oauth_failed");
-  }
-  const data = await res.json();
-  if (!data?.access_token || typeof data.access_token !== "string") {
-    throw new Error("google_oauth_missing_access_token");
-  }
-  return data.access_token as string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -370,7 +330,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const accessToken = await getAccessToken(serviceAccount);
+    const accessToken = await getGoogleAccessToken(serviceAccount);
 
     const apiBase =
       "https://androidpublisher.googleapis.com/androidpublisher/v3/applications";
@@ -414,16 +374,43 @@ Deno.serve(async (req: Request) => {
       const valid = verifiedLineItem !== null;
       const bound = valid &&
         await bindPurchaseToken(token, userId, productId);
+      const tokenHash = await sha256(token);
+      const lineItems = Array.isArray(gpData.lineItems) ? gpData.lineItems : [];
+      const matchedLine = lineItems.find((item: unknown) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+          return false;
+        }
+        return (item as Record<string, unknown>).productId ===
+          verifiedLineItem?.productId;
+      }) as Record<string, unknown> | undefined;
+      const autoRenewingPlan = matchedLine?.autoRenewingPlan as
+        | Record<string, unknown>
+        | undefined;
+      const status = gpData.subscriptionState ===
+          "SUBSCRIPTION_STATE_IN_GRACE_PERIOD"
+        ? "grace"
+        : "active";
+      const eventKey = `verify:${tokenHash}:${expiryTimeMs ?? 0}:${
+        gpData.latestOrderId ?? "none"
+      }`;
       const applied = bound
-        ? await applyVerifiedPurchase(
-          userId,
-          verifiedLineItem.productId,
-          purchaseType,
-          token,
-          gpData.latestOrderId,
-          expiryTimeMs,
-          gpData as Record<string, unknown>,
-        )
+        ? await serviceRpc("reconcile_google_play_subscription", {
+          p_purchase_token_hash: tokenHash,
+          p_product_id: verifiedLineItem?.productId,
+          p_status: status,
+          p_is_active: true,
+          p_auto_renews: autoRenewingPlan?.autoRenewEnabled === true,
+          p_order_id: gpData.latestOrderId ?? null,
+          p_expires_at: expiryTimeMs
+            ? new Date(expiryTimeMs).toISOString()
+            : null,
+          p_event_key: eventKey,
+          p_payload: {
+            source: "client_verification",
+            subscriptionState: gpData.subscriptionState,
+            acknowledgementState: gpData.acknowledgementState,
+          },
+        })
         : null;
       return new Response(
         JSON.stringify(
@@ -457,7 +444,12 @@ Deno.serve(async (req: Request) => {
         token,
         gpData.orderId,
         undefined,
-        gpData as Record<string, unknown>,
+        {
+          source: "client_verification",
+          purchaseState: gpData.purchaseState,
+          acknowledgementState: gpData.acknowledgementState,
+          consumptionState: gpData.consumptionState,
+        },
       )
       : null;
     return new Response(
@@ -477,8 +469,8 @@ Deno.serve(async (req: Request) => {
       ),
       { headers: { ...headers, "Content-Type": "application/json" } },
     );
-  } catch (error) {
-    console.error("Receipt verification request failed", error);
+  } catch {
+    console.error("Receipt verification request failed");
     return new Response(
       JSON.stringify(
         { valid: false, error: "request failed" } satisfies VerifyResponse,

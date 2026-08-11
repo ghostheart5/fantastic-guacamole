@@ -1,0 +1,33 @@
+name: Backend Reconciliation
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chronospark-production-backend-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  account-deletion:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Resume pending account deletions
+        env:
+          SUPABASE_URL: ${{ secrets.CHRONOSPARK_SUPABASE_URL }}
+          RECONCILE_SECRET: ${{ secrets.ACCOUNT_DELETE_RECONCILE_SECRET }}
+        run: |
+          set -euo pipefail
+          [ -n "$SUPABASE_URL" ] || { echo "::error::CHRONOSPARK_SUPABASE_URL is required."; exit 1; }
+          [ -n "$RECONCILE_SECRET" ] || { echo "::error::ACCOUNT_DELETE_RECONCILE_SECRET is required."; exit 1; }
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-all-errors --max-time 45 \
+            -X POST "$SUPABASE_URL/functions/v1/account-delete-reconcile" \
+            -H "x-chronospark-reconcile-secret: $RECONCILE_SECRET" \
+            -H 'Content-Type: application/json' \
+            --data '{}'

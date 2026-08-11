@@ -81,6 +81,9 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
     Map<String, dynamic> context = const <String, dynamic>{},
     AgentRequest? requestOverride,
   }) async {
+    if (state.isLoading) {
+      return null;
+    }
     final int seq = ++_requestCounter;
     final String requestId = 'ai-${DateTime.now().millisecondsSinceEpoch}-$seq';
     final Stopwatch stopwatch = Stopwatch()..start();
@@ -101,6 +104,9 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
 
     try {
       final List<Task> tasks = await ref.read(tasksProvider.future);
+      if (!ref.mounted || _activeRequestId != requestId) {
+        return null;
+      }
       final siEngineService = ref.read(siEngineServiceProvider);
       final agentOrchestrator = ref.read(agentOrchestratorProvider);
 
@@ -112,61 +118,13 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
           ref.read(aiPersonalityProvider) ??
           AIPersonality.coach;
       final input = inputOverride ?? ref.read(aiInputProvider);
-      final int inputLength = safeInputLength(input);
-      final int cost = _aiCreditCost(input: input, personality: personality);
-
-      final spend = await consumeCredits(
-        ref,
-        amount: cost,
-        reason: 'ai_query',
-        metadata: <String, dynamic>{
-          'personality': personality.name,
-          'input_length': inputLength,
-        },
-      );
-      ref.invalidate(walletProvider);
-
-      if (!spend.allowed) {
-        ref
-            .read(paywallPromptProvider.notifier)
-            .set(
-              PaywallPrompt(
-                title: 'AI credits exhausted',
-                message:
-                    'You have used your available AI credits. Upgrade to continue coaching, memory, and voice flows.',
-                trigger: 'ai_credit_limit',
-                remainingCredits: spend.wallet.balance,
-              ),
-            );
-
-        const AIRecommendation denied = AIRecommendation(
-          task: null,
-          message:
-              'Your AI credits are exhausted for this cycle. Upgrade to keep using coaching and memory.',
-          reasoning: 'AI credits exhausted',
-          emotion: 'cautious',
-          confidence: 0.35,
-        );
-
-        state = const AsyncData<AIRecommendation?>(denied);
-        ref
-            .read(aiExecutionStatusProvider.notifier)
-            .set(
-              AIExecutionStatus(
-                phase: 'denied',
-                requestId: requestId,
-                durationMs: stopwatch.elapsedMilliseconds,
-                error: 'credits_exhausted',
-              ),
-            );
-        RuntimeDiagnostics.record('AI[$requestId] denied: credits exhausted');
-        return denied;
-      }
-
       ref.read(paywallPromptProvider.notifier).set(null);
 
       final Map<String, dynamic>? previousState = await siEngineService
           .loadState();
+      if (!ref.mounted || _activeRequestId != requestId) {
+        return null;
+      }
       final List<Map<String, String>> conversationHistory =
           List<Map<String, String>>.from(history);
       final String previousMessage =
@@ -249,8 +207,12 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         preferredAgent: preferredAgent,
         request: request,
       );
-      if (_activeRequestId != requestId) {
+      if (!ref.mounted || _activeRequestId != requestId) {
         return null;
+      }
+      if ((agentResult.payload['creditsCharged'] as num?)?.toInt()
+          case final int charged when charged > 0) {
+        refreshMonetizationRemoteState(ref);
       }
       ref.read(aiAgentTraceProvider.notifier).set(agentResult);
 
@@ -488,6 +450,9 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
               'reasoning': recommendation.reasoning ?? '',
             },
           );
+      if (!ref.mounted || _activeRequestId != requestId) {
+        return null;
+      }
       final String responseHash =
           generatedResponse['responseHash']?.toString() ?? '';
       final String responseSummary =
@@ -562,6 +527,9 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         },
         'communicationContract': communicationContract,
       });
+      if (!ref.mounted || _activeRequestId != requestId) {
+        return null;
+      }
       ref.invalidate(siEngineStateProvider);
 
       ref
@@ -596,9 +564,46 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         'AI[$requestId] completed in ${stopwatch.elapsedMilliseconds}ms',
       );
       return recommendation;
+    } on AiProxyCreditsExhaustedException catch (error) {
+      stopwatch.stop();
+      if (!ref.mounted || _activeRequestId != requestId) {
+        return null;
+      }
+      ref
+          .read(paywallPromptProvider.notifier)
+          .set(
+            PaywallPrompt(
+              title: 'AI credits exhausted',
+              message:
+                  'You have used your available AI credits. Upgrade to continue coaching, memory, and voice flows.',
+              trigger: 'ai_credit_limit',
+              remainingCredits: error.remainingCredits,
+            ),
+          );
+      const AIRecommendation denied = AIRecommendation(
+        task: null,
+        message:
+            'Your AI credits are exhausted for this cycle. Upgrade to keep using coaching and memory.',
+        reasoning: 'AI credits exhausted',
+        emotion: 'cautious',
+        confidence: 0.35,
+      );
+      state = const AsyncData<AIRecommendation?>(denied);
+      ref
+          .read(aiExecutionStatusProvider.notifier)
+          .set(
+            AIExecutionStatus(
+              phase: 'denied',
+              requestId: requestId,
+              durationMs: stopwatch.elapsedMilliseconds,
+              error: 'credits_exhausted',
+            ),
+          );
+      RuntimeDiagnostics.record('AI[$requestId] denied: credits exhausted');
+      return denied;
     } on Exception catch (error, stackTrace) {
       stopwatch.stop();
-      if (_activeRequestId != requestId) {
+      if (!ref.mounted || _activeRequestId != requestId) {
         return null;
       }
       state = AsyncError<AIRecommendation?>(error, stackTrace);

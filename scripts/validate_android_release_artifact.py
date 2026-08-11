@@ -107,15 +107,8 @@ def main() -> None:
             raise SystemExit("AAB does not contain R8/obfuscation mapping metadata.")
         raw_manifest = bundle.read("base/manifest/AndroidManifest.xml")
         env_entries = sorted(entry for entry in entries if entry.endswith("flutter_assets/.env"))
-        if len(env_entries) != 1:
-            raise SystemExit("AAB must contain exactly one generated Flutter .env asset.")
-        env_keys = sorted(
-            line.split("=", 1)[0].strip()
-            for line in bundle.read(env_entries[0]).decode("utf-8").splitlines()
-            if line.strip() and not line.lstrip().startswith("#") and "=" in line
-        )
-        if env_keys != ["CHRONOSPARK_SUPABASE_ANON_KEY", "CHRONOSPARK_SUPABASE_URL"]:
-            raise SystemExit("AAB .env contains unexpected or missing configuration keys.")
+        if env_entries:
+            raise SystemExit("AAB must not bundle a Flutter .env asset.")
 
     mapping_file = Path("build/app/outputs/mapping/release/mapping.txt")
     if not mapping_file.is_file() or mapping_file.stat().st_size == 0:
@@ -199,7 +192,7 @@ def main() -> None:
             "entry_count": len(entries),
             "raw_manifest_sha256": hashlib.sha256(raw_manifest).hexdigest(),
             "mapping_entries": mapping_entries,
-            "environment_asset_keys": env_keys,
+            "forbidden_environment_assets": env_entries,
         },
         "application": {
             "package": args.expected_package,

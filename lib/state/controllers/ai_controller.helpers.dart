@@ -1,7 +1,5 @@
 part of 'ai_controller.dart';
 
-int safeInputLength(String? input) => input?.length ?? 0;
-
 List<String> summarizeTimelineTitles(List<TimelineEventEntity> events) {
   return events
       .take(3)
@@ -96,16 +94,6 @@ Map<String, dynamic> buildSIConsoleChronosparkSignals({
       'activeCount': activeRoutines.length,
     },
   };
-}
-
-int _aiCreditCost({
-  required String? input,
-  required AIPersonality personality,
-}) {
-  final String text = input?.trim() ?? '';
-  final int lengthBonus = text.length > 120 ? 1 : 0;
-  final int toneBonus = personality == AIPersonality.strict ? 1 : 0;
-  return 1 + lengthBonus + toneBonus;
 }
 
 bool _recentSkipPressure(List<LearningHistoryEntry> history) {
