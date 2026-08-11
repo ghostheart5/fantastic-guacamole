@@ -3,12 +3,15 @@ import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/features/auth/application/auth_providers.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/models/nexus_daily_briefing.dart';
+import 'package:fantastic_guacamole/features/nexus/ui/focus_session_sheet.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/layout/responsive_layout.dart';
 import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +33,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
   bool _showDeferredIntel = false;
+  bool? _reduceMotion;
 
   @override
   void initState() {
@@ -37,7 +41,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
+    );
 
     // Keep first paint fast by mounting heavyweight SI sections after frame one.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -48,6 +52,21 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
         _showDeferredIntel = true;
       });
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (_reduceMotion == reduceMotion) {
+      return;
+    }
+    _reduceMotion = reduceMotion;
+    if (reduceMotion) {
+      _pulse.stop();
+    } else {
+      _pulse.repeat(reverse: true);
+    }
   }
 
   @override
@@ -63,74 +82,138 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     final double energy = startup.energy;
     final double fatigue = startup.fatigue;
     final int completedToday = startup.completedToday;
+    final AsyncValue<List<Task>> tasksAsync = ref.watch(tasksProvider);
+    final List<Task> rankedTasks = tasksAsync.asData?.value ?? const <Task>[];
+    final Task? focusTask = rankedTasks.isEmpty ? null : rankedTasks.first;
+    final NexusDailyBriefing briefing = NexusDailyBriefing.build(
+      profileReady: profile.hasValidProfile,
+      energy: energy,
+      completedToday: completedToday,
+    );
 
     return Semantics(
       identifier: 'screen-nexus',
       child: AnimatedSystemBackground(
         backgroundAssetPath: AppAssets.bgNexus,
         child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(child: _NexusHeader(profile: profile)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: AnimatedBuilder(
-                    animation: _pulse,
-                    builder: (context, _) => _SystemRings(
-                      energy: energy,
-                      fatigue: fatigue,
-                      pulse: _pulse.value,
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            child: ResponsiveContent(
+              maxWidth: 1120,
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(child: _NexusHeader(profile: profile)),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: RepaintBoundary(
+                        child: _reduceMotion == true
+                            ? _SystemRings(
+                                energy: energy,
+                                fatigue: fatigue,
+                                pulse: 0.5,
+                              )
+                            : AnimatedBuilder(
+                                animation: _pulse,
+                                builder: (context, _) => _SystemRings(
+                                  energy: energy,
+                                  fatigue: fatigue,
+                                  pulse: _pulse.value,
+                                ),
+                              ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: _RingLabels(energy: energy, fatigue: fatigue),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                  child: _NexusBridgeCard(
-                    profile: profile,
-                    energy: energy,
-                    completedToday: completedToday,
+                  SliverToBoxAdapter(
+                    child: _RingLabels(energy: energy, fatigue: fatigue),
                   ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: _showDeferredIntel
-                      ? const _DeferredIntelligenceSection()
-                      : _DeferredIntelligenceBootCard(startup: startup),
-                ),
-              ),
-              if (_showDeferredIntel)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: _DependencyMesh(),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                      child: _NextMoveCard(
+                        briefing: briefing,
+                        hasCompletedToday: completedToday > 0,
+                        focusTaskTitle: focusTask?.title,
+                        onStartFocus: () {
+                          showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (BuildContext sheetContext) {
+                              return FocusSessionSheet(
+                                directive: briefing.nextMove,
+                                taskTitle: focusTask?.title,
+                                onReviewTimeline: () {
+                                  Navigator.of(sheetContext).pop();
+                                  ref
+                                      .read(appFlowProvider.notifier)
+                                      .toTimeline();
+                                },
+                                onAdjustPlan: () {
+                                  Navigator.of(sheetContext).pop();
+                                  ref
+                                      .read(appFlowProvider.notifier)
+                                      .toCreator();
+                                },
+                                onMarkTaskComplete: focusTask == null
+                                    ? null
+                                    : () async {
+                                        await ref
+                                            .read(taskActionsProvider)
+                                            .completeTask(
+                                              focusTask.id,
+                                              actionSource: 'nexus_focus',
+                                            );
+                                      },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
                   ),
-                )
-              else
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: _DeferredDependencyBootCard(),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                      child: _NexusBridgeCard(
+                        profile: profile,
+                        energy: energy,
+                        completedToday: completedToday,
+                      ),
+                    ),
                   ),
-                ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 10, 16, 24),
-                  child: _ActionGrid(),
-                ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: _showDeferredIntel
+                          ? const _DeferredIntelligenceSection()
+                          : _DeferredIntelligenceBootCard(startup: startup),
+                    ),
+                  ),
+                  if (_showDeferredIntel)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: _DependencyMesh(),
+                      ),
+                    )
+                  else
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: _DeferredDependencyBootCard(),
+                      ),
+                    ),
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 10, 16, 24),
+                      child: _ActionGrid(),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
         ),
       ),
     );

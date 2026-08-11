@@ -6,16 +6,17 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_lifecycle_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/tutorial/mission/mission_event_bridge.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
+import 'package:fantastic_guacamole/ui/layout/responsive_layout.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 enum _TimelineWindow { today, week, month, year, all }
 
@@ -50,18 +51,32 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         ref.read(timelineFirstActionCompletedProvider)) {
       return;
     }
-
-    ref.read(timelineFirstActionCompletedProvider.notifier).set(true);
+    final AuthSessionBoundary boundary = ref.read(authSessionBoundaryProvider);
+    final AuthSessionLifecycleCoordinator lifecycle = ref.read(
+      authSessionLifecycleProvider,
+    );
+    final int generation = boundary.generation;
+    final String? userId = boundary.userId;
+    if (!lifecycle.isCurrent(generation, userId)) {
+      return;
+    }
+    final notifier = ref.read(timelineFirstActionCompletedProvider.notifier);
 
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? userId = sb.Supabase.instance.client.auth.currentUser?.id;
+      if (!mounted || !lifecycle.isCurrent(generation, userId)) {
+        return;
+      }
+      notifier.set(true);
       final String key = (userId == null || userId.trim().isEmpty)
           ? timelineFirstActionCompletedStorageKey
           : timelineFirstActionCompletedStorageKeyForUser(userId.trim());
       await prefs.setBool(key, true);
     } on Object {
       // Do not block first-setup completion if local persistence is unavailable.
+      if (mounted && lifecycle.isCurrent(generation, userId)) {
+        notifier.set(true);
+      }
     }
   }
 
@@ -93,8 +108,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       timelineTodayProvider,
     );
     final List<GoalEntity> goals = ref.watch(goalsProvider);
-    final List<Task> tasks =
-        ref.watch(tasksProvider).asData?.value ?? const <Task>[];
+    final tasksAsync = ref.watch(tasksProvider);
+    final List<Task> tasks = tasksAsync.asData?.value ?? const <Task>[];
     final bool hasCreatedFirstItem = ref.watch(creatorFirstItemCreatedProvider);
     final bool hasCompletedTimelineFirstAction = ref.watch(
       timelineFirstActionCompletedProvider,
@@ -102,14 +117,36 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final bool showFirstActionUnlockBanner =
         hasCreatedFirstItem && !hasCompletedTimelineFirstAction;
     final DateTime now = DateTime.now();
+    final Map<String, Task> tasksById = <String, Task>{
+      for (final Task task in tasks) task.id: task,
+    };
+    final List<TimelineEventEntity> visibleBaseEvents = baseEvents
+        .map(
+          (TimelineEventEntity event) =>
+              _withCurrentTaskSchedule(event, tasksById),
+        )
+        .toList(growable: false);
+    final Set<String> linkedTaskIds = visibleBaseEvents
+        .where(
+          (TimelineEventEntity event) =>
+              event.type == TimelineEventType.task ||
+              event.type == TimelineEventType.habit ||
+              (event.type == TimelineEventType.deadline &&
+                  event.phase == 'task'),
+        )
+        .map((TimelineEventEntity event) => event.relatedId?.trim())
+        .whereType<String>()
+        .where((String id) => id.isNotEmpty)
+        .toSet();
 
     final List<TimelineEventEntity> projected = _buildProjectedEvents(
       now: now,
       tasks: tasks,
       goals: goals,
+      existingRelatedIds: linkedTaskIds,
     );
     final List<TimelineEventEntity> combined = <TimelineEventEntity>[
-      ...baseEvents,
+      ...visibleBaseEvents,
       ...projected,
       ..._buildIntelligenceEvents(
         now: now,
@@ -182,274 +219,312 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: SafeArea(
-            child: CustomScrollView(
-              slivers: <Widget>[
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                    child: Row(
-                      children: [
-                        SmartPressable(
-                          onTap: () =>
-                              ref.read(appFlowProvider.notifier).toNexus(),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: AppColors.neonViolet.withValues(
-                                alpha: 0.08,
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: AppColors.neonViolet.withValues(
-                                  alpha: 0.3,
-                                ),
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.arrow_back_ios_new,
-                              color: AppColors.neonViolet,
-                              size: 16,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ShaderMask(
-                              shaderCallback: (bounds) => const LinearGradient(
-                                colors: [
-                                  AppColors.neonViolet,
-                                  AppColors.neonCyan,
-                                ],
-                              ).createShader(bounds),
-                              child: const Text(
-                                'Timeline',
+            child: ResponsiveContent(
+              maxWidth: 1120,
+              child: CustomScrollView(
+                slivers: <Widget>[
+                  if (tasksAsync.isLoading && !tasksAsync.hasValue)
+                    const SliverToBoxAdapter(
+                      child: LinearProgressIndicator(minHeight: 2),
+                    ),
+                  if (tasksAsync.hasError && !tasksAsync.hasValue)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                        child: Row(
+                          children: <Widget>[
+                            const Expanded(
+                              child: Text(
+                                'Task projections are unavailable. Timeline events are still shown.',
                                 style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1,
-                                  color: Colors.white,
+                                  color: Colors.white70,
+                                  fontSize: 12,
                                 ),
                               ),
                             ),
-                            const Text(
-                              'Review your scheduled items and progress',
-                              style: TextStyle(
-                                fontSize: 10,
-                                letterSpacing: 0.5,
-                                color: Colors.white38,
-                              ),
+                            IconButton(
+                              tooltip: 'Retry task projections',
+                              onPressed: () => ref.invalidate(tasksProvider),
+                              icon: const Icon(Icons.refresh),
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 14)),
-                if (showFirstActionUnlockBanner)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                      child: _TimelineUnlockBanner(
-                        hasActionableTimelineItem: hasActionableTimelineItem,
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                      child: Row(
+                        children: [
+                          SmartPressable(
+                            onTap: () =>
+                                ref.read(appFlowProvider.notifier).toNexus(),
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: AppColors.neonViolet.withValues(
+                                  alpha: 0.08,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: AppColors.neonViolet.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.arrow_back_ios_new,
+                                color: AppColors.neonViolet,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ShaderMask(
+                                shaderCallback: (bounds) =>
+                                    const LinearGradient(
+                                      colors: [
+                                        AppColors.neonViolet,
+                                        AppColors.neonCyan,
+                                      ],
+                                    ).createShader(bounds),
+                                child: const Text(
+                                  'Timeline',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              const Text(
+                                'Review your scheduled items and progress',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  letterSpacing: 0.5,
+                                  color: Colors.white38,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                    child: _TodaySummaryCard(
-                      todayCount: todayTimelineEvents.length,
-                      upcomingCount: upcomingCount,
-                      overdueCount: overdueCount,
-                      completedCount: timelineCompletedEvents.length,
-                    ),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 10)),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                    child: TextField(
-                      onChanged: (String value) {
-                        _searchDebounce?.cancel();
-                        _searchDebounce = Timer(
-                          const Duration(milliseconds: 180),
-                          () {
-                            if (mounted) setState(() => _query = value);
-                          },
-                        );
-                      },
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Search timeline...',
-                        hintStyle: const TextStyle(color: Colors.white38),
-                        prefixIcon: const Icon(
-                          Icons.search_rounded,
-                          color: Colors.white38,
-                        ),
-                        filled: true,
-                        fillColor: const Color(0xAA091427),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: AppColors.neonViolet.withValues(alpha: 0.25),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: AppColors.neonCyan,
-                          ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 14)),
+                  if (showFirstActionUnlockBanner)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                        child: _TimelineUnlockBanner(
+                          hasActionableTimelineItem: hasActionableTimelineItem,
                         ),
                       ),
                     ),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 10)),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                    child: _WindowChips(
-                      selected: _window,
-                      onSelect: (_TimelineWindow value) =>
-                          setState(() => _window = value),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      child: _TodaySummaryCard(
+                        todayCount: todayTimelineEvents.length,
+                        upcomingCount: upcomingCount,
+                        overdueCount: overdueCount,
+                        completedCount: timelineCompletedEvents.length,
+                      ),
                     ),
                   ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: <Widget>[
-                        const Text(
-                          'Window',
-                          style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 10,
-                            letterSpacing: 0.8,
-                            fontWeight: FontWeight.w700,
+                  const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      child: TextField(
+                        onChanged: (String value) {
+                          _searchDebounce?.cancel();
+                          _searchDebounce = Timer(
+                            const Duration(milliseconds: 180),
+                            () {
+                              if (mounted) setState(() => _query = value);
+                            },
+                          );
+                        },
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Search timeline...',
+                          hintStyle: const TextStyle(color: Colors.white38),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: Colors.white38,
                           ),
-                        ),
-                        SmartPressable(
-                          onTap: () => setState(
-                            () => _showMoreFilters = !_showMoreFilters,
+                          filled: true,
+                          fillColor: const Color(0xAA091427),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: AppColors.neonViolet.withValues(
+                                alpha: 0.25,
+                              ),
+                            ),
                           ),
-                          child: Text(
-                            _showMoreFilters ? 'Hide filters' : 'More filters',
-                            style: const TextStyle(
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
                               color: AppColors.neonCyan,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.4,
                             ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-                if (_showMoreFilters) ...<Widget>[
+                  const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      child: _WindowChips(
+                        selected: _window,
+                        onSelect: (_TimelineWindow value) =>
+                            setState(() => _window = value),
+                      ),
+                    ),
+                  ),
                   const SliverToBoxAdapter(child: SizedBox(height: 8)),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                      child: _FocusChips(
-                        selected: _focus,
-                        onSelect: (_TimelineFocus value) =>
-                            setState(() => _focus = value),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: <Widget>[
+                          const Text(
+                            'Window',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 10,
+                              letterSpacing: 0.8,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SmartPressable(
+                            onTap: () => setState(
+                              () => _showMoreFilters = !_showMoreFilters,
+                            ),
+                            child: Text(
+                              _showMoreFilters
+                                  ? 'Hide filters'
+                                  : 'More filters',
+                              style: const TextStyle(
+                                color: AppColors.neonCyan,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                  ),
+                  if (_showMoreFilters) ...<Widget>[
+                    const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                        child: _FocusChips(
+                          selected: _focus,
+                          onSelect: (_TimelineFocus value) =>
+                              setState(() => _focus = value),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                  if (filtered.isEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xAA091427),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          child: const Text(
+                            'No items match this view.\n\nTry another window, clear filters, or create something in Creator.\n\nCreate a task, routine, goal, or note in Creator, then schedule it to see it here.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white60,
+                              fontSize: 13,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((ctx, i) {
+                          final DateTime day = days[i];
+                          final List<TimelineEventEntity> dayEvents =
+                              grouped[day]!;
+                          final String dayLabel = _timelineDayLabel(day, now);
+                          final String itemLabel = dayEvents.length == 1
+                              ? '1 item'
+                              : '${dayEvents.length} items';
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      dayLabel,
+                                      style: const TextStyle(
+                                        color: Colors.white38,
+                                        fontSize: 11,
+                                        letterSpacing: 1.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      itemLabel,
+                                      style: const TextStyle(
+                                        color: Colors.white30,
+                                        fontSize: 10,
+                                        letterSpacing: 0.8,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ...dayEvents.map(
+                                (TimelineEventEntity event) =>
+                                    _TimelineEventTile(event: event),
+                              ),
+                            ],
+                          );
+                        }, childCount: days.length),
+                      ),
+                    ),
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
+                      child: _TimelineHelperPanel(),
                     ),
                   ),
                 ],
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                if (filtered.isEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xAA091427),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12),
-                          ),
-                        ),
-                        child: const Text(
-                          'No items match this view.\n\nTry another window, clear filters, or create something in Creator.\n\nCreate a task, routine, goal, or note in Creator, then schedule it to see it here.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white60,
-                            fontSize: 13,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate((ctx, i) {
-                        final DateTime day = days[i];
-                        final List<TimelineEventEntity> dayEvents =
-                            grouped[day]!;
-                        final String dayLabel = _timelineDayLabel(day, now);
-                        final String itemLabel = dayEvents.length == 1
-                            ? '1 item'
-                            : '${dayEvents.length} items';
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    dayLabel,
-                                    style: const TextStyle(
-                                      color: Colors.white38,
-                                      fontSize: 11,
-                                      letterSpacing: 1.5,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    itemLabel,
-                                    style: const TextStyle(
-                                      color: Colors.white30,
-                                      fontSize: 10,
-                                      letterSpacing: 0.8,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            ...dayEvents.map(
-                              (TimelineEventEntity event) =>
-                                  _TimelineEventTile(event: event),
-                            ),
-                          ],
-                        );
-                      }, childCount: days.length),
-                    ),
-                  ),
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
-                    child: _TimelineHelperPanel(),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -470,6 +545,7 @@ class _TimelineEventTile extends ConsumerStatefulWidget {
 class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
   bool _isRunningAction = false;
   TimelineEventStatus? _localStatusOverride;
+  DateTime? _localDueAt;
   String? _lastActionLabel;
 
   TimelineEventEntity get event => widget.event;
@@ -481,7 +557,17 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
 
   bool get _isOverdue => _effectiveStatus == TimelineEventStatus.overdue;
 
+  DateTime? get _effectiveDueAt => _localDueAt ?? event.dueAt;
+
+  DateTime get _effectiveMoment => _effectiveDueAt ?? event.timestamp;
+
   String get _typeLabel {
+    if (event.type == TimelineEventType.deadline && event.phase == 'task') {
+      return 'Scheduled task';
+    }
+    if (event.type == TimelineEventType.task && event.dueAt != null) {
+      return 'Scheduled task';
+    }
     return switch (event.type) {
       TimelineEventType.task => 'Task',
       TimelineEventType.goal => 'Goal',
@@ -510,6 +596,7 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
     String successMessage,
     TimelineEventStatus nextStatus,
     String actionLabel,
+    DateTime? nextDueAt,
   ) async {
     if (_isRunningAction || !_canExecuteTaskAction) {
       return;
@@ -520,6 +607,7 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
       if (mounted) {
         setState(() {
           _localStatusOverride = nextStatus;
+          _localDueAt = nextDueAt;
           _lastActionLabel = actionLabel;
         });
       }
@@ -567,6 +655,7 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
       'Marked complete.',
       TimelineEventStatus.completed,
       'Completed',
+      null,
     );
   }
 
@@ -587,6 +676,7 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
       'Marked not completed and moved to tomorrow.',
       TimelineEventStatus.active,
       'Not completed',
+      _rescheduledDue(const Duration(days: 1)),
     );
   }
 
@@ -601,6 +691,7 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
       'Item skipped.',
       TimelineEventStatus.planned,
       'Skipped',
+      null,
     );
   }
 
@@ -615,7 +706,14 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
       'Item rescheduled.',
       TimelineEventStatus.planned,
       'Rescheduled',
+      _rescheduledDue(by),
     );
+  }
+
+  DateTime _rescheduledDue(Duration by) {
+    final DateTime now = DateTime.now();
+    final DateTime candidate = (_effectiveDueAt ?? now).add(by);
+    return candidate.isBefore(now) ? now.add(by) : candidate;
   }
 
   Widget _buildStatusFeedback() {
@@ -822,7 +920,7 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
                         ),
                       ),
                       Text(
-                        DateTimeFormats.timelineTime(_eventMoment(event)),
+                        DateTimeFormats.timelineTime(_effectiveMoment),
                         style: const TextStyle(
                           color: Colors.white38,
                           fontSize: 10,
@@ -871,12 +969,12 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  if (event.dueAt != null) ...[
+                  if (_effectiveDueAt != null) ...[
                     const SizedBox(height: 6),
                     Text(
                       _isOverdue
-                          ? 'Overdue since ${DateTimeFormats.dateShort(event.dueAt!)}'
-                          : 'Due ${DateTimeFormats.dateShort(event.dueAt!)}',
+                          ? 'Overdue since ${DateTimeFormats.dateShort(_effectiveDueAt!)}'
+                          : 'Due ${DateTimeFormats.dateShort(_effectiveDueAt!)}',
                       style: TextStyle(
                         color: _isOverdue
                             ? AppColors.recallRed
@@ -1326,6 +1424,36 @@ class _Chip extends StatelessWidget {
 DateTime _eventMoment(TimelineEventEntity event) =>
     event.dueAt ?? event.timestamp;
 
+TimelineEventEntity _withCurrentTaskSchedule(
+  TimelineEventEntity event,
+  Map<String, Task> tasksById,
+) {
+  if (!_isTaskTimelineLink(event)) {
+    return event;
+  }
+  final Task? task = tasksById[event.relatedId?.trim()];
+  if (task == null || task.scheduledFor == event.dueAt) {
+    return event;
+  }
+  return TimelineEventEntity(
+    id: event.id,
+    type: event.type,
+    title: event.title,
+    detail: event.detail,
+    timestamp: event.timestamp,
+    status: event.status,
+    dueAt: task.scheduledFor,
+    phase: event.phase,
+    relatedId: event.relatedId,
+  );
+}
+
+bool _isTaskTimelineLink(TimelineEventEntity event) {
+  return event.type == TimelineEventType.task ||
+      event.type == TimelineEventType.habit ||
+      (event.type == TimelineEventType.deadline && event.phase == 'task');
+}
+
 DateTime _normalizedDay(DateTime value) =>
     DateTime(value.year, value.month, value.day);
 
@@ -1405,10 +1533,14 @@ List<TimelineEventEntity> _buildProjectedEvents({
   required DateTime now,
   required List<Task> tasks,
   required List<GoalEntity> goals,
+  required Set<String> existingRelatedIds,
 }) {
   final List<TimelineEventEntity> events = <TimelineEventEntity>[];
 
   for (final Task task in tasks) {
+    if (existingRelatedIds.contains(task.id)) {
+      continue;
+    }
     final DateTime? due = task.scheduledFor;
     if (due == null) {
       continue;

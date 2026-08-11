@@ -203,6 +203,7 @@ class _PulseDot extends StatefulWidget {
 class _PulseDotState extends State<_PulseDot>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
+  bool? _reduceMotion;
 
   @override
   void initState() {
@@ -210,7 +211,22 @@ class _PulseDotState extends State<_PulseDot>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (_reduceMotion == reduceMotion) {
+      return;
+    }
+    _reduceMotion = reduceMotion;
+    if (reduceMotion) {
+      _c.stop();
+    } else {
+      _c.repeat(reverse: true);
+    }
   }
 
   @override
@@ -221,21 +237,25 @@ class _PulseDotState extends State<_PulseDot>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (_, _) => Container(
-        width: 7,
-        height: 7,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: widget.color,
-          boxShadow: [
-            BoxShadow(
-              color: widget.color.withValues(alpha: 0.3 + _c.value * 0.5),
-              blurRadius: 4 + _c.value * 8,
-            ),
-          ],
-        ),
+    if (_reduceMotion == true) {
+      return _dot(0.5);
+    }
+    return AnimatedBuilder(animation: _c, builder: (_, _) => _dot(_c.value));
+  }
+
+  Widget _dot(double pulse) {
+    return Container(
+      width: 7,
+      height: 7,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: widget.color,
+        boxShadow: [
+          BoxShadow(
+            color: widget.color.withValues(alpha: 0.3 + pulse * 0.5),
+            blurRadius: 4 + pulse * 8,
+          ),
+        ],
       ),
     );
   }
@@ -677,6 +697,134 @@ class _NexusBridgeCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NextMoveCard extends ConsumerWidget {
+  const _NextMoveCard({
+    required this.briefing,
+    required this.hasCompletedToday,
+    required this.focusTaskTitle,
+    required this.onStartFocus,
+  });
+
+  final NexusDailyBriefing briefing;
+  final bool hasCompletedToday;
+  final String? focusTaskTitle;
+  final VoidCallback onStartFocus;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bool compact = MediaQuery.sizeOf(context).width < 390;
+    final bool createFirst = !hasCompletedToday;
+    final String actionLabel = createFirst
+        ? 'Prepare a 12-minute focus block'
+        : 'Protect the next 12 minutes';
+
+    return Semantics(
+      identifier: 'nexus-next-move',
+      container: true,
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(compact ? 14 : 18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: <Color>[
+              AppColors.neonCyan.withValues(alpha: 0.18),
+              const Color(0xEE07111F),
+              AppColors.neonViolet.withValues(alpha: 0.14),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.38)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: AppColors.neonCyan.withValues(alpha: 0.10),
+              blurRadius: 24,
+              spreadRadius: -8,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: AppColors.neonCyan.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: AppColors.neonCyan,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'RECOMMENDED NEXT MOVE',
+                    style: TextStyle(
+                      color: AppColors.neonCyan,
+                      fontSize: 10,
+                      letterSpacing: 1.35,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              briefing.nextMove,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: compact ? 16 : 18,
+                height: 1.28,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Why now: ${briefing.opening}',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: compact ? 11 : 12,
+                height: 1.35,
+              ),
+            ),
+            if (focusTaskTitle != null) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(
+                'Focus target: $focusTaskTitle',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.neonCyan.withValues(alpha: 0.9),
+                  fontSize: compact ? 11 : 12,
+                  height: 1.35,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onStartFocus,
+                icon: const Icon(Icons.center_focus_strong),
+                label: Text(actionLabel),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
