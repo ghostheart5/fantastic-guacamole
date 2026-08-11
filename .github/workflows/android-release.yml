@@ -83,6 +83,7 @@ jobs:
   build-aab:
     needs: [database-gate, public-infrastructure-gate]
     runs-on: ubuntu-latest
+    environment: production
     env:
       ANDROID_GOOGLE_SERVICES_JSON_BASE64_SECRET: ANDROID_GOOGLE_SERVICES_JSON_BASE64
       ANDROID_GOOGLE_SERVICES_JSON_SECRET: ANDROID_GOOGLE_SERVICES_JSON
@@ -95,11 +96,63 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate release source and version
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Release commit must be reachable from origin/main."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          pubspec = Path('pubspec.yaml').read_text(encoding='utf-8')
+          version_match = re.search(
+              r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$',
+              pubspec,
+              re.MULTILINE,
+          )
+          if version_match is None:
+              raise SystemExit('::error::pubspec.yaml must contain a semantic version and numeric build number.')
+
+          version_name, version_code = version_match.groups()
+          properties = {}
+          for raw_line in Path('android/gradle.properties').read_text(encoding='utf-8').splitlines():
+              line = raw_line.strip()
+              if not line or line.startswith('#') or '=' not in line:
+                  continue
+              key, value = line.split('=', 1)
+              properties[key.strip()] = value.strip()
+
+          if properties.get('CHRONOSPARK_VERSION_NAME') != version_name:
+              raise SystemExit('::error::Android version name does not match pubspec.yaml.')
+          if properties.get('CHRONOSPARK_VERSION_CODE') != version_code:
+              raise SystemExit('::error::Android version code does not match pubspec.yaml.')
+
+          ref_type = os.environ['GITHUB_REF_TYPE']
+          ref_name = os.environ['GITHUB_REF_NAME']
+          if ref_type == 'tag':
+              pattern = rf'^v{re.escape(version_name)}(?:-(?:alpha|beta|rc|pre)[0-9A-Za-z.-]*)?$'
+              if re.fullmatch(pattern, ref_name) is None:
+                  raise SystemExit(
+                      f'::error::Release tag {ref_name!r} does not match app version v{version_name}.'
+                  )
+          elif ref_name != 'main':
+              raise SystemExit('::error::Manual production releases must run from main.')
+          PY
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           channel: stable
+          flutter-version: '3.44.6'
 
       - name: Write client configuration asset
         env:
@@ -122,6 +175,10 @@ jobs:
 
       - name: Analyze Dart code
         run: flutter analyze
+
+      - name: Run Android release guard
+        shell: pwsh
+        run: ./scripts/release_guard.ps1
 
       - name: Decode keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
@@ -187,6 +244,73 @@ jobs:
             exit 1
           fi
 
+      - name: Verify Firebase Android configuration identity
+        run: |
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          google = json.loads(Path('android/app/google-services.json').read_text(encoding='utf-8'))
+          flutterfire = json.loads(Path('firebase.json').read_text(encoding='utf-8'))
+          dart_source = Path('lib/firebase_options.dart').read_text(encoding='utf-8')
+
+          expected_package = 'com.ghostheart5.chronospark'
+          android_config = flutterfire['flutter']['platforms']['android']['default']
+          clients = [
+              client for client in google.get('client', [])
+              if client.get('client_info', {}).get('android_client_info', {}).get('package_name')
+                  == expected_package
+          ]
+          if len(clients) != 1:
+              raise SystemExit('::error::google-services.json must contain exactly one production Android client.')
+          client = clients[0]
+          api_keys = client.get('api_key', [])
+          if len(api_keys) != 1:
+              raise SystemExit('::error::Production Firebase client must contain exactly one API key entry.')
+
+          dart_android_match = re.search(
+              r'static const FirebaseOptions android = FirebaseOptions\((.*?)\n\s*\);',
+              dart_source,
+              re.DOTALL,
+          )
+          if dart_android_match is None:
+              raise SystemExit('::error::Unable to locate Android FirebaseOptions.')
+
+          def dart_value(field: str) -> str:
+              match = re.search(
+                  rf"\b{re.escape(field)}:\s*'([^']+)'",
+                  dart_android_match.group(1),
+              )
+              if match is None:
+                  raise SystemExit(f'::error::Android FirebaseOptions is missing {field}.')
+              return match.group(1)
+
+          project_info = google.get('project_info', {})
+          client_info = client.get('client_info', {})
+          actual = {
+              'projectId': project_info.get('project_id'),
+              'appId': client_info.get('mobilesdk_app_id'),
+              'messagingSenderId': str(project_info.get('project_number', '')),
+              'storageBucket': project_info.get('storage_bucket'),
+              'apiKey': api_keys[0].get('current_key'),
+          }
+          expected = {
+              'projectId': android_config.get('projectId'),
+              'appId': android_config.get('appId'),
+              'messagingSenderId': dart_value('messagingSenderId'),
+              'storageBucket': dart_value('storageBucket'),
+              'apiKey': dart_value('apiKey'),
+          }
+          mismatches = sorted(key for key in expected if not actual[key] or actual[key] != expected[key])
+          if mismatches:
+              raise SystemExit(
+                  '::error::Firebase Android configuration mismatch in: ' + ', '.join(mismatches)
+              )
+          if dart_value('projectId') != expected['projectId'] or dart_value('appId') != expected['appId']:
+              raise SystemExit('::error::firebase.json and Android FirebaseOptions identify different apps.')
+          PY
+
       - name: Validate production configuration
         env:
           SUPABASE_URL: ${{ secrets[env.CHRONOSPARK_SUPABASE_URL_SECRET] }}
@@ -246,6 +370,8 @@ jobs:
         run: flutter test
 
       - name: Build signed AAB
+        env:
+          CHRONOSPARK_BUILD_PROFILE: production
         run: >-
           flutter build appbundle --release
           --dart-define=CHRONOSPARK_APP_FLAVOR=prod
@@ -264,6 +390,50 @@ jobs:
           --dart-define=CHRONOSPARK_OAUTH_REDIRECT_URL=https://chronospark.app/app/auth/callback
           --dart-define=CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL=https://chronospark.app/app/auth/callback
           --dart-define=CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL=https://chronospark.app/app/auth/callback
+
+      - name: Inspect signed AAB and collect release evidence
+        env:
+          EXPECTED_UPLOAD_SHA1: "8A:24:D7:BA:AC:AB:52:F0:A3:77:7D:D0:47:C9:07:96:2E:82:FA:A5"
+        run: |
+          set -euo pipefail
+          AAB="build/app/outputs/bundle/release/app-release.aab"
+          EVIDENCE_DIR="build/release-evidence"
+          mkdir -p "$EVIDENCE_DIR"
+
+          jarsigner -verify -verbose -certs "$AAB" > "$EVIDENCE_DIR/jarsigner.txt"
+          grep -q "jar verified" "$EVIDENCE_DIR/jarsigner.txt" || {
+            echo "::error::The release AAB does not have a valid JAR signature."
+            exit 1
+          }
+
+          keytool -printcert -jarfile "$AAB" > "$EVIDENCE_DIR/signer-certificate.txt"
+          ACTUAL_SHA1=$(awk -F': ' '/SHA1:/{print $2; exit}' "$EVIDENCE_DIR/signer-certificate.txt")
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_UPLOAD_SHA1" ]; then
+            echo "::error::The signed AAB uses an unexpected upload certificate."
+            exit 1
+          fi
+
+          VERSION_NAME=$(awk -F= '$1=="CHRONOSPARK_VERSION_NAME" {print $2}' android/gradle.properties)
+          VERSION_CODE=$(awk -F= '$1=="CHRONOSPARK_VERSION_CODE" {print $2}' android/gradle.properties)
+          python3 scripts/validate_android_release_artifact.py \
+            --aab "$AAB" \
+            --expected-package com.ghostheart5.chronospark \
+            --expected-version-name "$VERSION_NAME" \
+            --expected-version-code "$VERSION_CODE" \
+            --minimum-target-sdk 35 \
+            --output "$EVIDENCE_DIR/release-evidence.json"
+
+          git rev-parse HEAD > "$EVIDENCE_DIR/commit.txt"
+          flutter --version > "$EVIDENCE_DIR/flutter-version.txt"
+          sha256sum "$AAB" > "$EVIDENCE_DIR/app-release.aab.sha256"
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronospark-release-evidence-${{ github.ref_name }}
+          path: build/release-evidence/
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4

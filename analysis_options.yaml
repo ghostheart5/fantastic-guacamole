@@ -1,5 +1,4 @@
 include: package:flutter_lints/flutter.yaml
-avoid_importing_flutter: true
 analyzer:
   exclude:
     - build/**

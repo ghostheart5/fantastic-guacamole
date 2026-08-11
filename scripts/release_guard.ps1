@@ -69,13 +69,13 @@ if (-not (Test-Path $androidGradle)) {
   $gradleContent = Get-Content -Path $androidGradle -Raw
 
   $compileSdk = Get-RegexIntegerValue -Text $gradleContent -Pattern 'compileSdk\s*=\s*maxOf\(flutter\.compileSdkVersion,\s*(\d+)\)'
-  if ($null -eq $compileSdk -or $compileSdk -lt 34) {
-    Add-Failure 'compileSdk floor must be >= 34.'
+  if ($null -eq $compileSdk -or $compileSdk -lt 35) {
+    Add-Failure 'compileSdk floor must be >= 35.'
   }
 
   $targetSdk = Get-RegexIntegerValue -Text $gradleContent -Pattern 'targetSdk\s*=\s*maxOf\(flutter\.targetSdkVersion,\s*(\d+)\)'
-  if ($null -eq $targetSdk -or $targetSdk -lt 34) {
-    Add-Failure 'targetSdk floor must be >= 34.'
+  if ($null -eq $targetSdk -or $targetSdk -lt 35) {
+    Add-Failure 'targetSdk floor must be >= 35.'
   }
 
   if (

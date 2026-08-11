@@ -1,11 +1,13 @@
 import java.util.Properties
 import java.security.KeyStore
 import java.security.MessageDigest
+import java.util.Base64
 import java.util.Locale
 
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id("org.jetbrains.kotlin.android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -33,6 +35,99 @@ val googleServicesJsonFile = project.file("google-services.json")
 val hasGoogleServicesJson = googleServicesJsonFile.exists() && buildProfile == "production"
 val isReleaseTaskRequested = gradle.startParameter.taskNames.any {
     it.lowercase(Locale.US).contains("release")
+}
+
+fun decodeDartDefines(rawDefines: String?): Map<String, String> =
+    rawDefines
+        .orEmpty()
+        .split(',')
+        .mapNotNull { encoded ->
+            if (encoded.isBlank()) {
+                return@mapNotNull null
+            }
+
+            val decoded = runCatching {
+                String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)
+            }.recoverCatching {
+                String(Base64.getUrlDecoder().decode(encoded), Charsets.UTF_8)
+            }.getOrNull() ?: return@mapNotNull null
+
+            val separator = decoded.indexOf('=')
+            if (separator <= 0) {
+                return@mapNotNull null
+            }
+            decoded.substring(0, separator) to decoded.substring(separator + 1)
+        }
+        .toMap()
+
+fun readEnvironmentAsset(file: File): Map<String, String> =
+    file.readLines()
+        .map(String::trim)
+        .filter { line -> line.isNotEmpty() && !line.startsWith('#') }
+        .mapNotNull { line ->
+            val separator = line.indexOf('=')
+            if (separator <= 0) {
+                null
+            } else {
+                line.substring(0, separator).trim() to line.substring(separator + 1).trim()
+            }
+        }
+        .toMap()
+
+if (isReleaseTaskRequested) {
+    val dartDefines = decodeDartDefines(project.findProperty("dart-defines") as String?)
+    val requiredDefines = mapOf(
+        "CHRONOSPARK_APP_FLAVOR" to "prod",
+        "CHRONOSPARK_ENFORCE_PROD_READINESS" to "true",
+        "CHRONOSPARK_MAESTRO_MODE" to "false",
+        "CHRONOSPARK_ENABLE_MOCK_LOGIN" to "false",
+        "CHRONOSPARK_ENABLE_MOCK_MODE" to "false",
+        "CHRONOSPARK_PAYWALL_DISABLED" to "false",
+        "CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS" to "false",
+    )
+    val mismatchedDefines = requiredDefines.filter { (key, expected) ->
+        dartDefines[key]?.trim()?.lowercase(Locale.US) != expected
+    }.keys
+    require(mismatchedDefines.isEmpty()) {
+        "Release Dart defines are missing or unsafe: ${mismatchedDefines.sorted().joinToString()}."
+    }
+
+    val requiredNonEmptyDefines = setOf(
+        "CHRONOSPARK_SUPABASE_URL",
+        "CHRONOSPARK_SUPABASE_ANON_KEY",
+        "CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT",
+        "CHRONOSPARK_AI_PROXY_ENDPOINT",
+        "CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT",
+        "CHRONOSPARK_ANDROID_SHA256_CERT",
+    )
+    val emptyDefines = requiredNonEmptyDefines.filter { key ->
+        dartDefines[key].isNullOrBlank()
+    }
+    require(emptyDefines.isEmpty()) {
+        "Release Dart defines are missing values: ${emptyDefines.sorted().joinToString()}."
+    }
+
+    val environmentAsset = rootProject.file("../.env")
+    require(environmentAsset.isFile) {
+        "Release builds require a generated, sanitized .env asset."
+    }
+    val assetValues = readEnvironmentAsset(environmentAsset)
+    val allowedAssetKeys = setOf(
+        "CHRONOSPARK_SUPABASE_URL",
+        "CHRONOSPARK_SUPABASE_ANON_KEY",
+    )
+    val unexpectedAssetKeys = assetValues.keys.filter { key ->
+        key.startsWith("CHRONOSPARK_") && key !in allowedAssetKeys
+    }
+    require(unexpectedAssetKeys.isEmpty()) {
+        "Release .env contains forbidden runtime overrides: ${unexpectedAssetKeys.sorted().joinToString()}."
+    }
+    val divergentAssetKeys = allowedAssetKeys.filter { key ->
+        assetValues[key].isNullOrBlank() || assetValues[key] != dartDefines[key]
+    }
+    require(divergentAssetKeys.isEmpty()) {
+        "Release .env does not match its Dart defines: ${divergentAssetKeys.sorted().joinToString()}."
+    }
 }
 
 if (isReleaseTaskRequested && !hasGoogleServicesJson) {
@@ -87,7 +182,7 @@ fun File.resolveAgainst(base: File): File = if (isAbsolute) this else File(base,
 
 android {
     namespace = productionApplicationId
-    compileSdk = maxOf(flutter.compileSdkVersion, 34)
+    compileSdk = maxOf(flutter.compileSdkVersion, 35)
     ndkVersion = "28.2.13676358"
 
     compileOptions {
@@ -99,7 +194,7 @@ android {
     defaultConfig {
         applicationId = releaseApplicationId
         minSdk = flutter.minSdkVersion
-        targetSdk = maxOf(flutter.targetSdkVersion, 34)
+        targetSdk = maxOf(flutter.targetSdkVersion, 35)
         versionCode = releaseVersionCode
         versionName = releaseVersionName
     }
