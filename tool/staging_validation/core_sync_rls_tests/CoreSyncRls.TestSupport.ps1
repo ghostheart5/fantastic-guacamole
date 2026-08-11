@@ -86,7 +86,7 @@ function Test-RestSuccess {
     param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)]$Response)
 
     if ($Response.StatusCode -lt 200 -or $Response.StatusCode -ge 300) {
-        Write-ValidationFail -Name $Name -Detail "Expected success but received HTTP $($Response.StatusCode): $($Response.Content)"
+        Write-ValidationFail -Name $Name -Detail "Expected success but received HTTP $($Response.StatusCode)."
         return $false
     }
     Write-ValidationPass -Name $Name
@@ -104,7 +104,7 @@ function Test-RestDeniedOrEmpty {
         Write-ValidationPass -Name $Name
         return
     }
-    Write-ValidationFail -Name $Name -Detail "Expected denial or zero rows but received HTTP $($Response.StatusCode): $($Response.Content)"
+    Write-ValidationFail -Name $Name -Detail "Expected denial or zero rows but received HTTP $($Response.StatusCode)."
 }
 
 function Remove-CoreSyncTestRow {
@@ -118,7 +118,7 @@ function Remove-CoreSyncTestRow {
 
     $response = Invoke-StagingRestRequest -Method 'DELETE' -Context $Context -Table $Table -Session $Owner -Filters $Filters -Body $null
     if ($response.StatusCode -lt 200 -or $response.StatusCode -ge 300) {
-        Write-ValidationFail -Name $Name -Detail "Cleanup failed with HTTP $($response.StatusCode): $($response.Content)"
+        Write-ValidationFail -Name $Name -Detail "Cleanup failed with HTTP $($response.StatusCode)."
     }
 }
 

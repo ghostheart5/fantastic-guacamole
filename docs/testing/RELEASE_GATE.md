@@ -1,7 +1,7 @@
 # Release gate
 
 Date: 2026-08-11
-Scope: Phase 6 device integration and Patrol requirements
+Scope: Phase 8 backend, staging, authorization, and data-isolation requirements
 
 ## Device gate
 
@@ -86,3 +86,57 @@ The pre-release gate is blocked until all four levels pass for the exact
 candidate binary, with screenshots/logs retained for human review. The
 subscription level remains blocked until a sandbox store account is explicitly
 available; it must never be recorded as a skipped or optional pass.
+
+## Phase 8 backend release gate
+
+Backend authorization is a release veto until all required current-head local
+and approved-staging evidence is attached. Historical staging transcripts,
+static source inspection, pending cases, skipped cases, or an unconfirmed host
+cannot satisfy this gate.
+
+### Required safety preconditions
+
+1. Run the offline gate first:
+
+   ```powershell
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tool\staging_validation\phase8_backend_harness_test.ps1
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tool\staging_validation\run_phase8_backend_tests.ps1
+   ```
+
+2. Positively identify the approved target as exactly
+   `https://pxtjkwfedrtnxuihtdox.supabase.co`; the URL must be HTTPS, have no
+   path/query/fragment, and match case-sensitively. The explicit confirmation
+   switch remains required.
+3. Use only isolated User A, User B, anonymous, and normal-authenticated actors.
+   A privileged server role is allowed only in a separately approved server-side
+   fixture path and is never supplied to client tests.
+4. Give every live run a unique Phase 8 run ID. Create only run-owned records or
+   objects, restrict cleanup to exact run-owned identifiers, verify cleanup, and
+   reject wildcard/broad deletion.
+5. Do not reset a database, deploy/apply/repair a migration, deploy a function,
+   use production fallback, or log raw credentials, JWTs, requests, exceptions,
+   memory, receipts, or response bodies.
+
+### Required evidence
+
+- Local pgTAP: schema compatibility, migrations, RLS, spoofed ownership,
+  privileges, profile/metrics, rate limits, credits, and deletion cascades.
+- Local Deno: session freshness, malformed deletion input, Google OIDC caller
+  validation, retired endpoints, and purchase/subscription validation.
+- Confirmed staging: authentication refresh/expiry, two-user read/write
+  isolation, spoof denial, privileged RPC denial, profile repair, global metrics,
+  rate limits, storage isolation, synchronization, deployed Edge Function
+  malformed/unauthorized behavior, monetization isolation, and deletion
+  boundaries.
+- Approved sandbox: purchase verification and restore with test receipts and
+  bounded cleanup; never a production purchase or account.
+
+### Current Phase 8 verdict
+
+**BLOCKED.** The offline guard harness passed 12 assertions, selected Deno tests
+passed 17/17, and static manifest/PowerShell/SQL wrapper validation passed. The
+drift-manifest test fails on source-hash mismatches for `ai-proxy`,
+`monetization-verify`, and `account-delete`. Supabase CLI and `psql` are absent,
+so pgTAP was not executed. No staging/sandbox case was run because this phase did
+not receive a fresh explicit environment/mutation approval. Those cases are
+pending, not passing.

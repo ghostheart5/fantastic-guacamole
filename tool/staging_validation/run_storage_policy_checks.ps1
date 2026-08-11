@@ -158,7 +158,7 @@ finally {
         }
         catch {
             $script:ValidationFailures++
-            Write-Host "FAIL  Cleanup $($cleanup.Session.Label) validation object - $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "FAIL  Cleanup $($cleanup.Session.Label) validation object - SAFE_ERROR_CLEANUP_REQUEST_FAILED" -ForegroundColor Red
         }
     }
 }

@@ -6,7 +6,9 @@ function expect(condition: boolean, message: string): void {
 
 const nowMs = Date.parse("2026-08-04T00:00:00.000Z");
 
-function purchase(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function purchase(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
   return {
     subscriptionState: "SUBSCRIPTION_STATE_ACTIVE",
     acknowledgementState: "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED",
@@ -26,7 +28,10 @@ Deno.test("matching active product token succeeds", () => {
     "chronospark_premium_monthly",
     nowMs,
   );
-  expect(verified?.productId === "chronospark_premium_monthly", "expected matching product");
+  expect(
+    verified?.productId === "chronospark_premium_monthly",
+    "expected matching product",
+  );
 });
 
 Deno.test("lower-tier token cannot claim a higher-tier product", () => {
@@ -70,4 +75,46 @@ Deno.test("invalid subscription states fail", () => {
     nowMs,
   );
   expect(verified === null, "invalid subscription state must be rejected");
+});
+
+Deno.test("unacknowledged and malformed expiry values fail", () => {
+  const unacknowledged = verifySubscriptionLineItem(
+    purchase({ acknowledgementState: "ACKNOWLEDGEMENT_STATE_PENDING" }),
+    "chronospark_premium_monthly",
+    nowMs,
+  );
+  const malformedExpiry = verifySubscriptionLineItem(
+    purchase({
+      lineItems: [{
+        productId: "chronospark_premium_monthly",
+        expiryTime: "not-a-date",
+      }],
+    }),
+    "chronospark_premium_monthly",
+    nowMs,
+  );
+  expect(unacknowledged === null, "unacknowledged purchase must fail");
+  expect(malformedExpiry === null, "malformed expiry must fail");
+});
+
+Deno.test("grace-period restore verifies the same entitlement deterministically", () => {
+  const restoredPurchase = purchase({
+    subscriptionState: "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+  });
+  const first = verifySubscriptionLineItem(
+    restoredPurchase,
+    "chronospark_premium_monthly",
+    nowMs,
+  );
+  const retry = verifySubscriptionLineItem(
+    restoredPurchase,
+    "chronospark_premium_monthly",
+    nowMs,
+  );
+  expect(first !== null, "grace-period entitlement should verify");
+  expect(
+    first?.productId === retry?.productId &&
+      first?.expiryTimeMs === retry?.expiryTimeMs,
+    "restore verification must be stable across retries",
+  );
 });

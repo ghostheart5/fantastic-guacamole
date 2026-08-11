@@ -1,7 +1,7 @@
 # ChronoSpark test ledger
 
 Date: 2026-08-11
-Scope: Phase 6 real-application Android device integration and Patrol coverage
+Scope: Phase 8 backend, staging, authorization, and data-isolation testing
 Source inventory: `ADVANCED_TEST_PLAN.md` (the four legacy ledger documents named
 by the Phase 0 request are not present in this checkout).  `AGENTS.md` is present
 but empty.
@@ -195,3 +195,67 @@ one is connected to a chat feature.
   The isolated Android 17/API 37 emulator was connected, but the build/runner
   produced no result within the bounded 60-second command window. It was
   stopped and is **unexecuted**, not passed or failed.
+
+## Phase 8 backend and staging coverage
+
+Phase 8 adds an offline-first manifest and guard harness around the existing
+Supabase assets. The manifest covers all 21 requested areas and distinguishes
+local evidence from staging or sandbox evidence. A staging case remains
+`pending-*` until it is rerun against the current commit after explicit approval;
+historical transcripts are not current-head passing evidence.
+
+### Inventory and disposition
+
+| Layer | Current assets | Phase 8 result | Blocking gap |
+|---|---:|---|---|
+| pgTAP SQL | 8 transaction-wrapped files | Static transaction/plan validation passed; one unconditional placeholder test was replaced with real profile-trigger/search-path/privilege assertions | Supabase CLI and `psql` unavailable, so 0 SQL tests executed |
+| Deno | 7 test files total, including the isolated AI-proxy test and drift verifier | 17 tests from 5 selected non-chat files passed locally with no network permission | Drift verifier failed on current source-hash mismatches for `ai-proxy`, `monetization-verify`, and `account-delete` |
+| PowerShell staging | 31 files after Phase 8 | All files parsed; 12 offline target/refusal/redaction/run-ownership assertions passed | No live runner was invoked; current-head staging evidence is pending |
+| Staging case manifest | 21 required areas | All areas and referenced assets validated | Staging/sandbox cases stay pending until approved hostname, actors, fixtures, and cleanup are confirmed |
+
+### Area status
+
+| Area | Existing/new evidence | Current status |
+|---|---|---|
+| Authentication; refresh/expiry | guarded User A/User B login helpers; recent-sign-in Deno boundary tests | Local boundary tests passed; live Auth refresh/expiry pending staging |
+| Two-user isolation; spoofed IDs; unauthorized reads/writes | core-sync pgTAP and guarded User A/User B PowerShell suites | Static validation passed; live RLS mutations pending staging approval |
+| Privileged RPC; profile repair; global metrics | SQL privilege checks and guarded denial/repair suites | Catalog contracts ready; live caller behavior pending staging |
+| Rate limiting | AI/monetization pgTAP and two-session runner | SQL unexecuted and live counter mutations pending staging |
+| Storage isolation | path-scoped guarded runner | Pending exact bucket/policy approval and staging mutation approval |
+| Synchronization | task/goal/habit/settings/user-metrics RLS assets | Pending staging execution with run-owned fixtures |
+| Schema compatibility; migrations | hosted-schema/function-privilege pgTAP and drift verifier | SQL pending local CLI; drift verifier currently failing |
+| Edge Functions; malformed requests | mocked Google OIDC validation, deletion input validation, retired endpoint, and subscription validation | 17 selected Deno tests passed; no deployed function called |
+| Credits; purchase verification; entitlement isolation; restore | credit/RPC pgTAP, denial runners, read-isolation assets, deterministic subscription verification | Pure verification passed; sandbox receipt and all staging writes pending |
+| Account deletion boundaries | deletion input/recent-sign-in Deno and cascade pgTAP | Local Deno passed; cascade SQL and destructive staging boundary test pending |
+
+### Phase 8 safety contract
+
+- The only approved staging hostname encoded by the harness is
+  `pxtjkwfedrtnxuihtdox.supabase.co`; confirmation is still mandatory and no
+  caller may substitute another host.
+- Client staging helpers reject service-role/secret-key environment variables.
+- Test run IDs are unique and cleanup identifiers must contain the exact run ID;
+  wildcard and unrelated cleanup targets are refused.
+- Diagnostics redact bearer tokens, JWTs, passwords, API keys, and secrets;
+  RPC failures log stable status/category data rather than raw bodies/exceptions.
+- The Phase 8 runner contains no database push/reset, migration apply/deploy,
+  Edge Function deploy, production fallback, or network operation.
+
+### Phase 8 validation record
+
+- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+  .\tool\staging_validation\phase8_backend_harness_test.ps1`: 12 passed, 0
+  failed.
+- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+  .\tool\staging_validation\run_phase8_backend_tests.ps1`: manifest, 31
+  PowerShell files, and 8 SQL transaction wrappers passed static validation.
+- Selected Deno backend tests: 17 passed, 0 failed, with no network permission.
+- `deno test --allow-read=supabase
+  supabase/drift/verify_manifest_test.ts`: 0 passed, 1 failed because three
+  existing function source hashes do not match the hosted-state manifest.
+- Staging/sandbox: 0 executed, all pending. No environment file was imported,
+  no remote host was contacted, and no mutation or cleanup occurred.
+- Local pgTAP: 0 executed because Supabase CLI and `psql` are unavailable.
+
+No production, migration, schema, deployment, credential, UI, or chat file was
+changed by Phase 8.
