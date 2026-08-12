@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/intake/intake_request.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
@@ -30,44 +31,42 @@ class CreatorActions {
   }
 
   Future<CreatorSavedKind> createEntry(CreatorFormData data) async {
-    final String mode = data.creatorMode.trim().toLowerCase();
-    final String requestedKind = _normalizeRequestedKind(_kindFor(data, mode));
-    final String kind = _normalizeKind(requestedKind);
+    final intake = IntakeRequest.fromRaw(title: data.title, description: data.description, type: data.type, creatorMode: data.creatorMode, priority: data.priority, scheduledFor: data.scheduledFor, recurrenceRule: data.recurrenceRule)..validate();
 
-    final RecurrenceRule recurrence = _recurrenceFor(
-      kind: kind,
-      requested: data.recurrenceRule,
-    );
-
-    if (kind == 'goal') {
-      await _createGoal(data: data, recurrence: recurrence);
+    if (intake.kind == IntakeKind.goal) {
+      await _createGoal(data: data, recurrence: intake.resolvedRecurrence);
       await _markFirstItemCreated();
       return CreatorSavedKind.goal;
     }
 
-    switch (requestedKind.trim().toLowerCase()) {
-      case 'routine':
-        await _createRoutineEntry(data: data, recurrence: recurrence);
+    switch (intake.kind) {
+      case IntakeKind.routine:
+        await _createRoutineEntry(
+          data: data,
+          kind: intake.taskKind,
+          recurrence: intake.resolvedRecurrence,
+        );
         break;
-      case 'note':
-        await _createNoteEntry(data: data, recurrence: recurrence);
+      case IntakeKind.note:
+        await _createNoteEntry(data: data, recurrence: intake.resolvedRecurrence);
         break;
       default:
-        await _createTaskEntry(data: data, kind: kind, recurrence: recurrence);
+        await _createTaskEntry(data: data, kind: intake.taskKind, recurrence: intake.resolvedRecurrence, priorityOverride: intake.resolvedPriority, difficultyOverride: intake.difficulty, energyRequiredOverride: intake.energyRequired);
         break;
     }
 
     await _markFirstItemCreated();
-    return _savedKindFor(requestedKind: requestedKind);
+    return _savedKindFor(requestedKind: intake.kind.name);
   }
 
   Future<void> _createRoutineEntry({
     required CreatorFormData data,
+    required String kind,
     required RecurrenceRule recurrence,
   }) async {
     await _createTaskEntry(
       data: data,
-      kind: 'routine',
+      kind: kind,
       recurrence: recurrence,
       actionSource: 'creator_routine',
     );
@@ -100,9 +99,12 @@ class CreatorActions {
     required CreatorFormData data,
     required String kind,
     required RecurrenceRule recurrence,
+    int? priorityOverride,
+    int? difficultyOverride,
+    int? energyRequiredOverride,
     String actionSource = 'creator_task',
   }) async {
-    final int priority = _priorityFor(kind: kind, requested: data.priority);
+    final int priority = priorityOverride ?? _priorityFor(kind: kind, requested: data.priority);
 
     final TaskEntity entity = TaskEntity(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -111,8 +113,8 @@ class CreatorActions {
       description: data.description,
       createdAt: DateTime.now(),
       priority: priority,
-      difficulty: _difficultyFor(kind),
-      energyRequired: _energyRequiredFor(kind),
+      difficulty: difficultyOverride ?? _difficultyFor(kind),
+      energyRequired: energyRequiredOverride ?? _energyRequiredFor(kind),
       scheduledFor: data.scheduledFor,
       recurrenceRule: recurrence,
     );
