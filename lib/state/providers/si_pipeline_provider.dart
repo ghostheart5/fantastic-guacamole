@@ -16,6 +16,9 @@ import 'package:fantastic_guacamole/state/services/app_integration_actions.dart'
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
+import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
+import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 
 final nexusStartupSummaryProvider = Provider<NexusStartupSummary>((Ref ref) {
   final ProfileState profile = ref.watch(profileProvider);
@@ -51,14 +54,17 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   SISourceStatus tasksStatus = SISourceStatus.ready;
   String? tasksError;
   List<Task> tasks = const <Task>[];
+  List<TaskEntity> taskEntities = const <TaskEntity>[];
 
   try {
-    tasks = await _loadAllActiveTasks(ref);
+    taskEntities = await _loadAllActiveTaskEntities(ref);
+    tasks = _mapTaskEntitiesToLegacyTasks(taskEntities);
     tasksStatus = tasks.isEmpty ? SISourceStatus.empty : SISourceStatus.ready;
   } on Object catch (error) {
     tasksStatus = SISourceStatus.error;
     tasksError = error.toString();
     tasks = const <Task>[];
+    taskEntities = const <TaskEntity>[];
   }
 
   List<GoalEntity> goals = const <GoalEntity>[];
@@ -106,9 +112,20 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final execution = ref.watch(executionSignalsProvider);
   final double energy = ref.watch(energyProvider);
 
-  final List<String> planPreview = ref
-      .read(calendarServiceProvider)
-      .generateAdaptivePlan(tasks: tasks, energy: energy)
+  final SiStateEntity planningState = SiStateEntity(
+    energy: energy,
+    focus: (energy * (1 - siState.fatigue)).clamp(0.0, 1.0).toDouble(),
+    fatigue: siState.fatigue,
+    avoidOverwhelm: siState.fatigue >= .75,
+    primaryInstinct: siState.fatigue >= .75 ? 'safety_first' : 'progress_first',
+  );
+  final DecisionRecommendation planningDecision = const DecisionEngine()
+      .recommend(
+        tasks: taskEntities,
+        state: planningState,
+        learning: ref.watch(learningProvider),
+      );
+  final List<String> planPreview = planningDecision.plan.blocks
       .take(3)
       .map((block) => block.title)
       .toList(growable: false);
@@ -196,13 +213,18 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   );
 });
 
-Future<List<Task>> _loadAllActiveTasks(Ref ref) async {
+Future<List<TaskEntity>> _loadAllActiveTaskEntities(Ref ref) async {
   final List<TaskEntity> entities = await ref
       .read(domainTaskRepositoryProvider)
       .getAllTasks();
 
   return entities
       .where((TaskEntity item) => !item.isCompleted && !item.isCanceled)
+      .toList(growable: false);
+}
+
+List<Task> _mapTaskEntitiesToLegacyTasks(List<TaskEntity> entities) {
+  return entities
       .map(
         (TaskEntity item) => Task(
           id: item.id,
