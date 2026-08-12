@@ -180,46 +180,6 @@ class CreatorActions {
     }
   }
 
-  String _kindFor(CreatorFormData data, String mode) {
-    return switch (mode) {
-      'goals' => 'goal',
-      'milestones' => 'milestone',
-      'plan' => 'plan',
-      'habits' => 'habit',
-      _ => data.type.trim().toLowerCase(),
-    };
-  }
-
-  String _normalizeRequestedKind(String kind) {
-    final String normalized = kind.trim().toLowerCase();
-    return switch (normalized) {
-      'daily rhythm' || 'habit' || 'routine' => 'routine',
-      'notes' || 'memo' || 'memory' || 'journal' => 'note',
-      _ => normalized,
-    };
-  }
-
-  String _normalizeKind(String kind) {
-    return switch (kind) {
-      'routine' => 'habit',
-      _ => kind,
-    };
-  }
-
-  RecurrenceRule _recurrenceFor({
-    required String kind,
-    required RecurrenceRule requested,
-  }) {
-    if (requested != RecurrenceRule.none) {
-      return requested;
-    }
-
-    return switch (kind) {
-      'routine' || 'habit' => RecurrenceRule.daily,
-      _ => RecurrenceRule.none,
-    };
-  }
-
   int _difficultyFor(String kind) {
     return switch (kind) {
       'goal' => 5,

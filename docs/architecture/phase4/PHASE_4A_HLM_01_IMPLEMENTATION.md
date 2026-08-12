@@ -21,4 +21,12 @@ Before this change, Creator owned normalization helpers and routed overlapping t
 - Branch-history review used the preserved routine/note routing commits in `backup-before-form-and-ux-phase` and `heads/backup-before-bak-cleanup-2026-08-01`; no branch was merged.
 - Production files: `lib/domain/intake/intake_request.dart`, `lib/state/providers/creator_provider.dart`.
 - Test: `test/domain/intake/intake_request_test.dart` covers aliases, mode routing, defaults, and invalid input.
-- Bounded Flutter test/static validation timed out without a failure result; no build was run.
+- Initial bounded Flutter test/static validation timed out without a failure result; no build was run.
+
+## Phase 4A.2 validation recovery
+
+The timeout was isolated to the Flutter/Dart batch-wrapper and its running tooling-daemon layer: the raw SDK executable at `C:\\src\\flutter\\bin\\cache\\dart-sdk\\bin\\dart.exe` responds immediately, while `dart.bat` and Flutter commands do not complete in the bounded window. Direct raw-SDK analysis of the two HLM production files reported no issues after the repair below; its process exit was subsequently affected only by sandbox denial of the Dart telemetry session timestamp, not by analyzer diagnostics.
+
+Recovery analysis identified four now-unused Creator-local normalization helpers. They were superseded by `IntakeRequest` and removed as a non-overlapping HLM-only repair. The protected auth/session hunks remain unmodified and unstaged. The release source-contract assertions were updated to assert the canonical aggregate boundary rather than the removed local helpers.
+
+The existing focused Flutter test is Flutter-dependent (`flutter_test` imports `dart:ui`), so bare `dart test` is not a valid runner. Invoking `flutter_tools.dart` directly with the raw SDK bypassed the wrapper and completed `test/domain/intake/intake_request_test.dart --no-pub` successfully: two tests passed in about 26 seconds.

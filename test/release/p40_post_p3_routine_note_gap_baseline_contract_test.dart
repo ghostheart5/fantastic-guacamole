@@ -17,7 +17,7 @@ void main() {
         final String text = SourceTestUtils.readText(creatorProviderFile);
 
         expect(text.contains('enum CreatorSavedKind { task, goal'), isTrue);
-        expect(text.contains("if (kind == 'goal') {"), isTrue);
+        expect(text.contains('if (intake.kind == IntakeKind.goal)'), isTrue);
         expect(text.contains('return CreatorSavedKind.goal;'), isTrue);
         expect(text.contains("_ => CreatorSavedKind.task"), isTrue);
       },
@@ -33,9 +33,9 @@ void main() {
 
         final String text = SourceTestUtils.readText(creatorProviderFile);
 
-        expect(text.contains("'routine' => 'habit'"), isTrue);
+        expect(text.contains('kind: intake.taskKind'), isTrue);
         expect(
-          text.contains("'routine' || 'habit' => RecurrenceRule.daily"),
+          text.contains('recurrence: intake.resolvedRecurrence'),
           isTrue,
         );
         expect(text.contains('Future<void> _createNoteEntry({'), isTrue);

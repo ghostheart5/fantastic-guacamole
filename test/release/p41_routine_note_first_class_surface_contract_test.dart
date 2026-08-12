@@ -32,12 +32,12 @@ void main() {
 
         expect(
           text.contains(
-            'final String requestedKind = _normalizeRequestedKind(_kindFor(data, mode));',
+            'final intake = IntakeRequest.fromRaw',
           ),
           isTrue,
         );
         expect(
-          text.contains('return _savedKindFor(requestedKind: requestedKind);'),
+          text.contains('return _savedKindFor(requestedKind: intake.kind.name);'),
           isTrue,
         );
         expect(text.contains("'routine' => CreatorSavedKind.routine"), isTrue);

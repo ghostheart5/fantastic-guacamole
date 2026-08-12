@@ -24,7 +24,7 @@ void main() {
         );
         expect(
           text.contains(
-            "await _createGoal(data: data, recurrence: recurrence);",
+            'await _createGoal(data: data, recurrence: intake.resolvedRecurrence);',
           ),
           isTrue,
         );
