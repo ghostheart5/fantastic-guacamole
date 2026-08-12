@@ -166,3 +166,34 @@ Phase 10 static validation passed for the Monkey runner PowerShell syntax and
 profile distributions. The targeted local Flutter command produced no result
 within its 60-second bounded window and is unexecuted; it is not release
 evidence.
+
+## Phase 11 performance and soak release gate
+
+Phase 11 is **BLOCKED** until the exact nonproduction candidate binary has
+candidate-identifying performance evidence. The local measurement contract and
+profile validator are useful only to validate the harness; they are not startup,
+frame, memory, network, database, or soak evidence.
+
+### Required evidence by execution level
+
+| Level | Required measurement | Gate status |
+|---|---|---|
+| PR | Deterministic local contract and pure-workload checks | Supports change review only |
+| Nightly | Isolated emulator warm startup, Nexus, Creator, Timeline, Trajectory, Progression, sync, notifications, and timeout measurements | Pending |
+| Physical-device release | Signed isolated candidate cold/warm startup, rendering, Timeline heavy-list scroll/search, memory, frame-jank, migration, recovery, and notification evidence | Blocking / pending |
+| Soak | Several-hour isolated candidate scenario with repeated lifecycle, sync, offline recovery, scrolling, and notifications | Blocking / pending |
+
+Every measurement requires commit SHA, binary SHA-256, device, OS, build mode,
+dataset, method, warm-up policy, sample count, median, p95, threshold, and
+regression percentage. Proposed thresholds in the Phase 11 profile are
+unvalidated planning values, not approved baselines. Device, candidate, backend,
+and production-targeted work is not launched by the local runner.
+
+The performance gate fails when a required result lacks identity/evidence, a
+reviewed threshold is exceeded, a soak run has crash/ANR/lost final state, or
+memory/frame regression is unexplained. Pending and unexecuted cases cannot be
+recorded as passing.
+
+Phase 11 local profile validation passed. The targeted Flutter Phase 11 command
+did not initialize or emit output within its 60-second bounded window, so its
+Dart tests are unexecuted and provide no release evidence.

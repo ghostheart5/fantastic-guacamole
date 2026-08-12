@@ -315,3 +315,35 @@ captures evidence for the required Monkey level and any device-only chaos cases.
   with no runner output. It is unexecuted, not passing or failing.
 - Android Monkey, device fault injection, staging fault injection, and any
   production target: not invoked.
+
+## Phase 11 performance and soak testing
+
+Phase 11 adds a test-only measurement contract, fixed dataset vocabulary,
+provisional budget profile, and a local-safe profile validator. It does not
+change production performance behavior or connect any chat surface.
+
+| Coverage class | Evidence | Status | Primary owner |
+|---|---|---|---|
+| Local performance harness | Immutable measurement metadata, percentile/regression calculation, and a deterministic ordering/search workload | Available locally; not a candidate result | Test Infrastructure |
+| Existing widget timing | Two in-process widget pump tests plus source lifecycle contract | Retained but weak/synthetic: missing frame timings are accepted and no candidate/device identity exists | UI owners |
+| Startup/Nexus/Creator/Timeline | Provisional cold/warm, first-render, save/load/search/scroll budgets and datasets | Pending isolated candidate/device measurement | Release Engineering |
+| Trajectory/Progression/sync/migration | Provisional calculation, backlog, and migration budgets | Pending isolated candidate/database fixture measurement | Domain and backend owners |
+| Memory/jank/recovery/notifications | Provisional non-time budgets and evidence requirements | Pending physical-device measurement | Mobile platform owner |
+| Smart Planner/SI Console timeout | Provisional timeout observation only; no prompt/model/chat change | Pending isolated candidate measurement | Intelligence owner |
+| Soak | Required repeated lifecycle, sync, scrolling, notifications, offline recovery, and several-hour stability scenarios | Pending; never silently skipped | Release Engineering |
+
+### Phase 11 execution record
+
+- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+  .\tool\performance\run_phase11_local_measurements.ps1 -Tier pr` passed.
+  It validated JSON/profile structure only and neither launched an application
+  nor established a device-performance baseline.
+- `flutter test test/phase11 --concurrency=1` produced no runner output before
+  its 60-second bounded command window elapsed. The Phase 11 Dart tests are
+  unexecuted, not passing or failing; this is an environment warning.
+- Emulator, physical-device, database migration, synchronization, notification,
+  memory, frame-jank, and soak measurements are pending until an isolated
+  candidate and measurement environment are approved.
+- All thresholds in `tool/performance/phase11_budget_profiles.json` are
+  explicitly provisional and unvalidated. A missing candidate metadata field is
+  pending, not passing.
