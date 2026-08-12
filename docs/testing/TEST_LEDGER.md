@@ -347,3 +347,26 @@ change production performance behavior or connect any chat surface.
 - All thresholds in `tool/performance/phase11_budget_profiles.json` are
   explicitly provisional and unvalidated. A missing candidate metadata field is
   pending, not passing.
+
+## Phase 12 flaky-test, regression, and duplicate-test governance
+
+Phase 12 adds policy and registries only. It does not delete, merge, quarantine,
+or weaken any existing test, and it does not modify product or chat behavior.
+
+| Coverage class | Evidence | Status | Primary owner |
+|---|---|---|---|
+| Flaky control | Definition, evidence threshold, first-failure preservation, retry and expiry rules | Active policy; no active flaky entry | Release Engineering |
+| Quarantine | Owner, defect, replacement coverage, reviewer, and expiry fields | Active policy; no active quarantine | Release Engineering |
+| Duplicate analysis | Behavior-first candidate registry with layers, runtime, failure yield, and approval field | Active process; no deletion proposal | Feature owners |
+| Regression packs | PR critical, feature, nightly full, pre-release, and post-release monitoring pack definitions | Defined; execution remains pack-specific | Test Infrastructure |
+| Changed-file selection | Conservative PowerShell selection; pre-release always returns full `test` suite | Local governance validation only | Test Infrastructure |
+
+### Phase 12 execution record
+
+- The PowerShell governance runner validates required policy fields, registry
+  table structure, a Nexus changed-file mapping, and mandatory full pre-release
+  selection without starting Flutter, devices, or network work. It passed.
+- `flutter test test/release/phase12_test_governance_contract_test.dart
+  --concurrency=1` produced no runner output before its 60-second bounded
+  command window elapsed. It is unexecuted, not passing or failing; this is an
+  environment warning.

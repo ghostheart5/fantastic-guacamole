@@ -197,3 +197,24 @@ recorded as passing.
 Phase 11 local profile validation passed. The targeted Flutter Phase 11 command
 did not initialize or emit output within its 60-second bounded window, so its
 Dart tests are unexecuted and provide no release evidence.
+
+## Phase 12 flaky-test and regression-governance gate
+
+The release gate rejects a critical failure even when a subsequent retry passes;
+the first failure and its artifact remain visible. Automatic retries may collect
+evidence only. A quarantined test requires a named owner, linked defect,
+replacement coverage, reviewer, and unexpired date. An expired quarantine,
+unreviewed skipped test, unknown conditional execution path, or permanent
+non-blocking exception blocks release.
+
+Changed-file selection is permitted only for PR efficiency and always retains
+release and behavior guards. It never reduces nightly or pre-release execution:
+the pre-release selector returns the complete `test` suite, followed by the
+already-required device, backend, human, performance, and soak gates.
+
+No active Phase 12 flake, quarantine, or duplicate-deletion proposal exists at
+this commit. That absence is not permission to remove tests automatically.
+
+Phase 12 PowerShell governance validation passed. The targeted Flutter
+governance contract command did not initialize or emit output within its
+60-second bounded window and is unexecuted, not passing release evidence.
