@@ -370,3 +370,37 @@ or weaken any existing test, and it does not modify product or chat behavior.
   --concurrency=1` produced no runner output before its 60-second bounded
   command window elapsed. It is unexecuted, not passing or failing; this is an
   environment warning.
+
+## Phase 13 authoritative release gate
+
+Phase 13 adds one manifest finalizer/verifier, one manually invoked evaluation
+workflow, and same-commit gate dependencies for Android release and web
+deployment. It does not execute, deploy, release, contact production, or alter
+chat/product code.
+
+| Coverage class | Phase 13 evidence | Current status | Primary owner |
+|---|---|---|---|
+| Ordered release orchestration | Exact 19-stage schema from repository integrity through independent approval | Contract validated locally | Release Engineering |
+| Candidate provenance | Clean-at-build status, commit SHA, application version, flavor, binary path/hash, backend and schema identity | Required by finalizer; no candidate finalized | Release Engineering |
+| Test evidence | Workflow IDs, per-stage results/counts, approved skips, quarantines, coverage, device, performance, fuzz and defects | Required; current candidate evidence pending | Test Infrastructure |
+| Human/backend approval | Human Root, staging, and independent signatures bound to SHA and binary hash | Required; no signatures invented | Human QA / Backend owner |
+| Android release | Resolves successful `production` gate for exact SHA and publishes its AAB without rebuilding | Workflow contract only; no release run | Release Engineering |
+| Web deployment | Resolves successful `production-web` gate for exact SHA and publishes its ZIP contents without rebuilding | Workflow contract only; no deployment run | Release Engineering |
+
+### Phase 13 execution record
+
+- PowerShell script parsing, evidence-template JSON parsing, 19-stage ordering,
+  and Android/web no-rebuild dependency checks passed locally.
+- A dedicated YAML parser was unavailable: Ruby/actionlint are absent and the
+  installed Python launcher has no PyYAML. Workflow structure was checked by the
+  Phase 13 contract runner, but no remote Actions workflow was triggered.
+- `flutter test
+  test/release/phase13_authoritative_release_gate_contract_test.dart
+  --concurrency=1` produced no runner output before its 60-second bounded
+  window elapsed. It is unexecuted, not passing or failing.
+- No candidate, production backend, device, Maestro, staging mutation, Human
+  Root case, deployment, tag release, or GitHub release was invoked.
+- A manifest cannot pass with a dirty candidate build, missing stage, mismatched
+  SHA/hash, missing coverage/device/performance/fuzz evidence, unapproved skip,
+  expired quarantine, open P0/P1, missing signatures, or unverified chat
+  isolation.

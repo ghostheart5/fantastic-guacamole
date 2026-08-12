@@ -2,6 +2,7 @@ name: Android Release
 
 permissions:
   contents: read
+  actions: read
 
 on:
   push:
@@ -10,6 +11,39 @@ on:
   workflow_dispatch:
 
 jobs:
+  resolve-authoritative-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.resolve.outputs.run_id }}
+    steps:
+      - name: Resolve successful same-commit production gate
+        id: resolve
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifactName = `authoritative-release-gate-${context.sha}-production`;
+            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'authoritative-release-gate.yml',
+              status: 'completed',
+              per_page: 100,
+            });
+            for (const run of runs) {
+              if (run.head_sha !== context.sha || run.conclusion !== 'success') continue;
+              const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id,
+                per_page: 100,
+              });
+              if (artifacts.some((artifact) => artifact.name === artifactName && !artifact.expired)) {
+                core.setOutput('run_id', String(run.id));
+                return;
+              }
+            }
+            core.setFailed(`No completed authoritative production gate exists for ${context.sha}.`);
+
   database-gate:
     uses: ./.github/workflows/supabase-database.yml
 
@@ -183,11 +217,12 @@ jobs:
           retention-days: 90
 
   build-aab:
-    needs: [database-gate, public-infrastructure-gate, production-backend-gate]
+    needs: [resolve-authoritative-gate, database-gate, public-infrastructure-gate, production-backend-gate]
     runs-on: ubuntu-latest
     environment: production
     permissions:
       contents: write
+      actions: read
     env:
       ANDROID_GOOGLE_SERVICES_JSON_BASE64_SECRET: ANDROID_GOOGLE_SERVICES_JSON_BASE64
       ANDROID_GOOGLE_SERVICES_JSON_SECRET: ANDROID_GOOGLE_SERVICES_JSON
@@ -469,27 +504,38 @@ jobs:
       - name: Run tests
         run: flutter test
 
-      - name: Build signed AAB
-        env:
-          CHRONOSPARK_BUILD_PROFILE: production
-        run: >-
-          flutter build appbundle --release
-          --dart-define=CHRONOSPARK_APP_FLAVOR=prod
-          --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true
-          --dart-define=CHRONOSPARK_MAESTRO_MODE=false
-          --dart-define=CHRONOSPARK_ENABLE_MOCK_LOGIN=false
-          --dart-define=CHRONOSPARK_ENABLE_MOCK_MODE=false
-          --dart-define=CHRONOSPARK_PAYWALL_DISABLED=false
-          --dart-define=CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS=false
-          --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets[env.CHRONOSPARK_SUPABASE_URL_SECRET] }}
-          --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets[env.CHRONOSPARK_SUPABASE_ANON_KEY_SECRET] }}
-          --dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=${{ secrets[env.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT_SECRET] }}
-          --dart-define=CHRONOSPARK_AI_PROXY_ENDPOINT=${{ secrets[env.CHRONOSPARK_AI_PROXY_ENDPOINT_SECRET] }}
-          --dart-define=CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT=${{ secrets[env.CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT_SECRET] }}
-          --dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=${{ secrets[env.CHRONOSPARK_ANDROID_SHA256_CERT_SECRET] }}
-          --dart-define=CHRONOSPARK_OAUTH_REDIRECT_URL=https://chronospark.app/app/auth/callback
-          --dart-define=CHRONOSPARK_PASSWORD_RECOVERY_REDIRECT_URL=https://chronospark.app/app/auth/callback
-          --dart-define=CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL=https://chronospark.app/app/auth/callback
+      - name: Download exact gated AAB and manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: authoritative-release-gate-${{ github.sha }}-production
+          run-id: ${{ needs.resolve-authoritative-gate.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/authoritative-release-gate
+
+      - name: Verify and restore exact gated AAB
+        shell: pwsh
+        run: |
+          $gateRoot = "${{ runner.temp }}/authoritative-release-gate"
+          $manifestPath = Join-Path $gateRoot 'release-gate-manifest.json'
+          ./scripts/authoritative_release_gate.ps1 `
+            -Mode VerifyManifest `
+            -ManifestPath $manifestPath `
+            -ExpectedCommit "${{ github.sha }}"
+          $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+          if ($manifest.buildFlavor -ne 'production') {
+            throw 'Authoritative gate flavor is not production.'
+          }
+          $source = Join-Path $gateRoot $manifest.binaryPath
+          if ([IO.Path]::GetExtension($source) -ne '.aab') {
+            throw 'Authoritative production gate did not contain an AAB.'
+          }
+          $destination = 'build/app/outputs/bundle/release/app-release.aab'
+          New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+          Copy-Item -LiteralPath $source -Destination $destination
+          $copiedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $destination).Hash.ToLowerInvariant()
+          if ($copiedHash -ne $manifest.binaryHash) {
+            throw 'Restored AAB does not match the authoritative manifest hash.'
+          }
 
       - name: Inspect signed AAB and collect release evidence
         env:

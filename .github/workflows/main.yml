@@ -1,4 +1,4 @@
-name: Deploy Flutter Web to GitHub Pages
+name: Deploy Gated Flutter Web to GitHub Pages
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -15,96 +16,92 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  resolve-authoritative-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.resolve.outputs.run_id }}
+    steps:
+      - name: Resolve successful same-commit web gate
+        id: resolve
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifactName = `authoritative-release-gate-${context.sha}-production-web`;
+            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'authoritative-release-gate.yml',
+              status: 'completed',
+              per_page: 100,
+            });
+            for (const run of runs) {
+              if (run.head_sha !== context.sha || run.conclusion !== 'success') continue;
+              const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id,
+                per_page: 100,
+              });
+              if (artifacts.some((artifact) => artifact.name === artifactName && !artifact.expired)) {
+                core.setOutput('run_id', String(run.id));
+                return;
+              }
+            }
+            core.setFailed(`No completed authoritative production-web gate exists for ${context.sha}.`);
+
+  prepare-gated-pages:
+    needs: resolve-authoritative-gate
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+      - name: Checkout exact release commit
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          channel: stable
-          flutter-version: '3.44.6'
+          fetch-depth: 0
 
-      - name: Validate required deploy secrets
-        run: |
-          if [ -z "${{ secrets.CHRONOSPARK_SUPABASE_URL }}" ] || [ -z "${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}" ]; then
-            echo "Missing required repository secrets: CHRONOSPARK_SUPABASE_URL and/or CHRONOSPARK_SUPABASE_ANON_KEY"
-            exit 1
-          fi
+      - name: Download exact gated web candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: authoritative-release-gate-${{ github.sha }}-production-web
+          run-id: ${{ needs.resolve-authoritative-gate.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/authoritative-release-gate
 
-      - name: Ensure CI .env asset exists
-        run: |
-          cat > .env << 'EOF'
-          CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }}
-          CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
-          EOF
-
-      - name: Flutter pub get
-        run: flutter pub get
-
-      - name: Run security secret guard
+      - name: Verify and unpack exact gated web candidate
         shell: pwsh
-        run: ./scripts/security_secret_guard.ps1
-
-      - name: Build web
         run: |
-          flutter build web --release --csp --no-wasm-dry-run --base-href /fantastic-guacamole/ \
-            --dart-define=CHRONOSPARK_ENABLE_MOCK_LOGIN=false \
-            --dart-define=CHRONOSPARK_ENABLE_MOCK_MODE=false \
-            --dart-define=CHRONOSPARK_PAYWALL_DISABLED=false \
-            --dart-define=CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS=false \
-            --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }} \
-            --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
+          $gateRoot = "${{ runner.temp }}/authoritative-release-gate"
+          $manifestPath = Join-Path $gateRoot 'release-gate-manifest.json'
+          ./scripts/authoritative_release_gate.ps1 `
+            -Mode VerifyManifest `
+            -ManifestPath $manifestPath `
+            -ExpectedCommit "${{ github.sha }}"
+          $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+          if ($manifest.buildFlavor -ne 'production-web') {
+            throw 'Authoritative gate flavor is not production-web.'
+          }
+          $source = Join-Path $gateRoot $manifest.binaryPath
+          if ([IO.Path]::GetExtension($source) -ne '.zip') {
+            throw 'Authoritative production-web gate did not contain a ZIP candidate.'
+          }
+          $output = "${{ runner.temp }}/gated-web"
+          New-Item -ItemType Directory -Path $output -Force | Out-Null
+          Expand-Archive -LiteralPath $source -DestinationPath $output
+          if (-not (Test-Path -LiteralPath (Join-Path $output 'index.html'))) {
+            throw 'Gated web candidate must contain index.html at the ZIP root.'
+          }
 
-      - name: Verify no unsafe string-eval patterns in built JS
-        run: |
-          if grep -R --line-number -E "eval\(|new Function\(|setTimeout\(['\"]|setInterval\(['\"]" build/web --include='*.js'; then
-            echo "Unsafe string-evaluation pattern found in build output."
-            exit 1
-          fi
-
-      - name: Copy legal and static pages to build
-        run: |
-          mkdir -p build/web/.well-known build/web/app build/web/privacy build/web/privacy-policy build/web/terms build/web/terms-of-service build/web/support build/web/delete-account build/web/code-of-conduct build/web/license build/web/security-policy build/web/readme
-          cp web/.well-known/assetlinks.json build/web/.well-known/assetlinks.json
-          cp -R web/app/. build/web/app/
-          cp web/legal.css build/web/legal.css
-          cp about.html build/web/about.html
-          cp CHRONOSPARK.html build/web/CHRONOSPARK.html
-          cp contact.html build/web/contact.html
-          cp download.html build/web/download.html
-          cp testers.html build/web/testers.html
-          cp web/privacy/index.html build/web/privacy/index.html
-          cp web/privacy/index.html build/web/privacy-policy/index.html
-          cp web/privacy/index.html build/web/privacy.html
-          cp web/terms/index.html build/web/terms/index.html
-          cp web/terms/index.html build/web/terms-of-service/index.html
-          cp web/terms/index.html build/web/terms.html
-          cp web/support/index.html build/web/support/index.html
-          cp web/support/index.html build/web/support.html
-          cp web/delete-account/index.html build/web/delete-account/index.html
-          cp web/robots.txt build/web/robots.txt
-          cp web/sitemap.xml build/web/sitemap.xml
-          cp assets/legal/code_of_conduct.html build/web/code-of-conduct/index.html
-          cp assets/legal/license.html build/web/license/index.html
-          cp assets/legal/security_policy.html build/web/security-policy/index.html
-          cp assets/legal/readme.html build/web/readme/index.html
-          touch build/web/.nojekyll
-
-      - name: Upload Pages artifact
+      - name: Upload exact gated Pages content
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build/web
+          path: ${{ runner.temp }}/gated-web
 
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
+    needs: prepare-gated-pages
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Deploy gated candidate to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

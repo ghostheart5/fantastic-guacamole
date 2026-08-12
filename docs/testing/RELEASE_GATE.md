@@ -218,3 +218,59 @@ this commit. That absence is not permission to remove tests automatically.
 Phase 12 PowerShell governance validation passed. The targeted Flutter
 governance contract command did not initialize or emit output within its
 60-second bounded window and is unexecuted, not passing release evidence.
+
+## Phase 13 authoritative release gate
+
+The only authoritative release verdict is the immutable
+`release-gate-manifest.json` plus its SHA-256 sidecar and bundled exact binary.
+The manifest finalizer enforces this order:
+
+1. repository integrity;
+2. formatting and generated-code drift;
+3. Flutter analyzer;
+4. security and secret guards;
+5. unit tests;
+6. widget tests;
+7. architecture and behavior contracts;
+8. full regression with coverage;
+9. backend and staging security;
+10. signed candidate build;
+11. binary hash generation;
+12. device integration and Patrol;
+13. Maestro smoke;
+14. Maestro full E2E;
+15. accessibility and visual review;
+16. Monkey, fuzz, and chaos;
+17. performance and soak;
+18. Human Root Testing; and
+19. independent release approval.
+
+Every stage must pass in order for the same commit. Stages 11 through 19 must
+also name the exact candidate hash. Each stage must have positive passing
+evidence, chronological completion, and consistent pass/failure/skip totals.
+The finalizer refuses a dirty candidate build, missing workflow IDs, coverage,
+device matrix, performance results, fuzz seeds, staging/Human/independent
+signature, unapproved skip, expired quarantine, open P0/P1, or failed chat
+isolation check.
+
+The final manifest records repository, branch, commit, candidate working-tree
+status, app version, flavor, binary path/hash, backend environment, database
+schema version, workflow run IDs, suite results and counts, quarantines,
+coverage, device matrix, performance, fuzz seeds, defects, Human Root and
+staging sign-off, independent approval, chat isolation, and final verdict. It
+cannot overwrite an existing manifest or hash sidecar.
+
+Android tag release now resolves a successful `production` gate artifact for
+the exact tag commit and restores that AAB byte-for-byte. Web deployment resolves
+a successful `production-web` artifact for the exact `main` commit and unpacks
+that gated ZIP. Neither workflow contains a Flutter candidate rebuild step.
+
+Current verdict: **BLOCKED / NO CANDIDATE EVALUATED.** Phase 13 local contract
+validation does not constitute a release, staging approval, Human Root result,
+or production contact.
+
+Phase 13 PowerShell/JSON/ordering/no-rebuild contract validation passed. A YAML
+parser was not installed in the local environment, and the targeted Flutter
+contract did not initialize or emit output within its 60-second bounded window;
+that test is unexecuted. No workflow, deployment, release, or production request
+was triggered.

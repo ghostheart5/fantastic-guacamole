@@ -1,0 +1,81 @@
+name: Authoritative Release Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact candidate commit SHA
+        required: true
+        type: string
+      source_run_id:
+        description: Workflow run containing candidate and evidence artifacts
+        required: true
+        type: string
+      candidate_artifact_name:
+        description: Exact signed candidate artifact name
+        required: true
+        type: string
+      evidence_artifact_name:
+        description: Phase 13 evidence JSON artifact name
+        required: true
+        type: string
+      binary_relative_path:
+        description: Candidate binary path inside its downloaded artifact
+        required: true
+        type: string
+      build_flavor:
+        description: Stable artifact suffix such as production or production-web
+        required: true
+        type: choice
+        options:
+          - production
+          - production-web
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Download exact candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.candidate_artifact_name }}
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/phase13-candidate
+
+      - name: Download release evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.evidence_artifact_name }}
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/phase13-evidence
+
+      - name: Finalize immutable same-commit and same-binary manifest
+        shell: pwsh
+        run: |
+          ./scripts/authoritative_release_gate.ps1 `
+            -Mode Finalize `
+            -EvidencePath "${{ runner.temp }}/phase13-evidence/phase13-evidence.json" `
+            -BinaryPath "${{ runner.temp }}/phase13-candidate/${{ inputs.binary_relative_path }}" `
+            -CandidateRoot "${{ runner.temp }}/phase13-candidate" `
+            -OutputDirectory "${{ runner.temp }}/authoritative-release-gate" `
+            -ExpectedCommit "${{ inputs.commit_sha }}"
+
+      - name: Upload immutable gated candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: authoritative-release-gate-${{ inputs.commit_sha }}-${{ inputs.build_flavor }}
+          path: ${{ runner.temp }}/authoritative-release-gate
+          if-no-files-found: error
+          retention-days: 90
