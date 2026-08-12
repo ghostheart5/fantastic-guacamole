@@ -15,6 +15,11 @@ enum HistoryEventKind {
   streakRecorded,
   deadlineScheduled,
   projectUpdated,
+  interventionAccepted,
+  interventionModified,
+  interventionDismissed,
+  interventionSnoozed,
+  interventionDisabled,
   legacyTimeline,
 }
 
@@ -28,6 +33,7 @@ enum HistoryEntityType {
   reflection,
   milestone,
   project,
+  intervention,
   unknown,
 }
 
