@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
@@ -72,14 +73,14 @@ class LocalUserDataCleanupService {
 
   Future<void> clearLocalData({String? userId}) {
     _validateUserId(userId);
-    return _runMandatorySteps(_localStorageCleanupSteps());
+    return _runMandatorySteps(_localStorageCleanupSteps(userId: userId));
   }
 
   Future<void> clear({String? userId}) {
     _validateUserId(userId);
     return _runMandatorySteps(<String, LocalUserDataCleanupAction>{
       ..._externalCleanupSteps(),
-      ..._localStorageCleanupSteps(),
+      ..._localStorageCleanupSteps(userId: userId),
     });
   }
 
@@ -93,10 +94,13 @@ class LocalUserDataCleanupService {
     };
   }
 
-  Map<String, LocalUserDataCleanupAction> _localStorageCleanupSteps() {
+  Map<String, LocalUserDataCleanupAction> _localStorageCleanupSteps({
+    required String? userId,
+  }) {
     final Set<String> hiveBoxes = <String>{
       ...HiveBoxes.encryptedBoxes,
       ..._additionalHiveBoxes,
+      ..._taskGoalBoxesForUser(userId),
     };
     return <String, LocalUserDataCleanupAction>{
       'Hive initialization': hive.init,
@@ -105,6 +109,16 @@ class LocalUserDataCleanupService {
       'SharedPreferences initialization': preferences.init,
       'SharedPreferences': preferences.clear,
       'secure storage': _clearSecureStoragePreservingHiveCipher,
+    };
+  }
+
+  Set<String> _taskGoalBoxesForUser(String? userId) {
+    if (userId == null) return const <String>{};
+    final AccountStorageNamespace namespace =
+        AccountStorageNamespace.authenticated(userId);
+    return <String>{
+      HiveBoxes.accountScopedNamespace(HiveBoxes.tasks, namespace.v2Scope),
+      HiveBoxes.accountScopedNamespace(HiveBoxes.goals, namespace.v2Scope),
     };
   }
 

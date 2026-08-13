@@ -258,6 +258,8 @@ void main() {
 
       expect(hive.clearedBoxes, <String>{
         ...HiveBoxes.encryptedBoxes,
+        HiveBoxes.accountScopedNamespace(HiveBoxes.tasks, 'v2.dXNlci0x'),
+        HiveBoxes.accountScopedNamespace(HiveBoxes.goals, 'v2.dXNlci0x'),
         'profile_box',
         'tasks',
         StorageKeys.credentials,
@@ -321,6 +323,8 @@ void main() {
       );
       expect(hive.clearedBoxes, <String>{
         ...HiveBoxes.encryptedBoxes,
+        HiveBoxes.accountScopedNamespace(HiveBoxes.tasks, 'v2.dXNlci0x'),
+        HiveBoxes.accountScopedNamespace(HiveBoxes.goals, 'v2.dXNlci0x'),
         'profile_box',
         'tasks',
         StorageKeys.credentials,

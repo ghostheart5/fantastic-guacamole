@@ -14,7 +14,12 @@ import 'package:fantastic_guacamole/domain/models/paged_result.dart';
 class TaskRepository implements ITaskRepository {
   TaskRepository({required this._storage, this._syncDispatcher});
 
-  final HiveStorage<String> _storage;
+  /// A transition-safe instance deliberately has no storage target. It exists
+  /// only so Root-05 can drain and invalidate repositories while the account
+  /// boundary is unsafe; it cannot read or write a fallback/global box.
+  TaskRepository.unavailable({this._syncDispatcher}) : _storage = null;
+
+  final HiveStorage<String>? _storage;
   final SyncMutationDispatcher? _syncDispatcher;
   bool _cancelled = false;
   Future<void> _writeQueue = Future<void>.value();
@@ -61,8 +66,9 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<TaskEntity?> getTaskById(String id) async {
     try {
-      await _storage.open();
-      final String? raw = _storage.get(id);
+      final HiveStorage<String> storage = _requireStorage();
+      await storage.open();
+      final String? raw = storage.get(id);
       if (raw == null) return null;
       return _decodeTaskPayload(raw, logMalformed: true);
     } catch (e) {
@@ -73,7 +79,10 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<void> saveTask(TaskEntity task) => _serializeWrite(() async {
     try {
-      await _storage.put(task.id, jsonEncode(TaskEntityMapper.toJson(task)));
+      await _requireStorage().put(
+        task.id,
+        jsonEncode(TaskEntityMapper.toJson(task)),
+      );
       await _syncDispatcher?.enqueueUpsert(
         tableName: 'tasks',
         recordId: task.id,
@@ -87,7 +96,7 @@ class TaskRepository implements ITaskRepository {
   @override
   Future<void> deleteTask(String id) => _serializeWrite(() async {
     try {
-      await _storage.delete(id);
+      await _requireStorage().delete(id);
       await _syncDispatcher?.enqueueDelete(tableName: 'tasks', recordId: id);
     } catch (e) {
       throw StorageException('Failed to delete task $id: $e');
@@ -130,8 +139,9 @@ class TaskRepository implements ITaskRepository {
   }
 
   Future<List<TaskEntity>> _loadSortedTasks() async {
-    await _storage.open();
-    final Map<dynamic, String> map = _storage.getAll();
+    final HiveStorage<String> storage = _requireStorage();
+    await storage.open();
+    final Map<dynamic, String> map = storage.getAll();
 
     final List<TaskEntity> tasks = <TaskEntity>[];
     int malformedCount = 0;
@@ -158,6 +168,16 @@ class TaskRepository implements ITaskRepository {
       (TaskEntity a, TaskEntity b) => b.createdAt.compareTo(a.createdAt),
     );
     return tasks;
+  }
+
+  HiveStorage<String> _requireStorage() {
+    final HiveStorage<String>? storage = _storage;
+    if (storage == null) {
+      throw StateError(
+        'Task storage is unavailable while the account transition is unsafe.',
+      );
+    }
+    return storage;
   }
 
   TaskEntity? _decodeTaskPayload(String raw, {bool logMalformed = false}) {

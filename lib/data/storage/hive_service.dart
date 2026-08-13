@@ -159,7 +159,7 @@ class HiveService {
   }
 
   static bool _shouldEncryptBox(String key) {
-    return HiveBoxes.encryptedBoxes.contains(key);
+    return HiveBoxes.isEncryptedBox(key);
   }
 
   static Future<void> _openBoxWithTelemetry(String box) async {

@@ -37,27 +37,46 @@ import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/si_workspace_store.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 TaskRepository taskRepository(Ref ref) {
-  return TaskRepository(
-    storage: HiveStorage<String>(
-      HiveBoxes.tasks,
-      hive: ref.read(hiveStoreProvider),
-    ),
-    syncDispatcher: ref.read(syncMutationDispatcherProvider),
-  );
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  final TaskRepository repository = scope.v2Namespace == null
+      ? TaskRepository.unavailable(
+          syncDispatcher: ref.read(syncMutationDispatcherProvider),
+        )
+      : TaskRepository(
+          storage: HiveStorage<String>(
+            HiveBoxes.accountScoped(HiveBoxes.tasks, scope),
+            hive: ref.read(hiveStoreProvider),
+          ),
+          syncDispatcher: ref.read(syncMutationDispatcherProvider),
+        );
+  ref.onDispose(repository.dispose);
+  return repository;
 }
 
 final taskRepositoryProvider = Provider<TaskRepository>(taskRepository);
 
 final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
-  return GoalRepository(
-    HiveStorage<String>(HiveBoxes.goals, hive: ref.read(hiveStoreProvider)),
-    syncDispatcher: ref.read(syncMutationDispatcherProvider),
-  );
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  final GoalRepository repository = scope.v2Namespace == null
+      ? GoalRepository.unavailable(
+          syncDispatcher: ref.read(syncMutationDispatcherProvider),
+        )
+      : GoalRepository(
+          HiveStorage<String>(
+            HiveBoxes.accountScoped(HiveBoxes.goals, scope),
+            hive: ref.read(hiveStoreProvider),
+          ),
+          syncDispatcher: ref.read(syncMutationDispatcherProvider),
+        );
+  ref.onDispose(repository.dispose);
+  return repository;
 });
 
 final habitRepositoryProvider = Provider<HabitRepository>((Ref ref) {

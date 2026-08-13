@@ -8,11 +8,16 @@ import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 
 class GoalRepository implements IGoalRepository {
-  GoalRepository(this._store, {this._syncDispatcher});
+  GoalRepository(HiveStorage<String> store, {this._syncDispatcher})
+    : _store = store;
+
+  /// Root-05 may drain a provider during an unsafe transition. This instance
+  /// has no storage target, so it cannot reach a global or signed-out box.
+  GoalRepository.unavailable({this._syncDispatcher}) : _store = null;
 
   static const String _key = 'goals_v2';
 
-  final HiveStorage<String> _store;
+  final HiveStorage<String>? _store;
   final SyncMutationDispatcher? _syncDispatcher;
   bool _corruptedSnapshot = false;
   bool _cancelled = false;
@@ -31,7 +36,7 @@ class GoalRepository implements IGoalRepository {
   List<GoalEntity> getGoals() {
     String? raw;
     try {
-      raw = _store.get(_key);
+      raw = _requireStore().get(_key);
     } on StateError catch (error) {
       throw StorageException('Goal storage is unavailable: $error');
     }
@@ -115,7 +120,7 @@ class GoalRepository implements IGoalRepository {
   }
 
   Future<void> _saveGoalsUnlocked(List<GoalEntity> goals) {
-    return _store.put(
+    return _requireStore().put(
       _key,
       jsonEncode(goals.map((GoalEntity g) => g.toJson()).toList()),
     );
@@ -127,6 +132,16 @@ class GoalRepository implements IGoalRepository {
         'Goals storage is corrupted. Repair data before writing to avoid data loss.',
       );
     }
+  }
+
+  HiveStorage<String> _requireStore() {
+    final HiveStorage<String>? store = _store;
+    if (store == null) {
+      throw StateError(
+        'Goal storage is unavailable while the account transition is unsafe.',
+      );
+    }
+    return store;
   }
 
   Map<String, dynamic> _goalSyncPayload(GoalEntity goal) {
