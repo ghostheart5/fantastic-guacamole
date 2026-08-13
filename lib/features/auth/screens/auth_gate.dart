@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/features/auth/application/auth_providers.dar
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/authenticated_data_readiness_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/supabase_sync_queue_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
@@ -277,6 +278,12 @@ class _AuthGateState extends ConsumerState<AuthGate> {
                 email: user.email ?? '',
               );
             }
+            final AuthenticatedDataReadiness readiness = ref.watch(
+              authenticatedDataReadinessProvider,
+            );
+            if (!isAuthenticatedDataReady(readiness)) {
+              return _AuthenticatedDataReadinessGate(readiness: readiness);
+            }
             _maybeAutoFlushSupabaseQueue(user);
             return widget.child;
           },
@@ -397,6 +404,39 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     } catch (_) {
       await ref.read(authControllerProvider.notifier).restoreSession();
     }
+  }
+}
+
+class _AuthenticatedDataReadinessGate extends StatelessWidget {
+  const _AuthenticatedDataReadinessGate({required this.readiness});
+
+  final AuthenticatedDataReadiness readiness;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isBlocked = readiness == AuthenticatedDataReadiness.blocked;
+    return Scaffold(
+      backgroundColor: _authBackgroundColor,
+      body: Center(
+        child: Semantics(
+          identifier: isBlocked
+              ? 'screen-session-blocked'
+              : 'screen-session-transition',
+          label: isBlocked
+              ? 'Account transition needs attention'
+              : 'Preparing your account data',
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: isBlocked
+                ? const Text(
+                    'ChronoSpark cannot safely open account data yet.',
+                    textAlign: TextAlign.center,
+                  )
+                : const CircularProgressIndicator(),
+          ),
+        ),
+      ),
+    );
   }
 }
 

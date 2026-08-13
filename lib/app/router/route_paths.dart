@@ -3,6 +3,7 @@ class RoutePaths {
 
   // Entry and auth routes.
   static const bootstrap = '/bootstrap';
+  static const sessionBlocked = '/session-blocked';
   static const onboarding = '/onboarding';
   static const login = '/login';
   static const unsupportedLink = '/unsupported-link';

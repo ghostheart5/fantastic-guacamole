@@ -17,6 +17,8 @@ import 'package:fantastic_guacamole/features/settings/ui/completion_events_debug
 import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show OnboardingStatus;
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
+import 'package:fantastic_guacamole/state/providers/authenticated_data_readiness_provider.dart';
+import 'package:fantastic_guacamole/state/providers/auth_session_boundary_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart'
     hide authenticatedGuardProvider;
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
@@ -38,6 +40,10 @@ final _appRouterRefreshListenableProvider =
 class _AppRouterRefreshListenable extends ChangeNotifier {
   _AppRouterRefreshListenable(this._ref) {
     _ref.listen<bool>(authenticatedGuardProvider, (_, _) => notifyListeners());
+    _ref.listen<AuthenticatedDataReadiness>(
+      authenticatedDataReadinessProvider,
+      (_, _) => notifyListeners(),
+    );
     _ref.listen<OnboardingStatus>(
       onboardingStatusGuardProvider,
       (_, _) => notifyListeners(),
@@ -61,6 +67,9 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
   final Ref _ref;
 
   bool get isAuthenticated => _ref.read(authenticatedGuardProvider);
+  AuthenticatedDataReadiness get authenticatedDataReadiness => _ref.read(
+    authenticatedDataReadinessProvider,
+  );
   OnboardingStatus get onboardingStatus =>
       _ref.read(onboardingStatusGuardProvider);
   bool get hasValidProfile => _ref.read(profileCompleteGuardProvider);
@@ -138,6 +147,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     redirect: (BuildContext context, GoRouterState state) {
       final bool isAuthenticated = refresh.isAuthenticated;
+      final AuthenticatedDataReadiness dataReadiness =
+          refresh.authenticatedDataReadiness;
       final OnboardingStatus onboardingStatus = refresh.onboardingStatus;
       final String location = state.matchedLocation;
       final StartupRouteGate startupGate = resolveStartupRouteGate(
@@ -199,6 +210,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (!isAuthenticated) {
         return location == RoutePaths.login ? null : RoutePaths.login;
+      }
+
+      if (location == RoutePaths.sessionBlocked) {
+        if (dataReadiness == AuthenticatedDataReadiness.blocked) {
+          return null;
+        }
+        if (!isAuthenticatedDataReady(dataReadiness)) {
+          return RoutePaths.bootstrap;
+        }
+        return _resolveInitialLocation(
+          isAuthenticated: true,
+          onboardingStatus: onboardingStatus,
+          hasValidProfile: hasValidProfile,
+          hasCreatedFirstItem: hasCreatedFirstItem,
+          hasCompletedTimelineFirstAction: hasCompletedTimelineFirstAction,
+        );
+      }
+
+      final String? readinessRedirect = resolveAuthenticatedDataRouteRedirect(
+        isAuthenticated: isAuthenticated,
+        readiness: dataReadiness,
+        location: location,
+      );
+      if (readinessRedirect != null) {
+        return readinessRedirect;
+      }
+
+      if (location == RoutePaths.bootstrap &&
+          isAuthenticatedDataReady(dataReadiness)) {
+        return _resolveInitialLocation(
+          isAuthenticated: true,
+          onboardingStatus: onboardingStatus,
+          hasValidProfile: hasValidProfile,
+          hasCreatedFirstItem: hasCreatedFirstItem,
+          hasCompletedTimelineFirstAction: hasCompletedTimelineFirstAction,
+        );
       }
 
       if (!hasValidProfile) {
@@ -266,6 +313,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
         ),
+      ),
+      GoRoute(
+        path: RoutePaths.sessionBlocked,
+        builder: (BuildContext context, GoRouterState state) {
+          final boundary = ref.read(authSessionBoundaryProvider);
+          return Scaffold(
+            body: Center(
+              child: Semantics(
+                identifier: 'screen-session-blocked',
+                label: 'Account transition needs attention',
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    boundary.blockingIssue ??
+                        'ChronoSpark cannot safely open account data yet.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
 
       // Primary surfaces: Now, Plan, Add, Reflect, Settings.
