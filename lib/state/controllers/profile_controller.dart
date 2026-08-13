@@ -83,7 +83,8 @@ class ProfileState {
   factory ProfileState.fromJson(Map<String, dynamic> json) {
     final int storedXp = (json['xp'] as num?)?.toInt() ?? 0;
     final int storedLevel = (json['level'] as num?)?.toInt() ?? 1;
-    final int legacyLevelFloor = (json['legacyLevelFloor'] as num?)?.toInt() ??
+    final int legacyLevelFloor =
+        (json['legacyLevelFloor'] as num?)?.toInt() ??
         (storedLevel > 1 ? storedLevel : 1);
     final ProgressionCalculation progression = const ProgressionCalculator()
         .calculate(xp: storedXp, legacyLevelFloor: legacyLevelFloor);
@@ -109,6 +110,8 @@ final profileProvider = NotifierProvider<ProfileController, ProfileState>(
 
 class ProfileController extends Notifier<ProfileState> {
   bool _initScheduled = false;
+  int _writeGeneration = 0;
+  Future<void> _writeTail = Future<void>.value();
 
   @override
   ProfileState build() {
@@ -187,8 +190,21 @@ class ProfileController extends Notifier<ProfileState> {
     } catch (_) {}
   }
 
-  Future<void> _save() async {
-    await _secureStore.writeString(_secureStateKey, jsonEncode(state.toJson()));
+  Future<void> _save() {
+    final int generation = _writeGeneration;
+    final String encoded = jsonEncode(state.toJson());
+    final Future<void> previous = _writeTail.catchError((Object _) {});
+    final Future<void> write = previous.then((_) async {
+      if (generation != _writeGeneration) return;
+      await _secureStore.writeString(_secureStateKey, encoded);
+    });
+    _writeTail = write;
+    return write;
+  }
+
+  Future<void> cancelAndDrainWrites() async {
+    _writeGeneration++;
+    await _writeTail.catchError((Object _) {});
   }
 
   void addXP(int amount) {

@@ -12,6 +12,15 @@ class SettingsRepository implements ISettingsRepository {
   static const String _settingsKey = 'settings_entity_v1';
   final SharedPrefsStore _store;
   final SyncMutationDispatcher? _syncDispatcher;
+  bool _cancelled = false;
+  Future<void> _writeQueue = Future<void>.value();
+
+  Future<void> cancelAndDrain() async {
+    _cancelled = true;
+    await _writeQueue.catchError((Object _) {});
+  }
+
+  void dispose() => _cancelled = true;
 
   @override
   Future<SettingsEntity?> getSettings() async {
@@ -41,29 +50,41 @@ class SettingsRepository implements ISettingsRepository {
   }
 
   @override
-  Future<void> saveSettings(SettingsEntity settings) async {
-    await _store.save(
-      _settingsKey,
-      jsonEncode(<String, dynamic>{
-        'soundEnabled': settings.soundEnabled,
-        'notificationsEnabled': settings.notificationsEnabled,
-        'themeMode': settings.themeMode,
-        'onboardingComplete': settings.onboardingComplete,
-      }),
-    );
+  Future<void> saveSettings(SettingsEntity settings) =>
+      _serializeWrite(() async {
+        await _store.save(
+          _settingsKey,
+          jsonEncode(<String, dynamic>{
+            'soundEnabled': settings.soundEnabled,
+            'notificationsEnabled': settings.notificationsEnabled,
+            'themeMode': settings.themeMode,
+            'onboardingComplete': settings.onboardingComplete,
+          }),
+        );
 
-    await _syncDispatcher?.enqueueUpsert(
-      tableName: 'settings',
-      recordId: 'default',
-      payload: <String, dynamic>{
-        'id': 'default',
-        'sound_enabled': settings.soundEnabled,
-        'notifications_enabled': settings.notificationsEnabled,
-        'theme_mode': settings.themeMode,
-        'onboarding_complete': settings.onboardingComplete,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-        'deleted_at': null,
-      },
-    );
+        await _syncDispatcher?.enqueueUpsert(
+          tableName: 'settings',
+          recordId: 'default',
+          payload: <String, dynamic>{
+            'id': 'default',
+            'sound_enabled': settings.soundEnabled,
+            'notifications_enabled': settings.notificationsEnabled,
+            'theme_mode': settings.themeMode,
+            'onboarding_complete': settings.onboardingComplete,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+            'deleted_at': null,
+          },
+        );
+      });
+
+  Future<void> _serializeWrite(Future<void> Function() action) {
+    if (_cancelled) {
+      return Future<void>.error(
+        StateError('Settings mutation canceled during account transition.'),
+      );
+    }
+    final Future<void> next = _writeQueue.then((_) => action());
+    _writeQueue = next.catchError((Object _) {});
+    return next;
   }
 }
