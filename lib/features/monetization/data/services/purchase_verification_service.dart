@@ -78,12 +78,22 @@ class PurchaseVerificationResult {
   }
 }
 
-class PurchaseVerificationService {
+abstract interface class PurchaseVerifier {
+  Future<PurchaseVerificationResult> verifyPurchase({
+    required String productId,
+    required String purchaseToken,
+    required String purchaseType,
+    required String accessToken,
+  });
+}
+
+class PurchaseVerificationService implements PurchaseVerifier {
   PurchaseVerificationService({required this.httpClient, required this.mode});
 
   final http.Client httpClient;
   final PurchaseVerificationMode mode;
 
+  @override
   Future<PurchaseVerificationResult> verifyPurchase({
     required String productId,
     required String purchaseToken,

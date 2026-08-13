@@ -38,6 +38,81 @@ const Set<String> _knownConsumableProductIds = <String>{
   'chronospark_credits_3000',
 };
 
+/// The exact platform operations used by pending-purchase recovery.
+abstract interface class PurchaseRecoveryBillingGateway {
+  Stream<List<PurchaseDetails>> get purchaseStream;
+  Future<ProductDetailsResponse> queryProductDetails(Set<String> productIds);
+  Future<bool> buyNonConsumable(PurchaseParam param);
+  Future<bool> buyConsumable(PurchaseParam param);
+  Future<void> restorePurchases();
+  Future<List<PurchaseDetails>?> recoverPendingPurchases();
+  Future<void> finalizePurchase(
+    PurchaseDetails purchase, {
+    required bool isConsumable,
+  });
+}
+
+/// Production adapter retaining the existing InAppPurchase behavior.
+class InAppPurchaseRecoveryBillingGateway
+    implements PurchaseRecoveryBillingGateway {
+  InAppPurchaseRecoveryBillingGateway(this._iap);
+
+  final InAppPurchase _iap;
+
+  @override
+  Stream<List<PurchaseDetails>> get purchaseStream => _iap.purchaseStream;
+
+  @override
+  Future<ProductDetailsResponse> queryProductDetails(Set<String> productIds) =>
+      _iap.queryProductDetails(productIds);
+
+  @override
+  Future<bool> buyNonConsumable(PurchaseParam param) =>
+      _iap.buyNonConsumable(purchaseParam: param);
+
+  @override
+  Future<bool> buyConsumable(PurchaseParam param) =>
+      _iap.buyConsumable(purchaseParam: param, autoConsume: false);
+
+  @override
+  Future<void> restorePurchases() => _iap.restorePurchases();
+
+  @override
+  Future<List<PurchaseDetails>?> recoverPendingPurchases() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final InAppPurchaseAndroidPlatformAddition addition = _iap
+          .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+      final QueryPurchaseDetailsResponse response = await addition
+          .queryPastPurchases();
+      return response.error == null ? response.pastPurchases : null;
+    }
+    await _iap.restorePurchases();
+    return const <PurchaseDetails>[];
+  }
+
+  @override
+  Future<void> finalizePurchase(
+    PurchaseDetails purchase, {
+    required bool isConsumable,
+  }) async {
+    if (isConsumable &&
+        !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android) {
+      final InAppPurchaseAndroidPlatformAddition addition = _iap
+          .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+      final BillingResultWrapper result = await addition.consumePurchase(
+        purchase,
+      );
+      if (result.responseCode != BillingResponse.ok) {
+        throw StateError('Google Play did not consume the verified purchase.');
+      }
+    }
+    if (purchase.pendingCompletePurchase) {
+      await _iap.completePurchase(purchase);
+    }
+  }
+}
+
 class PurchaseResult {
   const PurchaseResult({
     required this.success,
@@ -74,36 +149,44 @@ abstract class PurchaseRepository {
 
 class GooglePlayPurchaseRepository implements PurchaseRepository {
   factory GooglePlayPurchaseRepository({
-    required InAppPurchase iap,
-    required PurchaseVerificationService verificationService,
+    InAppPurchase? iap,
+    PurchaseRecoveryBillingGateway? billingGateway,
+    required PurchaseVerifier verificationService,
     required SecureStore journalStore,
     required PurchaseAuthContext? Function() authContextLoader,
+    Duration recoveryCooldown = _recoveryThrottle,
   }) {
     return GooglePlayPurchaseRepository._(
-      iap,
+      billingGateway ??
+          InAppPurchaseRecoveryBillingGateway(
+            iap ?? (throw ArgumentError('iap is required without a gateway')),
+          ),
       verificationService,
       journalStore,
       authContextLoader,
+      recoveryCooldown,
     );
   }
 
   GooglePlayPurchaseRepository._(
-    this._iap,
+    this._billing,
     this._verificationService,
     this._journalStore,
     this._authContextLoader,
+    this._recoveryCooldown,
   ) {
     _initialization = _initialize();
-    _purchaseSubscription = _iap.purchaseStream.listen(
+    _purchaseSubscription = _billing.purchaseStream.listen(
       _onPurchaseUpdates,
       onError: _onPurchaseStreamError,
     );
   }
 
-  final InAppPurchase _iap;
-  final PurchaseVerificationService _verificationService;
+  final PurchaseRecoveryBillingGateway _billing;
+  final PurchaseVerifier _verificationService;
   final SecureStore _journalStore;
   final PurchaseAuthContext? Function() _authContextLoader;
+  final Duration _recoveryCooldown;
 
   late final Future<void> _initialization;
   late final StreamSubscription<List<PurchaseDetails>> _purchaseSubscription;
@@ -124,7 +207,7 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
   bool _disposed = false;
 
   @override
-  Stream<List<PurchaseDetails>> get purchaseStream => _iap.purchaseStream;
+  Stream<List<PurchaseDetails>> get purchaseStream => _billing.purchaseStream;
 
   Stream<PurchaseResult> get verifiedPurchaseResults =>
       _verifiedPurchaseResults.stream;
@@ -138,7 +221,7 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
       purchaseType: purchaseType,
       isConsumable: false,
       launch: (PurchaseParam param) {
-        return _iap.buyNonConsumable(purchaseParam: param);
+        return _billing.buyNonConsumable(param);
       },
     );
   }
@@ -151,7 +234,7 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
       purchaseType: 'inapp',
       isConsumable: true,
       launch: (PurchaseParam param) {
-        return _iap.buyConsumable(purchaseParam: param, autoConsume: false);
+        return _billing.buyConsumable(param);
       },
     );
   }
@@ -198,7 +281,7 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
     );
     _restoreOperation = restore;
     try {
-      await _iap.restorePurchases();
+      await _billing.restorePurchases();
       return await completer.future.timeout(
         _restoreResultTimeout,
         onTimeout: () => const PurchaseResult(
@@ -235,28 +318,19 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
     final DateTime now = DateTime.now();
     final DateTime? lastRecovery = _lastRecoveryAt;
     if (lastRecovery != null &&
-        now.difference(lastRecovery) < _recoveryThrottle) {
+        now.difference(lastRecovery) < _recoveryCooldown) {
       return;
     }
     _lastRecoveryAt = now;
 
     try {
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        final InAppPurchaseAndroidPlatformAddition addition = _iap
-            .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
-        final QueryPurchaseDetailsResponse response = await addition
-            .queryPastPurchases();
-        if (response.error != null) {
-          return;
-        }
-        _onPurchaseUpdates(response.pastPurchases);
-        await _reconcileJournalEntriesMissingFromStore(
-          auth.userId,
-          response.pastPurchases,
-        );
+      final List<PurchaseDetails>? purchases = await _billing
+          .recoverPendingPurchases();
+      if (purchases == null) {
         return;
       }
-      await _iap.restorePurchases();
+      _onPurchaseUpdates(purchases);
+      await _reconcileJournalEntriesMissingFromStore(auth.userId, purchases);
     } on Object catch (error) {
       Logger.warn('Pending purchase recovery was unavailable: $error');
     }
@@ -338,9 +412,8 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
 
     _checkoutInProgress = true;
     try {
-      final ProductDetailsResponse response = await _iap.queryProductDetails(
-        <String>{productId},
-      );
+      final ProductDetailsResponse response = await _billing
+          .queryProductDetails(<String>{productId});
       if (response.error != null) {
         return PurchaseResult(
           success: false,
@@ -612,7 +685,10 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
     }
 
     try {
-      await _finalizeStorePurchase(purchase, entry);
+      await _billing.finalizePurchase(
+        purchase,
+        isConsumable: entry.isConsumable,
+      );
     } on Object catch (error) {
       Logger.error('Verified Google Play purchase finalization failed', error);
       _completeOperation(
@@ -644,27 +720,6 @@ class GooglePlayPurchaseRepository implements PurchaseRepository {
     final _RestoreOperation? activeRestore = _restoreOperation;
     if (activeRestore != null && !activeRestore.completer.isCompleted) {
       activeRestore.completer.complete(result);
-    }
-  }
-
-  Future<void> _finalizeStorePurchase(
-    PurchaseDetails purchase,
-    _PendingPurchaseEntry entry,
-  ) async {
-    if (entry.isConsumable &&
-        !kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android) {
-      final InAppPurchaseAndroidPlatformAddition addition = _iap
-          .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
-      final BillingResultWrapper result = await addition.consumePurchase(
-        purchase,
-      );
-      if (result.responseCode != BillingResponse.ok) {
-        throw StateError('Google Play did not consume the verified purchase.');
-      }
-    }
-    if (purchase.pendingCompletePurchase) {
-      await _iap.completePurchase(purchase);
     }
   }
 
