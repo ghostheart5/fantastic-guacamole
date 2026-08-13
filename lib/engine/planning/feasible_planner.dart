@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/work_window_entity.dart';
 
@@ -24,15 +25,16 @@ class PlanIssue {
 }
 
 class PlanningProblem {
-  const PlanningProblem({
-    required this.tasks,
+  PlanningProblem({
+    List<PlannerInput>? inputs,
+    List<TaskEntity>? tasks,
     required this.workWindows,
     required this.existingBlocks,
     required this.energy,
     required this.now,
-  });
+  }) : inputs = inputs ?? PlannerInputAdapter.fromTaskEntities(tasks ?? const <TaskEntity>[]);
 
-  final List<TaskEntity> tasks;
+  final List<PlannerInput> inputs;
   final List<WorkWindowEntity> workWindows;
   final List<TimeBlock> existingBlocks;
   final double energy;
@@ -60,8 +62,8 @@ class FeasiblePlanner {
 
   FeasiblePlan plan(PlanningProblem problem) {
     final List<PlanIssue> issues = <PlanIssue>[];
-    final List<TaskEntity> active = <TaskEntity>[];
-    for (final TaskEntity task in problem.tasks) {
+    final List<PlannerInput> active = <PlannerInput>[];
+    for (final PlannerInput task in problem.inputs) {
       if (task.isCompleted || task.isCanceled) continue;
       try {
         task.validate();
@@ -74,11 +76,11 @@ class FeasiblePlanner {
         ));
       }
     }
-    final Map<String, TaskEntity> byId = <String, TaskEntity>{
-      for (final TaskEntity task in active) task.id: task,
+    final Map<String, PlannerInput> byId = <String, PlannerInput>{
+      for (final PlannerInput task in active) task.id: task,
     };
-    final List<TaskEntity> ordered = List<TaskEntity>.from(active)
-      ..sort((TaskEntity a, TaskEntity b) => _compare(a, b, problem));
+    final List<PlannerInput> ordered = List<PlannerInput>.from(active)
+      ..sort((PlannerInput a, PlannerInput b) => _compare(a, b, problem));
     final List<TimeBlock> blocks = <TimeBlock>[];
     for (final TimeBlock block in problem.existingBlocks) {
       try {
@@ -95,7 +97,7 @@ class FeasiblePlanner {
     blocks.sort((TimeBlock a, TimeBlock b) => a.start.compareTo(b.start));
     final List<String> unscheduled = <String>[];
 
-    for (final TaskEntity task in ordered) {
+    for (final PlannerInput task in ordered) {
       if (_hasIncompletePrerequisite(task, byId)) {
         unscheduled.add(task.id);
         issues.add(PlanIssue(
@@ -149,7 +151,7 @@ class FeasiblePlanner {
     );
   }
 
-  int _compare(TaskEntity a, TaskEntity b, PlanningProblem problem) {
+  int _compare(PlannerInput a, PlannerInput b, PlanningProblem problem) {
     final double aScore = _priorityScore(a, problem);
     final double bScore = _priorityScore(b, problem);
     final int byScore = bScore.compareTo(aScore);
@@ -157,7 +159,7 @@ class FeasiblePlanner {
     return a.id.compareTo(b.id);
   }
 
-  double _priorityScore(TaskEntity task, PlanningProblem problem) {
+  double _priorityScore(PlannerInput task, PlanningProblem problem) {
     final double energyNeed = task.energyRequired / 5;
     final double energyFit = 1 - (problem.energy.clamp(0.0, 1.0) - energyNeed).abs();
     double score = task.priority * 10 + energyFit * 6;
@@ -170,17 +172,17 @@ class FeasiblePlanner {
   }
 
   bool _hasIncompletePrerequisite(
-    TaskEntity task,
-    Map<String, TaskEntity> byId,
+    PlannerInput task,
+    Map<String, PlannerInput> byId,
   ) {
-    return task.subtasks.any((String id) {
-      final TaskEntity? prerequisite = byId[id];
+    return task.prerequisiteIds.any((String id) {
+      final PlannerInput? prerequisite = byId[id];
       return prerequisite != null && !prerequisite.isCompleted;
     });
   }
 
   _Placement? _findPlacement({
-    required TaskEntity task,
+    required PlannerInput task,
     required PlanningProblem problem,
     required List<TimeBlock> occupied,
   }) {

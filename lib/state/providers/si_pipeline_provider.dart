@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/insights_models.dart';
@@ -55,16 +56,19 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   String? tasksError;
   List<Task> tasks = const <Task>[];
   List<TaskEntity> taskEntities = const <TaskEntity>[];
+  List<PlannerInput> plannerInputs = const <PlannerInput>[];
 
   try {
     taskEntities = await _loadAllActiveTaskEntities(ref);
-    tasks = _mapTaskEntitiesToLegacyTasks(taskEntities);
+    plannerInputs = PlannerInputAdapter.fromTaskEntities(taskEntities);
+    tasks = PlannerInputAdapter.toLegacyTasks(plannerInputs);
     tasksStatus = tasks.isEmpty ? SISourceStatus.empty : SISourceStatus.ready;
   } on Object catch (error) {
     tasksStatus = SISourceStatus.error;
     tasksError = error.toString();
     tasks = const <Task>[];
     taskEntities = const <TaskEntity>[];
+    plannerInputs = const <PlannerInput>[];
   }
 
   List<GoalEntity> goals = const <GoalEntity>[];
@@ -121,7 +125,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   );
   final DecisionRecommendation planningDecision = const DecisionEngine()
       .recommend(
-        tasks: taskEntities,
+        inputs: plannerInputs,
         state: planningState,
         learning: ref.watch(learningProvider),
       );
@@ -223,23 +227,6 @@ Future<List<TaskEntity>> _loadAllActiveTaskEntities(Ref ref) async {
       .toList(growable: false);
 }
 
-List<Task> _mapTaskEntitiesToLegacyTasks(List<TaskEntity> entities) {
-  return entities
-      .map(
-        (TaskEntity item) => Task(
-          id: item.id,
-          title: item.title,
-          priority: item.priority,
-          difficulty: item.difficulty,
-          energyRequired: item.energyRequired,
-          scheduledFor: item.scheduledFor,
-          goalId: item.goalId,
-          subtasks: item.subtasks,
-          recurrenceRule: item.recurrenceRule,
-        ),
-      )
-      .toList(growable: false);
-}
 
 final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
   Ref ref,

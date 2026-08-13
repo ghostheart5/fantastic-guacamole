@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/domain/entities/calendar_entry.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 
 class CalendarService {
   final Map<String, CalendarEntry> _entries = <String, CalendarEntry>{};
@@ -11,15 +12,15 @@ class CalendarService {
 
   /// Generate an adaptive day plan using a simple energy-aware ranking.
   List<TimeBlock> generateAdaptivePlan({
-    required List<Task> tasks,
+    required List<PlannerInput> inputs,
     required double energy,
     DateTime? startTime,
   }) {
     final double normalizedEnergy = energy.clamp(0.0, 1.0);
     final DateTime now = startTime ?? DateTime.now();
 
-    final List<Task> ranked = List<Task>.from(tasks)
-      ..sort((Task a, Task b) {
+    final List<PlannerInput> ranked = List<PlannerInput>.from(inputs)
+      ..sort((PlannerInput a, PlannerInput b) {
         final double aScore = _adaptiveTaskScore(a, normalizedEnergy);
         final double bScore = _adaptiveTaskScore(b, normalizedEnergy);
         return bScore.compareTo(aScore);
@@ -29,7 +30,7 @@ class CalendarService {
     final Map<String, DateTime> cursorsByDay = <String, DateTime>{};
     final Set<String> plannedTaskDayKeys = <String>{};
 
-    for (final Task task in ranked) {
+    for (final PlannerInput task in ranked) {
       final List<DateTime> occurrences = _planningOccurrences(task, now);
       for (final DateTime occurrence in occurrences) {
         final DateTime dayStart = _startForPlanningDay(occurrence, now);
@@ -208,7 +209,7 @@ class CalendarService {
     }
   }
 
-  double _adaptiveTaskScore(Task task, double energy) {
+  double _adaptiveTaskScore(PlannerInput task, double energy) {
     final double priorityWeight = task.priority * 10.0;
     final double normalizedRequirement = task.energyRequired / 5.0;
     final double effortFit =
@@ -226,8 +227,8 @@ class CalendarService {
     return DateTime(scheduled.year, scheduled.month, scheduled.day, 9);
   }
 
-  Duration _estimateAdaptiveDuration(Task task, double energy) {
-    final Duration base = _estimateDuration(task);
+  Duration _estimateAdaptiveDuration(PlannerInput task, double energy) {
+    final Duration base = task.estimatedDuration ?? _durationForDifficulty(task.difficulty);
     if (energy >= 0.75) {
       return Duration(minutes: (base.inMinutes * 0.9).round());
     }
@@ -247,7 +248,7 @@ class CalendarService {
     return const Duration(minutes: 10);
   }
 
-  List<DateTime> _planningOccurrences(Task task, DateTime now) {
+  List<DateTime> _planningOccurrences(PlannerInput task, DateTime now) {
     final DateTime scheduled = task.scheduledFor ?? now;
     switch (task.recurrenceRule) {
       case RecurrenceRule.daily:
@@ -288,4 +289,13 @@ class CalendarService {
         return <DateTime>[scheduled];
     }
   }
+
+  Duration _durationForDifficulty(int difficulty) => switch (difficulty) {
+    1 => const Duration(minutes: 15),
+    2 => const Duration(minutes: 25),
+    3 => const Duration(minutes: 45),
+    4 => const Duration(minutes: 60),
+    5 => const Duration(minutes: 90),
+    _ => const Duration(minutes: 30),
+  };
 }

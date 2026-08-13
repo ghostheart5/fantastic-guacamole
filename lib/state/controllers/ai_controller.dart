@@ -14,6 +14,7 @@ import 'package:fantastic_guacamole/data/services/ai/orchestration/agent_orchest
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/completion_event_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
@@ -208,7 +209,10 @@ class AIController {
 
     final List<String> planPreview = _ref
         .read(calendarServiceProvider)
-        .generateAdaptivePlan(tasks: tasks, energy: si.energy)
+        .generateAdaptivePlan(
+          inputs: PlannerInputAdapter.fromLegacyTasks(tasks),
+          energy: si.energy,
+        )
         .take(3)
         .map((block) => block.title)
         .toList(growable: false);

@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/core/debug/content_generation_analytics.dart
 import 'package:fantastic_guacamole/core/debug/content_generation_release_gate.dart';
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_detection_service.dart';
@@ -640,7 +641,10 @@ class CoachQueryController implements SmartCoachInterface {
 
     final List<String> planPreview = _ref
         .read(calendarServiceProvider)
-        .generateAdaptivePlan(tasks: tasks, energy: energy)
+        .generateAdaptivePlan(
+          inputs: PlannerInputAdapter.fromLegacyTasks(tasks),
+          energy: energy,
+        )
         .take(3)
         .map((block) => block.title)
         .toList(growable: false);

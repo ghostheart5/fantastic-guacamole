@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/domain/entities/decision_observation_entity.
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/work_window_entity.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/engine/planning/feasible_planner.dart';
 import 'package:fantastic_guacamole/engine/tasks/task_ranker.dart';
 
@@ -55,15 +56,18 @@ class DecisionEngine {
   final FeasiblePlanner planner;
 
   DecisionRecommendation recommend({
-    required List<TaskEntity> tasks,
+    List<PlannerInput>? inputs,
+    List<TaskEntity>? tasks,
     required SiStateEntity state,
     required LearningEntity learning,
     List<WorkWindowEntity> workWindows = const <WorkWindowEntity>[],
     DateTime? now,
   }) {
     final DateTime timestamp = now ?? DateTime.now();
-    final List<TaskEntity> active = tasks
-        .where((TaskEntity task) => !task.isCompleted && !task.isCanceled)
+    final List<PlannerInput> resolvedInputs = inputs ??
+        PlannerInputAdapter.fromTaskEntities(tasks ?? const <TaskEntity>[]);
+    final List<PlannerInput> active = resolvedInputs
+        .where((PlannerInput task) => !task.isCompleted && !task.isCanceled)
         .toList(growable: false);
     final List<WorkWindowEntity> resolvedWindows = workWindows.isEmpty
         ? <WorkWindowEntity>[_defaultWindow(timestamp)]
@@ -73,7 +77,7 @@ class DecisionEngine {
                 window.status == WorkWindowStatus.active)
             .toList(growable: false);
     final FeasiblePlan plan = planner.plan(PlanningProblem(
-      tasks: active,
+      inputs: active,
       workWindows: resolvedWindows,
       existingBlocks: const [],
       energy: state.energy,
@@ -101,7 +105,7 @@ class DecisionEngine {
       );
     }
     final ranked = const TaskRanker().rank(
-      active,
+      active.map((PlannerInput input) => input.toTaskEntity()).toList(growable: false),
       learning: learning,
       energy: state.energy,
       fatigue: state.fatigue,
