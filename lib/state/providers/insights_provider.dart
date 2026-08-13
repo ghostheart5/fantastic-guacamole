@@ -29,6 +29,11 @@ final _publishedInsightSignatureProvider =
       _PublishedInsightSignatureNotifier.new,
     );
 
+void invalidateInsightsSessionState(Ref ref) {
+  ref.invalidate(insightsBundleProvider);
+  ref.invalidate(_publishedInsightSignatureProvider);
+}
+
 class InsightsActions {
   const InsightsActions(this._ref);
 
