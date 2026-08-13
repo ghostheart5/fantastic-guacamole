@@ -23,6 +23,28 @@ class LearningController extends Notifier<LearningState> {
   SecureStore get _store => ref.read(secureStoreProvider);
   static const String _storageKey = 'ai_learning';
 
+  static String storageKeyForUser(String? userId) {
+    final String value = userId?.trim() ?? '';
+    final String scope = value.isEmpty
+        ? 'signed_out'
+        : value.replaceAll(RegExp('[^a-zA-Z0-9._-]'), '_');
+    return '$_storageKey.$scope';
+  }
+
+  static Future<void> migrateLegacyStorage({
+    required SecureStore store,
+    required String userId,
+  }) async {
+    final String targetKey = storageKeyForUser(userId);
+    if (await store.readString(targetKey) != null) return;
+
+    final String? legacyValue = await store.readString(_storageKey);
+    if (legacyValue == null) return;
+
+    await store.writeString(targetKey, legacyValue);
+    await store.delete(_storageKey);
+  }
+
   Future<void> _load() async {
     try {
       final String? raw = await _store.readString(_storageKey);

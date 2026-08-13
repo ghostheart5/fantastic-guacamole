@@ -26,6 +26,53 @@ class ExtendedDomainService implements IExtendedDomainRepository {
   static const String _keyPrivacyPolicies = 'extended_domain.privacy_policies';
   static const String _keyHealthChecks = 'extended_domain.health_checks';
 
+  static const List<String> legacyStorageKeys = <String>[
+    _keyCoachMessages,
+    _keySiQueries,
+    _keyUserIntents,
+    _keyJournalEntries,
+    _keyAnalyticsMetrics,
+    _keyAppNotifications,
+    _keyRewards,
+    _keyThemes,
+    _keySettings,
+    _keySyncStates,
+    _keyOfflineStates,
+    _keyAppErrors,
+    _keyRecoveryStates,
+    _keySubscriptionPlans,
+    _keyPrivacyPolicies,
+    _keyHealthChecks,
+  ];
+
+  static String scopedStorageKey(String baseKey, String storageScope) {
+    return '$baseKey.${_safeStorageScope(storageScope)}';
+  }
+
+  static Future<void> migrateLegacyStorage({
+    required SharedPreferences prefs,
+    required String storageScope,
+  }) async {
+    for (final String baseKey in legacyStorageKeys) {
+      final String scopedKey = scopedStorageKey(baseKey, storageScope);
+      if (prefs.containsKey(scopedKey)) continue;
+
+      final String? legacyValue = prefs.getString(baseKey);
+      if (legacyValue == null) continue;
+
+      await prefs.setString(scopedKey, legacyValue);
+      await prefs.remove(baseKey);
+    }
+  }
+
+  static String _safeStorageScope(String value) {
+    final String normalized = value.trim().replaceAll(
+      RegExp('[^a-zA-Z0-9._-]'),
+      '_',
+    );
+    return normalized.isEmpty ? 'signed_out' : normalized;
+  }
+
   SharedPreferences? _prefs;
   bool _initialized = false;
 

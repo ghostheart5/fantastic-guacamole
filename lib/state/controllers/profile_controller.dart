@@ -136,6 +136,33 @@ class ProfileController extends Notifier<ProfileState> {
     return '$_secureStateKey.${_safeStorageScope(userId)}';
   }
 
+  static Future<void> migrateLegacyStorage({
+    required SecureStore secureStore,
+    required HiveStore hiveStore,
+    required String userId,
+  }) async {
+    final String targetKey = secureStorageKeyForUser(userId);
+    if (await secureStore.readString(targetKey) != null) return;
+
+    final String? secureLegacy = await secureStore.readString(_secureStateKey);
+    if (secureLegacy != null) {
+      await secureStore.writeString(targetKey, secureLegacy);
+      await secureStore.delete(_secureStateKey);
+      return;
+    }
+
+    final HiveStorage<String> legacyStorage = HiveStorage<String>(
+      _boxKey,
+      hive: hiveStore,
+    );
+    await legacyStorage.open();
+    final String? hiveLegacy = legacyStorage.get(_stateKey);
+    if (hiveLegacy == null) return;
+
+    await secureStore.writeString(targetKey, hiveLegacy);
+    await legacyStorage.delete(_stateKey);
+  }
+
   static String _safeStorageScope(String? userId) {
     final String value = userId?.trim() ?? '';
     if (value.isEmpty) {
