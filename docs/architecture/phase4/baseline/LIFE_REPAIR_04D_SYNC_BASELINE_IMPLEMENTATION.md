@@ -5,6 +5,13 @@
 **BLOCKED before production candidate construction.** No sync production source,
 test, lifecycle source, or HLM-06 entry was staged or modified in this phase.
 
+## Superseding manifest clarification (LIFE-REPAIR-04E)
+
+The ambiguity described below is resolved by the authoritative selected-hunk
+ledger: dependency manifest count **11**; production modified-file count **5**.
+`domain_usecase_providers.dart` is REQUIRED-BUT-NO-CHANGE. See
+`LIFE_REPAIR_04E_SYNC_SELECTED_HUNK_MAP.md` for the superseding boundary.
+
 ## Conflicting implementation scope
 
 LIFE-REPAIR-04D requires the “exact 11-file manifest” from 04B. The later,
