@@ -1336,6 +1336,17 @@ class AuthSessionLifecycleCoordinator {
     _ref.invalidate(reminderOrchestratorServiceProvider);
     _ref.invalidate(taskRepositoryProvider);
     _ref.invalidate(goalRepositoryProvider);
+    _ref.invalidate(domainTaskRepositoryProvider);
+    _ref.invalidate(domainGoalRepositoryProvider);
+    _ref.invalidate(getTasksUseCaseProvider);
+    _ref.invalidate(getGoalsUseCaseProvider);
+    _ref.invalidate(createTaskUseCaseProvider);
+    _ref.invalidate(completeTaskUseCaseProvider);
+    _ref.invalidate(updateTaskUseCaseProvider);
+    _ref.invalidate(featureCreateGoalUseCaseProvider);
+    _ref.invalidate(featureUpdateGoalUseCaseProvider);
+    _ref.invalidate(deleteGoalUseCaseProvider);
+    _ref.invalidate(completeGoalUseCaseProvider);
     _ref.invalidate(habitRepositoryProvider);
     _ref.invalidate(timelineRepositoryProvider);
     _ref.invalidate(viewTimelineUsecaseProvider);
