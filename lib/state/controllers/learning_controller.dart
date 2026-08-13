@@ -14,6 +14,8 @@ final learningProvider = NotifierProvider<LearningController, LearningState>(
 
 class LearningController extends Notifier<LearningState> {
   bool _storageCorrupted = false;
+  int _writeGeneration = 0;
+  Future<void> _writeTail = Future<void>.value();
   @override
   LearningState build() {
     _load();
@@ -74,11 +76,31 @@ class LearningController extends Notifier<LearningState> {
       );
     }
     state = updated;
-    await _store.writeString(_storageKey, jsonEncode(updated.toJson()));
+    final int generation = _writeGeneration;
+    final String encoded = jsonEncode(updated.toJson());
+    final Future<void> previous = _writeTail.catchError((Object _) {});
+    final Future<void> write = previous.then((_) async {
+      if (generation != _writeGeneration) return;
+      await _store.writeString(_storageKey, encoded);
+    });
+    _writeTail = write;
+    await write;
   }
 
   Future<void> reset() async {
     state = const LearningState();
-    await _store.delete(_storageKey);
+    final int generation = _writeGeneration;
+    final Future<void> previous = _writeTail.catchError((Object _) {});
+    final Future<void> delete = previous.then((_) async {
+      if (generation != _writeGeneration) return;
+      await _store.delete(_storageKey);
+    });
+    _writeTail = delete;
+    await delete;
+  }
+
+  Future<void> cancelAndDrainWrites() async {
+    _writeGeneration++;
+    await _writeTail.catchError((Object _) {});
   }
 }

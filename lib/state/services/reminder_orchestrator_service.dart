@@ -40,6 +40,24 @@ class ReminderOrchestratorService {
   final SharedPrefsStore _preferences;
   final NotificationsService _notifications;
   final NotificationScheduler _scheduler;
+  bool _cancelled = false;
+  Future<void> _operationTail = Future<void>.value();
+
+  Future<void> cancelAndDrain() async {
+    _cancelled = true;
+    await _operationTail.catchError((Object _) {});
+  }
+
+  void dispose() => _cancelled = true;
+
+  Future<void> _serialize(Future<void> Function() operation) {
+    final Future<void> previous = _operationTail.catchError((Object _) {});
+    final Future<void> next = previous.then((_) async {
+      if (!_cancelled) await operation();
+    });
+    _operationTail = next;
+    return next;
+  }
 
   ReminderOrchestratorPrefs loadPrefs() {
     final (int hour, int minute) = _dailyPlanningTime();
@@ -61,75 +79,80 @@ class ReminderOrchestratorService {
     );
   }
 
-  Future<void> setGoalRemindersEnabled(bool enabled) async {
+  Future<void> setGoalRemindersEnabled(bool enabled) => _serialize(() async {
     await _preferences.save(_goalReminderEnabledKey, enabled.toString());
-  }
+  });
 
-  Future<void> setHabitRemindersEnabled(bool enabled) async {
+  Future<void> setHabitRemindersEnabled(bool enabled) => _serialize(() async {
     await _preferences.save(_habitReminderEnabledKey, enabled.toString());
     if (!enabled) {
       await _notifications.cancel(_habitReminderId);
     }
-  }
+  });
 
-  Future<void> syncGoalReminders(List<GoalEntity> goals) async {
-    if (!_isEnabled(_goalReminderEnabledKey, defaultValue: true)) {
-      return;
-    }
+  Future<void> syncGoalReminders(List<GoalEntity> goals) =>
+      _serialize(() async {
+        if (!_isEnabled(_goalReminderEnabledKey, defaultValue: true)) {
+          return;
+        }
 
-    for (final GoalEntity goal in goals) {
-      final DateTime? targetDate = goal.targetDate;
-      if (targetDate == null) {
-        continue;
-      }
+        for (final GoalEntity goal in goals) {
+          final DateTime? targetDate = goal.targetDate;
+          if (targetDate == null) {
+            continue;
+          }
 
-      final DateTime? reminderAt = _resolveGoalReminderAt(targetDate);
-      if (reminderAt == null) {
-        continue;
-      }
+          final DateTime? reminderAt = _resolveGoalReminderAt(targetDate);
+          if (reminderAt == null) {
+            continue;
+          }
 
-      await _notifications.schedule(
-        id: _goalReminderId(goal.id),
-        title: 'Goal Reminder',
-        body: 'Target date is near for "${goal.title}".',
-        at: reminderAt,
-      );
-    }
-  }
+          await _notifications.schedule(
+            id: _goalReminderId(goal.id),
+            title: 'Goal Reminder',
+            body: 'Target date is near for "${goal.title}".',
+            at: reminderAt,
+          );
+        }
+      });
 
-  Future<void> syncHabitReminders(List<HabitRecord> habits) async {
-    if (!_isEnabled(_habitReminderEnabledKey, defaultValue: true)) {
-      await _notifications.cancel(_habitReminderId);
-      return;
-    }
+  Future<void> syncHabitReminders(List<HabitRecord> habits) =>
+      _serialize(() async {
+        if (!_isEnabled(_habitReminderEnabledKey, defaultValue: true)) {
+          await _notifications.cancel(_habitReminderId);
+          return;
+        }
 
-    HabitRecord? activeHabit;
-    for (final HabitRecord habit in habits) {
-      if (habit.active) {
-        activeHabit = habit;
-        break;
-      }
-    }
+        HabitRecord? activeHabit;
+        for (final HabitRecord habit in habits) {
+          if (habit.active) {
+            activeHabit = habit;
+            break;
+          }
+        }
 
-    if (activeHabit == null) {
-      await _notifications.cancel(_habitReminderId);
-      return;
-    }
+        if (activeHabit == null) {
+          await _notifications.cancel(_habitReminderId);
+          return;
+        }
 
-    final NotificationScheduleResult result = await _scheduler
-        .scheduleDailyAtWithStatus(
-          id: _habitReminderId,
-          title: 'Habit Reminder',
-          body: 'Stay consistent: ${activeHabit.title}',
-          hour: 20,
-          minute: 0,
-        );
-    if (result != NotificationScheduleResult.scheduled) {
-      Logger.warn('Habit reminder scheduling skipped: $result');
-    }
-  }
+        final NotificationScheduleResult result = await _scheduler
+            .scheduleDailyAtWithStatus(
+              id: _habitReminderId,
+              title: 'Habit Reminder',
+              body: 'Stay consistent: ${activeHabit.title}',
+              hour: 20,
+              minute: 0,
+            );
+        if (result != NotificationScheduleResult.scheduled) {
+          Logger.warn('Habit reminder scheduling skipped: $result');
+        }
+      });
 
-  Future<void> ensureDailyPlanningReminder() async {
+  Future<void> ensureDailyPlanningReminder() =>
+      _serialize(_ensureDailyPlanningReminder);
+
+  Future<void> _ensureDailyPlanningReminder() async {
     if (!_isEnabled(_dailyPlanningEnabledKey, defaultValue: true)) {
       await _notifications.cancel(_dailyPlanningReminderId);
       return;
@@ -153,11 +176,11 @@ class ReminderOrchestratorService {
     required bool enabled,
     required int hour,
     required int minute,
-  }) async {
+  }) => _serialize(() async {
     await _preferences.save(_dailyPlanningEnabledKey, enabled.toString());
     await _preferences.save(_dailyPlanningTimeKey, '$hour:$minute');
-    await ensureDailyPlanningReminder();
-  }
+    await _ensureDailyPlanningReminder();
+  });
 
   bool _isEnabled(String key, {required bool defaultValue}) {
     final String? raw = _preferences.load(key);
