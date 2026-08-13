@@ -109,4 +109,19 @@ class SecureStore {
   Future<void> deleteAll() {
     return _backend.deleteAll();
   }
+
+  Future<Map<String, String>> readAll() {
+    final SecureStoreBackend backend = _backend;
+    if (backend is RealSecureStoreBackend) {
+      return backend._storage.readAll();
+    }
+    if (backend is InMemorySecureStoreBackend) {
+      return Future<Map<String, String>>.value(
+        Map<String, String>.unmodifiable(backend._memory),
+      );
+    }
+    throw UnsupportedError(
+      'The configured secure-store backend does not support enumeration.',
+    );
+  }
 }
