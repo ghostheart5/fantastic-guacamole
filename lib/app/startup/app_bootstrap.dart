@@ -13,12 +13,15 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/observers/riverpod_observer.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart';
+import 'package:fantastic_guacamole/data/models/auth_models.dart' show User;
 import 'package:fantastic_guacamole/data/services/supabase_client_service.dart';
 import 'package:fantastic_guacamole/firebase_options.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart'
     show supabaseClientProvider;
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart'
     show authServiceProvider;
+import 'package:fantastic_guacamole/state/providers/auth_session_lifecycle_provider.dart'
+    show authSessionLifecycleProvider;
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/sensitive_prefs_store.dart';
@@ -239,12 +242,72 @@ class StartupBootstrapGate extends ConsumerStatefulWidget {
       _StartupBootstrapGateState();
 }
 
+/// Owns the single app-lifetime feed from authentication changes into the
+/// already-serialized account lifecycle coordinator.
+class AuthSessionLifecycleActivation {
+  AuthSessionLifecycleActivation({
+    required this._initialize,
+    required this._synchronize,
+    required this._authStateChanges,
+  });
+
+  final Future<int> Function(User? user) _initialize;
+  final Future<int> Function(User? user) _synchronize;
+  final Stream<User?> _authStateChanges;
+
+  Future<void>? _activation;
+  StreamSubscription<User?>? _subscription;
+
+  bool get isActive => _subscription != null;
+
+  Future<void> activate(User? currentUser) {
+    return _activation ??= _activate(currentUser);
+  }
+
+  Future<void> _activate(User? currentUser) async {
+    await _initialize(currentUser);
+    _subscription = _authStateChanges.listen(
+      _synchronizeSafely,
+      onError: (Object error, StackTrace stackTrace) {
+        Logger.errorCategory(
+          'Auth Session',
+          'Authentication lifecycle stream failed.',
+          error,
+          stackTrace,
+        );
+      },
+    );
+  }
+
+  Future<void> _synchronizeSafely(User? user) async {
+    try {
+      await _synchronize(user);
+    } on Object catch (error, stackTrace) {
+      Logger.errorCategory(
+        'Auth Session',
+        'Authentication lifecycle synchronization failed.',
+        error,
+        stackTrace,
+      );
+    }
+  }
+
+  Future<void> dispose() async {
+    final StreamSubscription<User?>? subscription = _subscription;
+    _subscription = null;
+    if (subscription != null) {
+      await subscription.cancel();
+    }
+  }
+}
+
 class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
   bool _ready = false;
   bool _startupBlocked = false;
   String? _startupError;
   String? _lastAuthUserId;
   bool _firstInteractiveFrameLogged = false;
+  AuthSessionLifecycleActivation? _authSessionLifecycleActivation;
 
   @override
   void initState() {
@@ -298,6 +361,12 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       'CHRONOSPARK_SUPABASE_PROVIDER_REFRESHED: clientReady=${refreshedSupabaseClient != null}',
     );
 
+    await _activateAuthSessionLifecycle();
+
+    if (!mounted) {
+      return;
+    }
+
     final String? stateBootstrapIssue = await _runStateBootstrapSafe(ref);
 
     if (!mounted) {
@@ -347,6 +416,26 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
     if (!startupBlocked) {
       AppAnalytics.track('app_open');
     }
+  }
+
+  Future<void> _activateAuthSessionLifecycle() {
+    final AuthSessionLifecycleActivation activation =
+        _authSessionLifecycleActivation ??= AuthSessionLifecycleActivation(
+          initialize: ref.read(authSessionLifecycleProvider).initialize,
+          synchronize: ref.read(authSessionLifecycleProvider).synchronize,
+          authStateChanges: ref.read(authServiceProvider).authStateChanges(),
+        );
+    return activation.activate(ref.read(authServiceProvider).currentUser);
+  }
+
+  @override
+  void dispose() {
+    final AuthSessionLifecycleActivation? activation =
+        _authSessionLifecycleActivation;
+    if (activation != null) {
+      unawaited(activation.dispose());
+    }
+    super.dispose();
   }
 
   @override
