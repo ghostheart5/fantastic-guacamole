@@ -66,6 +66,10 @@ class LocalUserDataCleanupService {
     return _runMandatorySteps(_externalCleanupSteps());
   }
 
+  Future<void> prepareForSignOut() {
+    return _runMandatorySteps(_externalCleanupSteps());
+  }
+
   Future<void> clearLocalData({String? userId}) {
     _validateUserId(userId);
     return _runMandatorySteps(_localStorageCleanupSteps());

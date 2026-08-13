@@ -165,6 +165,75 @@ void main() {
   });
 
   group('local account privacy cleanup', () {
+    test(
+      'prepares sign-out by clearing only external account artifacts',
+      () async {
+        final _RecordingPreferences preferences = _RecordingPreferences();
+        final _RecordingHiveStore hive = _RecordingHiveStore();
+        final _RecordingSecureBackend backend = _RecordingSecureBackend();
+        final List<String> actions = <String>[];
+        final LocalUserDataCleanupService service = LocalUserDataCleanupService(
+          preferences: preferences,
+          hive: hive,
+          secureStore: SecureStore(backend: backend),
+          clearNotificationRoutingState: () async => actions.add('routing'),
+          cancelNotifications: () async => actions.add('notifications'),
+          disassociateFirebaseMessagingToken: () async =>
+              actions.add('disassociate'),
+          deleteFirebaseMessagingToken: () async => actions.add('token'),
+        );
+
+        await service.prepareForSignOut();
+
+        expect(actions, <String>[
+          'routing',
+          'notifications',
+          'disassociate',
+          'token',
+        ]);
+        expect(preferences.initCalls, 0);
+        expect(preferences.clearCalls, 0);
+        expect(hive.clearedBoxes, isEmpty);
+        expect(backend.deleteAllCalls, 0);
+      },
+    );
+
+    test(
+      'reports sign-out preparation failures after attempting every step',
+      () async {
+        final List<String> actions = <String>[];
+        final LocalUserDataCleanupService service = LocalUserDataCleanupService(
+          preferences: _RecordingPreferences(),
+          hive: _RecordingHiveStore(),
+          secureStore: SecureStore(backend: _RecordingSecureBackend()),
+          clearNotificationRoutingState: () async => actions.add('routing'),
+          cancelNotifications: () async {
+            actions.add('notifications');
+            throw StateError('notification cancellation failed');
+          },
+          disassociateFirebaseMessagingToken: () async =>
+              actions.add('disassociate'),
+          deleteFirebaseMessagingToken: () async => actions.add('token'),
+        );
+
+        final Object error = await service
+            .prepareForSignOut()
+            .then<Object>((_) => StateError('expected cleanup to fail'))
+            .catchError((Object error) => error);
+
+        expect(error, isA<LocalUserDataCleanupException>());
+        expect((error as LocalUserDataCleanupException).failedSteps, <String>[
+          'scheduled notifications',
+        ]);
+        expect(actions, <String>[
+          'routing',
+          'notifications',
+          'disassociate',
+          'token',
+        ]);
+      },
+    );
+
     test('purges every declared store and external account artifact', () async {
       final _RecordingPreferences preferences = _RecordingPreferences();
       final _RecordingHiveStore hive = _RecordingHiveStore();
