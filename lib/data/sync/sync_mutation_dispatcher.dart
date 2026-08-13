@@ -15,6 +15,17 @@ class SyncMutationDispatcher {
   // ignore: unused_field
   final sb.SupabaseClient? _supabaseClient;
   final String? _userId;
+  bool _cancelled = false;
+  Future<void> _operationTail = Future<void>.value();
+
+  Future<void> cancelAndDrain() async {
+    _cancelled = true;
+    await _operationTail.catchError((Object _) {});
+  }
+
+  void dispose() {
+    _cancelled = true;
+  }
 
   Future<bool> enqueueUpsert({
     required String tableName,
@@ -47,39 +58,60 @@ class SyncMutationDispatcher {
     required String recordId,
     required SyncOperationType operationType,
     required Map<String, dynamic> payload,
-  }) async {
-    final String? userId = _userId;
-    if (userId == null || userId.trim().isEmpty) {
-      return false;
-    }
+  }) {
+    final Future<void> previous = _operationTail.catchError((Object _) {});
+    late final Future<bool> operation;
+    operation = previous.then<bool>((_) async {
+      final String? userId = _userId;
+      if (userId == null || userId.trim().isEmpty) {
+        return false;
+      }
+      if (!_isCurrentSession(userId)) {
+        return false;
+      }
 
-    final DateTime now = DateTime.now().toUtc();
-    final SyncOperation operation = SyncOperation(
-      operationId:
-          '${now.microsecondsSinceEpoch}_${tableName}_${operationType.name}_$recordId',
-      tableName: tableName,
-      recordId: recordId,
-      operationType: operationType,
-      payload: <String, dynamic>{...payload, 'user_id': userId},
-      userId: userId,
-      createdAtUtc: now,
-      retryCount: 0,
-      nextRetryAtUtc: null,
-      lastError: null,
+      final DateTime now = DateTime.now().toUtc();
+      final SyncOperation queued = SyncOperation(
+        operationId:
+            '${now.microsecondsSinceEpoch}_${tableName}_${operationType.name}_$recordId',
+        tableName: tableName,
+        recordId: recordId,
+        operationType: operationType,
+        payload: <String, dynamic>{...payload, 'user_id': userId},
+        userId: userId,
+        createdAtUtc: now,
+        retryCount: 0,
+        nextRetryAtUtc: null,
+        lastError: null,
+      );
+
+      final List<SyncOperation> current = await _queueStore.readAll();
+      if (!_isCurrentSession(userId)) {
+        return false;
+      }
+      final List<SyncOperation> filtered = current
+          .where(
+            (SyncOperation item) =>
+                !(item.tableName == tableName &&
+                    item.recordId == recordId &&
+                    item.userId == userId &&
+                    item.operationType == operationType),
+          )
+          .toList(growable: true);
+      filtered.add(queued);
+      await _queueStore.overwrite(filtered);
+      return _isCurrentSession(userId);
+    });
+    _operationTail = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
     );
+    return operation;
+  }
 
-    final List<SyncOperation> current = await _queueStore.readAll();
-    final List<SyncOperation> filtered = current
-        .where(
-          (SyncOperation item) =>
-              !(item.tableName == tableName &&
-                  item.recordId == recordId &&
-                  item.userId == userId &&
-                  item.operationType == operationType),
-        )
-        .toList(growable: true);
-    filtered.add(operation);
-    await _queueStore.overwrite(filtered);
-    return true;
+  bool _isCurrentSession(String expectedUserId) {
+    final sb.SupabaseClient? client = _supabaseClient;
+    return !_cancelled &&
+        (client == null || client.auth.currentUser?.id == expectedUserId);
   }
 }

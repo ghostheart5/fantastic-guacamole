@@ -23,37 +23,65 @@ class SessionRecoveryService {
   static const _kTaskId = 'rec_active_task';
   static const _kDraftTitle = 'rec_draft_title';
   final String _storageScope;
+  bool _cancelled = false;
+  Future<void> _mutationTail = Future<void>.value();
 
   String _key(String key) => '$key.$_storageScope';
+
+  Future<void> cancelAndDrain() async {
+    _cancelled = true;
+    await _mutationTail.catchError((Object _) {});
+  }
+
+  void dispose() {
+    _cancelled = true;
+  }
+
+  Future<void> _serialize(Future<void> Function() operation) {
+    final Future<void> previous = _mutationTail.catchError((Object _) {});
+    final Future<void> next = previous.then((_) async {
+      if (!_cancelled) {
+        await operation();
+      }
+    });
+    _mutationTail = next;
+    return next;
+  }
 
   Future<void> saveState({
     String? lastRoute,
     String? activeTaskId,
     bool clearActiveTask = false,
     String? draftTaskTitle,
-  }) async {
-    try {
-      if (lastRoute != null) {
-        await SharedPrefsService.save(_key(_kLastRoute), lastRoute);
+  }) {
+    return _serialize(() async {
+      try {
+        if (lastRoute != null) {
+          await SharedPrefsService.save(_key(_kLastRoute), lastRoute);
+        }
+        if (_cancelled) return;
+        if (clearActiveTask) {
+          await SharedPrefsService.delete(_key(_kTaskId));
+        } else if (activeTaskId != null) {
+          await SharedPrefsService.save(_key(_kTaskId), activeTaskId);
+        }
+        if (_cancelled) return;
+        if (draftTaskTitle != null) {
+          await SharedPrefsService.save(_key(_kDraftTitle), draftTaskTitle);
+        }
+      } catch (_) {
+        Logger.warn('Session recovery: saveState failed (non-fatal).');
+        RuntimeDiagnostics.record(
+          'Session recovery saveState failure observed (non-fatal).',
+        );
       }
-      if (clearActiveTask) {
-        await SharedPrefsService.delete(_key(_kTaskId));
-      } else if (activeTaskId != null) {
-        await SharedPrefsService.save(_key(_kTaskId), activeTaskId);
-      }
-      if (draftTaskTitle != null) {
-        await SharedPrefsService.save(_key(_kDraftTitle), draftTaskTitle);
-      }
-    } catch (_) {
-      Logger.warn('Session recovery: saveState failed (non-fatal).');
-      RuntimeDiagnostics.record(
-        'Session recovery saveState failure observed (non-fatal).',
-      );
-    }
+    });
   }
 
   Future<SessionRecoveryState?> loadState() async {
     try {
+      await _mutationTail.catchError((Object _) {});
+      if (_cancelled) return null;
       final lastRoute = SharedPrefsService.load(_key(_kLastRoute));
       final activeTaskId = SharedPrefsService.load(_key(_kTaskId));
       final draftTitle = SharedPrefsService.load(_key(_kDraftTitle));
@@ -74,27 +102,33 @@ class SessionRecoveryService {
     }
   }
 
-  Future<void> clearDraft() async {
-    try {
-      await SharedPrefsService.delete(_key(_kDraftTitle));
-    } catch (_) {
-      Logger.warn('Session recovery: clearDraft failed (non-fatal).');
-      RuntimeDiagnostics.record(
-        'Session recovery clearDraft failure observed (non-fatal).',
-      );
-    }
+  Future<void> clearDraft() {
+    return _serialize(() async {
+      try {
+        await SharedPrefsService.delete(_key(_kDraftTitle));
+      } catch (_) {
+        Logger.warn('Session recovery: clearDraft failed (non-fatal).');
+        RuntimeDiagnostics.record(
+          'Session recovery clearDraft failure observed (non-fatal).',
+        );
+      }
+    });
   }
 
-  Future<void> clearAll() async {
-    try {
-      await SharedPrefsService.delete(_key(_kLastRoute));
-      await SharedPrefsService.delete(_key(_kTaskId));
-      await SharedPrefsService.delete(_key(_kDraftTitle));
-    } catch (_) {
-      Logger.warn('Session recovery: clearAll failed (non-fatal).');
-      RuntimeDiagnostics.record(
-        'Session recovery clearAll failure observed (non-fatal).',
-      );
-    }
+  Future<void> clearAll() {
+    return _serialize(() async {
+      try {
+        await SharedPrefsService.delete(_key(_kLastRoute));
+        if (_cancelled) return;
+        await SharedPrefsService.delete(_key(_kTaskId));
+        if (_cancelled) return;
+        await SharedPrefsService.delete(_key(_kDraftTitle));
+      } catch (_) {
+        Logger.warn('Session recovery: clearAll failed (non-fatal).');
+        RuntimeDiagnostics.record(
+          'Session recovery clearAll failure observed (non-fatal).',
+        );
+      }
+    });
   }
 }
