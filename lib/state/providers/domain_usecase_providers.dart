@@ -408,11 +408,19 @@ final domainSiRepositoryProvider = Provider<ISiRepository>((ref) {
   return _SiRepositoryAdapter(ref);
 });
 
-final extendedDomainRepositoryProvider = Provider<IExtendedDomainRepository>((
-  ref,
-) {
-  return ExtendedDomainService();
+final extendedDomainRepositoryProvider = Provider<ExtendedDomainService>((ref) {
+  final ExtendedDomainService service = ExtendedDomainService();
+  ref.onDispose(service.dispose);
+  return service;
 });
+
+Future<void> cancelAndDrainExtendedDomainSessionState(Ref ref) async {
+  await ref.read(extendedDomainRepositoryProvider).cancelAndDrain();
+}
+
+void invalidateExtendedDomainSessionState(Ref ref) {
+  ref.invalidate(extendedDomainRepositoryProvider);
+}
 
 final getCoachMessagesUseCaseProvider = Provider<GetCoachMessages>((ref) {
   return GetCoachMessages(ref.read(extendedDomainRepositoryProvider));

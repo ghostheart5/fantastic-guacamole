@@ -75,6 +75,9 @@ class ExtendedDomainService implements IExtendedDomainRepository {
 
   SharedPreferences? _prefs;
   bool _initialized = false;
+  bool _disposed = false;
+  int _lifecycleGeneration = 0;
+  Future<void> _writeTail = Future<void>.value();
 
   final List<CoachMessage> _coachMessages = [];
   final List<SiQuery> _siQueries = [];
@@ -95,12 +98,46 @@ class ExtendedDomainService implements IExtendedDomainRepository {
 
   @override
   Future<void> initialize() async {
-    if (_initialized) {
+    if (_initialized || _disposed) {
       return;
     }
-    _prefs = await SharedPreferences.getInstance();
+    final int generation = _lifecycleGeneration;
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (generation != _lifecycleGeneration) return;
+    _prefs = prefs;
     _hydrateState();
     _initialized = true;
+  }
+
+  Future<void> cancelAndDrain() async {
+    _markDisposed();
+    await _writeTail.catchError((Object _) {});
+  }
+
+  void dispose() => _markDisposed();
+
+  void _markDisposed() {
+    if (_disposed) return;
+    _disposed = true;
+    _lifecycleGeneration++;
+    _initialized = false;
+    _prefs = null;
+    _coachMessages.clear();
+    _siQueries.clear();
+    _userIntents.clear();
+    _journalEntries.clear();
+    _analyticsMetrics.clear();
+    _appNotifications.clear();
+    _rewards.clear();
+    _themes.clear();
+    _settings.clear();
+    _syncStates.clear();
+    _offlineStates.clear();
+    _appErrors.clear();
+    _recoveryStates.clear();
+    _subscriptionPlans.clear();
+    _privacyPolicies.clear();
+    _healthChecks.clear();
   }
 
   void _hydrateState() {
@@ -309,13 +346,10 @@ class ExtendedDomainService implements IExtendedDomainRepository {
     }
   }
 
-  Future<void> _persistList(
-    String key,
-    Iterable<LightweightEntity> entities,
-  ) async {
+  Future<void> _persistList(String key, Iterable<LightweightEntity> entities) {
     final SharedPreferences? prefs = _prefs;
-    if (prefs == null) {
-      return;
+    if (prefs == null || _disposed) {
+      return Future<void>.value();
     }
     final String encoded = jsonEncode(
       entities
@@ -327,7 +361,14 @@ class ExtendedDomainService implements IExtendedDomainRepository {
           )
           .toList(growable: false),
     );
-    await prefs.setString(key, encoded);
+    final int generation = _lifecycleGeneration;
+    final Future<void> previous = _writeTail.catchError((Object _) {});
+    final Future<void> write = previous.then((_) async {
+      if (_disposed || generation != _lifecycleGeneration) return;
+      await prefs.setString(key, encoded);
+    });
+    _writeTail = write;
+    return write;
   }
 
   @override
