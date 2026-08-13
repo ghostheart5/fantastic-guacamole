@@ -148,6 +148,17 @@ class HabitRepository {
 
   final HiveStorage<String> _storage;
   final SyncMutationDispatcher? _syncDispatcher;
+  bool _cancelled = false;
+  Future<void> _writeQueue = Future<void>.value();
+
+  Future<void> cancelAndDrain() async {
+    _cancelled = true;
+    await _writeQueue.catchError((Object _) {});
+  }
+
+  void dispose() {
+    _cancelled = true;
+  }
 
   Future<List<HabitRecord>> getHabits() async {
     await _storage.open();
@@ -172,51 +183,65 @@ class HabitRepository {
         .toList(growable: false);
   }
 
-  Future<void> saveHabits(List<HabitRecord> habits) async {
-    final List<HabitRecord> previous = await getHabits();
-    await _storage.put(
-      _key,
-      jsonEncode(
-        habits.map((HabitRecord item) => item.toJson()).toList(growable: false),
-      ),
-    );
+  Future<void> saveHabits(List<HabitRecord> habits) =>
+      _serializeWrite(() async {
+        final List<HabitRecord> previous = await getHabits();
+        await _storage.put(
+          _key,
+          jsonEncode(
+            habits
+                .map((HabitRecord item) => item.toJson())
+                .toList(growable: false),
+          ),
+        );
 
-    final Set<String> nextIds = habits
-        .map((HabitRecord item) => item.id)
-        .where((String id) => id.isNotEmpty)
-        .toSet();
-    final Set<String> removedIds = previous
-        .map((HabitRecord item) => item.id)
-        .where((String id) => id.isNotEmpty && !nextIds.contains(id))
-        .toSet();
+        final Set<String> nextIds = habits
+            .map((HabitRecord item) => item.id)
+            .where((String id) => id.isNotEmpty)
+            .toSet();
+        final Set<String> removedIds = previous
+            .map((HabitRecord item) => item.id)
+            .where((String id) => id.isNotEmpty && !nextIds.contains(id))
+            .toSet();
 
-    for (final HabitRecord habit in habits) {
-      await _syncDispatcher?.enqueueUpsert(
-        tableName: 'habits',
-        recordId: habit.id,
-        payload: <String, dynamic>{
-          'id': habit.id,
-          'title': habit.title,
-          'created_at': habit.createdAt?.toUtc().toIso8601String(),
-          'user_id': habit.userId,
-          'description': habit.description,
-          'cadence': habit.cadence.name,
-          'target_count': habit.targetCount,
-          'status': habit.status.name,
-          'active': habit.active,
-          'updated_at': (habit.updatedAt ?? DateTime.now())
-              .toUtc()
-              .toIso8601String(),
-          'deleted_at': null,
-        },
+        for (final HabitRecord habit in habits) {
+          await _syncDispatcher?.enqueueUpsert(
+            tableName: 'habits',
+            recordId: habit.id,
+            payload: <String, dynamic>{
+              'id': habit.id,
+              'title': habit.title,
+              'created_at': habit.createdAt?.toUtc().toIso8601String(),
+              'user_id': habit.userId,
+              'description': habit.description,
+              'cadence': habit.cadence.name,
+              'target_count': habit.targetCount,
+              'status': habit.status.name,
+              'active': habit.active,
+              'updated_at': (habit.updatedAt ?? DateTime.now())
+                  .toUtc()
+                  .toIso8601String(),
+              'deleted_at': null,
+            },
+          );
+        }
+
+        for (final String removedId in removedIds) {
+          await _syncDispatcher?.enqueueDelete(
+            tableName: 'habits',
+            recordId: removedId,
+          );
+        }
+      });
+
+  Future<void> _serializeWrite(Future<void> Function() action) {
+    if (_cancelled) {
+      return Future<void>.error(
+        StateError('Habit mutation canceled during account transition.'),
       );
     }
-
-    for (final String removedId in removedIds) {
-      await _syncDispatcher?.enqueueDelete(
-        tableName: 'habits',
-        recordId: removedId,
-      );
-    }
+    final Future<void> next = _writeQueue.then((_) => action());
+    _writeQueue = next.catchError((Object _) {});
+    return next;
   }
 }

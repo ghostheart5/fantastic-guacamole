@@ -16,6 +16,17 @@ class TaskRepository implements ITaskRepository {
 
   final HiveStorage<String> _storage;
   final SyncMutationDispatcher? _syncDispatcher;
+  bool _cancelled = false;
+  Future<void> _writeQueue = Future<void>.value();
+
+  Future<void> cancelAndDrain() async {
+    _cancelled = true;
+    await _writeQueue.catchError((Object _) {});
+  }
+
+  void dispose() {
+    _cancelled = true;
+  }
 
   // ------------------------------------------------------------------
   // ITaskRepository
@@ -60,7 +71,7 @@ class TaskRepository implements ITaskRepository {
   }
 
   @override
-  Future<void> saveTask(TaskEntity task) async {
+  Future<void> saveTask(TaskEntity task) => _serializeWrite(() async {
     try {
       await _storage.put(task.id, jsonEncode(TaskEntityMapper.toJson(task)));
       await _syncDispatcher?.enqueueUpsert(
@@ -71,16 +82,27 @@ class TaskRepository implements ITaskRepository {
     } catch (e) {
       throw StorageException('Failed to save task ${task.id}: $e');
     }
-  }
+  });
 
   @override
-  Future<void> deleteTask(String id) async {
+  Future<void> deleteTask(String id) => _serializeWrite(() async {
     try {
       await _storage.delete(id);
       await _syncDispatcher?.enqueueDelete(tableName: 'tasks', recordId: id);
     } catch (e) {
       throw StorageException('Failed to delete task $id: $e');
     }
+  });
+
+  Future<void> _serializeWrite(Future<void> Function() action) {
+    if (_cancelled) {
+      return Future<void>.error(
+        StateError('Task mutation canceled during account transition.'),
+      );
+    }
+    final Future<void> next = _writeQueue.then((_) => action());
+    _writeQueue = next.catchError((Object _) {});
+    return next;
   }
 
   Map<String, dynamic> _taskSyncPayload(TaskEntity task) {

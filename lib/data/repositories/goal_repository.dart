@@ -15,7 +15,17 @@ class GoalRepository implements IGoalRepository {
   final HiveStorage<String> _store;
   final SyncMutationDispatcher? _syncDispatcher;
   bool _corruptedSnapshot = false;
+  bool _cancelled = false;
   Future<void> _writeQueue = Future<void>.value();
+
+  Future<void> cancelAndDrain() async {
+    _cancelled = true;
+    await _writeQueue.catchError((Object _) {});
+  }
+
+  void dispose() {
+    _cancelled = true;
+  }
 
   @override
   List<GoalEntity> getGoals() {
@@ -94,6 +104,11 @@ class GoalRepository implements IGoalRepository {
   }
 
   Future<void> _serializeWrite(Future<void> Function() action) {
+    if (_cancelled) {
+      return Future<void>.error(
+        StateError('Goal mutation canceled during account transition.'),
+      );
+    }
     final Future<void> next = _writeQueue.then((_) => action());
     _writeQueue = next.catchError((_) {});
     return next;
