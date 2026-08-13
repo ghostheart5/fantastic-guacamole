@@ -43,8 +43,10 @@ class SettingsRepository implements ISettingsRepository {
 
     return SettingsEntity(
       soundEnabled: (decoded['soundEnabled'] as bool?) ?? true,
+      soundEstablished: (decoded['soundEstablished'] as bool?) ?? false,
       notificationsEnabled: (decoded['notificationsEnabled'] as bool?) ?? true,
       themeMode: (decoded['themeMode'] as String?) ?? 'system',
+      themeEstablished: (decoded['themeEstablished'] as bool?) ?? false,
       onboardingComplete: (decoded['onboardingComplete'] as bool?) ?? false,
     );
   }
@@ -56,8 +58,10 @@ class SettingsRepository implements ISettingsRepository {
           _settingsKey,
           jsonEncode(<String, dynamic>{
             'soundEnabled': settings.soundEnabled,
+            'soundEstablished': settings.soundEstablished,
             'notificationsEnabled': settings.notificationsEnabled,
             'themeMode': settings.themeMode,
+            'themeEstablished': settings.themeEstablished,
             'onboardingComplete': settings.onboardingComplete,
           }),
         );

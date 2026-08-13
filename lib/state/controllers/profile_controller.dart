@@ -271,9 +271,10 @@ class ProfileController extends Notifier<ProfileState> {
     _save();
   }
 
+  @Deprecated('Sound preference ownership moved to SettingsPreferenceController.')
   void toggleSound(bool value) {
+    // Legacy in-memory compatibility only; this must not persist sound truth.
     state = state.copyWith(soundEnabled: value);
-    _save();
   }
 
   void incrementStreak() {

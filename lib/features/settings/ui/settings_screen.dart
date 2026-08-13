@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/providers/settings_preference_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -76,6 +77,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         .length;
     final routes = ref.watch(routeSurfaceProvider);
     final soundEnabled = ref.watch(soundEnabledProvider);
+    ref.watch(settingsPreferencesProvider);
     final advancedAudioEnabled = ref.watch(advancedAudioProfileEnabledProvider);
     final hapticFeedbackEnabled = ref.watch(hapticFeedbackEnabledProvider);
     final motionProfile = ref.watch(motionProfileProvider);
@@ -250,7 +252,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         title: 'Audio effects',
                         value: soundEnabled,
                         onChanged: (bool enabled) {
-                          ref.read(soundEnabledProvider.notifier).set(enabled);
+                          unawaited(
+                            ref
+                                .read(settingsPreferencesProvider.notifier)
+                                .setSoundEnabled(enabled),
+                          );
                           AudioService.setSoundEffectsEnabled(enabled);
                         },
                       ),

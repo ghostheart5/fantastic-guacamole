@@ -19,24 +19,41 @@ class ThemeRepository implements IThemeRepository {
 
   @override
   Future<AppThemeEntity?> getCurrentTheme() async {
+    return await getStoredTheme() ?? AppThemeEntity.defaultTheme();
+  }
+
+  /// Reads the device-global legacy record without supplying a default.
+  ///
+  /// This is intentionally a migration/compatibility seam: callers that own
+  /// canonical settings must be able to distinguish an absent or malformed
+  /// legacy value from an explicitly stored theme.
+  Future<AppThemeEntity?> getStoredTheme() async {
     final String? raw = _store.load(_key);
     if (raw == null || raw.trim().isEmpty) {
-      return AppThemeEntity.defaultTheme();
+      return null;
     }
     try {
       final dynamic decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) {
+        final Object? id = decoded['id'];
+        final bool? isDark = decoded['isDark'] as bool?;
+        if (id is! String ||
+            (id != 'dark' && id != 'light') ||
+            isDark == null) {
+          Logger.warn('Theme payload is invalid and will be ignored.');
+          return null;
+        }
         return AppThemeEntity(
-          id: (decoded['id'] as String?) ?? 'dark',
+          id: id,
           name: (decoded['name'] as String?) ?? 'Dark',
-          isDark: (decoded['isDark'] as bool?) ?? true,
+          isDark: isDark,
         );
       }
       Logger.warn('Theme payload is not a JSON object; using default theme.');
     } on FormatException catch (error) {
       Logger.warn('Theme payload is corrupted; using default theme: $error');
     }
-    return AppThemeEntity.defaultTheme();
+    return null;
   }
 
   @override

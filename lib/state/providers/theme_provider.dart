@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/settings_preference_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final currentThemeProvider =
@@ -21,8 +22,10 @@ final themeActionsProvider = Provider<ThemeActions>((ref) {
 class CurrentThemeController extends AsyncNotifier<AppThemeEntity> {
   @override
   Future<AppThemeEntity> build() async {
-    return await ref.read(getCurrentThemeUseCaseProvider).call() ??
-        AppThemeEntity.defaultTheme();
+    final String mode = (await ref.watch(
+      settingsPreferencesProvider.future,
+    )).themeMode;
+    return mode == 'light' ? AppThemeEntity.light() : AppThemeEntity.dark();
   }
 
   void setTheme(AppThemeEntity theme) {
@@ -36,15 +39,20 @@ class ThemeActions {
   final Ref _ref;
 
   Future<void> save(AppThemeEntity theme) async {
+    await _ref
+        .read(settingsPreferencesProvider.notifier)
+        .setThemeMode(theme.isDark ? 'dark' : 'light');
     _ref.read(currentThemeProvider.notifier).setTheme(theme);
-    await _ref.read(saveThemeUseCaseProvider).call(theme);
     _ref.invalidate(currentThemeProvider);
     _ref.invalidate(availableThemesProvider);
   }
 
   Future<void> switchTo(String id) async {
-    await _ref.read(switchThemeUseCaseProvider).call(id);
-    _ref.invalidate(currentThemeProvider);
-    _ref.invalidate(availableThemesProvider);
+    switch (id) {
+      case 'light':
+        await save(AppThemeEntity.light());
+      case 'dark':
+        await save(AppThemeEntity.dark());
+    }
   }
 }
