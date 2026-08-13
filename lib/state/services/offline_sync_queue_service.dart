@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/errors/app_exception.dart';
@@ -95,15 +96,36 @@ class OfflineSyncQueueItem {
 }
 
 class OfflineSyncQueueService {
-  OfflineSyncQueueService(this._prefs);
+  OfflineSyncQueueService(this._prefs, {String? storageScope})
+    : _storageKey = storageScope == null
+          ? storageKey
+          : '$storageKey.${_safeStorageScope(storageScope)}';
 
   static const String storageKey = 'offline_sync_queue_v1';
 
   final HiveStorage<String> _prefs;
+  final String _storageKey;
+  Future<void> _operationTail = Future<void>.value();
 
-  Future<List<OfflineSyncQueueItem>> loadQueue() async {
+  Future<T> _withLock<T>(Future<T> Function() operation) async {
+    final Future<void> previous = _operationTail;
+    final Completer<void> release = Completer<void>();
+    _operationTail = release.future;
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release.complete();
+    }
+  }
+
+  Future<List<OfflineSyncQueueItem>> loadQueue() {
+    return _withLock(_loadQueueUnlocked);
+  }
+
+  Future<List<OfflineSyncQueueItem>> _loadQueueUnlocked() async {
     await _prefs.open();
-    final String? encoded = _prefs.get(storageKey);
+    final String? encoded = _prefs.get(_storageKey);
     if (encoded == null || encoded.trim().isEmpty) {
       return const <OfflineSyncQueueItem>[];
     }
@@ -133,24 +155,26 @@ class OfflineSyncQueueService {
     }
   }
 
-  Future<int> queuedCount() async {
-    final List<OfflineSyncQueueItem> queue = await loadQueue();
-    return queue.length;
-  }
+  Future<int> queuedCount() =>
+      _withLock(() async => (await _loadQueueUnlocked()).length);
 
   Future<void> enqueue({
     required String actionType,
     required String dedupeKey,
     Map<String, dynamic> payload = const <String, dynamic>{},
-  }) async {
-    final List<OfflineSyncQueueItem> queue = await loadQueue();
+    bool Function()? shouldContinue,
+  }) => _withLock(() async {
+    if (shouldContinue?.call() == false) {
+      return;
+    }
+    final List<OfflineSyncQueueItem> queue = await _loadQueueUnlocked();
     if (queue.any((OfflineSyncQueueItem item) => item.dedupeKey == dedupeKey)) {
       return;
     }
 
     final DateTime now = DateTime.now().toUtc();
     final OfflineSyncQueueItem item = OfflineSyncQueueItem(
-      id: '${now.millisecondsSinceEpoch}-$actionType',
+      id: '${now.microsecondsSinceEpoch}-$actionType',
       actionType: actionType,
       dedupeKey: dedupeKey,
       payload: payload,
@@ -158,18 +182,35 @@ class OfflineSyncQueueService {
       attempts: 0,
     );
 
-    await _persist(<OfflineSyncQueueItem>[...queue, item]);
-  }
+    if (shouldContinue?.call() != false) {
+      await _persist(<OfflineSyncQueueItem>[...queue, item]);
+    }
+  });
 
-  Future<void> clear() async {
-    await _prefs.delete(storageKey);
-  }
+  Future<void> clear() => _withLock(() => _prefs.delete(_storageKey));
+
+  Future<void> removeByDedupeKey(
+    String dedupeKey, {
+    bool Function()? shouldContinue,
+  }) => _withLock(() async {
+    if (shouldContinue?.call() == false) {
+      return;
+    }
+    final List<OfflineSyncQueueItem> queue = await _loadQueueUnlocked();
+    final List<OfflineSyncQueueItem> remaining = queue
+        .where((OfflineSyncQueueItem item) => item.dedupeKey != dedupeKey)
+        .toList(growable: false);
+    if (remaining.length != queue.length && shouldContinue?.call() != false) {
+      await _persist(remaining);
+    }
+  });
 
   Future<int> replay({
     required Future<bool> Function(OfflineSyncQueueItem item) executor,
     int maxItems = 10,
-  }) async {
-    final List<OfflineSyncQueueItem> queue = await loadQueue();
+    bool Function()? shouldContinue,
+  }) => _withLock(() async {
+    final List<OfflineSyncQueueItem> queue = await _loadQueueUnlocked();
     if (queue.isEmpty) {
       return 0;
     }
@@ -181,7 +222,7 @@ class OfflineSyncQueueService {
     );
 
     for (final OfflineSyncQueueItem item in queue) {
-      if (processed >= maxItems) {
+      if (processed >= maxItems || shouldContinue?.call() == false) {
         break;
       }
 
@@ -214,18 +255,29 @@ class OfflineSyncQueueService {
       processed++;
     }
 
+    if (shouldContinue?.call() == false) {
+      return processed;
+    }
     await _persist(working);
     return processed;
-  }
+  });
 
   Future<void> _persist(List<OfflineSyncQueueItem> queue) {
     return _prefs.put(
-      storageKey,
+      _storageKey,
       jsonEncode(
         queue
             .map((OfflineSyncQueueItem item) => item.toJson())
             .toList(growable: false),
       ),
     );
+  }
+
+  static String _safeStorageScope(String value) {
+    final String normalized = value.trim().replaceAll(
+      RegExp('[^a-zA-Z0-9._-]'),
+      '_',
+    );
+    return normalized.isEmpty ? 'signed_out' : normalized;
   }
 }

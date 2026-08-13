@@ -14,6 +14,7 @@ class BackupService {
     required this.profileStorage,
     required this.prefs,
     this.secureProfileStore,
+    this.secureProfileStateKey = _legacySecureProfileStateKey,
   });
 
   static const String _profileStateKey = 'profile_state';
@@ -22,7 +23,8 @@ class BackupService {
   final HiveStorage<String> profileStorage;
   final SharedPrefsStorage prefs;
   final SecureStore? secureProfileStore;
-  static const String _secureProfileStateKey = 'profile_state_v2';
+  final String secureProfileStateKey;
+  static const String _legacySecureProfileStateKey = 'profile_state_v2';
 
   Future<Map<String, dynamic>> createFullBackup() async {
     final List<TaskEntity> tasks = await taskRepository.getAllTasks();
@@ -68,14 +70,26 @@ class BackupService {
     return jsonEncode(await backupTasks());
   }
 
-  Future<void> restoreFullBackup(Map<String, dynamic> backup) async {
-    await restoreTasks(backup);
+  Future<void> restoreFullBackup(
+    Map<String, dynamic> backup, {
+    bool Function()? canContinue,
+  }) async {
+    if (canContinue?.call() == false) {
+      return;
+    }
+    await restoreTasks(backup, canContinue: canContinue);
+    if (canContinue?.call() == false) {
+      return;
+    }
 
     final Map<String, dynamic>? profile =
         _asStringKeyMap(backup['profile']) ??
         _profileFromLegacyUser(backup['user']);
     if (profile != null) {
       await _writeProfile(jsonEncode(profile));
+    }
+    if (canContinue?.call() == false) {
+      return;
     }
 
     final Map<String, dynamic>? settings = _asStringKeyMap(backup['settings']);
@@ -84,7 +98,10 @@ class BackupService {
     }
   }
 
-  Future<void> restoreTasks(Map<String, dynamic> backup) async {
+  Future<void> restoreTasks(
+    Map<String, dynamic> backup, {
+    bool Function()? canContinue,
+  }) async {
     final List<TaskEntity>? restoredTasks = _taskEntitiesFromRaw(
       backup['tasks'],
     );
@@ -94,9 +111,15 @@ class BackupService {
 
     final List<TaskEntity> existing = await taskRepository.getAllTasks();
     for (final TaskEntity task in existing) {
+      if (canContinue?.call() == false) {
+        return;
+      }
       await taskRepository.deleteTask(task.id);
     }
     for (final TaskEntity task in restoredTasks) {
+      if (canContinue?.call() == false) {
+        return;
+      }
       await taskRepository.saveTask(task);
     }
   }
@@ -137,13 +160,13 @@ class BackupService {
   Future<String?> _readProfile() async {
     final SecureStore? secure = secureProfileStore;
     if (secure != null) {
-      final String? secured = await secure.readString(_secureProfileStateKey);
+      final String? secured = await secure.readString(secureProfileStateKey);
       if (secured != null) return secured;
     }
     await profileStorage.open();
     final String? legacy = profileStorage.get(_profileStateKey);
     if (legacy != null && secure != null) {
-      await secure.writeString(_secureProfileStateKey, legacy);
+      await secure.writeString(secureProfileStateKey, legacy);
       await profileStorage.delete(_profileStateKey);
     }
     return legacy;
@@ -152,7 +175,7 @@ class BackupService {
   Future<void> _writeProfile(String value) async {
     final SecureStore? secure = secureProfileStore;
     if (secure != null) {
-      await secure.writeString(_secureProfileStateKey, value);
+      await secure.writeString(secureProfileStateKey, value);
       return;
     }
     await profileStorage.put(_profileStateKey, value);

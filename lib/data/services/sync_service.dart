@@ -66,14 +66,17 @@ class UnavailableCloudBackupGateway implements CloudBackupGateway {
 class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   SupabaseStorageCloudBackupGateway({
     required this._client,
+    required this._userId,
     this.bucket = _defaultBucket,
   });
 
   static const String _defaultBucket = 'chronospark-sync';
   static const String _backupObject = 'backup/full_backup.json';
   static const String _tasksObject = 'backup/tasks_backup.json';
+  static const Duration _requestTimeout = Duration(seconds: 15);
 
   final sb.SupabaseClient _client;
+  final String _userId;
   final String bucket;
 
   @override
@@ -102,7 +105,10 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
       final List<int> bytes = await runWithRetry<List<int>>(
         maxAttempts: 3,
         action: () {
-          return _client.storage.from(bucket).download(objectPath);
+          return _client.storage
+              .from(bucket)
+              .download(objectPath)
+              .timeout(_requestTimeout);
         },
         retryIf: (Object error) {
           if (error is sb.StorageException) {
@@ -160,7 +166,8 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
                   contentType: 'application/json',
                   upsert: true,
                 ),
-              );
+              )
+              .timeout(_requestTimeout);
         },
         retryIf: (Object error) {
           if (error is sb.StorageException) {
@@ -182,8 +189,7 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   }
 
   String _scopedPath(String objectPath) {
-    final String uid = _client.auth.currentUser?.id ?? 'anonymous';
-    return '$uid/$objectPath';
+    return '$_userId/$objectPath';
   }
 }
 
@@ -193,40 +199,61 @@ class SyncService {
   final BackupService backup;
   final CloudBackupGateway gateway;
 
-  Future<bool> syncToCloud() async {
+  Future<bool> syncToCloud({bool Function()? canContinue}) async {
+    if (canContinue?.call() == false) {
+      return false;
+    }
     final Map<String, dynamic> fullBackup = await backup.createFullBackup();
+    if (canContinue?.call() == false) {
+      return false;
+    }
     return gateway.uploadBackup(fullBackup);
   }
 
-  Future<bool> restoreFromCloud() async {
-    final Map<String, dynamic> cloudData = await gateway.downloadBackup();
-    if (cloudData.isEmpty) {
+  Future<bool> restoreFromCloud({bool Function()? canContinue}) async {
+    if (canContinue?.call() == false) {
       return false;
     }
-    await backup.restoreFullBackup(cloudData);
-    return true;
+    final Map<String, dynamic> cloudData = await gateway.downloadBackup();
+    if (cloudData.isEmpty || canContinue?.call() == false) {
+      return false;
+    }
+    await backup.restoreFullBackup(cloudData, canContinue: canContinue);
+    return canContinue?.call() != false;
   }
 
-  Future<bool> syncDelta() async {
+  Future<bool> syncDelta({bool Function()? canContinue}) async {
+    if (canContinue?.call() == false) {
+      return false;
+    }
     if (Env.isProduction) {
       Logger.warn(
         'syncDelta is disabled in production pending full-domain merge hardening. Falling back to syncToCloud.',
       );
-      return syncToCloud();
+      return syncToCloud(canContinue: canContinue);
     }
 
     final Map<String, dynamic> localBackup = await backup.createFullBackup();
+    if (canContinue?.call() == false) {
+      return false;
+    }
     final Map<String, dynamic> cloudBackup = await gateway.downloadBackup();
+    if (canContinue?.call() == false) {
+      return false;
+    }
     if (cloudBackup.isEmpty) {
       return gateway.uploadBackup(localBackup);
     }
 
     final Map<String, dynamic> merged = _mergeBackups(localBackup, cloudBackup);
-    if (!await gateway.uploadBackup(merged)) {
+    if (canContinue?.call() == false || !await gateway.uploadBackup(merged)) {
       return false;
     }
-    await backup.restoreFullBackup(merged);
-    return true;
+    if (canContinue?.call() == false) {
+      return false;
+    }
+    await backup.restoreFullBackup(merged, canContinue: canContinue);
+    return canContinue?.call() != false;
   }
 
   Future<bool> syncTasksOnly() async {

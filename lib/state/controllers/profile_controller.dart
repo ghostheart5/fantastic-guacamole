@@ -132,6 +132,17 @@ class ProfileController extends Notifier<ProfileState> {
       'streak_break_recovery_';
 
   SecureStore get _secureStore => ref.read(secureStoreProvider);
+  static String secureStorageKeyForUser(String? userId) {
+    return '$_secureStateKey.${_safeStorageScope(userId)}';
+  }
+
+  static String _safeStorageScope(String? userId) {
+    final String value = userId?.trim() ?? '';
+    if (value.isEmpty) {
+      return 'signed_out';
+    }
+    return value.replaceAll(RegExp('[^a-zA-Z0-9._-]'), '_');
+  }
 
   Future<void> _init() async {
     String? raw = await _secureStore.readString(_secureStateKey);

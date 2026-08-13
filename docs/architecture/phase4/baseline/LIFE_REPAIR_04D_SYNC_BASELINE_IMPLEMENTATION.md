@@ -5,6 +5,29 @@
 **BLOCKED before production candidate construction.** No sync production source,
 test, lifecycle source, or HLM-06 entry was staged or modified in this phase.
 
+## LIFE-REPAIR-04F implementation result
+
+The superseding 04E map authorized one atomic five-file candidate. The staged
+blobs are `b1c3041e17766595131f92f5a7cdf8491effd7d0`
+(`sync_provider`), `193b275f2386982cbbb4fa72752ec83b6ab08e61`
+(`sync_service`), `31c457e2309f02fd630ce4ef690815447fa3519c`
+(`offline_sync_queue_service`), `20befa8173b5999103aabbd8369c787801528feb`
+(`backup_service`), and `ca189887bf93d440c218e7808792adff6b9a6037`
+(`profile_controller`).
+
+The Profile candidate is exactly current HEAD plus `PROFILE-SYNC-H01/H02`.
+Forensic review rejected a formatter-produced unrelated HLM-05 whitespace
+change and restored the two-helper-only blob. No required-but-no-change file
+was staged.
+
+An exact-index sandbox with the untracked lifecycle consumer resolved all
+syncActionsProvider/cancelAndDrain diagnostics. Its remaining 23 diagnostics
+are separate previously mapped BASE-03 roots (monetization source, secure-store
+enumeration, migration, repository drains, identity/invalidation APIs). The
+available sync integration test could not load because of unrelated committed
+SI/decision/planner baseline compilation defects; it did not reach the sync
+test cases. This limitation is recorded separately from the resolved sync root.
+
 ## Superseding manifest clarification (LIFE-REPAIR-04E)
 
 The ambiguity described below is resolved by the authoritative selected-hunk
