@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/features/monetization/data/models/models.dart';
 import 'package:fantastic_guacamole/features/monetization/data/repositories/ai_credit_repository.dart';
@@ -9,6 +11,7 @@ import 'package:fantastic_guacamole/features/monetization/data/services/monetiza
 import 'package:fantastic_guacamole/features/monetization/data/services/paywall_service.dart';
 import 'package:fantastic_guacamole/features/monetization/data/services/premium_access_service.dart';
 import 'package:fantastic_guacamole/features/monetization/data/services/purchase_verification_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -42,10 +45,24 @@ final purchaseVerificationServiceProvider =
     });
 
 final purchaseRepositoryProvider = Provider<PurchaseRepository>((Ref ref) {
-  return GooglePlayPurchaseRepository(
-    InAppPurchase.instance,
-    ref.watch(purchaseVerificationServiceProvider),
+  final client = ref.watch(supabaseClientProvider);
+  final GooglePlayPurchaseRepository repository = GooglePlayPurchaseRepository(
+    iap: InAppPurchase.instance,
+    verificationService: ref.watch(purchaseVerificationServiceProvider),
+    journalStore: ref.watch(secureStoreProvider),
+    authContextLoader: () {
+      final session = client?.auth.currentSession;
+      final user = session?.user;
+      if (session == null || user == null) {
+        return null;
+      }
+      return PurchaseAuthContext(
+        userId: user.id,
+        accessToken: session.accessToken,
+      );
+    },
   );
+  return repository;
 });
 
 final monetizationConnectorActionsProvider =
@@ -139,6 +156,24 @@ final purchaseHistoryProvider = FutureProvider<List<AiCreditPurchase>>((
 ) {
   return ref.watch(monetizationConnectorActionsProvider).fetchPurchaseHistory();
 });
+
+void refreshMonetizationRemoteState(Ref ref) {
+  ref.invalidate(paywallProvider);
+  ref.invalidate(subscriptionPlansProvider);
+  ref.invalidate(currentSubscriptionProvider);
+  ref.invalidate(premiumEntitlementProvider);
+  ref.invalidate(aiCreditPackagesProvider);
+  ref.invalidate(aiCreditWalletProvider);
+  ref.invalidate(aiCreditTransactionsProvider);
+  ref.invalidate(purchaseHistoryProvider);
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    final PurchaseRepository repository = ref.read(purchaseRepositoryProvider);
+    if (repository is GooglePlayPurchaseRepository) {
+      unawaited(repository.recoverPendingPurchases());
+    }
+  }
+}
+
 
 final premiumAccessProvider = Provider<bool>((Ref ref) {
   return ref.watch(hasPremiumTierAccessProvider);

@@ -88,6 +88,7 @@ class PurchaseVerificationService {
     required String productId,
     required String purchaseToken,
     required String purchaseType,
+    required String accessToken,
   }) async {
     final PurchaseVerificationRequest request = PurchaseVerificationRequest(
       productId: productId,
@@ -120,8 +121,7 @@ class PurchaseVerificationService {
       );
     }
 
-    final String? accessToken = currentSupabaseAccessToken();
-    if (accessToken == null) {
+    if (accessToken.trim().isEmpty) {
       return const PurchaseVerificationResult(
         valid: false,
         error: 'User must be authenticated to verify purchases.',
@@ -192,7 +192,16 @@ class PurchaseVerificationService {
         errorCode: PurchaseVerificationErrorCode.invalidResponse,
       );
     }
-    return PurchaseVerificationResult.fromJson(decodedBody);
+    final PurchaseVerificationResult result =
+        PurchaseVerificationResult.fromJson(decodedBody);
+    if (result.valid && result.productId != productId) {
+      return const PurchaseVerificationResult(
+        valid: false,
+        error: 'Verification response did not match the purchased product.',
+        errorCode: PurchaseVerificationErrorCode.invalidResponse,
+      );
+    }
+    return result;
   }
 }
 
