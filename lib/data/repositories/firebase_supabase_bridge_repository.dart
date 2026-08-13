@@ -3,7 +3,8 @@ import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 class FirebaseSupabaseBridgeRepository {
-  FirebaseSupabaseBridgeRepository({required this._store});
+  FirebaseSupabaseBridgeRepository({required SecureStore store})
+    : _store = store;
 
   static const String _cachedFirebaseMessagingTokenKey =
       'bridge.firebase_messaging_token';
