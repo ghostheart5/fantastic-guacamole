@@ -32,4 +32,13 @@ class TimeBlock {
       completed: completed ?? this.completed,
     );
   }
+
+  void validate() {
+    if (id.trim().isEmpty || taskId.trim().isEmpty || title.trim().isEmpty) {
+      throw StateError('Time blocks require an id, task id, and title');
+    }
+    if (!end.isAfter(start)) {
+      throw StateError('Time blocks must end after they start');
+    }
+  }
 }
