@@ -1,20 +1,37 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/errors/app_exception.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/completion_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_completion_event_repository.dart';
 
 class CompletionEventRepository implements ICompletionEventRepository {
-  CompletionEventRepository(this._store);
+  CompletionEventRepository(this._store, AccountStorageScope scope)
+    : _key = _scopedKey(scope);
 
-  static const String _key = 'completion_events_v1';
+  CompletionEventRepository.unavailable(this._store) : _key = null;
 
   final SharedPrefsStore _store;
+  final String? _key;
+
+  static String _scopedKey(AccountStorageScope scope) {
+    final String? namespace = scope.v2Namespace;
+    if (namespace == null) {
+      throw StateError('Completion storage is unavailable.');
+    }
+    return 'completion_events_v2.$namespace';
+  }
+
+  String get _storageKey {
+    final String? key = _key;
+    if (key == null) throw StateError('Completion storage is unavailable.');
+    return key;
+  }
 
   @override
   List<CompletionEventEntity> getEvents() {
-    final String? raw = _store.load(_key);
+    final String? raw = _store.load(_storageKey);
     if (raw == null || raw.trim().isEmpty) {
       return const <CompletionEventEntity>[];
     }
@@ -42,7 +59,7 @@ class CompletionEventRepository implements ICompletionEventRepository {
   @override
   Future<void> saveEvents(List<CompletionEventEntity> events) {
     return _store.save(
-      _key,
+      _storageKey,
       jsonEncode(
         events
             .map((CompletionEventEntity event) => event.toJson())

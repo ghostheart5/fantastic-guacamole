@@ -6,12 +6,14 @@ import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart'
     show
         firebaseSupabaseBridgeRepositoryProvider,
+        completionEventRepositoryProvider,
         goalRepositoryProvider,
         habitRepositoryProvider,
         planRepositoryProvider,
         settingsRepositoryProvider,
         syncMutationDispatcherProvider,
-        taskRepositoryProvider;
+        taskRepositoryProvider,
+        timelineRepositoryProvider;
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/services/auth_service.dart';
@@ -66,6 +68,8 @@ import 'package:fantastic_guacamole/state/providers/subtasks_provider.dart';
 import 'package:fantastic_guacamole/state/providers/supabase_backend_provider.dart';
 import 'package:fantastic_guacamole/state/providers/supabase_sync_queue_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_misc_usecase_providers.dart'
+    show viewTimelineUsecaseProvider;
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_command_handoff_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart'
@@ -1333,6 +1337,9 @@ class AuthSessionLifecycleCoordinator {
     _ref.invalidate(taskRepositoryProvider);
     _ref.invalidate(goalRepositoryProvider);
     _ref.invalidate(habitRepositoryProvider);
+    _ref.invalidate(timelineRepositoryProvider);
+    _ref.invalidate(viewTimelineUsecaseProvider);
+    _ref.invalidate(completionEventRepositoryProvider);
     _ref.invalidate(planRepositoryProvider);
     _ref.invalidate(settingsRepositoryProvider);
     _ref.invalidate(syncMutationDispatcherProvider);

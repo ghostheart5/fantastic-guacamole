@@ -202,11 +202,19 @@ final calendarRepositoryProvider = Provider<CalendarRepository>((Ref ref) {
 final completionEventRepositoryProvider = Provider<CompletionEventRepository>((
   Ref ref,
 ) {
-  return CompletionEventRepository(ref.read(sensitivePrefsStoreProvider));
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  final store = ref.read(sensitivePrefsStoreProvider);
+  return scope.v2Namespace == null
+      ? CompletionEventRepository.unavailable(store)
+      : CompletionEventRepository(store, scope);
 });
 
 final timelineRepositoryProvider = Provider<TimelineRepository>((Ref ref) {
-  return TimelineRepository(ref.read(sensitivePrefsStoreProvider));
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  final store = ref.read(sensitivePrefsStoreProvider);
+  return scope.v2Namespace == null
+      ? TimelineRepository.unavailable(store)
+      : TimelineRepository(store, scope);
 });
 
 final profileRepositoryProvider = Provider<ProfileRepository>((Ref ref) {
