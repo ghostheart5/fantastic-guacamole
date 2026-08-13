@@ -1,7 +1,9 @@
-import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
+import 'package:fantastic_guacamole/domain/progression/progression_calculator.dart';
 
 class GetUserLevel {
-  int level(int xp) => ProgressionPolicy.levelFromXp(xp);
-  double progress(int xp) => ProgressionPolicy.levelProgressFraction(xp);
-  int xpToNext(int xp) => ProgressionPolicy.xpToNextLevel(xp);
+  static const _calculator = ProgressionCalculator();
+
+  int level(int xp) => _calculator.policyLevel(xp);
+  double progress(int xp) => _calculator.progressWithinLevel(xp);
+  int xpToNext(int xp) => _calculator.xpToNextLevel(xp);
 }

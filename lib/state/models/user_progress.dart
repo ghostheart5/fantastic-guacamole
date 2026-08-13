@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
+import 'package:fantastic_guacamole/domain/progression/progression_calculator.dart';
 
 class UserProgress {
   const UserProgress({
@@ -6,16 +6,21 @@ class UserProgress {
     required this.level,
     required this.streak,
     required this.longestStreak,
+    this.legacyLevelFloor = 1,
   });
 
   final int xp;
   final int level;
   final int streak;
   final int longestStreak;
+  final int legacyLevelFloor;
 
-  int get xpInLevel => xp - ProgressionPolicy.xpForLevel(level);
-  int get xpToNext => ProgressionPolicy.xpToNextLevel(xp);
-  double get levelProgress => ProgressionPolicy.levelProgressFraction(xp);
+  ProgressionCalculation get _calculation => const ProgressionCalculator()
+      .calculate(xp: xp, legacyLevelFloor: legacyLevelFloor);
+  int get canonicalLevel => _calculation.effectiveLevel;
+  int get xpInLevel => _calculation.xpInPolicyLevel;
+  int get xpToNext => _calculation.xpToNextLevel;
+  double get levelProgress => _calculation.progressWithinLevel;
 
   String get levelTitle {
     if (level >= 8) return 'Deep Work Mode';

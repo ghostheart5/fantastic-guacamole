@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
+import 'package:fantastic_guacamole/domain/progression/progression_calculator.dart';
 
 class ProgressionEntity {
   const ProgressionEntity({this.xp = 0, this.level = 1, this.streak = 0});
@@ -7,7 +7,7 @@ class ProgressionEntity {
   final int level;
   final int streak;
 
-  int get xpToNextLevel => ProgressionPolicy.xpToNextLevel(xp);
+  int get xpToNextLevel => const ProgressionCalculator().xpToNextLevel(xp);
 
   ProgressionEntity copyWith({int? xp, int? level, int? streak}) {
     return ProgressionEntity(
@@ -19,10 +19,10 @@ class ProgressionEntity {
 
   // Domain logic
   ProgressionEntity addXp(int amount) {
-    int newXp = xp + amount;
-    final int newLevel = ProgressionPolicy.levelFromXp(newXp);
+    final ProgressionCalculation progression = const ProgressionCalculator()
+        .calculate(xp: xp + amount);
 
-    return copyWith(xp: newXp, level: newLevel);
+    return copyWith(xp: progression.xp, level: progression.effectiveLevel);
   }
 
   ProgressionEntity incrementStreak() => copyWith(streak: streak + 1);

@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.d
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
+import 'package:fantastic_guacamole/domain/progression/progression_calculator.dart';
 import 'package:fantastic_guacamole/domain/policies/task_policy.dart';
 
 class CompleteTask {
@@ -54,10 +55,12 @@ class CompleteTask {
       final ProgressionEntity current =
           await prog.getProgression() ?? const ProgressionEntity();
       final int newXp = current.xp + ProgressionPolicy.taskXp;
+      final ProgressionCalculation progression = const ProgressionCalculator()
+          .calculate(xp: newXp);
       await prog.saveProgression(
         current.copyWith(
-          xp: newXp,
-          level: ProgressionPolicy.levelFromXp(newXp),
+          xp: progression.xp,
+          level: progression.effectiveLevel,
         ),
       );
     }

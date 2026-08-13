@@ -5,7 +5,7 @@ import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
-import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
+import 'package:fantastic_guacamole/domain/progression/progression_calculator.dart';
 import 'package:fantastic_guacamole/state/models/streak.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class ProfileState {
   final int xp;
   final int level;
+  final int legacyLevelFloor;
   final int streak;
   final int longestStreak;
   final bool leveledUp;
@@ -26,6 +27,7 @@ class ProfileState {
   ProfileState({
     this.xp = 0,
     this.level = 1,
+    this.legacyLevelFloor = 1,
     this.streak = 0,
     this.longestStreak = 0,
     this.leveledUp = false,
@@ -40,6 +42,7 @@ class ProfileState {
   ProfileState copyWith({
     int? xp,
     int? level,
+    int? legacyLevelFloor,
     int? streak,
     int? longestStreak,
     bool? leveledUp,
@@ -52,6 +55,7 @@ class ProfileState {
     return ProfileState(
       xp: xp ?? this.xp,
       level: level ?? this.level,
+      legacyLevelFloor: legacyLevelFloor ?? this.legacyLevelFloor,
       streak: streak ?? this.streak,
       longestStreak: longestStreak ?? this.longestStreak,
       leveledUp: leveledUp ?? this.leveledUp,
@@ -67,6 +71,7 @@ class ProfileState {
   Map<String, dynamic> toJson() => {
     'xp': xp,
     'level': level,
+    'legacyLevelFloor': legacyLevelFloor,
     'streak': streak,
     'longestStreak': longestStreak,
     'name': name,
@@ -75,18 +80,27 @@ class ProfileState {
     'profileReady': profileReady,
   };
 
-  factory ProfileState.fromJson(Map<String, dynamic> json) => ProfileState(
-    xp: (json['xp'] as num?)?.toInt() ?? 0,
-    level: (json['level'] as num?)?.toInt() ?? 1,
-    streak: (json['streak'] as num?)?.toInt() ?? 0,
-    longestStreak: (json['longestStreak'] as num?)?.toInt() ?? 0,
-    name: json['name'] as String? ?? 'Operative',
-    soundEnabled: json['soundEnabled'] as bool? ?? true,
-    lastActiveDate: json['lastActiveDate'] != null
-        ? DateTime.tryParse(json['lastActiveDate'] as String)
-        : null,
-    profileReady: json['profileReady'] as bool? ?? false,
-  );
+  factory ProfileState.fromJson(Map<String, dynamic> json) {
+    final int storedXp = (json['xp'] as num?)?.toInt() ?? 0;
+    final int storedLevel = (json['level'] as num?)?.toInt() ?? 1;
+    final int legacyLevelFloor = (json['legacyLevelFloor'] as num?)?.toInt() ??
+        (storedLevel > 1 ? storedLevel : 1);
+    final ProgressionCalculation progression = const ProgressionCalculator()
+        .calculate(xp: storedXp, legacyLevelFloor: legacyLevelFloor);
+    return ProfileState(
+      xp: progression.xp,
+      level: progression.effectiveLevel,
+      legacyLevelFloor: legacyLevelFloor < 1 ? 1 : legacyLevelFloor,
+      streak: (json['streak'] as num?)?.toInt() ?? 0,
+      longestStreak: (json['longestStreak'] as num?)?.toInt() ?? 0,
+      name: json['name'] as String? ?? 'Operative',
+      soundEnabled: json['soundEnabled'] as bool? ?? true,
+      lastActiveDate: json['lastActiveDate'] != null
+          ? DateTime.tryParse(json['lastActiveDate'] as String)
+          : null,
+      profileReady: json['profileReady'] as bool? ?? false,
+    );
+  }
 }
 
 final profileProvider = NotifierProvider<ProfileController, ProfileState>(
@@ -113,6 +127,7 @@ class ProfileController extends Notifier<ProfileState> {
     hive: const HiveStoreAdapter(),
   );
   static const _streakLogic = StreakService();
+  static const _progressionCalculator = ProgressionCalculator();
   static const String _streakBreakNotificationIdPrefix =
       'streak_break_recovery_';
 
@@ -148,10 +163,11 @@ class ProfileController extends Notifier<ProfileState> {
       ),
       now,
     );
-    final int newXP = state.xp + amount;
-    // ProgressionPolicy is the canonical XP-to-level formula.
-    final int newLevel = ProgressionPolicy.levelFromXp(newXP);
-    final bool didLevelUp = newLevel > state.level;
+    final ProgressionCalculation progression = _progressionCalculator.calculate(
+      xp: state.xp + amount,
+      legacyLevelFloor: state.legacyLevelFloor,
+    );
+    final bool didLevelUp = progression.effectiveLevel > state.level;
     final updated = _streakLogic.update(
       Streak(
         current: state.streak,
@@ -162,8 +178,8 @@ class ProfileController extends Notifier<ProfileState> {
     );
 
     state = state.copyWith(
-      xp: newXP,
-      level: newLevel,
+      xp: progression.xp,
+      level: progression.effectiveLevel,
       leveledUp: didLevelUp,
       streak: updated.current,
       longestStreak: updated.longest,
@@ -248,15 +264,23 @@ class ProfileController extends Notifier<ProfileState> {
     required int streak,
   }) async {
     final int safeXp = xp < 0 ? 0 : xp;
-    final int safeLevel = level < 1 ? 1 : level;
+    final int requestedFloor = level < 1 ? 1 : level;
+    final int legacyLevelFloor = requestedFloor > state.legacyLevelFloor
+        ? requestedFloor
+        : state.legacyLevelFloor;
+    final ProgressionCalculation progression = _progressionCalculator.calculate(
+      xp: safeXp,
+      legacyLevelFloor: legacyLevelFloor,
+    );
     final int safeStreak = streak < 0 ? 0 : streak;
     final int nextLongest = safeStreak > state.longestStreak
         ? safeStreak
         : state.longestStreak;
 
     state = state.copyWith(
-      xp: safeXp,
-      level: safeLevel,
+      xp: progression.xp,
+      level: progression.effectiveLevel,
+      legacyLevelFloor: legacyLevelFloor,
       streak: safeStreak,
       longestStreak: nextLongest,
     );
