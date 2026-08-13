@@ -17,9 +17,14 @@ class SessionRecoveryState {
 }
 
 class SessionRecoveryService {
+  SessionRecoveryService({required this._storageScope});
+
   static const _kLastRoute = 'rec_last_route';
   static const _kTaskId = 'rec_active_task';
   static const _kDraftTitle = 'rec_draft_title';
+  final String _storageScope;
+
+  String _key(String key) => '$key.$_storageScope';
 
   Future<void> saveState({
     String? lastRoute,
@@ -29,15 +34,15 @@ class SessionRecoveryService {
   }) async {
     try {
       if (lastRoute != null) {
-        await SharedPrefsService.save(_kLastRoute, lastRoute);
+        await SharedPrefsService.save(_key(_kLastRoute), lastRoute);
       }
       if (clearActiveTask) {
-        await SharedPrefsService.delete(_kTaskId);
+        await SharedPrefsService.delete(_key(_kTaskId));
       } else if (activeTaskId != null) {
-        await SharedPrefsService.save(_kTaskId, activeTaskId);
+        await SharedPrefsService.save(_key(_kTaskId), activeTaskId);
       }
       if (draftTaskTitle != null) {
-        await SharedPrefsService.save(_kDraftTitle, draftTaskTitle);
+        await SharedPrefsService.save(_key(_kDraftTitle), draftTaskTitle);
       }
     } catch (_) {
       Logger.warn('Session recovery: saveState failed (non-fatal).');
@@ -49,9 +54,9 @@ class SessionRecoveryService {
 
   Future<SessionRecoveryState?> loadState() async {
     try {
-      final lastRoute = SharedPrefsService.load(_kLastRoute);
-      final activeTaskId = SharedPrefsService.load(_kTaskId);
-      final draftTitle = SharedPrefsService.load(_kDraftTitle);
+      final lastRoute = SharedPrefsService.load(_key(_kLastRoute));
+      final activeTaskId = SharedPrefsService.load(_key(_kTaskId));
+      final draftTitle = SharedPrefsService.load(_key(_kDraftTitle));
 
       if (lastRoute == null && draftTitle == null) return null;
 
@@ -71,7 +76,7 @@ class SessionRecoveryService {
 
   Future<void> clearDraft() async {
     try {
-      await SharedPrefsService.delete(_kDraftTitle);
+      await SharedPrefsService.delete(_key(_kDraftTitle));
     } catch (_) {
       Logger.warn('Session recovery: clearDraft failed (non-fatal).');
       RuntimeDiagnostics.record(
@@ -82,9 +87,9 @@ class SessionRecoveryService {
 
   Future<void> clearAll() async {
     try {
-      await SharedPrefsService.delete(_kLastRoute);
-      await SharedPrefsService.delete(_kTaskId);
-      await SharedPrefsService.delete(_kDraftTitle);
+      await SharedPrefsService.delete(_key(_kLastRoute));
+      await SharedPrefsService.delete(_key(_kTaskId));
+      await SharedPrefsService.delete(_key(_kDraftTitle));
     } catch (_) {
       Logger.warn('Session recovery: clearAll failed (non-fatal).');
       RuntimeDiagnostics.record(
