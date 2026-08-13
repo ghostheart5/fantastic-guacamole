@@ -43,11 +43,11 @@ class _InMemoryQueueStore implements SyncQueueStoreContract {
 }
 
 void main() {
-  test('dispatcher does not enqueue without user id', () async {
+  test('dispatcher does not enqueue without an explicit user id', () async {
     final _InMemoryQueueStore queue = _InMemoryQueueStore();
     final SyncMutationDispatcher dispatcher = SyncMutationDispatcher(
       queueStore: queue,
-      userIdResolver: () => null,
+      userId: null,
     );
 
     final bool enqueued = await dispatcher.enqueueUpsert(
@@ -64,7 +64,7 @@ void main() {
     final _InMemoryQueueStore queue = _InMemoryQueueStore();
     final SyncMutationDispatcher dispatcher = SyncMutationDispatcher(
       queueStore: queue,
-      userIdResolver: () => 'u1',
+      userId: 'u1',
     );
 
     await dispatcher.enqueueUpsert(
@@ -83,5 +83,21 @@ void main() {
     expect(items.first.payload['title'], 'second');
     expect(items.first.userId, 'u1');
     expect(items.first.payload['user_id'], 'u1');
+  });
+
+  test('dispatcher retains its captured user scope', () async {
+    final _InMemoryQueueStore queue = _InMemoryQueueStore();
+    final SyncMutationDispatcher dispatcher = SyncMutationDispatcher(
+      queueStore: queue,
+      userId: 'user-a',
+    );
+
+    await dispatcher.enqueueUpsert(
+      tableName: 'tasks',
+      recordId: 'a',
+      payload: const <String, dynamic>{},
+    );
+
+    expect((await queue.readAll()).single.userId, 'user-a');
   });
 }

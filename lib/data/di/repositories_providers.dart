@@ -220,6 +220,7 @@ final syncMutationDispatcherProvider = Provider<SyncMutationDispatcher>((
   return SyncMutationDispatcher(
     queueStore: ref.read(syncQueueStoreProvider),
     supabaseClient: ref.read(supabaseClientProvider),
+    userId: ref.read(supabaseClientProvider)?.auth.currentUser?.id,
   );
 });
 

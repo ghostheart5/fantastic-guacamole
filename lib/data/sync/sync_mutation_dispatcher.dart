@@ -5,13 +5,16 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 class SyncMutationDispatcher {
   SyncMutationDispatcher({
     required this._queueStore,
+    required this._userId,
     this._supabaseClient,
-    this._userIdResolver,
   });
 
   final SyncQueueStoreContract _queueStore;
+  // Retained as part of the existing construction boundary; PRE-01 does not
+  // alter client-based dispatch behavior.
+  // ignore: unused_field
   final sb.SupabaseClient? _supabaseClient;
-  final String? Function()? _userIdResolver;
+  final String? _userId;
 
   Future<bool> enqueueUpsert({
     required String tableName,
@@ -45,7 +48,7 @@ class SyncMutationDispatcher {
     required SyncOperationType operationType,
     required Map<String, dynamic> payload,
   }) async {
-    final String? userId = _resolveUserId();
+    final String? userId = _userId;
     if (userId == null || userId.trim().isEmpty) {
       return false;
     }
@@ -78,13 +81,5 @@ class SyncMutationDispatcher {
     filtered.add(operation);
     await _queueStore.overwrite(filtered);
     return true;
-  }
-
-  String? _resolveUserId() {
-    final String? resolved = _userIdResolver?.call();
-    if (resolved != null && resolved.trim().isNotEmpty) {
-      return resolved;
-    }
-    return _supabaseClient?.auth.currentUser?.id;
   }
 }
