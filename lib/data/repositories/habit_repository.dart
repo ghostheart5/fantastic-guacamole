@@ -142,11 +142,14 @@ class HabitRecord {
 }
 
 class HabitRepository {
-  HabitRepository(this._storage, {this._syncDispatcher});
+  HabitRepository(HiveStorage<String> storage, {this._syncDispatcher})
+    : _storage = storage;
+
+  HabitRepository.unavailable({this._syncDispatcher}) : _storage = null;
 
   static const String _key = 'habit_records_v1';
 
-  final HiveStorage<String> _storage;
+  final HiveStorage<String>? _storage;
   final SyncMutationDispatcher? _syncDispatcher;
   bool _cancelled = false;
   Future<void> _writeQueue = Future<void>.value();
@@ -161,8 +164,9 @@ class HabitRepository {
   }
 
   Future<List<HabitRecord>> getHabits() async {
-    await _storage.open();
-    final String? raw = _storage.get(_key);
+    final HiveStorage<String> storage = _requireStorage();
+    await storage.open();
+    final String? raw = storage.get(_key);
     if (raw == null || raw.trim().isEmpty) {
       return const <HabitRecord>[];
     }
@@ -186,7 +190,7 @@ class HabitRepository {
   Future<void> saveHabits(List<HabitRecord> habits) =>
       _serializeWrite(() async {
         final List<HabitRecord> previous = await getHabits();
-        await _storage.put(
+        await _requireStorage().put(
           _key,
           jsonEncode(
             habits
@@ -243,5 +247,15 @@ class HabitRepository {
     final Future<void> next = _writeQueue.then((_) => action());
     _writeQueue = next.catchError((Object _) {});
     return next;
+  }
+
+  HiveStorage<String> _requireStorage() {
+    final HiveStorage<String>? storage = _storage;
+    if (storage == null) {
+      throw StateError(
+        'Habit storage is unavailable while the account transition is unsafe.',
+      );
+    }
+    return storage;
   }
 }

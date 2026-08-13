@@ -6,14 +6,28 @@ import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
 
 class PlanRepository implements IPlanRepository {
-  PlanRepository(this._store);
+  PlanRepository(HiveStorage<String> store) : _store = store;
 
-  final HiveStorage<String> _store;
+  PlanRepository.unavailable() : _store = null;
+
+  final HiveStorage<String>? _store;
+  bool _cancelled = false;
+  Future<void> _writeQueue = Future<void>.value();
+
+  Future<void> cancelAndDrain() async {
+    _cancelled = true;
+    await _writeQueue.catchError((Object _) {});
+  }
+
+  void dispose() {
+    _cancelled = true;
+  }
 
   @override
   Future<PlanEntity?> getPlan(DateTime date) async {
-    await _store.open();
-    final String? raw = _store.get(_dateKey(date));
+    final HiveStorage<String> store = _requireStore();
+    await store.open();
+    final String? raw = store.get(_dateKey(date));
     if (raw == null || raw.trim().isEmpty) {
       return null;
     }
@@ -25,8 +39,29 @@ class PlanRepository implements IPlanRepository {
   }
 
   @override
-  Future<void> savePlan(PlanEntity plan) async {
-    await _store.put(_dateKey(plan.date), jsonEncode(_toJson(plan)));
+  Future<void> savePlan(PlanEntity plan) => _serializeWrite(() {
+    return _requireStore().put(_dateKey(plan.date), jsonEncode(_toJson(plan)));
+  });
+
+  Future<void> _serializeWrite(Future<void> Function() action) {
+    final Future<void> next = _writeQueue.then((_) {
+      if (_cancelled) {
+        throw StateError('Plan mutation canceled during account transition.');
+      }
+      return action();
+    });
+    _writeQueue = next.catchError((Object _) {});
+    return next;
+  }
+
+  HiveStorage<String> _requireStore() {
+    final HiveStorage<String>? store = _store;
+    if (store == null) {
+      throw StateError(
+        'Plan storage is unavailable while the account transition is unsafe.',
+      );
+    }
+    return store;
   }
 
   static String _dateKey(DateTime date) {

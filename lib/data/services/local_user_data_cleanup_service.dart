@@ -100,7 +100,7 @@ class LocalUserDataCleanupService {
     final Set<String> hiveBoxes = <String>{
       ...HiveBoxes.encryptedBoxes,
       ..._additionalHiveBoxes,
-      ..._taskGoalBoxesForUser(userId),
+      ..._accountScopedBoxesForUser(userId),
     };
     return <String, LocalUserDataCleanupAction>{
       'Hive initialization': hive.init,
@@ -112,13 +112,15 @@ class LocalUserDataCleanupService {
     };
   }
 
-  Set<String> _taskGoalBoxesForUser(String? userId) {
+  Set<String> _accountScopedBoxesForUser(String? userId) {
     if (userId == null) return const <String>{};
     final AccountStorageNamespace namespace =
         AccountStorageNamespace.authenticated(userId);
     return <String>{
       HiveBoxes.accountScopedNamespace(HiveBoxes.tasks, namespace.v2Scope),
       HiveBoxes.accountScopedNamespace(HiveBoxes.goals, namespace.v2Scope),
+      HiveBoxes.accountScopedNamespace(HiveBoxes.habits, namespace.v2Scope),
+      HiveBoxes.accountScopedNamespace(HiveBoxes.dailyPlans, namespace.v2Scope),
     };
   }
 

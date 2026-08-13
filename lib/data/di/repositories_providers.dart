@@ -80,10 +80,20 @@ final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
 });
 
 final habitRepositoryProvider = Provider<HabitRepository>((Ref ref) {
-  return HabitRepository(
-    HiveStorage<String>(HiveBoxes.habits, hive: ref.read(hiveStoreProvider)),
-    syncDispatcher: ref.read(syncMutationDispatcherProvider),
-  );
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  final HabitRepository repository = scope.v2Namespace == null
+      ? HabitRepository.unavailable(
+          syncDispatcher: ref.read(syncMutationDispatcherProvider),
+        )
+      : HabitRepository(
+          HiveStorage<String>(
+            HiveBoxes.accountScoped(HiveBoxes.habits, scope),
+            hive: ref.read(hiveStoreProvider),
+          ),
+          syncDispatcher: ref.read(syncMutationDispatcherProvider),
+        );
+  ref.onDispose(repository.dispose);
+  return repository;
 });
 
 final insightRepositoryProvider = Provider<InsightRepository>((Ref ref) {
@@ -99,12 +109,17 @@ final memoryRepositoryProvider = Provider<MemoryRepository>((Ref ref) {
 });
 
 final planRepositoryProvider = Provider<PlanRepository>((Ref ref) {
-  return PlanRepository(
-    HiveStorage<String>(
-      HiveBoxes.dailyPlans,
-      hive: ref.read(hiveStoreProvider),
-    ),
-  );
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  final PlanRepository repository = scope.v2Namespace == null
+      ? PlanRepository.unavailable()
+      : PlanRepository(
+          HiveStorage<String>(
+            HiveBoxes.accountScoped(HiveBoxes.dailyPlans, scope),
+            hive: ref.read(hiveStoreProvider),
+          ),
+        );
+  ref.onDispose(repository.dispose);
+  return repository;
 });
 
 final projectRepositoryProvider = Provider<ProjectRepository>((Ref ref) {

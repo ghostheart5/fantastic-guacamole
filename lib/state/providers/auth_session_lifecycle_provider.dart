@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/data/di/repositories_providers.dart'
         firebaseSupabaseBridgeRepositoryProvider,
         goalRepositoryProvider,
         habitRepositoryProvider,
+        planRepositoryProvider,
         settingsRepositoryProvider,
         syncMutationDispatcherProvider,
         taskRepositoryProvider;
@@ -1277,6 +1278,7 @@ class AuthSessionLifecycleCoordinator {
     final taskRepository = _ref.read(taskRepositoryProvider);
     final goalRepository = _ref.read(goalRepositoryProvider);
     final habitRepository = _ref.read(habitRepositoryProvider);
+    final planRepository = _ref.read(planRepositoryProvider);
     final settingsRepository = _ref.read(settingsRepositoryProvider);
     final syncMutationDispatcher = _ref.read(syncMutationDispatcherProvider);
     final SessionRecoveryService recovery =
@@ -1285,6 +1287,7 @@ class AuthSessionLifecycleCoordinator {
       taskRepository.cancelAndDrain(),
       goalRepository.cancelAndDrain(),
       habitRepository.cancelAndDrain(),
+      planRepository.cancelAndDrain(),
       settingsRepository.cancelAndDrain(),
       syncMutationDispatcher.cancelAndDrain(),
       recovery.cancelAndDrain(),
@@ -1330,6 +1333,7 @@ class AuthSessionLifecycleCoordinator {
     _ref.invalidate(taskRepositoryProvider);
     _ref.invalidate(goalRepositoryProvider);
     _ref.invalidate(habitRepositoryProvider);
+    _ref.invalidate(planRepositoryProvider);
     _ref.invalidate(settingsRepositoryProvider);
     _ref.invalidate(syncMutationDispatcherProvider);
     _ref.invalidate(sessionRecoveryProvider);
@@ -1341,6 +1345,10 @@ class AuthSessionLifecycleCoordinator {
     _ref.invalidate(goalProgressProvider);
     _ref.invalidate(timelineProvider);
     _ref.invalidate(habitsProvider);
+    _ref.invalidate(domainPlanRepositoryProvider);
+    _ref.invalidate(getPlanUseCaseProvider);
+    _ref.invalidate(createPlanUseCaseProvider);
+    _ref.invalidate(updatePlanUseCaseProvider);
     _ref.invalidate(projectsProvider);
     _ref.invalidate(routinesProvider);
     _ref.invalidate(subtasksProvider);
