@@ -148,6 +148,31 @@ authority, no active global ExtendedDomain route remains, repository/use-case
 and projection handoff proofs pass, and legacy records remain unclaimed.
 FIX-004B5 is ready; full Wave 1 remains blocked pending B5 and FIX-004C.
 
+## FIX-004B5 — Four-family handoff certification
+
+The final four-family boundary combines Profile (`profile_state_v3.<V2>`),
+Learning (`ai_learning_v2.<V2>`), Settings (`settings_entity_v2.<V2>`), and
+all sixteen ExtendedDomain V2 keys. No active account-state route uses a
+global store; global and V1 data remains preserved and unclaimed.
+
+The real-provider B5 fixture proves distinctive A values, explicit Root-05
+equivalent invalidation, B isolation and B writes, A restoration, same-user
+continuity, signed-out-to-B isolation, and an unsafe/superseded-C final scope.
+It uses Profile and Learning controllers, Settings repository/preferences, and
+the ExtendedDomain repository/use-case/projection chain. Settings and
+ExtendedDomain repository instances recreate; Riverpod rebuilds the scoped
+Profile/Learning notifier state on invalidation, so their B-only output rather
+than notifier object identity is the valid proof. Legacy Profile, Learning,
+Settings, and ExtendedDomain sentinels remain inactive.
+
+The direct account-state input boundary is certified. Full
+`siStateAggregationProvider` remains deferred to FIX-004C because durable
+SI/memory and platform-backed dependencies are outside this four-family scope.
+
+**Final decision: FIX-004B5 PASS; FIX-004B PASS.** Core planning/history and
+account-state persistence are certified. Full Wave 1 remains blocked only on
+FIX-004C, which is ready but intentionally not started here.
+
 ## FIX-004B2 — Learning
 
 ### Authority and legacy preservation
