@@ -1,33 +1,14 @@
-import 'dart:convert';
-
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/theme_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/settings_entity.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
-import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Reads the legacy, scoped Profile sound value without writing Profile state.
-final legacyProfileSoundProvider = FutureProvider<bool?>((Ref ref) async {
-  final String? userId = ref.read(authUserProvider).asData?.value?.id;
-  final String scope = (userId?.trim().isEmpty ?? true)
-      ? 'signed_out'
-      : userId!.replaceAll(RegExp('[^a-zA-Z0-9._-]'), '_');
-  final String? raw = await ref
-      .read(secureStoreProvider)
-      .readString('profile_state_v2.$scope');
-  if (raw == null || raw.trim().isEmpty) return null;
-  try {
-    final Object? decoded = jsonDecode(raw);
-    if (decoded is Map<String, dynamic>) {
-      return decoded['soundEnabled'] as bool?;
-    }
-  } on FormatException {
-    // A corrupted legacy record is not migration input.
-  }
-  return null;
-});
+/// Legacy Profile sound records are ambiguous and must not be read as active
+/// Settings input. Settings ownership migration is handled independently.
+final legacyProfileSoundProvider = FutureProvider<bool?>(
+  (Ref ref) async => null,
+);
 
 /// Reads the device-global legacy theme only as initial migration input.
 final legacyThemeProvider = FutureProvider<String?>((Ref ref) async {

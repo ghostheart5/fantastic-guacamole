@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
@@ -9,6 +10,7 @@ import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
@@ -36,10 +38,13 @@ final _sharedPrefsProvider = FutureProvider<SharedPrefsStorage>((ref) async {
 });
 
 final _backupServiceProvider = Provider<BackupService?>((ref) {
-  final String? userId = ref.watch(authUserProvider).asData?.value?.id;
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
   final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
     _sharedPrefsProvider,
   );
+  if (!scope.isAuthenticated || scope.v2Namespace == null) {
+    return null;
+  }
   return prefsAsync.whenOrNull(
     data: (SharedPrefsStorage prefs) => BackupService(
       taskRepository: ref.read(domainTaskRepositoryProvider),
@@ -49,7 +54,10 @@ final _backupServiceProvider = Provider<BackupService?>((ref) {
       ),
       prefs: prefs,
       secureProfileStore: ref.read(secureStoreProvider),
-      secureProfileStateKey: ProfileController.secureStorageKeyForUser(userId),
+      secureProfileStateKey: ProfileController.canonicalStorageKeyForScope(
+        scope,
+      ),
+      allowLegacyProfileFallback: false,
     ),
   );
 });

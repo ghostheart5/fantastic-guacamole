@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/network/retry_executor.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/network/secure_endpoint.dart'
     as secure_endpoint;
@@ -221,8 +222,9 @@ class AuthService implements AuthServiceContract {
     if (!_isCurrentProfileHydration(generation, expectedUserId)) {
       return;
     }
-    final String secureProfileStateKey =
-        'profile_state_v2.${_safeStorageScope(expectedUserId)}';
+    final String secureProfileStateKey = AccountStorageNamespace.authenticated(
+      expectedUserId,
+    ).scopedKey('profile_state_v3');
     final String? existing = await _store.readString(secureProfileStateKey);
     if (!_isCurrentProfileHydration(generation, expectedUserId)) {
       return;
@@ -1038,12 +1040,4 @@ class AuthService implements AuthServiceContract {
     }
     return null;
   }
-}
-
-String _safeStorageScope(String value) {
-  final String normalized = value.trim().replaceAll(
-    RegExp('[^a-zA-Z0-9._-]'),
-    '_',
-  );
-  return normalized.isEmpty ? 'signed_out' : normalized;
 }

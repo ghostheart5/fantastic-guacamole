@@ -9,18 +9,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('Root-03 legacy migration contracts', () {
-    test('Profile scoped keys are deterministic and user isolated', () {
+    test('Profile V2 keys are deterministic and collision-free', () {
       expect(
-        ProfileController.secureStorageKeyForUser(' user A '),
-        'profile_state_v2.user_A',
+        ProfileController.canonicalStorageKeyForUser('user A'),
+        'profile_state_v3.v2.dXNlciBB',
       );
       expect(
-        ProfileController.secureStorageKeyForUser('user A'),
-        isNot(ProfileController.secureStorageKeyForUser('user B')),
-      );
-      expect(
-        ProfileController.secureStorageKeyForUser(null),
-        'profile_state_v2.signed_out',
+        ProfileController.canonicalStorageKeyForUser('a/b'),
+        isNot(ProfileController.canonicalStorageKeyForUser('a?b')),
       );
     });
 
@@ -57,41 +53,25 @@ void main() {
     );
 
     test(
-      'Profile migrates only after a successful secure-store write',
+      'Profile preserves ambiguous global legacy data without migration',
       () async {
         final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
         final SecureStore store = SecureStore(backend: backend);
         await store.writeString('profile_state_v2', 'legacy-profile');
 
-        await ProfileController.migrateLegacyStorage(
-          secureStore: store,
-          hiveStore: const HiveStoreAdapter(),
-          userId: 'user A',
-        );
+        final ProfileLegacyMigrationResult result =
+            await ProfileController.migrateLegacyStorage(
+              secureStore: store,
+              hiveStore: const HiveStoreAdapter(),
+              userId: 'user A',
+            );
+        expect(result, ProfileLegacyMigrationResult.preservedAmbiguous);
+        expect(await store.readString('profile_state_v2'), 'legacy-profile');
         expect(
           await store.readString(
-            ProfileController.secureStorageKeyForUser('user A'),
-          ),
-          'legacy-profile',
-        );
-        expect(await store.readString('profile_state_v2'), isNull);
-        expect(
-          await store.readString(
-            ProfileController.secureStorageKeyForUser('user B'),
+            ProfileController.canonicalStorageKeyForUser('user A'),
           ),
           isNull,
-        );
-
-        await ProfileController.migrateLegacyStorage(
-          secureStore: store,
-          hiveStore: const HiveStoreAdapter(),
-          userId: 'user A',
-        );
-        expect(
-          await store.readString(
-            ProfileController.secureStorageKeyForUser('user A'),
-          ),
-          'legacy-profile',
         );
       },
     );

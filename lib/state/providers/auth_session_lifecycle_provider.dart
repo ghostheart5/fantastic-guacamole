@@ -632,7 +632,6 @@ class _SignedOutStateHandoff {
     required this.creatorFirstItemCreated,
     required this.timelineFirstActionCompleted,
     required this.missionOverlayDismissed,
-    required this.signedOutProfileState,
   });
 
   static const String _missionOverlayKey = 'mission_zero_overlay_dismissed';
@@ -647,12 +646,8 @@ class _SignedOutStateHandoff {
   final bool? creatorFirstItemCreated;
   final bool? timelineFirstActionCompleted;
   final bool? missionOverlayDismissed;
-  final String? signedOutProfileState;
 
-  bool get hasValues =>
-      onboardingComplete ||
-      missionOverlayDismissed != null ||
-      signedOutProfileState != null;
+  bool get hasValues => onboardingComplete || missionOverlayDismissed != null;
 
   static Future<_SignedOutStateHandoff> capture(
     String ownerNonce,
@@ -682,9 +677,6 @@ class _SignedOutStateHandoff {
       missionOverlayDismissed:
           _coerceStoredBool(preferences.get(_missionOverlayKey)) ??
           _coerceStoredBool(preferences.get(_signedOutMissionOverlayKey)),
-      signedOutProfileState: await secureStore.readString(
-        ProfileController.secureStorageKeyForUser(null),
-      ),
     );
   }
 
@@ -738,17 +730,6 @@ class _SignedOutStateHandoff {
         '$_missionOverlayKey.${_safeStorageScope(userId)}',
         dismissed,
       );
-    }
-    final String? profileState = signedOutProfileState;
-    if (profileState != null && profileState.trim().isNotEmpty) {
-      final String targetKey = ProfileController.secureStorageKeyForUser(
-        userId,
-      );
-      final String? existing = await secureStore.readString(targetKey);
-      if (existing == null || existing.trim().isEmpty) {
-        await secureStore.writeString(targetKey, profileState);
-      }
-      await secureStore.delete(ProfileController.secureStorageKeyForUser(null));
     }
     for (final String key in <String>{
       onboardingCompleteStorageKey,

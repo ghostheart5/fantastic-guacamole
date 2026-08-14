@@ -15,6 +15,7 @@ class BackupService {
     required this.prefs,
     this.secureProfileStore,
     this.secureProfileStateKey = _legacySecureProfileStateKey,
+    this.allowLegacyProfileFallback = true,
   });
 
   static const String _profileStateKey = 'profile_state';
@@ -24,6 +25,7 @@ class BackupService {
   final SharedPrefsStorage prefs;
   final SecureStore? secureProfileStore;
   final String secureProfileStateKey;
+  final bool allowLegacyProfileFallback;
   static const String _legacySecureProfileStateKey = 'profile_state_v2';
 
   Future<Map<String, dynamic>> createFullBackup() async {
@@ -162,6 +164,7 @@ class BackupService {
     if (secure != null) {
       final String? secured = await secure.readString(secureProfileStateKey);
       if (secured != null) return secured;
+      if (!allowLegacyProfileFallback) return null;
     }
     await profileStorage.open();
     final String? legacy = profileStorage.get(_profileStateKey);

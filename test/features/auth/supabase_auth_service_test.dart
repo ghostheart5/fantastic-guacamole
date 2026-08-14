@@ -346,8 +346,11 @@ void main() {
           email: 'verified@example.com',
           password: 'Password123!',
         );
+        await service.awaitCurrentUserProfileHydration();
 
-        final String? profile = await store.readString('profile_state_v2');
+        final String? profile = await store.readString(
+          'profile_state_v3.v2.dTI=',
+        );
         expect(profile, isNotNull);
         expect(profile, contains('verified'));
       },

@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
-import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/progression/progression_calculator.dart';
 import 'package:fantastic_guacamole/state/models/streak.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/streak_service.dart';
@@ -108,95 +109,82 @@ final profileProvider = NotifierProvider<ProfileController, ProfileState>(
   ProfileController.new,
 );
 
+enum ProfileLegacyMigrationResult { preservedAmbiguous }
+
 class ProfileController extends Notifier<ProfileState> {
-  bool _initScheduled = false;
+  int _initGeneration = 0;
   int _writeGeneration = 0;
   Future<void> _writeTail = Future<void>.value();
+  String? _activeStorageKey;
 
   @override
   ProfileState build() {
-    if (!_initScheduled) {
-      _initScheduled = true;
-      Future<void>.microtask(_init);
+    final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+    _writeGeneration++;
+    final int generation = ++_initGeneration;
+    _activeStorageKey = null;
+    if (scope.isAuthenticated && scope.v2Namespace != null) {
+      final String key = canonicalStorageKeyForScope(scope);
+      _activeStorageKey = key;
+      Future<void>.microtask(() => _init(key, generation));
     }
     return ProfileState();
   }
 
-  static const _boxKey = 'profile_box';
-  static const _stateKey = 'profile_state';
-  static const _secureStateKey = 'profile_state_v2';
-  final HiveStorage<String> _storage = HiveStorage<String>(
-    _boxKey,
-    hive: const HiveStoreAdapter(),
-  );
+  static const _canonicalStateKey = 'profile_state_v3';
   static const _streakLogic = StreakService();
   static const _progressionCalculator = ProgressionCalculator();
   static const String _streakBreakNotificationIdPrefix =
       'streak_break_recovery_';
 
   SecureStore get _secureStore => ref.read(secureStoreProvider);
-  static String secureStorageKeyForUser(String? userId) {
-    return '$_secureStateKey.${_safeStorageScope(userId)}';
+
+  static String canonicalStorageKeyForScope(AccountStorageScope scope) {
+    final String? namespace = scope.v2Namespace;
+    if (!scope.isAuthenticated || namespace == null) {
+      throw StateError(
+        'Profile persistence is unavailable outside a safe authenticated scope.',
+      );
+    }
+    return '$_canonicalStateKey.$namespace';
   }
 
-  static Future<void> migrateLegacyStorage({
+  static String canonicalStorageKeyForUser(String userId) {
+    return canonicalStorageKeyForScope(
+      AccountStorageScope.authenticated(userId),
+    );
+  }
+
+  /// Global and V1-sanitized Profile records carry no per-record owner proof.
+  /// They are deliberately retained as inactive legacy data.
+  static Future<ProfileLegacyMigrationResult> migrateLegacyStorage({
     required SecureStore secureStore,
     required HiveStore hiveStore,
     required String userId,
-  }) async {
-    final String targetKey = secureStorageKeyForUser(userId);
-    if (await secureStore.readString(targetKey) != null) return;
+  }) async => ProfileLegacyMigrationResult.preservedAmbiguous;
 
-    final String? secureLegacy = await secureStore.readString(_secureStateKey);
-    if (secureLegacy != null) {
-      await secureStore.writeString(targetKey, secureLegacy);
-      await secureStore.delete(_secureStateKey);
-      return;
-    }
+  bool get _isStorageAvailable => _activeStorageKey != null;
 
-    final HiveStorage<String> legacyStorage = HiveStorage<String>(
-      _boxKey,
-      hive: hiveStore,
-    );
-    await legacyStorage.open();
-    final String? hiveLegacy = legacyStorage.get(_stateKey);
-    if (hiveLegacy == null) return;
-
-    await secureStore.writeString(targetKey, hiveLegacy);
-    await legacyStorage.delete(_stateKey);
-  }
-
-  static String _safeStorageScope(String? userId) {
-    final String value = userId?.trim() ?? '';
-    if (value.isEmpty) {
-      return 'signed_out';
-    }
-    return value.replaceAll(RegExp('[^a-zA-Z0-9._-]'), '_');
-  }
-
-  Future<void> _init() async {
-    String? raw = await _secureStore.readString(_secureStateKey);
-    if (raw == null) {
-      await _storage.open();
-      raw = _storage.get(_stateKey);
-      if (raw != null) {
-        await _secureStore.writeString(_secureStateKey, raw);
-        await _storage.delete(_stateKey);
-      }
-    }
-    if (raw == null) return;
+  Future<void> _init(String key, int generation) async {
     try {
+      final String? raw = await _secureStore.readString(key);
+      if (generation != _initGeneration || key != _activeStorageKey) return;
+      if (raw == null || raw.trim().isEmpty) return;
       state = ProfileState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    } catch (_) {}
+    } catch (_) {
+      // A scoped read failure is fail-closed: no legacy fallback is attempted.
+    }
   }
 
   Future<void> _save() {
+    final String? key = _activeStorageKey;
+    if (key == null) return Future<void>.value();
     final int generation = _writeGeneration;
     final String encoded = jsonEncode(state.toJson());
     final Future<void> previous = _writeTail.catchError((Object _) {});
     final Future<void> write = previous.then((_) async {
-      if (generation != _writeGeneration) return;
-      await _secureStore.writeString(_secureStateKey, encoded);
+      if (generation != _writeGeneration || key != _activeStorageKey) return;
+      await _secureStore.writeString(key, encoded);
     });
     _writeTail = write;
     return write;
@@ -208,6 +196,7 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   void addXP(int amount) {
+    if (!_isStorageAvailable) return;
     final DateTime now = DateTime.now();
     final bool streakBroke = _streakLogic.didBreak(
       Streak(
@@ -251,6 +240,7 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   void updateName(String name) {
+    if (!_isStorageAvailable) return;
     final String normalizedName = name.trim();
     if (normalizedName.isEmpty) {
       return;
@@ -260,6 +250,7 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   void ensureProfile({String? preferredName}) {
+    if (!_isStorageAvailable) return;
     final String normalizedPreferred = preferredName?.trim() ?? '';
     final String fallbackName = state.name.trim().isEmpty
         ? 'Operator'
@@ -271,13 +262,16 @@ class ProfileController extends Notifier<ProfileState> {
     _save();
   }
 
-  @Deprecated('Sound preference ownership moved to SettingsPreferenceController.')
+  @Deprecated(
+    'Sound preference ownership moved to SettingsPreferenceController.',
+  )
   void toggleSound(bool value) {
     // Legacy in-memory compatibility only; this must not persist sound truth.
     state = state.copyWith(soundEnabled: value);
   }
 
   void incrementStreak() {
+    if (!_isStorageAvailable) return;
     final DateTime now = DateTime.now();
     final bool streakBroke = _streakLogic.didBreak(
       Streak(
@@ -308,6 +302,7 @@ class ProfileController extends Notifier<ProfileState> {
   }
 
   void resetStreak() {
+    if (!_isStorageAvailable) return;
     state = state.copyWith(streak: 0, clearLastActiveDate: true);
     _save();
     unawaited(_refreshCoachDecision());
@@ -318,6 +313,7 @@ class ProfileController extends Notifier<ProfileState> {
     required int level,
     required int streak,
   }) async {
+    if (!_isStorageAvailable) return;
     final int safeXp = xp < 0 ? 0 : xp;
     final int requestedFloor = level < 1 ? 1 : level;
     final int legacyLevelFloor = requestedFloor > state.legacyLevelFloor
