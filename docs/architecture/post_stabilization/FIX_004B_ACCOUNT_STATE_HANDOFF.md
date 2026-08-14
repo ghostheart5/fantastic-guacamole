@@ -83,6 +83,12 @@ a later authenticated scope constructs a distinct scope-bound service. Direct
 ExtendedDomain providers read that recreated repository. Durable SI memory and
 platform-backed aggregation are not certified by B4.
 
+### Provider handoff repair
+
+The cached ExtendedDomain use-case providers now watch the scoped repository;
+bootstrap and direct projections also track it. A focused ten-provider
+handoff test proves A and B receive distinct repository and use-case instances.
+
 ## FIX-004B2 — Learning
 
 ### Authority and legacy preservation

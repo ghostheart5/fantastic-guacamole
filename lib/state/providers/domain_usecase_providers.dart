@@ -428,53 +428,53 @@ void invalidateExtendedDomainSessionState(Ref ref) {
 }
 
 final getCoachMessagesUseCaseProvider = Provider<GetCoachMessages>((ref) {
-  return GetCoachMessages(ref.read(extendedDomainRepositoryProvider));
+  return GetCoachMessages(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final saveCoachMessageUseCaseProvider = Provider<SaveCoachMessage>((ref) {
-  return SaveCoachMessage(ref.read(extendedDomainRepositoryProvider));
+  return SaveCoachMessage(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final getSiQueriesExtendedUseCaseProvider = Provider<GetSiQueriesExtended>((
   ref,
 ) {
-  return GetSiQueriesExtended(ref.read(extendedDomainRepositoryProvider));
+  return GetSiQueriesExtended(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final saveSiQueryExtendedUseCaseProvider = Provider<SaveSiQueryExtended>((ref) {
-  return SaveSiQueryExtended(ref.read(extendedDomainRepositoryProvider));
+  return SaveSiQueryExtended(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final getJournalEntriesUseCaseProvider = Provider<GetJournalEntries>((ref) {
-  return GetJournalEntries(ref.read(extendedDomainRepositoryProvider));
+  return GetJournalEntries(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final saveJournalEntryUseCaseProvider = Provider<SaveJournalEntry>((ref) {
-  return SaveJournalEntry(ref.read(extendedDomainRepositoryProvider));
+  return SaveJournalEntry(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final getAnalyticsMetricsUseCaseProvider = Provider<GetAnalyticsMetrics>((ref) {
-  return GetAnalyticsMetrics(ref.read(extendedDomainRepositoryProvider));
+  return GetAnalyticsMetrics(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final saveAnalyticsMetricUseCaseProvider = Provider<SaveAnalyticsMetric>((ref) {
-  return SaveAnalyticsMetric(ref.read(extendedDomainRepositoryProvider));
+  return SaveAnalyticsMetric(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final getExtendedAppSettingsUseCaseProvider = Provider<GetExtendedAppSettings>((
   ref,
 ) {
-  return GetExtendedAppSettings(ref.read(extendedDomainRepositoryProvider));
+  return GetExtendedAppSettings(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final saveExtendedAppSettingUseCaseProvider = Provider<SaveExtendedAppSetting>((
   ref,
 ) {
-  return SaveExtendedAppSetting(ref.read(extendedDomainRepositoryProvider));
+  return SaveExtendedAppSetting(ref.watch(extendedDomainRepositoryProvider));
 });
 
 final extendedDomainBootstrapProvider = FutureProvider<void>((ref) async {
-  final IExtendedDomainRepository repository = ref.read(
+  final IExtendedDomainRepository repository = ref.watch(
     extendedDomainRepositoryProvider,
   );
   await repository.initialize();
@@ -547,7 +547,7 @@ final siQueriesProvider = Provider<List<SiQuery>>((ref) {
 
 final userIntentsProvider = Provider<List<UserIntent>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getUserIntents();
+  return ref.watch(extendedDomainRepositoryProvider).getUserIntents();
 });
 
 final journalEntriesProvider = Provider<List<JournalEntry>>((ref) {
@@ -562,17 +562,17 @@ final analyticsMetricsProvider = Provider<List<AnalyticsMetric>>((ref) {
 
 final appNotificationsProvider = Provider<List<AppNotification>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getAppNotifications();
+  return ref.watch(extendedDomainRepositoryProvider).getAppNotifications();
 });
 
 final rewardsProvider = Provider<List<Reward>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getRewards();
+  return ref.watch(extendedDomainRepositoryProvider).getRewards();
 });
 
 final appThemesProvider = Provider<List<AppTheme>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getThemes();
+  return ref.watch(extendedDomainRepositoryProvider).getThemes();
 });
 
 final appSettingsProvider = Provider<List<AppSetting>>((ref) {
@@ -582,37 +582,37 @@ final appSettingsProvider = Provider<List<AppSetting>>((ref) {
 
 final syncStatesProvider = Provider<List<SyncState>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getSyncStates();
+  return ref.watch(extendedDomainRepositoryProvider).getSyncStates();
 });
 
 final offlineStatesProvider = Provider<List<OfflineState>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getOfflineStates();
+  return ref.watch(extendedDomainRepositoryProvider).getOfflineStates();
 });
 
 final appErrorsProvider = Provider<List<AppError>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getAppErrors();
+  return ref.watch(extendedDomainRepositoryProvider).getAppErrors();
 });
 
 final recoveryStatesProvider = Provider<List<RecoveryState>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getRecoveryStates();
+  return ref.watch(extendedDomainRepositoryProvider).getRecoveryStates();
 });
 
 final subscriptionPlansProvider = Provider<List<SubscriptionPlanEntity>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getSubscriptionPlans();
+  return ref.watch(extendedDomainRepositoryProvider).getSubscriptionPlans();
 });
 
 final privacyPoliciesProvider = Provider<List<PrivacyPolicy>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getPrivacyPolicies();
+  return ref.watch(extendedDomainRepositoryProvider).getPrivacyPolicies();
 });
 
 final healthChecksProvider = Provider<List<HealthCheckResult>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(extendedDomainRepositoryProvider).getHealthChecks();
+  return ref.watch(extendedDomainRepositoryProvider).getHealthChecks();
 });
 
 final getTasksUseCaseProvider = Provider<GetTasks>((ref) {
