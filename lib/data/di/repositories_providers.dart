@@ -192,7 +192,10 @@ final siEngineRepositoryProvider = Provider<ISiRepository>((Ref ref) {
 });
 
 final siWorkspaceStoreProvider = Provider<SiWorkspaceStore>((Ref ref) {
-  return SiWorkspaceStore(ref.read(secureStoreProvider));
+  return SiWorkspaceStore(
+    ref.read(secureStoreProvider),
+    storageScope: ref.watch(accountStorageScopeProvider),
+  );
 });
 
 final logRepositoryProvider = Provider<LogRepository>((Ref ref) {

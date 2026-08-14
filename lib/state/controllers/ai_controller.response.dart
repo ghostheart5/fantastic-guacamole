@@ -3,7 +3,11 @@ part of 'ai_controller.dart';
 final siEngineStateProvider = FutureProvider<Map<String, dynamic>?>((
   ref,
 ) async {
-  final siEngineService = ref.read(siEngineServiceProvider);
+  final scope = ref.watch(accountStorageScopeProvider);
+  if (!scope.isAuthenticated || scope.v2Namespace == null) {
+    return null;
+  }
+  final siEngineService = ref.watch(siEngineServiceProvider);
   return siEngineService.loadState();
 });
 
