@@ -153,7 +153,13 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
 
   @override
   List<MemoryEntity> build() {
-    return ref.read(getMemoriesUseCaseProvider).call();
+    try {
+      return ref.watch(getMemoriesUseCaseProvider).call();
+    } on StateError {
+      // No authenticated Memory projection exists while the account scope is
+      // unavailable. The repository remains fail-closed for direct access.
+      return const <MemoryEntity>[];
+    }
   }
 
   Future<void> capture(

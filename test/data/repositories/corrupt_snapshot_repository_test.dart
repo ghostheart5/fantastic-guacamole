@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/core/errors/app_exception.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/completion_event_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/memory_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -32,10 +33,16 @@ void main() {
     'corrupt memory snapshot throws and cannot be overwritten by save',
     () async {
       const String corrupt = '{not-json';
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'corrupt-test',
+      );
       final _MemoryPrefsStore store = _MemoryPrefsStore(<String, String>{
-        'memories_v1': corrupt,
+        MemoryRepository.canonicalStorageKeyForScope(scope): corrupt,
       });
-      final MemoryRepository repository = MemoryRepository(store);
+      final MemoryRepository repository = MemoryRepository(
+        store,
+        storageScope: scope,
+      );
 
       expect(repository.getMemories, throwsA(isA<StorageException>()));
       expect(
@@ -48,7 +55,7 @@ void main() {
         ),
         throwsA(isA<StorageException>()),
       );
-      expect(store.load('memories_v1'), corrupt);
+      expect(store.load(MemoryRepository.canonicalStorageKeyForScope(scope)), corrupt);
     },
   );
 
@@ -56,11 +63,15 @@ void main() {
     'corrupt completion-event snapshot throws and cannot be overwritten',
     () async {
       const String corrupt = '[not-json';
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'corrupt-test',
+      );
       final _MemoryPrefsStore store = _MemoryPrefsStore(<String, String>{
-        'completion_events_v1': corrupt,
+        'completion_events_v2.${scope.v2Namespace}': corrupt,
       });
       final CompletionEventRepository repository = CompletionEventRepository(
         store,
+        scope,
       );
 
       expect(repository.getEvents, throwsA(isA<StorageException>()));
@@ -74,7 +85,7 @@ void main() {
         ),
         throwsA(isA<StorageException>()),
       );
-      expect(store.load('completion_events_v1'), corrupt);
+      expect(store.load('completion_events_v2.${scope.v2Namespace}'), corrupt);
     },
   );
 }

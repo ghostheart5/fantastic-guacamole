@@ -105,7 +105,11 @@ final identityRepositoryProvider = Provider<IdentityRepository>((Ref ref) {
 });
 
 final memoryRepositoryProvider = Provider<MemoryRepository>((Ref ref) {
-  return MemoryRepository(ref.read(sensitivePrefsStoreProvider));
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  return MemoryRepository(
+    ref.read(sensitivePrefsStoreProvider),
+    storageScope: scope,
+  );
 });
 
 final planRepositoryProvider = Provider<PlanRepository>((Ref ref) {

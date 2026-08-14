@@ -1,17 +1,36 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/errors/app_exception.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
 import 'package:fantastic_guacamole/domain/models/paged_result.dart';
 
 class MemoryRepository implements IMemoryRepository {
-  MemoryRepository(this._store);
+  MemoryRepository(this._store, {required this.storageScope});
 
-  static const String _key = 'memories_v1';
+  static const String legacyStorageKey = 'memories_v1';
+  static const String _v2KeyPrefix = 'memories_v2';
 
   final SharedPrefsStore _store;
+  final AccountStorageScope storageScope;
+
+  String get _key {
+    final String? namespace = storageScope.v2Namespace;
+    if (!storageScope.isAuthenticated || namespace == null) {
+      throw StateError('Memory persistence is unavailable outside a safe authenticated scope.');
+    }
+    return '$_v2KeyPrefix.$namespace';
+  }
+
+  static String canonicalStorageKeyForScope(AccountStorageScope scope) {
+    final String? namespace = scope.v2Namespace;
+    if (!scope.isAuthenticated || namespace == null) {
+      throw StateError('Memory persistence is unavailable outside a safe authenticated scope.');
+    }
+    return '$_v2KeyPrefix.$namespace';
+  }
 
   @override
   List<MemoryEntity> getMemories() {

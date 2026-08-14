@@ -338,7 +338,7 @@ final domainLogRepositoryProvider = Provider<ILogRepository>((ref) {
 });
 
 final domainMemoryRepositoryProvider = Provider<IMemoryRepository>((ref) {
-  return ref.read(memoryRepositoryProvider);
+  return ref.watch(memoryRepositoryProvider);
 });
 
 final domainPlanRepositoryProvider = Provider<IPlanRepository>((ref) {
@@ -855,19 +855,19 @@ final saveSubtasksUseCaseProvider = Provider<SaveSubtasks>((ref) {
 });
 
 final getMemoriesUseCaseProvider = Provider<GetMemories>((ref) {
-  return GetMemories(ref.read(domainMemoryRepositoryProvider));
+  return GetMemories(ref.watch(domainMemoryRepositoryProvider));
 });
 
 final saveMemoryUseCaseProvider = Provider<SaveMemory>((ref) {
-  return SaveMemory(ref.read(domainMemoryRepositoryProvider));
+  return SaveMemory(ref.watch(domainMemoryRepositoryProvider));
 });
 
 final deleteMemoryUseCaseProvider = Provider<DeleteMemory>((ref) {
-  return DeleteMemory(ref.read(domainMemoryRepositoryProvider));
+  return DeleteMemory(ref.watch(domainMemoryRepositoryProvider));
 });
 
 final saveMemoriesUseCaseProvider = Provider<SaveMemories>((ref) {
-  return SaveMemories(ref.read(domainMemoryRepositoryProvider));
+  return SaveMemories(ref.watch(domainMemoryRepositoryProvider));
 });
 
 final getPlanUseCaseProvider = Provider<GetPlan>((ref) {
