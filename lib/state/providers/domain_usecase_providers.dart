@@ -194,6 +194,7 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/si_decision_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
@@ -310,6 +311,7 @@ import 'package:fantastic_guacamole/domain/usecases/update_xp.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/services/extended_domain_service.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -409,7 +411,10 @@ final domainSiRepositoryProvider = Provider<ISiRepository>((ref) {
 });
 
 final extendedDomainRepositoryProvider = Provider<ExtendedDomainService>((ref) {
-  final ExtendedDomainService service = ExtendedDomainService();
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  final ExtendedDomainService service = ExtendedDomainService(
+    storageScope: scope,
+  );
   ref.onDispose(service.dispose);
   return service;
 });

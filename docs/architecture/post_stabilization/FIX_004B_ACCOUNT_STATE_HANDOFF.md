@@ -53,6 +53,36 @@ transition-failure Profile proofs also passed against the clean committed tree.
 Durable SI/memory and all non-Profile account-state families remain outside
 this repair.
 
+## FIX-004B4 — ExtendedDomain V2
+
+ExtendedDomain's authenticated authority is each base key suffixed with the
+single canonical `AccountStorageScope.v2Namespace`: `<base>.v2.<base64url-id>`.
+The service is constructed by `extendedDomainRepositoryProvider`, which watches
+`accountStorageScopeProvider`; it never derives a namespace from auth directly.
+Unsafe and signed-out scopes are unavailable: they neither hydrate nor retain
+new in-memory writes.
+
+The complete V2 key inventory is: `coach_messages`, `si_queries`,
+`user_intents`, `journal_entries`, `analytics_metrics`, `app_notifications`,
+`rewards`, `themes`, `settings`, `sync_states`, `offline_states`, `app_errors`,
+`recovery_states`, `subscription_plans`, `privacy_policies`, and
+`health_checks`, all under the `extended_domain.` prefix. Each has the same
+read and write path through `ExtendedDomainService`; no authenticated active
+path reads the corresponding global key.
+
+Global and legacy V1 sanitized records have ambiguous ownership. The migration
+helper is intentionally a no-op: it copies, deletes, marks, and claims none of
+them. Runtime target and migration policy are consequently consistent—only a
+V2 key is active and legacy records remain preserved/unclaimed.
+
+Focused B4 tests exercise all sixteen families through A→B→A storage,
+equivalent identifiers in both accounts, restart hydration, global/V1
+preservation, signed-out/unsafe fail closure, and Root-05 drain durability.
+The lifecycle continues to drain then invalidate the ExtendedDomain repository;
+a later authenticated scope constructs a distinct scope-bound service. Direct
+ExtendedDomain providers read that recreated repository. Durable SI memory and
+platform-backed aggregation are not certified by B4.
+
 ## FIX-004B2 — Learning
 
 ### Authority and legacy preservation

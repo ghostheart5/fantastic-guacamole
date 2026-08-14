@@ -21,7 +21,7 @@ void main() {
     });
 
     test(
-      'ExtendedDomain copies once, retains an existing destination, and is idempotent',
+      'ExtendedDomain preserves ambiguous global and V1 records without migration',
       () async {
         SharedPreferences.setMockInitialValues(<String, Object>{
           'extended_domain.settings': 'legacy',
@@ -36,19 +36,12 @@ void main() {
         expect(prefs.getString('extended_domain.settings.user_A'), 'current');
         expect(prefs.getString('extended_domain.settings'), 'legacy');
 
-        await prefs.remove('extended_domain.settings.user_A');
         await ExtendedDomainService.migrateLegacyStorage(
           prefs: prefs,
           storageScope: 'user A',
         );
-        expect(prefs.getString('extended_domain.settings.user_A'), 'legacy');
-        expect(prefs.containsKey('extended_domain.settings'), isFalse);
-
-        await ExtendedDomainService.migrateLegacyStorage(
-          prefs: prefs,
-          storageScope: 'user A',
-        );
-        expect(prefs.getString('extended_domain.settings.user_A'), 'legacy');
+        expect(prefs.getString('extended_domain.settings.user_A'), 'current');
+        expect(prefs.getString('extended_domain.settings'), 'legacy');
       },
     );
 

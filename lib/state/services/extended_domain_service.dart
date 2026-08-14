@@ -1,10 +1,14 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/domain.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ExtendedDomainService implements IExtendedDomainRepository {
-  ExtendedDomainService();
+  ExtendedDomainService({required AccountStorageScope storageScope})
+    : _namespace = storageScope.isAuthenticated
+          ? storageScope.v2Namespace
+          : null;
 
   static const String _keyCoachMessages = 'extended_domain.coach_messages';
   static const String _keySiQueries = 'extended_domain.si_queries';
@@ -49,21 +53,24 @@ class ExtendedDomainService implements IExtendedDomainRepository {
     return '$baseKey.${_safeStorageScope(storageScope)}';
   }
 
+  /// The only active authenticated storage location for this family.
+  static String canonicalStorageKeyForScope(
+    String baseKey,
+    AccountStorageScope storageScope,
+  ) {
+    final String? namespace = storageScope.v2Namespace;
+    if (!storageScope.isAuthenticated || namespace == null) {
+      throw StateError(
+        'ExtendedDomain requires an authenticated storage scope',
+      );
+    }
+    return '$baseKey.$namespace';
+  }
+
   static Future<void> migrateLegacyStorage({
     required SharedPreferences prefs,
     required String storageScope,
-  }) async {
-    for (final String baseKey in legacyStorageKeys) {
-      final String scopedKey = scopedStorageKey(baseKey, storageScope);
-      if (prefs.containsKey(scopedKey)) continue;
-
-      final String? legacyValue = prefs.getString(baseKey);
-      if (legacyValue == null) continue;
-
-      await prefs.setString(scopedKey, legacyValue);
-      await prefs.remove(baseKey);
-    }
-  }
+  }) async {}
 
   static String _safeStorageScope(String value) {
     final String normalized = value.trim().replaceAll(
@@ -74,6 +81,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
   }
 
   SharedPreferences? _prefs;
+  final String? _namespace;
   bool _initialized = false;
   bool _disposed = false;
   int _lifecycleGeneration = 0;
@@ -101,6 +109,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
     if (_initialized || _disposed) {
       return;
     }
+    if (_namespace == null) return;
     final int generation = _lifecycleGeneration;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     if (generation != _lifecycleGeneration) return;
@@ -147,7 +156,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<CoachMessage>(
-          prefs.getString(_keyCoachMessages),
+          prefs.getString(_activeKey(_keyCoachMessages)),
           (Map<String, dynamic> json) => CoachMessage(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -158,7 +167,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<SiQuery>(
-          prefs.getString(_keySiQueries),
+          prefs.getString(_activeKey(_keySiQueries)),
           (Map<String, dynamic> json) => SiQuery(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -169,7 +178,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<UserIntent>(
-          prefs.getString(_keyUserIntents),
+          prefs.getString(_activeKey(_keyUserIntents)),
           (Map<String, dynamic> json) => UserIntent(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -180,7 +189,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<JournalEntry>(
-          prefs.getString(_keyJournalEntries),
+          prefs.getString(_activeKey(_keyJournalEntries)),
           (Map<String, dynamic> json) => JournalEntry(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -191,7 +200,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<AnalyticsMetric>(
-          prefs.getString(_keyAnalyticsMetrics),
+          prefs.getString(_activeKey(_keyAnalyticsMetrics)),
           (Map<String, dynamic> json) => AnalyticsMetric(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -202,7 +211,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<AppNotification>(
-          prefs.getString(_keyAppNotifications),
+          prefs.getString(_activeKey(_keyAppNotifications)),
           (Map<String, dynamic> json) => AppNotification(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -213,7 +222,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<Reward>(
-          prefs.getString(_keyRewards),
+          prefs.getString(_activeKey(_keyRewards)),
           (Map<String, dynamic> json) =>
               Reward(id: json['id'] as String, label: json['label'] as String?),
         ),
@@ -222,7 +231,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<AppTheme>(
-          prefs.getString(_keyThemes),
+          prefs.getString(_activeKey(_keyThemes)),
           (Map<String, dynamic> json) => AppTheme(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -233,7 +242,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<AppSetting>(
-          prefs.getString(_keySettings),
+          prefs.getString(_activeKey(_keySettings)),
           (Map<String, dynamic> json) => AppSetting(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -244,7 +253,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<SyncState>(
-          prefs.getString(_keySyncStates),
+          prefs.getString(_activeKey(_keySyncStates)),
           (Map<String, dynamic> json) => SyncState(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -255,7 +264,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<OfflineState>(
-          prefs.getString(_keyOfflineStates),
+          prefs.getString(_activeKey(_keyOfflineStates)),
           (Map<String, dynamic> json) => OfflineState(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -266,7 +275,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<AppError>(
-          prefs.getString(_keyAppErrors),
+          prefs.getString(_activeKey(_keyAppErrors)),
           (Map<String, dynamic> json) => AppError(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -277,7 +286,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<RecoveryState>(
-          prefs.getString(_keyRecoveryStates),
+          prefs.getString(_activeKey(_keyRecoveryStates)),
           (Map<String, dynamic> json) => RecoveryState(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -288,7 +297,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<SubscriptionPlanEntity>(
-          prefs.getString(_keySubscriptionPlans),
+          prefs.getString(_activeKey(_keySubscriptionPlans)),
           (Map<String, dynamic> json) => SubscriptionPlanEntity(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -299,7 +308,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<PrivacyPolicy>(
-          prefs.getString(_keyPrivacyPolicies),
+          prefs.getString(_activeKey(_keyPrivacyPolicies)),
           (Map<String, dynamic> json) => PrivacyPolicy(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -310,7 +319,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
       ..clear()
       ..addAll(
         _decodeEntities<HealthCheckResult>(
-          prefs.getString(_keyHealthChecks),
+          prefs.getString(_activeKey(_keyHealthChecks)),
           (Map<String, dynamic> json) => HealthCheckResult(
             id: json['id'] as String,
             label: json['label'] as String?,
@@ -348,7 +357,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
 
   Future<void> _persistList(String key, Iterable<LightweightEntity> entities) {
     final SharedPreferences? prefs = _prefs;
-    if (prefs == null || _disposed) {
+    if (prefs == null || _disposed || _namespace == null) {
       return Future<void>.value();
     }
     final String encoded = jsonEncode(
@@ -365,11 +374,15 @@ class ExtendedDomainService implements IExtendedDomainRepository {
     final Future<void> previous = _writeTail.catchError((Object _) {});
     final Future<void> write = previous.then((_) async {
       if (_disposed || generation != _lifecycleGeneration) return;
-      await prefs.setString(key, encoded);
+      await prefs.setString(_activeKey(key), encoded);
     });
     _writeTail = write;
     return write;
   }
+
+  String _activeKey(String baseKey) => '$baseKey.$_namespace';
+
+  bool get _canUseStorage => _namespace != null && !_disposed;
 
   @override
   List<CoachMessage> getCoachMessages() => List.unmodifiable(_coachMessages);
@@ -425,96 +438,112 @@ class ExtendedDomainService implements IExtendedDomainRepository {
 
   @override
   Future<void> saveCoachMessage(CoachMessage entity) async {
+    if (!_canUseStorage) return;
     _coachMessages.add(entity);
     await _persistList(_keyCoachMessages, _coachMessages);
   }
 
   @override
   Future<void> saveSiQuery(SiQuery entity) async {
+    if (!_canUseStorage) return;
     _siQueries.add(entity);
     await _persistList(_keySiQueries, _siQueries);
   }
 
   @override
   Future<void> saveUserIntent(UserIntent entity) async {
+    if (!_canUseStorage) return;
     _userIntents.add(entity);
     await _persistList(_keyUserIntents, _userIntents);
   }
 
   @override
   Future<void> saveJournalEntry(JournalEntry entity) async {
+    if (!_canUseStorage) return;
     _journalEntries.add(entity);
     await _persistList(_keyJournalEntries, _journalEntries);
   }
 
   @override
   Future<void> saveAnalyticsMetric(AnalyticsMetric entity) async {
+    if (!_canUseStorage) return;
     _analyticsMetrics.add(entity);
     await _persistList(_keyAnalyticsMetrics, _analyticsMetrics);
   }
 
   @override
   Future<void> saveAppNotification(AppNotification entity) async {
+    if (!_canUseStorage) return;
     _appNotifications.add(entity);
     await _persistList(_keyAppNotifications, _appNotifications);
   }
 
   @override
   Future<void> saveReward(Reward entity) async {
+    if (!_canUseStorage) return;
     _rewards.add(entity);
     await _persistList(_keyRewards, _rewards);
   }
 
   @override
   Future<void> saveAppTheme(AppTheme entity) async {
+    if (!_canUseStorage) return;
     _themes.add(entity);
     await _persistList(_keyThemes, _themes);
   }
 
   @override
   Future<void> saveAppSetting(AppSetting entity) async {
+    if (!_canUseStorage) return;
     _settings.add(entity);
     await _persistList(_keySettings, _settings);
   }
 
   @override
   Future<void> saveSyncState(SyncState entity) async {
+    if (!_canUseStorage) return;
     _syncStates.add(entity);
     await _persistList(_keySyncStates, _syncStates);
   }
 
   @override
   Future<void> saveOfflineState(OfflineState entity) async {
+    if (!_canUseStorage) return;
     _offlineStates.add(entity);
     await _persistList(_keyOfflineStates, _offlineStates);
   }
 
   @override
   Future<void> saveAppError(AppError entity) async {
+    if (!_canUseStorage) return;
     _appErrors.add(entity);
     await _persistList(_keyAppErrors, _appErrors);
   }
 
   @override
   Future<void> saveRecoveryState(RecoveryState entity) async {
+    if (!_canUseStorage) return;
     _recoveryStates.add(entity);
     await _persistList(_keyRecoveryStates, _recoveryStates);
   }
 
   @override
   Future<void> saveSubscriptionPlan(SubscriptionPlanEntity entity) async {
+    if (!_canUseStorage) return;
     _subscriptionPlans.add(entity);
     await _persistList(_keySubscriptionPlans, _subscriptionPlans);
   }
 
   @override
   Future<void> savePrivacyPolicy(PrivacyPolicy entity) async {
+    if (!_canUseStorage) return;
     _privacyPolicies.add(entity);
     await _persistList(_keyPrivacyPolicies, _privacyPolicies);
   }
 
   @override
   Future<void> saveHealthCheck(HealthCheckResult entity) async {
+    if (!_canUseStorage) return;
     _healthChecks.add(entity);
     await _persistList(_keyHealthChecks, _healthChecks);
   }
