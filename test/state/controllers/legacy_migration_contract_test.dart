@@ -76,39 +76,20 @@ void main() {
       },
     );
 
-    test(
-      'Learning migration is scoped, non-overwriting, and retry-safe',
-      () async {
-        final _FailingWriteBackend backend = _FailingWriteBackend();
-        final SecureStore store = SecureStore(backend: backend);
-        await backend.seed('ai_learning', 'legacy-learning');
+    test('Learning migration preserves ambiguous global legacy data', () async {
+      final _FailingWriteBackend backend = _FailingWriteBackend();
+      final SecureStore store = SecureStore(backend: backend);
+      await backend.seed('ai_learning', 'legacy-learning');
 
-        await expectLater(
-          LearningController.migrateLegacyStorage(
+      final LearningLegacyMigrationResult result =
+          await LearningController.migrateLegacyStorage(
             store: store,
             userId: 'user A',
-          ),
-          throwsStateError,
-        );
-        expect(await store.readString('ai_learning'), 'legacy-learning');
-
-        backend.failWrites = false;
-        await LearningController.migrateLegacyStorage(
-          store: store,
-          userId: 'user A',
-        );
-        expect(await store.readString('ai_learning.user_A'), 'legacy-learning');
-        expect(await store.readString('ai_learning'), isNull);
-
-        await backend.seed('ai_learning', 'new-legacy');
-        await LearningController.migrateLegacyStorage(
-          store: store,
-          userId: 'user A',
-        );
-        expect(await store.readString('ai_learning.user_A'), 'legacy-learning');
-        expect(await store.readString('ai_learning'), 'new-legacy');
-      },
-    );
+          );
+      expect(result, LearningLegacyMigrationResult.preservedAmbiguous);
+      expect(await store.readString('ai_learning'), 'legacy-learning');
+      expect(await store.readString('ai_learning.user_A'), isNull);
+    });
 
     test('HLM-05 progression calculation remains canonical', () {
       final result = const ProgressionCalculator().calculate(

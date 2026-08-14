@@ -400,10 +400,9 @@ class _SessionOwnershipStore {
       hiveStore: _hive,
       userId: userId,
     );
-    await LearningController.migrateLegacyStorage(
-      store: _secureStore,
-      userId: userId,
-    );
+    // Learning's global and V1-sanitized records lack per-record owner proof.
+    // FIX-004B2 preserves them as inactive legacy data; it performs no
+    // authenticated migration from this lifecycle boundary.
   }
 
   static String? _legacyIdentityIssue(String? encoded, String? expectedUserId) {

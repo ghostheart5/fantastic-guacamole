@@ -52,3 +52,36 @@ transition-failure Profile proofs also passed against the clean committed tree.
 
 Durable SI/memory and all non-Profile account-state families remain outside
 this repair.
+
+## FIX-004B2 — Learning
+
+### Authority and legacy preservation
+
+Learning's authenticated runtime authority is
+`ai_learning_v2.<AccountStorageScope.v2Namespace>`. `learningProvider` watches
+`accountStorageScopeProvider`; it does not select a local namespace from auth
+directly. A safe authenticated scope reads, writes, and resets only that V2
+key. Unsafe, transitioning, blocked, and signed-out scopes expose the default
+Learning state and do not hydrate or persist a fallback.
+
+The former global `ai_learning` record and V1 sanitized
+`ai_learning.<legacy-user>` records have no per-record ownership proof. They
+remain preserved, inactive, unclaimed, and unmigrated. The Learning migration
+helper returns `preservedAmbiguous`; the trusted-legacy lifecycle path no
+longer invokes it. No global or V1 record is copied, deleted, or marked
+migrated by the active runtime.
+
+### Handoff and validation
+
+Root-05's existing ordering remains unchanged: it cancels and drains Learning
+writes, invalidates `learningProvider` and `learningHistoryProvider`, changes
+scope, and constructs a new Learning controller. Learning-derived consumers
+watch the provider; the SI pipeline's direct Learning input is therefore
+B-only after a completed handoff. Full mixed SI aggregation certification is
+still deferred.
+
+Focused B2 coverage proves A→B→A isolation with identical field identifiers,
+restart, signed-out→B, same-user refresh, global/V1 preservation, V2-only
+reset, scoped read/write/delete failures, transition hydration failure, and a
+direct Learning read-consumer handoff. Profile B1 and A4 core-handoff
+regressions remain part of B2's exact-index validation.
