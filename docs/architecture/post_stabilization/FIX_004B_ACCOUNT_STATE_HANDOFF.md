@@ -85,3 +85,26 @@ restart, signed-out→B, same-user refresh, global/V1 preservation, V2-only
 reset, scoped read/write/delete failures, transition hydration failure, and a
 direct Learning read-consumer handoff. Profile B1 and A4 core-handoff
 regressions remain part of B2's exact-index validation.
+
+## FIX-004B3 — Settings
+
+Settings' authenticated local authority is
+`settings_entity_v2.<AccountStorageScope.v2Namespace>`. The repository is
+constructed from `accountStorageScopeProvider`; unsafe and signed-out scopes
+are unavailable and do not read or write Settings. The former global
+`settings_entity_v1`, device-global theme record, and legacy Profile-sound
+record remain inactive compatibility data: no account-owned Settings hydration,
+copy, deletion, or migration derives from them.
+
+`settingsPreferencesProvider` watches account scope and reconstructs with the
+repository. Root-05 retains its existing drain order and now invalidates the
+Settings preference and current-theme projections with the repository. Theme,
+sound, notification, and onboarding fields are account-owned because they are
+serialized in `SettingsEntity`; legacy global theme/sound values are ambiguous.
+
+Remote sync remains intentionally separate: `SyncMutationDispatcher` queues
+the raw authenticated user ID, while the V2 namespace is local-only. Focused
+B3 coverage proves A→B→A, same-user, restart, signed-out→B, legacy
+preservation, fail-closed read/write behavior, projection recreation, and
+wrong-user payload prevention. Full SI aggregation remains deferred because it
+does not currently consume Settings directly.

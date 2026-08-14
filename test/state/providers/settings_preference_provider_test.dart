@@ -1,21 +1,26 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/settings_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/settings_entity.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_preference_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
-    'legacy sound and theme establish once, then canonical values win',
+    'scoped Settings establishes defaults without legacy sound or theme input',
     () async {
       final _MemoryStore store = _MemoryStore();
-      final SettingsRepository repository = SettingsRepository(store);
+      final SettingsRepository repository = SettingsRepository(
+        store,
+        storageScope: AccountStorageScope.authenticated('settings-user'),
+      );
 
       ProviderContainer first = _container(
         repository: repository,
@@ -25,11 +30,11 @@ void main() {
       final SettingsEntity migrated = await first.read(
         settingsPreferencesProvider.future,
       );
-      expect(migrated.soundEnabled, isFalse);
-      expect(migrated.themeMode, 'light');
+      expect(migrated.soundEnabled, isTrue);
+      expect(migrated.themeMode, 'system');
       expect(migrated.soundEstablished, isTrue);
       expect(migrated.themeEstablished, isTrue);
-      expect(first.read(soundEnabledProvider), isFalse);
+      expect(first.read(soundEnabledProvider), isTrue);
       first.dispose();
 
       ProviderContainer repeated = _container(
@@ -40,8 +45,8 @@ void main() {
       final SettingsEntity established = await repeated.read(
         settingsPreferencesProvider.future,
       );
-      expect(established.soundEnabled, isFalse);
-      expect(established.themeMode, 'light');
+      expect(established.soundEnabled, isTrue);
+      expect(established.themeMode, 'system');
       repeated.dispose();
     },
   );
@@ -71,6 +76,9 @@ ProviderContainer _container({
   return ProviderContainer(
     overrides: [
       settingsRepositoryProvider.overrideWithValue(repository),
+      accountStorageScopeProvider.overrideWith(
+        (Ref ref) => AccountStorageScope.authenticated('settings-user'),
+      ),
       legacyProfileSoundProvider.overrideWith((Ref ref) async => legacySound),
       legacyThemeProvider.overrideWith((Ref ref) async => legacyTheme),
     ],

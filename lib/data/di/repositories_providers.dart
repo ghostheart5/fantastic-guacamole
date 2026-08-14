@@ -222,8 +222,10 @@ final profileRepositoryProvider = Provider<ProfileRepository>((Ref ref) {
 });
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((Ref ref) {
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
   return SettingsRepository(
     ref.read(sharedPrefsStoreProvider),
+    storageScope: scope,
     syncDispatcher: ref.read(syncMutationDispatcherProvider),
   );
 });

@@ -1,7 +1,7 @@
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
-import 'package:fantastic_guacamole/data/repositories/theme_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/settings_entity.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Legacy Profile sound records are ambiguous and must not be read as active
@@ -10,13 +10,9 @@ final legacyProfileSoundProvider = FutureProvider<bool?>(
   (Ref ref) async => null,
 );
 
-/// Reads the device-global legacy theme only as initial migration input.
-final legacyThemeProvider = FutureProvider<String?>((Ref ref) async {
-  final ThemeRepository repository = ref.read(themeRepositoryProvider);
-  final legacy = await repository.getStoredTheme();
-  if (legacy == null) return null;
-  return legacy.isDark ? 'dark' : 'light';
-});
+/// Legacy device-global theme records lack account ownership proof and must not
+/// become active account Settings input.
+final legacyThemeProvider = FutureProvider<String?>((Ref ref) async => null);
 
 /// Canonical application boundary for global user preferences.
 ///
@@ -25,23 +21,23 @@ final legacyThemeProvider = FutureProvider<String?>((Ref ref) async {
 class SettingsPreferenceController extends AsyncNotifier<SettingsEntity> {
   @override
   Future<SettingsEntity> build() async {
+    final scope = ref.watch(accountStorageScopeProvider);
+    if (!scope.isAuthenticated || scope.v2Namespace == null) {
+      return const SettingsEntity();
+    }
     final SettingsEntity current =
-        await ref.read(settingsRepositoryProvider).getSettings() ??
+        await ref.watch(settingsRepositoryProvider).getSettings() ??
         const SettingsEntity();
     SettingsEntity established = current;
     if (!current.soundEstablished) {
-      final bool? legacySound = await ref.read(
-        legacyProfileSoundProvider.future,
-      );
       established = established.copyWith(
-        soundEnabled: legacySound ?? current.soundEnabled,
+        soundEnabled: current.soundEnabled,
         soundEstablished: true,
       );
     }
     if (!current.themeEstablished) {
-      final String? legacyTheme = await ref.read(legacyThemeProvider.future);
       established = established.copyWith(
-        themeMode: legacyTheme ?? current.themeMode,
+        themeMode: current.themeMode,
         themeEstablished: true,
       );
     }

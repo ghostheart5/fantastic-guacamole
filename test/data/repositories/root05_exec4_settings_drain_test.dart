@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/settings_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/settings_entity.dart';
@@ -20,13 +21,19 @@ class _MemoryStore implements SharedPrefsStore {
 void main() {
   test('R05-019 drains accepted settings work and gates later work', () async {
     final _MemoryStore store = _MemoryStore();
-    final SettingsRepository repository = SettingsRepository(store);
+    final SettingsRepository repository = SettingsRepository(
+      store,
+      storageScope: AccountStorageScope.authenticated('drain-user'),
+    );
     final Future<void> accepted = repository.saveSettings(
       const SettingsEntity(),
     );
     await repository.cancelAndDrain();
     await accepted;
-    expect(store.values['settings_entity_v1'], isNotNull);
+    expect(
+      store.values[SettingsRepository.canonicalStorageKeyForUser('drain-user')],
+      isNotNull,
+    );
     await expectLater(
       repository.saveSettings(const SettingsEntity(soundEnabled: false)),
       throwsA(isA<StateError>()),

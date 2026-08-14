@@ -1,17 +1,26 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/settings_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_settings_repository.dart';
 
 class SettingsRepository implements ISettingsRepository {
-  SettingsRepository(this._store, {this._syncDispatcher});
+  SettingsRepository(
+    this._store, {
+    required AccountStorageScope storageScope,
+    this._syncDispatcher,
+  }) : _storageKey =
+           storageScope.isAuthenticated && storageScope.v2Namespace != null
+           ? canonicalStorageKeyForScope(storageScope)
+           : null;
 
-  static const String _settingsKey = 'settings_entity_v1';
+  static const String _canonicalSettingsKey = 'settings_entity_v2';
   final SharedPrefsStore _store;
   final SyncMutationDispatcher? _syncDispatcher;
+  final String? _storageKey;
   bool _cancelled = false;
   Future<void> _writeQueue = Future<void>.value();
 
@@ -22,9 +31,37 @@ class SettingsRepository implements ISettingsRepository {
 
   void dispose() => _cancelled = true;
 
+  static String canonicalStorageKeyForScope(AccountStorageScope scope) {
+    final String? namespace = scope.v2Namespace;
+    if (!scope.isAuthenticated || namespace == null) {
+      throw StateError(
+        'Settings persistence is unavailable outside a safe authenticated scope.',
+      );
+    }
+    return '$_canonicalSettingsKey.$namespace';
+  }
+
+  static String canonicalStorageKeyForUser(String userId) {
+    return canonicalStorageKeyForScope(
+      AccountStorageScope.authenticated(userId),
+    );
+  }
+
+  bool get isStorageAvailable => _storageKey != null;
+
   @override
   Future<SettingsEntity?> getSettings() async {
-    final String? raw = _store.load(_settingsKey);
+    final String? key = _storageKey;
+    if (key == null) return null;
+    final String? raw;
+    try {
+      raw = _store.load(key);
+    } on Object catch (error) {
+      Logger.warn(
+        'Settings payload could not be read and will be ignored: $error',
+      );
+      return null;
+    }
     if (raw == null || raw.trim().isEmpty) {
       return null;
     }
@@ -52,34 +89,41 @@ class SettingsRepository implements ISettingsRepository {
   }
 
   @override
-  Future<void> saveSettings(SettingsEntity settings) =>
-      _serializeWrite(() async {
-        await _store.save(
-          _settingsKey,
-          jsonEncode(<String, dynamic>{
-            'soundEnabled': settings.soundEnabled,
-            'soundEstablished': settings.soundEstablished,
-            'notificationsEnabled': settings.notificationsEnabled,
-            'themeMode': settings.themeMode,
-            'themeEstablished': settings.themeEstablished,
-            'onboardingComplete': settings.onboardingComplete,
-          }),
+  Future<void> saveSettings(SettingsEntity settings) => _serializeWrite(
+    () async {
+      final String? key = _storageKey;
+      if (key == null) {
+        throw StateError(
+          'Settings persistence is unavailable during the account transition.',
         );
+      }
+      await _store.save(
+        key,
+        jsonEncode(<String, dynamic>{
+          'soundEnabled': settings.soundEnabled,
+          'soundEstablished': settings.soundEstablished,
+          'notificationsEnabled': settings.notificationsEnabled,
+          'themeMode': settings.themeMode,
+          'themeEstablished': settings.themeEstablished,
+          'onboardingComplete': settings.onboardingComplete,
+        }),
+      );
 
-        await _syncDispatcher?.enqueueUpsert(
-          tableName: 'settings',
-          recordId: 'default',
-          payload: <String, dynamic>{
-            'id': 'default',
-            'sound_enabled': settings.soundEnabled,
-            'notifications_enabled': settings.notificationsEnabled,
-            'theme_mode': settings.themeMode,
-            'onboarding_complete': settings.onboardingComplete,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-            'deleted_at': null,
-          },
-        );
-      });
+      await _syncDispatcher?.enqueueUpsert(
+        tableName: 'settings',
+        recordId: 'default',
+        payload: <String, dynamic>{
+          'id': 'default',
+          'sound_enabled': settings.soundEnabled,
+          'notifications_enabled': settings.notificationsEnabled,
+          'theme_mode': settings.themeMode,
+          'onboarding_complete': settings.onboardingComplete,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+          'deleted_at': null,
+        },
+      );
+    },
+  );
 
   Future<void> _serializeWrite(Future<void> Function() action) {
     if (_cancelled) {

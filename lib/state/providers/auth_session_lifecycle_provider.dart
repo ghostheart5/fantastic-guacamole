@@ -62,6 +62,7 @@ import 'package:fantastic_guacamole/state/providers/profile_values_provider.dart
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/projects_provider.dart';
 import 'package:fantastic_guacamole/state/providers/routines_provider.dart';
+import 'package:fantastic_guacamole/state/providers/settings_preference_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
 import 'package:fantastic_guacamole/state/providers/subtasks_provider.dart';
@@ -71,6 +72,7 @@ import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_misc_usecase_providers.dart'
     show viewTimelineUsecaseProvider;
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
+import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
 import 'package:fantastic_guacamole/state/providers/voice_command_handoff_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart'
     show
@@ -1333,6 +1335,8 @@ class AuthSessionLifecycleCoordinator {
     _ref.invalidate(completionEventRepositoryProvider);
     _ref.invalidate(planRepositoryProvider);
     _ref.invalidate(settingsRepositoryProvider);
+    _ref.invalidate(settingsPreferencesProvider);
+    _ref.invalidate(currentThemeProvider);
     _ref.invalidate(syncMutationDispatcherProvider);
     _ref.invalidate(sessionRecoveryProvider);
     _ref.invalidate(siEngineDependenciesProvider);
