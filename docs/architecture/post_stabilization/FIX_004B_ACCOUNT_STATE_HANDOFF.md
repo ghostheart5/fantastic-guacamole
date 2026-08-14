@@ -89,6 +89,65 @@ The cached ExtendedDomain use-case providers now watch the scoped repository;
 bootstrap and direct projections also track it. A focused ten-provider
 handoff test proves A and B receive distinct repository and use-case instances.
 
+### Harness-03A matrix
+
+The real provider fixture exercises Coach, SI Query, Journal, Analytics, and
+Extended Settings through A→B→A. All ten get/save use cases and the repository
+recreate for B; B sees only B data and A restores only A data. Legacy sentinels
+remain unchanged. Harness-02 remains green.
+
+### Harness-02 storage-failure evidence
+
+`test/helpers/controllable_shared_preferences_platform.dart` is a test-only
+backend, enabled by direct dev dependency
+`shared_preferences_platform_interface 2.4.2`. Tests restore the platform
+instance and use public `SharedPreferences.resetStatic()` before and after each
+case. It proves acquisition/hydration failure and B-scoped write failure plus
+retry while preserving A and legacy sentinels. A post-initialization per-key
+platform read failure is N/A: `getString` reads the initialized local cache.
+
+### Final B4 projection and program certification
+
+The B4 storage-authority repair was committed in `1e98ddee`; the scoped
+repository and ten use-case lifetime repair was committed in `12d98b31`.
+Final Harness-03B testing found one remaining projection boundary: the five
+cached projections below had watched bootstrap completion but read their scoped
+use case without establishing a dependency. On an account transition a
+projection could therefore retain its prior synchronous snapshot. Each now
+watches its corresponding scoped use-case provider:
+
+- `coachMessagesProvider`;
+- `siQueriesProvider`;
+- `journalEntriesProvider`;
+- `analyticsMetricsProvider`; and
+- `appSettingsProvider`.
+
+Harness-02 proves acquisition/hydration failure, retry, write failure/retry,
+and preservation of A V2 and legacy data. Harness-03A proves the five-family
+A-to-B-to-A matrix and all ten use-case provider recreations. Harness-03B
+proves the direct `siQueriesProvider` path, same-user behavior, signed-out to
+B isolation, and global/V1 SI-query preservation. SI Console has no separate
+account-owned query cache: `si_console_screen.dart` reads `siQueriesProvider`,
+which resolves through `getSiQueriesExtendedUseCaseProvider`,
+`extendedDomainRepositoryProvider`, and the current scoped service.
+
+The final regression replay also includes high-value B1 Profile, B2 Learning,
+B3 Settings, A4 core handoff, FIX-001 lifecycle activation, FIX-002 readiness,
+FIX-003 namespace, and Root-05 drain/lifecycle suites. Full mixed
+`siStateAggregationProvider` certification remains deliberately deferred to
+FIX-004C/platform-boundary work; it is not an ExtendedDomain B4 failure.
+
+The exact-index candidate was rebuilt from `12d98b31` with only the bounded
+projection repair, this record, the controllable-platform dev dependency, and
+the certified B4 tests. Its complete closure replay passed **117/117** tests
+with zero targeted analyzer diagnostics. The validation `.env` was blank,
+untracked, unstaged, and uncommitted.
+
+**Final decision: FIX-004B4 PASS.** All sixteen active families use their V2
+authority, no active global ExtendedDomain route remains, repository/use-case
+and projection handoff proofs pass, and legacy records remain unclaimed.
+FIX-004B5 is ready; full Wave 1 remains blocked pending B5 and FIX-004C.
+
 ## FIX-004B2 — Learning
 
 ### Authority and legacy preservation

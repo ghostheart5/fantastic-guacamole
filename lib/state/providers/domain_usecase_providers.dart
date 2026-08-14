@@ -537,12 +537,12 @@ final extendedDomainBootstrapProvider = FutureProvider<void>((ref) async {
 
 final coachMessagesProvider = Provider<List<CoachMessage>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(getCoachMessagesUseCaseProvider).call();
+  return ref.watch(getCoachMessagesUseCaseProvider).call();
 });
 
 final siQueriesProvider = Provider<List<SiQuery>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(getSiQueriesExtendedUseCaseProvider).call();
+  return ref.watch(getSiQueriesExtendedUseCaseProvider).call();
 });
 
 final userIntentsProvider = Provider<List<UserIntent>>((ref) {
@@ -552,12 +552,12 @@ final userIntentsProvider = Provider<List<UserIntent>>((ref) {
 
 final journalEntriesProvider = Provider<List<JournalEntry>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(getJournalEntriesUseCaseProvider).call();
+  return ref.watch(getJournalEntriesUseCaseProvider).call();
 });
 
 final analyticsMetricsProvider = Provider<List<AnalyticsMetric>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(getAnalyticsMetricsUseCaseProvider).call();
+  return ref.watch(getAnalyticsMetricsUseCaseProvider).call();
 });
 
 final appNotificationsProvider = Provider<List<AppNotification>>((ref) {
@@ -577,7 +577,7 @@ final appThemesProvider = Provider<List<AppTheme>>((ref) {
 
 final appSettingsProvider = Provider<List<AppSetting>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(getExtendedAppSettingsUseCaseProvider).call();
+  return ref.watch(getExtendedAppSettingsUseCaseProvider).call();
 });
 
 final syncStatesProvider = Provider<List<SyncState>>((ref) {
