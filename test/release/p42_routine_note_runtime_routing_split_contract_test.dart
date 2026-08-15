@@ -16,35 +16,17 @@ void main() {
 
         final String text = SourceTestUtils.readText(creatorProviderFile);
 
-        expect(
-          text.contains('switch (requestedKind.trim().toLowerCase()) {'),
-          isTrue,
-        );
-        expect(text.contains("case 'routine':"), isTrue);
-        expect(
-          text.contains(
-            'await _createRoutineEntry(data: data, recurrence: recurrence);',
-          ),
-          isTrue,
-        );
-        expect(text.contains("case 'note':"), isTrue);
-        expect(
-          text.contains(
-            'await _createNoteEntry(data: data, recurrence: recurrence);',
-          ),
-          isTrue,
-        );
-        expect(
-          text.contains(
-            'await _createTaskEntry(data: data, kind: kind, recurrence: recurrence);',
-          ),
-          isTrue,
-        );
+        expect(text.contains('switch (intake.kind) {'), isTrue);
+        expect(text.contains('case IntakeKind.routine:'), isTrue);
+        expect(text.contains('await _createRoutineEntry('), isTrue);
+        expect(text.contains('case IntakeKind.note:'), isTrue);
+        expect(text.contains('await _createNoteEntry('), isTrue);
+        expect(text.contains('await _createTaskEntry('), isTrue);
       },
     );
 
     test(
-      'routine handler preserves dedicated routine kind on task persistence path',
+      'routine handler preserves its dedicated canonical task action path',
       () {
         final File creatorProviderFile = File(
           'lib/state/providers/creator_provider.dart',
@@ -52,11 +34,14 @@ void main() {
         expect(creatorProviderFile.existsSync(), isTrue);
 
         final String text = SourceTestUtils.readText(creatorProviderFile);
+        final String intake = SourceTestUtils.readText(
+          File('lib/domain/intake/intake_request.dart'),
+        );
 
         expect(text.contains('Future<void> _createRoutineEntry({'), isTrue);
-        expect(text.contains("kind: 'routine'"), isTrue);
+        expect(text.contains("actionSource: 'creator_routine'"), isTrue);
         expect(
-          text.contains("'daily rhythm' || 'habit' || 'routine' => 'routine'"),
+          intake.contains("'routine' || 'daily rhythm' || 'habit' => IntakeKind.routine"),
           isTrue,
           reason:
               'All user-facing daily-rhythm aliases must reach the dedicated routine handler.',
@@ -65,7 +50,7 @@ void main() {
     );
 
     test(
-      'note handler preserves note-to-task conversion persistence behavior',
+      'note handler persists only through the first-class Note authority',
       () {
         final File creatorProviderFile = File(
           'lib/state/providers/creator_provider.dart',
@@ -75,16 +60,10 @@ void main() {
         final String text = SourceTestUtils.readText(creatorProviderFile);
 
         expect(text.contains('Future<void> _createNoteEntry({'), isTrue);
-        expect(
-          text.contains('final TaskEntity entity = note.toTaskEntity('),
-          isTrue,
-        );
-        expect(
-          text.contains(
-            '.createTask(entity, actionSource: _legacyCreatorNoteActionSource);',
-          ),
-          isTrue,
-        );
+        expect(text.contains('notesProvider.notifier'), isTrue);
+        expect(text.contains('.createNote(title: data.title, body: data.description)'), isTrue);
+        expect(text.contains('note.toTaskEntity('), isFalse);
+        expect(text.contains("actionSource: 'creator_note'"), isFalse);
       },
     );
   });

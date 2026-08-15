@@ -587,6 +587,10 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
       TimelineEventType.levelUp => 'Level Up',
       TimelineEventType.streak => 'Streak',
       TimelineEventType.goalComplete => 'Goal Complete',
+      TimelineEventType.noteCreated => 'Note Created',
+      TimelineEventType.noteUpdated => 'Note Updated',
+      TimelineEventType.noteArchived => 'Note Archived',
+      TimelineEventType.noteDeleted => 'Note Deleted',
     };
   }
 
@@ -839,6 +843,14 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
         return AppColors.recallRed;
       case TimelineEventType.recommendation:
         return AppColors.neonCyan;
+      case TimelineEventType.noteCreated:
+        return const Color(0xFF7AF7C4);
+      case TimelineEventType.noteUpdated:
+        return const Color(0xFF59C8FF);
+      case TimelineEventType.noteArchived:
+        return Colors.blueGrey;
+      case TimelineEventType.noteDeleted:
+        return AppColors.recallRed;
     }
   }
 
@@ -876,6 +888,14 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
         return Icons.warning_amber_rounded;
       case TimelineEventType.recommendation:
         return Icons.tips_and_updates_rounded;
+      case TimelineEventType.noteCreated:
+        return Icons.note_add_outlined;
+      case TimelineEventType.noteUpdated:
+        return Icons.edit_note_rounded;
+      case TimelineEventType.noteArchived:
+        return Icons.archive_outlined;
+      case TimelineEventType.noteDeleted:
+        return Icons.delete_outline_rounded;
     }
   }
 

@@ -365,8 +365,7 @@ class _CreatorScreenState extends ConsumerState<CreatorScreen> {
                         }
 
                         if (savedKind == CreatorSavedKind.task ||
-                            savedKind == CreatorSavedKind.routine ||
-                            savedKind == CreatorSavedKind.note) {
+                            savedKind == CreatorSavedKind.routine) {
                           await ref
                               .read(localMetricsAccumulatorProvider)
                               .recordTaskCreated();

@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/data/di/repositories_providers.dart'
         firebaseSupabaseBridgeRepositoryProvider,
         completionEventRepositoryProvider,
         goalRepositoryProvider,
+        noteRepositoryProvider,
         habitRepositoryProvider,
         planRepositoryProvider,
         settingsRepositoryProvider,
@@ -56,6 +57,7 @@ import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
 import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
+import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart'
@@ -1326,6 +1328,7 @@ class AuthSessionLifecycleCoordinator {
     final LearningController learning = _ref.read(learningProvider.notifier);
     final taskRepository = _ref.read(taskRepositoryProvider);
     final goalRepository = _ref.read(goalRepositoryProvider);
+    final noteRepository = _ref.read(noteRepositoryProvider);
     final habitRepository = _ref.read(habitRepositoryProvider);
     final planRepository = _ref.read(planRepositoryProvider);
     final settingsRepository = _ref.read(settingsRepositoryProvider);
@@ -1335,6 +1338,7 @@ class AuthSessionLifecycleCoordinator {
     await Future.wait<void>(<Future<void>>[
       taskRepository.cancelAndDrain(),
       goalRepository.cancelAndDrain(),
+      noteRepository.cancelAndDrain(),
       habitRepository.cancelAndDrain(),
       planRepository.cancelAndDrain(),
       settingsRepository.cancelAndDrain(),
@@ -1381,6 +1385,7 @@ class AuthSessionLifecycleCoordinator {
     _ref.invalidate(reminderOrchestratorServiceProvider);
     _ref.invalidate(taskRepositoryProvider);
     _ref.invalidate(goalRepositoryProvider);
+    _ref.invalidate(noteRepositoryProvider);
     _ref.invalidate(domainTaskRepositoryProvider);
     _ref.invalidate(domainGoalRepositoryProvider);
     _ref.invalidate(getTasksUseCaseProvider);
@@ -1425,6 +1430,7 @@ class AuthSessionLifecycleCoordinator {
     _ref.invalidate(milestonesProvider);
     _ref.invalidate(logsProvider);
     _ref.invalidate(notificationProvider);
+    _ref.invalidate(notesProvider);
     invalidateExtendedDomainSessionState(_ref);
 
     _ref.invalidate(behaviorStateProvider);

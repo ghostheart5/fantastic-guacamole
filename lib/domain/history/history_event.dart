@@ -22,6 +22,10 @@ enum HistoryEventKind {
   interventionDismissed,
   interventionSnoozed,
   interventionDisabled,
+  noteCreated,
+  noteUpdated,
+  noteArchived,
+  noteDeleted,
   legacyTimeline,
 }
 

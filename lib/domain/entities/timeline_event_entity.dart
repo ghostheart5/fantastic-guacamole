@@ -15,6 +15,10 @@ enum TimelineEventType {
   snapshot,
   risk,
   recommendation,
+  noteCreated,
+  noteUpdated,
+  noteArchived,
+  noteDeleted,
 }
 
 enum TimelineEventStatus { planned, active, completed, overdue, atRisk, info }
@@ -106,6 +110,14 @@ class TimelineEventEntity {
         return 'Risk';
       case TimelineEventType.recommendation:
         return 'Recommendation';
+      case TimelineEventType.noteCreated:
+        return 'Note Created';
+      case TimelineEventType.noteUpdated:
+        return 'Note Updated';
+      case TimelineEventType.noteArchived:
+        return 'Note Archived';
+      case TimelineEventType.noteDeleted:
+        return 'Note Deleted';
     }
   }
 

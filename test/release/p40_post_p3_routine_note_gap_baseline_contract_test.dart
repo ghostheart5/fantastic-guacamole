@@ -24,7 +24,7 @@ void main() {
     );
 
     test(
-      'routine and note intent remain mapped into existing habit/task persistence pathways',
+      'routine keeps its existing path while Note uses first-class authority',
       () {
         final File creatorProviderFile = File(
           'lib/state/providers/creator_provider.dart',
@@ -39,17 +39,11 @@ void main() {
           isTrue,
         );
         expect(text.contains('Future<void> _createNoteEntry({'), isTrue);
-        expect(text.contains('note.toTaskEntity('), isTrue);
-        expect(
-          text.contains("_legacyCreatorNoteActionSource = 'creator_note'"),
-          isTrue,
-        );
-        expect(
-          text.contains(
-            '.createTask(entity, actionSource: _legacyCreatorNoteActionSource);',
-          ),
-          isTrue,
-        );
+        expect(text.contains("case IntakeKind.note:"), isTrue);
+        expect(text.contains('notesProvider.notifier'), isTrue);
+        expect(text.contains('.createNote('), isTrue);
+        expect(text.contains('note.toTaskEntity('), isFalse);
+        expect(text.contains("actionSource: 'creator_note'"), isFalse);
       },
     );
 

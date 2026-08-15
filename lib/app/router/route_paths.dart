@@ -23,6 +23,7 @@ class RoutePaths {
   static const timeline = '/settings/advanced/logs';
   static const logs = '$advancedRoot/logs';
   static const tasks = '$advancedRoot/tasks';
+  static const notes = '$advancedRoot/notes';
   static const profile = '$advancedRoot/profile';
   static const progression = '$advancedRoot/progression';
   static const si = '$advancedRoot/si-console';

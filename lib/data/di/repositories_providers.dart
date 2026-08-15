@@ -2,12 +2,14 @@
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/adapters/habit_occurrence_sync_adapter.dart';
 import 'package:fantastic_guacamole/data/adapters/habit_occurrence_timeline_adapter.dart';
+import 'package:fantastic_guacamole/data/adapters/note_timeline_adapter.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/remote/goals_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/habits_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/habit_occurrences_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/settings_remote_gateway.dart';
+import 'package:fantastic_guacamole/data/remote/notes_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/tasks_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/completion_event_repository.dart';
@@ -21,6 +23,7 @@ import 'package:fantastic_guacamole/data/repositories/insight_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/log_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/memory_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/note_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/paywall_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/plan_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/profile_repository.dart';
@@ -69,6 +72,25 @@ TaskRepository taskRepository(Ref ref) {
 }
 
 final taskRepositoryProvider = Provider<TaskRepository>(taskRepository);
+
+final noteRepositoryProvider = Provider<NoteRepository>((Ref ref) {
+  final scope = ref.watch(accountStorageScopeProvider);
+  final NoteRepository repository = !scope.isAuthenticated || scope.v2Namespace == null
+      ? NoteRepository.unavailable()
+      : NoteRepository(
+          HiveStorage<String>(
+            HiveBoxes.accountScoped(HiveBoxes.notes, scope),
+            hive: ref.read(hiveStoreProvider),
+          ),
+          syncDispatcher: ref.read(syncMutationDispatcherProvider),
+        );
+  ref.onDispose(repository.dispose);
+  return repository;
+});
+
+final noteTimelineAdapterProvider = Provider<NoteTimelineAdapter>((Ref ref) {
+  return NoteTimelineAdapter(ref.read(timelineRepositoryProvider));
+});
 
 final goalRepositoryProvider = Provider<GoalRepository>((Ref ref) {
   final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
@@ -415,4 +437,8 @@ final settingsRemoteGatewayProvider = Provider<SettingsRemoteGateway>((
   Ref ref,
 ) {
   return SettingsRemoteGateway(ref.read(supabaseClientProvider));
+});
+
+final notesRemoteGatewayProvider = Provider<NotesRemoteGateway>((Ref ref) {
+  return NotesRemoteGateway(ref.read(supabaseClientProvider));
 });

@@ -102,6 +102,10 @@ class TimelineHistoryAdapter {
       TimelineEventType.snapshot ||
       TimelineEventType.risk ||
       TimelineEventType.recommendation => HistoryEventKind.legacyTimeline,
+      TimelineEventType.noteCreated => HistoryEventKind.noteCreated,
+      TimelineEventType.noteUpdated => HistoryEventKind.noteUpdated,
+      TimelineEventType.noteArchived => HistoryEventKind.noteArchived,
+      TimelineEventType.noteDeleted => HistoryEventKind.noteDeleted,
       TimelineEventType.reflection => HistoryEventKind.reflectionRecorded,
     };
   }
@@ -119,6 +123,10 @@ class TimelineHistoryAdapter {
         TimelineEventType.milestone ||
         TimelineEventType.levelUp => HistoryEntityType.milestone,
         TimelineEventType.reflection => HistoryEntityType.reflection,
+        TimelineEventType.noteCreated ||
+        TimelineEventType.noteUpdated ||
+        TimelineEventType.noteArchived ||
+        TimelineEventType.noteDeleted => HistoryEntityType.note,
         _ => HistoryEntityType.unknown,
       };
 
@@ -134,6 +142,10 @@ class TimelineHistoryAdapter {
         HistoryEventKind.habitCompleted => TimelineEventType.habitCompleted,
         HistoryEventKind.habitSkipped => TimelineEventType.habitSkipped,
         HistoryEventKind.projectUpdated => TimelineEventType.project,
+        HistoryEventKind.noteCreated => TimelineEventType.noteCreated,
+        HistoryEventKind.noteUpdated => TimelineEventType.noteUpdated,
+        HistoryEventKind.noteArchived => TimelineEventType.noteArchived,
+        HistoryEventKind.noteDeleted => TimelineEventType.noteDeleted,
         _ => TimelineEventType.reflection,
       };
 

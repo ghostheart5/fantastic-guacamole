@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/timeline_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
@@ -68,9 +69,11 @@ void main() {
       expect(restored.detail, timeline.detail);
     });
 
-    test('repository writes canonical records, reads legacy records, and orders history', () async {
+    test('repository writes scoped canonical records and orders history', () async {
       final _MemoryStore store = _MemoryStore();
-      final TimelineRepository repository = TimelineRepository(store);
+      final AccountStorageScope scope = AccountStorageScope.authenticated('history-test');
+      final TimelineRepository repository = TimelineRepository(store, scope);
+      final String key = 'timeline_events_v2.${scope.v2Namespace}';
       await repository.saveEvents(<TimelineEventEntity>[
         TimelineEventEntity(
           id: 'older',
@@ -89,11 +92,11 @@ void main() {
         ),
       ]);
 
-      final List<dynamic> persisted = jsonDecode(store.values['timeline_events_v1']!) as List<dynamic>;
+      final List<dynamic> persisted = jsonDecode(store.values[key]!) as List<dynamic>;
       expect((persisted.first as Map<String, dynamic>)['schemaVersion'], 1);
       expect(repository.getHistoryEvents().first.id, 'newer');
 
-      store.values['timeline_events_v1'] = jsonEncode(<Map<String, dynamic>>[
+      store.values[key] = jsonEncode(<Map<String, dynamic>>[
         <String, dynamic>{
           'id': 'legacy',
           'type': 'reflection',

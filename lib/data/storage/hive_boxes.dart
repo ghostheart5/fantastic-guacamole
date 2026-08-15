@@ -14,6 +14,7 @@ class HiveBoxes {
   static const String dailyPlans = 'daily_plans_box';
   static const String offlineQueue = 'offline_queue_box';
   static const String notifications = 'notifications_box';
+  static const String notes = 'notes_v2';
   static const String timeline = 'timeline_box';
   static const String cache = 'cache_box';
 
@@ -29,6 +30,7 @@ class HiveBoxes {
     dailyPlans,
     offlineQueue,
     notifications,
+    notes,
     timeline,
     cache,
   };

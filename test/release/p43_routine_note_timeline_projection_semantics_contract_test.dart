@@ -7,7 +7,7 @@ import '../behavior/_support/source_test_utils.dart';
 void main() {
   group('P4-1 Wave 3 routine/note timeline projection semantics contract', () {
     test(
-      'task-to-timeline projection derives semantic kind and title prefixes',
+      'task-to-timeline projection remains Task-only while Notes are deferred',
       () {
         final File connectUsecaseFile = File(
           'lib/features/auth/domain/usecases/misc/connect_timeline_to_tasks_usecase.dart',
@@ -26,12 +26,13 @@ void main() {
           text.contains("'routine' || 'habit' => 'Habit: \$normalizedTitle'"),
           isTrue,
         );
-        expect(text.contains("'note' => 'Note: \$normalizedTitle'"), isTrue);
+        expect(text.contains("'note' => 'Note: \$normalizedTitle'"), isTrue,
+            reason: 'Historical Task kind projection is not Note authority.');
       },
     );
 
     test(
-      'task-to-timeline projection provides semantic default details for routine and note',
+      'task-to-timeline projection retains Task semantics without canonical Note storage',
       () {
         final File connectUsecaseFile = File(
           'lib/features/auth/domain/usecases/misc/connect_timeline_to_tasks_usecase.dart',
@@ -46,16 +47,13 @@ void main() {
           ),
           isTrue,
         );
-        expect(
-          text.contains("'note' => 'Note connected to timeline.'"),
-          isTrue,
-        );
+        expect(text.contains('NoteRepository'), isFalse);
         expect(text.contains("_ => 'Task connected to timeline.'"), isTrue);
       },
     );
 
     test(
-      'creator routine persistence path now keeps routine kind for projection continuity',
+      'creator routine persistence path remains separate from first-class Notes',
       () {
         final File creatorProviderFile = File(
           'lib/state/providers/creator_provider.dart',
@@ -65,7 +63,8 @@ void main() {
         final String text = SourceTestUtils.readText(creatorProviderFile);
 
         expect(text.contains('Future<void> _createRoutineEntry({'), isTrue);
-        expect(text.contains("kind: 'routine'"), isTrue);
+        expect(text.contains("actionSource: 'creator_routine'"), isTrue);
+        expect(text.contains('NoteRepository'), isFalse);
       },
     );
   });

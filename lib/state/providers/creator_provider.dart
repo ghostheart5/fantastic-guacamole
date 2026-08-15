@@ -1,4 +1,3 @@
-import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/intake/intake_request.dart';
@@ -6,6 +5,7 @@ import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
+import 'package:fantastic_guacamole/state/providers/notes_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
@@ -18,11 +18,6 @@ final creatorActionsProvider = Provider<CreatorActions>(
 
 class CreatorActions {
   const CreatorActions({required this.ref});
-
-  // Retain legacy semantic-origin marker for release contract compatibility.
-  // actionSource: 'creator_task'
-  // actionSource: 'creator_note'
-  static const String _legacyCreatorNoteActionSource = 'creator_note';
 
   final Ref ref;
 
@@ -72,27 +67,8 @@ class CreatorActions {
     );
   }
 
-  Future<void> _createNoteEntry({
-    required CreatorFormData data,
-    required RecurrenceRule recurrence,
-  }) async {
-    final NoteEntity note = NoteEntity(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      title: data.title,
-      body: data.description,
-      createdAt: DateTime.now(),
-    );
-
-    final TaskEntity entity = note.toTaskEntity(
-      scheduledFor: data.scheduledFor,
-      recurrenceRule: recurrence,
-    );
-
-    assert(_legacyCreatorNoteActionSource == 'creator_note');
-
-    await ref
-        .read(taskActionsProvider)
-        .createTask(entity, actionSource: _legacyCreatorNoteActionSource);
+  Future<void> _createNoteEntry({required CreatorFormData data, required RecurrenceRule recurrence}) async {
+    await ref.read(notesProvider.notifier).createNote(title: data.title, body: data.description);
   }
 
   Future<void> _createTaskEntry({

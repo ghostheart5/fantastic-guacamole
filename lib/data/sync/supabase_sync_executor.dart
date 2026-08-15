@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/data/remote/goals_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/habits_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/habit_occurrences_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/settings_remote_gateway.dart';
+import 'package:fantastic_guacamole/data/remote/notes_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/tasks_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/sync/sync_operation.dart';
 import 'package:fantastic_guacamole/data/sync/sync_result.dart';
@@ -13,6 +14,7 @@ class SupabaseSyncExecutor {
     required this._habitsGateway,
     required this._habitOccurrencesGateway,
     required this._settingsGateway,
+    required this._notesGateway,
   });
 
   final TasksRemoteGateway _tasksGateway;
@@ -20,20 +22,23 @@ class SupabaseSyncExecutor {
   final HabitsRemoteGateway _habitsGateway;
   final HabitOccurrencesRemoteGateway _habitOccurrencesGateway;
   final SettingsRemoteGateway _settingsGateway;
+  final NotesRemoteGateway _notesGateway;
 
   Future<SyncApplyResult> apply(SyncOperation operation) async {
     try {
       switch (operation.tableName) {
         case 'tasks':
-          return _applyForTasks(operation);
+          return await _applyForTasks(operation);
         case 'goals':
-          return _applyForGoals(operation);
+          return await _applyForGoals(operation);
         case 'habits':
-          return _applyForHabits(operation);
+          return await _applyForHabits(operation);
         case 'habit_occurrences':
-          return _applyForHabitOccurrences(operation);
+          return await _applyForHabitOccurrences(operation);
         case 'settings':
-          return _applyForSettings(operation);
+          return await _applyForSettings(operation);
+        case 'notes':
+          return await _applyForNotes(operation);
         default:
           return SyncApplyResult.fatal(
             'Unsupported sync table: ${operation.tableName}',
@@ -103,6 +108,18 @@ class SupabaseSyncExecutor {
       return SyncApplyResult.success();
     }
     await _settingsGateway.upsert(row: operation.payload);
+    return SyncApplyResult.success();
+  }
+
+  Future<SyncApplyResult> _applyForNotes(SyncOperation operation) async {
+    if (operation.operationType == SyncOperationType.delete) {
+      await _notesGateway.softDelete(
+        id: operation.recordId,
+        userId: operation.userId,
+      );
+      return SyncApplyResult.success();
+    }
+    await _notesGateway.upsert(row: operation.payload);
     return SyncApplyResult.success();
   }
 

@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/features/monetization/presentation/screens/p
 import 'package:fantastic_guacamole/features/monetization/presentation/plan_comparison_screen.dart';
 import 'package:fantastic_guacamole/features/monetization/presentation/screens/subscription_management_screen.dart';
 import 'package:fantastic_guacamole/features/notifications/ui/notification_screen.dart';
+import 'package:fantastic_guacamole/features/notes/ui/notes_screen.dart';
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_recovery_screen.dart';
 import 'package:fantastic_guacamole/features/settings/ui/completion_events_debug_screen.dart';
@@ -389,6 +390,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.tasks,
         builder: (BuildContext context, GoRouterState state) =>
             const NavigationShell(initialView: AppView.creator),
+      ),
+      GoRoute(
+        path: RoutePaths.notes,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NotesScreen(),
       ),
       GoRoute(
         path: RoutePaths.profile,
