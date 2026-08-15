@@ -29,7 +29,9 @@ void main() {
       backend.failingReads.remove(bKey);
       backend.failingWrites.add(bKey);
       await expectLater(
-        b.scheduleNotification(_entry('failed', 'B_FAILED_NOTIFICATION')),
+        b.scheduleNotificationWithResult(
+          _entry('failed', 'B_FAILED_NOTIFICATION'),
+        ),
         throwsStateError,
       );
       expect(

@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
@@ -17,16 +18,21 @@ class SessionRecoveryState {
 }
 
 class SessionRecoveryService {
-  SessionRecoveryService({required this._storageScope});
+  SessionRecoveryService({required AccountStorageScope storageScope})
+    : _storageNamespace = storageScope.isAuthenticated
+          ? storageScope.v2Namespace
+          : null;
 
-  static const _kLastRoute = 'rec_last_route';
-  static const _kTaskId = 'rec_active_task';
-  static const _kDraftTitle = 'rec_draft_title';
-  final String _storageScope;
+  static const _kLastRoute = 'rec_last_route_v2';
+  static const _kTaskId = 'rec_active_task_id_v2';
+  static const _kDraftTitle = 'rec_draft_task_title_v2';
+  final String? _storageNamespace;
   bool _cancelled = false;
   Future<void> _mutationTail = Future<void>.value();
 
-  String _key(String key) => '$key.$_storageScope';
+  bool get isAvailable => _storageNamespace != null;
+
+  String _key(String key) => '$key.${_storageNamespace!}';
 
   Future<void> cancelAndDrain() async {
     _cancelled = true;
@@ -40,7 +46,7 @@ class SessionRecoveryService {
   Future<void> _serialize(Future<void> Function() operation) {
     final Future<void> previous = _mutationTail.catchError((Object _) {});
     final Future<void> next = previous.then((_) async {
-      if (!_cancelled) {
+      if (!_cancelled && isAvailable) {
         await operation();
       }
     });
@@ -81,7 +87,7 @@ class SessionRecoveryService {
   Future<SessionRecoveryState?> loadState() async {
     try {
       await _mutationTail.catchError((Object _) {});
-      if (_cancelled) return null;
+      if (_cancelled || !isAvailable) return null;
       final lastRoute = SharedPrefsService.load(_key(_kLastRoute));
       final activeTaskId = SharedPrefsService.load(_key(_kTaskId));
       final draftTitle = SharedPrefsService.load(_key(_kDraftTitle));

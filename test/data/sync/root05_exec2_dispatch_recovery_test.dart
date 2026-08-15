@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
 import 'package:fantastic_guacamole/data/sync/sync_operation.dart';
@@ -141,14 +142,14 @@ void main() {
         await SharedPrefsService.init();
         await SharedPrefsService.clear();
         final SessionRecoveryService service = SessionRecoveryService(
-          storageScope: 'user-a',
+          storageScope: AccountStorageScope.authenticated('user-a'),
         );
 
         await service.saveState(lastRoute: '/a', activeTaskId: 'task-a');
         await service.cancelAndDrain();
 
         final SessionRecoveryService recreated = SessionRecoveryService(
-          storageScope: 'user-a',
+          storageScope: AccountStorageScope.authenticated('user-a'),
         );
         expect((await recreated.loadState())?.lastRoute, '/a');
         expect((await recreated.loadState())?.activeTaskId, 'task-a');

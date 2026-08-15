@@ -13,7 +13,8 @@ import 'package:fantastic_guacamole/data/di/repositories_providers.dart'
         settingsRepositoryProvider,
         syncMutationDispatcherProvider,
         taskRepositoryProvider,
-        timelineRepositoryProvider;
+        timelineRepositoryProvider,
+        notificationSchedulerProvider;
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/services/auth_service.dart';
@@ -96,6 +97,9 @@ final _authTransitionCleanupProvider = Provider<LocalUserDataCleanupService>((
     preferences: ref.watch(sharedPrefsStoreProvider),
     hive: ref.watch(hiveStoreProvider),
     secureStore: ref.watch(secureStoreProvider),
+    cancelNotifications: () => ref
+        .read(notificationSchedulerProvider)
+        .cancelAllForAccountRemoval(),
   );
 });
 
@@ -754,6 +758,25 @@ final authSessionLifecycleProvider = Provider<AuthSessionLifecycleCoordinator>((
   return AuthSessionLifecycleCoordinator(ref);
 });
 
+/// Observes established lifecycle milestones. The production observer is a
+/// no-op; tests can override it to assert the coordinator's existing order.
+abstract class AuthSessionLifecycleObserver {
+  void onEvent(String event);
+}
+
+class _NoopAuthSessionLifecycleObserver
+    implements AuthSessionLifecycleObserver {
+  const _NoopAuthSessionLifecycleObserver();
+
+  @override
+  void onEvent(String event) {}
+}
+
+final authSessionLifecycleObserverProvider =
+    Provider<AuthSessionLifecycleObserver>(
+      (Ref ref) => const _NoopAuthSessionLifecycleObserver(),
+    );
+
 class AuthSessionLifecycleCoordinator {
   AuthSessionLifecycleCoordinator(this._ref);
 
@@ -861,10 +884,12 @@ class AuthSessionLifecycleCoordinator {
 
     try {
       FirebaseSupabaseBridgeRepository.suspendSessionWrites();
+      _observe('suspend_writes');
       await previousReminderOrchestrator.cancelAndDrain();
       await _cancelAndDrainIdentityOwnedWork(
         sessionRecovery: previousSessionRecovery,
       );
+      _observe('cancel_and_drain');
       if (previousStorageScope.isAuthenticated) {
         await previousReminderOrchestrator.cancelScheduledRemindersForAccount(
           previousStorageScope,
@@ -874,6 +899,7 @@ class AuthSessionLifecycleCoordinator {
         return generation;
       }
       _invalidateIdentityOwnedState();
+      _observe('invalidate');
       _setIdentity(null);
 
       final authService = _ref.read(authServiceProvider);
@@ -1044,6 +1070,7 @@ class AuthSessionLifecycleCoordinator {
       _currentUserId = nextUserId;
       _initialized = true;
       _setIdentity(user);
+      _observe('identity_handoff');
 
       if (nextUserId != null) {
         final authService = _ref.read(authServiceProvider);
@@ -1086,8 +1113,10 @@ class AuthSessionLifecycleCoordinator {
       _ref
           .read(authSessionBoundaryProvider.notifier)
           .complete(generation, storageReady: nextUserId != null);
+      _observe('boundary_ready');
       if (nextUserId != null) {
         FirebaseSupabaseBridgeRepository.resumeSessionWrites();
+        _observe('resume_writes');
       }
       return generation;
     } on Object catch (error, stackTrace) {
@@ -1283,6 +1312,10 @@ class AuthSessionLifecycleCoordinator {
   bool _matchesBoundary(int generation, String? userId) {
     final AuthSessionBoundary boundary = _ref.read(authSessionBoundaryProvider);
     return boundary.generation == generation && boundary.userId == userId;
+  }
+
+  void _observe(String event) {
+    _ref.read(authSessionLifecycleObserverProvider).onEvent(event);
   }
 
   Future<void> _cancelAndDrainIdentityOwnedWork({

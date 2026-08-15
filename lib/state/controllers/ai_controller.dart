@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/content_generation_analytics.dart';
 import 'package:fantastic_guacamole/core/debug/content_generation_release_gate.dart';
@@ -6,7 +5,6 @@ import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
 import 'package:fantastic_guacamole/core/utils/rate_limiter.dart';
 import 'package:fantastic_guacamole/core/utils/throttle.dart';
 import 'package:fantastic_guacamole/data/di/services_providers.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_request.dart';
 import 'package:fantastic_guacamole/data/services/ai/models/agent_result.dart';
 import 'package:fantastic_guacamole/data/services/ai/agents/chat_agent.dart';
@@ -57,6 +55,7 @@ import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/learning_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
+import 'package:fantastic_guacamole/state/providers/neural_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
@@ -91,7 +90,6 @@ class AIController {
   AIController(this._ref);
 
   final Ref _ref;
-  static const String _neuralDumpKey = 'neural_dump';
 
   Future<AIRecommendation?> sendMessage(String text) async {
     final Stopwatch requestStopwatch = Stopwatch()..start();
@@ -1646,24 +1644,6 @@ class AIController {
     required double quality,
     DateTime? timestamp,
   }) async {
-    final store = _ref.read(secureStoreProvider);
-    final String? raw = await store.readString(_neuralDumpKey);
-
-    final List<Map<String, dynamic>> existing = (() {
-      if (raw == null || raw.trim().isEmpty) {
-        return <Map<String, dynamic>>[];
-      }
-      try {
-        final dynamic decoded = jsonDecode(raw);
-        if (decoded is! List) {
-          return <Map<String, dynamic>>[];
-        }
-        return decoded.whereType<Map<String, dynamic>>().toList(growable: true);
-      } on Object {
-        return <Map<String, dynamic>>[];
-      }
-    })();
-
     final NeuralEntry entry = NeuralEntry(
       task: task,
       reasoning: reasoning,
@@ -1673,8 +1653,7 @@ class AIController {
       timestamp: timestamp ?? DateTime.now(),
     );
 
-    existing.add(entry.toJson());
-    await store.writeString(_neuralDumpKey, jsonEncode(existing));
+    await _ref.read(neuralHistoryStoreProvider).appendNeuralEntry(entry);
   }
 
   Future<AIRecommendation?> retryMessage(String messageId) async {

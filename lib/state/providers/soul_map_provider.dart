@@ -1,11 +1,13 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/engine/si/si_synthetic_soul_layer.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
@@ -16,12 +18,25 @@ import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SoulMapProfileStore {
-  const SoulMapProfileStore();
+  SoulMapProfileStore({required AccountStorageScope storageScope})
+    : _storageNamespace = storageScope.isAuthenticated
+          ? storageScope.v2Namespace
+          : null;
 
-  static const String _key = 'soul_map_profile_v1';
+  static const String legacyStorageKey = 'soul_map_profile_v1';
+  static const String _v2KeyPrefix = 'soul_map_profile_v2';
+  final String? _storageNamespace;
+
+  bool get isAvailable => _storageNamespace != null;
+  String? get storageKey =>
+      isAvailable ? '$_v2KeyPrefix.$_storageNamespace' : null;
 
   SoulMapProfile load() {
-    final String? raw = SharedPrefsService.load(_key);
+    final String? key = storageKey;
+    if (key == null) {
+      return SoulMapProfile.empty();
+    }
+    final String? raw = SharedPrefsService.load(key);
     if (raw == null || raw.trim().isEmpty) {
       return SoulMapProfile.empty();
     }
@@ -34,12 +49,18 @@ class SoulMapProfileStore {
   }
 
   Future<void> save(SoulMapProfile profile) {
-    return SharedPrefsService.save(_key, jsonEncode(profile.toJson()));
+    final String? key = storageKey;
+    if (key == null) {
+      return Future<void>.value();
+    }
+    return SharedPrefsService.save(key, jsonEncode(profile.toJson()));
   }
 }
 
-final soulMapProfileStoreProvider = Provider<SoulMapProfileStore>((Ref _) {
-  return const SoulMapProfileStore();
+final soulMapProfileStoreProvider = Provider<SoulMapProfileStore>((Ref ref) {
+  return SoulMapProfileStore(
+    storageScope: ref.watch(accountStorageScopeProvider),
+  );
 });
 
 final soulMapProfileProvider =
@@ -50,7 +71,7 @@ final soulMapProfileProvider =
 class SoulMapProfileNotifier extends Notifier<SoulMapProfile> {
   @override
   SoulMapProfile build() {
-    return ref.read(soulMapProfileStoreProvider).load();
+    return ref.watch(soulMapProfileStoreProvider).load();
   }
 
   Future<void> setProfile(SoulMapProfile profile) async {

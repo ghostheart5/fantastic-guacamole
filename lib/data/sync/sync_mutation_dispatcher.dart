@@ -7,7 +7,8 @@ class SyncMutationDispatcher {
     required this._queueStore,
     required this._userId,
     this._supabaseClient,
-  });
+    bool Function()? isAuthorized,
+  }) : _isAuthorized = isAuthorized ?? _alwaysAuthorized;
 
   final SyncQueueStoreContract _queueStore;
   // Retained as part of the existing construction boundary; PRE-01 does not
@@ -15,6 +16,7 @@ class SyncMutationDispatcher {
   // ignore: unused_field
   final sb.SupabaseClient? _supabaseClient;
   final String? _userId;
+  final bool Function() _isAuthorized;
   bool _cancelled = false;
   Future<void> _operationTail = Future<void>.value();
 
@@ -112,6 +114,9 @@ class SyncMutationDispatcher {
   bool _isCurrentSession(String expectedUserId) {
     final sb.SupabaseClient? client = _supabaseClient;
     return !_cancelled &&
+        _isAuthorized() &&
         (client == null || client.auth.currentUser?.id == expectedUserId);
   }
+
+  static bool _alwaysAuthorized() => true;
 }

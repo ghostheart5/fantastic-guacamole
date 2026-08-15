@@ -259,21 +259,30 @@ final firebaseSupabaseBridgeRepositoryProvider =
     });
 
 final syncQueueStoreProvider = Provider<SyncQueueStore>((Ref ref) {
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  if (!scope.isAuthenticated || scope.v2Namespace == null) {
+    return SyncQueueStore.unavailable();
+  }
   return SyncQueueStore(
     HiveStorage<String>(
-      HiveBoxes.offlineQueue,
+      HiveBoxes.accountScoped(HiveBoxes.offlineQueue, scope),
       hive: ref.read(hiveStoreProvider),
     ),
+    storageScope: scope,
   );
 });
 
 final syncMutationDispatcherProvider = Provider<SyncMutationDispatcher>((
   Ref ref,
 ) {
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  bool leaseActive = true;
+  ref.onDispose(() => leaseActive = false);
   return SyncMutationDispatcher(
-    queueStore: ref.read(syncQueueStoreProvider),
-    supabaseClient: ref.read(supabaseClientProvider),
-    userId: ref.read(supabaseClientProvider)?.auth.currentUser?.id,
+    queueStore: ref.watch(syncQueueStoreProvider),
+    supabaseClient: ref.watch(supabaseClientProvider),
+    userId: scope.isAuthenticated ? scope.rawUserId : null,
+    isAuthorized: () => leaseActive,
   );
 });
 

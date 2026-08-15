@@ -187,3 +187,83 @@ platform ownership or hydrate a prior account registry.
 
 PRE-REPAIR-01B is a reminder-platform closure only. FIX-004C3 remains open for
 the non-reminder recovery, sync, bridge, and aggregate runtime work.
+
+## FIX-004C3 â€” Sync queue account ownership
+
+### Evidence boundary
+
+The canonical queue authority is `sync_queue_v2` in the account-scoped Hive
+box `offline_queue_box.<AccountStorageScope.v2Namespace>`. The former global
+`sync_queue_v1` key is preserved, inactive, unclaimed, and never used as a
+fallback. Signed-out and unsafe scopes expose an unavailable queue.
+
+| Invariant | Evidence level |
+| --- | --- |
+| A/B storage and same-ID isolation; ack/remove isolation; restart | Proven directly |
+| Provider recreation, signed-out projection, dispatcher revocation, count, rapid transitions | Proven via real provider chain |
+| Stale completion and retry remain account-local | Proven via real queue runner with deterministic transport |
+| Flush transport receives only the current account operation | Proven via the real flush provider with an overrideable apply boundary |
+| Outgoing dispatcher drain precedes invalidation; boundary ready precedes write resume | Structurally proven by the committed lifecycle contract tests |
+
+Direct authenticated Aâ†’B is intentionally forbidden by the ownership-safety
+policy in `AuthSessionLifecycleCoordinator._transitionSerial`; a required
+signed-out/no-account boundary separates owners. This is not a sync defect.
+
+### Shared lifecycle integration harness â€” deferred certification dependency
+
+An end-to-end coordinator fixture is shared C3 infrastructure, not sync
+ownership work. It needs compatible test doubles or overrides for auth,
+ownership storage, cleanup, session recovery, reminders, sync actions,
+repositories, bridge, profile, learning, bootstrap, and the invalidated
+provider graph. It must drive the real coordinator, record the existing
+`AuthSessionLifecycleObserver` events, and support the authoritative sequence
+`A â†’ signed-out â†’ B`, restart, and safety-gate failures.
+
+Later subsystem tests plug in controlled sync transport through
+`supabaseSyncApplyProvider`, recovery/bridge/reminder fakes through their
+existing providers, and SI/context providers through overrides. The harness
+must not weaken lifecycle ordering or allow direct authenticated Aâ†’B merely
+to simplify tests.
+
+The remaining integration-only properties are the full coordinator's
+no-mutation window, in-flight sync completion/failure across that coordinator
+boundary, and account-local flush behavior while the full runtime graph is
+active. All other listed sync ownership invariants are certified at their
+actual storage, dispatcher, runner, or provider boundary.
+
+## FIX-004C3 final runtime handoff certification
+
+FIX-004C3 is complete. The active authorities are account-scoped V2 state for
+the notification ledger, platform reminder registry, sync queue, Session
+Recovery, SoulMap, Neural History, durable SI Memory/workspace, Settings/theme,
+and ExtendedDomain data. Legacy V1/global records remain preserved, inactive,
+unclaimed, and unavailable as fallback input.
+
+The notification scheduler exposes a narrow injected cancel-all seam solely
+for deterministic lifecycle testing; production continues to use the platform
+scheduler. The real lifecycle cleanup wiring supplies that scheduler to the
+existing cleanup boundary. Reminder ownership, cancellation semantics, and
+notification identifiers are unchanged.
+
+The Theme projection now watches the current `SettingsPreferenceController`
+`AsyncValue` directly, awaiting its future only for initial loading. A theme
+cannot remain projected from a previous scope after scoped Settings changes.
+
+### Authoritative ownership policy
+
+- A -> signed-out is allowed; A's durable V2 state remains parked.
+- signed-out -> A is allowed; fresh A runtime state restores and writes resume.
+- direct A -> B is rejected.
+- signed-out -> B is rejected while the retained owner marker is A.
+- Explicit export-and-clear remains future work and is out of scope.
+
+The real coordinator records the safety order: `suspend_writes` ->
+`cancel_and_drain` -> `invalidate` -> `identity_handoff` ->
+`boundary_ready` -> `resume_writes` (only for a valid authenticated A
+transition). Stale dispatcher objects are revoked, signed-out paths fail
+closed, and restart retains the owner marker.
+
+SI aggregation, Nexus, Smart Planner, Trajectory, and SI Console are certified
+through their real provider/context chains. The shared lifecycle fixture is
+certified. Final regression execution: **229/229/0**; targeted analyzer:
+**0 diagnostics**.

@@ -12,22 +12,28 @@ final supabaseSyncExecutorProvider = Provider<SupabaseSyncExecutor>((Ref ref) {
   );
 });
 
+/// The transport boundary used by the queue runner. Production resolves the
+/// existing executor; tests may override only this function to control remote
+/// completion without replacing queue selection or runner semantics.
+final supabaseSyncApplyProvider = Provider<SyncApplyFn>((Ref ref) {
+  return ref.watch(supabaseSyncExecutorProvider).apply;
+});
+
 final supabaseSyncRunnerProvider = Provider<SyncRunner>((Ref ref) {
-  final SupabaseSyncExecutor executor = ref.read(supabaseSyncExecutorProvider);
   return SyncRunner(
-    queueStore: ref.read(syncQueueStoreProvider),
-    applyFn: executor.apply,
+    queueStore: ref.watch(syncQueueStoreProvider),
+    applyFn: ref.watch(supabaseSyncApplyProvider),
   );
 });
 
 final supabaseSyncQueueCountProvider = FutureProvider<int>((Ref ref) async {
-  final items = await ref.read(syncQueueStoreProvider).readAll();
+  final items = await ref.watch(syncQueueStoreProvider).readAll();
   return items.length;
 });
 
 final flushSupabaseSyncQueueProvider = FutureProvider<int>((Ref ref) async {
-  final SyncRunner runner = ref.read(supabaseSyncRunnerProvider);
+  final SyncRunner runner = ref.watch(supabaseSyncRunnerProvider);
   await runner.runOnce();
-  final items = await ref.read(syncQueueStoreProvider).readAll();
+  final items = await ref.watch(syncQueueStoreProvider).readAll();
   return items.length;
 });

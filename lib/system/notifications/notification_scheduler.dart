@@ -21,11 +21,21 @@ enum NotificationDestination { task, goal, timeline, siConsole, home }
 class NotificationScheduler {
   factory NotificationScheduler() => _instance;
 
-  NotificationScheduler._() : _plugin = FlutterLocalNotificationsPlugin();
+  NotificationScheduler._()
+    : _plugin = FlutterLocalNotificationsPlugin(),
+      _accountRemovalCancelAll = null;
+
+  /// Test-only construction seam for the platform cancellation used by the
+  /// mandatory account-removal cleanup path.
+  NotificationScheduler.withAccountRemovalCancelAll(
+    Future<void> Function() cancelAll,
+  ) : _plugin = FlutterLocalNotificationsPlugin(),
+      _accountRemovalCancelAll = cancelAll;
 
   static final NotificationScheduler _instance = NotificationScheduler._();
 
   final FlutterLocalNotificationsPlugin _plugin;
+  final Future<void> Function()? _accountRemovalCancelAll;
   bool _initialized = false;
   bool _permissionGranted = true;
   static String? _pendingNotificationPayload;
@@ -322,6 +332,12 @@ class NotificationScheduler {
   }
 
   Future<void> cancelAllForAccountRemoval() async {
+    final Future<void> Function()? injectedCancelAll =
+        _accountRemovalCancelAll;
+    if (injectedCancelAll != null) {
+      await injectedCancelAll();
+      return;
+    }
     if (!_initialized) {
       await init(requestPermissions: false);
     }

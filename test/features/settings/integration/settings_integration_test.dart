@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
@@ -17,10 +18,10 @@ import 'package:url_launcher/url_launcher.dart';
 void main() {
   group('settings integration flow', () {
     test('settings actions delegate reminder and planning updates', () async {
-      final _FakeReflectionReminderService reminder =
-          _FakeReflectionReminderService();
       final _FakeReminderOrchestratorService orchestrator =
           _FakeReminderOrchestratorService();
+      final _FakeReflectionReminderService reminder =
+          _FakeReflectionReminderService(registry: orchestrator);
 
       final ProviderContainer container = ProviderContainer(
         overrides: [
@@ -73,14 +74,18 @@ void main() {
     test(
       'notification permission snapshot reflects reminder service state',
       () async {
+        final _FakeReminderOrchestratorService orchestrator =
+            _FakeReminderOrchestratorService();
         final _FakeReflectionReminderService reminder =
             _FakeReflectionReminderService(
+              registry: orchestrator,
               initialGranted: false,
               permissionState: NotificationPermissionState.denied,
             );
         final ProviderContainer container = ProviderContainer(
           overrides: [
             reflectionReminderServiceProvider.overrideWithValue(reminder),
+            reminderOrchestratorServiceProvider.overrideWithValue(orchestrator),
           ],
         );
         addTearDown(container.dispose);
@@ -150,12 +155,14 @@ class _FakeNotificationRepository implements INotificationRepository {
 
 class _FakeReflectionReminderService extends ReflectionReminderService {
   _FakeReflectionReminderService({
+    required super.registry,
     bool? initialGranted,
     this._permissionState = NotificationPermissionState.unknown,
   }) : _permission = ValueNotifier<bool?>(initialGranted),
        super(
          preferences: _InMemoryPrefsStore(),
          scheduler: NotificationScheduler(),
+         storageScope: AccountStorageScope.authenticated('settings-fixture-a'),
        );
 
   final ValueNotifier<bool?> _permission;
@@ -210,6 +217,7 @@ class _FakeReminderOrchestratorService extends ReminderOrchestratorService {
         preferences: _InMemoryPrefsStore(),
         notifications: NotificationsService(_FakeNotificationRepository()),
         scheduler: NotificationScheduler(),
+        storageScope: AccountStorageScope.authenticated('settings-fixture-a'),
       );
 
   bool? lastDailyPlanningEnabled;

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/settings_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -8,6 +10,7 @@ import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
 import 'package:fantastic_guacamole/data/sync/sync_operation.dart';
 import 'package:fantastic_guacamole/data/sync/sync_queue_store.dart';
 import 'package:fantastic_guacamole/domain/entities/settings_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_preference_provider.dart';
 import 'package:fantastic_guacamole/state/providers/theme_provider.dart';
@@ -122,23 +125,23 @@ void main() {
           .read(settingsPreferencesProvider.notifier)
           .setThemeMode('light');
       expect(
-        (await container.read(currentThemeProvider.future)).isDark,
+        (await _readTheme(container, expectedDark: false)).isDark,
         isFalse,
       );
 
       await _setScope(container, AccountStorageScope.authenticated('B'));
       expect(
-        (await container.read(settingsPreferencesProvider.future)).themeMode,
+        (await _readSettings(container)).themeMode,
         'system',
       );
       expect(
-        (await container.read(currentThemeProvider.future)).isDark,
+        (await _readTheme(container, expectedDark: true)).isDark,
         isTrue,
       );
 
       await _setScope(container, AccountStorageScope.authenticated('A'));
       expect(
-        (await container.read(settingsPreferencesProvider.future)).themeMode,
+        (await _readSettings(container)).themeMode,
         'light',
       );
     },
@@ -194,14 +197,98 @@ void main() {
       addTearDown(container.dispose);
       await _setScope(container, AccountStorageScope.authenticated('A'));
 
-      final SettingsEntity settings = await container.read(
-        settingsPreferencesProvider.future,
-      );
+      final SettingsEntity settings = await _readSettings(container);
       expect(settings.themeMode, 'system');
       expect(settings.soundEnabled, isTrue);
       expect(store.values['settings_entity_v1'], '{"themeMode":"dark"}');
     },
   );
+
+  test('theme projection clears at signed-out and restores the owning scope', () async {
+    final ProviderContainer container = _container(_MemoryStore());
+    addTearDown(container.dispose);
+
+    await _setScope(container, AccountStorageScope.authenticated('A'));
+    await container
+        .read(settingsPreferencesProvider.notifier)
+        .setThemeMode('light');
+    container.invalidate(currentThemeProvider);
+    expect((await _readTheme(container, expectedDark: false)).isDark, isFalse);
+
+    await _setScope(container, const AccountStorageScope.unsafe());
+    expect((await _readSettings(container)).themeMode, 'system');
+    expect((await _readTheme(container, expectedDark: true)).isDark, isTrue);
+
+    await _setScope(container, AccountStorageScope.authenticated('A'));
+    expect((await _readSettings(container)).themeMode, 'light');
+    expect((await _readTheme(container, expectedDark: false)).isDark, isFalse);
+  });
+
+  test('same-user scope refresh preserves the current theme projection', () async {
+    final ProviderContainer container = _container(_MemoryStore());
+    addTearDown(container.dispose);
+
+    await _setScope(container, AccountStorageScope.authenticated('A'));
+    await container
+        .read(settingsPreferencesProvider.notifier)
+        .setThemeMode('light');
+    container.invalidate(currentThemeProvider);
+    await _readTheme(container, expectedDark: false);
+
+    await _setScope(container, AccountStorageScope.authenticated('A'));
+    expect((await _readSettings(container)).themeMode, 'light');
+    expect((await _readTheme(container, expectedDark: false)).isDark, isFalse);
+  });
+
+  test('rapid provider scope changes settle the theme on C only', () async {
+    final ProviderContainer container = _container(_MemoryStore());
+    addTearDown(container.dispose);
+
+    await _setScope(container, AccountStorageScope.authenticated('A'));
+    await container
+        .read(settingsPreferencesProvider.notifier)
+        .setThemeMode('light');
+    await _setScope(container, AccountStorageScope.authenticated('B'));
+    await container
+        .read(settingsPreferencesProvider.notifier)
+        .setThemeMode('dark');
+    await _setScope(container, AccountStorageScope.authenticated('C'));
+    await container
+        .read(settingsPreferencesProvider.notifier)
+        .setThemeMode('light');
+    container.invalidate(currentThemeProvider);
+
+    expect((await _readSettings(container)).themeMode, 'light');
+    expect((await _readTheme(container, expectedDark: false)).isDark, isFalse);
+  });
+}
+
+Future<SettingsEntity> _readSettings(ProviderContainer container) async {
+  final completer = Completer<SettingsEntity>();
+  late ProviderSubscription<AsyncValue<SettingsEntity>> subscription;
+  subscription = container.listen(settingsPreferencesProvider, (_, next) {
+    if (next.hasValue && !completer.isCompleted) completer.complete(next.requireValue);
+    if (next.hasError && !completer.isCompleted) completer.completeError(next.error!, next.stackTrace);
+  }, fireImmediately: true);
+  try { return await completer.future.timeout(const Duration(seconds: 3)); } finally { subscription.close(); }
+}
+
+Future<AppThemeEntity> _readTheme(
+  ProviderContainer container, {
+  required bool expectedDark,
+}) async {
+  await _flush();
+  final completer = Completer<AppThemeEntity>();
+  late ProviderSubscription<AsyncValue<AppThemeEntity>> subscription;
+  subscription = container.listen(currentThemeProvider, (_, next) {
+    if (next.hasValue &&
+        next.requireValue.isDark == expectedDark &&
+        !completer.isCompleted) {
+      completer.complete(next.requireValue);
+    }
+    if (next.hasError && !completer.isCompleted) completer.completeError(next.error!, next.stackTrace);
+  }, fireImmediately: true);
+  try { return await completer.future.timeout(const Duration(seconds: 3)); } finally { subscription.close(); }
 }
 
 SettingsRepository _repository(_MemoryStore store, String userId) {
@@ -218,6 +305,12 @@ ProviderContainer _container(_MemoryStore store) {
       accountStorageScopeProvider.overrideWith(
         (Ref ref) => ref.watch(_scopeProvider),
       ),
+      settingsRepositoryProvider.overrideWith(
+        (Ref ref) => SettingsRepository(
+          store,
+          storageScope: ref.watch(accountStorageScopeProvider),
+        ),
+      ),
     ],
   );
 }
@@ -227,7 +320,9 @@ Future<void> _setScope(
   AccountStorageScope scope,
 ) async {
   container.read(_scopeProvider.notifier).set(scope);
-  await container.read(settingsPreferencesProvider.future);
+  container.invalidate(settingsPreferencesProvider);
+  await _readSettings(container);
+  container.invalidate(currentThemeProvider);
   await _flush();
 }
 

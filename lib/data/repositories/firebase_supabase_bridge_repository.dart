@@ -3,14 +3,13 @@ import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 class FirebaseSupabaseBridgeRepository {
-  FirebaseSupabaseBridgeRepository({required SecureStore store})
-    : _store = store;
+  FirebaseSupabaseBridgeRepository({required this._store});
 
   static const String _cachedFirebaseMessagingTokenKey =
       'bridge.firebase_messaging_token';
   static const Duration _minSyncInterval = Duration(minutes: 2);
-  static String? _lastSyncedToken;
-  static DateTime? _lastSyncedAt;
+  static final Map<String, DateTime> _lastSyncedAtByUserAndToken =
+      <String, DateTime>{};
   static Future<void> _mutationTail = Future<void>.value();
   static bool _sessionWritesSuspended = false;
 
@@ -63,8 +62,7 @@ class FirebaseSupabaseBridgeRepository {
       }
 
       await _store.delete(_cachedFirebaseMessagingTokenKey);
-      _lastSyncedToken = null;
-      _lastSyncedAt = null;
+      _lastSyncedAtByUserAndToken.clear();
 
       if (associationError != null) {
         Error.throwWithStackTrace(associationError, associationStackTrace!);
@@ -109,8 +107,10 @@ class FirebaseSupabaseBridgeRepository {
       }
 
       final DateTime now = DateTime.now().toUtc();
-      if (_lastSyncedToken == trimmed && _lastSyncedAt != null) {
-        final Duration elapsed = now.difference(_lastSyncedAt!);
+      final String throttleKey = _throttleKey(expectedUserId, trimmed);
+      final DateTime? lastSyncedAt = _lastSyncedAtByUserAndToken[throttleKey];
+      if (lastSyncedAt != null) {
+        final Duration elapsed = now.difference(lastSyncedAt);
         if (elapsed < _minSyncInterval) {
           Logger.log(
             'Bridge',
@@ -134,8 +134,7 @@ class FirebaseSupabaseBridgeRepository {
           return;
         }
         await client.auth.updateUser(sb.UserAttributes(data: metadata));
-        _lastSyncedToken = trimmed;
-        _lastSyncedAt = now;
+        _lastSyncedAtByUserAndToken[throttleKey] = now;
         Logger.log(
           'Bridge',
           'Synced Firebase messaging token into Supabase auth metadata (source=$source).',
@@ -171,6 +170,10 @@ class FirebaseSupabaseBridgeRepository {
       onError: (Object _, StackTrace _) {},
     );
     return operation;
+  }
+
+  static String _throttleKey(String? userId, String token) {
+    return '${userId ?? ''}\u0000$token';
   }
 
   bool _isOverRateLimit(Object error) {

@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/completion_event_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
@@ -33,11 +31,11 @@ import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
+import 'package:fantastic_guacamole/state/providers/neural_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/session_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
@@ -614,23 +612,17 @@ class TaskActions {
     required double quality,
     required DateTime timestamp,
   }) async {
-    const String storageKey = 'neural_dump';
-    final store = _ref.read(secureStoreProvider);
-    final String? raw = await store.readString(storageKey);
-    final Map<String, dynamic> entry = NeuralEntry(
+    final NeuralEntry entry = NeuralEntry(
       task: task.title,
       reasoning: 'Recorded from a completed task.',
       confidence: quality,
       duration: durationSeconds,
       quality: quality,
       timestamp: timestamp,
-    ).toJson();
-
-    final String encoded = await compute<Map<String, dynamic>, String>(
-      _appendNeuralDumpEntry,
-      <String, dynamic>{'raw': raw, 'entry': entry},
     );
-    await store.writeString(storageKey, encoded);
+    await _ref
+        .read(neuralHistoryStoreProvider)
+        .appendNeuralEntry(entry, maxEntries: 200);
   }
 
   Future<void> _recordCreationSideEffects({
@@ -800,30 +792,4 @@ Task _taskFromEntity(TaskEntity task) {
     subtasks: task.subtasks,
     recurrenceRule: task.recurrenceRule,
   );
-}
-
-String _appendNeuralDumpEntry(Map<String, dynamic> payload) {
-  final Object? raw = payload['raw'];
-  final Object? entry = payload['entry'];
-  final List<Map<String, dynamic>> entries = <Map<String, dynamic>>[];
-
-  if (raw is String && raw.trim().isNotEmpty) {
-    try {
-      final Object? decoded = jsonDecode(raw);
-      if (decoded is List<dynamic>) {
-        entries.addAll(decoded.whereType<Map<String, dynamic>>());
-      }
-    } catch (_) {
-      // If historical neural dump data is malformed, recover by replacing it.
-    }
-  }
-
-  if (entry is Map<String, dynamic>) {
-    entries.add(entry);
-  }
-
-  final List<Map<String, dynamic>> bounded = entries.length > 200
-      ? entries.sublist(entries.length - 200)
-      : entries;
-  return jsonEncode(bounded);
 }
