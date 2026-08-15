@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
 import 'package:fantastic_guacamole/data/services/workspace_store_service.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/services/cache_cleanup_service.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
@@ -43,6 +44,7 @@ final reminderOrchestratorServiceProvider =
         preferences: ref.read(sharedPrefsStoreProvider),
         notifications: ref.read(notificationsServiceProvider),
         scheduler: ref.read(notificationSchedulerProvider),
+        storageScope: ref.watch(accountStorageScopeProvider),
       );
     });
 
@@ -84,6 +86,8 @@ final reflectionReminderServiceProvider = Provider<ReflectionReminderService>((
   return ReflectionReminderService(
     preferences: ref.read(sharedPrefsStoreProvider),
     scheduler: ref.read(notificationSchedulerProvider),
+    storageScope: ref.watch(accountStorageScopeProvider),
+    registry: ref.watch(reminderOrchestratorServiceProvider),
   );
 });
 

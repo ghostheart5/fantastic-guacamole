@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/state/providers/account_storage_scope_provid
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/streak_service.dart';
+import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ProfileState {
@@ -135,7 +136,7 @@ class ProfileController extends Notifier<ProfileState> {
   static const _streakLogic = StreakService();
   static const _progressionCalculator = ProgressionCalculator();
   static const String _streakBreakNotificationIdPrefix =
-      'streak_break_recovery_';
+      'reminder.profile_streak.';
 
   SecureStore get _secureStore => ref.read(secureStoreProvider);
 
@@ -153,6 +154,22 @@ class ProfileController extends Notifier<ProfileState> {
     return canonicalStorageKeyForScope(
       AccountStorageScope.authenticated(userId),
     );
+  }
+
+  static String streakBreakNotificationIdForScope(
+    AccountStorageScope scope,
+    DateTime logicalDate,
+  ) {
+    final String? namespace = scope.v2Namespace;
+    if (!scope.isAuthenticated || namespace == null) {
+      throw StateError('Streak-break reminders require an authenticated scope.');
+    }
+    final String day = DateTime(
+      logicalDate.year,
+      logicalDate.month,
+      logicalDate.day,
+    ).toIso8601String().split('T').first;
+    return '$_streakBreakNotificationIdPrefix$namespace.$day';
   }
 
   /// Global and V1-sanitized Profile records carry no per-record owner proof.
@@ -230,7 +247,7 @@ class ProfileController extends Notifier<ProfileState> {
     );
     _save();
     if (streakBroke) {
-      unawaited(_scheduleStreakBreakNotification(now: now));
+      unawaited(scheduleStreakBreakNotification(now: now));
     }
     unawaited(_refreshCoachDecision());
   }
@@ -296,7 +313,7 @@ class ProfileController extends Notifier<ProfileState> {
     );
     _save();
     if (streakBroke) {
-      unawaited(_scheduleStreakBreakNotification(now: now));
+      unawaited(scheduleStreakBreakNotification(now: now));
     }
     unawaited(_refreshCoachDecision());
   }
@@ -348,23 +365,37 @@ class ProfileController extends Notifier<ProfileState> {
     }
   }
 
-  Future<void> _scheduleStreakBreakNotification({required DateTime now}) async {
+  Future<NotificationScheduleResult?> scheduleStreakBreakNotification({
+    required DateTime now,
+  }) async {
+    final AccountStorageScope scope = ref.read(accountStorageScopeProvider);
+    if (!scope.isAuthenticated || scope.v2Namespace == null) return null;
     final DateTime reminderAt = now.add(const Duration(hours: 2));
-    final DateTime day = DateTime(now.year, now.month, now.day);
-    final String id =
-        '$_streakBreakNotificationIdPrefix${day.toIso8601String().split('T').first}';
+    final String id = streakBreakNotificationIdForScope(scope, now);
+    final reminderOrchestrator = ref.read(reminderOrchestratorServiceProvider);
     try {
-      await ref
+      final NotificationScheduleResult result = await ref
           .read(notificationsServiceProvider)
-          .schedule(
+          .scheduleWithResult(
             id: id,
             title: 'Rebuild your streak today',
             body:
                 'Your streak chain broke. Complete one focused action now to restart momentum.',
             at: reminderAt,
           );
+      if (result != NotificationScheduleResult.scheduled ||
+          ref.read(accountStorageScopeProvider).v2Namespace !=
+              scope.v2Namespace) {
+        return result;
+      }
+      await reminderOrchestrator.registerScheduledReminder(
+        scope: scope,
+        id: id,
+      );
+      return result;
     } catch (_) {
       // Do not block progression updates if notifications are unavailable.
+      return null;
     }
   }
 }

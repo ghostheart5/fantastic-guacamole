@@ -150,3 +150,40 @@ Platform schedule ownership, platform reminder identifiers, outgoing-account
 platform cancellation, and the Habit, Daily Planning, Reflection, and Profile
 streak-break direct platform producer paths remain explicitly deferred to
 PRE-REPAIR-01B. They are not certified or changed by 01A.
+
+## FIX-004C3 PRE-REPAIR-01B — Account-owned platform reminders
+
+PRE-REPAIR-01B establishes `reminder_schedule_registry_v2.<v2Namespace>` as
+the durable ownership ledger for platform reminder IDs. The lifecycle
+coordinator drains reminder work and cancels the outgoing scope's registry
+before invalidating account-scoped providers and activating the incoming scope.
+Cancellation errors retain registry evidence for a retry; successful
+cancellation removes ownership only after the platform cancellation succeeds.
+
+| Producer | Account-safe ID / authority | Result and ownership behavior |
+| --- | --- | --- |
+| Goal | `reminder.goal.<v2Namespace>.<goalId>` | Existing result-aware platform path registers only after scheduling. |
+| Habit | `reminder.habit.<v2Namespace>.<habitId>` | Existing result-aware platform path is registered in the shared ledger. |
+| Daily Planning | `reminder.daily_planning.<v2Namespace>` | Scoped preference and registry ownership are durable across recreation. |
+| Reflection | `reminder.reflection.<v2Namespace>.default` | Preferences are `reflection_reminder_*_v2.<v2Namespace>`; global keys remain inactive and unclaimed. |
+| Profile streak-break | `reminder.profile_streak.<v2Namespace>.<YYYY-MM-DD>` | Uses `scheduleWithResult`; ownership is recorded only after `scheduled`. |
+
+`NotificationsRepository.scheduleNotification()` remains the compatibility,
+best-effort path: it persists the scoped in-app ledger entry first and logs a
+platform scheduling exception. Account-owned platform producers instead use
+`NotificationsService.scheduleWithResult()`, which returns the existing
+`NotificationScheduleResult` or propagates a platform exception. Thus a
+failed platform schedule cannot create registry ownership; the scoped in-app
+ledger entry remains consistent with the pre-existing notification-ledger
+contract.
+
+The producer suites certify same-logical-ID/date A/B collision isolation,
+restart/recreation of registry ownership, cancellation failure retention and
+retry, stale asynchronous registration rejection during rapid A→B→C, and
+same-user deduplication. Outgoing platform cleanup does not erase scoped
+Reflection preferences, reminder settings, Profile state, Goal/Habit state, or
+notification ledger records. Signed-out scope cannot create authenticated
+platform ownership or hydrate a prior account registry.
+
+PRE-REPAIR-01B is a reminder-platform closure only. FIX-004C3 remains open for
+the non-reminder recovery, sync, bridge, and aggregate runtime work.

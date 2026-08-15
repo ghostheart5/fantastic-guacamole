@@ -37,6 +37,7 @@ import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_connection_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/state/providers/account_security_provider.dart';
 import 'package:fantastic_guacamole/state/providers/app_startup_provider.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
@@ -850,15 +851,25 @@ class AuthSessionLifecycleCoordinator {
     final SessionRecoveryService previousSessionRecovery = _ref.read(
       sessionRecoveryProvider,
     );
+    final previousReminderOrchestrator = _ref.read(
+      reminderOrchestratorServiceProvider,
+    );
+    final previousStorageScope = _ref.read(accountStorageScopeProvider);
     final int generation = _ref
         .read(authSessionBoundaryProvider.notifier)
         .begin(userId: nextUserId, isTransitioning: true);
 
     try {
       FirebaseSupabaseBridgeRepository.suspendSessionWrites();
+      await previousReminderOrchestrator.cancelAndDrain();
       await _cancelAndDrainIdentityOwnedWork(
         sessionRecovery: previousSessionRecovery,
       );
+      if (previousStorageScope.isAuthenticated) {
+        await previousReminderOrchestrator.cancelScheduledRemindersForAccount(
+          previousStorageScope,
+        );
+      }
       if (!_matchesBoundary(generation, nextUserId)) {
         return generation;
       }
@@ -1100,14 +1111,24 @@ class AuthSessionLifecycleCoordinator {
     final SessionRecoveryService previousSessionRecovery = _ref.read(
       sessionRecoveryProvider,
     );
+    final previousReminderOrchestrator = _ref.read(
+      reminderOrchestratorServiceProvider,
+    );
+    final previousStorageScope = _ref.read(accountStorageScopeProvider);
     final int generation = _ref
         .read(authSessionBoundaryProvider.notifier)
         .begin(userId: null, isTransitioning: true);
     try {
       FirebaseSupabaseBridgeRepository.suspendSessionWrites();
+      await previousReminderOrchestrator.cancelAndDrain();
       await _cancelAndDrainIdentityOwnedWork(
         sessionRecovery: previousSessionRecovery,
       );
+      if (previousStorageScope.isAuthenticated) {
+        await previousReminderOrchestrator.cancelScheduledRemindersForAccount(
+          previousStorageScope,
+        );
+      }
       _invalidateIdentityOwnedState();
       _setIdentity(null);
 
@@ -1180,11 +1201,21 @@ class AuthSessionLifecycleCoordinator {
           'The authenticated session could not be verified before local cleanup.',
         );
       }
+      final previousReminderOrchestrator = _ref.read(
+        reminderOrchestratorServiceProvider,
+      );
+      final previousStorageScope = _ref.read(accountStorageScopeProvider);
       final int cleanupGeneration = _ref
           .read(authSessionBoundaryProvider.notifier)
           .begin(userId: currentUserId, isTransitioning: true);
       FirebaseSupabaseBridgeRepository.suspendSessionWrites();
+      await previousReminderOrchestrator.cancelAndDrain();
       await _cancelAndDrainIdentityOwnedWork();
+      if (previousStorageScope.isAuthenticated) {
+        await previousReminderOrchestrator.cancelScheduledRemindersForAccount(
+          previousStorageScope,
+        );
+      }
       _invalidateIdentityOwnedState();
       await _ref.read(_authTransitionCleanupProvider).clear();
       localDataCleared = true;

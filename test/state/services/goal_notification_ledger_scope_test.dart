@@ -28,6 +28,7 @@ void main() {
         preferences: _Prefs(),
         notifications: NotificationsService(aRepository),
         scheduler: NotificationScheduler(),
+        storageScope: a,
       );
       await service.syncGoalReminders(<GoalEntity>[
         GoalEntity(

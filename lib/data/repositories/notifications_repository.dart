@@ -9,15 +9,15 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 
-class NotificationsRepository implements INotificationRepository {
+class NotificationsRepository implements SchedulingResultNotificationRepository {
   NotificationsRepository(
     this._scheduler,
     this._store, {
     required this.storageScope,
-    this._scheduleNotification,
+    Future<void> Function(NotificationEntity notification)? platformScheduleNotification,
     this._cancelScheduledNotification,
     this._cancelAllScheduledNotifications,
-  });
+  }) : _scheduleNotification = platformScheduleNotification;
 
   static const String legacyStorageKey = 'notification_entries_v1';
   static const String _v2KeyPrefix = 'notification_entries_v2';
@@ -95,35 +95,39 @@ class NotificationsRepository implements INotificationRepository {
 
   @override
   Future<void> scheduleNotification(NotificationEntity notification) async {
-    await _upsert(notification);
     try {
-      final schedule = _scheduleNotification;
-      if (schedule != null) {
-        await schedule(notification);
-      } else {
-        final result = await _scheduler.scheduleWithStatus(notification);
-        if (result != NotificationScheduleResult.scheduled) {
-          Logger.warn(
-            'Notification ${notification.id} was not scheduled: $result',
-          );
-        }
-      }
+      await scheduleNotificationWithResult(notification);
     } catch (error) {
       Logger.warn('Failed to schedule notification ${notification.id}: $error');
     }
   }
 
   @override
+  Future<NotificationScheduleResult> scheduleNotificationWithResult(
+    NotificationEntity notification,
+  ) async {
+    await _upsert(notification);
+    final schedule = _scheduleNotification;
+    if (schedule != null) {
+      await schedule(notification);
+      return NotificationScheduleResult.scheduled;
+    }
+    final result = await _scheduler.scheduleWithStatus(notification);
+    if (result != NotificationScheduleResult.scheduled) {
+      Logger.warn(
+        'Notification ${notification.id} was not scheduled: $result',
+      );
+    }
+    return result;
+  }
+
+  @override
   Future<void> cancelNotification(String id) async {
-    try {
-      final cancel = _cancelScheduledNotification;
-      if (cancel != null) {
-        await cancel(id);
-      } else {
-        await _scheduler.cancel(id);
-      }
-    } catch (error) {
-      Logger.warn('Failed to cancel scheduled notification $id: $error');
+    final cancel = _cancelScheduledNotification;
+    if (cancel != null) {
+      await cancel(id);
+    } else {
+      await _scheduler.cancel(id);
     }
     final List<NotificationEntity> entries = await getNotifications();
     final NotificationEntity? existing = _find(entries, id);
@@ -163,17 +167,11 @@ class NotificationsRepository implements INotificationRepository {
 
   @override
   Future<void> delete(String id) async {
-    try {
-      final cancel = _cancelScheduledNotification;
-      if (cancel != null) {
-        await cancel(id);
-      } else {
-        await _scheduler.cancel(id);
-      }
-    } catch (error) {
-      Logger.warn(
-        'Failed to cancel scheduled notification during delete $id: $error',
-      );
+    final cancel = _cancelScheduledNotification;
+    if (cancel != null) {
+      await cancel(id);
+    } else {
+      await _scheduler.cancel(id);
     }
     final List<NotificationEntity> entries = await getNotifications();
     await _save(

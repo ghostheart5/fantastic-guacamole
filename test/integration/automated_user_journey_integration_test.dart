@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/eventing/event_bus.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
@@ -227,6 +228,7 @@ ReminderOrchestratorService _buildReminderOrchestrator() {
     preferences: _FakeSharedPrefsStore(),
     notifications: NotificationsService(_FakeNotificationRepository()),
     scheduler: NotificationScheduler(),
+    storageScope: AccountStorageScope.authenticated('journey-test'),
   );
 }
 
