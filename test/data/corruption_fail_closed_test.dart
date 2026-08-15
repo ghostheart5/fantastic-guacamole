@@ -1,11 +1,11 @@
 import 'dart:io';
 
 import 'package:fantastic_guacamole/core/errors/app_exception.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/insight_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/project_repository.dart';
-import 'package:fantastic_guacamole/data/repositories/progression_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/subtask_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/timeline_repository.dart';
 import 'package:fantastic_guacamole/data/services/workspace_store_service.dart';
@@ -87,17 +87,11 @@ void main() {
     },
   );
 
-  test(
-    'project, subtask, and progression corruption does not become first-run data',
-    () async {
+  test('project and subtask corruption does not become first-run data', () async {
       final HiveStorage<String> projects = _hiveStorage('corrupt_projects');
       final HiveStorage<String> subtasks = _hiveStorage('corrupt_subtasks');
-      final HiveStorage<String> progression = _hiveStorage(
-        'corrupt_progression',
-      );
       await projects.put('projects_v1', '{bad');
       await subtasks.put('subtasks_v1', '{bad');
-      await progression.put('progression_entity_v1', '{"xp":4}');
 
       expect(
         () => ProjectRepository(projects).getProjects(),
@@ -105,10 +99,6 @@ void main() {
       );
       expect(
         () => SubtaskRepository(subtasks).getSubtasks(),
-        throwsA(isA<StorageException>()),
-      );
-      await expectLater(
-        ProgressionRepository(progression).getProgression(),
         throwsA(isA<StorageException>()),
       );
     },
@@ -123,7 +113,10 @@ void main() {
             '[{"id":"i","title":"x","summary":"x","createdAt":"bad","tags":[]}]',
       });
       expect(
-        TimelineRepository(store).getEvents,
+        TimelineRepository(
+          store,
+          AccountStorageScope.authenticated('corruption'),
+        ).getEvents,
         throwsA(isA<StorageException>()),
       );
       expect(

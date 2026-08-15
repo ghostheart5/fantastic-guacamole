@@ -209,7 +209,6 @@ import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_profile_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
-import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_project_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
@@ -312,7 +311,6 @@ import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/services/extended_domain_service.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
-import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final domainTaskRepositoryProvider = Provider<ITaskRepository>((ref) {
@@ -350,40 +348,13 @@ final domainProjectRepositoryProvider = Provider<IProjectRepository>((ref) {
 });
 
 final domainProfileRepositoryProvider = Provider<IProfileRepository>((ref) {
-  return ref.read(profileRepositoryProvider);
+  return ref.watch(profileRepositoryProvider);
 });
-
-class _ProfileBackedProgressionRepository implements IProgressionRepository {
-  const _ProfileBackedProgressionRepository(this._ref);
-
-  final Ref _ref;
-
-  @override
-  Future<ProgressionEntity?> getProgression() async {
-    final ProfileState profile = _ref.read(profileProvider);
-    return ProgressionEntity(
-      xp: profile.xp,
-      level: profile.level,
-      streak: profile.streak,
-    );
-  }
-
-  @override
-  Future<void> saveProgression(ProgressionEntity progression) {
-    return _ref
-        .read(profileProvider.notifier)
-        .setProgressionSnapshot(
-          xp: progression.xp,
-          level: progression.level,
-          streak: progression.streak,
-        );
-  }
-}
 
 final domainProgressionRepositoryProvider = Provider<IProgressionRepository>((
   ref,
 ) {
-  return _ProfileBackedProgressionRepository(ref);
+  return ref.watch(progressionRepositoryProvider);
 });
 
 final domainRoutineRepositoryProvider = Provider<IRoutineRepository>((ref) {
@@ -883,23 +854,23 @@ final updatePlanUseCaseProvider = Provider<UpdatePlan>((ref) {
 });
 
 final getProfileUseCaseProvider = Provider<GetProfile>((ref) {
-  return GetProfile(ref.read(domainProfileRepositoryProvider));
+  return GetProfile(ref.watch(domainProfileRepositoryProvider));
 });
 
 final getProgressionUseCaseProvider = Provider<GetProgression>((ref) {
-  return GetProgression(ref.read(domainProgressionRepositoryProvider));
+  return GetProgression(ref.watch(domainProgressionRepositoryProvider));
 });
 
 final updateStreakUseCaseProvider = Provider<UpdateStreak>((ref) {
-  return UpdateStreak(ref.read(domainProgressionRepositoryProvider));
+  return UpdateStreak(ref.watch(domainProgressionRepositoryProvider));
 });
 
 final updateXpUseCaseProvider = Provider<UpdateXp>((ref) {
-  return UpdateXp(ref.read(domainProgressionRepositoryProvider));
+  return UpdateXp(ref.watch(domainProgressionRepositoryProvider));
 });
 
 final updateLevelUseCaseProvider = Provider<UpdateLevel>((ref) {
-  return UpdateLevel(ref.read(domainProgressionRepositoryProvider));
+  return UpdateLevel(ref.watch(domainProgressionRepositoryProvider));
 });
 
 final getTimelineEventsUseCaseProvider = Provider<GetTimelineEvents>((ref) {

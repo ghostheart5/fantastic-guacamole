@@ -59,7 +59,6 @@ final siEngineDependenciesProvider = Provider<SiEngineDependencies>((Ref ref) {
     memories: ref.read(memoryRepositoryProvider),
     plan: ref.read(planRepositoryProvider),
     notifications: ref.read(notificationsRepositoryProvider),
-    profile: ref.read(profileRepositoryProvider),
   );
 });
 

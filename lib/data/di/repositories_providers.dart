@@ -37,7 +37,10 @@ import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/si_workspace_store.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_paywall_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
+import 'package:fantastic_guacamole/domain/entities/profile_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter/foundation.dart';
@@ -147,11 +150,25 @@ final subtaskRepositoryProvider = Provider<SubtaskRepository>((Ref ref) {
 final progressionRepositoryProvider = Provider<ProgressionRepository>((
   Ref ref,
 ) {
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
   return ProgressionRepository(
-    HiveStorage<String>(
-      HiveBoxes.progression,
-      hive: ref.read(hiveStoreProvider),
-    ),
+    readCurrent: () async {
+      if (!_isCurrentAuthenticatedScope(ref, scope)) return null;
+      final ProfileState state = ref.read(profileProvider);
+      return ProgressionEntity(
+        xp: state.xp,
+        level: state.level,
+        streak: state.streak,
+      );
+    },
+    writeCurrent: (ProgressionEntity progression) async {
+      _requireCurrentAuthenticatedScope(ref, scope);
+      await ref.read(profileProvider.notifier).setProgressionSnapshot(
+        xp: progression.xp,
+        level: progression.level,
+        streak: progression.streak,
+      );
+    },
   );
 });
 
@@ -227,8 +244,60 @@ final timelineRepositoryProvider = Provider<TimelineRepository>((Ref ref) {
 });
 
 final profileRepositoryProvider = Provider<ProfileRepository>((Ref ref) {
-  return ProfileRepository(ref.read(secureStoreProvider));
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  return ProfileRepository(
+    readCurrent: () async {
+      if (!_isCurrentAuthenticatedScope(ref, scope)) return null;
+      return _profileEntityFromState(ref.read(profileProvider));
+    },
+    writeCurrent: (ProfileEntity profile) async {
+      _requireCurrentAuthenticatedScope(ref, scope);
+      await ref
+          .read(profileProvider.notifier)
+          .applyCanonicalSnapshot(_snapshotFromProfileEntity(profile));
+    },
+  );
 });
+
+bool _isCurrentAuthenticatedScope(Ref ref, AccountStorageScope expected) {
+  final AccountStorageScope current = ref.read(accountStorageScopeProvider);
+  return expected.isAuthenticated &&
+      expected.v2Namespace != null &&
+      current.v2Namespace == expected.v2Namespace;
+}
+
+void _requireCurrentAuthenticatedScope(
+  Ref ref,
+  AccountStorageScope expected,
+) {
+  if (!_isCurrentAuthenticatedScope(ref, expected)) {
+    throw StateError('Profile authority is unavailable for the retained scope.');
+  }
+}
+
+ProfileEntity _profileEntityFromState(ProfileState state) => ProfileEntity(
+  xp: state.xp,
+  level: state.level,
+  legacyLevelFloor: state.legacyLevelFloor,
+  streak: state.streak,
+  longestStreak: state.longestStreak,
+  name: state.name,
+  lastActiveDate: state.lastActiveDate,
+  profileReady: state.profileReady,
+);
+
+ProfileCanonicalSnapshot _snapshotFromProfileEntity(ProfileEntity profile) =>
+    ProfileCanonicalSnapshot(
+      xp: profile.xp,
+      legacyLevelFloor: profile.level > profile.legacyLevelFloor
+          ? profile.level
+          : profile.legacyLevelFloor,
+      streak: profile.streak,
+      longestStreak: profile.longestStreak,
+      name: profile.name,
+      lastActiveDate: profile.lastActiveDate,
+      profileReady: profile.profileReady,
+    );
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((Ref ref) {
   final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);

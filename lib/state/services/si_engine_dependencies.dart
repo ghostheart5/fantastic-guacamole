@@ -4,7 +4,6 @@ import 'package:fantastic_guacamole/domain/interfaces/i_log_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_profile_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_timeline_repository.dart';
@@ -20,7 +19,6 @@ class SiEngineDependencies {
     required this.memories,
     required this.plan,
     required this.notifications,
-    required this.profile,
   });
 
   final ITaskRepository tasks;
@@ -32,5 +30,4 @@ class SiEngineDependencies {
   final IMemoryRepository memories;
   final IPlanRepository plan;
   final INotificationRepository notifications;
-  final IProfileRepository profile;
 }

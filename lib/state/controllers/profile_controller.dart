@@ -106,6 +106,30 @@ class ProfileState {
   }
 }
 
+/// The complete account-owned portion of the Profile V3 persistence contract.
+///
+/// Settings-owned preferences and transient presentation events intentionally do
+/// not belong to this snapshot.
+class ProfileCanonicalSnapshot {
+  const ProfileCanonicalSnapshot({
+    required this.xp,
+    required this.legacyLevelFloor,
+    required this.streak,
+    required this.longestStreak,
+    required this.name,
+    required this.lastActiveDate,
+    required this.profileReady,
+  });
+
+  final int xp;
+  final int legacyLevelFloor;
+  final int streak;
+  final int longestStreak;
+  final String name;
+  final DateTime? lastActiveDate;
+  final bool profileReady;
+}
+
 final profileProvider = NotifierProvider<ProfileController, ProfileState>(
   ProfileController.new,
 );
@@ -354,6 +378,37 @@ class ProfileController extends Notifier<ProfileState> {
     );
     await _save();
     unawaited(_refreshCoachDecision());
+  }
+
+  /// Applies all persisted Profile V3 fields in one state transition and uses
+  /// the controller's existing scoped write queue.
+  Future<void> applyCanonicalSnapshot(
+    ProfileCanonicalSnapshot snapshot,
+  ) async {
+    if (!_isStorageAvailable) return;
+
+    final int safeXp = snapshot.xp < 0 ? 0 : snapshot.xp;
+    final int safeFloor = snapshot.legacyLevelFloor < 1
+        ? 1
+        : snapshot.legacyLevelFloor;
+    final int safeStreak = snapshot.streak < 0 ? 0 : snapshot.streak;
+    final int safeLongest = snapshot.longestStreak < safeStreak
+        ? safeStreak
+        : snapshot.longestStreak;
+    final ProgressionCalculation progression = _progressionCalculator
+        .calculate(xp: safeXp, legacyLevelFloor: safeFloor);
+
+    state = state.copyWith(
+      xp: progression.xp,
+      level: progression.effectiveLevel,
+      legacyLevelFloor: safeFloor,
+      streak: safeStreak,
+      longestStreak: safeLongest,
+      name: snapshot.name,
+      lastActiveDate: snapshot.lastActiveDate,
+      profileReady: snapshot.profileReady,
+    );
+    await _save();
   }
 
   Future<void> _refreshCoachDecision() async {
