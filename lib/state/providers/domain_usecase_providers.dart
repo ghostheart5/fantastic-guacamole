@@ -322,7 +322,7 @@ final domainTaskRepositoryProvider = Provider<ITaskRepository>((ref) {
 final domainNotificationRepositoryProvider = Provider<INotificationRepository>((
   ref,
 ) {
-  return ref.read(notificationsRepositoryProvider);
+  return ref.watch(notificationsRepositoryProvider);
 });
 
 final domainGoalRepositoryProvider = Provider<IGoalRepository>((ref) {

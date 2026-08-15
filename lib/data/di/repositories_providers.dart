@@ -162,9 +162,11 @@ final notificationSchedulerProvider = Provider<NotificationScheduler>(
 final notificationsRepositoryProvider = Provider<NotificationsRepository>((
   Ref ref,
 ) {
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
   return NotificationsRepository(
     ref.read(notificationSchedulerProvider),
     ref.read(secureStoreProvider),
+    storageScope: scope,
   );
 });
 

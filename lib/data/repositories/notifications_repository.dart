@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/core/errors/app_exception.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/models/notification_record.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
@@ -12,19 +13,42 @@ class NotificationsRepository implements INotificationRepository {
   NotificationsRepository(
     this._scheduler,
     this._store, {
+    required this.storageScope,
     this._scheduleNotification,
     this._cancelScheduledNotification,
     this._cancelAllScheduledNotifications,
   });
 
-  static const String _storageKey = 'notification_entries_v1';
+  static const String legacyStorageKey = 'notification_entries_v1';
+  static const String _v2KeyPrefix = 'notification_entries_v2';
 
   final NotificationScheduler _scheduler;
   final SecureStore _store;
+  final AccountStorageScope storageScope;
   final Future<void> Function(NotificationEntity notification)?
   _scheduleNotification;
   final Future<void> Function(String id)? _cancelScheduledNotification;
   final Future<void> Function()? _cancelAllScheduledNotifications;
+
+  String get _storageKey {
+    final String? namespace = storageScope.v2Namespace;
+    if (!storageScope.isAuthenticated || namespace == null) {
+      throw StateError(
+        'Notification persistence is unavailable outside a safe authenticated scope.',
+      );
+    }
+    return '$_v2KeyPrefix.$namespace';
+  }
+
+  static String canonicalStorageKeyForScope(AccountStorageScope scope) {
+    final String? namespace = scope.v2Namespace;
+    if (!scope.isAuthenticated || namespace == null) {
+      throw StateError(
+        'Notification persistence is unavailable outside a safe authenticated scope.',
+      );
+    }
+    return '$_v2KeyPrefix.$namespace';
+  }
 
   @override
   Future<List<NotificationEntity>> getNotifications() async {

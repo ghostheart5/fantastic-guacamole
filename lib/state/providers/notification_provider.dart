@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -54,6 +59,7 @@ class NotificationActions {
 }
 
 class NotificationNotifier extends Notifier<List<NotificationEntity>> {
+  int _loadGeneration = 0;
   Future<void> _playCategoryAwareReminderSound(
     NotificationEntity notification,
   ) {
@@ -89,41 +95,37 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
 
   @override
   List<NotificationEntity> build() {
-    final notificationRepository = ref.read(
+    final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+    final notificationRepository = ref.watch(
       domainNotificationRepositoryProvider,
     );
-    bool disposed = false;
-    ref.onDispose(() {
-      disposed = true;
-    });
-
-    Future<void>(() async {
-      final List<NotificationEntity> notifications =
-          await notificationRepository.getNotifications();
-
-      if (disposed) {
-        return;
-      }
-
-      final Map<String, NotificationEntity> mergedById =
-          <String, NotificationEntity>{
-            for (final NotificationEntity item in notifications) item.id: item,
-          };
-
-      for (final NotificationEntity item in state) {
-        mergedById[item.id] = item;
-      }
-
-      final List<NotificationEntity> merged =
-          mergedById.values.toList(growable: false)..sort(
-            (NotificationEntity a, NotificationEntity b) =>
-                b.scheduledAt.compareTo(a.scheduledAt),
-          );
-
-      state = merged;
-    });
+    final int generation = ++_loadGeneration;
+    if (scope.isAuthenticated) {
+      unawaited(_reloadForScope(notificationRepository, scope, generation));
+    }
 
     return const <NotificationEntity>[];
+  }
+
+  Future<void> _reloadForScope(
+    INotificationRepository repository,
+    AccountStorageScope scope,
+    int generation,
+  ) async {
+    try {
+      final List<NotificationEntity> notifications = await repository
+          .getNotifications();
+      if (generation != _loadGeneration ||
+          ref.read(accountStorageScopeProvider).v2Namespace !=
+              scope.v2Namespace) {
+        return;
+      }
+      state = notifications;
+    } on Object {
+      if (generation == _loadGeneration) {
+        state = const <NotificationEntity>[];
+      }
+    }
   }
 
   Future<void> push(
@@ -132,7 +134,9 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     bool refreshPlan = true,
     bool playSound = true,
   }) async {
-    await ref.read(scheduleNotificationUseCaseProvider).call(notification);
+    await ref
+        .read(domainNotificationRepositoryProvider)
+        .scheduleNotification(notification);
     if (playSound) {
       await _playCategoryAwareReminderSound(notification);
     }

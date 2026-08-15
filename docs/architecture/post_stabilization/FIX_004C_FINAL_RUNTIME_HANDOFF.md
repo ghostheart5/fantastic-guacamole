@@ -105,3 +105,48 @@ FIX-004C1 Memory regression remains required. Full SI aggregation remains
 deferred because it has unrelated uncertified inputs; C2 removes only the
 global durable workspace blocker. Recovery, sync, reminders, bridge, and final
 aggregate certification remain FIX-004C3 work.
+
+## FIX-004C3 PRE-REPAIR-01A — Account-scoped notification ledger
+
+### Authority and compatibility policy
+
+`notification_entries_v1` was a global notification ledger and therefore could
+expose a prior account's in-app notification title, body, source, or action
+metadata. The active authority is now
+`notification_entries_v2.<AccountStorageScope.v2Namespace>`. It is available
+only to a safe authenticated scope. V1 is preserved byte-for-byte, inactive,
+unclaimed, and has no fallback or migration path.
+
+`notificationsRepositoryProvider` watches the storage scope and constructs the
+repository with it. `domainNotificationRepositoryProvider` watches that
+repository, so the notification domain boundary recreates with the active
+account.
+
+### Projection and command handoff
+
+`NotificationNotifier` watches the scope and domain repository, begins each
+new projection empty, and uses a generation plus current-scope check before an
+asynchronous reload can write state. This rejects late A/B reads during rapid
+transitions.
+
+Certification also found a separate command-lifetime defect:
+`scheduleNotificationUseCaseProvider` was cached after `ref.read` captured an
+account-specific repository. A notification pushed after A→B could therefore
+be written into A's ledger. `NotificationNotifier.push()` now schedules through
+the current `domainNotificationRepositoryProvider`; command routing and the
+projection now use the same current scoped authority.
+
+### Certification
+
+The exact-index candidate passed 86 tests: 8 focused notification tests and 78
+cross-program regression tests. Coverage proves A→B→A provider/repository
+isolation, identical-ID isolation, signed-out and signed-out→B behavior,
+rapid and late-load race rejection, scoped read failure, write failure/retry,
+cancel/disable isolation, and private `pushDecision` metadata isolation.
+The real Goal reminder path persists its in-app ledger entry only in the
+current V2 account namespace. Targeted analysis reported zero diagnostics.
+
+Platform schedule ownership, platform reminder identifiers, outgoing-account
+platform cancellation, and the Habit, Daily Planning, Reflection, and Profile
+streak-break direct platform producer paths remain explicitly deferred to
+PRE-REPAIR-01B. They are not certified or changed by 01A.
