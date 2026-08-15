@@ -11,6 +11,8 @@ enum HistoryEventKind {
   goalScheduled,
   goalCompleted,
   habitScheduled,
+  habitCompleted,
+  habitSkipped,
   milestoneReached,
   streakRecorded,
   deadlineScheduled,
@@ -129,7 +131,8 @@ class HistoryEvent {
     List<T> values,
     String? raw,
     T fallback,
-  ) => values.firstWhere((T value) => value.name == raw, orElse: () => fallback);
+  ) =>
+      values.firstWhere((T value) => value.name == raw, orElse: () => fallback);
 
   static Map<String, dynamic> _stringMap(Object? raw) {
     if (raw is! Map) return const <String, dynamic>{};

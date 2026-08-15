@@ -1,9 +1,12 @@
 // Package imports.
 import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/data/adapters/habit_occurrence_sync_adapter.dart';
+import 'package:fantastic_guacamole/data/adapters/habit_occurrence_timeline_adapter.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/remote/goals_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/habits_remote_gateway.dart';
+import 'package:fantastic_guacamole/data/remote/habit_occurrences_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/settings_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/tasks_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
@@ -12,6 +15,7 @@ import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_r
 import 'package:fantastic_guacamole/data/repositories/goal_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/google_play_paywall_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/habit_occurrence_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/identity_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/insight_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/log_repository.dart';
@@ -41,6 +45,7 @@ import 'package:fantastic_guacamole/domain/entities/profile_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
+import 'package:fantastic_guacamole/state/services/habit_occurrence_reminder_adapter.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:flutter/foundation.dart';
@@ -98,6 +103,39 @@ final habitRepositoryProvider = Provider<HabitRepository>((Ref ref) {
   ref.onDispose(repository.dispose);
   return repository;
 });
+
+final habitOccurrenceRepositoryProvider = Provider<HabitOccurrenceRepository>((
+  Ref ref,
+) {
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  final HabitOccurrenceRepository repository = scope.v2Namespace == null
+      ? HabitOccurrenceRepository.unavailable()
+      : HabitOccurrenceRepository(
+          HiveStorage<String>(
+            HiveBoxes.accountScoped(HiveBoxes.habitOccurrences, scope),
+            hive: ref.read(hiveStoreProvider),
+          ),
+        );
+  ref.onDispose(repository.dispose);
+  return repository;
+});
+
+final habitOccurrenceTimelineAdapterProvider =
+    Provider<HabitOccurrenceTimelineAdapter>((Ref ref) {
+      return HabitOccurrenceTimelineAdapter(
+        ref.read(timelineRepositoryProvider),
+      );
+    });
+
+final habitOccurrenceSyncAdapterProvider = Provider<HabitOccurrenceSyncAdapter>(
+  (Ref ref) =>
+      HabitOccurrenceSyncAdapter(ref.read(syncMutationDispatcherProvider)),
+);
+
+final habitOccurrenceReminderAdapterProvider =
+    Provider<HabitOccurrenceReminderAdapter>((Ref ref) {
+      return const HabitOccurrenceReminderAdapter();
+    });
 
 final insightRepositoryProvider = Provider<InsightRepository>((Ref ref) {
   return InsightRepository(ref.read(sharedPrefsStoreProvider));
@@ -163,11 +201,13 @@ final progressionRepositoryProvider = Provider<ProgressionRepository>((
     },
     writeCurrent: (ProgressionEntity progression) async {
       _requireCurrentAuthenticatedScope(ref, scope);
-      await ref.read(profileProvider.notifier).setProgressionSnapshot(
-        xp: progression.xp,
-        level: progression.level,
-        streak: progression.streak,
-      );
+      await ref
+          .read(profileProvider.notifier)
+          .setProgressionSnapshot(
+            xp: progression.xp,
+            level: progression.level,
+            streak: progression.streak,
+          );
     },
   );
 });
@@ -266,12 +306,11 @@ bool _isCurrentAuthenticatedScope(Ref ref, AccountStorageScope expected) {
       current.v2Namespace == expected.v2Namespace;
 }
 
-void _requireCurrentAuthenticatedScope(
-  Ref ref,
-  AccountStorageScope expected,
-) {
+void _requireCurrentAuthenticatedScope(Ref ref, AccountStorageScope expected) {
   if (!_isCurrentAuthenticatedScope(ref, expected)) {
-    throw StateError('Profile authority is unavailable for the retained scope.');
+    throw StateError(
+      'Profile authority is unavailable for the retained scope.',
+    );
   }
 }
 
@@ -366,6 +405,11 @@ final goalsRemoteGatewayProvider = Provider<GoalsRemoteGateway>((Ref ref) {
 final habitsRemoteGatewayProvider = Provider<HabitsRemoteGateway>((Ref ref) {
   return HabitsRemoteGateway(ref.read(supabaseClientProvider));
 });
+
+final habitOccurrencesRemoteGatewayProvider =
+    Provider<HabitOccurrencesRemoteGateway>((Ref ref) {
+      return HabitOccurrencesRemoteGateway(ref.read(supabaseClientProvider));
+    });
 
 final settingsRemoteGatewayProvider = Provider<SettingsRemoteGateway>((
   Ref ref,

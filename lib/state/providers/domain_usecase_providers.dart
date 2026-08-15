@@ -191,7 +191,10 @@ import 'package:fantastic_guacamole/features/auth/domain/usecases/goals/types/ti
     as feature_goal_yearly;
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/data/adapters/habit_routine_compatibility.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
+import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
+import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
@@ -358,7 +361,9 @@ final domainProgressionRepositoryProvider = Provider<IProgressionRepository>((
 });
 
 final domainRoutineRepositoryProvider = Provider<IRoutineRepository>((ref) {
-  return ref.read(routineRepositoryProvider);
+  return HabitBackedRoutineWriteRepository(
+    ref.watch(habitRepositoryProvider),
+  );
 });
 
 final domainSubtaskRepositoryProvider = Provider<ISubtaskRepository>((ref) {
@@ -764,7 +769,12 @@ final saveProjectsUseCaseProvider = Provider<SaveProjects>((ref) {
 });
 
 final getRoutinesUseCaseProvider = Provider<GetRoutines>((ref) {
-  return GetRoutines(ref.read(domainRoutineRepositoryProvider));
+  final AsyncValue<List<HabitRecord>> habitState = ref.watch(habitsProvider);
+  final List<HabitRecord> habits = switch (habitState) {
+    AsyncData<List<HabitRecord>>(:final value) => value,
+    _ => const <HabitRecord>[],
+  };
+  return GetRoutines(HabitBackedRoutineReadRepository(habits));
 });
 
 final createRoutineUseCaseProvider = Provider<CreateRoutine>((ref) {

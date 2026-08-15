@@ -372,7 +372,6 @@ class _SessionOwnershipStore {
       HiveBoxes.goals,
       HiveBoxes.habits,
       HiveBoxes.projects,
-      HiveBoxes.routines,
       HiveBoxes.subtasks,
       HiveBoxes.progression,
       HiveBoxes.dailyPlans,

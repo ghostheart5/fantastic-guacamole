@@ -1,6 +1,8 @@
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/habit_occurrence_repository.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_occurrence_entity.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
@@ -64,13 +66,6 @@ class HabitsNotifier extends AsyncNotifier<List<HabitRecord>> {
 
   Future<void> toggleHabit(String id) async {
     final List<HabitRecord> current = _currentHabits().toList(growable: false);
-    HabitRecord? toggled;
-    for (final HabitRecord item in current) {
-      if (item.id == id) {
-        toggled = item;
-        break;
-      }
-    }
     final List<HabitRecord> next = current
         .map(
           (HabitRecord item) => item.id == id
@@ -83,16 +78,107 @@ class HabitsNotifier extends AsyncNotifier<List<HabitRecord>> {
         .toList(growable: false);
 
     await _repository.saveHabits(next);
-    if (toggled != null && toggled.active) {
-      AppAnalytics.track(
-        'habit_completed',
-        params: <String, Object?>{'habit_id': toggled.id},
-      );
-    }
     await ref
         .read(reminderOrchestratorServiceProvider)
         .syncHabitReminders(next);
     state = AsyncData(next);
+  }
+
+  Future<HabitOccurrenceMutation> completeHabitOccurrence(
+    String habitId, {
+    DateTime? at,
+    int? ordinal,
+  }) => _recordOccurrence(
+    habitId,
+    HabitOccurrenceStatus.completed,
+    at: at,
+    ordinal: ordinal,
+  );
+
+  Future<HabitOccurrenceMutation> skipHabitOccurrence(
+    String habitId, {
+    DateTime? at,
+    int? ordinal,
+  }) => _recordOccurrence(
+    habitId,
+    HabitOccurrenceStatus.skipped,
+    at: at,
+    ordinal: ordinal,
+  );
+
+  Future<HabitOccurrenceMutation> _recordOccurrence(
+    String habitId,
+    HabitOccurrenceStatus status, {
+    DateTime? at,
+    int? ordinal,
+  }) async {
+    final HabitRecord habit = _currentHabits().firstWhere(
+      (HabitRecord item) => item.id == habitId && item.active,
+      orElse: () => throw StateError('Active habit "$habitId" is unavailable.'),
+    );
+    final DateTime timestamp = at ?? DateTime.now();
+    final String periodKey = HabitOccurrencePeriodKey.forDate(
+      habit.cadence,
+      timestamp,
+    );
+    final HabitOccurrenceRepository repository = ref.read(
+      habitOccurrenceRepositoryProvider,
+    );
+    final List<HabitOccurrence> existing = await repository
+        .listOccurrencesForPeriod(habitId, periodKey);
+    final int selectedOrdinal =
+        ordinal ?? _nextOrdinal(existing, habit.targetCount);
+    final HabitOccurrenceMutation result =
+        status == HabitOccurrenceStatus.completed
+        ? await repository.completeOccurrence(
+            habitId: habitId,
+            periodKey: periodKey,
+            ordinal: selectedOrdinal,
+            targetCount: habit.targetCount,
+            at: timestamp,
+          )
+        : await repository.skipOccurrence(
+            habitId: habitId,
+            periodKey: periodKey,
+            ordinal: selectedOrdinal,
+            targetCount: habit.targetCount,
+            at: timestamp,
+          );
+    if (result == HabitOccurrenceMutation.inserted ||
+        result == HabitOccurrenceMutation.idempotent) {
+      final HabitOccurrence persisted = (await repository.getOccurrence(
+        habitId,
+        periodKey,
+        selectedOrdinal,
+      ))!;
+      await ref.read(habitOccurrenceTimelineAdapterProvider).record(persisted);
+      await ref.read(habitOccurrenceSyncAdapterProvider).enqueue(persisted);
+      await ref
+          .read(habitOccurrenceReminderAdapterProvider)
+          .reconcile(persisted);
+    }
+    if (result == HabitOccurrenceMutation.inserted &&
+        status == HabitOccurrenceStatus.completed) {
+      AppAnalytics.track(
+        'habit_completed',
+        params: <String, Object?>{
+          'habit_id': habitId,
+          'period_key': periodKey,
+          'ordinal': selectedOrdinal,
+        },
+      );
+    }
+    return result;
+  }
+
+  int _nextOrdinal(List<HabitOccurrence> existing, int targetCount) {
+    final Set<int> used = existing
+        .map((HabitOccurrence item) => item.ordinal)
+        .toSet();
+    for (int ordinal = 1; ordinal <= targetCount.clamp(1, 365); ordinal++) {
+      if (!used.contains(ordinal)) return ordinal;
+    }
+    return targetCount.clamp(1, 365);
   }
 
   Future<void> removeHabit(String id) async {

@@ -213,6 +213,11 @@ class _InMemorySecureStore implements SecureStore {
   final Map<String, String> _values = <String, String>{};
 
   @override
+  Future<Map<String, String>> readAll() async {
+    return Map<String, String>.unmodifiable(_values);
+  }
+
+  @override
   Future<String?> readString(String key) async {
     return _values[key];
   }

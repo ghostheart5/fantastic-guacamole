@@ -1,5 +1,8 @@
+import 'package:fantastic_guacamole/data/adapters/habit_routine_compatibility.dart';
+import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
+import 'package:fantastic_guacamole/state/providers/habits_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final routinesProvider =
@@ -16,34 +19,35 @@ final routineProvider = routinesProvider;
 class RoutinesNotifier extends Notifier<List<RoutineEntity>> {
   @override
   List<RoutineEntity> build() {
-    return ref.read(getRoutinesUseCaseProvider).call();
+    final AsyncValue<List<HabitRecord>> habitState = ref.watch(habitsProvider);
+    final List<HabitRecord> habits = switch (habitState) {
+      AsyncData<List<HabitRecord>>(:final value) => value,
+      _ => const <HabitRecord>[],
+    };
+    return habits.map(routineFromHabitRecord).toList(growable: false);
   }
 
   Future<void> add(RoutineEntity routine) async {
     await ref.read(createRoutineUseCaseProvider).call(routine);
-    state = [
-      routine,
-      ...state.where((RoutineEntity item) => item.id != routine.id),
-    ];
+    await _refreshHabitBackedRead();
   }
 
   Future<void> update(RoutineEntity routine) async {
     await ref.read(updateRoutineUseCaseProvider).call(routine);
-    state = state
-        .map((RoutineEntity item) => item.id == routine.id ? routine : item)
-        .toList(growable: false);
+    await _refreshHabitBackedRead();
   }
 
   Future<void> remove(String id) async {
     await ref.read(deleteRoutineUseCaseProvider).call(id);
-    state = state
-        .where((RoutineEntity item) => item.id != id)
-        .toList(growable: false);
   }
 
   Future<void> saveAll(List<RoutineEntity> routines) async {
     await ref.read(saveRoutinesUseCaseProvider).call(routines);
-    state = routines;
+  }
+
+  Future<void> _refreshHabitBackedRead() async {
+    ref.invalidate(habitsProvider);
+    await ref.read(habitsProvider.future);
   }
 
   Future<void> addHabit(RoutineEntity habit) {

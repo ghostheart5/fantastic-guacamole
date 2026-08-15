@@ -573,6 +573,8 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
       TimelineEventType.task => 'Task',
       TimelineEventType.goal => 'Goal',
       TimelineEventType.habit => 'Habit',
+      TimelineEventType.habitCompleted => 'Habit Completed',
+      TimelineEventType.habitSkipped => 'Habit Skipped',
       TimelineEventType.project => 'Project',
       TimelineEventType.milestone => 'Milestone',
       TimelineEventType.deadline => 'Deadline',
@@ -819,6 +821,10 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
         return const Color(0xFF7AF7C4);
       case TimelineEventType.habit:
         return const Color(0xFFFFB86B);
+      case TimelineEventType.habitCompleted:
+        return const Color(0xFF4CAF50);
+      case TimelineEventType.habitSkipped:
+        return Colors.blueGrey;
       case TimelineEventType.project:
         return const Color(0xFFC2A1FF);
       case TimelineEventType.milestone:
@@ -852,6 +858,10 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
         return Icons.flag_rounded;
       case TimelineEventType.habit:
         return Icons.repeat_rounded;
+      case TimelineEventType.habitCompleted:
+        return Icons.check_circle_rounded;
+      case TimelineEventType.habitSkipped:
+        return Icons.remove_circle_outline_rounded;
       case TimelineEventType.project:
         return Icons.account_tree_rounded;
       case TimelineEventType.milestone:

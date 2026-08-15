@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/data/remote/goals_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/habits_remote_gateway.dart';
+import 'package:fantastic_guacamole/data/remote/habit_occurrences_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/settings_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/tasks_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/sync/sync_operation.dart';
@@ -10,12 +11,14 @@ class SupabaseSyncExecutor {
     required this._tasksGateway,
     required this._goalsGateway,
     required this._habitsGateway,
+    required this._habitOccurrencesGateway,
     required this._settingsGateway,
   });
 
   final TasksRemoteGateway _tasksGateway;
   final GoalsRemoteGateway _goalsGateway;
   final HabitsRemoteGateway _habitsGateway;
+  final HabitOccurrencesRemoteGateway _habitOccurrencesGateway;
   final SettingsRemoteGateway _settingsGateway;
 
   Future<SyncApplyResult> apply(SyncOperation operation) async {
@@ -27,6 +30,8 @@ class SupabaseSyncExecutor {
           return _applyForGoals(operation);
         case 'habits':
           return _applyForHabits(operation);
+        case 'habit_occurrences':
+          return _applyForHabitOccurrences(operation);
         case 'settings':
           return _applyForSettings(operation);
         default:
@@ -76,6 +81,16 @@ class SupabaseSyncExecutor {
       return SyncApplyResult.success();
     }
     await _habitsGateway.upsert(row: operation.payload);
+    return SyncApplyResult.success();
+  }
+
+  Future<SyncApplyResult> _applyForHabitOccurrences(
+    SyncOperation operation,
+  ) async {
+    if (operation.operationType == SyncOperationType.delete) {
+      return SyncApplyResult.fatal('Habit occurrences are immutable.');
+    }
+    await _habitOccurrencesGateway.upsert(row: operation.payload);
     return SyncApplyResult.success();
   }
 

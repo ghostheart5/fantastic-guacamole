@@ -8,6 +8,7 @@ final supabaseSyncExecutorProvider = Provider<SupabaseSyncExecutor>((Ref ref) {
     tasksGateway: ref.read(tasksRemoteGatewayProvider),
     goalsGateway: ref.read(goalsRemoteGatewayProvider),
     habitsGateway: ref.read(habitsRemoteGatewayProvider),
+    habitOccurrencesGateway: ref.read(habitOccurrencesRemoteGatewayProvider),
     settingsGateway: ref.read(settingsRemoteGatewayProvider),
   );
 });
