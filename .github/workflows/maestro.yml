@@ -10,16 +10,13 @@ permissions:
   contents: read
 
 jobs:
-  production-validation:
+  contract-validation:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
 
-      - name: Prepare non-secret Flutter environment asset
-        run: cp .env.example .env
-
-      - name: Validate Maestro runner syntax before emulator startup
+      - name: Validate Maestro runner syntax
         shell: pwsh
         run: |
           $tokens = $null
@@ -33,6 +30,23 @@ jobs:
             $errors | ForEach-Object { Write-Error $_.Message }
             exit 1
           }
+
+      - name: Validate referenced Maestro suites
+        shell: bash
+        run: |
+          test -f maestro/release/release_full_validation.yaml
+          test -f maestro/onboarding/_suite_onboarding.yaml
+
+  production-validation:
+    if: github.event_name == 'workflow_dispatch'
+    needs: contract-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Prepare non-secret Flutter environment asset
+        run: cp .env.example .env
 
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
