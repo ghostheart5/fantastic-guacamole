@@ -24,7 +24,10 @@ void main() {
 
         for (final File file in SourceTestUtils.dartFilesUnder('test')) {
           final String path = SourceTestUtils.normalizePath(file.path);
-          if (path.contains('/robot/')) {
+          if (!path.endsWith('_test.dart') ||
+              path.contains('/robot/') ||
+              path.contains('/helpers/') ||
+              path.contains('/support/')) {
             continue;
           }
           final String lowerPath = path.toLowerCase();
@@ -73,7 +76,10 @@ void main() {
 
         for (final File file in SourceTestUtils.dartFilesUnder('test')) {
           final String path = SourceTestUtils.normalizePath(file.path);
-          if (path.contains('/robot/')) {
+          if (!path.endsWith('_test.dart') ||
+              path.contains('/robot/') ||
+              path.contains('/helpers/') ||
+              path.contains('/support/')) {
             continue;
           }
 

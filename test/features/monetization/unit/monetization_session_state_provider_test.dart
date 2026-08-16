@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:fantastic_guacamole/features/monetization/data/models/models.dart';
 import 'package:fantastic_guacamole/features/monetization/data/repositories/purchase_repository.dart';
 import 'package:fantastic_guacamole/features/monetization/providers/monetization_feature_providers.dart';
-import 'package:fantastic_guacamole/features/monetization/providers/monetization_session_state_provider.dart';
+import 'package:fantastic_guacamole/features/monetization/integration/monetization_session_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';

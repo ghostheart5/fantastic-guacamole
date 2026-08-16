@@ -27,7 +27,7 @@ import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/features/auth/application/auth_providers.dart';
-import 'package:fantastic_guacamole/features/monetization/providers/monetization_session_state_provider.dart';
+import 'package:fantastic_guacamole/features/monetization/integration/monetization_session_state.dart';
 import 'package:fantastic_guacamole/features/monetization/providers/monetization_feature_providers.dart'
     show refreshMonetizationRemoteState;
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart' as ai;
