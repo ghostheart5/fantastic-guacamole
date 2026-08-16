@@ -20,7 +20,7 @@ class DeterministicGenerator {
     between(0, 59),
   );
 
-  String id(String prefix) => prefix + '-' + between(0, 1 << 30).toString();
+  String id(String prefix) => '$prefix-${between(0, 1 << 30)}';
 
   String unicodeText({required int length}) {
     const List<String> alphabet = <String>[

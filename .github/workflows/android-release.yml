@@ -238,6 +238,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Prepare non-secret Flutter environment asset
+        run: cp .env.example .env
+
       - name: Validate release source and version
         shell: bash
         run: |
