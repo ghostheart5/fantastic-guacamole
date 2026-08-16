@@ -29,6 +29,10 @@ const forwardMigrations: BaselineMigration[] = [
     version: "20260816203547",
     name: "optimize_owner_policies_and_remove_duplicates",
   },
+  {
+    version: "20260816205445",
+    name: "fix_monetization_credit_rpc_ambiguity",
+  },
 ];
 const driftRoot = new URL("./", import.meta.url);
 const repositoryRoot = new URL("../../", driftRoot);

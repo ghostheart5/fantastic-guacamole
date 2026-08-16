@@ -32,7 +32,7 @@ select ok(
   'auth user creation is connected to the hardened profile trigger'
 );
 select ok(
-  not has_function_privilege('PUBLIC', 'public.get_global_metrics()', 'EXECUTE')
+  not has_function_privilege('public', 'public.get_global_metrics()', 'EXECUTE')
     and not has_function_privilege('anon', 'public.get_global_metrics()', 'EXECUTE')
     and not has_function_privilege('authenticated', 'public.get_global_metrics()', 'EXECUTE'),
   'public, anonymous, and normal authenticated callers cannot execute global metrics'
