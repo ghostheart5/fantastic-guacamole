@@ -1,107 +1,93 @@
-name: Deploy Gated Flutter Web to GitHub Pages
+name: Deploy ChronoSpark Public Site to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'web/privacy/**'
+      - 'web/terms/**'
+      - 'web/support/**'
+      - 'web/delete-account/**'
+      - 'web/legal.css'
+      - '.github/workflows/main.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-  actions: read
   pages: write
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: github-pages
   cancel-in-progress: false
 
 jobs:
-  resolve-authoritative-gate:
-    runs-on: ubuntu-latest
-    outputs:
-      run_id: ${{ steps.resolve.outputs.run_id }}
-    steps:
-      - name: Resolve successful same-commit web gate
-        id: resolve
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const artifactName = `authoritative-release-gate-${context.sha}-production-web`;
-            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'authoritative-release-gate.yml',
-              status: 'completed',
-              per_page: 100,
-            });
-            for (const run of runs) {
-              if (run.head_sha !== context.sha || run.conclusion !== 'success') continue;
-              const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                run_id: run.id,
-                per_page: 100,
-              });
-              if (artifacts.some((artifact) => artifact.name === artifactName && !artifact.expired)) {
-                core.setOutput('run_id', String(run.id));
-                return;
-              }
-            }
-            core.setFailed(`No completed authoritative production-web gate exists for ${context.sha}.`);
-
-  prepare-gated-pages:
-    needs: resolve-authoritative-gate
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout exact release commit
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          fetch-depth: 0
+      - name: Checkout public-site source
+        uses: actions/checkout@v5
 
-      - name: Download exact gated web candidate
-        uses: actions/download-artifact@v4
-        with:
-          name: authoritative-release-gate-${{ github.sha }}-production-web
-          run-id: ${{ needs.resolve-authoritative-gate.outputs.run_id }}
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/authoritative-release-gate
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
 
-      - name: Verify and unpack exact gated web candidate
-        shell: pwsh
+      - name: Assemble static public site
+        shell: bash
         run: |
-          $gateRoot = "${{ runner.temp }}/authoritative-release-gate"
-          $manifestPath = Join-Path $gateRoot 'release-gate-manifest.json'
-          ./scripts/authoritative_release_gate.ps1 `
-            -Mode VerifyManifest `
-            -ManifestPath $manifestPath `
-            -ExpectedCommit "${{ github.sha }}"
-          $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
-          if ($manifest.buildFlavor -ne 'production-web') {
-            throw 'Authoritative gate flavor is not production-web.'
-          }
-          $source = Join-Path $gateRoot $manifest.binaryPath
-          if ([IO.Path]::GetExtension($source) -ne '.zip') {
-            throw 'Authoritative production-web gate did not contain a ZIP candidate.'
-          }
-          $output = "${{ runner.temp }}/gated-web"
-          New-Item -ItemType Directory -Path $output -Force | Out-Null
-          Expand-Archive -LiteralPath $source -DestinationPath $output
-          if (-not (Test-Path -LiteralPath (Join-Path $output 'index.html'))) {
-            throw 'Gated web candidate must contain index.html at the ZIP root.'
-          }
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp -R site/. _site/
+          for route in privacy terms support delete-account; do
+            mkdir -p "_site/$route"
+            cp "web/$route/index.html" "_site/$route/index.html"
+          done
+          cp web/legal.css _site/legal.css
+          touch _site/.nojekyll
 
-      - name: Upload exact gated Pages content
+      - name: Verify public-route contract
+        shell: python
+        run: |
+          from pathlib import Path
+
+          root = Path('_site')
+          required = {
+              'index.html': ('ChronoSpark', 'Understand the day'),
+              'features/index.html': ('Feature proof', 'Nexus'),
+              'download/index.html': ('Install only from a verified path',),
+              'support/index.html': ('ChronoSpark Support',),
+              'privacy/index.html': ('ChronoSpark Privacy Policy',),
+              'terms/index.html': ('ChronoSpark Terms of Service',),
+              'delete-account/index.html': ('Delete a ChronoSpark Account',),
+              'app/index.html': ('verified web app is not published here yet',),
+              'robots.txt': ('Sitemap:',),
+              'sitemap.xml': ('/privacy/', '/delete-account/'),
+          }
+          for relative, markers in required.items():
+              path = root / relative
+              if not path.is_file():
+                  raise SystemExit(f'Missing required public route: {relative}')
+              text = path.read_text(encoding='utf-8')
+              missing = [marker for marker in markers if marker not in text]
+              if missing:
+                  raise SystemExit(f'{relative} missing expected content: {missing}')
+          cname = root / 'CNAME'
+          if cname.exists() and 'chronospark.app' in cname.read_text(encoding='utf-8'):
+              raise SystemExit('A custom domain must not be added without separate approval.')
+
+      - name: Upload public-site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ runner.temp }}/gated-web
+          path: _site
 
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    needs: prepare-gated-pages
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy gated candidate to GitHub Pages
+      - name: Deploy public site
         id: deployment
         uses: actions/deploy-pages@v4
