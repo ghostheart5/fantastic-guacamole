@@ -131,6 +131,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         .where(
           (TimelineEventEntity event) =>
               event.type == TimelineEventType.task ||
+              event.type == TimelineEventType.taskCompleted ||
+              event.type == TimelineEventType.taskSkipped ||
+              event.type == TimelineEventType.taskRescheduled ||
               event.type == TimelineEventType.habit ||
               (event.type == TimelineEventType.deadline &&
                   event.phase == 'task'),
@@ -571,6 +574,9 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
     }
     return switch (event.type) {
       TimelineEventType.task => 'Task',
+      TimelineEventType.taskCompleted => 'Task Completed',
+      TimelineEventType.taskSkipped => 'Task Skipped',
+      TimelineEventType.taskRescheduled => 'Task Rescheduled',
       TimelineEventType.goal => 'Goal',
       TimelineEventType.habit => 'Habit',
       TimelineEventType.habitCompleted => 'Habit Completed',
@@ -821,6 +827,12 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
         return Colors.deepOrangeAccent;
       case TimelineEventType.task:
         return AppColors.neonCyan;
+      case TimelineEventType.taskCompleted:
+        return const Color(0xFF4CAF50);
+      case TimelineEventType.taskSkipped:
+        return Colors.blueGrey;
+      case TimelineEventType.taskRescheduled:
+        return const Color(0xFF59C8FF);
       case TimelineEventType.goal:
         return const Color(0xFF7AF7C4);
       case TimelineEventType.habit:
@@ -866,6 +878,12 @@ class _TimelineEventTileState extends ConsumerState<_TimelineEventTile> {
         return Icons.local_fire_department_rounded;
       case TimelineEventType.task:
         return Icons.checklist_rounded;
+      case TimelineEventType.taskCompleted:
+        return Icons.check_circle_rounded;
+      case TimelineEventType.taskSkipped:
+        return Icons.remove_circle_outline_rounded;
+      case TimelineEventType.taskRescheduled:
+        return Icons.schedule_rounded;
       case TimelineEventType.goal:
         return Icons.flag_rounded;
       case TimelineEventType.habit:

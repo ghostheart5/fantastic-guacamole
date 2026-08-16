@@ -516,7 +516,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         _NeonNavTile(
                           title: 'Completion Events Inspector',
                           subtitle:
-                              'Review and clear local completion_events_v1 records.',
+                              'Review and clear local V2 compatibility projections. Clearing them never changes canonical task occurrences.',
                           onTap: () =>
                               context.push(RoutePaths.completionEvents),
                         ),

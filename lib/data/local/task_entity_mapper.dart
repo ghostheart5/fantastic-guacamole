@@ -17,14 +17,17 @@ class TaskEntityMapper {
     final bool legacyCompleted =
         legacyStatus == 'completed' ||
         ((json['completionCount'] as num?)?.toInt() ?? 0) > 0;
+    final String id = json['id']?.toString() ?? '';
+    final String? storedOccurrenceKey = json['occurrenceKey']?.toString();
 
     return TaskEntity(
-      id: json['id']?.toString() ?? '',
+      id: id,
       title: json['title']?.toString() ?? 'Untitled Task',
       kind: json['kind']?.toString(),
       description: json['description']?.toString(),
       createdAt: createdAt,
       isCompleted: json['isCompleted'] as bool? ?? legacyCompleted,
+      isSkipped: json['isSkipped'] as bool? ?? false,
       priority: (json['priority'] as num?)?.toInt() ?? 3,
       difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,
       energyRequired: (json['energyRequired'] as num?)?.toInt() ?? 3,
@@ -32,7 +35,11 @@ class TaskEntityMapper {
           ? null
           : Duration(milliseconds: durationMs),
       completedAt: _dateTimeFromJson(json['completedAt']),
+      skippedAt: _dateTimeFromJson(json['skippedAt']),
       scheduledFor: _dateTimeFromJson(json['scheduledFor']),
+      occurrenceKey: storedOccurrenceKey == null || storedOccurrenceKey.isEmpty
+          ? TaskEntity.deriveOccurrenceKey(taskId: id, createdAt: createdAt)
+          : storedOccurrenceKey,
       dueDate: _dateTimeFromJson(json['dueDate']),
       goalId: json['goalId']?.toString(),
       isCanceled: json['isCanceled'] as bool? ?? false,
@@ -55,12 +62,15 @@ class TaskEntityMapper {
     'description': task.description,
     'createdAt': task.createdAt.toIso8601String(),
     'isCompleted': task.isCompleted,
+    'isSkipped': task.isSkipped,
     'priority': task.priority,
     'difficulty': task.difficulty,
     'energyRequired': task.energyRequired,
     'estimatedDurationMs': task.estimatedDuration?.inMilliseconds,
     'completedAt': task.completedAt?.toIso8601String(),
+    'skippedAt': task.skippedAt?.toIso8601String(),
     'scheduledFor': task.scheduledFor?.toIso8601String(),
+    'occurrenceKey': task.occurrenceKey,
     'dueDate': task.dueDate?.toIso8601String(),
     'goalId': task.goalId,
     'isCanceled': task.isCanceled,

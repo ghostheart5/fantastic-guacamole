@@ -4,6 +4,7 @@ import 'package:fantastic_guacamole/data/remote/habit_occurrences_remote_gateway
 import 'package:fantastic_guacamole/data/remote/settings_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/notes_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/tasks_remote_gateway.dart';
+import 'package:fantastic_guacamole/data/remote/task_occurrences_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/sync/sync_operation.dart';
 import 'package:fantastic_guacamole/data/sync/sync_result.dart';
 
@@ -13,6 +14,7 @@ class SupabaseSyncExecutor {
     required this._goalsGateway,
     required this._habitsGateway,
     required this._habitOccurrencesGateway,
+    this._taskOccurrencesGateway = const TaskOccurrencesRemoteGateway(null),
     required this._settingsGateway,
     required this._notesGateway,
   });
@@ -21,6 +23,7 @@ class SupabaseSyncExecutor {
   final GoalsRemoteGateway _goalsGateway;
   final HabitsRemoteGateway _habitsGateway;
   final HabitOccurrencesRemoteGateway _habitOccurrencesGateway;
+  final TaskOccurrencesRemoteGateway _taskOccurrencesGateway;
   final SettingsRemoteGateway _settingsGateway;
   final NotesRemoteGateway _notesGateway;
 
@@ -35,6 +38,8 @@ class SupabaseSyncExecutor {
           return await _applyForHabits(operation);
         case 'habit_occurrences':
           return await _applyForHabitOccurrences(operation);
+        case 'task_occurrences':
+          return await _applyForTaskOccurrences(operation);
         case 'settings':
           return await _applyForSettings(operation);
         case 'notes':
@@ -96,6 +101,16 @@ class SupabaseSyncExecutor {
       return SyncApplyResult.fatal('Habit occurrences are immutable.');
     }
     await _habitOccurrencesGateway.upsert(row: operation.payload);
+    return SyncApplyResult.success();
+  }
+
+  Future<SyncApplyResult> _applyForTaskOccurrences(
+    SyncOperation operation,
+  ) async {
+    if (operation.operationType == SyncOperationType.delete) {
+      return SyncApplyResult.fatal('Task occurrences are immutable.');
+    }
+    await _taskOccurrencesGateway.upsert(row: operation.payload);
     return SyncApplyResult.success();
   }
 

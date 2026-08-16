@@ -4,6 +4,9 @@ enum TimelineEventType {
   goalComplete,
   streak,
   task,
+  taskCompleted,
+  taskSkipped,
+  taskRescheduled,
   goal,
   habit,
   habitCompleted,
@@ -88,6 +91,12 @@ class TimelineEventEntity {
         return 'Streak';
       case TimelineEventType.task:
         return 'Task';
+      case TimelineEventType.taskCompleted:
+        return 'Task Completed';
+      case TimelineEventType.taskSkipped:
+        return 'Task Skipped';
+      case TimelineEventType.taskRescheduled:
+        return 'Task Rescheduled';
       case TimelineEventType.goal:
         return 'Goal';
       case TimelineEventType.habit:

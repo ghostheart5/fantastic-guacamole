@@ -5,15 +5,19 @@ class TaskFilter {
   const TaskFilter._();
 
   /// Active tasks only - not completed and not canceled.
-  static List<TaskEntity> incomplete(List<TaskEntity> tasks) =>
-      tasks.where((t) => !t.isCompleted && !t.isCanceled).toList();
+  static List<TaskEntity> incomplete(List<TaskEntity> tasks) => tasks
+      .where((t) => !t.isCompleted && !t.isSkipped && !t.isCanceled)
+      .toList();
 
   /// Tasks whose due date has passed.
   static List<TaskEntity> overdue(List<TaskEntity> tasks, {DateTime? now}) {
     final DateTime ref = now ?? DateTime.now();
     return tasks.where((t) {
       final DateTime? dueDate = t.dueDate;
-      return !t.isCompleted && dueDate != null && dueDate.isBefore(ref);
+      return !t.isCompleted &&
+          !t.isSkipped &&
+          dueDate != null &&
+          dueDate.isBefore(ref);
     }).toList();
   }
 
@@ -28,6 +32,7 @@ class TaskFilter {
     return tasks.where((t) {
       final DateTime? dueDate = t.dueDate;
       return !t.isCompleted &&
+          !t.isSkipped &&
           dueDate != null &&
           !dueDate.isBefore(ref) &&
           dueDate.isBefore(cutoff);

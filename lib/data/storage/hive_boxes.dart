@@ -7,6 +7,9 @@ class HiveBoxes {
   static const String goals = 'goals_box';
   static const String habits = 'habits_box';
   static const String habitOccurrences = 'habit_occurrences_v2';
+  static const String taskOccurrences = 'task_occurrences_v2';
+  static const String taskOccurrenceProjectionWork =
+      'task_occurrence_projection_work_v2';
   static const String projects = 'projects_box';
   static const String routines = 'routines_box';
   static const String subtasks = 'subtasks_box';
@@ -23,6 +26,8 @@ class HiveBoxes {
     goals,
     habits,
     habitOccurrences,
+    taskOccurrences,
+    taskOccurrenceProjectionWork,
     projects,
     routines,
     subtasks,

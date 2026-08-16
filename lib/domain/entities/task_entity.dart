@@ -8,12 +8,15 @@ class TaskEntity {
     this.description,
     required this.createdAt,
     this.isCompleted = false,
+    this.isSkipped = false,
     this.priority = 3,
     this.difficulty = 3,
     this.energyRequired = 3,
     this.estimatedDuration,
     this.completedAt,
+    this.skippedAt,
     this.scheduledFor,
+    this.occurrenceKey,
     this.dueDate,
     this.goalId,
     this.isCanceled = false,
@@ -27,17 +30,32 @@ class TaskEntity {
   final String? description;
   final DateTime createdAt;
   final bool isCompleted;
+  final bool isSkipped;
   final int priority;
   final int difficulty;
   final int energyRequired;
   final Duration? estimatedDuration;
   final DateTime? completedAt;
+  final DateTime? skippedAt;
   final DateTime? scheduledFor;
+  final String? occurrenceKey;
   final DateTime? dueDate;
   final String? goalId;
   final bool isCanceled;
   final List<String> subtasks;
   final RecurrenceRule recurrenceRule;
+
+  /// Produces the one-time identity for a task's initial actionable slot.
+  ///
+  /// Existing records did not persist an occurrence key.  Their current due
+  /// date may already have been changed by a legacy reschedule, so it is not
+  /// safe to use it as a fallback.  The immutable creation identity and task
+  /// ID remain stable across a restart and are therefore the compatibility
+  /// fallback.  New tasks persist this value before their first transition.
+  static String deriveOccurrenceKey({
+    required String taskId,
+    required DateTime createdAt,
+  }) => 'v1:$taskId:${createdAt.toUtc().toIso8601String()}';
 
   TaskEntity copyWith({
     String? id,
@@ -46,12 +64,17 @@ class TaskEntity {
     String? description,
     DateTime? createdAt,
     bool? isCompleted,
+    bool? isSkipped,
     int? priority,
     int? difficulty,
     int? energyRequired,
     Duration? estimatedDuration,
     DateTime? completedAt,
+    DateTime? skippedAt,
+    bool clearCompletedAt = false,
+    bool clearSkippedAt = false,
     DateTime? scheduledFor,
+    String? occurrenceKey,
     DateTime? dueDate,
     String? goalId,
     bool? isCanceled,
@@ -65,12 +88,15 @@ class TaskEntity {
       description: description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
       isCompleted: isCompleted ?? this.isCompleted,
+      isSkipped: isSkipped ?? this.isSkipped,
       priority: priority ?? this.priority,
       difficulty: difficulty ?? this.difficulty,
       energyRequired: energyRequired ?? this.energyRequired,
       estimatedDuration: estimatedDuration ?? this.estimatedDuration,
-      completedAt: completedAt ?? this.completedAt,
+      completedAt: clearCompletedAt ? null : completedAt ?? this.completedAt,
+      skippedAt: clearSkippedAt ? null : skippedAt ?? this.skippedAt,
       scheduledFor: scheduledFor ?? this.scheduledFor,
+      occurrenceKey: occurrenceKey ?? this.occurrenceKey,
       dueDate: dueDate ?? this.dueDate,
       goalId: goalId ?? this.goalId,
       isCanceled: isCanceled ?? this.isCanceled,
@@ -89,7 +115,7 @@ class TaskEntity {
 
   bool get isOverdue {
     if (dueDate == null) return false;
-    return !isCompleted && DateTime.now().isAfter(dueDate!);
+    return !isCompleted && !isSkipped && DateTime.now().isAfter(dueDate!);
   }
 
   bool get hasSubtasks => subtasks.isNotEmpty;
@@ -118,6 +144,9 @@ class TaskEntity {
   void validate() {
     if (isCompleted && completedAt == null) {
       throw StateError('Completed tasks must have a completedAt timestamp');
+    }
+    if (isSkipped && skippedAt == null) {
+      throw StateError('Skipped tasks must have a skippedAt timestamp');
     }
   }
 }

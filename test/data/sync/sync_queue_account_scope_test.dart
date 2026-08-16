@@ -1,13 +1,16 @@
 import 'dart:io';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
+import 'package:fantastic_guacamole/data/adapters/task_occurrence_sync_adapter.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/sync/sync_operation.dart';
+import 'package:fantastic_guacamole/data/sync/sync_mutation_dispatcher.dart';
 import 'package:fantastic_guacamole/data/sync/sync_queue_store.dart';
 import 'package:fantastic_guacamole/data/sync/sync_result.dart';
 import 'package:fantastic_guacamole/data/sync/sync_runner.dart';
+import 'package:fantastic_guacamole/domain/entities/task_occurrence_entity.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 
@@ -61,22 +64,39 @@ void main() {
   final AccountStorageScope a = AccountStorageScope.authenticated('sync-A');
   final AccountStorageScope b = AccountStorageScope.authenticated('sync-B');
 
-  setUpAll(() => Hive.init(Directory.systemTemp.createTempSync('sync-scope-').path));
+  setUpAll(
+    () => Hive.init(Directory.systemTemp.createTempSync('sync-scope-').path),
+  );
 
-  test('V2 sync queues isolate A to B to A, including identical operation IDs', () async {
-    await _store(a).enqueue(_operation('sync-A', 'A_SECRET_SYNC_OP'));
-    expect((await _store(b).readAll()), isEmpty);
+  test(
+    'V2 sync queues isolate A to B to A, including identical operation IDs',
+    () async {
+      await _store(a).enqueue(_operation('sync-A', 'A_SECRET_SYNC_OP'));
+      expect((await _store(b).readAll()), isEmpty);
 
-    await _store(b).enqueue(_operation('sync-B', 'B_SECRET_SYNC_OP'));
-    expect((await _store(a).readAll()).single.payload['secret'], 'A_SECRET_SYNC_OP');
-    expect((await _store(b).readAll()).single.payload['secret'], 'B_SECRET_SYNC_OP');
-  });
+      await _store(b).enqueue(_operation('sync-B', 'B_SECRET_SYNC_OP'));
+      expect(
+        (await _store(a).readAll()).single.payload['secret'],
+        'A_SECRET_SYNC_OP',
+      );
+      expect(
+        (await _store(b).readAll()).single.payload['secret'],
+        'B_SECRET_SYNC_OP',
+      );
+    },
+  );
 
-  test('acknowledging A does not remove B operation with the same operation ID', () async {
-    await _store(a).removeById('same-operation-id');
-    expect((await _store(a).readAll()), isEmpty);
-    expect((await _store(b).readAll()).single.payload['secret'], 'B_SECRET_SYNC_OP');
-  });
+  test(
+    'acknowledging A does not remove B operation with the same operation ID',
+    () async {
+      await _store(a).removeById('same-operation-id');
+      expect((await _store(a).readAll()), isEmpty);
+      expect(
+        (await _store(b).readAll()).single.payload['secret'],
+        'B_SECRET_SYNC_OP',
+      );
+    },
+  );
 
   test('signed-out store exposes no queue and cannot write', () async {
     final SyncQueueStore signedOut = SyncQueueStore.unavailable();
@@ -95,7 +115,10 @@ void main() {
     const String sentinel = '[{"legacy":"do-not-claim"}]';
     await legacy.put(SyncQueueStore.legacyStorageKey, sentinel);
 
-    expect(await _store(AccountStorageScope.authenticated('legacy-user')).readAll(), isEmpty);
+    expect(
+      await _store(AccountStorageScope.authenticated('legacy-user')).readAll(),
+      isEmpty,
+    );
     await legacy.open();
     expect(legacy.get(SyncQueueStore.legacyStorageKey), sentinel);
   });
@@ -115,4 +138,50 @@ void main() {
     expect(await _store(b).readAll(), isEmpty);
     expect((await _store(a).readAll()), isEmpty);
   });
+
+  test(
+    'task occurrence retry survives A runtime recreation and drains once',
+    () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'occurrence-restart-a',
+      );
+      final SyncQueueStore firstStore = _store(scope);
+      final TaskOccurrence occurrence = TaskOccurrence(
+        taskId: 'task-restart',
+        occurrenceKey: 'occurrence-restart',
+        initialScheduledFor: DateTime.utc(2026, 8, 15),
+        transitions: <TaskOccurrenceTransition>[
+          TaskOccurrenceTransition(
+            operationId: 'complete-restart',
+            outcome: TaskOccurrenceOutcome.completed,
+            at: DateTime.utc(2026, 8, 16),
+          ),
+        ],
+      );
+      final TaskOccurrenceSyncAdapter adapter = TaskOccurrenceSyncAdapter(
+        SyncMutationDispatcher(queueStore: firstStore, userId: scope.rawUserId),
+      );
+      expect(await adapter.enqueue(occurrence), isTrue);
+      await SyncRunner(
+        queueStore: firstStore,
+        applyFn: (SyncOperation _) async =>
+            SyncApplyResult.retryable('network'),
+        now: () => DateTime.utc(2026, 8, 16),
+      ).runOnce();
+      expect((await firstStore.readAll()).single.retryCount, 1);
+
+      final SyncQueueStore restartedStore = _store(scope);
+      final List<String> applied = <String>[];
+      await SyncRunner(
+        queueStore: restartedStore,
+        applyFn: (SyncOperation operation) async {
+          applied.add(operation.operationId);
+          return SyncApplyResult.success();
+        },
+        now: () => DateTime.utc(2026, 8, 16, 0, 1),
+      ).runOnce();
+      expect(applied, hasLength(1));
+      expect(await restartedStore.readAll(), isEmpty);
+    },
+  );
 }

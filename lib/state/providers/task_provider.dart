@@ -1,15 +1,12 @@
 import 'dart:async';
 
-import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
-import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
-import 'package:fantastic_guacamole/domain/entities/completion_event_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
-import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/optimizer/optimization_config.dart';
 import 'package:fantastic_guacamole/engine/scoring/session_scoring_engine.dart';
 import 'package:fantastic_guacamole/engine/tasks/task_filter.dart';
@@ -31,10 +28,13 @@ import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
-import 'package:fantastic_guacamole/state/providers/neural_history_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/session_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/services/task_occurrence_coordinator.dart';
+import 'package:fantastic_guacamole/state/services/task_occurrence_projection_coordinator.dart';
 import 'package:fantastic_guacamole/system/audio/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -68,13 +68,19 @@ final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
 });
 
 final taskActionsProvider = Provider<TaskActions>((Ref ref) {
-  return TaskActions(ref);
+  return TaskActions(
+    ref,
+    ref.watch(taskOccurrenceCoordinatorProvider),
+    ref.watch(taskOccurrenceProjectionCoordinatorProvider),
+  );
 });
 
 class TaskActions {
-  TaskActions(this._ref);
+  TaskActions(this._ref, this._occurrences, this._projections);
 
   final Ref _ref;
+  final TaskOccurrenceCoordinator _occurrences;
+  final TaskOccurrenceProjectionCoordinator _projections;
   static final SessionScoringEngine _scoringEngine = SessionScoringEngine();
   static const Duration _timelineActionDedupWindow = Duration(
     milliseconds: 900,
@@ -95,6 +101,10 @@ class TaskActions {
     final TaskEntity normalized = entity.copyWith(
       title: trimmed,
       createdAt: entity.createdAt,
+      occurrenceKey: TaskEntity.deriveOccurrenceKey(
+        taskId: entity.id,
+        createdAt: entity.createdAt,
+      ),
     );
 
     await _ref.read(createTaskUseCaseProvider).call(normalized);
@@ -163,8 +173,51 @@ class TaskActions {
         ? Future<Task?>.value(selectedTask)
         : _taskFromRepository(id);
 
-    await _ref.read(completeTaskUseCaseProvider).call(id);
+    final TaskOccurrenceResult occurrenceResult = await _occurrences.complete(
+      id,
+    );
+    if (occurrenceResult.mutation == TaskOccurrenceMutation.conflict) {
+      return;
+    }
+    if (!_isCurrentOccurrenceScope()) {
+      _invalidateTaskGraph();
+      return;
+    }
     selectedTask ??= await selectedTaskFuture;
+    int? projectionDurationSeconds;
+    double? projectionQuality;
+    if (selectedTask != null) {
+      projectionDurationSeconds = (selectedTask.difficulty * 300).clamp(
+        60,
+        1800,
+      );
+      projectionQuality = _scoringEngine
+          .calculate(
+            seconds: projectionDurationSeconds,
+            energy: _ref.read(siStateProvider).energy,
+            taskPriority: selectedTask.priority,
+          )
+          .quality;
+    }
+    await _bestEffort(
+      () => _projections.project(
+        occurrenceResult.occurrence,
+        context: TaskOccurrenceProjectionContext(
+          taskTitle: selectedTask?.title ?? occurrenceResult.occurrence.taskId,
+          taskDifficulty: selectedTask?.difficulty ?? 3,
+          durationSeconds: projectionDurationSeconds,
+          quality: projectionQuality,
+        ),
+      ),
+    );
+    if (!_isCurrentOccurrenceScope()) {
+      _invalidateTaskGraph();
+      return;
+    }
+    _invalidateOccurrenceProjections();
+    if (occurrenceResult.mutation != TaskOccurrenceMutation.applied) {
+      return;
+    }
 
     if (selectedTask != null) {
       final DateTime now = DateTime.now();
@@ -189,23 +242,21 @@ class TaskActions {
           );
       _ref.read(profileProvider.notifier).addXP(score.xp);
       _ref.read(siStateProvider.notifier).sessionComplete();
-      unawaited(
-        _recordCompletionSideEffects(
-          task: selectedTask,
-          durationSeconds: estimatedSeconds,
-          quality: score.quality,
-          timestamp: now,
-          notify: notify,
-        ),
+      await _recordCompletionSideEffects(
+        task: selectedTask,
+        durationSeconds: estimatedSeconds,
+        quality: score.quality,
+        timestamp: now,
+        notify: notify,
       );
     }
 
     if (selectedTask == null) {
-      unawaited(_refreshCoachDecision(notify: notify));
+      await _refreshCoachDecision(notify: notify);
     }
 
     if (actionSource == 'timeline') {
-      unawaited(_markTimelineFirstActionCompleted());
+      await _markTimelineFirstActionCompleted();
     }
 
     if (selectedTask != null) {
@@ -215,15 +266,6 @@ class TaskActions {
           'task_id': selectedTask.id,
           'action_source': actionSource,
         },
-      );
-      unawaited(
-        _bestEffort(
-          () => _recordCompletionEvent(
-            task: selectedTask!,
-            eventType: CompletionEventType.completed,
-            actionSource: actionSource,
-          ),
-        ),
       );
       _emitTaskLifecycle(
         taskId: selectedTask.id,
@@ -248,7 +290,10 @@ class TaskActions {
     final TaskEntity? entity = await _ref
         .read(domainTaskRepositoryProvider)
         .getTaskById(id);
-    if (entity == null || entity.isCompleted || entity.isCanceled) {
+    if (entity == null ||
+        entity.isCompleted ||
+        entity.isSkipped ||
+        entity.isCanceled) {
       return null;
     }
     return _taskFromEntity(entity);
@@ -296,25 +341,34 @@ class TaskActions {
       return;
     }
 
-    final DateTime now = DateTime.now();
-    await _ref
-        .read(learningProvider.notifier)
-        .update(success: false, difficulty: selectedTask.difficulty);
+    final TaskOccurrenceResult occurrenceResult = await _occurrences.skip(
+      selectedTask.id,
+    );
+    if (occurrenceResult.mutation == TaskOccurrenceMutation.conflict) {
+      return;
+    }
+    if (!_isCurrentOccurrenceScope()) {
+      _invalidateTaskGraph();
+      return;
+    }
+    await _bestEffort(
+      () => _projections.project(
+        occurrenceResult.occurrence,
+        context: TaskOccurrenceProjectionContext(
+          taskTitle: selectedTask!.title,
+          taskDifficulty: selectedTask.difficulty,
+        ),
+      ),
+    );
+    if (!_isCurrentOccurrenceScope()) {
+      _invalidateTaskGraph();
+      return;
+    }
+    _invalidateOccurrenceProjections();
+    if (occurrenceResult.mutation != TaskOccurrenceMutation.applied) {
+      return;
+    }
     _ref.read(siStateProvider.notifier).taskSkipped();
-    await _ref
-        .read(logsActionsProvider)
-        .addMirroredEntry(source: 'task_skipped', message: selectedTask.title);
-    await _ref
-        .read(timelineActionsProvider)
-        .addMirroredEvent(
-          TimelineEventEntity(
-            id: 'timeline-task-skipped-${now.microsecondsSinceEpoch}',
-            type: TimelineEventType.reflection,
-            title: 'Task Skipped',
-            detail: '${selectedTask.title} skipped and adaptation triggered.',
-            timestamp: now,
-          ),
-        );
     if (notify) {
       await _ref
           .read(notificationActionsProvider)
@@ -323,18 +377,8 @@ class TaskActions {
     await _refreshCoachDecision(notify: notify);
 
     if (actionSource == 'timeline') {
-      unawaited(_markTimelineFirstActionCompleted());
+      await _markTimelineFirstActionCompleted();
     }
-
-    unawaited(
-      _bestEffort(
-        () => _recordCompletionEvent(
-          task: selectedTask!,
-          eventType: CompletionEventType.skipped,
-          actionSource: actionSource,
-        ),
-      ),
-    );
 
     _emitTaskLifecycle(
       taskId: selectedTask.id,
@@ -363,7 +407,10 @@ class TaskActions {
     final TaskEntity? entity = await _ref
         .read(domainTaskRepositoryProvider)
         .getTaskById(id);
-    if (entity == null || entity.isCompleted || entity.isCanceled) {
+    if (entity == null ||
+        entity.isCompleted ||
+        entity.isSkipped ||
+        entity.isCanceled) {
       throw StateError('Task not found');
     }
     final DateTime now = DateTime.now();
@@ -374,16 +421,6 @@ class TaskActions {
     final TaskEntity delayed = entity.copyWith(scheduledFor: nextSchedule);
     final String normalizedDelayReason = delayReason.trim().toLowerCase();
     final bool isNotCompleted = normalizedDelayReason == 'not_completed';
-    final bool isOverdue = normalizedDelayReason == 'overdue';
-    final String logSource = isNotCompleted
-        ? 'task_not_completed'
-        : 'task_delayed';
-    final String eventTitle = isNotCompleted
-        ? 'Task Not Completed'
-        : 'Task Delayed';
-    final String eventDetail = isNotCompleted
-        ? '${delayed.title} marked not completed and moved to ${nextSchedule.toLocal().toIso8601String()}.'
-        : '${delayed.title} delayed until ${nextSchedule.toLocal().toIso8601String()}.';
     final String lifecycleAction = isNotCompleted ? 'not_completed' : 'delayed';
 
     if (_shouldSuppressTimelineDuplicate(
@@ -394,42 +431,41 @@ class TaskActions {
       return;
     }
 
-    await _ref.read(updateTaskUseCaseProvider).call(delayed);
-    await _ref
-        .read(logsActionsProvider)
-        .addMirroredEntry(source: logSource, message: delayed.title);
-    await _ref
-        .read(timelineActionsProvider)
-        .addMirroredEvent(
-          TimelineEventEntity(
-            id: 'timeline-task-delayed-${now.microsecondsSinceEpoch}',
-            type: TimelineEventType.reflection,
-            title: eventTitle,
-            detail: eventDetail,
-            timestamp: now,
-          ),
-        );
+    final TaskOccurrenceResult occurrenceResult = await _occurrences.reschedule(
+      delayed.id,
+      scheduledFor: nextSchedule,
+    );
+    if (occurrenceResult.mutation == TaskOccurrenceMutation.conflict) {
+      return;
+    }
+    if (!_isCurrentOccurrenceScope()) {
+      _invalidateTaskGraph(includeDecision: true);
+      return;
+    }
+    await _bestEffort(
+      () => _projections.project(
+        occurrenceResult.occurrence,
+        context: TaskOccurrenceProjectionContext(
+          taskTitle: delayed.title,
+          taskDifficulty: delayed.difficulty,
+        ),
+      ),
+    );
+    if (!_isCurrentOccurrenceScope()) {
+      _invalidateTaskGraph(includeDecision: true);
+      return;
+    }
+    _invalidateOccurrenceProjections();
+    if (occurrenceResult.mutation != TaskOccurrenceMutation.applied) {
+      return;
+    }
     if (notify) {
       await _refreshCoachDecision(notify: true);
     }
 
     if (actionSource == 'timeline') {
-      unawaited(_markTimelineFirstActionCompleted());
+      await _markTimelineFirstActionCompleted();
     }
-    final CompletionEventType eventType = isNotCompleted
-        ? CompletionEventType.notCompleted
-        : isOverdue
-        ? CompletionEventType.overdue
-        : CompletionEventType.rescheduled;
-    unawaited(
-      _bestEffort(
-        () => _recordCompletionEvent(
-          task: _taskFromEntity(delayed),
-          eventType: eventType,
-          actionSource: actionSource,
-        ),
-      ),
-    );
     _emitTaskLifecycle(
       taskId: delayed.id,
       title: delayed.title,
@@ -459,7 +495,10 @@ class TaskActions {
         .read(domainTaskRepositoryProvider)
         .getTaskById(id);
 
-    if (existing == null || existing.isCompleted || existing.isCanceled) {
+    if (existing == null ||
+        existing.isCompleted ||
+        existing.isSkipped ||
+        existing.isCanceled) {
       throw StateError('Creator entry not found.');
     }
 
@@ -576,6 +615,22 @@ class TaskActions {
     }
   }
 
+  /// Timeline and completion views are read-only projections of the canonical
+  /// occurrence transition and must refresh only after its projection attempt
+  /// has settled in the captured account scope.
+  void _invalidateOccurrenceProjections() {
+    _ref.invalidate(timelineProvider);
+    _ref.invalidate(completionEventsProvider);
+    _ref.invalidate(logsProvider);
+  }
+
+  bool _isCurrentOccurrenceScope() {
+    final AccountStorageScope current = _ref.read(accountStorageScopeProvider);
+    return _occurrences.scope.isAuthenticated &&
+        current.isAuthenticated &&
+        current.v2Namespace == _occurrences.scope.v2Namespace;
+  }
+
   Future<void> _refreshCoachDecision({required bool notify}) async {
     try {
       final decision = await _ref
@@ -604,25 +659,6 @@ class TaskActions {
     } catch (_) {
       // Skip coach refresh errors to avoid blocking task mutations.
     }
-  }
-
-  Future<void> _recordCompletionLearning({
-    required Task task,
-    required int durationSeconds,
-    required double quality,
-    required DateTime timestamp,
-  }) async {
-    final NeuralEntry entry = NeuralEntry(
-      task: task.title,
-      reasoning: 'Recorded from a completed task.',
-      confidence: quality,
-      duration: durationSeconds,
-      quality: quality,
-      timestamp: timestamp,
-    );
-    await _ref
-        .read(neuralHistoryStoreProvider)
-        .appendNeuralEntry(entry, maxEntries: 200);
   }
 
   Future<void> _recordCreationSideEffects({
@@ -684,38 +720,7 @@ class TaskActions {
     required bool notify,
   }) async {
     await _bestEffort(
-      () => _ref
-          .read(learningProvider.notifier)
-          .update(success: true, difficulty: task.difficulty),
-    );
-    await _bestEffort(
       () => _ref.read(localMetricsAccumulatorProvider).recordTaskCompleted(),
-    );
-    await _bestEffort(
-      () => _recordCompletionLearning(
-        task: task,
-        durationSeconds: durationSeconds,
-        quality: quality,
-        timestamp: timestamp,
-      ),
-    );
-    await _bestEffort(
-      () => _ref
-          .read(logsActionsProvider)
-          .addCompletedTask(task: task.title, mirrored: true),
-    );
-    await _bestEffort(
-      () => _ref
-          .read(timelineActionsProvider)
-          .addMirroredEvent(
-            TimelineEventEntity(
-              id: 'timeline-task-complete-${timestamp.microsecondsSinceEpoch}',
-              type: TimelineEventType.reflection,
-              title: 'Task Completed',
-              detail: '${task.title} marked complete.',
-              timestamp: timestamp,
-            ),
-          ),
     );
     if (notify) {
       await _bestEffort(
@@ -725,32 +730,6 @@ class TaskActions {
       );
     }
     await _refreshCoachDecision(notify: notify);
-  }
-
-  Future<void> _recordCompletionEvent({
-    required Task task,
-    required CompletionEventType eventType,
-    required String actionSource,
-  }) async {
-    if (!Env.enableCompletionEventTracking) {
-      return;
-    }
-    final CompletionEventEntity event = CompletionEventEntity(
-      id: 'completion-${DateTime.now().microsecondsSinceEpoch}-${task.id}-${eventType.name}',
-      eventType: eventType,
-      eventAt: DateTime.now().toUtc(),
-      taskId: task.id,
-      userId: sb.Supabase.instance.client.auth.currentUser?.id,
-      source: actionSource,
-      metadata: <String, dynamic>{
-        'title': task.title,
-        'priority': task.priority,
-        'difficulty': task.difficulty,
-        'kind': task.kind,
-      },
-    );
-    await _ref.read(completionEventRepositoryProvider).addEvent(event);
-    _ref.invalidate(completionEventsProvider);
   }
 
   Future<void> _bestEffort(Future<void> Function() operation) async {

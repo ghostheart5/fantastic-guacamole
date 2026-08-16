@@ -6,11 +6,10 @@ class TimelineHistoryAdapter {
   const TimelineHistoryAdapter._();
 
   static HistoryEvent toHistory(TimelineEventEntity event) {
-    final String title = event.title.trim().toLowerCase();
     final String legacyType = event.type.name;
     return HistoryEvent(
       id: event.id,
-      kind: _kindFor(event.type, title),
+      kind: _kindFor(event.type),
       occurredAt: event.timestamp.toUtc(),
       entityType: _entityTypeFor(event.type),
       entityId: _emptyToNull(event.relatedId),
@@ -34,7 +33,9 @@ class TimelineHistoryAdapter {
     final bool known = TimelineEventType.values.any(
       (TimelineEventType type) => type.name == rawType,
     );
-    if (known) return converted;
+    if (known) {
+      return converted.copyWithKind(_legacyKindFor(event));
+    }
     return HistoryEvent(
       id: converted.id,
       kind: HistoryEventKind.legacyTimeline,
@@ -73,20 +74,11 @@ class TimelineHistoryAdapter {
     );
   }
 
-  static HistoryEventKind _kindFor(TimelineEventType type, String title) {
-    if (type == TimelineEventType.reflection) {
-      if (title.startsWith('task completed')) {
-        return HistoryEventKind.taskCompleted;
-      }
-      if (title.startsWith('task skipped')) return HistoryEventKind.taskSkipped;
-      if (title.startsWith('task added')) return HistoryEventKind.taskCreated;
-      if (title.startsWith('task delayed') ||
-          title.startsWith('task not completed')) {
-        return HistoryEventKind.taskRescheduled;
-      }
-      return HistoryEventKind.reflectionRecorded;
-    }
+  static HistoryEventKind _kindFor(TimelineEventType type) {
     return switch (type) {
+      TimelineEventType.taskCompleted => HistoryEventKind.taskCompleted,
+      TimelineEventType.taskSkipped => HistoryEventKind.taskSkipped,
+      TimelineEventType.taskRescheduled => HistoryEventKind.taskRescheduled,
       TimelineEventType.goalComplete => HistoryEventKind.goalCompleted,
       TimelineEventType.levelUp ||
       TimelineEventType.milestone => HistoryEventKind.milestoneReached,
@@ -110,9 +102,35 @@ class TimelineHistoryAdapter {
     };
   }
 
+  /// Display-title parsing is retained exclusively for pre-schema Timeline
+  /// payloads. New task outcome records use their typed TimelineEventType.
+  static HistoryEventKind _legacyKindFor(TimelineEventEntity event) {
+    if (event.type != TimelineEventType.reflection) {
+      return _kindFor(event.type);
+    }
+    final String title = event.title.trim().toLowerCase();
+    if (title.startsWith('task completed')) {
+      return HistoryEventKind.taskCompleted;
+    }
+    if (title.startsWith('task skipped')) {
+      return HistoryEventKind.taskSkipped;
+    }
+    if (title.startsWith('task added')) {
+      return HistoryEventKind.taskCreated;
+    }
+    if (title.startsWith('task delayed') ||
+        title.startsWith('task not completed')) {
+      return HistoryEventKind.taskRescheduled;
+    }
+    return HistoryEventKind.reflectionRecorded;
+  }
+
   static HistoryEntityType _entityTypeFor(TimelineEventType type) =>
       switch (type) {
         TimelineEventType.task ||
+        TimelineEventType.taskCompleted ||
+        TimelineEventType.taskSkipped ||
+        TimelineEventType.taskRescheduled ||
         TimelineEventType.deadline => HistoryEntityType.task,
         TimelineEventType.goal ||
         TimelineEventType.goalComplete => HistoryEntityType.goal,
@@ -137,6 +155,9 @@ class TimelineHistoryAdapter {
         HistoryEventKind.streakRecorded => TimelineEventType.streak,
         HistoryEventKind.deadlineScheduled => TimelineEventType.deadline,
         HistoryEventKind.taskScheduled => TimelineEventType.task,
+        HistoryEventKind.taskCompleted => TimelineEventType.taskCompleted,
+        HistoryEventKind.taskSkipped => TimelineEventType.taskSkipped,
+        HistoryEventKind.taskRescheduled => TimelineEventType.taskRescheduled,
         HistoryEventKind.goalScheduled => TimelineEventType.goal,
         HistoryEventKind.habitScheduled => TimelineEventType.habit,
         HistoryEventKind.habitCompleted => TimelineEventType.habitCompleted,

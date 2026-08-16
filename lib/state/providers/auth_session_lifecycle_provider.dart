@@ -14,6 +14,8 @@ import 'package:fantastic_guacamole/data/di/repositories_providers.dart'
         settingsRepositoryProvider,
         syncMutationDispatcherProvider,
         taskRepositoryProvider,
+        taskOccurrenceRepositoryProvider,
+        taskOccurrenceProjectionWorkRepositoryProvider,
         timelineRepositoryProvider,
         notificationSchedulerProvider;
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
@@ -73,6 +75,7 @@ import 'package:fantastic_guacamole/state/providers/subtasks_provider.dart';
 import 'package:fantastic_guacamole/state/providers/supabase_backend_provider.dart';
 import 'package:fantastic_guacamole/state/providers/supabase_sync_queue_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_misc_usecase_providers.dart'
     show viewTimelineUsecaseProvider;
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
@@ -99,9 +102,8 @@ final _authTransitionCleanupProvider = Provider<LocalUserDataCleanupService>((
     preferences: ref.watch(sharedPrefsStoreProvider),
     hive: ref.watch(hiveStoreProvider),
     secureStore: ref.watch(secureStoreProvider),
-    cancelNotifications: () => ref
-        .read(notificationSchedulerProvider)
-        .cancelAllForAccountRemoval(),
+    cancelNotifications: () =>
+        ref.read(notificationSchedulerProvider).cancelAllForAccountRemoval(),
   );
 });
 
@@ -1327,6 +1329,15 @@ class AuthSessionLifecycleCoordinator {
     final ProfileController profile = _ref.read(profileProvider.notifier);
     final LearningController learning = _ref.read(learningProvider.notifier);
     final taskRepository = _ref.read(taskRepositoryProvider);
+    final taskOccurrenceCoordinator = _ref.read(
+      taskOccurrenceCoordinatorProvider,
+    );
+    final taskOccurrenceProjections = _ref.read(
+      taskOccurrenceProjectionCoordinatorProvider,
+    );
+    final taskOccurrenceProjectionWork = _ref.read(
+      taskOccurrenceProjectionWorkRepositoryProvider,
+    );
     final goalRepository = _ref.read(goalRepositoryProvider);
     final noteRepository = _ref.read(noteRepositoryProvider);
     final habitRepository = _ref.read(habitRepositoryProvider);
@@ -1337,6 +1348,9 @@ class AuthSessionLifecycleCoordinator {
         sessionRecovery ?? _ref.read(sessionRecoveryProvider);
     await Future.wait<void>(<Future<void>>[
       taskRepository.cancelAndDrain(),
+      taskOccurrenceCoordinator.cancelAndDrain(),
+      taskOccurrenceProjections.cancelAndDrain(),
+      taskOccurrenceProjectionWork.cancelAndDrain(),
       goalRepository.cancelAndDrain(),
       noteRepository.cancelAndDrain(),
       habitRepository.cancelAndDrain(),
@@ -1384,6 +1398,10 @@ class AuthSessionLifecycleCoordinator {
     _ref.invalidate(firebaseSupabaseBridgeProvider);
     _ref.invalidate(reminderOrchestratorServiceProvider);
     _ref.invalidate(taskRepositoryProvider);
+    _ref.invalidate(taskOccurrenceRepositoryProvider);
+    _ref.invalidate(taskOccurrenceProjectionWorkRepositoryProvider);
+    _ref.invalidate(taskOccurrenceCoordinatorProvider);
+    _ref.invalidate(taskOccurrenceProjectionCoordinatorProvider);
     _ref.invalidate(goalRepositoryProvider);
     _ref.invalidate(noteRepositoryProvider);
     _ref.invalidate(domainTaskRepositoryProvider);
@@ -1411,6 +1429,7 @@ class AuthSessionLifecycleCoordinator {
     _ref.invalidate(siEngineServiceProvider);
 
     _ref.invalidate(tasksProvider);
+    _ref.invalidate(taskActionsProvider);
     _ref.invalidate(goalsProvider);
     _ref.invalidate(goalProgressProvider);
     _ref.invalidate(timelineProvider);

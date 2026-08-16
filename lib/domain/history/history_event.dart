@@ -131,6 +131,18 @@ class HistoryEvent {
     );
   }
 
+  HistoryEvent copyWithKind(HistoryEventKind kind) => HistoryEvent(
+    id: id,
+    kind: kind,
+    occurredAt: occurredAt,
+    entityType: entityType,
+    entityId: entityId,
+    source: source,
+    payload: payload,
+    legacyKind: legacyKind,
+    version: version,
+  );
+
   static T _enumOrUnknown<T extends Enum>(
     List<T> values,
     String? raw,

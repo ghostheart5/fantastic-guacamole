@@ -4,10 +4,12 @@ import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/core/eventing/event_bus.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
+import 'package:fantastic_guacamole/data/repositories/task_occurrence_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task_occurrence_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
@@ -23,9 +25,11 @@ import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_occurrence_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
+import 'package:fantastic_guacamole/state/services/task_occurrence_coordinator.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/system/analytics/local_metrics_accumulator.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
@@ -174,6 +178,8 @@ void main() {
             ),
           ],
         );
+        final _MemoryTaskOccurrenceRepository occurrences =
+            _MemoryTaskOccurrenceRepository();
 
         final ProviderContainer container = ProviderContainer(
           overrides: [
@@ -181,6 +187,13 @@ void main() {
             domainTaskRepositoryProvider.overrideWithValue(repository),
             completeTaskUseCaseProvider.overrideWithValue(
               CompleteTask(repository),
+            ),
+            taskOccurrenceCoordinatorProvider.overrideWithValue(
+              TaskOccurrenceCoordinator(
+                scope: AccountStorageScope.authenticated('task-test-user'),
+                taskRepository: repository,
+                occurrenceRepository: occurrences,
+              ),
             ),
             tasksProvider.overrideWith((Ref ref) async => <Task>[]),
           ],
@@ -334,6 +347,32 @@ class _FakeTaskRepository implements ITaskRepository {
     if (task.isCompleted) {
       completedSaveCount += 1;
     }
+  }
+}
+
+class _MemoryTaskOccurrenceRepository extends TaskOccurrenceRepository {
+  _MemoryTaskOccurrenceRepository() : super.unavailable();
+
+  final Map<String, TaskOccurrence> _values = <String, TaskOccurrence>{};
+
+  @override
+  Future<void> cancelAndDrain() async {}
+
+  @override
+  Future<TaskOccurrence?> getOccurrence(
+    String taskId,
+    String occurrenceKey,
+  ) async => _values[TaskOccurrence.occurrenceId(taskId, occurrenceKey)];
+
+  @override
+  Future<List<TaskOccurrence>> listOccurrencesForTask(String taskId) async =>
+      _values.values
+          .where((TaskOccurrence value) => value.taskId == taskId)
+          .toList(growable: false);
+
+  @override
+  Future<void> save(TaskOccurrence occurrence) async {
+    _values[occurrence.id] = occurrence;
   }
 }
 

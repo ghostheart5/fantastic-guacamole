@@ -16,6 +16,7 @@ class TimelineRepository implements ITimelineRepository {
 
   final SharedPrefsStore _store;
   final String? _key;
+  Future<void> _writeTail = Future<void>.value();
 
   static String _scopedKey(AccountStorageScope scope) {
     final String? namespace = scope.v2Namespace;
@@ -58,13 +59,11 @@ class TimelineRepository implements ITimelineRepository {
   }
 
   @override
-  Future<void> addEvent(TimelineEventEntity event) {
-    final List<TimelineEventEntity> next = <TimelineEventEntity>[
-      event,
-      ...getEvents(),
-    ];
-    return saveEvents(next);
-  }
+  Future<void> addEvent(TimelineEventEntity event) => _serializeWrite(() async {
+    final List<TimelineEventEntity> current = getEvents();
+    if (current.any((TimelineEventEntity item) => item.id == event.id)) return;
+    await saveEvents(<TimelineEventEntity>[event, ...current]);
+  });
 
   @override
   Future<void> saveEvents(List<TimelineEventEntity> events) {
@@ -86,6 +85,12 @@ class TimelineRepository implements ITimelineRepository {
         .where((TimelineEventEntity event) => event.id != id)
         .toList(growable: false);
     return saveEvents(next);
+  }
+
+  Future<void> _serializeWrite(Future<void> Function() action) {
+    final Future<void> next = _writeTail.then((_) => action());
+    _writeTail = next.catchError((Object _) {});
+    return next;
   }
 
   HistoryEvent _decodeHistory(Map<String, dynamic> json) {

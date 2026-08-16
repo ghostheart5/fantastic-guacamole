@@ -14,6 +14,7 @@ class CompletionEventRepository implements ICompletionEventRepository {
 
   final SharedPrefsStore _store;
   final String? _key;
+  Future<void> _writeTail = Future<void>.value();
 
   static String _scopedKey(AccountStorageScope scope) {
     final String? namespace = scope.v2Namespace;
@@ -48,13 +49,14 @@ class CompletionEventRepository implements ICompletionEventRepository {
   }
 
   @override
-  Future<void> addEvent(CompletionEventEntity event) {
-    final List<CompletionEventEntity> next = <CompletionEventEntity>[
-      event,
-      ...getEvents(),
-    ];
-    return saveEvents(next);
-  }
+  Future<void> addEvent(CompletionEventEntity event) =>
+      _serializeWrite(() async {
+        final List<CompletionEventEntity> current = getEvents();
+        if (current.any((CompletionEventEntity item) => item.id == event.id)) {
+          return;
+        }
+        await saveEvents(<CompletionEventEntity>[event, ...current]);
+      });
 
   @override
   Future<void> saveEvents(List<CompletionEventEntity> events) {
@@ -74,5 +76,11 @@ class CompletionEventRepository implements ICompletionEventRepository {
         .where((CompletionEventEntity event) => event.id != id)
         .toList(growable: false);
     return saveEvents(next);
+  }
+
+  Future<void> _serializeWrite(Future<void> Function() action) {
+    final Future<void> next = _writeTail.then((_) => action());
+    _writeTail = next.catchError((Object _) {});
+    return next;
   }
 }

@@ -6,6 +6,19 @@ Source inventory: `ADVANCED_TEST_PLAN.md` (the four legacy ledger documents name
 by the Phase 0 request are not present in this checkout).  `AGENTS.md` is present
 but empty.
 
+## FIX-008A task occurrence authority
+
+| Scope | Coverage | Execution | Limitation |
+|---|---|---|---|
+| Task occurrence core authority | Account scoping, signed-out failure closure, complete/skip/reschedule, recurring successors, duplicate and conflicting commands, restart recovery, write failures, serialization, and concurrent commands in `test/state/services/task_occurrence_coordinator_test.dart` | Core: 17 passed, 0 failed. Task-command/mapper regressions: 12 passed, 0 failed. Focused FIX-005/006/007/lifecycle preservation: 43 passed, 0 failed. SI/Nexus/Smart Planner/Trajectory smoke: 10 passed, 0 failed. | Timeline, sync, Learning/Log/Neural fan-out, and lifecycle-drain integration remain explicitly deferred to FIX-008B. |
+
+## FIX-008B task occurrence projections
+
+| Scope | Coverage | Execution | Limitation |
+|---|---|---|---|
+| Occurrence projections | Typed Timeline and History kinds, deterministic event identity/related task ID, CompletionEvent compatibility projection, task-occurrence queue payload/deduplication, serialized append, and retry-safe projection adapter behavior | 5 projection/executor tests passed in `test/data/adapters/task_occurrence_downstream_adapter_test.dart`; scoped Timeline and lifecycle/sync regressions also passed (76 selected tests, 0 failed) | Remote transport is validated through the registered executor path with local fakes; no staging endpoint is contacted. |
+| Preservation regression | Notes authority, HabitOccurrence/Routine compatibility, Profile/Progression, Settings/Theme, Creator/Nexus/Timeline/Smart Planner/SI Console/Trajectory, and authoritative lifecycle policy | 78 selected tests passed, 0 failed | Device, staging, and production endpoints were not used. |
+
 ## Coverage inventory
 
 | Feature | Existing evidence | Missing/weak evidence | Primary owner | Blocking | Future test | Priority | Approx. runtime |
@@ -404,3 +417,82 @@ chat/product code.
   SHA/hash, missing coverage/device/performance/fuzz evidence, unapproved skip,
   expired quarantine, open P0/P1, missing signatures, or unverified chat
   isolation.
+
+## FIX-008B-R occurrence projection reconciliation
+
+| Coverage | Evidence | Result / limitation |
+|---|---|---|
+| Durable occurrence projection work | Account-scoped Hive work journal, replace-by-operation serialization, restart re-open test | 2 focused real-Hive checks passed |
+| Projection reconciliation | Timeline, completion ledger, sync, Learning, Logs, and Neural stages replay through captured Account A adapters | 10 focused coordinator/adapter checks passed |
+| Scope isolation | Retained Account A coordinator receives an Account B fixture, while only A-owned captured stores are written | Covered by focused coordinator harness; an actual ProviderContainer sign-out/re-auth barrier remains pending |
+| Existing regression | Selected occurrence/lifecycle test set | Passing; see command record below |
+| Notes preservation | Isolated Note retry test | Fails because its real-clock retry timestamp is later than its hard-coded `2026-08-16T00:00Z` retry clock. No Notes source or test was changed by FIX-008B-R. |
+
+### FIX-008B-R command record
+
+- `flutter test test/state/services/task_occurrence_projection_work_repository_test.dart test/data/adapters/task_occurrence_downstream_adapter_test.dart`: 12 passed.
+- `flutter test test/data/repositories/timeline_complete_command_v2_test.dart test/state/providers/task_goal_orchestration_test.dart`: passed.
+- `flutter test test/data/adapters/note_timeline_sync_integration_test.dart --plain-name "Note local persistence queues one account-owned canonical sync mutation and retries"`: failed in isolation for the fixed-clock limitation above.
+- No production database, credentials, remote host, migration deploy, or protected Notes authority was contacted or changed.
+
+### FIX-008B-R provider/lifecycle certification extension
+
+| Coverage | Evidence | Result / limitation |
+|---|---|---|
+| Provider command duplicate completion | Existing `TaskActions` ProviderContainer harness with a recording occurrence journal and scoped queue dispatcher | One occurrence, one transition, one journal record, and one Timeline/ledger/sync projection passed |
+| Downstream failure classification | Injected Learning, Log, and Neural failures in the occurrence coordinator harness | Learning is terminal best effort; Log and Neural remain pending and replay exactly once |
+| Startup reconciliation | Paused Timeline projection launched through `unawaited(reconcile())`, followed by coordinator cancellation/drain | The coordinator drain did not finish until the tracked projection completed |
+| Bounded matrix | Projection, work-journal, ProviderContainer command, core occurrence, lifecycle, and task orchestration suites | 50 passed, 0 failed |
+
+The ProviderContainer harness still does not model a real lifecycle-driven scope
+swap with pending projection work. That strict A-to-signed-out-to-A/B proof, the
+remaining complete/skip/reschedule E2E variants, remote queue restart, and the
+full preservation matrix remain open rather than inferred from these results.
+
+### FIX-008B-R command and sync extension
+
+- `timeline_complete_command_v2_test.dart`: five command-path checks passed,
+  including duplicate complete, duplicate skip, and reschedule-to-complete
+  occurrence projection paths.
+- `sync_queue_account_scope_test.dart`: six checks passed, including a real
+  account-scoped Hive restart after a retryable `task_occurrences` sync failure.
+- The lifecycle fixture now supplies a live auth-user stream for the focused
+  ProviderContainer A-to-signed-out drain proof; broader same-owner pending
+  work and A-to-B projection reconciliation scenarios remain open.
+
+### FIX-008B-R lifecycle drain proof
+
+- The lifecycle fixture now accepts a test-only live `authUserProvider` stream
+  and a captured projection coordinator. `A to signed-out waits for the
+  captured projection drain` passed: the real lifecycle boundary remained
+  transitioning until the Account A coordinator released its drain, then
+  emitted `cancel_and_drain`, invalidation, identity handoff, and
+  `boundary_ready` in order.
+
+### FIX-008B-R next bounded lifecycle phase
+
+- Proposed files: `lib/state/providers/task_occurrence_provider.dart`,
+  `test/state/providers/auth_session_lifecycle_integration_test.dart`, and
+  this ledger.
+- Objective: prove that an Account A projection coordinator remains the
+  captured instance after the live auth stream emits signed-out, until the
+  lifecycle coordinator explicitly drains and invalidates it. This prevents a
+  scope-driven rebuild from replacing A with an unavailable signed-out
+  coordinator before the drain barrier begins.
+- Result: the new test first failed (`identical == false`), demonstrating the
+  premature scope-driven replacement. The projection provider now captures its
+  construction scope with `ref.read`; the lifecycle's existing explicit
+  post-drain invalidation remains responsible for replacement. The focused test
+  passed after the correction, confirms a new signed-out instance only after
+  lifecycle invalidation, and targeted analysis reported no diagnostics.
+
+### FIX-008B-R next bounded command phase
+
+- Proposed files: `test/data/repositories/timeline_complete_command_v2_test.dart`
+  and this ledger.
+- Objective: cover the remaining TaskActions E2E variants—reschedule then skip,
+  and concurrent complete/skip—using the existing occurrence journal,
+  projection-work journal, and account-scoped queue harness.
+- Result: both paths passed. Reschedule then skip records one occurrence with
+  rescheduled and skipped transitions; concurrent complete/skip resolves to
+  one terminal transition, one work record, and one queue mutation.

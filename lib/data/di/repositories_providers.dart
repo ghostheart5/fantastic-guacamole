@@ -3,6 +3,9 @@ import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/data/adapters/habit_occurrence_sync_adapter.dart';
 import 'package:fantastic_guacamole/data/adapters/habit_occurrence_timeline_adapter.dart';
 import 'package:fantastic_guacamole/data/adapters/note_timeline_adapter.dart';
+import 'package:fantastic_guacamole/data/adapters/task_occurrence_completion_adapter.dart';
+import 'package:fantastic_guacamole/data/adapters/task_occurrence_sync_adapter.dart';
+import 'package:fantastic_guacamole/data/adapters/task_occurrence_timeline_adapter.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/remote/goals_remote_gateway.dart';
@@ -11,6 +14,7 @@ import 'package:fantastic_guacamole/data/remote/habit_occurrences_remote_gateway
 import 'package:fantastic_guacamole/data/remote/settings_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/notes_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/remote/tasks_remote_gateway.dart';
+import 'package:fantastic_guacamole/data/remote/task_occurrences_remote_gateway.dart';
 import 'package:fantastic_guacamole/data/repositories/calendar_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/completion_event_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/firebase_supabase_bridge_repository.dart';
@@ -35,6 +39,8 @@ import 'package:fantastic_guacamole/data/repositories/settings_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/si_engine_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/subtask_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/task_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/task_occurrence_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/task_occurrence_projection_work_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/theme_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/timeline_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/workspace_repository.dart';
@@ -73,9 +79,46 @@ TaskRepository taskRepository(Ref ref) {
 
 final taskRepositoryProvider = Provider<TaskRepository>(taskRepository);
 
+final taskOccurrenceRepositoryProvider = Provider<TaskOccurrenceRepository>((
+  Ref ref,
+) {
+  final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+  final TaskOccurrenceRepository repository =
+      !scope.isAuthenticated || scope.v2Namespace == null
+      ? TaskOccurrenceRepository.unavailable()
+      : TaskOccurrenceRepository(
+          HiveStorage<String>(
+            HiveBoxes.accountScoped(HiveBoxes.taskOccurrences, scope),
+            hive: ref.read(hiveStoreProvider),
+          ),
+        );
+  ref.onDispose(repository.dispose);
+  return repository;
+});
+
+final taskOccurrenceProjectionWorkRepositoryProvider =
+    Provider<TaskOccurrenceProjectionWorkRepository>((Ref ref) {
+      final AccountStorageScope scope = ref.watch(accountStorageScopeProvider);
+      final TaskOccurrenceProjectionWorkRepository repository =
+          !scope.isAuthenticated || scope.v2Namespace == null
+          ? TaskOccurrenceProjectionWorkRepository.unavailable()
+          : TaskOccurrenceProjectionWorkRepository(
+              HiveStorage<String>(
+                HiveBoxes.accountScoped(
+                  HiveBoxes.taskOccurrenceProjectionWork,
+                  scope,
+                ),
+                hive: ref.read(hiveStoreProvider),
+              ),
+            );
+      ref.onDispose(repository.dispose);
+      return repository;
+    });
+
 final noteRepositoryProvider = Provider<NoteRepository>((Ref ref) {
   final scope = ref.watch(accountStorageScopeProvider);
-  final NoteRepository repository = !scope.isAuthenticated || scope.v2Namespace == null
+  final NoteRepository repository =
+      !scope.isAuthenticated || scope.v2Namespace == null
       ? NoteRepository.unavailable()
       : NoteRepository(
           HiveStorage<String>(
@@ -152,6 +195,25 @@ final habitOccurrenceTimelineAdapterProvider =
 final habitOccurrenceSyncAdapterProvider = Provider<HabitOccurrenceSyncAdapter>(
   (Ref ref) =>
       HabitOccurrenceSyncAdapter(ref.read(syncMutationDispatcherProvider)),
+);
+
+final taskOccurrenceTimelineAdapterProvider =
+    Provider<TaskOccurrenceTimelineAdapter>((Ref ref) {
+      return TaskOccurrenceTimelineAdapter(
+        ref.read(timelineRepositoryProvider),
+      );
+    });
+
+final taskOccurrenceCompletionAdapterProvider =
+    Provider<TaskOccurrenceCompletionAdapter>((Ref ref) {
+      return TaskOccurrenceCompletionAdapter(
+        ref.read(completionEventRepositoryProvider),
+      );
+    });
+
+final taskOccurrenceSyncAdapterProvider = Provider<TaskOccurrenceSyncAdapter>(
+  (Ref ref) =>
+      TaskOccurrenceSyncAdapter(ref.read(syncMutationDispatcherProvider)),
 );
 
 final habitOccurrenceReminderAdapterProvider =
@@ -431,6 +493,11 @@ final habitsRemoteGatewayProvider = Provider<HabitsRemoteGateway>((Ref ref) {
 final habitOccurrencesRemoteGatewayProvider =
     Provider<HabitOccurrencesRemoteGateway>((Ref ref) {
       return HabitOccurrencesRemoteGateway(ref.read(supabaseClientProvider));
+    });
+
+final taskOccurrencesRemoteGatewayProvider =
+    Provider<TaskOccurrencesRemoteGateway>((Ref ref) {
+      return TaskOccurrencesRemoteGateway(ref.read(supabaseClientProvider));
     });
 
 final settingsRemoteGatewayProvider = Provider<SettingsRemoteGateway>((
