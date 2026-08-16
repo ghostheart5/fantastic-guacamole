@@ -6,6 +6,11 @@ import {
   readDeletionInput,
 } from "../_shared/account_deletion_state_machine.ts";
 import {
+  EdgeHttpError,
+  logEdgeEvent,
+  readBoundedJson,
+} from "../_shared/edge_http.ts";
+import {
   DEFAULT_RECENT_SIGN_IN_SECONDS,
   hasRecentSignIn,
 } from "./recent_sign_in_policy.ts";
@@ -39,7 +44,7 @@ function headers(req: Request): Record<string, string> {
     "Content-Type": "application/json",
     "Vary": "Origin",
     "X-Content-Type-Options": "nosniff",
-    "X-ChronoSpark-Contract": "account-delete-v2",
+    "X-ChronoSpark-Contract": "account-delete-v3",
   };
 }
 
@@ -63,39 +68,45 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const input = readDeletionInput(await req.json());
+    const input = readDeletionInput(
+      await readBoundedJson(req, { maxBytes: 8_192 }),
+    );
     if (!input) return json(req, { error: "invalid_request_body" }, 400);
+    if (input.action !== "delete") {
+      return json(req, { error: "status_endpoint_moved" }, 400);
+    }
     const authorization = req.headers.get("authorization") ?? "";
     const authUser = authorization
       ? await authenticatedDeletionUser(authorization)
       : null;
 
-    if (input.action === "delete") {
-      if (!authUser) return json(req, { error: "unauthorized" }, 401);
-      if (input.userId !== authUser.id) {
-        return json(req, { error: "user_mismatch" }, 403);
-      }
-      if (input.email && authUser.email && input.email !== authUser.email) {
-        return json(req, { error: "email_mismatch" }, 403);
-      }
-      if (
-        !hasRecentSignIn(authUser.lastSignInAt, {
-          recentSignInSeconds: RECENT_SIGN_IN_SECONDS,
-        })
-      ) {
-        return json(req, { error: "recent_sign_in_required" }, 428);
-      }
+    if (!authUser) return json(req, { error: "unauthorized" }, 401);
+    if (input.userId !== authUser.id) {
+      return json(req, { error: "user_mismatch" }, 403);
+    }
+    if (input.email && authUser.email && input.email !== authUser.email) {
+      return json(req, { error: "email_mismatch" }, 403);
+    }
+    if (
+      !hasRecentSignIn(authUser.lastSignInAt, {
+        recentSignInSeconds: RECENT_SIGN_IN_SECONDS,
+      })
+    ) {
+      return json(req, { error: "recent_sign_in_required" }, 428);
     }
 
     const result = await processDeletionRequest({
       input,
-      authenticatedUserId: input.action === "delete" ? authUser?.id : undefined,
+      authenticatedUserId: authUser.id,
     });
     if (result.completed === true) return json(req, result, 200);
     if (result.accepted === true) return json(req, result, 202);
     return json(req, { error: "deletion_request_not_found" }, 404);
-  } catch {
-    console.error("Account deletion request failed");
-    return json(req, { error: "request_failed" }, 500);
+  } catch (error) {
+    const status = error instanceof EdgeHttpError ? error.status : 500;
+    const code = error instanceof EdgeHttpError ? error.code : "request_failed";
+    logEdgeEvent("error", "account_deletion_request_failed", { code, status });
+    return json(req, { error: code }, status);
   }
 });
+

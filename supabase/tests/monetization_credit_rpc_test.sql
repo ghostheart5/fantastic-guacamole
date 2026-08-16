@@ -1,5 +1,5 @@
 begin;
-select plan(6);
+select plan(7);
 
 insert into auth.users (id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 values ('00000000-0000-0000-0000-000000000201', 'authenticated', 'authenticated', 'credit-rpc@example.test', '{}'::jsonb, '{}'::jsonb, now(), now());
@@ -42,6 +42,22 @@ select is(
   (select balance from public.monetization_wallets where user_id = auth.uid()),
   7,
   'consume RPC never increases the balance'
+);
+
+reset role;
+set local role service_role;
+select lives_ok(
+  $$select public.apply_verified_purchase(
+    '00000000-0000-0000-0000-000000000201',
+    'chronospark_credits_100',
+    'one_time',
+    'pg-tap-unique-token-hash',
+    null,
+    now(),
+    null,
+    '{}'::jsonb
+  )$$,
+  'service-role purchase application resolves receipt columns unambiguously'
 );
 
 select * from finish();

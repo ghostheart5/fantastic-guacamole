@@ -2,7 +2,7 @@
 
 Complete these steps only after the final staging approval is recorded.
 
-1. Confirm the Supabase CLI is linked to `pxtjkwfedrtnxuihtdox`.
+1. Confirm the Supabase CLI is linked to `RETIRED_STAGING_PROJECT`.
 2. Apply the approved migration to staging.
 3. Run `npx supabase migration list`.
 4. Run `tool/staging_validation/apply_verified_purchase_grant_verification.sql` against staging.

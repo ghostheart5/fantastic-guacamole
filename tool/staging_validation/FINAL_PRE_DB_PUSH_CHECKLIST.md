@@ -2,7 +2,7 @@
 
 **DO NOT RUN UNTIL EVERY CHECKBOX ABOVE IS COMPLETE AND HUMAN APPROVES.**
 
-- [ ] Confirm `pxtjkwfedrtnxuihtdox` is ChronoSpark staging.
+- [ ] Confirm `RETIRED_STAGING_PROJECT` is ChronoSpark staging.
 - [ ] Confirm the 2 Auth users are staging test users or disposable.
 - [ ] Confirm storage bucket count is 0.
 - [ ] Confirm storage object count is 0.

@@ -4,7 +4,7 @@
 
 ## Migration Push Status
 
-Migration push is reported complete for confirmed staging project `pxtjkwfedrtnxuihtdox`.
+Migration push is reported complete for confirmed staging project `RETIRED_STAGING_PROJECT`.
 
 ## Schema Discovery Result
 
@@ -61,7 +61,7 @@ Status: `PASSED_WITH_EXPECTED_OWN_ROW_SKIPS`. Cross-user denial passed; own-reco
 The local staging `.env` shape is ready without exposing values:
 
 - All required variables are present and non-empty.
-- `STAGING_SUPABASE_URL` contains `pxtjkwfedrtnxuihtdox`.
+- `STAGING_SUPABASE_URL` contains `RETIRED_STAGING_PROJECT`.
 - The URL does not end with `/rest/v1/`.
 - Both user UUIDs are valid and distinct.
 

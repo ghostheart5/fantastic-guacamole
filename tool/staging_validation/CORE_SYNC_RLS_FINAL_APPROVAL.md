@@ -1,8 +1,8 @@
 # Core-Sync RLS Final Execution Approval
 
-**Confirmed staging project:** `pxtjkwfedrtnxuihtdox`
+**Confirmed staging project:** `RETIRED_STAGING_PROJECT`
 
-- [ ] I confirm `pxtjkwfedrtnxuihtdox` is staging.
+- [ ] I confirm `RETIRED_STAGING_PROJECT` is staging.
 - [ ] I confirm this is not production.
 - [ ] I confirm User A and User B are staging-only users.
 - [ ] I confirm `.env` contains only staging credentials.

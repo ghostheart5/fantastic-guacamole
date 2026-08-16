@@ -8,16 +8,19 @@ final _account = NotifierProvider<_Account, String?>(_Account.new);
 
 void main() {
   test('Smart Planner bootstrap settles for A, signed-out, and B', () async {
-    final container = ProviderContainer(overrides: [
-      extendedDomainBootstrapProvider.overrideWith((Ref ref) async {
-        ref.watch(_account);
-      }),
-    ]);
+    final container = ProviderContainer(
+      overrides: [
+        extendedDomainBootstrapProvider.overrideWith((Ref ref) async {
+          ref.watch(_account);
+        }),
+      ],
+    );
     addTearDown(container.dispose);
 
     for (final String? account in <String?>['A', null, 'B']) {
       container.read(_account.notifier).set(account);
       await _settleBootstrap(container);
+      expect(container.read(extendedDomainBootstrapProvider).hasValue, isTrue);
     }
   });
 }

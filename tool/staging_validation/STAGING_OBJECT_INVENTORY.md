@@ -4,7 +4,7 @@
 
 ## Scope and Evidence
 
-- Confirmed target: `pxtjkwfedrtnxuihtdox`.
+- Confirmed target: `RETIRED_STAGING_PROJECT`.
 - `npx supabase migration list` shows local migrations with blank Remote values.
 - Read-only existence audit recorded `auth_user_count = 2`, `storage_bucket_count = 0`, and `storage_object_count = 0`.
 - No expected ChronoSpark app tables were evident in the audit output.

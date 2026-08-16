@@ -51,9 +51,9 @@ SyncOperation _operation({
   return SyncOperation(
     operationId: id,
     tableName: 'tasks',
-    recordId: 'record-' + id,
+    recordId: 'record-$id',
     operationType: SyncOperationType.update,
-    payload: <String, dynamic>{'title': 'task-' + id},
+    payload: <String, dynamic>{'title': 'task-$id'},
     userId: userId,
     createdAtUtc: createdAt,
     retryCount: 0,
@@ -86,12 +86,12 @@ void main() {
       final DeterministicGenerator g = DeterministicGenerator(seed);
       DateTime now = DateTime.utc(2026, 1, 1);
       final SyncOperation userA = _operation(
-        id: 'a-' + seed.toString(),
+        id: 'a-$seed',
         userId: 'user-a',
         createdAt: now,
       );
       final SyncOperation userB = _operation(
-        id: 'b-' + seed.toString(),
+        id: 'b-$seed',
         userId: 'user-b',
         createdAt: now,
       );
@@ -112,12 +112,12 @@ void main() {
 
       await runner.runOnce();
       final List<SyncOperation> afterFailure = await queue.readAll();
-      expect(afterFailure, hasLength(1), reason: 'seed=' + seed.toString());
-      expect(afterFailure.single.userId, 'user-a', reason: 'seed=' + seed.toString());
-      expect(afterFailure.single.retryCount, 1, reason: 'seed=' + seed.toString());
+      expect(afterFailure, hasLength(1), reason: 'seed=$seed');
+      expect(afterFailure.single.userId, 'user-a', reason: 'seed=$seed');
+      expect(afterFailure.single.retryCount, 1, reason: 'seed=$seed');
       now = afterFailure.single.nextRetryAtUtc!;
       await runner.runOnce();
-      expect(await queue.readAll(), isEmpty, reason: 'seed=' + seed.toString());
+      expect(await queue.readAll(), isEmpty, reason: 'seed=$seed');
     }
   });
 

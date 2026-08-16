@@ -26,3 +26,4 @@ export function hasRecentSignIn(
   return ageMs >= -(allowedClockSkewSeconds * 1000) &&
     ageMs < recentSignInSeconds * 1000;
 }
+

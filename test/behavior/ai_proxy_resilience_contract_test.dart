@@ -28,7 +28,7 @@ void main() {
     test('enforces request timeout and graceful fallback', () {
       expect(source, contains('.timeout(const Duration(seconds: 15))'));
       expect(source, contains('} on TimeoutException {'));
-      expect(source, contains('} on Exception {'));
+      expect(source, contains('} on Exception catch (error) {'));
       expect(source, contains('return null;'));
     });
   });

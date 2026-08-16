@@ -1,3 +1,5 @@
+throw 'Retired staging harness: execution is disabled. GhostHeart5 production must use reviewed Supabase migrations and functions, never this historical test tooling.'
+
 Set-StrictMode -Version Latest
 
 Add-Type -AssemblyName System.Net.Http
@@ -17,7 +19,7 @@ function New-CoreSyncRlsContext {
 
     $supabaseUrl = Get-RequiredStagingValue -Name 'STAGING_SUPABASE_URL'
     $target = [uri]$supabaseUrl
-    if ($target.Scheme -ne 'https' -or $target.Host -ne 'pxtjkwfedrtnxuihtdox.supabase.co' -or $target.AbsolutePath -notin @('', '/')) {
+    if ($target.Scheme -ne 'https' -or $target.Host -ne 'retired-staging-project.invalid' -or $target.AbsolutePath -notin @('', '/')) {
         throw 'Refusing to execute: the target must be the confirmed staging base URL.'
     }
 

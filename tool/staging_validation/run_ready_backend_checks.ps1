@@ -1,3 +1,5 @@
+throw 'Retired staging harness: execution is disabled. GhostHeart5 production must use reviewed Supabase migrations and functions, never this historical test tooling.'
+
 [CmdletBinding()]
 param(
     [switch]$ConfirmStaging
@@ -15,7 +17,7 @@ if (-not $ConfirmStaging) {
 Import-StagingEnvironment -EnvironmentFile "$PSScriptRoot/.env"
 
 $supabaseUrl = Get-RequiredStagingValue -Name 'STAGING_SUPABASE_URL'
-$expectedStagingHost = 'pxtjkwfedrtnxuihtdox.supabase.co'
+$expectedStagingHost = 'retired-staging-project.invalid'
 
 try {
     $target = [uri]$supabaseUrl

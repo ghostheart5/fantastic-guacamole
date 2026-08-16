@@ -2,8 +2,8 @@
 
 ## Staging Target
 
-- Staging ref: `pxtjkwfedrtnxuihtdox`
-- CLI linked project: `pxtjkwfedrtnxuihtdox`
+- Staging ref: `RETIRED_STAGING_PROJECT`
+- CLI linked project: `RETIRED_STAGING_PROJECT`
 - Remote migration history: blank for all listed local migrations.
 
 ## Read-Only Existence Result

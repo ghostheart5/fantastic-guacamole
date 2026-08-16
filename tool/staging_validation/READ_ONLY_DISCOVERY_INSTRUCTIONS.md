@@ -1,7 +1,7 @@
 # Read-Only Staging Discovery Instructions
 
 1. Open Supabase Dashboard.
-2. Select project: `pxtjkwfedrtnxuihtdox`.
+2. Select project: `RETIRED_STAGING_PROJECT`.
 3. Open SQL Editor.
 4. Run [schema_discovery.sql](schema_discovery.sql).
 5. Save, export, or copy the result.

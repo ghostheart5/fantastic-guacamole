@@ -2,7 +2,7 @@
 
 Use the authorized staging dashboard or deployment record. This runbook does not authorize deployment, invocation, testing, or secret disclosure.
 
-1. Confirm target project: `pxtjkwfedrtnxuihtdox`.
+1. Confirm target project: `RETIRED_STAGING_PROJECT`.
 2. Confirm function: `monetization-verify`.
 3. Confirm route: `/functions/v1/monetization-verify`.
 4. Confirm JWT enforcement is enabled for the deployed function.

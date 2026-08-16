@@ -76,6 +76,10 @@ linux/flutter/ephemeral/
 # Firebase local cache/state
 .firebase/
 
+# Supabase CLI link/cache state is machine-local and can contain connection
+# metadata. The canonical GhostHeart5 project identity is tracked separately.
+supabase/.temp/
+
 # IDEA
 .idea/
 

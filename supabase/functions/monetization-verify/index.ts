@@ -5,6 +5,18 @@ import {
   type GoogleServiceAccount,
   sha256Hex,
 } from "../_shared/google_auth.ts";
+import {
+  completeGooglePlayDelivery,
+  GOOGLE_PLAY_PRODUCTS,
+  googlePlayProductConfig,
+} from "../_shared/google_play_product.ts";
+import {
+  EdgeHttpError,
+  fetchWithDeadline,
+  logEdgeEvent,
+  readBoundedJson,
+} from "../_shared/edge_http.ts";
+import { readVerifyRequest } from "../_shared/monetization_request_validation.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
@@ -13,18 +25,7 @@ const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY") ??
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANDROID_PACKAGE_NAME = Deno.env.get("ANDROID_PACKAGE_NAME") ??
   "com.ghostheart5.chronospark";
-const PRODUCT_CONFIG: Record<string, {
-  purchaseType: "subscription" | "inapp";
-}> = {
-  chronospark_premium_monthly: { purchaseType: "subscription" },
-  chronospark_premium_annual: { purchaseType: "subscription" },
-  chronospark_lifetime: { purchaseType: "inapp" },
-  chronospark_credits_100: { purchaseType: "inapp" },
-  chronospark_credits_500: { purchaseType: "inapp" },
-  chronospark_credits_1200: { purchaseType: "inapp" },
-  chronospark_credits_3000: { purchaseType: "inapp" },
-};
-const ALLOWED_PRODUCT_IDS = new Set(Object.keys(PRODUCT_CONFIG));
+const ALLOWED_PRODUCT_IDS = new Set(Object.keys(GOOGLE_PLAY_PRODUCTS));
 const ALLOWED_ORIGINS = new Set(
   (Deno.env.get("ALLOWED_ORIGINS") ??
     "https://chronospark.app,https://www.chronospark.app")
@@ -54,16 +55,23 @@ async function authenticatedUserId(req: Request): Promise<string | null> {
     !authorization.startsWith("Bearer ") || !SUPABASE_URL ||
     !SUPABASE_PUBLISHABLE_KEY
   ) return null;
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: authorization, apikey: SUPABASE_PUBLISHABLE_KEY },
-  });
+  const response = await fetchWithDeadline(
+    `${SUPABASE_URL}/auth/v1/user`,
+    {
+      headers: {
+        Authorization: authorization,
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+      },
+    },
+    { timeoutMs: 5_000, dependency: "supabase_auth_user" },
+  );
   if (!response.ok) return null;
   const user = await response.json();
   return typeof user?.id === "string" ? user.id : null;
 }
 
 async function consumeRateLimit(authorization: string): Promise<boolean> {
-  const response = await fetch(
+  const response = await fetchWithDeadline(
     `${SUPABASE_URL}/rest/v1/rpc/consume_monetization_verify_rate_limit`,
     {
       method: "POST",
@@ -74,32 +82,9 @@ async function consumeRateLimit(authorization: string): Promise<boolean> {
       },
       body: "{}",
     },
+    { timeoutMs: 5_000, dependency: "monetization_rate_limit" },
   );
   return response.ok;
-}
-
-async function readVerifyRequest(req: Request): Promise<VerifyRequest | null> {
-  try {
-    const parsed = await req.json();
-    if (!parsed || typeof parsed !== "object") return null;
-    const record = parsed as Record<string, unknown>;
-    if (
-      typeof record.productId !== "string" ||
-      typeof record.purchaseToken !== "string" ||
-      typeof record.purchaseType !== "string"
-    ) {
-      return null;
-    }
-    return {
-      productId: record.productId,
-      purchaseToken: record.purchaseToken,
-      purchaseType: record.purchaseType === "subscription"
-        ? "subscription"
-        : "inapp",
-    };
-  } catch {
-    return null;
-  }
 }
 
 async function sha256(value: string): Promise<string> {
@@ -114,7 +99,7 @@ async function bindPurchaseToken(
   if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) return false;
   const tokenHash = await sha256(purchaseToken);
   const endpoint = `${SUPABASE_URL}/rest/v1/purchase_bindings`;
-  const lookup = await fetch(
+  const lookup = await fetchWithDeadline(
     `${endpoint}?token_hash=eq.${tokenHash}&select=user_id`,
     {
       headers: {
@@ -122,29 +107,34 @@ async function bindPurchaseToken(
         Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
       },
     },
+    { timeoutMs: 5_000, dependency: "purchase_binding_lookup" },
   );
   if (!lookup.ok) return false;
   const existing = await lookup.json();
   if (Array.isArray(existing) && existing.length > 0) {
     return existing[0]?.user_id === userId;
   }
-  const inserted = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_SECRET_KEY,
-      Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
-      "Content-Type": "application/json",
-      Prefer: "return=minimal",
+  const inserted = await fetchWithDeadline(
+    endpoint,
+    {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        token_hash: tokenHash,
+        user_id: userId,
+        product_id: productId,
+      }),
     },
-    body: JSON.stringify({
-      token_hash: tokenHash,
-      user_id: userId,
-      product_id: productId,
-    }),
-  });
+    { timeoutMs: 5_000, dependency: "purchase_binding_insert" },
+  );
   if (inserted.ok) return true;
   if (inserted.status === 409) {
-    const retryLookup = await fetch(
+    const retryLookup = await fetchWithDeadline(
       `${endpoint}?token_hash=eq.${tokenHash}&select=user_id`,
       {
         headers: {
@@ -152,6 +142,7 @@ async function bindPurchaseToken(
           Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
         },
       },
+      { timeoutMs: 5_000, dependency: "purchase_binding_retry_lookup" },
     );
     if (!retryLookup.ok) return false;
     const retryExisting = await retryLookup.json();
@@ -171,7 +162,7 @@ async function applyVerifiedPurchase(
 ): Promise<Record<string, unknown> | null> {
   if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) return null;
   const purchaseTokenHash = await sha256(purchaseToken);
-  const response = await fetch(
+  const response = await fetchWithDeadline(
     `${SUPABASE_URL}/rest/v1/rpc/apply_verified_purchase`,
     {
       method: "POST",
@@ -191,6 +182,7 @@ async function applyVerifiedPurchase(
         payload,
       }),
     },
+    { timeoutMs: 5_000, dependency: "apply_verified_purchase" },
   );
   if (!response.ok) {
     return null;
@@ -203,15 +195,19 @@ async function serviceRpc(
   body: Record<string, unknown>,
 ): Promise<Record<string, unknown> | null> {
   if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) return null;
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_SECRET_KEY,
-      Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
-      "Content-Type": "application/json",
+  const response = await fetchWithDeadline(
+    `${SUPABASE_URL}/rest/v1/rpc/${name}`,
+    {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+    { timeoutMs: 5_000, dependency: `supabase_rpc_${name}` },
+  );
   if (!response.ok) {
     await response.body?.cancel();
     return null;
@@ -227,12 +223,6 @@ async function serviceRpc(
 const serviceAccount = JSON.parse(
   Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON") ?? "null",
 ) as GoogleServiceAccount | null;
-
-interface VerifyRequest {
-  productId: string; // e.g. "chronospark_premium_monthly"
-  purchaseToken: string; // from in_app_purchase PurchaseDetails
-  purchaseType: "subscription" | "inapp";
-}
 
 interface VerifyResponse {
   valid: boolean;
@@ -275,7 +265,9 @@ Deno.serve(async (req: Request) => {
         },
       );
     }
-    const body = await readVerifyRequest(req);
+    const body = readVerifyRequest(
+      await readBoundedJson(req, { maxBytes: 8_192 }),
+    );
     if (!body) {
       return new Response(
         JSON.stringify(
@@ -291,7 +283,7 @@ Deno.serve(async (req: Request) => {
       );
     }
     const { productId, purchaseToken, purchaseType } = body;
-    const productConfig = PRODUCT_CONFIG[productId];
+    const productConfig = googlePlayProductConfig(productId);
     const token = purchaseToken.trim();
 
     if (
@@ -341,13 +333,17 @@ Deno.serve(async (req: Request) => {
       ? `${apiBase}/${encodedPackage}/purchases/subscriptionsv2/tokens/${encodedToken}`
       : `${apiBase}/${encodedPackage}/purchases/products/${encodedProduct}/tokens/${encodedToken}`;
 
-    const gpRes = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const gpRes = await fetchWithDeadline(
+      url,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+      { timeoutMs: 10_000, dependency: "google_play_purchase_lookup" },
+    );
 
     if (!gpRes.ok) {
       await gpRes.body?.cancel();
-      console.error("Google Play receipt verification failed");
+      logEdgeEvent("warn", "google_play_receipt_lookup_failed", {
+        status: gpRes.status,
+      });
       return new Response(
         JSON.stringify(
           {
@@ -412,10 +408,20 @@ Deno.serve(async (req: Request) => {
           },
         })
         : null;
+      const deliveryCompleted = applied !== null && valid && bound &&
+        await completeGooglePlayDelivery({
+          accessToken,
+          packageName: ANDROID_PACKAGE_NAME,
+          productId,
+          purchaseToken: token,
+          kind: productConfig.kind,
+          alreadyAcknowledged: gpData.acknowledgementState ===
+            "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED",
+        });
       return new Response(
         JSON.stringify(
           {
-            valid: valid && bound && applied !== null,
+            valid: valid && bound && applied !== null && deliveryCompleted,
             expiryTimeMs,
             orderId: gpData.latestOrderId,
             productId,
@@ -426,6 +432,9 @@ Deno.serve(async (req: Request) => {
             ...(bound && applied === null
               ? { error: "purchase application failed" }
               : {}),
+            ...(applied !== null && !deliveryCompleted
+              ? { error: "purchase acknowledgement failed" }
+              : {}),
           } satisfies VerifyResponse,
         ),
         { headers: { ...headers, "Content-Type": "application/json" } },
@@ -433,7 +442,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // One-time product response
-    const valid = gpData.purchaseState === 0; // 0 = purchased
+    const valid = gpData.purchaseState === 0 &&
+      (gpData.quantity === undefined || gpData.quantity === 1);
     const bound = valid &&
       await bindPurchaseToken(token, userId, productId);
     const applied = bound
@@ -452,10 +462,20 @@ Deno.serve(async (req: Request) => {
         },
       )
       : null;
+    const deliveryCompleted = applied !== null && valid && bound &&
+      await completeGooglePlayDelivery({
+        accessToken,
+        packageName: ANDROID_PACKAGE_NAME,
+        productId,
+        purchaseToken: token,
+        kind: productConfig.kind,
+        alreadyAcknowledged: gpData.acknowledgementState === 1,
+        alreadyConsumed: gpData.consumptionState === 1,
+      });
     return new Response(
       JSON.stringify(
         {
-          valid: valid && bound && applied !== null,
+          valid: valid && bound && applied !== null && deliveryCompleted,
           orderId: gpData.orderId,
           productId,
           creditsGranted: applied?.creditsGranted,
@@ -465,20 +485,26 @@ Deno.serve(async (req: Request) => {
           ...(bound && applied === null
             ? { error: "purchase application failed" }
             : {}),
+          ...(applied !== null && !deliveryCompleted
+            ? { error: "purchase delivery completion failed" }
+            : {}),
         } satisfies VerifyResponse,
       ),
       { headers: { ...headers, "Content-Type": "application/json" } },
     );
-  } catch {
-    console.error("Receipt verification request failed");
+  } catch (error) {
+    const status = error instanceof EdgeHttpError ? error.status : 500;
+    const code = error instanceof EdgeHttpError ? error.code : "request_failed";
+    logEdgeEvent("error", "receipt_verification_failed", { code, status });
     return new Response(
       JSON.stringify(
         { valid: false, error: "request failed" } satisfies VerifyResponse,
       ),
       {
-        status: 500,
+        status,
         headers: { ...headers, "Content-Type": "application/json" },
       },
     );
   }
 });
+

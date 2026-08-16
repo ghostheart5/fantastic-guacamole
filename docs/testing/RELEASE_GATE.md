@@ -89,57 +89,44 @@ available; it must never be recorded as a skipped or optional pass.
 
 ## Phase 8 backend release gate
 
-Backend authorization is a release veto until all required current-head local
-and approved-staging evidence is attached. Historical staging transcripts,
-static source inspection, pending cases, skipped cases, or an unconfirmed host
-cannot satisfy this gate.
+GhostHeart5 production is the sole Supabase authority:
 
-### Required safety preconditions
+- Project: `ghostheart5's Project`
+- Project ref: `qpwhuckyirnqtmvhpede`
+- Production branch: `main`
+- Region: `us-west-2`
 
-1. Run the offline gate first:
+The former staging-validation harness is retired and fail-closed. It must not be
+retargeted to production. Historical staging transcripts, static source
+inspection, pending cases, skipped cases, or an unconfirmed host cannot satisfy
+this gate.
 
-   ```powershell
-   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tool\staging_validation\phase8_backend_harness_test.ps1
-   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tool\staging_validation\run_phase8_backend_tests.ps1
-   ```
+### Required production-safe evidence
 
-2. Positively identify the approved target as exactly
-   `https://pxtjkwfedrtnxuihtdox.supabase.co`; the URL must be HTTPS, have no
-   path/query/fragment, and match case-sensitively. The explicit confirmation
-   switch remains required.
-3. Use only isolated User A, User B, anonymous, and normal-authenticated actors.
-   A privileged server role is allowed only in a separately approved server-side
-   fixture path and is never supplied to client tests.
-4. Give every live run a unique Phase 8 run ID. Create only run-owned records or
-   objects, restrict cleanup to exact run-owned identifiers, verify cleanup, and
-   reject wildcard/broad deletion.
-5. Do not reset a database, deploy/apply/repair a migration, deploy a function,
-   use production fallback, or log raw credentials, JWTs, requests, exceptions,
-   memory, receipts, or response bodies.
-
-### Required evidence
-
-- Local pgTAP: schema compatibility, migrations, RLS, spoofed ownership,
-  privileges, profile/metrics, rate limits, credits, and deletion cascades.
-- Local Deno: session freshness, malformed deletion input, Google OIDC caller
-  validation, retired endpoints, and purchase/subscription validation.
-- Confirmed staging: authentication refresh/expiry, two-user read/write
-  isolation, spoof denial, privileged RPC denial, profile repair, global metrics,
-  rate limits, storage isolation, synchronization, deployed Edge Function
-  malformed/unauthorized behavior, monetization isolation, and deletion
-  boundaries.
-- Approved sandbox: purchase verification and restore with test receipts and
-  bounded cleanup; never a production purchase or account.
+1. Local migration history must contain every version already applied to
+   GhostHeart5 production. A linked `supabase db push --dry-run` must show no
+   unintended production migration.
+2. Local Edge Function sources, function names, versions, and `verify_jwt`
+   contracts must match the captured deployed GhostHeart5 bundles before any
+   deployment is considered.
+3. Local Deno checks must validate request bounds, authentication boundaries,
+   caller-specific authorization, Google OIDC validation, and deletion state
+   contracts without using production credentials.
+4. Database isolation evidence requiring real users must use two authorized,
+   disposable, normally authenticated GhostHeart5 accounts. Service-role SQL is
+   not a substitute for RLS proof.
+5. No test may reset production, expose credentials or tokens, use broad
+   cleanup, or deploy merely to prove that deployed source already matches.
 
 ### Current Phase 8 verdict
 
-**BLOCKED.** The offline guard harness passed 12 assertions, selected Deno tests
-passed 17/17, and static manifest/PowerShell/SQL wrapper validation passed. The
-drift-manifest test fails on source-hash mismatches for `ai-proxy`,
-`monetization-verify`, and `account-delete`. Supabase CLI and `psql` are absent,
-so pgTAP was not executed. No staging/sandbox case was run because this phase did
-not receive a fresh explicit environment/mutation approval. Those cases are
-pending, not passing.
+**READY WITH CONDITIONS.** The 2026-08-16 preservation branch recovered the two
+production-only migration statements and all ten deployed Edge Function bundles
+into source control candidates. The obsolete staging identity was removed and
+its executables were disabled. Production deployment remains a no-op unless the
+current drift checks prove a real mismatch. Device and authenticated two-user
+runtime evidence remain separate release gates and are not claimed by this
+source reconciliation.
 
 ## Phase 10 fuzz, Monkey, and chaos release gate
 

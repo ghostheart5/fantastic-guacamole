@@ -5,6 +5,16 @@ import {
   sha256Hex,
   validateGoogleOidcPush,
 } from "../_shared/google_auth.ts";
+import {
+  completeGooglePlayDelivery,
+  googlePlayProductConfig,
+} from "../_shared/google_play_product.ts";
+import {
+  EdgeHttpError,
+  fetchWithDeadline,
+  logEdgeEvent,
+  readBoundedJson,
+} from "../_shared/edge_http.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY") ??
@@ -14,6 +24,12 @@ const ANDROID_PACKAGE_NAME = Deno.env.get("ANDROID_PACKAGE_NAME") ??
 const RTDN_AUDIENCE = Deno.env.get("RTDN_AUDIENCE") ?? "";
 const RTDN_SERVICE_ACCOUNT_EMAIL = Deno.env.get("RTDN_SERVICE_ACCOUNT_EMAIL") ??
   "";
+const configuredRefundPreference =
+  Deno.env.get("RTDN_REFUND_REVIEW_PREFERENCE") ?? "NEUTRAL";
+const REFUND_REVIEW_PREFERENCE = new Set(["APPROVE", "DECLINE", "NEUTRAL"])
+    .has(configuredRefundPreference)
+  ? configuredRefundPreference
+  : "NEUTRAL";
 const serviceAccount = JSON.parse(
   Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON") ?? "null",
 ) as GoogleServiceAccount | null;
@@ -45,11 +61,11 @@ async function serviceRpc(
   name: string,
   body: Record<string, unknown>,
 ): Promise<Record<string, unknown> | null> {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
-    method: "POST",
-    headers: serviceHeaders(),
-    body: JSON.stringify(body),
-  });
+  const response = await fetchWithDeadline(
+    `${SUPABASE_URL}/rest/v1/rpc/${name}`,
+    { method: "POST", headers: serviceHeaders(), body: JSON.stringify(body) },
+    { timeoutMs: 5_000, dependency: `supabase_rpc_${name}` },
+  );
   if (!response.ok) {
     await response.body?.cancel();
     return null;
@@ -60,14 +76,31 @@ async function serviceRpc(
     : null;
 }
 
+async function serviceBooleanRpc(
+  name: string,
+  body: Record<string, unknown>,
+): Promise<boolean> {
+  const response = await fetchWithDeadline(
+    `${SUPABASE_URL}/rest/v1/rpc/${name}`,
+    { method: "POST", headers: serviceHeaders(), body: JSON.stringify(body) },
+    { timeoutMs: 5_000, dependency: `supabase_rpc_${name}` },
+  );
+  if (!response.ok) {
+    await response.body?.cancel();
+    return false;
+  }
+  return await response.json() === true;
+}
+
 async function readEvent(
   messageId: string,
 ): Promise<Record<string, unknown> | null> {
-  const response = await fetch(
+  const response = await fetchWithDeadline(
     `${SUPABASE_URL}/rest/v1/google_play_rtdn_events?message_id=eq.${
       encodeURIComponent(messageId)
     }&select=state`,
     { headers: serviceHeaders() },
+    { timeoutMs: 5_000, dependency: "rtdn_event_read" },
   );
   if (!response.ok) return null;
   const rows = await response.json();
@@ -80,7 +113,7 @@ async function insertEvent(
   messageId: string,
   event: Record<string, unknown>,
 ): Promise<boolean> {
-  const response = await fetch(
+  const response = await fetchWithDeadline(
     `${SUPABASE_URL}/rest/v1/google_play_rtdn_events`,
     {
       method: "POST",
@@ -90,28 +123,23 @@ async function insertEvent(
       },
       body: JSON.stringify({ message_id: messageId, ...event }),
     },
+    { timeoutMs: 5_000, dependency: "rtdn_event_insert" },
   );
   return response.ok;
 }
 
-async function updateEvent(
+async function markEvent(
   messageId: string,
-  values: Record<string, unknown>,
-): Promise<void> {
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/google_play_rtdn_events?message_id=eq.${
-      encodeURIComponent(messageId)
-    }`,
-    {
-      method: "PATCH",
-      headers: serviceHeaders(),
-      body: JSON.stringify({
-        ...values,
-        processed_at: new Date().toISOString(),
-      }),
-    },
-  );
-  await response.body?.cancel();
+  expectedState: string,
+  nextState: string,
+  failureCode?: string,
+): Promise<boolean> {
+  return await serviceBooleanRpc("mark_google_play_rtdn_event", {
+    p_message_id: messageId,
+    p_expected_state: expectedState,
+    p_next_state: nextState,
+    p_failure_code: failureCode ?? null,
+  });
 }
 
 function decodeNotification(encoded: string): Record<string, unknown> | null {
@@ -156,17 +184,21 @@ function subscriptionState(value: string, expiresAt: Date | null): {
 
 async function fetchSubscription(
   token: string,
-): Promise<Record<string, unknown>> {
+): Promise<{ data: Record<string, unknown>; accessToken: string }> {
   if (!serviceAccount) throw new Error("service_account_missing");
   const accessToken = await getGoogleAccessToken(serviceAccount);
-  const response = await fetch(
+  const response = await fetchWithDeadline(
     `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${
       encodeURIComponent(ANDROID_PACKAGE_NAME)
     }/purchases/subscriptionsv2/tokens/${encodeURIComponent(token)}`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
+    { timeoutMs: 10_000, dependency: "google_play_subscription_lookup" },
   );
   if (!response.ok) throw new Error(`play_subscription_${response.status}`);
-  return await response.json() as Record<string, unknown>;
+  return {
+    data: await response.json() as Record<string, unknown>,
+    accessToken,
+  };
 }
 
 async function processSubscription(
@@ -181,7 +213,8 @@ async function processSubscription(
     : "";
   if (!token) return false;
   const tokenHash = await sha256Hex(token);
-  const play = await fetchSubscription(token);
+  const fetched = await fetchSubscription(token);
+  const play = fetched.data;
   const lineItems = Array.isArray(play.lineItems)
     ? play.lineItems as SubscriptionLineItem[]
     : [];
@@ -190,6 +223,22 @@ async function processSubscription(
     item.productId === "chronospark_premium_annual"
   );
   if (!line?.productId) throw new Error("play_subscription_product_missing");
+  const linkedPurchaseToken = typeof play.linkedPurchaseToken === "string"
+    ? play.linkedPurchaseToken
+    : "";
+  if (linkedPurchaseToken) {
+    const migration = await serviceRpc("migrate_google_play_purchase_binding", {
+      p_old_purchase_token_hash: await sha256Hex(linkedPurchaseToken),
+      p_new_purchase_token_hash: tokenHash,
+      p_product_id: line.productId,
+    });
+    if (
+      migration?.migrated !== true &&
+      migration?.reason !== "old_binding_not_found"
+    ) {
+      throw new Error("play_subscription_binding_migration_failed");
+    }
+  }
   const expiresAt = line.expiryTime ? new Date(line.expiryTime) : null;
   if (expiresAt !== null && !Number.isFinite(expiresAt.getTime())) {
     throw new Error("play_subscription_expiry_invalid");
@@ -219,7 +268,119 @@ async function processSubscription(
     p_event_key: `rtdn:${messageId}`,
     p_payload: payload,
   });
-  return result?.applied === true || result?.duplicate === true;
+  const applied = result?.applied === true || result?.duplicate === true;
+  if (!applied) return false;
+  return await completeGooglePlayDelivery({
+    accessToken: fetched.accessToken,
+    packageName: ANDROID_PACKAGE_NAME,
+    productId: line.productId,
+    purchaseToken: token,
+    kind: "subscription",
+    alreadyAcknowledged:
+      play.acknowledgementState === "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED",
+  });
+}
+
+async function processOneTime(
+  messageId: string,
+  notification: Record<string, unknown>,
+): Promise<boolean> {
+  const raw = notification.oneTimeProductNotification;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+  const oneTime = raw as Record<string, unknown>;
+  const token = typeof oneTime.purchaseToken === "string"
+    ? oneTime.purchaseToken
+    : "";
+  const productId = typeof oneTime.sku === "string" ? oneTime.sku : "";
+  const notificationType = Number(oneTime.notificationType ?? 0);
+  const config = googlePlayProductConfig(productId);
+  if (!token || !config || config.purchaseType !== "inapp") return false;
+  // A canceled pending purchase never granted entitlement and requires no
+  // revocation. It is still recorded as successfully reconciled.
+  if (notificationType === 2) return true;
+  if (notificationType !== 1 || !serviceAccount) return false;
+
+  const accessToken = await getGoogleAccessToken(serviceAccount);
+  const response = await fetchWithDeadline(
+    `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${
+      encodeURIComponent(ANDROID_PACKAGE_NAME)
+    }/purchases/products/${encodeURIComponent(productId)}/tokens/${
+      encodeURIComponent(token)
+    }`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+    { timeoutMs: 10_000, dependency: "google_play_product_lookup" },
+  );
+  if (!response.ok) throw new Error(`play_product_${response.status}`);
+  const play = await response.json() as Record<string, unknown>;
+  if (play.purchaseState !== 0) return false;
+  if (play.quantity !== undefined && play.quantity !== 1) {
+    throw new Error("multi_quantity_purchase_not_supported");
+  }
+  const tokenHash = await sha256Hex(token);
+  const result = await serviceRpc("reconcile_google_play_one_time", {
+    p_purchase_token_hash: tokenHash,
+    p_product_id: productId,
+    p_order_id: typeof play.orderId === "string" ? play.orderId : null,
+    p_event_key: `rtdn:${messageId}`,
+    p_payload: {
+      source: "google_play_rtdn",
+      purchaseState: play.purchaseState,
+      acknowledgementState: play.acknowledgementState,
+      consumptionState: play.consumptionState,
+    },
+  });
+  if (result?.applied !== true && result?.duplicate !== true) return false;
+  return await completeGooglePlayDelivery({
+    accessToken,
+    packageName: ANDROID_PACKAGE_NAME,
+    productId,
+    purchaseToken: token,
+    kind: config.kind,
+    alreadyAcknowledged: play.acknowledgementState === 1,
+    alreadyConsumed: play.consumptionState === 1,
+  });
+}
+
+async function processPendingRefundReview(
+  notification: Record<string, unknown>,
+): Promise<boolean> {
+  const raw = notification.pendingRefundReviewNotification;
+  if (
+    !raw || typeof raw !== "object" || Array.isArray(raw) || !serviceAccount
+  ) {
+    return false;
+  }
+  const review = raw as Record<string, unknown>;
+  const pendingRefundToken = typeof review.pendingRefundToken === "string"
+    ? review.pendingRefundToken
+    : "";
+  const orderId = typeof review.orderId === "string" ? review.orderId : "";
+  if (
+    !pendingRefundToken || pendingRefundToken.length > 4_096 || !orderId ||
+    orderId.length > 200
+  ) return false;
+  const accessToken = await getGoogleAccessToken(serviceAccount);
+  const response = await fetchWithDeadline(
+    `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${
+      encodeURIComponent(ANDROID_PACKAGE_NAME)
+    }/orders/${encodeURIComponent(orderId)}:reviewrefund`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        pendingRefundToken,
+        sampleContentProvided: false,
+        refundPreference: REFUND_REVIEW_PREFERENCE,
+      }),
+    },
+    { timeoutMs: 10_000, dependency: "google_play_refund_review" },
+  );
+  const accepted = response.ok;
+  await response.body?.cancel();
+  return accepted;
 }
 
 async function processVoided(
@@ -233,6 +394,11 @@ async function processVoided(
     ? voided.purchaseToken
     : "";
   if (!token) return false;
+  if (Number(voided.refundType ?? 1) === 2) {
+    // ChronoSpark deliberately rejects multi-quantity purchases at verification,
+    // so a partial-quantity refund is never safe to turn into a full reversal.
+    throw new Error("partial_refund_requires_manual_reconciliation");
+  }
   const tokenHash = await sha256Hex(token);
   const result = await serviceRpc("reconcile_google_play_voided_purchase", {
     p_purchase_token_hash: tokenHash,
@@ -251,25 +417,26 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", {
       status: 405,
-      headers: { "X-ChronoSpark-Contract": "google-play-rtdn-v1" },
+      headers: { "X-ChronoSpark-Contract": "google-play-rtdn-v2" },
     });
   }
   if (!SUPABASE_URL || !SUPABASE_SECRET_KEY || !serviceAccount) {
     return new Response("Not configured", { status: 503 });
   }
-  if (
-    !await validateGoogleOidcPush(
-      req,
-      RTDN_AUDIENCE,
-      RTDN_SERVICE_ACCOUNT_EMAIL,
-    )
-  ) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
+  let messageId = "";
+  let eventState = "received";
   try {
-    const envelope = await req.json() as PubSubEnvelope;
-    const messageId = envelope.message?.messageId?.trim() ?? "";
+    if (
+      !await validateGoogleOidcPush(
+        req,
+        RTDN_AUDIENCE,
+        RTDN_SERVICE_ACCOUNT_EMAIL,
+      )
+    ) return new Response("Unauthorized", { status: 401 });
+    const envelope = await readBoundedJson(req, {
+      maxBytes: 32_768,
+    }) as PubSubEnvelope;
+    messageId = envelope.message?.messageId?.trim() ?? "";
     const encoded = envelope.message?.data ?? "";
     if (!messageId || messageId.length > 200 || !encoded) {
       return new Response("Invalid envelope", { status: 400 });
@@ -278,6 +445,7 @@ Deno.serve(async (req: Request) => {
     if (existing?.state === "processed" || existing?.state === "ignored") {
       return new Response(null, { status: 204 });
     }
+    eventState = existing?.state === "failed" ? "failed" : "received";
     const notification = decodeNotification(encoded);
     if (!notification || notification.packageName !== ANDROID_PACKAGE_NAME) {
       return new Response("Invalid notification", { status: 400 });
@@ -316,23 +484,36 @@ Deno.serve(async (req: Request) => {
       processed = await processSubscription(messageId, notification);
     } else if (eventType === "voided_purchase") {
       processed = await processVoided(messageId, notification);
+    } else if (eventType === "one_time_product") {
+      processed = await processOneTime(messageId, notification);
+    } else if (eventType === "pending_refund_review") {
+      processed = await processPendingRefundReview(notification);
     } else if (eventType === "test") {
       processed = true;
     } else {
-      await updateEvent(messageId, {
-        state: "ignored",
-        failure_code: "unsupported_event",
-      });
-      return new Response(null, { status: 204 });
+      throw new Error("unsupported_event");
     }
 
     if (!processed) throw new Error("reconciliation_not_applied");
-    await updateEvent(messageId, { state: "processed", failure_code: null });
+    if (!await markEvent(messageId, eventState, "processed")) {
+      throw new Error("event_state_update_failed");
+    }
     return new Response(null, { status: 204 });
   } catch (error) {
-    console.error("Google Play RTDN processing failed");
-    const message = error instanceof Error ? error.message : "unknown_failure";
-    // Pub/Sub retries non-2xx responses. No raw purchase token is logged.
-    return new Response(message.slice(0, 100), { status: 500 });
+    const code = error instanceof EdgeHttpError
+      ? error.code
+      : error instanceof Error
+      ? error.message.slice(0, 100)
+      : "unknown_failure";
+    if (messageId && /^[A-Za-z0-9._:-]{1,200}$/.test(messageId)) {
+      try {
+        await markEvent(messageId, eventState, "failed", code);
+      } catch {
+        // Non-2xx below preserves Pub/Sub retry when ledger persistence fails.
+      }
+    }
+    logEdgeEvent("error", "google_play_rtdn_failed", { code });
+    return new Response("processing_failed", { status: 500 });
   }
 });
+

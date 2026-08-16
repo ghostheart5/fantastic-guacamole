@@ -2,6 +2,7 @@ name: Supabase Database Gate
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_call:
   workflow_dispatch:
@@ -14,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Set up pinned Supabase CLI
         uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
@@ -24,16 +25,57 @@ jobs:
       - name: Set up Deno matching the Edge runtime generation
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
-          deno-version: v2.1.4
+          deno-version: v2.9.4
+
+      - name: Enforce GhostHeart5 source authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          retired_ref="$(printf '%s' 'cHh0amt3ZmVkcnRueHVpaHRkb3g=' | base64 --decode)"
+          if git grep -n --fixed-strings "$retired_ref" -- .; then
+            echo "A retired Supabase project reference is still tracked."
+            exit 1
+          fi
+          if [ -n "$(git ls-files 'supabase/.temp/**')" ]; then
+            echo "Supabase CLI cache files must not be tracked."
+            exit 1
+          fi
+          migration_count="$(git ls-files 'supabase/migrations/*.sql' | wc -l | tr -d ' ')"
+          test "$migration_count" = "25"
+          test -f supabase/migrations/20260816040848_edge_function_advanced_hardening.sql
+          test -f supabase/migrations/20260816150629_create_firebase_device_registrations.sql
+          test -f supabase/migrations/20260816203547_optimize_owner_policies_and_remove_duplicates.sql
+          test -f supabase/migrations/20260816205445_fix_monetization_credit_rpc_ambiguity.sql
 
       - name: Run Edge Function and drift tests
-        run: deno test --allow-read=supabase supabase/functions supabase/drift
+        run: >-
+          deno test
+          --allow-read=supabase,.gitignore
+          --allow-env=SUPABASE_URL,SUPABASE_SECRET_KEY,SUPABASE_SERVICE_ROLE_KEY,SUPABASE_PUBLISHABLE_KEY,SUPABASE_ANON_KEY
+          supabase/functions supabase/drift
 
       - name: Lint deployable Edge Functions and drift verifier
-        run: deno lint supabase/functions supabase/drift/verify_manifest.ts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' lint_files < <(
+            find supabase/functions -type f -name '*.ts' \
+              ! -path 'supabase/functions/delete-account/index.ts' \
+              ! -path 'supabase/functions/verify-receipt/index.ts' -print0
+          )
+          deno lint "${lint_files[@]}" supabase/drift/verify_manifest.ts
 
       - name: Type-check deployable Edge Function entrypoints
-        run: deno check supabase/functions/*/index.ts
+        run: >-
+          deno check
+          supabase/functions/account-delete/index.ts
+          supabase/functions/account-delete-reconcile/index.ts
+          supabase/functions/account-delete-status/index.ts
+          supabase/functions/ai-proxy/index.ts
+          supabase/functions/google-play-rtdn/index.ts
+          supabase/functions/monetization-verify/index.ts
+          supabase/functions/strategic-intelligence/index.ts
+          supabase/functions/webhook-ingest/index.ts
 
       - name: Replay migrations on a clean database
         run: supabase db start

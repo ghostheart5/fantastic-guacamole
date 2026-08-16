@@ -1,23 +1,48 @@
 [functions.ai-proxy]
-verify_jwt = false
+# Signed-in client endpoint. The handler independently verifies the caller
+# before privileged work; platform verification rejects invalid JWTs first.
+verify_jwt = true
 
 [functions.monetization-verify]
-verify_jwt = false
+# Signed-in client endpoint. Receipt validation remains server-side, but the
+# request must first be bound to an authenticated Supabase user.
+verify_jwt = true
 
 [functions.account-delete]
+# Signed-in client endpoint. The handler still enforces the destructive-action
+# contract and recent-sign-in check after platform JWT verification.
+verify_jwt = true
+
+[functions.strategic-intelligence]
+# Signed-in Strategic Intelligence endpoint. Platform verification is followed
+# by the handler's user lookup before any account-scoped context is accessed.
+verify_jwt = true
+
+[functions.verify-receipt]
+# Signed-in compatibility endpoint retained in the deployed GhostHeart5
+# production bundle. It independently binds the receipt to the caller.
+verify_jwt = true
+
+[functions.delete-account]
+# Signed-in compatibility endpoint retained in GhostHeart5 production. The
+# handler validates the bearer token before destructive service-role work.
+verify_jwt = true
+
+[functions.webhook-ingest]
+# Authenticated smoke-ingestion endpoint. It performs no database writes, but
+# still requires a valid Supabase JWT at the platform boundary.
+verify_jwt = true
+
+[functions.account-delete-status]
+# Public status lookup uses the opaque deletion-request verification contract,
+# not a signed-in user JWT. The handler bounds and validates the request body.
 verify_jwt = false
 
 [functions.account-delete-reconcile]
+# Internal reconciliation uses its dedicated reconcile secret, not a user JWT.
 verify_jwt = false
 
 [functions.google-play-rtdn]
-verify_jwt = false
-
-[functions.verify-receipt]
-verify_jwt = false
-
-[functions.delete-account]
-verify_jwt = false
-
-[functions.webhook-ingest]
+# Google sends an OIDC token; the handler validates the configured audience
+# and service account rather than accepting a Supabase user JWT.
 verify_jwt = false

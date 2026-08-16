@@ -241,20 +241,20 @@ historical transcripts are not current-head passing evidence.
 | Credits; purchase verification; entitlement isolation; restore | credit/RPC pgTAP, denial runners, read-isolation assets, deterministic subscription verification | Pure verification passed; sandbox receipt and all staging writes pending |
 | Account deletion boundaries | deletion input/recent-sign-in Deno and cascade pgTAP | Local Deno passed; cascade SQL and destructive staging boundary test pending |
 
-### Phase 8 safety contract
+### Phase 8 safety contract - superseded 2026-08-16
 
-- The only approved staging hostname encoded by the harness is
-  `pxtjkwfedrtnxuihtdox.supabase.co`; confirmation is still mandatory and no
-  caller may substitute another host.
-- Client staging helpers reject service-role/secret-key environment variables.
-- Test run IDs are unique and cleanup identifiers must contain the exact run ID;
-  wildcard and unrelated cleanup targets are refused.
-- Diagnostics redact bearer tokens, JWTs, passwords, API keys, and secrets;
-  RPC failures log stable status/category data rather than raw bodies/exceptions.
-- The Phase 8 runner contains no database push/reset, migration apply/deploy,
-  Edge Function deploy, production fallback, or network operation.
+- There is no approved staging hostname. The historical staging harness is
+  retained as evidence but every PowerShell and SQL executable is fail-closed.
+- GhostHeart5 production (`qpwhuckyirnqtmvhpede`) is the sole Supabase
+  authority and must never be substituted into the retired harness.
+- Current production work requires reviewed migrations/functions, source-drift
+  verification, credential redaction, narrow targets, and an explicit mutation
+  decision. Already-matching production code is a deployment no-op.
 
-### Phase 8 validation record
+### Historical Phase 8 validation record
+
+The results below predate retirement of the staging environment and do not
+constitute current GhostHeart5 production evidence:
 
 - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File
   .\tool\staging_validation\phase8_backend_harness_test.ps1`: 12 passed, 0

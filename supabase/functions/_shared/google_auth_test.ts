@@ -1,4 +1,7 @@
-import { validateGoogleOidcPush } from "./google_auth.ts";
+import {
+  validateGoogleOidcClaims,
+  validateGoogleOidcPush,
+} from "./google_auth.ts";
 
 function expect(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -31,44 +34,34 @@ Deno.test("Google push validation rejects missing and oversized bearer tokens lo
   }
 });
 
-Deno.test("Google push validation checks audience, email, issuer, verification, and expiry", async () => {
-  const originalFetch = globalThis.fetch;
+Deno.test("Google push validation checks audience, email, issuer, verification, and expiry", () => {
+  const now = Math.floor(Date.now() / 1000);
   const baseClaims = {
     aud: "approved-audience",
     email: "approved-server@example.test",
     email_verified: true,
     iss: "https://accounts.google.com",
-    exp: String(Math.floor(Date.now() / 1000) + 300),
+    iat: String(now - 30),
+    exp: String(now + 300),
   };
-  try {
-    for (
-      const [override, expected] of [
-        [{}, true],
-        [{ aud: "other" }, false],
-        [{ email: "other@example.test" }, false],
-        [{ email_verified: false }, false],
-        [{ iss: "https://issuer.invalid" }, false],
-        [{ exp: "1" }, false],
-      ] as const
-    ) {
-      globalThis.fetch = (() =>
-        Promise.resolve(
-          new Response(JSON.stringify({ ...baseClaims, ...override }), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          }),
-        )) as typeof fetch;
-      const accepted = await validateGoogleOidcPush(
-        new Request("https://local.invalid", {
-          headers: { authorization: "Bearer local-test-token" },
-        }),
-        "approved-audience",
-        "approved-server@example.test",
-      );
-      expect(accepted === expected, "OIDC claim decision did not fail closed");
-    }
-  } finally {
-    globalThis.fetch = originalFetch;
+  for (
+    const [override, expected] of [
+      [{}, true],
+      [{ aud: "other" }, false],
+      [{ email: "other@example.test" }, false],
+      [{ email_verified: false }, false],
+      [{ iss: "https://issuer.invalid" }, false],
+      [{ exp: "1" }, false],
+      [{ iat: String(now + 301) }, false],
+    ] as const
+  ) {
+    const accepted = validateGoogleOidcClaims(
+      { ...baseClaims, ...override },
+      "approved-audience",
+      "approved-server@example.test",
+      now,
+    );
+    expect(accepted === expected, "OIDC claim decision did not fail closed");
   }
 });
 

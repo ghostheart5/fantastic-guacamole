@@ -66,3 +66,4 @@ export function serverSystemPrompt(personality: AiProxyPersonality): string {
     tone,
   ].join(" ");
 }
+

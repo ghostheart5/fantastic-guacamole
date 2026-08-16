@@ -1,3 +1,9 @@
+DO $chronospark_retired_staging$
+BEGIN
+  RAISE EXCEPTION 'Retired staging SQL: execution is disabled. Do not run this historical file against GhostHeart5 production.';
+END
+$chronospark_retired_staging$;
+
 -- Read-only staging catalog and count audit. It does not create, alter, grant, revoke, or change data.
 with non_system_schemas as (
   select oid, nspname

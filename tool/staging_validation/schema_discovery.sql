@@ -1,3 +1,9 @@
+DO $chronospark_retired_staging$
+BEGIN
+  RAISE EXCEPTION 'Retired staging SQL: execution is disabled. Do not run this historical file against GhostHeart5 production.';
+END
+$chronospark_retired_staging$;
+
 -- Read-only catalog inspection. This query does not create, change, or seed data.
 with expected_tables(table_name) as (
   values

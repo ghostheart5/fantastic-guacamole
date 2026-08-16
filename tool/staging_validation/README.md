@@ -1,5 +1,11 @@
 # Ready Backend Staging Checks
 
+> **RETIRED — DO NOT RUN.** ChronoSpark no longer has an approved staging
+> Supabase project. Every PowerShell and SQL executable in this directory is
+> fail-closed. GhostHeart5 production (`qpwhuckyirnqtmvhpede`) must be changed
+> only through reviewed migrations and Edge Function deployments, never by
+> retargeting this historical harness. See [RETIRED.md](RETIRED.md).
+
 This directory contains staging-only PowerShell checks for the backend categories marked `READY_FOR_EXACT_TESTS` in [backend_staging_test_harness_plan.md](../../backend_staging_test_harness_plan.md). The runner uses the staging anon/publishable key and authenticated user sessions only. It never accepts, reads, or requires a service-role key.
 
 ## Included Checks

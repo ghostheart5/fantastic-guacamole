@@ -26,6 +26,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Prepare non-secret Flutter environment asset
+        if: matrix.language == 'swift'
+        run: cp .env.example .env
+
       # Disable the GitHub default CodeQL setup to prevent the conflict:
       # "CodeQL analyses from advanced configurations cannot be processed
       # when the default setup is enabled." The default setup cannot build

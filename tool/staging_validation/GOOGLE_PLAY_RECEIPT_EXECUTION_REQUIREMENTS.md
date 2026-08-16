@@ -33,7 +33,7 @@ Status: planning only. This document authorizes no Google Play request, purchase
 1. An approved test operator completes the Google Play test purchase on the intended test track.
 2. The ChronoSpark test client obtains the purchase token through its normal purchase integration.
 3. The test operator records a redacted token fingerprint, product ID, purchase type, test user label, timestamp, and redacted order identifier.
-4. The client sends the normal authenticated request to `POST https://pxtjkwfedrtnxuihtdox.supabase.co/functions/v1/monetization-verify`.
+4. The client sends the normal authenticated request to `POST https://retired-staging-project.invalid/functions/v1/monetization-verify`.
 5. The raw token remains confined to the approved test device/runtime; it is never copied into a report, script, repository, or chat transcript.
 
 ## Product mismatch requirements

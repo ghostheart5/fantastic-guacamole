@@ -8,7 +8,7 @@
 
 ## Target URL
 
-`https://pxtjkwfedrtnxuihtdox.supabase.co`
+`https://retired-staging-project.invalid`
 
 ## User A UUID
 

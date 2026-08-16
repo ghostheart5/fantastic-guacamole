@@ -1,3 +1,5 @@
+throw 'Retired staging harness: execution is disabled. GhostHeart5 production must use reviewed Supabase migrations and functions, never this historical test tooling.'
+
 [CmdletBinding()]
 param(
     [switch]$ConfirmStaging
@@ -6,7 +8,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$expectedHost = 'pxtjkwfedrtnxuihtdox.supabase.co'
+$expectedHost = 'retired-staging-project.invalid'
 $bucket = 'chronospark-sync'
 $expectedUserAUuid = 'a6dc2118-2140-4416-8642-9c3eba691288'
 $expectedUserBUuid = 'aa116396-4dc1-461e-8502-61b6896570b4'
@@ -85,7 +87,7 @@ if (-not $ConfirmStaging) {
 . "$PSScriptRoot/core_sync_rls_tests/CoreSyncRls.TestSupport.ps1"
 Import-StagingEnvironment -EnvironmentFile "$PSScriptRoot/.env"
 $supabaseUrl = Get-RequiredStagingValue -Name 'STAGING_SUPABASE_URL'
-if ($supabaseUrl -notmatch 'pxtjkwfedrtnxuihtdox' -or $supabaseUrl -match '(?i)/rest/v1/?$') {
+if ($supabaseUrl -notmatch 'RETIRED_STAGING_PROJECT' -or $supabaseUrl -match '(?i)/rest/v1/?$') {
     throw 'Refusing to run: STAGING_SUPABASE_URL must be the confirmed staging base URL, not a REST endpoint.'
 }
 $target = [uri]$supabaseUrl

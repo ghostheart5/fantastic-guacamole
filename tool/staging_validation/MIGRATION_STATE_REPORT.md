@@ -2,7 +2,7 @@
 
 ## Confirmed Target
 
-- Confirmed staging project ref: `pxtjkwfedrtnxuihtdox`
+- Confirmed staging project ref: `RETIRED_STAGING_PROJECT`
 - CLI link status: linked to staging.
 
 ## Migration List Finding

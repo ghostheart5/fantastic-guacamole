@@ -18,15 +18,15 @@ This is a review-only record. No migration, SQL verification, Edge Function depl
 
 ## Target Review
 
-- Linked project ref: `pxtjkwfedrtnxuihtdox`.
+- Linked project ref: `RETIRED_STAGING_PROJECT`.
 - Confirmed target: staging only.
-- The staging environment URL matches `https://pxtjkwfedrtnxuihtdox.supabase.co`.
+- The staging environment URL matches `https://retired-staging-project.invalid`.
 - No production marker was found in the staging environment configuration.
-- The bypass runner rejects targets other than `pxtjkwfedrtnxuihtdox.supabase.co` and uses only the anon key plus normal authenticated user sessions.
+- The bypass runner rejects targets other than `retired-staging-project.invalid` and uses only the anon key plus normal authenticated user sessions.
 
 ## Remaining Approval
 
-- [ ] I confirm `pxtjkwfedrtnxuihtdox` is staging.
+- [ ] I confirm `RETIRED_STAGING_PROJECT` is staging.
 - [ ] I confirm this is not production.
 - [ ] I confirm `apply_verified_purchase` is server-only.
 - [ ] I approve revoking anon EXECUTE.

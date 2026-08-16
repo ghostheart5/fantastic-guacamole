@@ -4,7 +4,7 @@ Run this only after approved staging grant verification shows the required serve
 
 ## Prerequisites
 
-1. Confirm the target is `https://pxtjkwfedrtnxuihtdox.supabase.co`.
+1. Confirm the target is `https://retired-staging-project.invalid`.
 2. Complete the grant re-verification procedure.
 3. Confirm `anon_has_execute = false`, `authenticated_has_execute = false`, and `service_role_has_execute = true`.
 4. Do not add a service-role key to the client-side staging environment or runner.

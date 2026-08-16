@@ -1,9 +1,11 @@
+throw 'Retired staging harness: execution is disabled. GhostHeart5 production must use reviewed Supabase migrations and functions, never this historical test tooling.'
+
 Set-StrictMode -Version Latest
 
 $script:ValidationFailures = 0
 $script:ValidationSkips = 0
 $script:ValidationPasses = 0
-$script:Phase8ExpectedStagingHost = 'pxtjkwfedrtnxuihtdox.supabase.co'
+$script:Phase8ExpectedStagingHost = 'retired-staging-project.invalid'
 
 function Assert-ApprovedStagingTarget {
     param(

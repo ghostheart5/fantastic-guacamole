@@ -5,7 +5,7 @@
 This status means the read-only audit supports preparing a migration review, but does not authorize `db push`. The following human confirmations remain required:
 
 - The two Auth users are intentional staging test users or disposable.
-- `pxtjkwfedrtnxuihtdox` is staging, not production.
+- `RETIRED_STAGING_PROJECT` is staging, not production.
 - The destructive `user_daily_metrics` migration is safe because its target app table is absent.
 - A human explicitly approves applying migrations to staging.
 

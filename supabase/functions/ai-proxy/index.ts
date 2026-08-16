@@ -8,6 +8,14 @@ import {
   safeFallbackResponse,
   serverSystemPrompt,
 } from "../_shared/ai_safety.ts";
+import {
+  EdgeHttpError,
+  fetchWithDeadline,
+  logEdgeEvent,
+  readBoundedJson,
+  readBoundedResponseJson,
+  safeCorrelationId,
+} from "../_shared/edge_http.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
@@ -16,7 +24,12 @@ const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY") ??
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const CONTRACT_VERSION = "ai-proxy-v3";
+const SAFETY_POLICY_VERSION = "chronospark-safety-v2";
+const configuredModel = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-4-6";
+const DEFAULT_MODEL = /^[A-Za-z0-9._-]{3,80}$/.test(configuredModel)
+  ? configuredModel
+  : "claude-sonnet-4-6";
 const ALLOWED_ORIGINS = new Set(
   (Deno.env.get("ALLOWED_ORIGINS") ??
     "https://chronospark.app,https://www.chronospark.app")
@@ -49,7 +62,7 @@ function cors(req: Request): Record<string, string> {
     "Cache-Control": "no-store",
     "Vary": "Origin",
     "X-Content-Type-Options": "nosniff",
-    "X-ChronoSpark-Contract": "ai-proxy-v2",
+    "X-ChronoSpark-Contract": CONTRACT_VERSION,
   };
 }
 
@@ -70,9 +83,16 @@ async function authenticatedUserId(req: Request): Promise<string | null> {
     !authorization.startsWith("Bearer ") || !SUPABASE_URL ||
     !SUPABASE_PUBLISHABLE_KEY
   ) return null;
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { Authorization: authorization, apikey: SUPABASE_PUBLISHABLE_KEY },
-  });
+  const response = await fetchWithDeadline(
+    `${SUPABASE_URL}/auth/v1/user`,
+    {
+      headers: {
+        Authorization: authorization,
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+      },
+    },
+    { timeoutMs: 5_000, dependency: "supabase_auth_user" },
+  );
   if (!response.ok) return null;
   const user = await response.json();
   return typeof user?.id === "string" ? user.id : null;
@@ -80,7 +100,7 @@ async function authenticatedUserId(req: Request): Promise<string | null> {
 
 async function consumeRateLimit(req: Request): Promise<boolean> {
   const authorization = req.headers.get("authorization") ?? "";
-  const response = await fetch(
+  const response = await fetchWithDeadline(
     `${SUPABASE_URL}/rest/v1/rpc/consume_ai_proxy_rate_limit`,
     {
       method: "POST",
@@ -91,6 +111,7 @@ async function consumeRateLimit(req: Request): Promise<boolean> {
       },
       body: "{}",
     },
+    { timeoutMs: 5_000, dependency: "ai_rate_limit" },
   );
   return response.ok;
 }
@@ -100,15 +121,19 @@ async function serviceRpc(
   body: Record<string, unknown>,
 ): Promise<Record<string, unknown> | null> {
   if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) return null;
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_SECRET_KEY,
-      Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
-      "Content-Type": "application/json",
+  const response = await fetchWithDeadline(
+    `${SUPABASE_URL}/rest/v1/rpc/${name}`,
+    {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+    { timeoutMs: 5_000, dependency: `supabase_rpc_${name}` },
+  );
   if (!response.ok) {
     await response.body?.cancel();
     return null;
@@ -146,7 +171,7 @@ async function settleReservation(
     responsePayload?: Record<string, unknown>;
   } = {},
 ): Promise<Record<string, unknown> | null> {
-  return await serviceRpc("settle_ai_usage", {
+  return await serviceRpc("settle_ai_usage_v2", {
     p_user_id: userId,
     p_request_key: requestId,
     p_succeeded: succeeded,
@@ -172,16 +197,28 @@ Deno.serve(async (req) => {
     return jsonResponse(req, { error: "ai_proxy_not_configured" }, 503);
   }
 
-  const userId = await authenticatedUserId(req);
-  if (!userId) return jsonResponse(req, { error: "unauthorized" }, 401);
-  if (!await consumeRateLimit(req)) {
-    return jsonResponse(req, { error: "rate_limit_exceeded" }, 429);
+  let userId: string | null;
+  try {
+    userId = await authenticatedUserId(req);
+    if (!userId) return jsonResponse(req, { error: "unauthorized" }, 401);
+    if (!await consumeRateLimit(req)) {
+      return jsonResponse(req, { error: "rate_limit_exceeded" }, 429);
+    }
+  } catch (error) {
+    const status = error instanceof EdgeHttpError ? error.status : 503;
+    const code = error instanceof EdgeHttpError
+      ? error.code
+      : "auth_unavailable";
+    return jsonResponse(req, { error: code }, status);
   }
 
   let reservation: { userId: string; requestId: string } | null = null;
   try {
-    const body = validateAiProxyRequest(await req.json());
+    const body = validateAiProxyRequest(
+      await readBoundedJson(req, { maxBytes: 24_576 }),
+    );
     if (!body) return jsonResponse(req, { error: "invalid_request_body" }, 400);
+    const correlationId = safeCorrelationId(body.requestId);
 
     const combinedInput = [
       body.prompt,
@@ -201,17 +238,33 @@ Deno.serve(async (req) => {
     }
 
     const cost = creditCost(body.prompt, body.personality);
-    const promptHash = await sha256(body.prompt);
-    const reserved = await serviceRpc("reserve_ai_usage", {
+    const requestFingerprint = await sha256(JSON.stringify({
+      contract: CONTRACT_VERSION,
+      safetyPolicy: SAFETY_POLICY_VERSION,
+      model: DEFAULT_MODEL,
+      prompt: body.prompt,
+      history: body.history,
+      personality: body.personality,
+      maxTokens: body.maxTokens,
+    }));
+    const reserved = await serviceRpc("reserve_ai_usage_v2", {
       p_user_id: userId,
       p_request_key: body.requestId,
       p_credit_amount: cost,
-      p_prompt_hash: promptHash,
+      p_request_fingerprint: requestFingerprint,
+      p_contract_version: CONTRACT_VERSION,
     });
     if (!reserved) {
       return jsonResponse(req, { error: "credit_reservation_failed" }, 503);
     }
     if (reserved.duplicate === true) {
+      if (reserved.conflict === true) {
+        return jsonResponse(
+          req,
+          { requestId: body.requestId, error: "idempotency_conflict" },
+          409,
+        );
+      }
       const state = reserved.state?.toString() ?? "unknown";
       const cached = reserved.responsePayload;
       const cachedResponse = cached && typeof cached === "object" &&
@@ -251,20 +304,24 @@ Deno.serve(async (req) => {
       ? recentHistory
       : [...recentHistory, { role: "user" as const, content: safePrompt }];
 
-    const upstream = await fetch(ANTHROPIC_API, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
+    const upstream = await fetchWithDeadline(
+      ANTHROPIC_API,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: DEFAULT_MODEL,
+          max_tokens: Math.max(128, body.maxTokens),
+          system: serverSystemPrompt(body.personality),
+          messages,
+        }),
       },
-      body: JSON.stringify({
-        model: DEFAULT_MODEL,
-        max_tokens: Math.max(128, body.maxTokens),
-        system: serverSystemPrompt(body.personality),
-        messages,
-      }),
-    });
+      { timeoutMs: 20_000, dependency: "anthropic_messages" },
+    );
 
     if (!upstream.ok) {
       await upstream.body?.cancel();
@@ -272,19 +329,67 @@ Deno.serve(async (req) => {
         failureCode: `provider_http_${upstream.status}`,
       });
       reservation = null;
-      console.error("Anthropic API request failed");
+      logEdgeEvent("warn", "ai_provider_http_failure", {
+        requestId: correlationId,
+        status: upstream.status,
+      });
       return jsonResponse(req, { error: "upstream_ai_error" }, 502);
     }
 
-    const data = await upstream.json();
-    const providerMessage = typeof data?.content?.[0]?.text === "string"
-      ? data.content[0].text.trim()
-      : "";
-    const inputTokens = Number(data?.usage?.input_tokens ?? 0);
-    const outputTokens = Number(data?.usage?.output_tokens ?? 0);
-    const providerRequestId = typeof data?.id === "string"
-      ? data.id
-      : undefined;
+    const rawData = await readBoundedResponseJson(upstream, {
+      maxBytes: 262_144,
+    });
+    const data =
+      rawData && typeof rawData === "object" && !Array.isArray(rawData)
+        ? rawData as Record<string, unknown>
+        : {};
+    const usage = data.usage && typeof data.usage === "object" &&
+        !Array.isArray(data.usage)
+      ? data.usage as Record<string, unknown>
+      : {};
+    const contentBlocks = Array.isArray(data.content) ? data.content : [];
+    const providerMessage = contentBlocks
+      .flatMap((block: unknown) => {
+        if (!block || typeof block !== "object" || Array.isArray(block)) {
+          return [];
+        }
+        const record = block as Record<string, unknown>;
+        return record.type === "text" && typeof record.text === "string"
+          ? [record.text]
+          : [];
+      })
+      .join("\n")
+      .trim();
+    const stopReason = typeof data.stop_reason === "string"
+      ? data.stop_reason
+      : "unknown";
+    const inputTokens = Number(usage.input_tokens ?? 0);
+    const outputTokens = Number(usage.output_tokens ?? 0);
+    const providerRequestId = typeof data.id === "string" ? data.id : undefined;
+
+    if (
+      stopReason === "refusal" || stopReason === "max_tokens" ||
+      !providerMessage
+    ) {
+      await settleReservation(userId, body.requestId, false, {
+        inputTokens,
+        outputTokens,
+        providerRequestId,
+        failureCode: stopReason === "refusal"
+          ? "provider_refusal"
+          : stopReason === "max_tokens"
+          ? "provider_incomplete"
+          : "provider_empty_output",
+      });
+      reservation = null;
+      return jsonResponse(req, {
+        message: stopReason === "refusal" ? safeFallbackResponse() : undefined,
+        requestId: body.requestId,
+        creditsCharged: 0,
+        safety: stopReason === "refusal" ? "filtered" : undefined,
+        error: stopReason === "max_tokens" ? "incomplete_response" : undefined,
+      }, stopReason === "max_tokens" ? 502 : 200);
+    }
 
     if (!isProviderOutputSafe(providerMessage)) {
       await settleReservation(userId, body.requestId, false, {
@@ -308,7 +413,7 @@ Deno.serve(async (req) => {
     const safeProviderMessage = redactSensitiveText(providerMessage);
     const responsePayload: ProxyResponse = {
       message: safeProviderMessage,
-      model: typeof data?.model === "string" ? data.model : DEFAULT_MODEL,
+      model: typeof data.model === "string" ? data.model : DEFAULT_MODEL,
       inputTokens,
       outputTokens,
       requestId: body.requestId,
@@ -328,7 +433,7 @@ Deno.serve(async (req) => {
     reservation = null;
 
     return jsonResponse(req, responsePayload);
-  } catch {
+  } catch (error) {
     if (reservation) {
       await settleReservation(
         reservation.userId,
@@ -339,7 +444,10 @@ Deno.serve(async (req) => {
         },
       );
     }
-    console.error("AI proxy request failed");
-    return jsonResponse(req, { error: "request_failed" }, 500);
+    const status = error instanceof EdgeHttpError ? error.status : 500;
+    const code = error instanceof EdgeHttpError ? error.code : "request_failed";
+    logEdgeEvent("error", "ai_proxy_request_failed", { code, status });
+    return jsonResponse(req, { error: code }, status);
   }
 });
+

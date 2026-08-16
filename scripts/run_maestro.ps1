@@ -72,7 +72,7 @@ if (!(Test-Path -LiteralPath $Suite)) {
   throw "Maestro suite '$Suite' does not exist."
 }
 if ($usesLevel -and $levels.ContainsKey($Level) -and $profiles.ContainsKey($Profile) -and
-     $levels[$Level].AllowedProfiles -notcontains $Profile)) {
+     $levels[$Level].AllowedProfiles -notcontains $Profile) {
   throw "Execution level '$Level' cannot run with profile '$Profile'."
 }
 $email = $env:MAESTRO_EMAIL
