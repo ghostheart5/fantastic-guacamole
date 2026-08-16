@@ -4,7 +4,7 @@
 
 | Item | Status | Evidence |
 | --- | --- | --- |
-| Route identification | READY | Expected route: `POST https://pxtjkwfedrtnxuihtdox.supabase.co/functions/v1/monetization-verify`. Deployment has been reported; this document performs no liveness check. |
+| Route identification | READY | Expected route: `POST https://retired-staging-project.invalid/functions/v1/monetization-verify`. Deployment has been reported; this document performs no liveness check. |
 | Local receipt logic review | READY | Local function validates authentication, product/type allow-list, Google response, token binding, subscription line item, state, acknowledgement, and expiry before receipt application. |
 | Grant hardening | READY | `apply_verified_purchase` direct-client grants were hardened and grant verification passed. |
 | Bypass protection | READY | Direct client bypass verification passed. |

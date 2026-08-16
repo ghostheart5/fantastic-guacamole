@@ -1,3 +1,9 @@
+DO $chronospark_retired_staging$
+BEGIN
+  RAISE EXCEPTION 'Retired staging SQL: execution is disabled. Do not run this historical file against GhostHeart5 production.';
+END
+$chronospark_retired_staging$;
+
 -- Read-only verification for the server-only apply_verified_purchase RPC grant contract.
 select
   n.nspname as function_schema,

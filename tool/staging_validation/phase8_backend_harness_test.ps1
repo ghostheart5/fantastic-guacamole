@@ -1,3 +1,5 @@
+throw 'Retired staging harness: execution is disabled. GhostHeart5 production must use reviewed Supabase migrations and functions, never this historical test tooling.'
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -28,7 +30,7 @@ function Assert-ThrowsCode {
     throw "ASSERTION_FAILED:$Name"
 }
 
-$approvedUrl = 'https://pxtjkwfedrtnxuihtdox.supabase.co'
+$approvedUrl = 'https://retired-staging-project.invalid'
 Assert-ThrowsCode -Action {
     Assert-ApprovedStagingTarget -SupabaseUrl $approvedUrl -ConfirmStaging $false
 } -Code 'STAGING_CONFIRMATION_REQUIRED' -Name 'staging confirmation is mandatory'
@@ -36,7 +38,7 @@ Assert-ThrowsCode -Action {
     Assert-ApprovedStagingTarget -SupabaseUrl 'https://example.supabase.co' -ConfirmStaging $true
 } -Code 'STAGING_TARGET_REFUSED' -Name 'unknown Supabase host is refused'
 Assert-ThrowsCode -Action {
-    Assert-ApprovedStagingTarget -SupabaseUrl 'http://pxtjkwfedrtnxuihtdox.supabase.co' -ConfirmStaging $true
+    Assert-ApprovedStagingTarget -SupabaseUrl 'http://retired-staging-project.invalid' -ConfirmStaging $true
 } -Code 'STAGING_TARGET_REFUSED' -Name 'non-HTTPS staging target is refused'
 Assert-ThrowsCode -Action {
     Assert-ApprovedStagingTarget -SupabaseUrl "$approvedUrl/rest/v1" -ConfirmStaging $true

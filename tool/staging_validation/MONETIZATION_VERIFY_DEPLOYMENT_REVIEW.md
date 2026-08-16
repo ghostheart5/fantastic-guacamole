@@ -4,7 +4,7 @@
 
 1. Function folder exists: `supabase/functions/monetization-verify`.
 2. Expected route: `POST /functions/v1/monetization-verify`.
-3. Expected staging base URL: `https://pxtjkwfedrtnxuihtdox.supabase.co`.
+3. Expected staging base URL: `https://retired-staging-project.invalid`.
 4. Expected auth mode: JWT verification enabled by local Supabase config, with a bearer-authenticated caller verified through Supabase Auth.
 5. Local client construction resolves `/functions/v1/monetization-verify` from an HTTPS Supabase URL.
 

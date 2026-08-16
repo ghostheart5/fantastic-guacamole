@@ -1,40 +1,38 @@
-type MigrationEntry = {
-  version: string;
-  local_path: string;
+type BaselineMigration = { version: string; name: string };
+type BaselineFunction = { slug: string; verify_jwt: boolean };
+type ProductionBaseline = {
+  schema_version: number;
+  project: { ref: string; name: string; region: string; status: string };
+  migrations: BaselineMigration[];
+  edge_functions: BaselineFunction[];
+};
+type BundleFile = { local_path: string; characters: number };
+type BundleFunction = BaselineFunction & {
+  version: number;
+  status: string;
+  ezbr_sha256: string;
+  files: BundleFile[];
+};
+type BundleManifest = {
+  schema_version: number;
+  project_ref: string;
+  functions: BundleFunction[];
+};
+type StatementCapture = {
+  project_ref: string;
+  migrations: Array<BaselineMigration & { statements: string[] }>;
 };
 
-type EdgeFunctionEntry = {
-  slug: string;
-  verify_jwt: boolean;
-  source_path: string;
-  source_sha256?: string;
-};
-
-type DriftManifest = {
-  remote_migrations: MigrationEntry[];
-  local_unapplied_migrations_at_capture: string[];
-  remote_edge_functions: EdgeFunctionEntry[];
-  remote_tables: {
-    count: number;
-    names: string[];
-    all_rls_enabled: boolean;
-    account_deletion_fk_audit: {
-      tables_requiring_cascade_migration: string[];
-      rows_in_each_table_at_capture: number;
-    };
-  };
-};
-
+const projectRef = "qpwhuckyirnqtmvhpede";
 const driftRoot = new URL("./", import.meta.url);
-const manifestUrl = new URL("remote_state_2026-08-09.json", driftRoot);
+const repositoryRoot = new URL("../../", driftRoot);
 const migrationsUrl = new URL("../migrations/", driftRoot);
+const configUrl = new URL("../config.toml", driftRoot);
 
-async function sha256(url: URL): Promise<string> {
-  const bytes = await Deno.readFile(url);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+async function readJson<T>(relativePath: string): Promise<T> {
+  return JSON.parse(
+    await Deno.readTextFile(new URL(relativePath, driftRoot)),
+  ) as T;
 }
 
 async function exists(url: URL): Promise<boolean> {
@@ -47,115 +45,175 @@ async function exists(url: URL): Promise<boolean> {
   }
 }
 
-export async function verifyManifest(): Promise<string[]> {
-  const manifest = JSON.parse(
-    await Deno.readTextFile(manifestUrl),
-  ) as DriftManifest;
-  const failures: string[] = [];
-  const migrationFiles: string[] = [];
+function configVerifyJwt(
+  config: string,
+  functionName: string,
+): boolean | null {
+  const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const section = new RegExp(
+    String.raw`\[functions\.${escaped}\]([\s\S]*?)(?=\n\[|$)`,
+  ).exec(config)?.[1];
+  if (!section) return null;
+  const value = /^\s*verify_jwt\s*=\s*(true|false)\s*$/m.exec(section)?.[1];
+  return value === "true" ? true : value === "false" ? false : null;
+}
 
+export async function verifyManifest(): Promise<string[]> {
+  const failures: string[] = [];
+  const baseline = await readJson<ProductionBaseline>(
+    "../ghostheart5_production_baseline_20260816.json",
+  );
+  const bundles = await readJson<BundleManifest>(
+    "../ghostheart5_edge_function_bundles_20260816.json",
+  );
+  const statementCapture = await readJson<StatementCapture>(
+    "../ghostheart5_live_migration_statements_20260816.json",
+  );
+  const config = await Deno.readTextFile(configUrl);
+
+  if (
+    baseline.project.ref !== projectRef || bundles.project_ref !== projectRef ||
+    statementCapture.project_ref !== projectRef
+  ) {
+    failures.push("Every current Supabase manifest must identify GhostHeart5");
+  }
+  if (
+    baseline.project.name !== "ghostheart5's Project" ||
+    baseline.project.region !== "us-west-2" ||
+    baseline.project.status !== "ACTIVE_HEALTHY"
+  ) failures.push("GhostHeart5 project metadata is inconsistent");
+
+  const migrationFiles = new Set<string>();
   for await (const entry of Deno.readDir(migrationsUrl)) {
     if (entry.isFile && entry.name.endsWith(".sql")) {
-      migrationFiles.push(entry.name);
+      migrationFiles.add(entry.name);
     }
   }
-
-  const seenVersions = new Set<string>();
-  for (const migration of manifest.remote_migrations) {
+  if (baseline.migrations.length !== 23) {
+    failures.push(
+      `Expected 23 production migrations; found ${baseline.migrations.length}`,
+    );
+  }
+  const migrationVersions = new Set<string>();
+  for (const migration of baseline.migrations) {
     if (!/^\d{12,14}$/.test(migration.version)) {
       failures.push(`Invalid migration version: ${migration.version}`);
     }
-    if (seenVersions.has(migration.version)) {
-      failures.push(`Duplicate remote migration version: ${migration.version}`);
+    if (migrationVersions.has(migration.version)) {
+      failures.push(`Duplicate migration version: ${migration.version}`);
     }
-    seenVersions.add(migration.version);
+    migrationVersions.add(migration.version);
+    const expected = `${migration.version}_${migration.name}.sql`;
+    if (!migrationFiles.has(expected)) {
+      failures.push(`Missing production migration: ${expected}`);
+    }
+  }
 
-    const matches = migrationFiles.filter((name) =>
-      name.startsWith(`${migration.version}_`)
+  for (const captured of statementCapture.migrations) {
+    const migrationPath = new URL(
+      `../migrations/${captured.version}_${captured.name}.sql`,
+      driftRoot,
     );
-    if (matches.length !== 1) {
-      failures.push(
-        `Expected one local migration for ${migration.version}; found ${matches.length}`,
-      );
-    }
-    if (!await exists(new URL(migration.local_path, driftRoot))) {
-      failures.push(`Missing local migration path: ${migration.local_path}`);
-    }
-  }
-
-  for (const pendingPath of manifest.local_unapplied_migrations_at_capture) {
-    if (!await exists(new URL(pendingPath, driftRoot))) {
-      failures.push(`Missing captured local-only migration: ${pendingPath}`);
-    }
-  }
-
-  const slugs = new Set<string>();
-  for (const fn of manifest.remote_edge_functions) {
-    if (slugs.has(fn.slug)) {
-      failures.push(`Duplicate Edge Function slug: ${fn.slug}`);
-    }
-    slugs.add(fn.slug);
-    if (!fn.verify_jwt) {
-      failures.push(`Edge Function does not verify JWT: ${fn.slug}`);
-    }
-
-    const sourceUrl = new URL(fn.source_path, driftRoot);
-    if (!await exists(sourceUrl)) {
-      failures.push(`Missing Edge Function source evidence: ${fn.source_path}`);
+    if (!await exists(migrationPath)) {
+      failures.push(`Missing recovered migration: ${captured.version}`);
       continue;
     }
-    if (fn.source_sha256) {
-      const actual = await sha256(sourceUrl);
-      if (actual !== fn.source_sha256) {
-        failures.push(`Source hash mismatch for ${fn.slug}: ${actual}`);
+    const source = await Deno.readTextFile(migrationPath);
+    if (captured.statements.length === 0) {
+      failures.push(
+        `Recovered migration has no statements: ${captured.version}`,
+      );
+    }
+    for (const [index, statement] of captured.statements.entries()) {
+      if (!source.includes(statement)) {
+        failures.push(
+          `Recovered statement ${
+            index + 1
+          } is not exact in ${captured.version}`,
+        );
       }
     }
   }
 
-  if (manifest.remote_tables.names.length !== manifest.remote_tables.count) {
-    failures.push(
-      `Remote table count mismatch: expected ${manifest.remote_tables.count}, ` +
-        `listed ${manifest.remote_tables.names.length}`,
-    );
+  const baselineBySlug = new Map(
+    baseline.edge_functions.map((fn) => [fn.slug, fn]),
+  );
+  if (baselineBySlug.size !== 10 || bundles.functions.length !== 10) {
+    failures.push("Expected exactly ten deployed GhostHeart5 Edge Functions");
   }
-  if (
-    new Set(manifest.remote_tables.names).size !==
-      manifest.remote_tables.names.length
-  ) {
-    failures.push("Remote table inventory contains duplicate names");
-  }
-  if (!manifest.remote_tables.all_rls_enabled) {
-    failures.push(
-      "Manifest does not attest RLS enabled on every inventoried public table",
-    );
+  const bundleSlugs = new Set<string>();
+  for (const fn of bundles.functions) {
+    if (bundleSlugs.has(fn.slug)) {
+      failures.push(`Duplicate Edge Function bundle: ${fn.slug}`);
+    }
+    bundleSlugs.add(fn.slug);
+    const baselineFunction = baselineBySlug.get(fn.slug);
+    if (!baselineFunction || baselineFunction.verify_jwt !== fn.verify_jwt) {
+      failures.push(`Baseline/bundle auth mismatch: ${fn.slug}`);
+    }
+    if (configVerifyJwt(config, fn.slug) !== fn.verify_jwt) {
+      failures.push(`config.toml auth mismatch: ${fn.slug}`);
+    }
+    if (fn.version < 1 || !/^[0-9a-f]{64}$/.test(fn.ezbr_sha256)) {
+      failures.push(`Invalid deployed bundle metadata: ${fn.slug}`);
+    }
+    for (const file of fn.files) {
+      const relative = file.local_path.replace(/^supabase\//, "");
+      const fileUrl = new URL(relative, new URL("../", driftRoot));
+      if (!await exists(fileUrl)) {
+        failures.push(`Missing recovered bundle file: ${file.local_path}`);
+        continue;
+      }
+      const source = await Deno.readTextFile(fileUrl);
+      // apply_patch preserves repository text files with one terminal newline;
+      // the Management API source strings omit that framing newline.
+      const deployedSource = source.endsWith("\n")
+        ? source.slice(0, -1)
+        : source;
+      if (deployedSource.length !== file.characters) {
+        failures.push(
+          `Recovered source length mismatch: ${file.local_path} ` +
+            `(${deployedSource.length} != ${file.characters})`,
+        );
+      }
+    }
   }
 
-  const deletionAudit = manifest.remote_tables.account_deletion_fk_audit;
-  if (deletionAudit.tables_requiring_cascade_migration.length !== 12) {
-    failures.push(
-      "Account-deletion FK audit must list the twelve non-cascading tables",
-    );
+  const localEntrypoints = new Set<string>();
+  const functionsUrl = new URL("../functions/", driftRoot);
+  for await (const entry of Deno.readDir(functionsUrl)) {
+    if (
+      entry.isDirectory &&
+      await exists(new URL(`${entry.name}/index.ts`, functionsUrl))
+    ) localEntrypoints.add(entry.name);
   }
-  if (
-    new Set(deletionAudit.tables_requiring_cascade_migration).size !==
-      deletionAudit.tables_requiring_cascade_migration.length
-  ) {
-    failures.push("Account-deletion FK audit contains duplicate tables");
+  for (const slug of bundleSlugs) {
+    if (!localEntrypoints.has(slug)) {
+      failures.push(`Missing local entrypoint: ${slug}`);
+    }
   }
-  if (deletionAudit.rows_in_each_table_at_capture !== 0) {
-    failures.push(
-      "Account-deletion cascade migration requires a fresh orphan audit",
-    );
+  for (const slug of localEntrypoints) {
+    if (!bundleSlugs.has(slug)) {
+      failures.push(`Uncaptured local entrypoint: ${slug}`);
+    }
   }
 
+  if (await exists(new URL("supabase/.temp/project-ref", repositoryRoot))) {
+    const ignore = await Deno.readTextFile(
+      new URL(".gitignore", repositoryRoot),
+    );
+    if (!ignore.includes("supabase/.temp/")) {
+      failures.push("Supabase CLI cache is not ignored");
+    }
+  }
   return failures;
 }
 
 if (import.meta.main) {
   const failures = await verifyManifest();
   if (failures.length > 0) {
-    for (const failure of failures) console.error(failure);
+    failures.forEach((failure) => console.error(failure));
     Deno.exit(1);
   }
-  console.log("Supabase drift manifest is internally consistent.");
+  console.log("GhostHeart5 Supabase preservation manifests are consistent.");
 }

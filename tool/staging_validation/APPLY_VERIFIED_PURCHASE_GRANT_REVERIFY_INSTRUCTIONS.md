@@ -4,8 +4,8 @@ Use this procedure only after staging approval. It does not authorize production
 
 ## Target Confirmation
 
-1. Confirm the Supabase CLI is linked to `pxtjkwfedrtnxuihtdox`.
-2. Confirm `pxtjkwfedrtnxuihtdox` is staging and production is not targeted.
+1. Confirm the Supabase CLI is linked to `RETIRED_STAGING_PROJECT`.
+2. Confirm `RETIRED_STAGING_PROJECT` is staging and production is not targeted.
 3. Do not use client credentials with elevated database privileges.
 
 ## Apply Only If Needed

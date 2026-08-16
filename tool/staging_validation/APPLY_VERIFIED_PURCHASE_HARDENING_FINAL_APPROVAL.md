@@ -1,6 +1,6 @@
 # Apply Verified Purchase Hardening Final Approval
 
-- [ ] I confirm `pxtjkwfedrtnxuihtdox` is staging.
+- [ ] I confirm `RETIRED_STAGING_PROJECT` is staging.
 - [ ] I confirm this is not production.
 - [ ] I confirm `apply_verified_purchase` is server-only.
 - [ ] I approve revoking anon EXECUTE.

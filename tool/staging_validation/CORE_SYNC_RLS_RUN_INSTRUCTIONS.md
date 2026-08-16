@@ -4,7 +4,7 @@
 
 ## Pre-Run Checklist
 
-- [ ] The target project is staging ref `pxtjkwfedrtnxuihtdox`.
+- [ ] The target project is staging ref `RETIRED_STAGING_PROJECT`.
 - [ ] The target is not production.
 - [ ] User A and User B are staging-only users.
 - [ ] `.env` contains only staging credentials.

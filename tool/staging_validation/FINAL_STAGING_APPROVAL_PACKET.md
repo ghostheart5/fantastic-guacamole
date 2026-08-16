@@ -4,7 +4,7 @@
 
 ## Environment Summary
 
-- Confirmed ChronoSpark staging project: `pxtjkwfedrtnxuihtdox`.
+- Confirmed ChronoSpark staging project: `RETIRED_STAGING_PROJECT`.
 - The CLI is linked to staging.
 - Production was not contacted.
 
@@ -60,7 +60,7 @@ No additional technical blocker is evidenced beyond these items:
 
 ## Human Approval Checklist
 
-- [x] Confirmed target is ChronoSpark staging: `pxtjkwfedrtnxuihtdox`.
+- [x] Confirmed target is ChronoSpark staging: `RETIRED_STAGING_PROJECT`.
 - [x] CLI is linked to the confirmed staging project.
 - [x] Storage bucket and object counts are zero.
 - [x] Expected ChronoSpark tables and functions are absent.

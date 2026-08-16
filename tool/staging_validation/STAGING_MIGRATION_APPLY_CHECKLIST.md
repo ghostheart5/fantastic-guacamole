@@ -2,7 +2,7 @@
 
 **Review checklist only. DO NOT RUN ANY MIGRATION COMMAND UNTIL HUMAN APPROVES.**
 
-- [ ] Confirm the target project is staging: `pxtjkwfedrtnxuihtdox`.
+- [ ] Confirm the target project is staging: `RETIRED_STAGING_PROJECT`.
 - [ ] Confirm this target is not production.
 - [ ] Confirm function discovery shows the expected functions are missing.
 - [ ] Confirm schema discovery shows empty or missing expected objects, or identifies no conflicting manually created objects.

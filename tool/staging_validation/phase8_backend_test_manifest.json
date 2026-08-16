@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "suite": "chronospark-phase8-backend",
-  "expectedStagingHost": "pxtjkwfedrtnxuihtdox.supabase.co",
+  "expectedStagingHost": "retired-staging-project.invalid",
   "networkPolicy": "forbidden-by-default",
   "liveResultPolicy": "pending-until-current-head-staging-evidence",
   "clientPrivilegedSecretsAllowed": false,

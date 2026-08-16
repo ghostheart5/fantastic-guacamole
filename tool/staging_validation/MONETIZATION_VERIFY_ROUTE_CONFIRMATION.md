@@ -11,7 +11,7 @@
 Expected staging route, pending confirmation:
 
 ```text
-POST https://pxtjkwfedrtnxuihtdox.supabase.co/functions/v1/monetization-verify
+POST https://retired-staging-project.invalid/functions/v1/monetization-verify
 ```
 
 The local function requires a bearer-authenticated caller and local config enables JWT verification. Do not deploy or invoke the route while completing this checklist. Do not record secret values.

@@ -4,8 +4,8 @@
 
 ## Pre-Run Checklist
 
-- [ ] The target is confirmed staging project `pxtjkwfedrtnxuihtdox`.
-- [ ] The target URL is `https://pxtjkwfedrtnxuihtdox.supabase.co`, not a production project or a `/rest/v1/` endpoint.
+- [ ] The target is confirmed staging project `RETIRED_STAGING_PROJECT`.
+- [ ] The target URL is `https://retired-staging-project.invalid`, not a production project or a `/rest/v1/` endpoint.
 - [ ] User A and User B are staging-only users.
 - [ ] `.env` contains only the staging anon key and User A/User B credentials.
 - [ ] The approval checklist in [GRANT_CREDITS_AUTHORIZATION_APPROVAL.md](GRANT_CREDITS_AUTHORIZATION_APPROVAL.md) is fully checked by a human.

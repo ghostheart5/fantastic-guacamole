@@ -1,6 +1,6 @@
 # Staging Empty-State Verification
 
-**Read-only verification checklist. Completion requires captured output from confirmed staging `pxtjkwfedrtnxuihtdox`.**
+**Read-only verification checklist. Completion requires captured output from confirmed staging `RETIRED_STAGING_PROJECT`.**
 
 Do not infer emptiness from blank migration history or missing expected functions.
 

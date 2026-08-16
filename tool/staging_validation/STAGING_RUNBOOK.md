@@ -11,14 +11,14 @@
 
 ## Confirmed Staging Project
 
-- `pxtjkwfedrtnxuihtdox` is the confirmed ChronoSpark staging project.
-- Expected base URL: `https://pxtjkwfedrtnxuihtdox.supabase.co`
+- `RETIRED_STAGING_PROJECT` is the confirmed ChronoSpark staging project.
+- Expected base URL: `https://retired-staging-project.invalid`
 - `qpwhuckyirnqtmvhpede` is not the staging target for this validation.
-- Every command must point to `pxtjkwfedrtnxuihtdox`. If a command or CLI link points to `qpwhuckyirnqtmvhpede`, stop.
+- Every command must point to `RETIRED_STAGING_PROJECT`. If a command or CLI link points to `qpwhuckyirnqtmvhpede`, stop.
 
 ## Migration State Finding
 
-- The CLI is linked to `pxtjkwfedrtnxuihtdox`.
+- The CLI is linked to `RETIRED_STAGING_PROJECT`.
 - `npx supabase migration list` shows local migrations, but the Remote column is blank for every listed migration.
 - This suggests staging does not yet have the tracked schema, or its migration history is not recorded.
 - Run the read-only discovery SQL before any mutation.

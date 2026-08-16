@@ -1,3 +1,5 @@
+throw 'Retired staging harness: execution is disabled. GhostHeart5 production must use reviewed Supabase migrations and functions, never this historical test tooling.'
+
 [CmdletBinding()]
 param()
 
@@ -32,7 +34,7 @@ $requiredAreas = @(
 )
 
 if ($manifest.schemaVersion -ne 1 -or
-    $manifest.expectedStagingHost -ne 'pxtjkwfedrtnxuihtdox.supabase.co' -or
+    $manifest.expectedStagingHost -ne 'retired-staging-project.invalid' -or
     $manifest.networkPolicy -ne 'forbidden-by-default' -or
     $manifest.clientPrivilegedSecretsAllowed -ne $false) {
     throw 'PHASE8_MANIFEST_SAFETY_CONTRACT_INVALID'

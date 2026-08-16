@@ -1,6 +1,12 @@
+DO $chronospark_retired_staging$
+BEGIN
+  RAISE EXCEPTION 'Retired staging SQL: execution is disabled. Do not run this historical file against GhostHeart5 production.';
+END
+$chronospark_retired_staging$;
+
 -- ADMIN ONLY. STAGING ONLY. DISABLED TEMPLATE.
 -- Never run from Flutter/client code. Never use production credentials.
--- This file targets only a human-approved disposable user in project pxtjkwfedrtnxuihtdox.
+-- This file targets only a human-approved disposable user in project RETIRED_STAGING_PROJECT.
 -- Do not execute until WALLET_ADMIN_SETUP_CONTRACT.md and WALLET_TEST_APPROVAL.md are approved.
 
 -- Placeholders to replace only during an approved human-operated staging session:

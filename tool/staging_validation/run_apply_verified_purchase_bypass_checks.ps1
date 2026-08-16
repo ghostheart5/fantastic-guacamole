@@ -1,3 +1,5 @@
+throw 'Retired staging harness: execution is disabled. GhostHeart5 production must use reviewed Supabase migrations and functions, never this historical test tooling.'
+
 [CmdletBinding()]
 param(
     [switch]$ConfirmStaging
@@ -14,11 +16,11 @@ if (-not $ConfirmStaging) {
 . "$PSScriptRoot/core_sync_rls_tests/CoreSyncRls.TestSupport.ps1"
 Import-StagingEnvironment -EnvironmentFile "$PSScriptRoot/.env"
 $supabaseUrl = Get-RequiredStagingValue -Name 'STAGING_SUPABASE_URL'
-if ($supabaseUrl -notmatch 'pxtjkwfedrtnxuihtdox' -or $supabaseUrl -match '(?i)/rest/v1/?$') {
+if ($supabaseUrl -notmatch 'RETIRED_STAGING_PROJECT' -or $supabaseUrl -match '(?i)/rest/v1/?$') {
     throw 'Refusing to run: STAGING_SUPABASE_URL must be the confirmed staging base URL, not a REST endpoint.'
 }
 $target = [uri]$supabaseUrl
-if ($target.Scheme -ne 'https' -or $target.Host -ne 'pxtjkwfedrtnxuihtdox.supabase.co' -or $target.AbsolutePath -notin @('', '/')) {
+if ($target.Scheme -ne 'https' -or $target.Host -ne 'retired-staging-project.invalid' -or $target.AbsolutePath -notin @('', '/')) {
     throw 'Refusing to run: target is not the confirmed staging base URL.'
 }
 

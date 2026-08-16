@@ -23,7 +23,7 @@ The exit status alone cannot prove the runner reached every assertion, that ever
 
 ## Rerun Requirements
 
-1. Record final staging approval for `pxtjkwfedrtnxuihtdox`.
+1. Record final staging approval for `RETIRED_STAGING_PROJECT`.
 2. Run `tool/staging_validation/apply_verified_purchase_grant_verification.sql` in the approved staging SQL environment.
 3. Confirm `anon_has_execute = false`, `authenticated_has_execute = false`, and `service_role_has_execute = true`.
 4. Capture the complete console output and exit status of the approved command below.

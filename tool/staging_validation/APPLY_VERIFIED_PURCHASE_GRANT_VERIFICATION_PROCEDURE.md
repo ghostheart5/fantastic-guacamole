@@ -30,7 +30,7 @@ On any failure, stop. Do not run the bypass harness or receipt tests.
 Record the following in `APPLY_VERIFIED_PURCHASE_BYPASS_RESULTS.md`:
 
 ```text
-Target project: pxtjkwfedrtnxuihtdox
+Target project: RETIRED_STAGING_PROJECT
 SQL file: tool/staging_validation/apply_verified_purchase_grant_verification.sql
 Timestamp (UTC): <value>
 anon_has_execute: <true|false>

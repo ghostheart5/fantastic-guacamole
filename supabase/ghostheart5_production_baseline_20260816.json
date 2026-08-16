@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "captured_at_utc": "2026-08-16T19:57:58.753Z",
+  "purpose": "Read-only pre-reconciliation baseline for preserving live GhostHeart5 production source.",
+  "project": {
+    "id": "qpwhuckyirnqtmvhpede",
+    "ref": "qpwhuckyirnqtmvhpede",
+    "name": "ghostheart5's Project",
+    "region": "us-west-2",
+    "status": "ACTIVE_HEALTHY"
+  },
+  "git": {
+    "repository": "ghostheart5/fantastic-guacamole",
+    "base_commit": "d92aa0b4ca30885fec6b6ede0b7c728a0a48542b",
+    "preservation_branch": "preservation/ghostheart5-supabase-authority-20260816"
+  },
+  "production_branches": [
+    {
+      "name": "main",
+      "git_branch": "main",
+      "is_default": true,
+      "status": "MIGRATIONS_FAILED",
+      "project_ref": "qpwhuckyirnqtmvhpede"
+    }
+  ],
+  "migrations": [
+    {
+      "version": "202607050001",
+      "name": "purchase_bindings"
+    },
+    {
+      "version": "202607110001",
+      "name": "profiles"
+    },
+    {
+      "version": "202607110002",
+      "name": "data_policies"
+    },
+    {
+      "version": "20260711160649",
+      "name": "new-migration"
+    },
+    {
+      "version": "20260712143000",
+      "name": "resilient_handle_new_user"
+    },
+    {
+      "version": "20260714000001",
+      "name": "quickstart_todos"
+    },
+    {
+      "version": "20260716193000",
+      "name": "monetization_system"
+    },
+    {
+      "version": "20260717170000",
+      "name": "secure_user_daily_metrics"
+    },
+    {
+      "version": "20260802120000",
+      "name": "harden_security_definer_functions"
+    },
+    {
+      "version": "20260804120000",
+      "name": "harden_monetization_credit_rpc"
+    },
+    {
+      "version": "20260804130000",
+      "name": "create_core_sync_tables_with_rls"
+    },
+    {
+      "version": "20260804140000",
+      "name": "harden_metrics_and_profile_provisioning"
+    },
+    {
+      "version": "20260804150000",
+      "name": "harden_ai_proxy_rate_limit"
+    },
+    {
+      "version": "20260804160000",
+      "name": "harden_apply_verified_purchase_rpc_grants"
+    },
+    {
+      "version": "20260809120000",
+      "name": "add_monetization_verify_rate_limit"
+    },
+    {
+      "version": "20260809170000",
+      "name": "harden_function_privileges_and_data_api_defaults"
+    },
+    {
+      "version": "20260809171000",
+      "name": "enforce_account_deletion_cascades"
+    },
+    {
+      "version": "20260809221655",
+      "name": "recover_hosted_public_tables"
+    },
+    {
+      "version": "20260809221704",
+      "name": "enforce_recovered_account_deletion_cascades"
+    },
+    {
+      "version": "20260811155019",
+      "name": "production_backend_hardening"
+    },
+    {
+      "version": "20260815234321",
+      "name": "add_task_occurrences_sync_table"
+    },
+    {
+      "version": "20260816040848",
+      "name": "edge_function_advanced_hardening"
+    },
+    {
+      "version": "20260816150629",
+      "name": "create_firebase_device_registrations"
+    }
+  ],
+  "edge_functions": [
+    {
+      "slug": "account-delete",
+      "version": 3,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "90838d4bf4afaffae5198523663f150101dc9b93006d219b23c2985237aa656c",
+      "updated_at": 1786883893345
+    },
+    {
+      "slug": "account-delete-reconcile",
+      "version": 1,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "ezbr_sha256": "876e9b5c0870a36839a7e9fb397e56c03881ec58c22d63fb7ac2bcf6241b199b",
+      "updated_at": 1786883902384
+    },
+    {
+      "slug": "account-delete-status",
+      "version": 1,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "ezbr_sha256": "66a069b65a62fc2ed563b5602b03982394cbbcd00f29bd55564e051437aa1560",
+      "updated_at": 1786883902384
+    },
+    {
+      "slug": "ai-proxy",
+      "version": 5,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "2afd498ab2602c876ef4f32b273028defde005de6a3d3cc9694bc5ac5a452f3e",
+      "updated_at": 1786883893345
+    },
+    {
+      "slug": "delete-account",
+      "version": 5,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "f20afeaa541f12cb5acf29dac3b46b849b3e2e6423df2df7dec07a13f57e3c70",
+      "updated_at": 1786284556845
+    },
+    {
+      "slug": "google-play-rtdn",
+      "version": 1,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "ezbr_sha256": "531fe1f73b82cadaaf5b5dd501772200b6337ab9b04c283db020f548a0a4fcb3",
+      "updated_at": 1786883902384
+    },
+    {
+      "slug": "monetization-verify",
+      "version": 7,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "43254ccc3941e6965c89659899cfdcd6475eb950973730235ed3d09bd173df88",
+      "updated_at": 1786883893345
+    },
+    {
+      "slug": "strategic-intelligence",
+      "version": 1,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "4dc7be56fb4fed91ab36008ce0f21ef212e9c9846e98e2a65f840efd3376d53c",
+      "updated_at": 1786883893345
+    },
+    {
+      "slug": "verify-receipt",
+      "version": 5,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "fae7cf208faffa0d8624fd05b2d73c68d7664e5c8f41d0e4106e581a734eb451",
+      "updated_at": 1784242877255
+    },
+    {
+      "slug": "webhook-ingest",
+      "version": 3,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "953db214d191389c4ec69d806d7d749e5ac2aee8f11470af4bf75355a5f6037c",
+      "updated_at": 1786285767873
+    }
+  ],
+  "pre_reconciliation_gaps": {
+    "migrations_missing_locally": [
+      "20260816040848_edge_function_advanced_hardening",
+      "20260816150629_create_firebase_device_registrations"
+    ],
+    "functions_missing_locally": [
+      "strategic-intelligence",
+      "account-delete-status"
+    ],
+    "tracked_retired_staging_reference_file_count": 49
+  }
+}

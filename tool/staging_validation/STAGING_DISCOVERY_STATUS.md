@@ -2,13 +2,13 @@
 
 ## Confirmed Target
 
-- Confirmed staging project ref: `pxtjkwfedrtnxuihtdox`
-- Expected staging base URL: `https://pxtjkwfedrtnxuihtdox.supabase.co`
+- Confirmed staging project ref: `RETIRED_STAGING_PROJECT`
+- Expected staging base URL: `https://retired-staging-project.invalid`
 - Non-staging project for this validation: `qpwhuckyirnqtmvhpede`
 
 ## Local Configuration Status
 
-- CLI linked project ref: `pxtjkwfedrtnxuihtdox` from local link metadata.
+- CLI linked project ref: `RETIRED_STAGING_PROJECT` from local link metadata.
 - CLI correctly linked to staging: **YES**.
 - Local `.env` staging URL: missing or blank at last local shape check.
 - Local `.env` anon key: missing or blank at last local shape check; value was not printed.

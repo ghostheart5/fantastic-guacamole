@@ -3,7 +3,7 @@
 ## Local Function Evidence
 
 1. Function folder name: `supabase/functions/monetization-verify`.
-2. Expected staging URL: `https://pxtjkwfedrtnxuihtdox.supabase.co/functions/v1/monetization-verify`.
+2. Expected staging URL: `https://retired-staging-project.invalid/functions/v1/monetization-verify`.
 3. Expected method: `POST`.
 4. Local Supabase config sets `verify_jwt = true` for `monetization-verify`.
 5. Flutter endpoint resolution builds `/functions/v1/monetization-verify` from a configured HTTPS Supabase base URL.

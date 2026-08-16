@@ -1,0 +1,299 @@
+{
+  "schema_version": 1,
+  "project_ref": "qpwhuckyirnqtmvhpede",
+  "captured_at_utc": "2026-08-16T19:59:56.704Z",
+  "source": "Supabase Management API get_edge_function",
+  "note": "Files listed here were recovered from the deployed GhostHeart5 bundles. ezbr_sha256 is Supabase's deployed bundle digest.",
+  "functions": [
+    {
+      "slug": "ai-proxy",
+      "version": 5,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "2afd498ab2602c876ef4f32b273028defde005de6a3d3cc9694bc5ac5a452f3e",
+      "created_at": 1783901306319,
+      "updated_at": 1786883893345,
+      "files": [
+        {
+          "deployed_name": "functions/ai-proxy/index.ts",
+          "local_path": "supabase/functions/ai-proxy/index.ts",
+          "characters": 14465
+        },
+        {
+          "deployed_name": "functions/_shared/ai_proxy_request_validation.ts",
+          "local_path": "supabase/functions/_shared/ai_proxy_request_validation.ts",
+          "characters": 2779
+        },
+        {
+          "deployed_name": "functions/_shared/edge_http.ts",
+          "local_path": "supabase/functions/_shared/edge_http.ts",
+          "characters": 5682
+        },
+        {
+          "deployed_name": "functions/_shared/ai_safety.ts",
+          "local_path": "supabase/functions/_shared/ai_safety.ts",
+          "characters": 3199
+        }
+      ]
+    },
+    {
+      "slug": "monetization-verify",
+      "version": 7,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "43254ccc3941e6965c89659899cfdcd6475eb950973730235ed3d09bd173df88",
+      "created_at": 1784240834671,
+      "updated_at": 1786883893345,
+      "files": [
+        {
+          "deployed_name": "functions/monetization-verify/index.ts",
+          "local_path": "supabase/functions/monetization-verify/index.ts",
+          "characters": 16565
+        },
+        {
+          "deployed_name": "functions/_shared/subscription_verification.ts",
+          "local_path": "supabase/functions/_shared/subscription_verification.ts",
+          "characters": 1228
+        },
+        {
+          "deployed_name": "functions/_shared/google_auth.ts",
+          "local_path": "supabase/functions/_shared/google_auth.ts",
+          "characters": 7044
+        },
+        {
+          "deployed_name": "functions/_shared/edge_http.ts",
+          "local_path": "supabase/functions/_shared/edge_http.ts",
+          "characters": 5682
+        },
+        {
+          "deployed_name": "functions/_shared/google_play_product.ts",
+          "local_path": "supabase/functions/_shared/google_play_product.ts",
+          "characters": 2652
+        },
+        {
+          "deployed_name": "functions/_shared/monetization_request_validation.ts",
+          "local_path": "supabase/functions/_shared/monetization_request_validation.ts",
+          "characters": 821
+        }
+      ]
+    },
+    {
+      "slug": "account-delete",
+      "version": 3,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "90838d4bf4afaffae5198523663f150101dc9b93006d219b23c2985237aa656c",
+      "created_at": 1786292875118,
+      "updated_at": 1786883893345,
+      "files": [
+        {
+          "deployed_name": "functions/account-delete/index.ts",
+          "local_path": "supabase/functions/account-delete/index.ts",
+          "characters": 3575
+        },
+        {
+          "deployed_name": "functions/_shared/account_deletion_state_machine.ts",
+          "local_path": "supabase/functions/_shared/account_deletion_state_machine.ts",
+          "characters": 14214
+        },
+        {
+          "deployed_name": "functions/_shared/edge_http.ts",
+          "local_path": "supabase/functions/_shared/edge_http.ts",
+          "characters": 5682
+        },
+        {
+          "deployed_name": "functions/_shared/google_auth.ts",
+          "local_path": "supabase/functions/_shared/google_auth.ts",
+          "characters": 7044
+        },
+        {
+          "deployed_name": "functions/account-delete/recent_sign_in_policy.ts",
+          "local_path": "supabase/functions/account-delete/recent_sign_in_policy.ts",
+          "characters": 939
+        }
+      ]
+    },
+    {
+      "slug": "strategic-intelligence",
+      "version": 1,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "4dc7be56fb4fed91ab36008ce0f21ef212e9c9846e98e2a65f840efd3376d53c",
+      "created_at": 1786883893345,
+      "updated_at": 1786883893345,
+      "files": [
+        {
+          "deployed_name": "functions/strategic-intelligence/index.ts",
+          "local_path": "supabase/functions/strategic-intelligence/index.ts",
+          "characters": 19227
+        },
+        {
+          "deployed_name": "functions/_shared/ai_safety.ts",
+          "local_path": "supabase/functions/_shared/ai_safety.ts",
+          "characters": 3199
+        },
+        {
+          "deployed_name": "functions/_shared/edge_http.ts",
+          "local_path": "supabase/functions/_shared/edge_http.ts",
+          "characters": 5682
+        },
+        {
+          "deployed_name": "functions/_shared/strategic_intelligence_contract.ts",
+          "local_path": "supabase/functions/_shared/strategic_intelligence_contract.ts",
+          "characters": 9159
+        },
+        {
+          "deployed_name": "functions/_shared/google_auth.ts",
+          "local_path": "supabase/functions/_shared/google_auth.ts",
+          "characters": 7044
+        }
+      ]
+    },
+    {
+      "slug": "account-delete-status",
+      "version": 1,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "ezbr_sha256": "66a069b65a62fc2ed563b5602b03982394cbbcd00f29bd55564e051437aa1560",
+      "created_at": 1786883902384,
+      "updated_at": 1786883902384,
+      "files": [
+        {
+          "deployed_name": "functions/account-delete-status/index.ts",
+          "local_path": "supabase/functions/account-delete-status/index.ts",
+          "characters": 2202
+        },
+        {
+          "deployed_name": "functions/_shared/account_deletion_state_machine.ts",
+          "local_path": "supabase/functions/_shared/account_deletion_state_machine.ts",
+          "characters": 14214
+        },
+        {
+          "deployed_name": "functions/_shared/edge_http.ts",
+          "local_path": "supabase/functions/_shared/edge_http.ts",
+          "characters": 5682
+        },
+        {
+          "deployed_name": "functions/_shared/google_auth.ts",
+          "local_path": "supabase/functions/_shared/google_auth.ts",
+          "characters": 7044
+        }
+      ]
+    },
+    {
+      "slug": "account-delete-reconcile",
+      "version": 1,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "ezbr_sha256": "876e9b5c0870a36839a7e9fb397e56c03881ec58c22d63fb7ac2bcf6241b199b",
+      "created_at": 1786883902384,
+      "updated_at": 1786883902384,
+      "files": [
+        {
+          "deployed_name": "functions/account-delete-reconcile/index.ts",
+          "local_path": "supabase/functions/account-delete-reconcile/index.ts",
+          "characters": 1982
+        },
+        {
+          "deployed_name": "functions/_shared/account_deletion_state_machine.ts",
+          "local_path": "supabase/functions/_shared/account_deletion_state_machine.ts",
+          "characters": 14214
+        },
+        {
+          "deployed_name": "functions/_shared/edge_http.ts",
+          "local_path": "supabase/functions/_shared/edge_http.ts",
+          "characters": 5682
+        },
+        {
+          "deployed_name": "functions/_shared/google_auth.ts",
+          "local_path": "supabase/functions/_shared/google_auth.ts",
+          "characters": 7044
+        },
+        {
+          "deployed_name": "functions/_shared/backend_maintenance.ts",
+          "local_path": "supabase/functions/_shared/backend_maintenance.ts",
+          "characters": 1901
+        }
+      ]
+    },
+    {
+      "slug": "google-play-rtdn",
+      "version": 1,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "ezbr_sha256": "531fe1f73b82cadaaf5b5dd501772200b6337ab9b04c283db020f548a0a4fcb3",
+      "created_at": 1786883902384,
+      "updated_at": 1786883902384,
+      "files": [
+        {
+          "deployed_name": "functions/google-play-rtdn/index.ts",
+          "local_path": "supabase/functions/google-play-rtdn/index.ts",
+          "characters": 18205
+        },
+        {
+          "deployed_name": "functions/_shared/google_auth.ts",
+          "local_path": "supabase/functions/_shared/google_auth.ts",
+          "characters": 7044
+        },
+        {
+          "deployed_name": "functions/_shared/edge_http.ts",
+          "local_path": "supabase/functions/_shared/edge_http.ts",
+          "characters": 5682
+        },
+        {
+          "deployed_name": "functions/_shared/google_play_product.ts",
+          "local_path": "supabase/functions/_shared/google_play_product.ts",
+          "characters": 2652
+        }
+      ]
+    },
+    {
+      "slug": "verify-receipt",
+      "version": 5,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "fae7cf208faffa0d8624fd05b2d73c68d7664e5c8f41d0e4106e581a734eb451",
+      "created_at": 1783901305796,
+      "updated_at": 1784242877255,
+      "files": [
+        {
+          "deployed_name": "verify-receipt/index.ts",
+          "local_path": "supabase/functions/verify-receipt/index.ts",
+          "characters": 14615
+        }
+      ]
+    },
+    {
+      "slug": "delete-account",
+      "version": 5,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "f20afeaa541f12cb5acf29dac3b46b849b3e2e6423df2df7dec07a13f57e3c70",
+      "created_at": 1786283053366,
+      "updated_at": 1786284556845,
+      "files": [
+        {
+          "deployed_name": "index.ts",
+          "local_path": "supabase/functions/delete-account/index.ts",
+          "characters": 6607
+        }
+      ]
+    },
+    {
+      "slug": "webhook-ingest",
+      "version": 3,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "953db214d191389c4ec69d806d7d749e5ac2aee8f11470af4bf75355a5f6037c",
+      "created_at": 1786285767873,
+      "updated_at": 1786285767873,
+      "files": [
+        {
+          "deployed_name": "index.ts",
+          "local_path": "supabase/functions/webhook-ingest/index.ts",
+          "characters": 1284
+        }
+      ]
+    }
+  ]
+}

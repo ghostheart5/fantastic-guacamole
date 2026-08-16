@@ -1,6 +1,6 @@
 # Core-Sync Execution Approval
 
-**Staging project:** `pxtjkwfedrtnxuihtdox`
+**Staging project:** `RETIRED_STAGING_PROJECT`
 
 - [ ] Staging project confirmed
 - [ ] User A confirmed

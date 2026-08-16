@@ -2,7 +2,7 @@
 
 Perform these steps manually and only against staging.
 
-1. Open staging project `pxtjkwfedrtnxuihtdox`.
+1. Open staging project `RETIRED_STAGING_PROJECT`.
 2. Open the SQL Editor.
 3. Run `tool/staging_validation/apply_verified_purchase_grant_verification.sql`.
 4. Save the results in `APPLY_VERIFIED_PURCHASE_GRANT_RESULTS.md`.

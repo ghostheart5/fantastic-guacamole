@@ -8,7 +8,7 @@ Define the human-approved setup and cleanup required to validate valid and insuf
 
 ## Scope
 
-- Target only `pxtjkwfedrtnxuihtdox`.
+- Target only `RETIRED_STAGING_PROJECT`.
 - Admin setup must never run from Flutter or other client code.
 - Admin setup must never use production credentials or target a production project.
 - A human must explicitly approve setup before execution.

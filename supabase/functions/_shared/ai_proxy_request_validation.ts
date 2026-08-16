@@ -23,6 +23,19 @@ const personalities = new Set<AiProxyPersonality>([
 export function validateAiProxyRequest(value: unknown): AiProxyRequest | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
+  if (
+    !hasOnlyKeys(
+      record,
+      new Set([
+        "prompt",
+        "message",
+        "history",
+        "personality",
+        "requestId",
+        "maxTokens",
+      ]),
+    )
+  ) return null;
   const prompt = typeof record.prompt === "string"
     ? record.prompt
     : typeof record.message === "string"
@@ -76,3 +89,5 @@ export function validateAiProxyRequest(value: unknown): AiProxyRequest | null {
     maxTokens: maxTokens as number,
   };
 }
+import { hasOnlyKeys } from "./edge_http.ts";
+

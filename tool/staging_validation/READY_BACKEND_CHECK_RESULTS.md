@@ -2,7 +2,7 @@
 
 ## Run
 
-- Target staging URL: `https://pxtjkwfedrtnxuihtdox.supabase.co`
+- Target staging URL: `https://retired-staging-project.invalid`
 - Command run: `./tool/staging_validation/run_ready_backend_checks.ps1 -ConfirmStaging`
 - Passed checks: `22`
 - Failures: `0`
