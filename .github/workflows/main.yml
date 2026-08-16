@@ -39,6 +39,7 @@ jobs:
           rm -rf _site
           mkdir -p _site
           cp -R site/. _site/
+          cp feature.png _site/assets/social-card.png
           for route in privacy terms support delete-account; do
             mkdir -p "_site/$route"
             cp "web/$route/index.html" "_site/$route/index.html"
@@ -72,6 +73,29 @@ jobs:
               missing = [marker for marker in markers if marker not in text]
               if missing:
                   raise SystemExit(f'{relative} missing expected content: {missing}')
+          social_pages = {
+              'index.html': 'https://ghostheart5.github.io/fantastic-guacamole/',
+              'features/index.html': 'https://ghostheart5.github.io/fantastic-guacamole/features/',
+              'download/index.html': 'https://ghostheart5.github.io/fantastic-guacamole/download/',
+              'support/index.html': 'https://ghostheart5.github.io/fantastic-guacamole/support/',
+              'privacy/index.html': 'https://ghostheart5.github.io/fantastic-guacamole/privacy/',
+              'terms/index.html': 'https://ghostheart5.github.io/fantastic-guacamole/terms/',
+              'delete-account/index.html': 'https://ghostheart5.github.io/fantastic-guacamole/delete-account/',
+          }
+          social_image = 'https://ghostheart5.github.io/fantastic-guacamole/assets/social-card.png'
+          for relative, canonical_url in social_pages.items():
+              text = (root / relative).read_text(encoding='utf-8')
+              for marker in (
+                  'property="og:title"',
+                  'property="og:description"',
+                  f'property="og:url" content="{canonical_url}"',
+                  f'property="og:image" content="{social_image}"',
+                  'name="twitter:card" content="summary"',
+              ):
+                  if marker not in text:
+                      raise SystemExit(f'{relative} is missing required social metadata: {marker}')
+          if not (root / 'assets/social-card.png').is_file():
+              raise SystemExit('The public social-card image is missing.')
           cname = root / 'CNAME'
           if cname.exists() and 'chronospark.app' in cname.read_text(encoding='utf-8'):
               raise SystemExit('A custom domain must not be added without separate approval.')
