@@ -1,69 +1,52 @@
 create table if not exists public.tasks (
-  user_id uuid not null references auth.users(id) on delete cascade,
-  id text not null check (btrim(id) <> ''),
-  title text not null check (btrim(title) <> ''),
-  description text,
-  kind text,
-  priority integer not null default 3 check (priority between 0 and 5),
-  difficulty integer not null default 3 check (difficulty between 0 and 5),
-  energy_required integer not null default 3 check (energy_required between 0 and 5),
-  scheduled_for timestamptz,
-  goal_id text,
-  subtasks jsonb not null default '[]'::jsonb check (jsonb_typeof(subtasks) = 'array'),
-  recurrence_rule text not null default 'none' check (recurrence_rule in ('none', 'daily', 'weekly', 'monthly')),
-  is_completed boolean not null default false,
-  completed_at timestamptz,
-  is_canceled boolean not null default false,
-  due_date timestamptz,
-  estimated_duration_ms integer check (estimated_duration_ms is null or estimated_duration_ms >= 0),
   created_at timestamptz not null default now(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null default 'text'::text,
+  completed boolean not null default false,
+  id uuid not null default gen_random_uuid(),
+  description text default 'text'::text,
+  due_date timestamptz,
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
-  primary key (user_id, id)
+  primary key (id)
 );
 
 create table if not exists public.goals (
-  user_id uuid not null references auth.users(id) on delete cascade,
-  id text not null check (btrim(id) <> ''),
-  title text not null check (btrim(title) <> ''),
+  id uuid not null default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  title text not null,
   description text,
   target_date timestamptz,
-  color_hex bigint not null default 4288387835 check (color_hex between 0 and 4294967295),
-  status text not null default 'active' check (status in ('active', 'completed', 'archived')),
-  completed_at timestamptz,
-  archived_at timestamptz,
+  status text,
+  importance integer,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
-  primary key (user_id, id)
+  primary key (id)
 );
 
 create table if not exists public.habits (
-  user_id uuid not null references auth.users(id) on delete cascade,
-  id text not null check (btrim(id) <> ''),
-  title text not null check (btrim(title) <> ''),
-  description text,
-  cadence text not null default 'daily' check (cadence in ('daily', 'weekly', 'monthly')),
-  target_count integer not null default 1 check (target_count between 1 and 365),
-  status text not null default 'active' check (status in ('active', 'paused', 'archived')),
-  active boolean not null default true,
   created_at timestamptz not null default now(),
+  id uuid not null default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text default 'text'::text,
+  color text default 'text'::text,
+  icon text default 'text'::text,
+  target_frequency smallint not null,
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
-  primary key (user_id, id)
+  primary key (id)
 );
 
 create table if not exists public.settings (
-  user_id uuid not null references auth.users(id) on delete cascade,
-  id text not null check (id = 'default'),
-  sound_enabled boolean not null default true,
-  notifications_enabled boolean not null default true,
-  theme_mode text not null default 'system' check (theme_mode in ('system', 'light', 'dark')),
-  onboarding_complete boolean not null default false,
+  id uuid not null default gen_random_uuid(),
   created_at timestamptz not null default now(),
+  user_id uuid not null default gen_random_uuid() references auth.users(id) on delete cascade,
+  theme text not null default 'prismcore'::text,
+  notifications_enabled boolean not null default true,
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
-  primary key (user_id, id)
+  primary key (id)
 );
 
 create index if not exists tasks_user_updated_idx on public.tasks (user_id, updated_at);

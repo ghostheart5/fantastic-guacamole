@@ -40,9 +40,10 @@ jobs:
             exit 1
           fi
           migration_count="$(git ls-files 'supabase/migrations/*.sql' | wc -l | tr -d ' ')"
-          test "$migration_count" = "23"
+          test "$migration_count" = "24"
           test -f supabase/migrations/20260816040848_edge_function_advanced_hardening.sql
           test -f supabase/migrations/20260816150629_create_firebase_device_registrations.sql
+          test -f supabase/migrations/20260816203547_optimize_owner_policies_and_remove_duplicates.sql
 
       - name: Run Edge Function and drift tests
         run: >-

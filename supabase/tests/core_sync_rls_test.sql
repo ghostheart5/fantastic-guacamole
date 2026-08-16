@@ -10,12 +10,19 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000101', true);
 
 insert into public.tasks (user_id, id, title)
-values ('00000000-0000-0000-0000-000000000101', 'task-one', 'Owned task');
+values (
+  '00000000-0000-0000-0000-000000000101',
+  '10000000-0000-0000-0000-000000000001',
+  'Owned task'
+);
 insert into public.settings (user_id, id)
-values ('00000000-0000-0000-0000-000000000101', 'default');
+values (
+  '00000000-0000-0000-0000-000000000101',
+  '20000000-0000-0000-0000-000000000001'
+);
 
 select throws_ok(
-  $$insert into public.tasks (user_id, id, title) values ('00000000-0000-0000-0000-000000000102', 'task-two', 'Cross-user task')$$,
+  $$insert into public.tasks (user_id, id, title) values ('00000000-0000-0000-0000-000000000102', '10000000-0000-0000-0000-000000000002', 'Cross-user task')$$,
   'new row violates row-level security policy for table "tasks"',
   'user one cannot insert a task for user two'
 );
@@ -30,7 +37,7 @@ select is(
   'user one cannot update user two tasks'
 );
 select throws_ok(
-  $$insert into public.settings (user_id, id) values ('00000000-0000-0000-0000-000000000102', 'default')$$,
+  $$insert into public.settings (user_id, id) values ('00000000-0000-0000-0000-000000000102', '20000000-0000-0000-0000-000000000002')$$,
   'new row violates row-level security policy for table "settings"',
   'shared default settings ID remains user-owned'
 );

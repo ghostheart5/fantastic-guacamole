@@ -24,6 +24,12 @@ type StatementCapture = {
 };
 
 const projectRef = "qpwhuckyirnqtmvhpede";
+const forwardMigrations: BaselineMigration[] = [
+  {
+    version: "20260816203547",
+    name: "optimize_owner_policies_and_remove_duplicates",
+  },
+];
 const driftRoot = new URL("./", import.meta.url);
 const repositoryRoot = new URL("../../", driftRoot);
 const migrationsUrl = new URL("../migrations/", driftRoot);
@@ -94,6 +100,15 @@ export async function verifyManifest(): Promise<string[]> {
       `Expected 23 production migrations; found ${baseline.migrations.length}`,
     );
   }
+  if (
+    migrationFiles.size !==
+      baseline.migrations.length + forwardMigrations.length
+  ) {
+    failures.push(
+      `Expected ${baseline.migrations.length + forwardMigrations.length} ` +
+        `tracked migrations; found ${migrationFiles.size}`,
+    );
+  }
   const migrationVersions = new Set<string>();
   for (const migration of baseline.migrations) {
     if (!/^\d{12,14}$/.test(migration.version)) {
@@ -106,6 +121,18 @@ export async function verifyManifest(): Promise<string[]> {
     const expected = `${migration.version}_${migration.name}.sql`;
     if (!migrationFiles.has(expected)) {
       failures.push(`Missing production migration: ${expected}`);
+    }
+  }
+  for (const migration of forwardMigrations) {
+    if (migrationVersions.has(migration.version)) {
+      failures.push(
+        `Duplicate forward migration version: ${migration.version}`,
+      );
+    }
+    migrationVersions.add(migration.version);
+    const expected = `${migration.version}_${migration.name}.sql`;
+    if (!migrationFiles.has(expected)) {
+      failures.push(`Missing forward migration: ${expected}`);
     }
   }
 
