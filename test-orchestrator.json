@@ -1,0 +1,11 @@
+{
+  "projectRoot": ".",
+  "deviceId": "auto",
+  "maestroDirectory": "maestro",
+  "monkey": {
+    "package": "com.example.app",
+    "seed": 20260817,
+    "throttleMs": 100,
+    "events": 500
+  }
+}
