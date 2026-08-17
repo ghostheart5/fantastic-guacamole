@@ -19,7 +19,6 @@ import 'package:fantastic_guacamole/domain/interfaces/i_profile_repository.dart'
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_project_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart';
-import 'package:fantastic_guacamole/domain/interfaces/i_session_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_settings_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_subtask_repository.dart';
@@ -51,7 +50,6 @@ import 'package:fantastic_guacamole/domain/usecases/delete_project.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_routine.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_subtask.dart';
 import 'package:fantastic_guacamole/domain/usecases/delete_task.dart';
-import 'package:fantastic_guacamole/domain/usecases/end_session.dart';
 import 'package:fantastic_guacamole/domain/usecases/extract_si_signals.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_adaptive_plan.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_insight_from_event.dart';
@@ -59,7 +57,7 @@ import 'package:fantastic_guacamole/domain/usecases/generate_si_decision.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_all_themes.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_analytics_metrics.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_calendar_entries.dart';
-import 'package:fantastic_guacamole/domain/usecases/get_coach_messages.dart';
+import 'package:fantastic_guacamole/domain/usecases/get_planner_messages.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_current_theme.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_extended_app_settings.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_goals.dart';
@@ -82,13 +80,11 @@ import 'package:fantastic_guacamole/domain/usecases/get_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_user_level.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_workspace.dart';
 import 'package:fantastic_guacamole/domain/usecases/hydrate_si_state.dart';
-import 'package:fantastic_guacamole/domain/usecases/pause_session.dart';
 import 'package:fantastic_guacamole/domain/usecases/remove_calendar_entry.dart';
 import 'package:fantastic_guacamole/domain/usecases/remove_timeline_event.dart';
 import 'package:fantastic_guacamole/domain/usecases/recommend_next_block.dart';
-import 'package:fantastic_guacamole/domain/usecases/resume_session.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_analytics_metric.dart';
-import 'package:fantastic_guacamole/domain/usecases/save_coach_message.dart';
+import 'package:fantastic_guacamole/domain/usecases/save_planner_message.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_extended_app_setting.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_goals.dart';
 import 'package:fantastic_guacamole/domain/usecases/save_identity_profile.dart';
@@ -104,7 +100,6 @@ import 'package:fantastic_guacamole/domain/usecases/save_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/schedule_notification.dart';
 import 'package:fantastic_guacamole/domain/usecases/score_tasks.dart';
 import 'package:fantastic_guacamole/domain/usecases/skip_task.dart';
-import 'package:fantastic_guacamole/domain/usecases/start_session.dart';
 import 'package:fantastic_guacamole/domain/usecases/switch_theme.dart';
 import 'package:fantastic_guacamole/domain/usecases/switch_workspace.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_goal.dart';
@@ -201,10 +196,6 @@ final domainCalendarRepositoryProvider = Provider<ICalendarRepository>((ref) {
   return ref.read(calendarRepositoryProvider);
 });
 
-final domainSessionRepositoryProvider = Provider<ISessionRepository>((ref) {
-  return ref.read(sessionRepositoryProvider);
-});
-
 final domainSettingsRepositoryProvider = Provider<ISettingsRepository>((ref) {
   return ref.read(settingsRepositoryProvider);
 });
@@ -223,12 +214,12 @@ final extendedDomainRepositoryProvider = Provider<IExtendedDomainRepository>((
   return ExtendedDomainService();
 });
 
-final getCoachMessagesUseCaseProvider = Provider<GetCoachMessages>((ref) {
-  return GetCoachMessages(ref.read(extendedDomainRepositoryProvider));
+final getPlannerMessagesUseCaseProvider = Provider<GetPlannerMessages>((ref) {
+  return GetPlannerMessages(ref.read(extendedDomainRepositoryProvider));
 });
 
-final saveCoachMessageUseCaseProvider = Provider<SaveCoachMessage>((ref) {
-  return SaveCoachMessage(ref.read(extendedDomainRepositoryProvider));
+final savePlannerMessageUseCaseProvider = Provider<SavePlannerMessage>((ref) {
+  return SavePlannerMessage(ref.read(extendedDomainRepositoryProvider));
 });
 
 final getSiQueriesExtendedUseCaseProvider = Provider<GetSiQueriesExtended>((
@@ -275,12 +266,12 @@ final extendedDomainBootstrapProvider = FutureProvider<void>((ref) async {
   );
   await repository.initialize();
 
-  if (repository.getCoachMessages().isEmpty) {
+  if (repository.getPlannerMessages().isEmpty) {
     await ref
-        .read(saveCoachMessageUseCaseProvider)
+        .read(savePlannerMessageUseCaseProvider)
         .call(
-          const CoachMessage(
-            id: 'bootstrap.coach.welcome',
+          const PlannerMessage(
+            id: 'bootstrap.planner.welcome',
             label: 'Welcome to Smart Planner',
           ),
         );
@@ -324,16 +315,16 @@ final extendedDomainBootstrapProvider = FutureProvider<void>((ref) async {
         .read(saveExtendedAppSettingUseCaseProvider)
         .call(
           const AppSetting(
-            id: 'bootstrap.settings.coach.enabled',
-            label: 'Coach enabled',
+            id: 'bootstrap.settings.planner.enabled',
+            label: 'Planner enabled',
           ),
         );
   }
 });
 
-final coachMessagesProvider = Provider<List<CoachMessage>>((ref) {
+final plannerMessagesProvider = Provider<List<PlannerMessage>>((ref) {
   ref.watch(extendedDomainBootstrapProvider);
-  return ref.read(getCoachMessagesUseCaseProvider).call();
+  return ref.read(getPlannerMessagesUseCaseProvider).call();
 });
 
 final siQueriesProvider = Provider<List<SiQuery>>((ref) {
@@ -673,30 +664,6 @@ final awardXpUseCaseProvider = Provider<AwardXp>((ref) {
 /// Level/progress read model derived from [ProgressionPolicy].
 final getUserLevelUseCaseProvider = Provider<GetUserLevel>((ref) {
   return GetUserLevel();
-});
-
-// --- Session lifecycle.
-
-final startSessionUseCaseProvider = Provider<StartSession>((ref) {
-  return StartSession(
-    ref.read(domainSessionRepositoryProvider),
-    generateSiDecision: ref.read(generateSiDecisionUseCaseProvider),
-  );
-});
-
-final endSessionUseCaseProvider = Provider<EndSession>((ref) {
-  return EndSession(
-    ref.read(domainSessionRepositoryProvider),
-    progressionRepo: ref.read(domainProgressionRepositoryProvider),
-  );
-});
-
-final pauseSessionUseCaseProvider = Provider<PauseSession>((ref) {
-  return PauseSession(ref.read(domainSessionRepositoryProvider));
-});
-
-final resumeSessionUseCaseProvider = Provider<ResumeSession>((ref) {
-  return ResumeSession(ref.read(domainSessionRepositoryProvider));
 });
 
 // --- Settings and workspace.

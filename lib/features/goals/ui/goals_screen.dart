@@ -47,7 +47,7 @@ class GoalsScreen extends ConsumerWidget {
                   children: [
                     GestureDetector(
                       onTap: () =>
-                          ref.read(appFlowProvider.notifier).toSmartCoach(),
+                          ref.read(appFlowProvider.notifier).toSmartPlanner(),
                       child: Container(
                         width: 36,
                         height: 36,
@@ -84,7 +84,7 @@ class GoalsScreen extends ConsumerWidget {
                           ),
                         ),
                         const Text(
-                          'YOUR MISSIONS',
+                          'YOUR GOALS',
                           style: TextStyle(
                             fontSize: 10,
                             letterSpacing: 2,
@@ -101,7 +101,7 @@ class GoalsScreen extends ConsumerWidget {
                 child: goals.isEmpty
                     ? const Center(
                         child: Text(
-                          'No goals yet.\nAdd your first mission.',
+                          'No goals yet.\nAdd your first goal.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white38,
@@ -282,7 +282,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
         '${goal.title}\n'
         'Progress: $completed/$total tasks complete\n'
         '$targetLabel\n'
-        'Build your mission system: ${AppUrls.website}';
+        'Build your goal system: ${AppUrls.website}';
 
     try {
       await SharePlus.instance.share(

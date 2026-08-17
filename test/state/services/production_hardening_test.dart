@@ -115,7 +115,7 @@ void main() {
       expect(SiPolicy.containsUnsupportedClaim('I GUARANTEE results'), isTrue);
     });
 
-    test('passes ordinary coaching text', () {
+    test('passes ordinary planning-guidance text', () {
       expect(
         SiPolicy.containsUnsupportedClaim(
           'Focus on the spec for 25 minutes, then take a break.',

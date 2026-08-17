@@ -1,4 +1,4 @@
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Insights
+/// CHRONOSPARK-CLASS: PLANNED | Output: Smart Planner/SI
 ///
 /// Wired through data + domain; does not reach the UI yet.
 class InsightEntity {

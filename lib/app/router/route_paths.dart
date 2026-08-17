@@ -9,7 +9,6 @@ class RoutePaths {
   static const home = '/home';
   static const plan = '/plan';
   static const creator = '/creator';
-  static const insights = '/insights';
   static const settings = '/settings';
 
   // Secondary and advanced surfaces.
@@ -31,7 +30,8 @@ class RoutePaths {
   static const about = '/about';
 
   // Legacy aliases for compatibility redirects.
-  static const legacyCoach = '/coach';
+  static const legacyPlanningRoute = '/coach';
+  static const legacyInsights = '/insights';
   static const legacyLogs = '/logs';
   static const legacyNotifications = '/notifications';
   static const legacyProgression = '/progression';

@@ -13,7 +13,7 @@ import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 /// Inputs are clamped so it can never produce a negative or unbounded award if
 /// it is adopted.
 ///
-/// NOTE: [seconds] is accepted but not yet used — session length is not part of
+/// NOTE: [seconds] is accepted but not yet used — completion length is not part of
 /// the formula. Kept in the signature so callers do not change when it is.
 class CalculateXp {
   int call({

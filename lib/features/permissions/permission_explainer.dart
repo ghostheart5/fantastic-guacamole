@@ -32,7 +32,7 @@ class PermissionExplainers {
   static const PermissionExplainer voice = PermissionExplainer(
     title: 'Enable Voice Access',
     whyItMatters:
-        'Voice input and spoken responses let you capture thoughts hands-free in coaching and the SI console.',
+        'Voice input and spoken responses let you capture thoughts hands-free in Smart Planner and the SI Console.',
     whenUsed:
         'Used only when you tap a microphone or voice playback control. Audio is never captured during normal planning or background use.',
     primaryActionLabel: 'Allow Microphone',

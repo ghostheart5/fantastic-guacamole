@@ -16,88 +16,95 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'base quota blocks when exhausted and premium upgrade bypasses gate',
+    (WidgetTester tester) async {
+      final _MemorySharedPrefsStore prefs = _MemorySharedPrefsStore();
+      final CreditService credit = CreditService(prefs: prefs);
 
-  testWidgets('base quota blocks when exhausted and premium upgrade bypasses gate', (
-    WidgetTester tester,
-  ) async {
-    final _MemorySharedPrefsStore prefs = _MemorySharedPrefsStore();
-    final CreditService credit = CreditService(prefs: prefs);
-
-    final ProviderContainer container = ProviderContainer(
-      overrides: [
-        sharedPrefsStoreProvider.overrideWithValue(prefs),
-        creditServiceProvider.overrideWithValue(credit),
-        intelligenceStateProvider.overrideWithValue(_baseIntelligence),
-        paywallConfigProvider.overrideWith((Ref ref) async => _paywallConfig),
-        paywallSubscriptionProvider.overrideWith(
-          (Ref ref) async => const SubscriptionState(
-            isActive: false,
-            status: 'free',
-            source: 'integration',
-            isTesting: false,
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          sharedPrefsStoreProvider.overrideWithValue(prefs),
+          creditServiceProvider.overrideWithValue(credit),
+          intelligenceStateProvider.overrideWithValue(_baseIntelligence),
+          paywallConfigProvider.overrideWith((Ref ref) async => _paywallConfig),
+          paywallSubscriptionProvider.overrideWith(
+            (Ref ref) async => const SubscriptionState(
+              isActive: false,
+              status: 'free',
+              source: 'integration',
+              isTesting: false,
+            ),
           ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: PaywallPage()),
         ),
-      ],
-    );
-    addTearDown(container.dispose);
+      );
+      await tester.pump(const Duration(milliseconds: 400));
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: PaywallPage()),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('AI CREDITS + PREMIUM'), findsOneWidget);
 
-    expect(find.textContaining('AI CREDITS + PREMIUM'), findsOneWidget);
+      final AiCreditWallet before = await container.read(
+        aiCreditWalletProvider.future,
+      );
+      final AiCreditSpendResult firstSpend = await credit.spend(
+        premium: false,
+        amount: 1,
+      );
+      final AiCreditWallet afterFirst = await credit.loadWallet(premium: false);
 
-    final AiCreditWallet before = await container.read(aiCreditWalletProvider.future);
-    final AiCreditSpendResult firstSpend = await credit.spend(premium: false, amount: 1);
-    final AiCreditWallet afterFirst = await credit.loadWallet(premium: false);
+      expect(firstSpend.allowed, isTrue);
+      expect(afterFirst.balance, lessThan(before.balance));
 
-    expect(firstSpend.allowed, isTrue);
-    expect(afterFirst.balance, lessThan(before.balance));
+      final AiCreditSpendResult exhausted = await credit.spend(
+        premium: false,
+        amount: afterFirst.balance + 5,
+      );
+      expect(exhausted.allowed, isFalse);
 
-    final AiCreditSpendResult exhausted = await credit.spend(
-      premium: false,
-      amount: afterFirst.balance + 5,
-    );
-    expect(exhausted.allowed, isFalse);
+      container
+          .read(paywallPromptProvider.notifier)
+          .set(
+            PaywallPrompt(
+              title: 'AI credits exhausted',
+              message: 'Upgrade to continue premium planning guidance.',
+              trigger: 'ai_credit_limit',
+              remainingCredits: exhausted.wallet.balance,
+            ),
+          );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('AI credits exhausted'), findsOneWidget);
 
-    container
-        .read(paywallPromptProvider.notifier)
-        .set(
-          PaywallPrompt(
-            title: 'AI credits exhausted',
-            message: 'Upgrade to continue premium coaching.',
-            trigger: 'ai_credit_limit',
-            remainingCredits: exhausted.wallet.balance,
-          ),
-        );
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('AI credits exhausted'), findsOneWidget);
+      // Premium is granted by the entitlement owner, not by a standalone flag.
+      await container
+          .read(entitlementProvider.notifier)
+          .applyPurchaseResult(
+            SubscriptionState(
+              isActive: true,
+              status: 'active',
+              source: 'google_play',
+              planId: 'monthly',
+              renewalDate: DateTime.now().add(const Duration(days: 30)),
+            ),
+          );
+      final AiCreditWallet premiumWallet = await credit.loadWallet(
+        premium: true,
+      );
+      final AiCreditSpendResult premiumSpend = await credit.spend(
+        premium: true,
+        amount: (premiumWallet.balance / 2).round(),
+      );
 
-    // Premium is granted by the entitlement owner, not by a standalone flag.
-    await container
-        .read(entitlementProvider.notifier)
-        .applyPurchaseResult(
-          SubscriptionState(
-            isActive: true,
-            status: 'active',
-            source: 'google_play',
-            planId: 'monthly',
-            renewalDate: DateTime.now().add(const Duration(days: 30)),
-          ),
-        );
-    final AiCreditWallet premiumWallet = await credit.loadWallet(premium: true);
-    final AiCreditSpendResult premiumSpend = await credit.spend(
-      premium: true,
-      amount: (premiumWallet.balance / 2).round(),
-    );
-
-    expect(container.read(appAccessProvider).hasPremiumAccess, isTrue);
-    expect(premiumSpend.allowed, isTrue);
-  });
+      expect(container.read(appAccessProvider).hasPremiumAccess, isTrue);
+      expect(premiumSpend.allowed, isTrue);
+    },
+  );
 }
 
 const IntelligenceState _baseIntelligence = IntelligenceState(

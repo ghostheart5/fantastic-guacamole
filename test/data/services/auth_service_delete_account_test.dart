@@ -102,7 +102,7 @@ void main() {
 
       await expectLater(
         () => service.signIn(
-          email: 'operator@chronospark.app',
+          email: 'planner@chronospark.app',
           password: 'correct-pass',
         ),
         throwsA(
@@ -193,7 +193,7 @@ void main() {
           store: SecureStore(backend: InMemorySecureStoreBackend()),
         );
 
-        await service.sendPasswordReset('operator@chronospark.app');
+        await service.sendPasswordReset('planner@chronospark.app');
 
         expect(recoverCalls, 1);
       },
@@ -216,7 +216,7 @@ void main() {
       );
 
       await expectLater(
-        () => service.sendPasswordReset('operator@chronospark.app'),
+        () => service.sendPasswordReset('planner@chronospark.app'),
         throwsA(
           isA<FirebaseAuthException>().having(
             (e) => e.code,
@@ -259,7 +259,7 @@ void main() {
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
             return http.Response(
-              jsonEncode(_authResponseJson(email: 'operator@chronospark.app')),
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
               200,
               headers: <String, String>{'content-type': 'application/json'},
             );
@@ -280,7 +280,7 @@ void main() {
         );
 
         await service.signIn(
-          email: 'operator@chronospark.app',
+          email: 'planner@chronospark.app',
           password: 'correct-pass',
         );
         await service.sendEmailVerification();
@@ -295,7 +295,7 @@ void main() {
         if (request.url.path.endsWith('/auth/v1/token')) {
           tokenCalls += 1;
           return http.Response(
-            jsonEncode(_authResponseJson(email: 'operator@chronospark.app')),
+            jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
             200,
             headers: <String, String>{'content-type': 'application/json'},
           );
@@ -315,7 +315,7 @@ void main() {
       );
 
       await service.signIn(
-        email: 'operator@chronospark.app',
+        email: 'planner@chronospark.app',
         password: 'correct-pass',
       );
 
@@ -338,7 +338,7 @@ void main() {
         if (request.url.path.endsWith('/auth/v1/token')) {
           tokenCalls += 1;
           return http.Response(
-            jsonEncode(_authResponseJson(email: 'operator@chronospark.app')),
+            jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
             200,
             headers: <String, String>{'content-type': 'application/json'},
           );
@@ -351,13 +351,13 @@ void main() {
       );
 
       await service.signIn(
-        email: 'operator@chronospark.app',
+        email: 'planner@chronospark.app',
         password: 'correct-pass',
       );
       final User? user = await service.reloadCurrentUser();
       final String? token = await service.getIdToken(forceRefresh: true);
 
-      expect(user?.email, 'operator@chronospark.app');
+      expect(user?.email, 'planner@chronospark.app');
       expect(token, 'access-token');
       expect(tokenCalls, greaterThanOrEqualTo(2));
     });
@@ -369,7 +369,7 @@ void main() {
           tokenCalls += 1;
           if (tokenCalls == 1) {
             return http.Response(
-              jsonEncode(_authResponseJson(email: 'operator@chronospark.app')),
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
               200,
               headers: <String, String>{'content-type': 'application/json'},
             );
@@ -388,7 +388,7 @@ void main() {
       );
 
       await service.signIn(
-        email: 'operator@chronospark.app',
+        email: 'planner@chronospark.app',
         password: 'correct-pass',
       );
 
@@ -411,7 +411,7 @@ void main() {
           tokenCalls += 1;
           if (tokenCalls == 1) {
             return http.Response(
-              jsonEncode(_authResponseJson(email: 'operator@chronospark.app')),
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
               200,
               headers: <String, String>{'content-type': 'application/json'},
             );
@@ -430,7 +430,7 @@ void main() {
       );
 
       await service.signIn(
-        email: 'operator@chronospark.app',
+        email: 'planner@chronospark.app',
         password: 'correct-pass',
       );
 
@@ -450,7 +450,7 @@ void main() {
       final MockClient client = MockClient((http.Request request) async {
         if (request.url.path.endsWith('/auth/v1/token')) {
           return http.Response(
-            jsonEncode(_authResponseJson(email: 'operator@chronospark.app')),
+            jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
             200,
             headers: <String, String>{'content-type': 'application/json'},
           );
@@ -463,7 +463,7 @@ void main() {
       );
 
       await service.signIn(
-        email: 'operator@chronospark.app',
+        email: 'planner@chronospark.app',
         password: 'correct-pass',
       );
       await service.signOut();
@@ -477,7 +477,7 @@ void main() {
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
             return http.Response(
-              jsonEncode(_authResponseJson(email: 'operator@chronospark.app')),
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
               200,
               headers: <String, String>{'content-type': 'application/json'},
             );
@@ -492,7 +492,7 @@ void main() {
         );
 
         await service.signIn(
-          email: 'operator@chronospark.app',
+          email: 'planner@chronospark.app',
           password: 'correct-pass',
         );
 
@@ -551,7 +551,7 @@ void main() {
         );
 
         await service.signIn(
-          email: 'operator@chronospark.app',
+          email: 'planner@chronospark.app',
           password: 'correct-pass',
         );
 
@@ -574,7 +574,7 @@ void main() {
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
             return http.Response(
-              jsonEncode(_authResponseJson(email: 'operator@chronospark.app')),
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
               200,
               headers: <String, String>{'content-type': 'application/json'},
             );
@@ -589,7 +589,7 @@ void main() {
         );
 
         await service.signIn(
-          email: 'operator@chronospark.app',
+          email: 'planner@chronospark.app',
           password: 'correct-pass',
         );
 
@@ -612,7 +612,7 @@ void main() {
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
             return http.Response(
-              jsonEncode(_authResponseJson(email: 'operator@chronospark.app')),
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
               200,
               headers: <String, String>{'content-type': 'application/json'},
             );
@@ -627,7 +627,7 @@ void main() {
         );
 
         await service.signIn(
-          email: 'operator@chronospark.app',
+          email: 'planner@chronospark.app',
           password: 'correct-pass',
         );
         await expectLater(
@@ -652,9 +652,7 @@ void main() {
             tokenCalls += 1;
             if (tokenCalls == 1) {
               return http.Response(
-                jsonEncode(
-                  _authResponseJson(email: 'operator@chronospark.app'),
-                ),
+                jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
                 200,
                 headers: <String, String>{'content-type': 'application/json'},
               );
@@ -675,7 +673,7 @@ void main() {
         );
 
         await service.signIn(
-          email: 'operator@chronospark.app',
+          email: 'planner@chronospark.app',
           password: 'correct-pass',
         );
 
@@ -701,9 +699,7 @@ void main() {
             tokenCalls += 1;
             if (tokenCalls == 1) {
               return http.Response(
-                jsonEncode(
-                  _authResponseJson(email: 'operator@chronospark.app'),
-                ),
+                jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
                 200,
                 headers: <String, String>{'content-type': 'application/json'},
               );
@@ -711,7 +707,7 @@ void main() {
             return http.Response(
               jsonEncode(
                 _authResponseJsonVariant(
-                  email: 'operator@chronospark.app',
+                  email: 'planner@chronospark.app',
                   accessToken: '   ',
                 ),
               ),
@@ -731,7 +727,7 @@ void main() {
         );
 
         await service.signIn(
-          email: 'operator@chronospark.app',
+          email: 'planner@chronospark.app',
           password: 'correct-pass',
         );
 
@@ -788,7 +784,7 @@ void main() {
 
       await expectLater(
         () => service.signIn(
-          email: 'operator@chronospark.app',
+          email: 'planner@chronospark.app',
           password: 'correct-pass',
         ),
         throwsA(
@@ -824,7 +820,7 @@ void main() {
 
         await expectLater(
           () => service.signIn(
-            email: 'operator@chronospark.app',
+            email: 'planner@chronospark.app',
             password: 'wrong-pass',
           ),
           throwsA(
@@ -838,7 +834,7 @@ void main() {
 
         await expectLater(
           () => service.signIn(
-            email: 'operator@chronospark.app',
+            email: 'planner@chronospark.app',
             password: 'wrong-pass',
           ),
           throwsA(
@@ -862,7 +858,7 @@ void main() {
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
             return http.Response(
-              jsonEncode(_authResponseJson(email: 'operator@chronospark.app')),
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
               200,
               headers: <String, String>{'content-type': 'application/json'},
             );
@@ -873,7 +869,7 @@ void main() {
             expect(request.headers['authorization'], 'Bearer access-token');
             expect(jsonDecode(request.body), <String, dynamic>{
               'userId': 'user-1',
-              'email': 'operator@chronospark.app',
+              'email': 'planner@chronospark.app',
             });
             return http.Response('{}', 204);
           }
@@ -888,7 +884,7 @@ void main() {
         );
 
         await service.signIn(
-          email: 'operator@chronospark.app',
+          email: 'planner@chronospark.app',
           password: 'correct-pass',
         );
         await service.deleteCurrentAccount(password: 'correct-pass');
@@ -908,7 +904,7 @@ void main() {
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
             return http.Response(
-              jsonEncode(_authResponseJson(email: 'operator@chronospark.app')),
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
               200,
               headers: <String, String>{'content-type': 'application/json'},
             );
@@ -932,7 +928,7 @@ void main() {
         );
 
         await service.signIn(
-          email: 'operator@chronospark.app',
+          email: 'planner@chronospark.app',
           password: 'correct-pass',
         );
 
@@ -958,7 +954,7 @@ void main() {
         final MockClient client = MockClient((http.Request request) async {
           if (request.url.path.endsWith('/auth/v1/token')) {
             return http.Response(
-              jsonEncode(_authResponseJson(email: 'operator@chronospark.app')),
+              jsonEncode(_authResponseJson(email: 'planner@chronospark.app')),
               200,
               headers: <String, String>{'content-type': 'application/json'},
             );
@@ -973,7 +969,7 @@ void main() {
         );
 
         await service.signIn(
-          email: 'operator@chronospark.app',
+          email: 'planner@chronospark.app',
           password: 'correct-pass',
         );
 
@@ -1009,7 +1005,7 @@ Map<String, dynamic> _authResponseJson({required String email}) {
 
 Map<String, dynamic> _authResponseJsonVariant({
   String accessToken = 'access-token',
-  String? email = 'operator@chronospark.app',
+  String? email = 'planner@chronospark.app',
   Map<String, dynamic>? userMetadata,
 }) {
   return <String, dynamic>{
@@ -1025,7 +1021,7 @@ Map<String, dynamic> _authResponseJsonVariant({
       'email_confirmed_at': '2026-07-05T00:00:00.000Z',
       'app_metadata': <String, dynamic>{},
       'user_metadata':
-          userMetadata ?? <String, dynamic>{'full_name': 'Operator One'},
+          userMetadata ?? <String, dynamic>{'full_name': 'Planner One'},
     },
   };
 }

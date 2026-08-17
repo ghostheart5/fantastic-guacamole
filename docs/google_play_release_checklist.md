@@ -37,7 +37,7 @@ Quick release gate audit: [GOOGLE_PLAY_READINESS_AUDIT.md](GOOGLE_PLAY_READINESS
 - [x] Host terms URL (`https://chronospark.app/terms/` or equivalent deployed path)
 - [x] Host support URL (`https://chronospark.app/support/` or equivalent deployed path)
 - [ ] Set Play Console privacy policy field to `https://chronospark.app/privacy`
-- [ ] Add Play Console microphone disclosure: optional voice-to-text for coaching and SI console, only after user taps voice controls
+- [ ] Add Play Console microphone disclosure: optional voice-to-text for Smart Planner and SI Console, only after user taps voice controls
 - [ ] Confirm Play Console developer support email/contact is configured
 
 ## Versioning and Release

@@ -1,5 +1,4 @@
-import 'package:fantastic_guacamole/data/repositories/habit_repository.dart'
-    show HabitRecord;
+import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Habits

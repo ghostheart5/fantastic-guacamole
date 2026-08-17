@@ -58,7 +58,7 @@ class SIReasoningModule {
     if (instinct.safetyFirst) return 'Stabilize before recommending action';
     switch (intent) {
       case 'start_focus':
-        return 'Prepare one clear focus-session starting step';
+        return 'Prepare one clear focus-block starting step';
       case 'get_task':
         return 'Recommend the most useful next task';
       case 'reflect':

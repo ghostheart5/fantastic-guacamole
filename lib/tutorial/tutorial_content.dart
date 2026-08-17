@@ -52,7 +52,7 @@ class TutorialContent {
       ctaLabel: 'Open Nexus',
     ),
     TutorialStepContent(
-      id: 'coach_quick_prompt',
+      id: 'smart_planner_quick_prompt',
       title: 'SMART PLANNER',
       description:
           'Send one focused prompt to get immediate guidance when momentum drops.',
@@ -88,17 +88,17 @@ class TutorialContent {
     ),
     TutorialStepContent(
       id: 'logs_overview',
-      title: 'ACTIVITY LOGS',
+      title: 'TIMELINE',
       description:
           'Review completed actions and timeline events to spot useful patterns quickly.',
-      ctaLabel: 'Open Logs',
+      ctaLabel: 'Open Timeline',
     ),
     TutorialStepContent(
       id: 'insight_overview',
-      title: 'INSIGHTS',
+      title: 'PLANNER ANALYSIS',
       description:
-          'Turn trend signals into one practical next action you can execute now.',
-      ctaLabel: 'View Insight',
+          'Review Smart Planner and SI outputs, then turn the strongest signal into one practical next action.',
+      ctaLabel: 'Open Smart Planner',
     ),
     TutorialStepContent(
       id: 'console_overview',
@@ -129,8 +129,8 @@ class TutorialContent {
       ctaLabel: 'Save Memory',
     ),
     TutorialStepContent(
-      id: 'soul_map_overview',
-      title: 'SOUL MAP',
+      id: 'personal_alignment_overview',
+      title: 'PERSONAL ALIGNMENT',
       description:
           'Read emotional and identity vectors that influence clarity, resilience, and decision quality.',
       ctaLabel: 'SCAN MAP',
@@ -187,7 +187,7 @@ class TutorialContent {
         FirstWeekJourneyDay(day: 'Day 2', goal: 'Build a habit.'),
         FirstWeekJourneyDay(day: 'Day 3', goal: 'Define milestones.'),
         FirstWeekJourneyDay(day: 'Day 4', goal: 'Review progress.'),
-        FirstWeekJourneyDay(day: 'Day 5', goal: 'Use your SI Coach.'),
+        FirstWeekJourneyDay(day: 'Day 5', goal: 'Use your Smart Planner.'),
         FirstWeekJourneyDay(day: 'Day 6', goal: 'Reflect on wins.'),
         FirstWeekJourneyDay(
           day: 'Day 7',
@@ -201,9 +201,9 @@ class TutorialContent {
     'nexus_overview':
         'Scan ENERGY and CLARITY first, then choose one concrete next action.',
 
-    'smart_coach':
+    'smart_planner':
         'Send one focused prompt, then one follow-up question for better precision.',
-    'coach_quick_prompt':
+    'smart_planner_quick_prompt':
         'Send one focused prompt, then one follow-up question for better precision.',
 
     'settings_reflection':
@@ -254,14 +254,14 @@ class TutorialContent {
         'Keep goals concise, measurable, and aligned with current trajectory constraints.',
 
     'memories':
-        'Store high-signal memories with enough detail for stronger future coaching context.',
+        'Store high-signal memories with enough detail for stronger future planning context.',
     'memories_overview':
-        'Store high-signal memories with enough detail for stronger future coaching context.',
+        'Store high-signal memories with enough detail for stronger future planning context.',
 
-    'soul_map':
-        'Use Soul Map regularly to detect drift between values and daily execution patterns.',
-    'soul_map_overview':
-        'Use Soul Map regularly to detect drift between values and daily execution patterns.',
+    'personal_alignment':
+        'Use Personal Alignment regularly to detect drift between values and daily execution patterns.',
+    'personal_alignment_overview':
+        'Use Personal Alignment regularly to detect drift between values and daily execution patterns.',
 
     'timeline':
         'Scan timeline causality before changing direction so course correction is intentional.',

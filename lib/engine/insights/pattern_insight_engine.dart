@@ -17,7 +17,7 @@ class PatternInsightEngine {
         history.length;
 
     if (avgDuration < 60) {
-      return 'Your sessions are short. Try increasing duration.';
+      return 'Your work blocks are short. Try increasing duration.';
     }
 
     if (avgQuality > 0.7) {

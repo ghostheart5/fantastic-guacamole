@@ -8,8 +8,8 @@ class TrajectorySummaryView {
     required this.energy,
     required this.momentum,
     required this.adaptability,
-    required this.lastSessionXp,
-    required this.lastSessionQuality,
+    required this.lastCompletionXp,
+    required this.lastCompletionQuality,
     required this.pressureIndex,
     required this.behaviorDivergence,
     required this.alert,
@@ -27,8 +27,8 @@ class TrajectorySummaryView {
   final double energy;
   final double momentum;
   final double adaptability;
-  final int lastSessionXp;
-  final double lastSessionQuality;
+  final int lastCompletionXp;
+  final double lastCompletionQuality;
   final int pressureIndex;
   final int behaviorDivergence;
   final String alert;

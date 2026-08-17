@@ -129,7 +129,7 @@ class LogsScreen extends ConsumerWidget {
                       ],
                       if (pastMissions.isNotEmpty) ...[
                         _NeonPanel(
-                          label: 'MISSION HISTORY',
+                          label: 'TIMELINE HISTORY',
                           accentColor: AppColors.neonViolet,
                           child: _LogList(
                             entries: pastMissions,
@@ -145,7 +145,7 @@ class LogsScreen extends ConsumerWidget {
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 32),
                           child: Text(
-                            'Your completed actions and mission events will appear here.',
+                            'Your completed actions and planning events will appear here.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white54,
@@ -222,6 +222,8 @@ _LogBuckets _partitionLogMessages(List<LogEntryEntity> entries) {
       case 'completed_task':
         completedTasks.add(entry.message);
         break;
+      // Compatibility for historical records written before the terminology
+      // migration. New records must use current Timeline event types.
       case 'mission':
         pastMissions.add(entry.message);
         break;

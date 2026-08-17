@@ -44,7 +44,7 @@ class AIAgentTraceNotifier extends Notifier<AgentResult?> {
 
 class AIPersonalityNotifier extends Notifier<AIPersonality> {
   @override
-  AIPersonality build() => AIPersonality.coach;
+  AIPersonality build() => AIPersonality.planner;
 
   void set(AIPersonality value) => state = value;
 }

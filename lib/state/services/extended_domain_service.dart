@@ -6,7 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ExtendedDomainService implements IExtendedDomainRepository {
   ExtendedDomainService();
 
-  static const String _keyCoachMessages = 'extended_domain.coach_messages';
+  // Keep the original key so saved guidance history survives the rename.
+  static const String _legacyPlannerMessagesKey =
+      'extended_domain.coach_messages';
   static const String _keySiQueries = 'extended_domain.si_queries';
   static const String _keyUserIntents = 'extended_domain.user_intents';
   static const String _keyJournalEntries = 'extended_domain.journal_entries';
@@ -29,7 +31,7 @@ class ExtendedDomainService implements IExtendedDomainRepository {
   SharedPreferences? _prefs;
   bool _initialized = false;
 
-  final List<CoachMessage> _coachMessages = [];
+  final List<PlannerMessage> _plannerMessages = [];
   final List<SiQuery> _siQueries = [];
   final List<UserIntent> _userIntents = [];
   final List<JournalEntry> _journalEntries = [];
@@ -59,12 +61,12 @@ class ExtendedDomainService implements IExtendedDomainRepository {
   void _hydrateState() {
     final SharedPreferences prefs = _prefs!;
 
-    _coachMessages
+    _plannerMessages
       ..clear()
       ..addAll(
-        _decodeEntities<CoachMessage>(
-          prefs.getString(_keyCoachMessages),
-          (Map<String, dynamic> json) => CoachMessage(
+        _decodeEntities<PlannerMessage>(
+          prefs.getString(_legacyPlannerMessagesKey),
+          (Map<String, dynamic> json) => PlannerMessage(
             id: json['id'] as String,
             label: json['label'] as String?,
           ),
@@ -277,7 +279,8 @@ class ExtendedDomainService implements IExtendedDomainRepository {
   }
 
   @override
-  List<CoachMessage> getCoachMessages() => List.unmodifiable(_coachMessages);
+  List<PlannerMessage> getPlannerMessages() =>
+      List.unmodifiable(_plannerMessages);
 
   @override
   List<SiQuery> getSiQueries() => List.unmodifiable(_siQueries);
@@ -329,9 +332,9 @@ class ExtendedDomainService implements IExtendedDomainRepository {
   List<HealthCheckResult> getHealthChecks() => List.unmodifiable(_healthChecks);
 
   @override
-  Future<void> saveCoachMessage(CoachMessage entity) async {
-    _coachMessages.add(entity);
-    await _persistList(_keyCoachMessages, _coachMessages);
+  Future<void> savePlannerMessage(PlannerMessage entity) async {
+    _plannerMessages.add(entity);
+    await _persistList(_legacyPlannerMessagesKey, _plannerMessages);
   }
 
   @override

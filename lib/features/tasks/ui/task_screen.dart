@@ -215,7 +215,7 @@ class _TrajectorySummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'XP ${summary.lastSessionXp}  ·  Quality ${(summary.lastSessionQuality * 100).round()}%  ·  Momentum ${(summary.momentum * 100).round()}%',
+            'XP ${summary.lastCompletionXp}  ·  Quality ${(summary.lastCompletionQuality * 100).round()}%  ·  Momentum ${(summary.momentum * 100).round()}%',
             style: const TextStyle(
               color: Colors.white54,
               fontSize: 12,

@@ -26,7 +26,7 @@ class TaskCard extends ConsumerWidget {
 
     return SmartPressable(
       onTap: () {
-        ref.read(appFlowProvider.notifier).toSmartCoach();
+        ref.read(appFlowProvider.notifier).toSmartPlanner();
       },
       pressedScale: 0.97,
       child: Container(

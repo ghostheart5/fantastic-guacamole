@@ -29,7 +29,7 @@ void main() {
 
     expect(find.text('ACTIVITY LEDGER'), findsOneWidget);
     expect(
-      find.text('Your completed actions and mission events will appear here.'),
+      find.text('Your completed actions and planning events will appear here.'),
       findsOneWidget,
     );
   });

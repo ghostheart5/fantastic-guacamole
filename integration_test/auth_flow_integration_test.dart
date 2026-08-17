@@ -31,7 +31,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('auth screen exposes forgot password action', (WidgetTester tester) async {
+  testWidgets('auth screen exposes forgot password action', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
@@ -48,7 +50,9 @@ void main() {
     expect(find.text('Forgot Password?'), findsOneWidget);
   });
 
-  testWidgets('mock credentials enter the app without backend access', (WidgetTester tester) async {
+  testWidgets('mock credentials enter the app without backend access', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
@@ -84,10 +88,14 @@ void main() {
     expect(find.text('APP_READY'), findsOneWidget);
   });
 
-  testWidgets('onboarding skip persists completion', (WidgetTester tester) async {
+  testWidgets('onboarding skip persists completion', (
+    WidgetTester tester,
+  ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
 
-    await tester.pumpWidget(const ProviderScope(child: MaterialApp(home: OnboardingScreen())));
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: OnboardingScreen())),
+    );
     await tester.pump();
 
     expect(find.text('CHRONOSPARK'), findsOneWidget);
@@ -98,30 +106,42 @@ void main() {
     expect(prefs.getBool(onboardingCompleteStorageKey), isTrue);
   });
 
-  test('coach pipeline accepts context and returns a usable response', () async {
-    const AgentOrchestrator orchestrator = AgentOrchestrator();
-    final AgentResult result = await orchestrator.execute(
-      prompt: 'I keep losing focus after lunch. What should I do next?',
-      preferredAgent: AgentKind.chat,
-      request: const AgentRequest(
+  test(
+    'planner pipeline accepts context and returns a usable response',
+    () async {
+      const AgentOrchestrator orchestrator = AgentOrchestrator();
+      final AgentResult result = await orchestrator.execute(
         prompt: 'I keep losing focus after lunch. What should I do next?',
-        context: <String, dynamic>{'surface': 'smart_coach', 'energy': 0.45},
-        history: <Map<String, String>>[
-          <String, String>{'role': 'assistant', 'content': 'Choose one small task and begin.'},
-          <String, String>{
-            'role': 'user',
-            'content': 'That advice is too generic for my afternoon slump.',
+        preferredAgent: AgentKind.chat,
+        request: const AgentRequest(
+          prompt: 'I keep losing focus after lunch. What should I do next?',
+          context: <String, dynamic>{
+            'surface': 'smart_planner',
+            'energy': 0.45,
           },
-        ],
-        si: SIState(energy: 0.45),
-        learning: LearningState(),
-      ),
-    );
+          history: <Map<String, String>>[
+            <String, String>{
+              'role': 'assistant',
+              'content': 'Choose one small task and begin.',
+            },
+            <String, String>{
+              'role': 'user',
+              'content': 'That advice is too generic for my afternoon slump.',
+            },
+          ],
+          si: SIState(energy: 0.45),
+          learning: LearningState(),
+        ),
+      );
 
-    expect(result.selectedAgent, AgentKind.chat.name);
-    expect(result.payload['message']?.toString().trim(), isNotEmpty);
-    expect(result.payload['message'], isNot('Choose one small task and begin.'));
-  });
+      expect(result.selectedAgent, AgentKind.chat.name);
+      expect(result.payload['message']?.toString().trim(), isNotEmpty);
+      expect(
+        result.payload['message'],
+        isNot('Choose one small task and begin.'),
+      );
+    },
+  );
 
   test('task journey creates and persists a task', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -160,9 +180,13 @@ void main() {
     expect(metrics['tasks_completed'], 0);
   });
 
-  testWidgets('screen journey forges a task and routes to plan', (WidgetTester tester) async {
+  testWidgets('screen journey forges a task and routes to plan', (
+    WidgetTester tester,
+  ) async {
     await SharedPrefsService.clear();
-    final ProviderContainer container = _integrationContainer(_InMemoryTaskRepository());
+    final ProviderContainer container = _integrationContainer(
+      _InMemoryTaskRepository(),
+    );
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -181,7 +205,8 @@ void main() {
     expect(find.text('CREATOR'), findsOneWidget);
 
     final Finder titleField = find.byWidgetPredicate(
-      (Widget widget) => widget is TextField && widget.decoration?.hintText == 'Title *',
+      (Widget widget) =>
+          widget is TextField && widget.decoration?.hintText == 'Title *',
     );
     await tester.enterText(titleField, 'UI journey task');
     FocusManager.instance.primaryFocus?.unfocus();
@@ -212,10 +237,16 @@ ProviderContainer _integrationContainer(_InMemoryTaskRepository repository) {
   return ProviderContainer(
     overrides: [
       domainTaskRepositoryProvider.overrideWithValue(repository),
-      secureStoreProvider.overrideWithValue(SecureStore(backend: InMemorySecureStoreBackend())),
+      secureStoreProvider.overrideWithValue(
+        SecureStore(backend: InMemorySecureStoreBackend()),
+      ),
       profileProvider.overrideWith(_IntegrationProfileController.new),
-      audioFeedbackControllerProvider.overrideWithValue(const _SilentAudioFeedbackController()),
-      optimizationConfigProvider.overrideWith((Ref ref) async => OptimizationConfig.neutral()),
+      audioFeedbackControllerProvider.overrideWithValue(
+        const _SilentAudioFeedbackController(),
+      ),
+      optimizationConfigProvider.overrideWith(
+        (Ref ref) async => OptimizationConfig.neutral(),
+      ),
       aiResponseProvider.overrideWith(_IntegrationAIResponseController.new),
     ],
   );
@@ -294,7 +325,7 @@ class _IntegrationAIResponseController extends AIResponseController {
   }) async {
     const AIRecommendation recommendation = AIRecommendation(
       task: null,
-      message: 'Session complete. Continue with the next ranked action.',
+      message: 'Task complete. Continue with the next ranked action.',
       reasoning: 'Integration response',
       emotion: 'focused',
       confidence: 0.9,
@@ -343,12 +374,18 @@ class _IntegrationFakeAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<UserCredential> signIn({required String email, required String password}) {
+  Future<UserCredential> signIn({
+    required String email,
+    required String password,
+  }) {
     throw UnimplementedError('Not used by this integration test');
   }
 
   @override
-  Future<UserCredential> signUp({required String email, required String password}) {
+  Future<UserCredential> signUp({
+    required String email,
+    required String password,
+  }) {
     throw UnimplementedError('Not used by this integration test');
   }
 }

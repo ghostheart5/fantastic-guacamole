@@ -7,7 +7,7 @@ export 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 export 'package:fantastic_guacamole/state/providers/learning_history_provider.dart';
 export 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 export 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
-export 'package:fantastic_guacamole/state/providers/session_score_provider.dart';
+export 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
 export 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';
 export 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 export 'package:fantastic_guacamole/state/providers/task_provider.dart';

@@ -36,7 +36,7 @@ class TesterDataResetService {
     'workspace_creator_v1',
     'workspace_temporal_v1',
     'workspace_si_v1',
-    'chronologs_payload_v1',
+    'timeline_payload_v1',
     'ai_learning',
     'neural_dump',
     'settings_v1_neon_recall',

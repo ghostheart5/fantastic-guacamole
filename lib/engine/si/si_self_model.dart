@@ -34,13 +34,13 @@ class SISelfModelEngine {
         ? 'analyst'
         : intent.primary.label == 'get_task' ||
               intent.primary.label == 'start_focus'
-        ? 'coach'
+        ? 'planner'
         : 'companion';
 
     final Map<String, double> traits = <String, double>{
       'clarity': siClamp01(intent.confidence),
       'empathy': context.userState.stress >= .6 ? .9 : .72,
-      'directness': mode == 'coach' ? .85 : .62,
+      'directness': mode == 'planner' ? .85 : .62,
       'restraint': context.userState.cognitiveLoad >= .7 ? .9 : .55,
     };
 

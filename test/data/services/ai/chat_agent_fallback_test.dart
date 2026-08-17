@@ -24,7 +24,7 @@ void main() {
         ],
         'si': const SIState(energy: 0.7),
         'learning': const LearningState(completed: 3, skipped: 0),
-        'personality': AIPersonality.coach,
+        'personality': AIPersonality.planner,
         'context': const <String, dynamic>{'emotion': 'focused'},
         'history': const <Map<String, String>>[
           <String, String>{

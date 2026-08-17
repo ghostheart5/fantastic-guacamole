@@ -70,7 +70,7 @@ class InsightsActions {
         );
     await _ref.read(memoriesActionsProvider).saveMirroredMemory(memoryText);
     _ref.invalidate(soulStateProvider);
-    await _refreshCoachDecision();
+    await _refreshPlannerDecision();
     _ref
         .read(eventBusProvider)
         .emit(InsightLifecycleEvent(summary: summary, titles: topTitles));
@@ -84,12 +84,12 @@ class InsightsActions {
     return '${bundle.summary}|${bundle.healthScore.toStringAsFixed(3)}|$titles';
   }
 
-  Future<void> _refreshCoachDecision() async {
+  Future<void> _refreshPlannerDecision() async {
     try {
       await _ref.read(generateSiDecisionUseCaseProvider).call();
       _ref.invalidate(domainSiDecisionProvider);
     } catch (_) {
-      // Do not block insight publication when coach refresh fails.
+      // Do not block insight publication when planner refresh fails.
     }
   }
 }

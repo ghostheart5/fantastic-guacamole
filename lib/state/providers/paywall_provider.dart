@@ -105,8 +105,8 @@ final paywallConfigProvider = FutureProvider<PaywallEntity>((ref) async {
         : subscription.isTesting
         ? 'Premium gates are bypassed in this build.'
         : (aiProxyConfigured
-              ? 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.'
-              : 'Unlock smart credits, premium coaching, deeper memory, and advanced tools.'),
+              ? 'Unlock AI credits, premium planning guidance, deeper memory, and advanced tools.'
+              : 'Unlock smart credits, premium planning guidance, deeper memory, and advanced tools.'),
     plans: plans,
     isUnlocked: subscription.isActive,
   );

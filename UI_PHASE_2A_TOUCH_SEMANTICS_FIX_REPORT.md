@@ -25,7 +25,7 @@ Counts:
 | `lib/features/creator/ui/creator_screen.dart` | Back button | Combined | Same pattern |
 | `lib/features/settings/ui/settings_screen.dart` | Back button | Combined | Same pattern |
 | `lib/features/settings/ui/settings_screen.sections.dart` | Reminder-time row, daily-planning-time row, `_NeonNavTile` (all instances) | Touch-target | `ConstrainedBox(minHeight: 48)` guarantees tap height regardless of subtitle/font metrics; no navigation/business logic touched |
-| `lib/features/home/ui/smart_coach_screen.dart` | Back button, SPEAK pill, SUMMARY pill, ACCESS pill, mic toggle, GOALS/MEMORIES/SOUL MAP quick-nav cards | Combined | Padding/size/`Semantics` only; all `onTap` callbacks and provider calls unchanged |
+| `lib/features/home/ui/smart_planner_screen.dart` | Back button, SPEAK pill, SUMMARY pill, ACCESS pill, mic toggle, GOALS/MEMORIES/PERSONAL ALIGNMENT quick-nav cards | Combined | Padding/size/`Semantics` only; all `onTap` callbacks and provider calls unchanged |
 | `lib/features/nexus/ui/nexus_screen.widgets.dart` | Notification bell, sign-out button | Combined / touch-target | Notification bell gets `semanticLabel` + padded hit area; sign-out (already had a `Tooltip`) gets a modest padding bump |
 | `lib/features/profile/ui/profile_screen.dart` | Core Value filter chip | Touch-target | Padding bump only; visible text already serves as the label |
 | `lib/features/profile/ui/widgets/profile_header.dart` | `_HeaderIconBtn` (Settings gear) | Combined | Added required `semanticLabel` param, bumped to 48×48 |
@@ -124,7 +124,7 @@ Counts:
 - **Phase 2D (contrast/status bar):** no color-contrast or status-bar-related changes.
 - **Phase 2E (button/card consistency):** navigation-shell FAB's 40×40 fixed size explicitly flagged and left as-is; broader button/card size unification not started.
 - **Phase 3 (theme/token/light-mode):** untouched.
-- **Naming cleanup:** no "SMART COACH"/"Session"/standalone "Insight" copy was encountered inside any control touched in this pass; no naming changes were made or needed.
+- **Naming cleanup:** no "SMART PLANNER"/"Session"/standalone "Insight" copy was encountered inside any control touched in this pass; no naming changes were made or needed.
 - **Creator priority-level bars:** hit area improved (~30px) but still below the full 48dp target due to the control's intentionally thin (6px) visual design — a further redesign (e.g. a taller custom slider) would be a Phase 2E/visual-system decision, not a Phase 2A padding fix.
 - **Creator quick-add send button:** bumped to 40×40 rather than a full 48×48 to avoid visibly enlarging the compact quick-input bar; a further bump to 48×48 is a candidate for Phase 2E if a taller input bar becomes acceptable.
 

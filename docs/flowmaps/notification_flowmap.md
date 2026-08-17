@@ -12,7 +12,7 @@ A reminder, decision nudge, completion feedback, or system alert must be sent.
 6. Interaction and delivery outcomes are logged.
 
 ## Data and Services
-- Screen: invoked by multiple features (tasks, coach, sync, etc.)
+- Screen: invoked by multiple features (tasks, planner, sync, etc.)
 - Provider/Controller: notification provider/actions
 - Use case: schedule/send notification
 - Repository: notification state where applicable

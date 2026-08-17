@@ -39,7 +39,7 @@ void main() {
     expect(metrics.recordedTaskCreated, 1);
   });
 
-  test('mission and note apply priority and effort semantics', () async {
+  test('goal and note apply priority and effort semantics', () async {
     final _CaptureCreateTaskUseCase capture = _CaptureCreateTaskUseCase();
     final ProviderContainer container = ProviderContainer(
       overrides: [
@@ -56,15 +56,15 @@ void main() {
         .createTask(
           const CreatorFormData(
             title: 'Big launch prep',
-            type: 'Mission',
+            type: 'Goal',
             priority: 2,
           ),
         );
 
-    final TaskEntity mission = capture.lastCreated!;
-    expect(mission.priority, 4);
-    expect(mission.difficulty, 5);
-    expect(mission.energyRequired, 3);
+    final TaskEntity goal = capture.lastCreated!;
+    expect(goal.priority, 4);
+    expect(goal.difficulty, 5);
+    expect(goal.energyRequired, 4);
 
     await container
         .read(creatorActionsProvider)

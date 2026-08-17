@@ -85,7 +85,7 @@ mkdir -p lib/features/settings
 mkdir -p lib/features/console
 mkdir -p lib/features/profile
 
-touch lib/features/home/smart_coach_screen.dart
+touch lib/features/home/smart_planner_screen.dart
 touch lib/features/plan/chronoflow_screen.dart
 touch lib/features/creator/creator_screen.dart
 touch lib/features/focus/focus_screen.dart

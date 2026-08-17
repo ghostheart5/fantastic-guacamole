@@ -16,7 +16,7 @@ class SIIntentUtils {
   String actionFor(String intent) {
     switch (intent) {
       case SIIntentLabels.startFocus:
-        return 'launch_focus_session';
+        return 'launch_focus_block';
       case SIIntentLabels.getTask:
         return 'present_task_recommendation';
       case SIIntentLabels.reflect:

@@ -117,7 +117,7 @@ I confirm **no changes** were made to any of:
 - ✅ Edge Functions
 - ✅ Domain entities, use cases, repositories, providers
 - ✅ Route definitions
-- ✅ Feature names (the visible "SMART COACH" copy was **not** changed — report-only, per instruction 10)
+- ✅ Feature names (the visible "SMART PLANNER" copy was **not** changed — report-only, per instruction 10)
 
 One incidental artifact: the failed `flutter test` invocation generated a crash log at repo root (`flutter_02.log`). Per the "do not delete files" rule I left it in place — remove it manually if unwanted.
 
@@ -130,7 +130,7 @@ One incidental artifact: the failed `flutter test` invocation generated a crash 
 - `Semantics`/`Tooltip` on icon-only controls (only 6 `Semantics` uses in 3 files today)
 - Visual state coverage: loading/skeleton/error/retry for Tasks, Profile, Timeline, Nexus error path
 - Button/card system consolidation (4 button + 4 card/panel components, 4 radii)
-- Visible **"SMART COACH"** copy — report-only so far: `smart_coach_screen.dart:456`, `onboarding_screen.dart:45`, `tutorial_content.dart:56`
+- Visible **"SMART PLANNER"** copy — report-only so far: `smart_planner_screen.dart:456`, `onboarding_screen.dart:45`, `tutorial_content.dart:56`
 - SI Console composer dead-space polish (from B5 finding above)
 
 **Phase 3 — theme/token unification & light-mode wiring**

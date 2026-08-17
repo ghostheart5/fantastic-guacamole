@@ -1,6 +1,6 @@
 // Behavior Shaping Engine — progressive micro-progression
-// Session length ladder: 10→12→15→18→22→30 min
-// Tracks consistency, capacity, and stability across sessions.
+// Work-block length ladder: 10→12→15→18→22→30 min
+// Tracks consistency, capacity, and stability across work blocks.
 
 class BehaviorState {
   const BehaviorState({
@@ -41,12 +41,12 @@ class BehaviorShapingEngine {
 
   BehaviorState update({
     required BehaviorState current,
-    required bool sessionCompleted,
+    required bool completionRecorded,
     required bool taskCompleted,
     required double frictionScore,
   }) {
     return BehaviorState(
-      consistency: (current.consistency + (sessionCompleted ? 0.05 : -0.03))
+      consistency: (current.consistency + (completionRecorded ? 0.05 : -0.03))
           .clamp(0.0, 1.0),
       capacity: (current.capacity + (taskCompleted ? 0.03 : -0.02)).clamp(
         0.0,

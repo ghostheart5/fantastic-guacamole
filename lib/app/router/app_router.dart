@@ -87,9 +87,7 @@ String? computeAppRedirect({
     return RoutePaths.login;
   }
 
-  if (!isAuthenticated &&
-      onboardingComplete &&
-      location != RoutePaths.login) {
+  if (!isAuthenticated && onboardingComplete && location != RoutePaths.login) {
     return RoutePaths.login;
   }
 
@@ -153,11 +151,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             const NavigationShell(initialView: AppView.creator),
       ),
       GoRoute(
-        path: RoutePaths.insights,
-        builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.insight),
-      ),
-      GoRoute(
         path: RoutePaths.settings,
         builder: (BuildContext context, GoRouterState state) =>
             const NavigationShell(initialView: AppView.settings),
@@ -203,8 +196,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Legacy top-level routes redirect into the secondary hierarchy.
       // Sunset target is tracked in docs/LEGACY_ROUTE_SUNSET.md and reviewed by 2026-10-01.
       GoRoute(
-        path: RoutePaths.legacyCoach,
+        path: RoutePaths.legacyPlanningRoute,
         redirect: (_, _) => RoutePaths.home,
+      ),
+      GoRoute(
+        path: RoutePaths.legacyInsights,
+        redirect: (_, _) => RoutePaths.plan,
       ),
       GoRoute(path: RoutePaths.legacyLogs, redirect: (_, _) => RoutePaths.logs),
       GoRoute(

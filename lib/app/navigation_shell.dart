@@ -5,8 +5,7 @@ import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
-import 'package:fantastic_guacamole/features/home/ui/smart_coach_screen.dart';
-import 'package:fantastic_guacamole/features/insights/ui/insight_screen.dart';
+import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
 import 'package:fantastic_guacamole/features/logs/ui/logs_screen.dart';
 import 'package:fantastic_guacamole/features/memories/ui/memories_screen.dart';
 import 'package:fantastic_guacamole/features/milestones/ui/milestones_screen.dart';
@@ -16,7 +15,7 @@ import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
 import 'package:fantastic_guacamole/features/progression/ui/progression_screen.dart';
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
-import 'package:fantastic_guacamole/features/soul_map/ui/soul_map_screen.dart';
+import 'package:fantastic_guacamole/features/personal_alignment/ui/personal_alignment_screen.dart';
 import 'package:fantastic_guacamole/features/tasks/ui/task_screen.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
@@ -26,7 +25,7 @@ import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/providers/energy_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
-import 'package:fantastic_guacamole/state/providers/session_recovery_provider.dart';
+import 'package:fantastic_guacamole/state/providers/app_recovery_provider.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/preference_service.dart';
@@ -117,9 +116,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView next,
     ) {
       _initializedTabIndexes.add(_tabIndexForView(next));
-      unawaited(
-        ref.read(sessionRecoveryProvider).saveState(lastRoute: next.name),
-      );
+      unawaited(ref.read(appRecoveryProvider).saveState(lastRoute: next.name));
     });
     _networkOnlineSubscription = ref.listenManual<bool>(isOnlineProvider, (
       bool? previous,
@@ -253,7 +250,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           _systemScheduler.pause();
           _dataHygieneScheduler.pause();
         }
-        // Otherwise a long SI response or coach summary keeps speaking over
+        // Otherwise a long SI response or planner summary keeps speaking over
         // whatever the user does next after backgrounding the app.
         unawaited(_stopVoicePlayback());
         unawaited(_saveCurrentState());
@@ -290,7 +287,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       return;
     }
     final AppView view = ref.read(appFlowProvider);
-    await ref.read(sessionRecoveryProvider).saveState(lastRoute: view.name);
+    await ref.read(appRecoveryProvider).saveState(lastRoute: view.name);
     unawaited(_pushDailyMetrics());
   }
 
@@ -307,7 +304,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     if (!mounted) {
       return;
     }
-    final recovery = await ref.read(sessionRecoveryProvider).loadState();
+    final recovery = await ref.read(appRecoveryProvider).loadState();
     if (!mounted || recovery == null) {
       return;
     }
@@ -347,7 +344,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
   int _tabIndexForView(AppView view) {
     return switch (view) {
-      AppView.coach || AppView.nexus => 0,
+      AppView.nexus => 0,
       AppView.tasks => 1,
       AppView.logs => 2,
       AppView.profile => 3,
@@ -427,9 +424,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
                 subtitle: Text('Core first, advanced when needed.'),
               ),
               const Divider(),
-              navItem('Nexus', 'Main command center', AppView.nexus),
+              navItem('Nexus', 'Connected planning home', AppView.nexus),
               navItem('Trajectory', 'Task execution lane', AppView.tasks),
-              navItem('Ledger', 'Logs and review trail', AppView.logs),
+              navItem('Timeline', 'Activity and context history', AppView.logs),
               navItem('Profile', 'Identity and progression', AppView.profile),
               const Divider(),
               navItem('Plan', 'Adaptive schedule', AppView.plan),
@@ -440,9 +437,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
                 AppView.milestones,
               ),
               navItem(
-                'Insights',
-                'Pattern and trend analysis',
-                AppView.insight,
+                'Smart Planner',
+                'Recommendations and next actions',
+                AppView.smartPlanner,
               ),
               navItem('Settings', 'Preferences and controls', AppView.settings),
             ],
@@ -459,7 +456,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     _initializedTabIndexes.add(tabIndex);
 
     final Widget body = switch (view) {
-      AppView.coach ||
       AppView.nexus ||
       AppView.tasks ||
       AppView.logs ||
@@ -487,8 +483,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           ],
         ),
       ),
-      AppView.smartCoach => const SmartCoachScreen(),
-      AppView.insight => const InsightScreen(),
+      AppView.smartPlanner => const SmartPlannerScreen(),
       AppView.console => const SIConsoleScreen(),
       AppView.settings => const SettingsScreen(),
       AppView.progression => const ProgressionScreen(),
@@ -497,7 +492,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView.goals => const GoalsScreen(),
       AppView.milestones => const MilestonesScreen(),
       AppView.memories => const MemoriesScreen(),
-      AppView.soulMap => const SoulMapScreen(),
+      AppView.personalAlignment => const PersonalAlignmentScreen(),
       AppView.timeline => const TimelineScreen(),
     };
 

@@ -96,7 +96,7 @@ Future<void> createTask(String title) async {
 - ✅ User notification on empty input
 - ✅ Trimmed before validation
 
-#### 2.1.3 Mission & Workspace Data JSON Parsing
+#### 2.1.3 Goal & Workspace Data JSON Parsing
 
 **File:** `lib/data/services/mission_service.dart`
 
@@ -116,11 +116,11 @@ Future<List<MissionModel>> loadMissions() async {
         .map((Map<String, dynamic> e) => MissionModel.fromJson(e))
         .toList();
   } on FormatException catch (error) {     // ✅ Catches malformed JSON
-    Logger.error('Mission payload corrupt. Resetting defaults. $error');
+    Logger.error('Goal payload corrupt. Resetting defaults. $error');
     await saveMissions(_defaultMissions);
     return _defaultMissions;
   } on TypeError catch (error) {           // ✅ Catches shape mismatch
-    Logger.error('Mission payload invalid shape. Resetting defaults. $error');
+    Logger.error('Goal payload invalid shape. Resetting defaults. $error');
     await saveMissions(_defaultMissions);
     return _defaultMissions;
   }
@@ -136,7 +136,7 @@ Future<List<MissionModel>> loadMissions() async {
 
 **Similar Pattern Applied To:**
 - `workspace_store_service.dart` (Creator, Temporal, SI workspaces) ✅
-- `chronologs_service.dart` (loading chronologs) ✅
+- `timeline_service.dart` (loading timeline) ✅
 
 #### 2.1.4 Authentication Input Validation
 
@@ -237,7 +237,7 @@ void _handleDeepLinkPayload(String? payload) {
 **Files Using Pattern:**
 - `main_shell.dart`: 3 mounted checks before setState/notifyListeners ✅
 - `creator_home.dart`: 1 mounted check ✅
-- `chronologs_home.dart`: 3 mounted checks ✅
+- `timeline_home.dart`: 3 mounted checks ✅
 - `temporal_ops_home.dart`: 1 mounted check ✅
 
 **Example:**

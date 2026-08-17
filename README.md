@@ -1,168 +1,92 @@
-# fantastic-guacamole
-
-## Badges
+# ChronoSpark
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
 [![Dart](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/dart.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/dart.yml)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-Supported-3DDC84?logo=android&logoColor=white)](android/)
-[![Build Status](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/main.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/main.yml)
-[![CodeQL](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/codeql.yml/badge.svg)](https://github.com/ghostheart5/fantastic-guacamole/actions/workflows/codeql.yml)
-[![Security](https://img.shields.io/badge/Security-Best%20Practices-blue)](https://github.com/ghostheart5/fantastic-guacamole/security)
 
-ChronoSpark is a Flutter-based second brain for task planning, adaptive learning, time-blocking, and AI-driven decision support.
+ChronoSpark is a planning and decision-support system for people who want to understand the day, decide the next move, and maintain momentum through deliberate action and reflection.
 
-For the full architecture and subsystem reference, see [CHRONOSPARK.md](CHRONOSPARK.md).
-For the dependency direction contract, see [docs/LAYER_FLOW.md](docs/LAYER_FLOW.md).
-For SI Console capability validation, see [docs/SI_CONSOLE_AUDIT.md](docs/SI_CONSOLE_AUDIT.md).
-For timeline and milestone capability validation, see [docs/TIMELINE_MILESTONE_AUDIT.md](docs/TIMELINE_MILESTONE_AUDIT.md).
-For core values and SoulMap capability validation, see [docs/CORE_VALUES_SOULMAP_AUDIT.md](docs/CORE_VALUES_SOULMAP_AUDIT.md).
-For error handling capability validation, see [docs/ERROR_HANDLING_AUDIT.md](docs/ERROR_HANDLING_AUDIT.md).
-For UI and UX capability validation, see [docs/UI_UX_AUDIT.md](docs/UI_UX_AUDIT.md).
-For Google Play release-gate validation, see [docs/GOOGLE_PLAY_READINESS_AUDIT.md](docs/GOOGLE_PLAY_READINESS_AUDIT.md).
-For security and privacy validation, see [docs/SECURITY_PRIVACY_AUDIT.md](docs/SECURITY_PRIVACY_AUDIT.md).
-For subscription and paywall validation, see [docs/SUBSCRIPTION_PAYWALL_AUDIT.md](docs/SUBSCRIPTION_PAYWALL_AUDIT.md).
-For file and placeholder cleanup tracking, see [docs/FILE_PLACEHOLDER_AUDIT.md](docs/FILE_PLACEHOLDER_AUDIT.md).
-For build verification commands, see [docs/BUILD_AUDIT_COMMANDS.md](docs/BUILD_AUDIT_COMMANDS.md).
-For the master release checklist, see [docs/FINAL_AUDIT_SCORECARD.md](docs/FINAL_AUDIT_SCORECARD.md).
-For the second-pass audit (v2.0) findings, see [docs/AUDIT_V2_SCORECARD.md](docs/AUDIT_V2_SCORECARD.md).
+It connects planning inputs, scheduled work, and available guidance without treating every signal as an automatic conclusion. The user remains responsible for the choices they make.
 
-## Highlights
+## Product flow
 
-- Material 3 Flutter UI with custom glassmorphic components
-- Local persistence with `SharedPreferences`
-- Adaptive task ranking and SI decision support
-- Temporal Ops and SI Console premium trial gating
-- Subscription tiers: Base, Premium, Ultimate
+The first-use path is:
+
+```text
+Creator → Timeline → Nexus
+```
+
+After setup, ChronoSpark supports a flexible working cycle:
+
+1. **Orient in Nexus** — review the connected context available now.
+2. **Create in Creator** — capture and manage tasks, goals, Daily Rhythms, and notes.
+3. **Plan in Timeline** — plan and review scheduled action.
+4. **Act deliberately** — follow through on the commitment you chose.
+5. **Reflect and adjust** — retain useful context and choose the next change intentionally.
+
+This is a planning cycle, not a promise that every day will be predictable or optimized.
+
+## Core features
+
+| Feature | Purpose |
+| --- | --- |
+| **Nexus** | Home surface for the current operating state and next-best action. |
+| **Smart Planner** | Explainable planning guidance and plan reconciliation. |
+| **Creator** | Structured intake for tasks, goals, Daily Rhythms, and notes. |
+| **SI Console** | Explainable recommendations and deeper decision investigation. |
+| **Timeline** | Planning and review of scheduled action and operational history. |
+| **Trajectory Engine** | Forward-looking scenario comparison, assumptions, and corrections. |
+| **Progression** | Evidence-backed advancement and leverage-action review. |
+
+Smart Planner, SI Console, Trajectory Engine, and Progression provide guidance or context to evaluate. They do not replace the user's judgment or guarantee an outcome.
+
+## Documentation
+
+The current product guides are maintained in the [ChronoSpark GitHub Wiki](https://github.com/ghostheart5/fantastic-guacamole/wiki):
+
+- [Overview](https://github.com/ghostheart5/fantastic-guacamole/wiki/Overview)
+- [Getting Started](https://github.com/ghostheart5/fantastic-guacamole/wiki/Getting-Started)
+- [Core Concepts](https://github.com/ghostheart5/fantastic-guacamole/wiki/Core-Concepts)
+- [Nexus](https://github.com/ghostheart5/fantastic-guacamole/wiki/Nexus)
+- [Creator](https://github.com/ghostheart5/fantastic-guacamole/wiki/Creator)
+- [Timeline](https://github.com/ghostheart5/fantastic-guacamole/wiki/Timeline)
+- [Smart Planner](https://github.com/ghostheart5/fantastic-guacamole/wiki/Smart-Planner)
+- [SI Console](https://github.com/ghostheart5/fantastic-guacamole/wiki/SI-CONSOLE)
+- [Trajectory Engine](https://github.com/ghostheart5/fantastic-guacamole/wiki/Trajectory-Engine)
+- [Progression](https://github.com/ghostheart5/fantastic-guacamole/wiki/Progression)
+
+Repository architecture and engineering context is summarized in [CHRONOSPARK.md](CHRONOSPARK.md).
 
 ## Development
 
 ### First-time setup
 
-`.env` is declared as a Flutter asset in `pubspec.yaml` and is git-ignored, so
-a fresh clone has no `.env` and **every** `flutter run` / `flutter test` /
-`flutter build` fails with:
-
-```
-Error detected in pubspec.yaml:
-No file or variants found for asset: .env.
-```
-
-Create it before anything else:
+Create the local `.env` asset before running Flutter commands:
 
 ```bash
 cp .env.example .env
+flutter pub get
 ```
 
-Every key is optional and safe to leave blank — blanks fall back to
-`--dart-define` values and then to built-in defaults. Those defaults run the
-app fully offline against local storage, which is all `flutter test` needs.
-See the comments in [.env.example](.env.example) for what each key does, and
-which ones must stay blank rather than being filled with placeholders.
+Every key may remain blank for local offline tests. See [.env.example](.env.example) for production integration values and build-time alternatives.
 
-### Everyday commands
-
-- `flutter analyze`
-- `flutter test`
-- `flutter run -d windows`
-
-### Domain layer conventions
-
-`lib/domain` is intentionally larger than the set of features currently
-visible in the UI. Every file carries a classification banner:
-
-```
-/// CHRONOSPARK-CLASS: SHIPPING | Feature: Goals/tasks
-```
-
-`SHIPPING` backs production behaviour. `PLANNED` is deliberate architecture
-for a ChronoSpark feature that is built or partly built but not yet surfaced —
-it is **not** dead code and must not be deleted. `EXPERIMENTAL` is
-exploratory, `LEGACY` is retained for migration, `DEPRECATED` takes no new
-call sites. `lib/domain/domain.dart` documents the full taxonomy.
-
-To review what is intentionally unwired:
+### Common commands
 
 ```bash
-rg "CHRONOSPARK-CLASS: PLANNED" lib/domain
+flutter analyze
+flutter test
+flutter run -d windows
 ```
 
-## Integration setup (Supabase, Firebase, Google, GitHub)
+## Project structure
 
-- Supabase is required for auth/session in production-style runs:
-  - `--dart-define=CHRONOSPARK_SUPABASE_URL=https://<project-ref>.supabase.co`
-  - `--dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=<anon-key>`
-- Local `.env` support is enabled too:
-  - Put the same values in [/.env](.env) or copy [/.env.example](.env.example)
-  - The app loads `.env` at startup and the Android build scripts read it as a fallback
-- OAuth callback config:
-  - `--dart-define=CHRONOSPARK_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback`
-  - `--dart-define=CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback`
-- Android custom-scheme callback:
-  - `chronospark://auth-callback`
-  - Add the matching intent filter in `android/app/src/main/AndroidManifest.xml`
-- Supabase redirect allowlist:
-  - `chronospark://auth-callback`
-  - `http://localhost:3000`
-  - `http://localhost:8080`
-  - `https://chronospark.ai`
-  - `https://www.chronospark.ai`
-- Firebase is bootstrapped from generated options in `lib/firebase_options.dart`.
-  - Re-run FlutterFire CLI if you switch Firebase projects.
-- Google and GitHub sign-in are routed through Supabase OAuth in app auth flow.
-  - Configure Google and GitHub providers in Supabase Auth, and use matching callback URLs in both provider dashboards.
+- `lib/` contains the application, feature, state, data, and domain layers.
+- `assets/` contains governed visual, audio, font, tutorial, and data assets.
+- `test/` and `integration_test/` contain automated verification.
+- `supabase/` contains database and Edge Function integration sources.
+- `web/` contains canonical public support, privacy, terms, and account-deletion pages.
 
-Supabase Auth console checklist:
+## License
 
-1. Open Supabase Dashboard -> Authentication -> Providers.
-2. Enable Google provider.
-3. Paste the Google OAuth Client ID and Client Secret from Google Cloud.
-4. Enable GitHub provider.
-5. Paste the GitHub OAuth App Client ID and Client Secret from GitHub Developer Settings.
-6. Add these redirect URLs in Authentication -> URL Configuration:
-   - `chronospark://auth-callback`
-   - `http://localhost:3000`
-   - `http://localhost:8080`
-   - `https://chronospark.ai`
-   - `https://www.chronospark.ai`
-7. Use `chronospark://auth-callback` for Android custom-scheme callback testing.
-8. Keep `CHRONOSPARK_OAUTH_REDIRECT_URL` and `CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL` aligned with the same callback route.
-
-Local PowerShell setup:
-
-1. Copy [scripts/chronospark_env.example.ps1](scripts/chronospark_env.example.ps1) to a local-only file outside git tracking.
-2. Fill in your real Supabase, OAuth, and release values.
-3. Dot-source that file before running the guarded build scripts, or set the same variables in your shell session.
-
-Example run:
-
-- `flutter run --dart-define=CHRONOSPARK_SUPABASE_URL=https://<project-ref>.supabase.co --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=<anon-key> --dart-define=CHRONOSPARK_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback --dart-define=CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL=https://<your-domain>/app/auth/callback`
-
-## Android release and tester access
-
-- Play Store production builds should be built from the production flavor with release signing.
-- Mock login is intentionally disabled in production. It is only available in non-production builds when `CHRONOSPARK_ENABLE_MOCK_LOGIN=true` or `CHRONOSPARK_ENABLE_MOCK_MODE=true` is passed.
-- Tester builds should use the QA flavor so the app treats them as non-production.
-- Typical tester launch command:
-  - `flutter run -d emulator-5554 --dart-define=CHRONOSPARK_APP_FLAVOR=qa --dart-define=CHRONOSPARK_ENABLE_MOCK_LOGIN=true --dart-define=CHRONOSPARK_ENABLE_TESTER_FULL_ACCESS=true --dart-define=CHRONOSPARK_ENABLE_CLOUD_SYNC=false`
-- Mock login defaults to `mock@chronospark.app` unless `CHRONOSPARK_MOCK_LOGIN_EMAIL` and `CHRONOSPARK_MOCK_LOGIN_PASSWORD` are supplied.
-- For Google Play upload, build a release AAB with your signed release keystore and verify the bundle version increments before each upload.
-
-## App links and indexing
-
-- Android App Links are declared for:
-  - `https://ghostheart5.github.io/fantastic-guacamole/app/*`
-  - `https://chronospark.app/app/*`
-  - `https://www.chronospark.app/app/*`
-- Digital association files are in `web/.well-known/`.
-- Replace the placeholder values in:
-  - `web/.well-known/assetlinks.json`
-  - `web/.well-known/apple-app-site-association`
-  before production rollout.
-- For production enforcement, set:
-  - `--dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true`
-  - `--dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=https://<your-domain>/verify-receipt`
-  - `--dart-define=CHRONOSPARK_AI_PROXY_ENDPOINT=https://<your-domain>/ai-proxy`
-  - `--dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=<release-cert-sha256>`
-  - `--dart-define=CHRONOSPARK_IOS_TEAM_ID=<apple-team-id>`
-- Security note: keep provider API secrets on your backend only; mobile/web clients now use authenticated user tokens for AI and receipt verification requests.
+ChronoSpark is licensed under the [MIT License](LICENSE).

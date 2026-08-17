@@ -12,7 +12,7 @@ import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/insight_model.dart';
 import 'package:fantastic_guacamole/state/models/insights_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
-import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
+import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/ui/widgets/holo_button.dart';
 import 'package:flutter/material.dart';
@@ -371,17 +371,17 @@ final NexusScreenModel _populatedNexusModel = NexusScreenModel(
       recommendations: <String>[],
       selectedValues: <String>{'Discipline', 'Purpose'},
     ),
-    soulMap: const SoulMapAlignment(
-      scores: <SoulMapDimension, SoulMapDimensionScore>{},
+    personalAlignment: const PersonalAlignmentAlignment(
+      scores: <PersonalAlignmentDimension, PersonalAlignmentDimensionScore>{},
       overall: 72,
-      strongest: SoulMapDimension.purpose,
-      weakest: SoulMapDimension.growthJourney,
+      strongest: PersonalAlignmentDimension.purpose,
+      weakest: PersonalAlignmentDimension.growthJourney,
       recommendations: <String>[],
     ),
   ),
   decision: const SIDecisionOutput(
     nextAction: 'Lock sprint scope',
-    coachMessage: 'Stay with the current sprint focus.',
+    plannerMessage: 'Stay with the current sprint focus.',
     suggestedPlanAdjustments: <String>['Hold one high-priority lane'],
     insightPrompts: <String>['What can be simplified?'],
     progressionFeedback: 'Momentum is compounding.',
@@ -391,8 +391,13 @@ final NexusScreenModel _populatedNexusModel = NexusScreenModel(
 
 class _PopulatedProfileController extends ProfileController {
   @override
-  ProfileState build() =>
-      ProfileState(xp: 460, level: 10, streak: 21, longestStreak: 21, name: 'Operative');
+  ProfileState build() => ProfileState(
+    xp: 460,
+    level: 10,
+    streak: 21,
+    longestStreak: 21,
+    name: 'Operative',
+  );
 }
 
 const TrajectorySummaryView _emptyTrajectory = TrajectorySummaryView(
@@ -404,8 +409,8 @@ const TrajectorySummaryView _emptyTrajectory = TrajectorySummaryView(
   energy: 0.7,
   momentum: 0.0,
   adaptability: 0.5,
-  lastSessionXp: 0,
-  lastSessionQuality: 0.0,
+  lastCompletionXp: 0,
+  lastCompletionQuality: 0.0,
   pressureIndex: 0,
   behaviorDivergence: 0,
   alert: '',
@@ -424,8 +429,8 @@ const TrajectorySummaryView _activeTrajectory = TrajectorySummaryView(
   energy: 0.7,
   momentum: 0.5,
   adaptability: 0.5,
-  lastSessionXp: 10,
-  lastSessionQuality: 0.6,
+  lastCompletionXp: 10,
+  lastCompletionQuality: 0.6,
   pressureIndex: 10,
   behaviorDivergence: 5,
   alert: '',

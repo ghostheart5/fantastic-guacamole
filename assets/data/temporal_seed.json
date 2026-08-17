@@ -9,13 +9,13 @@
     },
     {
       "time": "10:00",
-      "title": "Tactical Routine Update",
+      "title": "Adaptive Routine Update",
       "kind": "High Priority",
       "colorHex": "0xFFFF4D6D"
     },
     {
       "time": "13:00",
-      "title": "ChronoLogs Review",
+      "title": "Timeline Review",
       "kind": "Review",
       "colorHex": "0xFFFFB347"
     },

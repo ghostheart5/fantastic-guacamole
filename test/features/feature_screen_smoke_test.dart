@@ -8,14 +8,14 @@ import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/si/si_synthetic_soul_layer.dart';
 import 'package:fantastic_guacamole/features/memories/ui/memories_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
-import 'package:fantastic_guacamole/features/soul_map/ui/soul_map_screen.dart';
+import 'package:fantastic_guacamole/features/personal_alignment/ui/personal_alignment_screen.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/insight_model.dart';
 import 'package:fantastic_guacamole/state/models/insights_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
-import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
+import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
@@ -71,7 +71,7 @@ void main() {
     expect(find.text('Saved the best insight from today'), findsOneWidget);
   });
 
-  testWidgets('SoulMapScreen renders strongest dimensions summary', (
+  testWidgets('PersonalAlignmentScreen renders strongest dimensions summary', (
     WidgetTester tester,
   ) async {
     final ProviderContainer container = ProviderContainer(
@@ -94,13 +94,13 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: SoulMapScreen()),
+        child: const MaterialApp(home: PersonalAlignmentScreen()),
       ),
     );
     await tester.pump();
 
-    expect(find.text('SOUL MAP'), findsOneWidget);
-    expect(find.text('SOULMAP ANALYSIS'), findsOneWidget);
+    expect(find.text('PERSONAL ALIGNMENT'), findsOneWidget);
+    expect(find.text('PERSONAL ALIGNMENT ANALYSIS'), findsOneWidget);
   });
 
   testWidgets('NexusScreen renders with a supplied screen model', (
@@ -186,8 +186,8 @@ const TrajectorySummaryView _trajectory = TrajectorySummaryView(
   energy: 0.78,
   momentum: 0.82,
   adaptability: 0.71,
-  lastSessionXp: 25,
-  lastSessionQuality: 0.83,
+  lastCompletionXp: 25,
+  lastCompletionQuality: 0.83,
   pressureIndex: 28,
   behaviorDivergence: 12,
   alert: 'SI ALERT: trajectory is calm.',
@@ -233,17 +233,17 @@ final NexusScreenModel _nexusModel = NexusScreenModel(
       recommendations: <String>[],
       selectedValues: <String>{'Discipline', 'Purpose'},
     ),
-    soulMap: const SoulMapAlignment(
-      scores: <SoulMapDimension, SoulMapDimensionScore>{},
+    personalAlignment: const PersonalAlignmentAlignment(
+      scores: <PersonalAlignmentDimension, PersonalAlignmentDimensionScore>{},
       overall: 72,
-      strongest: SoulMapDimension.purpose,
-      weakest: SoulMapDimension.growthJourney,
+      strongest: PersonalAlignmentDimension.purpose,
+      weakest: PersonalAlignmentDimension.growthJourney,
       recommendations: <String>[],
     ),
   ),
   decision: const SIDecisionOutput(
     nextAction: 'Lock sprint scope',
-    coachMessage: 'Stay with the current sprint focus.',
+    plannerMessage: 'Stay with the current sprint focus.',
     suggestedPlanAdjustments: <String>['Hold one high-priority lane'],
     insightPrompts: <String>['What can be simplified?'],
     progressionFeedback: 'Momentum is compounding.',

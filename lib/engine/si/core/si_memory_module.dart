@@ -77,7 +77,7 @@ class SIMemoryModule {
   double _relevance(SIDecision decision, SIContext context) {
     final double actionWeight =
         decision.action == 'present_task_recommendation' ||
-            decision.action == 'launch_focus_session'
+            decision.action == 'launch_focus_block'
         ? 0.85
         : 0.65;
     return siClamp01(

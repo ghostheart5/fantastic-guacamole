@@ -111,9 +111,9 @@ class SIResponseModule {
       return SIPersona.assistant;
     }
     switch (decision.action) {
-      case 'launch_focus_session':
+      case 'launch_focus_block':
       case 'present_task_recommendation':
-        return SIPersona.coach;
+        return SIPersona.planner;
       case 'show_insight_summary':
         return SIPersona.analyst;
       case 'open_reflection_flow':
@@ -139,7 +139,7 @@ class SIResponseModule {
         curiosity: .55,
         empathy: .75,
       ),
-      SIPersona.coach => const PersonalityTraits(
+      SIPersona.planner => const PersonalityTraits(
         warmth: .72,
         directness: .9,
         humor: .15,
@@ -188,7 +188,7 @@ class SIResponseModule {
     }
 
     switch (decision.action) {
-      case 'launch_focus_session':
+      case 'launch_focus_block':
         return task.isNotEmpty
             ? 'Start a focused block on "$task".'
             : 'Start a short focus block.';

@@ -118,7 +118,7 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen> {
                   children: [
                     SmartPressable(
                       onTap: () =>
-                          ref.read(appFlowProvider.notifier).toSmartCoach(),
+                          ref.read(appFlowProvider.notifier).toSmartPlanner(),
                       child: Container(
                         width: 36,
                         height: 36,
@@ -892,8 +892,8 @@ String _categoryLabel(MemoryCategory category) {
       return 'Journal';
     case MemoryCategory.lifeArea:
       return 'Life Area';
-    case MemoryCategory.coachingPreference:
-      return 'Coaching';
+    case MemoryCategory.planningGuidancePreference:
+      return 'PlanningGuidance';
     case MemoryCategory.value:
       return 'Value';
     case MemoryCategory.importantDate:
@@ -917,7 +917,7 @@ Color _categoryColor(MemoryCategory category) {
       return AppColors.memoryAmber;
     case MemoryCategory.journal:
       return AppColors.neonViolet;
-    case MemoryCategory.coachingPreference:
+    case MemoryCategory.planningGuidancePreference:
       return const Color(0xFF9AD5FF);
     case MemoryCategory.value:
       return const Color(0xFFFFD166);

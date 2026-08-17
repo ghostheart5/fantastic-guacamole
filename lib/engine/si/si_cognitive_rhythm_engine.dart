@@ -100,7 +100,7 @@ class SICognitiveRhythmEngine {
       case CognitiveRhythm.overloaded:
         return 'Reduce output and choose one small step.';
       case CognitiveRhythm.recovering:
-        return 'Use lighter pacing and shorter sessions.';
+        return 'Use lighter pacing and shorter work blocks.';
       case CognitiveRhythm.focused:
         return 'Protect the focus window.';
       case CognitiveRhythm.steady:

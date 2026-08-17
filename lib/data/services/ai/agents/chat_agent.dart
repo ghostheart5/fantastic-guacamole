@@ -58,7 +58,7 @@ class ChatAgent extends AiAgent {
     final LearningState? learning = request['learning'] as LearningState?;
     final AIPersonality personality = request['personality'] is AIPersonality
         ? request['personality'] as AIPersonality
-        : AIPersonality.coach;
+        : AIPersonality.planner;
     final Map<String, dynamic> context =
         request['context'] as Map<String, dynamic>? ??
         const <String, dynamic>{};

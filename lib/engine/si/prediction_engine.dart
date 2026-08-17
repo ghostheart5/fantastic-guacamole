@@ -92,7 +92,7 @@ class PredictionEngine {
       confidence: sampleConfidence,
       sampleSize: qualities.length,
       explanation:
-          'Based on ${qualities.length} matching session(s). Confidence is ${_confidenceLabel(sampleConfidence)}.',
+          'Based on ${qualities.length} matching activity record(s). Confidence is ${_confidenceLabel(sampleConfidence)}.',
       signals: <String>[
         'avg_quality:${avgQuality.toStringAsFixed(2)}',
         'samples:${qualities.length}',

@@ -31,7 +31,7 @@ class SIStateController extends Notifier<SIState> {
     }
   }
 
-  void sessionComplete() {
+  void recordCompletion() {
     state = state.copyWith(
       energy: (state.energy - 0.08).clamp(0.0, 1.0),
       fatigue: (state.fatigue + 0.10).clamp(0.0, 1.0),

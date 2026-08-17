@@ -1,5 +1,5 @@
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
-import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

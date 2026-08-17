@@ -11,7 +11,7 @@ import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/insight_model.dart';
 import 'package:fantastic_guacamole/state/models/insights_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
-import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
+import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 import 'package:fantastic_guacamole/ui/constants/breakpoints.dart';
@@ -20,7 +20,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Future<void> pumpNexusScreen(WidgetTester tester, {required double width}) async {
+  Future<void> pumpNexusScreen(
+    WidgetTester tester, {
+    required double width,
+  }) async {
     tester.view.physicalSize = Size(width, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -49,10 +52,12 @@ void main() {
 
   Text textWidgetContaining(WidgetTester tester, String text) =>
       tester.widget<Text>(
-        find.byWidgetPredicate(
-          (Widget widget) =>
-              widget is Text && (widget.data?.contains(text) ?? false),
-        ).first,
+        find
+            .byWidgetPredicate(
+              (Widget widget) =>
+                  widget is Text && (widget.data?.contains(text) ?? false),
+            )
+            .first,
       );
 
   group('NexusScreen responsive typography', () {
@@ -156,17 +161,17 @@ final NexusScreenModel _populatedNexusModel = NexusScreenModel(
       recommendations: <String>[],
       selectedValues: <String>{'Discipline', 'Purpose'},
     ),
-    soulMap: const SoulMapAlignment(
-      scores: <SoulMapDimension, SoulMapDimensionScore>{},
+    personalAlignment: const PersonalAlignmentAlignment(
+      scores: <PersonalAlignmentDimension, PersonalAlignmentDimensionScore>{},
       overall: 72,
-      strongest: SoulMapDimension.purpose,
-      weakest: SoulMapDimension.growthJourney,
+      strongest: PersonalAlignmentDimension.purpose,
+      weakest: PersonalAlignmentDimension.growthJourney,
       recommendations: <String>[],
     ),
   ),
   decision: const SIDecisionOutput(
     nextAction: 'Lock sprint scope',
-    coachMessage: 'Stay with the current sprint focus.',
+    plannerMessage: 'Stay with the current sprint focus.',
     suggestedPlanAdjustments: <String>['Hold one high-priority lane'],
     insightPrompts: <String>['What can be simplified?'],
     progressionFeedback: 'Momentum is compounding.',
@@ -194,8 +199,8 @@ const TrajectorySummaryView _activeTrajectory = TrajectorySummaryView(
   energy: 0.7,
   momentum: 0.5,
   adaptability: 0.5,
-  lastSessionXp: 10,
-  lastSessionQuality: 0.6,
+  lastCompletionXp: 10,
+  lastCompletionQuality: 0.6,
   pressureIndex: 10,
   behaviorDivergence: 5,
   alert: '',

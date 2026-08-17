@@ -33,7 +33,7 @@ class NotificationActions {
   Future<void> pushMirroredDecision(String taskTitle) {
     return _ref
         .read(notificationProvider.notifier)
-        .pushDecision(taskTitle, refreshCoach: false, refreshPlan: true);
+        .pushDecision(taskTitle, refreshPlanner: false, refreshPlan: true);
   }
 
   Future<void> pushMirroredCompletionFeedback(String taskTitle) {
@@ -41,7 +41,7 @@ class NotificationActions {
         .read(notificationProvider.notifier)
         .pushCompletionFeedback(
           taskTitle,
-          refreshCoach: false,
+          refreshPlanner: false,
           refreshPlan: true,
         );
   }
@@ -49,7 +49,7 @@ class NotificationActions {
   Future<void> pushMirroredTaskSkipped(String taskTitle) {
     return _ref
         .read(notificationProvider.notifier)
-        .pushTaskSkipped(taskTitle, refreshCoach: false, refreshPlan: true);
+        .pushTaskSkipped(taskTitle, refreshPlanner: false, refreshPlan: true);
   }
 }
 
@@ -95,7 +95,7 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
 
   Future<void> push(
     NotificationEntity notification, {
-    bool refreshCoach = true,
+    bool refreshPlanner = true,
     bool refreshPlan = true,
   }) async {
     await ref.read(scheduleNotificationUseCaseProvider).call(notification);
@@ -106,8 +106,8 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     if (refreshPlan) {
       ref.invalidate(tasksProvider);
     }
-    if (refreshCoach) {
-      await _refreshCoachDecision();
+    if (refreshPlanner) {
+      await _refreshPlannerDecision();
     }
     ref
         .read(eventBusProvider)
@@ -130,7 +130,7 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
   /// notification one second later.
   Future<void> pushInApp(
     NotificationEntity notification, {
-    bool refreshCoach = true,
+    bool refreshPlanner = true,
     bool refreshPlan = true,
   }) async {
     // Straight to the repository: ScheduleNotification enforces
@@ -146,8 +146,8 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
     if (refreshPlan) {
       ref.invalidate(tasksProvider);
     }
-    if (refreshCoach) {
-      await _refreshCoachDecision();
+    if (refreshPlanner) {
+      await _refreshPlannerDecision();
     }
     ref
         .read(eventBusProvider)
@@ -162,7 +162,7 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
 
   Future<void> pushDecision(
     String taskTitle, {
-    bool refreshCoach = true,
+    bool refreshPlanner = true,
     bool refreshPlan = true,
   }) {
     return pushInApp(
@@ -170,14 +170,14 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
         title: 'Decision Alert',
         message: 'Selected $taskTitle as the current focus target.',
       ),
-      refreshCoach: refreshCoach,
+      refreshPlanner: refreshPlanner,
       refreshPlan: refreshPlan,
     );
   }
 
   Future<void> pushCompletionFeedback(
     String taskTitle, {
-    bool refreshCoach = true,
+    bool refreshPlanner = true,
     bool refreshPlan = true,
   }) {
     final bool soundEnabled = ref.read(soundEnabledProvider);
@@ -187,14 +187,14 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
         title: 'Completion',
         message: '$taskTitle completed. Recomputing next move.',
       ),
-      refreshCoach: refreshCoach,
+      refreshPlanner: refreshPlanner,
       refreshPlan: refreshPlan,
     );
   }
 
   Future<void> pushTaskSkipped(
     String taskTitle, {
-    bool refreshCoach = true,
+    bool refreshPlanner = true,
     bool refreshPlan = true,
   }) {
     return pushInApp(
@@ -202,7 +202,7 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
         title: 'Task Skipped',
         message: '$taskTitle skipped. SI will adapt the next pick.',
       ),
-      refreshCoach: refreshCoach,
+      refreshPlanner: refreshPlanner,
       refreshPlan: refreshPlan,
     );
   }
@@ -251,12 +251,12 @@ class NotificationNotifier extends Notifier<List<NotificationEntity>> {
 
   void clear() => state = const <NotificationEntity>[];
 
-  Future<void> _refreshCoachDecision() async {
+  Future<void> _refreshPlannerDecision() async {
     try {
       await ref.read(generateSiDecisionUseCaseProvider).call();
       ref.invalidate(domainSiDecisionProvider);
     } catch (_) {
-      // Avoid blocking notification scheduling if coach refresh fails.
+      // Avoid blocking notification scheduling if planner refresh fails.
     }
   }
 

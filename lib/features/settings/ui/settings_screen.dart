@@ -80,7 +80,7 @@ class SettingsScreen extends ConsumerWidget {
                           context.pop();
                           return;
                         }
-                        ref.read(appFlowProvider.notifier).toCoach();
+                        ref.read(appFlowProvider.notifier).toNexus();
                       },
                       child: Container(
                         width: 48,

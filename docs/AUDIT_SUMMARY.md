@@ -223,7 +223,7 @@
 - [EDGE_CASES_AUDIT.md](docs/EDGE_CASES_AUDIT.md) — Edge case findings and gaps
 - [SI_CONSOLE_AUDIT.md](docs/SI_CONSOLE_AUDIT.md) — SI Console system coverage and capability checklist
 - [TIMELINE_MILESTONE_AUDIT.md](docs/TIMELINE_MILESTONE_AUDIT.md) — Timeline and milestone system coverage and capability checklist
-- [CORE_VALUES_SOULMAP_AUDIT.md](docs/CORE_VALUES_SOULMAP_AUDIT.md) — Core values and SoulMap system coverage and capability checklist
+- [CORE_VALUES_PERSONAL ALIGNMENT_AUDIT.md](docs/CORE_VALUES_PERSONAL ALIGNMENT_AUDIT.md) — Core values and PersonalAlignment system coverage and capability checklist
 - [ERROR_HANDLING_AUDIT.md](docs/ERROR_HANDLING_AUDIT.md) — Error handling coverage and operational fallback checklist
 - [UI_UX_AUDIT.md](docs/UI_UX_AUDIT.md) — UI and UX screen coverage and experience checklist
 - [GOOGLE_PLAY_READINESS_AUDIT.md](docs/GOOGLE_PLAY_READINESS_AUDIT.md) — Google Play pre-release gate checklist

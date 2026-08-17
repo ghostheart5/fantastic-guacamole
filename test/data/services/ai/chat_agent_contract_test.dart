@@ -26,7 +26,7 @@ void main() {
             ],
             'si': const SIState(energy: 0.7),
             'learning': const LearningState(completed: 2),
-            'personality': AIPersonality.coach,
+            'personality': AIPersonality.planner,
           },
         );
 

@@ -168,10 +168,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                       "We couldn't load your plan right now.\n"
                       'Check your connection and try again.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                     const SizedBox(height: 12),
                     TextButton(
@@ -219,7 +216,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
                     child: PlanHeader(
                       onBack: () =>
-                          ref.read(appFlowProvider.notifier).toCoach(),
+                          ref.read(appFlowProvider.notifier).toNexus(),
                     ),
                   ),
                   const SizedBox(height: 16),

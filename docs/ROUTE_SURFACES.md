@@ -1,21 +1,20 @@
 # Route Surfaces Policy
 
-Primary surfaces should stay minimal and map to the main product loop:
+Primary surfaces should stay minimal and map to the current product canon:
 
-- Now: `/home`
-- Plan: `/plan`
-- Add: `/creator`
-- Reflect: `/insights`
+- Nexus (home): `/home`
+- Smart Planner: `/plan`
+- Creator: `/creator`
 - Settings: `/settings`
 
 Secondary/advanced surfaces should be nested under settings paths:
 
 - `/settings/notifications`
-- `/settings/advanced/*` (logs, tasks, profile, progression, si-console)
+- `/settings/advanced/*` (Timeline/ledger, tasks, profile, Progression, SI Console)
 
 Legacy compatibility:
 
-Old top-level routes (for example `/logs`, `/si`, `/tasks`) are maintained only as redirects in the router and should not be used for new links.
+Old top-level routes (including `/coach`, `/insights`, `/logs`, `/si`, and `/tasks`) are maintained only as compatibility redirects and must not be used for new links. `/insights` redirects to Smart Planner; Insight is an output, not a standalone surface.
 
 Implementation reference:
 

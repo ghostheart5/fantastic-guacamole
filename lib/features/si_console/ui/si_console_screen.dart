@@ -11,15 +11,14 @@ import 'package:fantastic_guacamole/state/controllers/si_console_query_controlle
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
-import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
+import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
-import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
+import 'package:fantastic_guacamole/state/providers/personal_alignment_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
-import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -68,7 +67,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
   /// Captured in [initState] because `ref` cannot be read from [dispose] —
   /// the element is already deactivated by then and Riverpod throws.
-  late final VoiceService _voiceService;
+  late final Future<void> Function() _stopVoice;
+  late final Future<void> Function({
+    required String surface,
+    required List<String> controls,
+  })
+  _speakAccessibilityHint;
 
   void _runAfterBuild(VoidCallback action) {
     if (!mounted) return;
@@ -93,7 +97,9 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     AppAnalytics.track('si_opened');
-    _voiceService = ref.read(voiceServiceProvider);
+    final voiceService = ref.read(voiceServiceProvider);
+    _stopVoice = voiceService.stop;
+    _speakAccessibilityHint = voiceService.speakAccessibilityHint;
     _goalEventSubscription = ref
         .read(eventBusProvider)
         .on<GoalLifecycleEvent>()
@@ -121,7 +127,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _addSI(
         'System online. Strategic Intelligence interface active.\n'
-        'I have access to tasks, progression, goals, memories, day plan, emotions, soul map, milestones, and console history. '
+        'I have access to tasks, progression, goals, memories, day plan, emotions, personal alignment, milestones, and console history. '
         'Ask me anything - or type "help" to see available commands.',
         emotion: 'confident',
       );
@@ -135,7 +141,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _input.dispose();
     _scroll.dispose();
     _composerHeight.dispose();
-    unawaited(_voiceService.stop());
+    unawaited(_stopVoice());
     unawaited(_goalEventSubscription?.cancel());
     super.dispose();
   }
@@ -235,10 +241,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       },
     );
     unawaited(
-      _voiceService.speakAccessibilityHint(
-        surface: 'SI Console',
-        controls: controls,
-      ),
+      _speakAccessibilityHint(surface: 'SI Console', controls: controls),
     );
   }
 
@@ -285,8 +288,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- /goals: summarize goals and drift\n'
                 '- /milestones: summarize checkpoint health, risk, and next target\n'
                 '- /values: show core values alignment and neglected value\n'
-                '- /soulmap: analyze identity, purpose, and life direction\n'
-                '- /soulmap compare: compare current self to future self\n'
+                '- /personal_alignment: analyze identity, purpose, and life direction\n'
+                '- /personal_alignment compare: compare current self to future self\n'
                 '- /plan: summarize schedule and next blocks\n'
                 '- /timeline: summarize recent milestones/events\n'
                 '- /trajectory: summarize momentum, pressure, and prediction\n\n'
@@ -325,13 +328,13 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- timeline: ${aggregation.timeline.length}\n'
                 '- milestones: ${ref.read(milestonesProvider).asData?.value.length ?? 0}\n'
                 '- core values overall: ${ref.read(coreValuesAlignmentProvider).overall}%\n'
-                '- soulmap overall: ${ref.read(soulMapAlignmentProvider).overall}%\n'
+                '- personal_alignment overall: ${ref.read(personalAlignmentAlignmentProvider).overall}%\n'
                 '- plan preview blocks: ${aggregation.planPreview.length}\n\n'
                 'Trajectory:\n'
                 '- pressure: ${aggregation.trajectory.pressureIndex}\n'
                 '- momentum: ${(aggregation.trajectory.momentum * 100).round()}%\n'
                 '- divergence: ${aggregation.trajectory.behaviorDivergence}%\n\n'
-                'Use /tasks, /goals, /milestones, /values, /soulmap, /soulmap compare, /plan, /timeline, /trajectory for module-specific responses.';
+                'Use /tasks, /goals, /milestones, /values, /personal_alignment, /personal_alignment compare, /plan, /timeline, /trajectory for module-specific responses.';
 
       _safeSetState(() {
         _messages.add(_Msg(text: text, isUser: true));
@@ -345,18 +348,20 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         command == '/goals' ||
         command == '/milestones' ||
         command == '/values' ||
-        command == '/soulmap' ||
+        command == '/personal_alignment' ||
         command == '/plan' ||
         command == '/timeline' ||
         command == '/trajectory') {
-      final bool compareSoulMap = normalized.startsWith('/soulmap compare');
+      final bool comparePersonalAlignment = normalized.startsWith(
+        '/personal_alignment compare',
+      );
       final String response = _localSurfaceSummary(command, aggregation);
       _safeSetState(() {
         _messages.add(_Msg(text: text, isUser: true));
         _messages.add(
           _Msg(
-            text: compareSoulMap
-                ? _localSoulMapCompareSummary(aggregation)
+            text: comparePersonalAlignment
+                ? _localPersonalAlignmentCompareSummary(aggregation)
                 : response,
             isUser: false,
             emotion: 'focused',
@@ -455,25 +460,43 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             'Recommended Action:\n'
             '${values.recommendations.firstWhere((String line) => line.toLowerCase().contains('schedule one action'), orElse: () => 'Schedule one action this week aligned to your neglected value.')}\n\n'
             'Prompt: "analyze my life by core values alignment"';
-      case '/soulmap':
-        final SoulMapAlignment soulMap = ref.read(soulMapAlignmentProvider);
+      case '/personal_alignment':
+        final PersonalAlignmentAlignment personalAlignment = ref.read(
+          personalAlignmentAlignmentProvider,
+        );
         final int purpose =
-            soulMap.scores[SoulMapDimension.purpose]?.score ?? 0;
+            personalAlignment
+                .scores[PersonalAlignmentDimension.purpose]
+                ?.score ??
+            0;
         final int identity =
-            soulMap.scores[SoulMapDimension.identity]?.score ?? 0;
+            personalAlignment
+                .scores[PersonalAlignmentDimension.identity]
+                ?.score ??
+            0;
         final int values =
-            soulMap.scores[SoulMapDimension.coreValues]?.score ?? 0;
+            personalAlignment
+                .scores[PersonalAlignmentDimension.coreValues]
+                ?.score ??
+            0;
         final int futureSelf =
-            soulMap.scores[SoulMapDimension.futureSelf]?.score ?? 0;
-        final String strongest = soulMapDimensionTitle(soulMap.strongest);
-        final String weakest = soulMapDimensionTitle(soulMap.weakest);
-        final String action = soulMap.recommendations.firstWhere(
+            personalAlignment
+                .scores[PersonalAlignmentDimension.futureSelf]
+                ?.score ??
+            0;
+        final String strongest = personalAlignmentDimensionTitle(
+          personalAlignment.strongest,
+        );
+        final String weakest = personalAlignmentDimensionTitle(
+          personalAlignment.weakest,
+        );
+        final String action = personalAlignment.recommendations.firstWhere(
           (String line) =>
               line.toLowerCase().contains('schedule one concrete action'),
           orElse: () =>
               'Schedule one concrete action this week to strengthen $weakest.',
         );
-        return 'SOULMAP ANALYSIS\n\n'
+        return 'PERSONAL ALIGNMENT ANALYSIS\n\n'
             'Purpose Alignment: $purpose%\n'
             'Identity Alignment: $identity%\n'
             'Values Alignment: $values%\n'
@@ -481,7 +504,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             'Strongest Area:\n$strongest\n\n'
             'Weakest Area:\n$weakest\n\n'
             'Recommendation:\n$action\n\n'
-            'Tip: run /soulmap compare to compare current self vs future self.\n\n'
+            'Tip: run /personal_alignment compare to compare current self vs future self.\n\n'
             'Prompt: "analyze my life"';
       case '/timeline':
         final int healthScore = ref.read(timelineHealthScoreProvider);
@@ -528,15 +551,17 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     }
   }
 
-  String _localSoulMapCompareSummary(SIStateAggregation? aggregation) {
+  String _localPersonalAlignmentCompareSummary(
+    SIStateAggregation? aggregation,
+  ) {
     if (aggregation == null) {
       return 'SI is still loading module data. Retry the command in a second.';
     }
 
-    final SoulMapFutureSelfComparison compare = ref.read(
-      soulMapFutureSelfComparisonProvider,
+    final PersonalAlignmentFutureSelfComparison compare = ref.read(
+      personalAlignmentFutureSelfComparisonProvider,
     );
-    return 'SOULMAP CURRENT VS FUTURE SELF\n\n'
+    return 'PERSONAL ALIGNMENT CURRENT VS FUTURE SELF\n\n'
         'Current Self Alignment: ${compare.currentSelfAlignment}%\n'
         'Future Self Readiness: ${compare.futureSelfReadiness}%\n'
         'Gap: ${compare.gap}%\n'
@@ -585,7 +610,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         _messages.add(
           const _Msg(
             text:
-                'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, emotions, soul map, or milestones.',
+                'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, emotions, personal alignment, or milestones.',
             isUser: false,
             emotion: 'cautious',
           ),
@@ -646,7 +671,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 _Header(
                   onBack: () {
                     unawaited(ref.read(voiceServiceProvider).stop());
-                    ref.read(appFlowProvider.notifier).toCoach();
+                    ref.read(appFlowProvider.notifier).toNexus();
                   },
                   engineSnapshot: engineSnapshot,
                   seededQueryCount: seededQueryCount,

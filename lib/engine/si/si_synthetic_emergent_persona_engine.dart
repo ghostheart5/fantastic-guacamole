@@ -31,13 +31,13 @@ class SISyntheticEmergentPersonaEngine {
         ? SIPersona.analyst
         : (intent.primary.label == 'get_task' ||
               intent.primary.label == 'start_focus')
-        ? SIPersona.coach
+        ? SIPersona.planner
         : context.userState.emotion == 'confused'
         ? SIPersona.assistant
         : SIPersona.companion;
     final traits = PersonalityTraits(
       warmth: p == SIPersona.mentor ? .9 : .72,
-      directness: p == SIPersona.coach ? .9 : .68,
+      directness: p == SIPersona.planner ? .9 : .68,
       humor: instinct.safetyFirst ? 0 : .12,
       curiosity: .6,
       empathy: instinct.safetyFirst ? .95 : .75,

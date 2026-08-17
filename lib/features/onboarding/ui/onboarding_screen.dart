@@ -55,7 +55,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       title: 'PREDICTIONS & ACTIONS',
       subtitle: 'Own your next move',
       body:
-          'Trajectory Engine converts behavior signals into forward predictions and tactical actions so you can move with clarity and force.',
+          'Trajectory Engine converts behavior signals into forward projections and practical actions so you can move with clarity.',
     ),
     _Slide(
       icon: Icons.trending_up_rounded,
@@ -854,7 +854,7 @@ class _PersonalizationSlide extends StatelessWidget {
                                       ],
                                     ).createShader(bounds),
                                 child: const Text(
-                                  'YOUR MISSION',
+                                  'YOUR LIFE DIRECTION',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 42,
@@ -932,7 +932,7 @@ class _PersonalizationSlide extends StatelessWidget {
                       colors: [Colors.white, AppColors.neonCyan],
                     ).createShader(bounds),
                     child: const Text(
-                      'YOUR MISSION',
+                      'YOUR LIFE DIRECTION',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 36,

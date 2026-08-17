@@ -57,7 +57,7 @@ Treat these as the core release gate flows:
 - [x] task_repository_test.dart - create/read roundtrip
 - [x] storage_migration_test.dart - old schema migrates
 - [x] storage_migration_test.dart - malformed snapshot fallback
-- [x] state/services/session_recovery_service_test.dart - interrupted session restores
+- [x] state/services/app_recovery_service_test.dart - interrupted app state restores
 - [x] calendar_policy_test.dart - overlapping time blocks rejected
 - [x] notification_policy_test.dart - cooldown prevents spam
 - [x] generate_si_decision_test.dart - empty task list fallback

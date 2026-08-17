@@ -118,7 +118,7 @@ flutter:
     - .env
     - assets/animations/focus_pulse.json
     - assets/animations/level_up.json
-    - assets/animations/session_complete.json
+    - assets/animations/completion_burst.json
     - assets/audio/ai_decision.wav
     - assets/audio/error_soft.wav
     - assets/audio/focus_start.wav
@@ -133,10 +133,8 @@ flutter:
     - assets/fonts/Inter-Medium.ttf
     - assets/fonts/Inter-Regular.ttf
     - assets/icons/add_task.svg
-    - assets/icons/coach.svg
     - assets/icons/focus.svg
     - assets/icons/home.svg
-    - assets/icons/insights.svg
     - assets/icons/level.svg
     - assets/icons/logs.svg
     - assets/icons/nexus.svg

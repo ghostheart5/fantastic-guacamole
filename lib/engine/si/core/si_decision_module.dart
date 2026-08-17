@@ -126,7 +126,7 @@ class SIDecisionModule {
   String _action(String intent) {
     switch (intent) {
       case 'start_focus':
-        return 'launch_focus_session';
+        return 'launch_focus_block';
       case 'get_task':
         return 'present_task_recommendation';
       case 'reflect':

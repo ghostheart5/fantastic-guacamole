@@ -39,14 +39,14 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
     return null;
   }
 
-  Future<AIRecommendation?> executeCoachQuery({
+  Future<AIRecommendation?> executeSmartPlannerQuery({
     required String input,
     List<Map<String, String>> history = const <Map<String, String>>[],
     Map<String, dynamic> context = const <String, dynamic>{},
   }) {
     return execute(
       inputOverride: input,
-      personalityOverride: AIPersonality.coach,
+      personalityOverride: AIPersonality.planner,
       preferredAgent: AgentKind.chat,
       history: history,
       context: context,
@@ -118,7 +118,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
       final AIPersonality personality =
           personalityOverride ??
           ref.read(aiPersonalityProvider) ??
-          AIPersonality.coach;
+          AIPersonality.planner;
       final input = inputOverride ?? ref.read(aiInputProvider);
 
       final int creditCost = _aiCreditCost(
@@ -159,7 +159,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
               PaywallPrompt(
                 title: 'AI credits exhausted',
                 message:
-                    'You have used your available AI credits. Upgrade to continue coaching, memory, and voice flows.',
+                    'You have used your available AI credits. Upgrade to continue planning guidance, memory, and voice flows.',
                 trigger: 'ai_credit_limit',
                 remainingCredits: spend.wallet.balance,
               ),
@@ -168,7 +168,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         const AIRecommendation denied = AIRecommendation(
           task: null,
           message:
-              'Your AI credits are exhausted for this cycle. Upgrade to keep using coaching and memory.',
+              'Your AI credits are exhausted for this cycle. Upgrade to keep using Smart Planner guidance and memory.',
           reasoning: 'AI credits exhausted',
           emotion: 'cautious',
           confidence: 0.35,
@@ -233,7 +233,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         memorySummaries: selectedMemorySummaries,
       );
       final Map<String, dynamic> conversationContext = <String, dynamic>{
-        'mode': 'coach',
+        'mode': 'planner',
         'previousMessage': previousMessage,
         'requestId': requestId,
         'intent': intent.label,

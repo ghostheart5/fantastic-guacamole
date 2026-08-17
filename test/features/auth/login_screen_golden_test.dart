@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Future<void> pumpLoginScreen(WidgetTester tester, {required double width}) async {
+  Future<void> pumpLoginScreen(
+    WidgetTester tester, {
+    required double width,
+  }) async {
     tester.view.physicalSize = Size(width, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -58,7 +61,7 @@ void main() {
       expect(
         textWidget(
           tester,
-          'Secure command access for your mission control.',
+          'Secure access to your connected planning workspace.',
         ).style?.fontSize,
         AppSizes.fontCaption,
       );
@@ -89,7 +92,7 @@ void main() {
       expect(
         textWidget(
           tester,
-          'Secure command access for your mission control.',
+          'Secure access to your connected planning workspace.',
         ).style?.fontSize,
         AppSizes.fontBody,
       );

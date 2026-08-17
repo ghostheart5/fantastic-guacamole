@@ -326,26 +326,26 @@ if (Test-Path $siConsolePath) {
   }
 }
 
-$smartCoachPath = Join-Path $root 'lib/features/home/ui/smart_coach_screen.dart'
-if (Test-Path $smartCoachPath) {
-  $smartCoachRaw = Get-Content -Path $smartCoachPath -Raw
-  if ($smartCoachRaw -notmatch 'coachQueryControllerProvider') {
-    $violations.Add('lib/features/home/ui/smart_coach_screen.dart:1 -> Smart Coach must resolve coachQueryControllerProvider for orchestration') | Out-Null
+$smartPlannerPath = Join-Path $root 'lib/features/home/ui/smart_planner_screen.dart'
+if (Test-Path $smartPlannerPath) {
+  $smartPlannerRaw = Get-Content -Path $smartPlannerPath -Raw
+  if ($smartPlannerRaw -notmatch 'smartPlannerQueryControllerProvider') {
+    $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner must resolve smartPlannerQueryControllerProvider for orchestration') | Out-Null
   }
-  if ($smartCoachRaw -notmatch '\.detectsCrisis\(') {
-    $violations.Add('lib/features/home/ui/smart_coach_screen.dart:1 -> Smart Coach must delegate crisis gating through coachQueryControllerProvider.detectsCrisis(text)') | Out-Null
+  if ($smartPlannerRaw -notmatch '\.detectsCrisis\(') {
+    $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner must delegate crisis gating through smartPlannerQueryControllerProvider.detectsCrisis(text)') | Out-Null
   }
-  if ($smartCoachRaw -notmatch '\.requestCoaching\(') {
-    $violations.Add('lib/features/home/ui/smart_coach_screen.dart:1 -> Smart Coach must request coaching through coachQueryControllerProvider.requestCoaching(...)') | Out-Null
+  if ($smartPlannerRaw -notmatch '\.requestPlanningGuidance\(') {
+    $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner must request guidance through smartPlannerQueryControllerProvider.requestPlanningGuidance(...)') | Out-Null
   }
-  if ($smartCoachRaw -notmatch '\.requestFollowUp\(') {
-    $violations.Add('lib/features/home/ui/smart_coach_screen.dart:1 -> Smart Coach follow-ups must route through coachQueryControllerProvider.requestFollowUp(...)') | Out-Null
+  if ($smartPlannerRaw -notmatch '\.requestFollowUp\(') {
+    $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner follow-ups must route through smartPlannerQueryControllerProvider.requestFollowUp(...)') | Out-Null
   }
-  if ($smartCoachRaw -match 'CrisisDetectionPolicy\.detects\(') {
-    $violations.Add('lib/features/home/ui/smart_coach_screen.dart:1 -> Smart Coach must not call CrisisDetectionPolicy directly; use coachQueryControllerProvider.detectsCrisis(text)') | Out-Null
+  if ($smartPlannerRaw -match 'CrisisDetectionPolicy\.detects\(') {
+    $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner must not call CrisisDetectionPolicy directly; use smartPlannerQueryControllerProvider.detectsCrisis(text)') | Out-Null
   }
-  if ($smartCoachRaw -match 'aiResponseProvider\.notifier\)\s*\.executeCoachQuery\(') {
-    $violations.Add('lib/features/home/ui/smart_coach_screen.dart:1 -> Smart Coach must not call aiResponseProvider.executeCoachQuery directly; route through coachQueryControllerProvider') | Out-Null
+  if ($smartPlannerRaw -match 'aiResponseProvider\.notifier\)\s*\.executeSmartPlannerQuery\(') {
+    $violations.Add('lib/features/home/ui/smart_planner_screen.dart:1 -> Smart Planner must not call aiResponseProvider.executeSmartPlannerQuery directly; route through smartPlannerQueryControllerProvider') | Out-Null
   }
 }
 
@@ -464,7 +464,7 @@ if (Test-Path $siRepoPath) {
 
 # Rule 15: cohesive SI assistant layer contract.
 $assistantUiLayerPaths = @(
-  'lib/features/home/ui/smart_coach_screen.dart',
+  'lib/features/home/ui/smart_planner_screen.dart',
   'lib/features/home/widgets/ai_decision_card.dart',
   'lib/features/si_console/ui/si_console_screen.dart',
   'lib/features/plan/ui/plan_screen.dart',

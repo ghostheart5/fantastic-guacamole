@@ -23,20 +23,19 @@ class CreatorActions {
           };
 
     final int difficulty = switch (kind) {
-      'goal' || 'mission' => 5,
+      'goal' => 5,
       _ => 3,
     };
 
     final int energyRequired = switch (kind) {
       'goal' => 4,
-      'mission' => 3,
       'routine' => 2,
       'note' => 1,
       _ => 3,
     };
 
     final int priority = switch (kind) {
-      'goal' || 'mission' => data.priority < 4 ? 4 : data.priority,
+      'goal' => data.priority < 4 ? 4 : data.priority,
       'note' => 1,
       _ => data.priority,
     };

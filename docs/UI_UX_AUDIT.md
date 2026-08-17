@@ -14,7 +14,7 @@ Check your screens:
 8. Habits
 9. Streaks
 10. Timeline
-11. Smart Coach
+11. Smart Planner
 12. SI Console
 13. Settings
 14. Delete Account

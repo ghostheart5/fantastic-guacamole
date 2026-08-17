@@ -138,7 +138,7 @@ coreValueDefinitions = <CoreValueType, CoreValueDefinition>{
     type: CoreValueType.purpose,
     title: 'Purpose',
     definition:
-        'Living intentionally in alignment with mission, meaning, and future vision.',
+        'Living intentionally in alignment with purpose, meaning, and future vision.',
     guidingQuestion: 'Am I moving toward the life I was meant to build?',
     supports: <String>[
       'Future Self',

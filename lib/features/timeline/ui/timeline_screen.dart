@@ -134,7 +134,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                     children: [
                       SmartPressable(
                         onTap: () =>
-                            ref.read(appFlowProvider.notifier).toCoach(),
+                            ref.read(appFlowProvider.notifier).toNexus(),
                         semanticLabel: 'Back to Smart Planner',
                         child: Container(
                           width: 48,

@@ -10,7 +10,7 @@ class MetaEmotionProfile {
     required this.primary,
     required this.secondary,
     required this.stability,
-    required this.toneDirective,
+    required this.toneGuidance,
     required this.outputPressure,
     required this.memory,
   });
@@ -18,7 +18,7 @@ class MetaEmotionProfile {
   final String primary;
   final String secondary;
   final double stability;
-  final String toneDirective;
+  final String toneGuidance;
   final double outputPressure;
   final SIMemoryStore memory;
 }
@@ -56,7 +56,7 @@ class SISyntheticMetaEmotionEngine {
       temperature: temperature,
     );
 
-    final String directive = _directive(
+    final String guidance = _guidance(
       primary: primary,
       stability: stability,
       pressure: pressure,
@@ -68,7 +68,7 @@ class SISyntheticMetaEmotionEngine {
           MemoryTier.shortTerm,
           MemoryRecord(
             content:
-                'synthetic_meta_emotion|primary=$primary|secondary=$secondary|directive=$directive',
+                'synthetic_meta_emotion|primary=$primary|secondary=$secondary|guidance=$guidance',
             timestamp: timestamp,
             relevance: 1 - pressure,
             confidence: stability,
@@ -83,7 +83,7 @@ class SISyntheticMetaEmotionEngine {
       primary: primary,
       secondary: secondary,
       stability: stability,
-      toneDirective: directive,
+      toneGuidance: guidance,
       outputPressure: pressure,
       memory: nextMemory,
     );
@@ -123,7 +123,7 @@ class SISyntheticMetaEmotionEngine {
     return siClamp01(value);
   }
 
-  String _directive({
+  String _guidance({
     required String primary,
     required double stability,
     required double pressure,

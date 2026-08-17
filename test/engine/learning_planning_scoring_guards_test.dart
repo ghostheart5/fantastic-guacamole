@@ -7,7 +7,7 @@ import 'package:fantastic_guacamole/engine/learning/adaptive_learning.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_history.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/planning/calendar_service.dart';
-import 'package:fantastic_guacamole/engine/scoring/session_scoring_engine.dart';
+import 'package:fantastic_guacamole/engine/scoring/completion_scoring_engine.dart';
 import 'package:fantastic_guacamole/engine/tasks/task_ranker.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -154,9 +154,9 @@ void main() {
     });
 
     test(
-      'session scoring returns bounded quality, expected XP and feedback tiers',
+      'completion scoring returns bounded quality, expected XP and feedback tiers',
       () {
-        final SessionScoringEngine engine = SessionScoringEngine();
+        final CompletionScoringEngine engine = CompletionScoringEngine();
 
         final fast = engine.calculate(
           seconds: 30,
@@ -169,8 +169,8 @@ void main() {
           taskPriority: 5,
         );
 
-        expect(fast.xp, ProgressionPolicy.sessionXp);
-        expect(strong.xp, ProgressionPolicy.sessionXp);
+        expect(fast.xp, ProgressionPolicy.completionXp);
+        expect(strong.xp, ProgressionPolicy.completionXp);
         expect(fast.quality, inInclusiveRange(0.0, 1.0));
         expect(strong.quality, inInclusiveRange(0.0, 1.0));
         expect(strong.feedback.toLowerCase(), contains('excellent'));

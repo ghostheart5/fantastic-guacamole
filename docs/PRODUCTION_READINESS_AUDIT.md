@@ -416,7 +416,7 @@ static bool get isMockLoginEnabled =>
 UserState currentState = const UserState(
   tasks: <SiTask>[
     SiTask(title: 'Finish strategic report', priority: 9, hasDeadline: true),
-    SiTask(title: 'Review chronologs and summarize', priority: 7),
+    SiTask(title: 'Review timeline and summarize', priority: 7),
     SiTask(title: 'Design weekly temporal map', priority: 8),
     SiTask(title: 'Inbox triage', priority: 4),
   ],
@@ -681,7 +681,7 @@ No Firebase Alerts or uptime checks referenced. Recommended:
 
 ### 5.7 Backup & Sync Strategy ⚠️ Local Only
 
-**Current:** All user data (tasks, missions, logs) stored locally via `SharedPrefsRuntimePersistence`.
+**Current:** All user data (tasks, goals, logs) stored locally via `SharedPrefsRuntimePersistence`.
 
 **Risk:** User reinstalls app → all data lost. No cloud backup.
 

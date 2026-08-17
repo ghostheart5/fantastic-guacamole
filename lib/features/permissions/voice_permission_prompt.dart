@@ -48,7 +48,7 @@ class VoicePermissionPrompt extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Allow microphone access to use voice-to-text and spoken coaching in the SI console.',
+            'Allow microphone access to use voice-to-text and spoken Smart Planner guidance in the SI Console.',
             style: TextStyle(
               color: Colors.white70,
               fontSize: 12.5,

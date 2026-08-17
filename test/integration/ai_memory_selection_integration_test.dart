@@ -5,48 +5,57 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('AI controller memory selection', () {
-    test('selectRelevantMemorySummaries prefers query/intent-relevant memory', () {
-      final DateTime now = DateTime.utc(2026, 7, 5);
-      final List<SISnapshot> snapshots = <SISnapshot>[
-        SISnapshot(
-          timestamp: now,
-          energy: 0.3,
-          fatigue: 0.8,
-          completed: 4,
-          skipped: 2,
-          responseSummary: 'Energy is low and fatigue is elevated; prioritize recovery task.',
-        ),
-        SISnapshot(
-          timestamp: now.subtract(const Duration(minutes: 2)),
-          energy: 0.7,
-          fatigue: 0.2,
-          completed: 5,
-          skipped: 2,
-          responseSummary: 'Focus on task alpha and complete the first block.',
-        ),
-      ];
+    test(
+      'selectRelevantMemorySummaries prefers query/intent-relevant memory',
+      () {
+        final DateTime now = DateTime.utc(2026, 7, 5);
+        final List<SISnapshot> snapshots = <SISnapshot>[
+          SISnapshot(
+            timestamp: now,
+            energy: 0.3,
+            fatigue: 0.8,
+            completed: 4,
+            skipped: 2,
+            responseSummary:
+                'Energy is low and fatigue is elevated; prioritize recovery task.',
+          ),
+          SISnapshot(
+            timestamp: now.subtract(const Duration(minutes: 2)),
+            energy: 0.7,
+            fatigue: 0.2,
+            completed: 5,
+            skipped: 2,
+            responseSummary:
+                'Focus on task alpha and complete the first block.',
+          ),
+        ];
 
-      final List<String> selected = selectRelevantMemorySummaries(
-        query: 'give me an energy and fatigue check',
-        intent: const SIIntent(label: 'energy_check', confidence: 0.9),
-        recentSnapshots: snapshots,
-        previousState: <String, dynamic>{
-          'memoryEvents': <Map<String, dynamic>>[
-            <String, dynamic>{
-              'intent': 'energy_check',
-              'summary': 'Energy dipped after late-night session; recover first.',
-            },
-            <String, dynamic>{
-              'intent': 'task_recommendation',
-              'summary': 'Pick task beta for next milestone.',
-            },
-          ],
-        },
-      );
+        final List<String> selected = selectRelevantMemorySummaries(
+          query: 'give me an energy and fatigue check',
+          intent: const SIIntent(label: 'energy_check', confidence: 0.9),
+          recentSnapshots: snapshots,
+          previousState: <String, dynamic>{
+            'memoryEvents': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'intent': 'energy_check',
+                'summary':
+                    'Energy dipped after late-night work; recover first.',
+              },
+              <String, dynamic>{
+                'intent': 'task_recommendation',
+                'summary': 'Pick task beta for next milestone.',
+              },
+            ],
+          },
+        );
 
-      expect(selected, isNotEmpty);
-      expect(selected.any((s) => s.contains('energy') || s.contains('fatigue')), isTrue);
-    });
+        expect(selected, isNotEmpty);
+        expect(
+          selected.any((s) => s.contains('energy') || s.contains('fatigue')),
+          isTrue,
+        );
+      },
+    );
 
     test('recentResponseSummaries de-duplicates and caps output', () {
       final DateTime now = DateTime.utc(2026, 7, 5);
@@ -68,14 +77,19 @@ void main() {
         previousState: <String, dynamic>{
           'memoryEvents': <Map<String, dynamic>>[
             <String, dynamic>{'summary': 'Repeat summary token set'},
-            <String, dynamic>{'summary': 'Additional memory event summary to include'},
+            <String, dynamic>{
+              'summary': 'Additional memory event summary to include',
+            },
           ],
         },
       );
 
       expect(summaries.length, lessThanOrEqualTo(12));
       expect(summaries.toSet().length, summaries.length);
-      expect(summaries.any((s) => s.contains('additional memory event summary')), isTrue);
+      expect(
+        summaries.any((s) => s.contains('additional memory event summary')),
+        isTrue,
+      );
     });
 
     test('selectRelevantMemorySummaries caps result length to eight', () {

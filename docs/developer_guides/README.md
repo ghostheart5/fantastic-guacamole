@@ -15,7 +15,7 @@ Implementation-focused documentation for engineers working in the app codebase.
 - `permission_prompt_pattern.md`
 - `../SI_CONSOLE_AUDIT.md`
 - `../TIMELINE_MILESTONE_AUDIT.md`
-- `../CORE_VALUES_SOULMAP_AUDIT.md`
+- `../CORE_VALUES_PERSONAL ALIGNMENT_AUDIT.md`
 - `../ERROR_HANDLING_AUDIT.md`
 - `../UI_UX_AUDIT.md`
 - `../SECURITY_PRIVACY_AUDIT.md`

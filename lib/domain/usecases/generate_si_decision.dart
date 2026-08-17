@@ -6,7 +6,7 @@ import 'package:fantastic_guacamole/domain/policies/si_policy.dart';
 
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console
 ///
-/// Resolved by taskProvider/coach flows. All outputs pass SiPolicy.sanitize.
+/// Resolved by taskProvider/planner flows. All outputs pass SiPolicy.sanitize.
 class GenerateSiDecision {
   GenerateSiDecision(
     this.taskRepo,

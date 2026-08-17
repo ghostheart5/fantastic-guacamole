@@ -25,4 +25,4 @@ A tracked user/system action occurs in any feature.
 - Continue app flow, keep local diagnostics entry
 
 ## Analytics Event
-- Feature-specific events (task_completed, coach_opened, etc.)
+- Feature-specific events (task_completed, planner_opened, etc.)

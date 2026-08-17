@@ -46,7 +46,7 @@ class TesterDataResetController {
     _ref.invalidate(siStateProvider);
     _ref.invalidate(siMemoryProvider);
     _ref.invalidate(logsProvider);
-    _ref.invalidate(sessionScoreProvider);
+    _ref.invalidate(completionScoreProvider);
     _ref.invalidate(momentumProvider);
     _ref.invalidate(emotionProvider);
     _ref.invalidate(aiDecisionProvider);

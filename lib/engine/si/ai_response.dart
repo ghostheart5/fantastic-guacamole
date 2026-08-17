@@ -14,7 +14,7 @@ const AIPersonalityProfile _defaultAIPersonalityProfile = AIPersonalityProfile(
     curiosity: 0.55,
     empathy: 0.7,
   ),
-  style: AIStyleDirective(
+  style: AIStyleGuidance(
     tone: 'clear_direct',
     maxWords: 60,
     useSteps: false,

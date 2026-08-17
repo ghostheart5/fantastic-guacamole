@@ -1,4 +1,4 @@
-﻿# Empty Files, Placeholder Files, and Empty Folders Audit
+# Empty Files, Placeholder Files, and Empty Folders Audit
 
 Generated: 2026-06-27
 
@@ -27,9 +27,9 @@ Generated: 2026-06-27
 - lib/features/tasks/services/tasks_services_placeholder.dart
 - lib/features/tasks/models/tasks_models_placeholder.dart
 - lib/features/tasks/logic/tasks_logic_placeholder.dart
-- features/coach/services/placeholder_service.dart
-- features/coach/models/placeholder_model.dart
-- features/coach/logic/placeholder_logic.dart
+- features/planner/services/placeholder_service.dart
+- features/planner/models/placeholder_model.dart
+- features/planner/logic/placeholder_logic.dart
 - features/logs/services/placeholder_service.dart
 - features/auth/services/placeholder_service.dart
 - features/home/models/placeholder_model.dart

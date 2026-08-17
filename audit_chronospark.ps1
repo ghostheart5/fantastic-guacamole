@@ -275,7 +275,7 @@ $expectedFeatures = @(
     "progression",
     "settings",
     "si_console",
-    "soul_map",
+    "personal_alignment",
     "support",
     "tasks",
     "timeline"
@@ -504,15 +504,15 @@ Search-Pattern "limited mode references" "limited mode|LimitedMode|limitedMode"
 Search-Pattern "retry references" "retry"
 
 # ============================================================
-# 15. SMART COACH AUDIT
+# 15. SMART PLANNER AUDIT
 # ============================================================
 
-Write-Section "15. Smart Coach Audit"
+Write-Section "15. Smart Planner Audit"
 
-Search-Pattern "Smart Coach references" "SmartCoach|smart_coach|smart coach"
-Search-Pattern "Coach intent references" "CoachIntent|coachIntent|coach_intent"
-Search-Pattern "Coach response references" "CoachResponse|coachResponse|coach_response"
-Search-Pattern "Coach context references" "CoachContext|coachContext|coach_context"
+Search-Pattern "Smart Planner references" "SmartPlanner|smart_planner|smart planner"
+Search-Pattern "Planner intent references" "PlannerIntent|plannerIntent|planner_intent"
+Search-Pattern "Planner response references" "PlannerResponse|plannerResponse|planner_response"
+Search-Pattern "Planner context references" "PlannerContext|plannerContext|planner_context"
 Search-Pattern "Intent detection references" "IntentDetection|detectIntent|intent detection"
 Search-Pattern "Prompt builder references" "PromptBuilder|buildPrompt|prompt builder"
 Search-Pattern "AI response references" "AiResponse|AIResponse|ai_response"
@@ -549,7 +549,7 @@ $coreKeywords = @(
     "WeeklyPlan",
     "Memory",
     "Journal",
-    "SoulMap",
+    "PersonalAlignment",
     "CoreValue",
     "FutureSelf",
     "Momentum",
@@ -708,7 +708,7 @@ Write-Report "[ ] Google Play package name matches app"
 Write-Report "[ ] Internal/closed testing install works"
 Write-Report "[ ] Account creation works on real device"
 Write-Report "[ ] Login works on real device"
-Write-Report "[ ] Smart Coach gives topic-specific answers"
+Write-Report "[ ] Smart Planner gives topic-specific answers"
 Write-Report "[ ] SI Console reads real goals/tasks/habits"
 Write-Report "[ ] Offline/limited mode is clear and does not break app"
 Write-Report "[ ] Privacy policy URL works"

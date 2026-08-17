@@ -22,7 +22,7 @@ void main() {
       tasks: tasks,
       energy: 0.72,
       learning: const LearningState(completed: 4, skipped: 1),
-      personality: AIPersonality.coach,
+      personality: AIPersonality.planner,
       context: const <String, dynamic>{'emotion': 'focused'},
     );
 
@@ -37,7 +37,7 @@ void main() {
       tasks: tasks,
       energy: 0.35,
       learning: const LearningState(),
-      personality: AIPersonality.coach,
+      personality: AIPersonality.planner,
       context: const <String, dynamic>{'emotion': 'anxious'},
     );
 
@@ -46,7 +46,7 @@ void main() {
       tasks: tasks,
       energy: 0.35,
       learning: const LearningState(),
-      personality: AIPersonality.coach,
+      personality: AIPersonality.planner,
       history: <Map<String, String>>[
         const <String, String>{
           'role': 'user',

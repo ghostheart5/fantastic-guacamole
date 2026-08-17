@@ -345,7 +345,7 @@ class SIDecision {
 
 // ─── Response ────────────────────────────────────────────────────────────────
 
-enum SIPersona { mentor, assistant, coach, companion, analyst }
+enum SIPersona { mentor, assistant, planner, companion, analyst }
 
 class PersonalityTraits {
   const PersonalityTraits({

@@ -1,7 +1,7 @@
 class AssistantResponseTemplates {
   const AssistantResponseTemplates._();
 
-  static String smartCoachBlock({
+  static String smartPlannerBlock({
     required String insight,
     required List<String> actions,
     required String nextStep,
@@ -20,14 +20,14 @@ class AssistantResponseTemplates {
         'Energy: $pct%';
   }
 
-  static String smartCoachFollowUp({
+  static String smartPlannerFollowUp({
     required String move,
     required String question,
     required double energy,
   }) {
     final int pct = (energy * 100).round();
     return 'Try this next: $move\n\n'
-        'Coach question: $question\n\n'
+        'Planner question: $question\n\n'
         'Momentum: +5 if you do it now.\n'
         'Energy: $pct%';
   }

@@ -636,7 +636,7 @@ class _LoginFormCard extends StatelessWidget {
           ),
           SizedBox(height: compact ? 4 : 6),
           Text(
-            'Secure command access for your mission control.',
+            'Secure access to your connected planning workspace.',
             style: TextStyle(
               color: Colors.white60,
               fontSize: compact ? AppSizes.fontCaption : AppSizes.fontBody,

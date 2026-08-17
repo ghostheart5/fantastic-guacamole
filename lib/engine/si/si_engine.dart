@@ -515,7 +515,7 @@ class SIEngine {
           !message.contains(emotion.recommendedModifier)) {
         message = '$message\n\n${emotion.recommendedModifier}';
       }
-      if (metaEmotion.toneDirective == 'calm_minimal' &&
+      if (metaEmotion.toneGuidance == 'calm_minimal' &&
           !message.contains('One small step')) {
         message = '$message\n\nOne small step.';
       }

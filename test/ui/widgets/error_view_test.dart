@@ -13,7 +13,7 @@ void main() {
         home: Scaffold(
           body: ErrorView(
             title: 'Data Error',
-            message: 'Could not load mission context.',
+            message: 'Could not load planning context.',
             onRetry: () {
               taps += 1;
             },
@@ -23,7 +23,7 @@ void main() {
     );
 
     expect(find.text('Data Error'), findsOneWidget);
-    expect(find.text('Could not load mission context.'), findsOneWidget);
+    expect(find.text('Could not load planning context.'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
 
     await tester.tap(find.text('Retry'));

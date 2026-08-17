@@ -36,12 +36,12 @@
             "targetId": "settings.habit_toggle",
             "trigger": "manual",
             "blockMode": "allowTarget",
-            "nextStepId": "pulse_coach"
+            "nextStepId": "planner_pulse"
         },
         {
-            "id": "pulse_coach",
-            "title": "Pulse Coach",
-            "body": "Your SI Coach is always available.",
+            "id": "planner_pulse",
+            "title": "Planner Pulse",
+            "body": "Your Smart Planner is always available.",
             "targetId": "home.start_focus_button",
             "trigger": "manual",
             "blockMode": "allowTarget",

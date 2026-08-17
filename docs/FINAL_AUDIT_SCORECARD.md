@@ -44,7 +44,7 @@ Use this as your master checklist:
 - [ ] Milestones work
 - [ ] Dashboard updates
 
-## SMART COACH
+## SMART PLANNER
 - [ ] Intent detection works
 - [ ] Context builder works
 - [ ] Responses are topic-specific
@@ -59,11 +59,11 @@ Use this as your master checklist:
 - [ ] Timeline analysis works
 - [ ] Next best action works
 
-## MEMORY AND SOULMAP
+## MEMORY AND PERSONAL ALIGNMENT
 - [ ] Memories save
 - [ ] Memories recall
 - [ ] Core values exist
-- [ ] SoulMap exists
+- [ ] PersonalAlignment exists
 - [ ] Future self data exists
 
 ## OFFLINE AND SYNC

@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('appFlowProvider defaults to coach', () {
+  test('appFlowProvider defaults to Nexus', () {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);
 
-    expect(container.read(appFlowProvider), AppView.coach);
+    expect(container.read(appFlowProvider), AppView.nexus);
   });
 
   test('navigation helpers and show() update app flow state', () {
@@ -26,7 +26,9 @@ void main() {
   });
 
   test('appViewFromName resolves valid names and rejects unknown values', () {
-    expect(appViewFromName('coach'), AppView.coach);
+    expect(appViewFromName('coach'), AppView.nexus);
+    expect(appViewFromName('smartCoach'), AppView.smartPlanner);
+    expect(appViewFromName('insight'), AppView.smartPlanner);
     expect(appViewFromName('timeline'), AppView.timeline);
     expect(appViewFromName(''), isNull);
     expect(appViewFromName('unknown_view'), isNull);

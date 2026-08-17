@@ -5,7 +5,7 @@ void main() {
   group('ProgressionPolicy', () {
     test('static XP awards stay stable', () {
       expect(ProgressionPolicy.taskXp, 10);
-      expect(ProgressionPolicy.sessionXp, 25);
+      expect(ProgressionPolicy.completionXp, 25);
       expect(ProgressionPolicy.streakDayXp, 15);
     });
 

@@ -755,7 +755,7 @@ class _TutorialLifecycleDebugSection extends ConsumerWidget {
     // Ensure definitions are loaded in case this action runs before AppRoot did.
     await tutorialController.loadAssets(_tutorialAssets);
     await ref.read(tutorialProgressProvider.notifier).startTutorial();
-    ref.read(appFlowProvider.notifier).toCoach();
+    ref.read(appFlowProvider.notifier).toNexus();
 
     // Start after navigation settles so target widgets are mounted.
     await Future<void>.delayed(const Duration(milliseconds: 250));

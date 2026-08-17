@@ -5,7 +5,7 @@ class MomentumController extends Notifier<MomentumState> {
   @override
   MomentumState build() => const MomentumState();
 
-  void onSessionCompleted() {
+  void onCompletionRecorded() {
     state = state.copyWith(active: true, chainCount: state.chainCount + 1);
   }
 

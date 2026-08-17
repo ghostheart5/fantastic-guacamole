@@ -4,7 +4,7 @@
 class SiDecisionDraft {
   const SiDecisionDraft({
     required this.nextAction,
-    required this.coachMessage,
+    required this.plannerMessage,
     required this.suggestedPlanAdjustments,
     required this.insightPrompts,
     required this.progressionFeedback,
@@ -12,7 +12,7 @@ class SiDecisionDraft {
   });
 
   final String nextAction;
-  final String coachMessage;
+  final String plannerMessage;
   final List<String> suggestedPlanAdjustments;
   final List<String> insightPrompts;
   final String progressionFeedback;
@@ -22,7 +22,7 @@ class SiDecisionDraft {
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console
 ///
 /// Builds the SI Console decision output: warnings, next action, plan
-/// adjustments, insight prompts, progression feedback and the coach message.
+/// adjustments, insight prompts, progression feedback and the planner message.
 ///
 /// This previously lived inline in `si_pipeline_provider`, which made the
 /// provider the owner of the decision rules rather than an orchestrator. Inputs
@@ -122,13 +122,13 @@ class AssembleSiDecisionOutput {
         ? 'Consistency is building. Keep the chain alive today.'
         : 'Rebuild momentum with one immediate win.';
 
-    final String coachMessage = warnings.isEmpty
+    final String plannerMessage = warnings.isEmpty
         ? 'Trajectory is stable (timeline health $timelineHealthScore%). Strongest value is $strongestValueLabel. Execute the next action and keep momentum. $memoryHint'
         : 'Signals show pressure (timeline risk $timelineRiskScore%). Reinforce $neglectedValueLabel with one focused action now.';
 
     return SiDecisionDraft(
       nextAction: nextAction,
-      coachMessage: coachMessage,
+      plannerMessage: plannerMessage,
       suggestedPlanAdjustments: planAdjustments,
       insightPrompts: insightPrompts,
       progressionFeedback: progressionFeedback,

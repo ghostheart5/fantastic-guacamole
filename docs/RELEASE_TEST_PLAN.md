@@ -90,7 +90,7 @@ Before release, all P0 and P1 tests below should pass in CI.
 - valid form triggers create action and clears input
 - create error surfaces user-visible feedback
 
-5. File: `test/features/home/smart_coach_screen_test.dart` (P1)
+5. File: `test/features/home/smart_planner_screen_test.dart` (P1)
 - send prompt triggers AI action
 - failed AI response shows error/retry state
 - credit exhausted state shows paywall prompt
@@ -151,7 +151,7 @@ Before release, all P0 and P1 tests below should pass in CI.
 
 - SI/chatbot:
   - `test/data/services/ai/chat_agent_network_fallback_test.dart`
-  - `test/features/home/smart_coach_screen_test.dart`
+  - `test/features/home/smart_planner_screen_test.dart`
   - `integration_test/chatbot_failure_recovery_integration_test.dart`
 
 - persistence:

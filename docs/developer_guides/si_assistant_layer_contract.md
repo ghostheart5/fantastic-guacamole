@@ -14,7 +14,7 @@ tr th {
 ## SI Assistant Layer Contract
 
 Layer 1 - Assistant UI:
-- features/home/ui/smart_coach_screen.dart
+- features/home/ui/smart_planner_screen.dart
 - features/home/widgets/ai_decision_card.dart
 - features/si_console/ui/si_console_screen.dart
 - features/plan/ui/plan_screen.dart

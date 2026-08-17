@@ -281,12 +281,12 @@ Workspace: C:\Users\keegan radetski\Desktop\productive\chronospark
 - lib\features
 - lib\features\auth
 - lib\features\auth\screens
-- lib\features\coach
-- lib\features\coach\logic
-- lib\features\coach\models
-- lib\features\coach\services
-- lib\features\coach\state
-- lib\features\coach\ui
+- lib\features\planner
+- lib\features\planner\logic
+- lib\features\planner\models
+- lib\features\planner\services
+- lib\features\planner\state
+- lib\features\planner\ui
 - lib\features\console
 - lib\features\console\widgets
 - lib\features\creator
@@ -455,7 +455,7 @@ Workspace: C:\Users\keegan radetski\Desktop\productive\chronospark
 - android\.kotlin\sessions
 - ios\Flutter\ephemeral\Packages\.packages
 - lib\core\widgets
-- lib\features\coach\services
+- lib\features\planner\services
 - lib\features\focus\services
 - lib\features\insights\logic
 - lib\features\insights\models
@@ -552,7 +552,7 @@ Workspace: C:\Users\keegan radetski\Desktop\productive\chronospark
 - lib\features\system_shell\pages\nexus_page.dart:19 (marker: mock)
 - lib\features\system_shell\pages\profile_page.dart:389 (marker: toDo)
 - lib\features\system_shell\pages\settings_page.dart:240 (marker: toDo)
-- lib\features\system_shell\pages\smart_coach_screen.dart:104 (marker: toDo)
+- lib\features\system_shell\pages\smart_planner_screen.dart:104 (marker: toDo)
 - lib\features\system_shell\pages\tasks_page.dart:49 (marker: toDo)
 - linux\flutter\CMakeLists.txt:9 (marker: TODO)
 - macos\Runner\Assets.xcassets\AppIcon.appiconset\app_icon_512.png:9 (marker: tbd)

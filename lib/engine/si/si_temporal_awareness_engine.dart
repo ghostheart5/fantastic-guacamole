@@ -170,7 +170,7 @@ class SITemporalAwarenessEngine {
 
   String _advice(TemporalTrend trend, double momentum, SIContext context) {
     if (context.userState.fatigue >= 0.7) {
-      return 'Use shorter sessions and protect recovery.';
+      return 'Use shorter work blocks and protect recovery.';
     }
     if (trend == TemporalTrend.improving && momentum >= 0.65) {
       return 'Use current momentum for one focused action.';

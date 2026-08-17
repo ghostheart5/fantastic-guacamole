@@ -155,7 +155,7 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     };
     ref.read(profileProvider.notifier).addXP(progressionXp);
     ref.invalidate(insightsBundleProvider);
-    await _refreshCoachDecision();
+    await _refreshPlannerDecision();
     ref
         .read(eventBusProvider)
         .emit(
@@ -167,12 +167,12 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
         );
   }
 
-  Future<void> _refreshCoachDecision() async {
+  Future<void> _refreshPlannerDecision() async {
     try {
       await ref.read(generateSiDecisionUseCaseProvider).call();
       ref.invalidate(domainSiDecisionProvider);
     } catch (_) {
-      // Avoid blocking goal updates if coach refresh fails.
+      // Avoid blocking goal updates if planner refresh fails.
     }
   }
 }

@@ -56,7 +56,6 @@ Legacy boolean fields are still accepted during deserialization where applicable
 - Learning: `lib/domain/entities/learning_entity.dart`
 - Memory: `lib/domain/entities/memory_entity.dart`
 - Notification: `lib/domain/entities/notification_entity.dart`
-- Session: `lib/domain/entities/session_entity.dart`
 - Workspace: `lib/domain/entities/workspace_entity.dart`
 
 ## Barrel Export Surface
@@ -106,7 +105,7 @@ If no concrete touchpoint exists in `lib/state/providers` or `lib/domain/usecase
 | Template | Pending integration | Pending integration | Indexed in domain; no dedicated provider/use-case wiring yet |
 | WorkWindow | Pending integration | Pending integration | Indexed in domain; no dedicated provider/use-case wiring yet |
 | Suggestion | Pending integration | Pending integration | Indexed in domain; no dedicated provider/use-case wiring yet |
-| Score | `lib/state/providers/session_score_provider.dart` (`sessionScoreProvider`) | Pending integration | Active view-state provider; no domain use-case binding yet |
+| Score | `lib/state/providers/completion_score_provider.dart` (`completionScoreProvider`) | Pending integration | Active completion view-state provider; no domain use-case binding yet |
 
 Additional context:
 

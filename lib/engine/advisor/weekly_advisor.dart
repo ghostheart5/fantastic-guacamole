@@ -11,7 +11,7 @@ class WeeklyAdvisor {
     if (insights.length == 1 &&
         insights.first.issue == 'No major issues detected') {
       return 'This week the system is performing well. '
-          'Keep up the current habits and session rhythm.';
+          'Keep up the current habits and activity rhythm.';
     }
 
     if (insights.length == 1 && insights.first.issue == 'Not enough data yet') {

@@ -58,10 +58,10 @@ UI Screen
 7. Streaks
 8. Timeline
 9. Milestones
-10. Smart Coach
+10. Smart Planner
 11. SI Console
 12. Memory Engine
-13. SoulMap
+13. PersonalAlignment
 14. Offline Sync
 15. Analytics
 16. Error Handling
@@ -81,8 +81,8 @@ UI Screen
 - offline_sync_flowmap.md
 - onboarding_flowmap.md
 - si_console_flowmap.md
-- smart_coach_flowmap.md
-- soulmap_flowmap.md
+- smart_planner_flowmap.md
+- personal_alignment_flowmap.md
 - streaks_flowmap.md
 - subscription_flowmap.md
 - tasks_flowmap.md

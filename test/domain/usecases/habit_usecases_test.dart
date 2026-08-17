@@ -1,5 +1,4 @@
-import 'package:fantastic_guacamole/data/repositories/habit_repository.dart'
-    show HabitRecord;
+import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/usecases/habit_usecases.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,9 +52,10 @@ void main() {
 
     test('rejects a blank title without saving', () async {
       final List<HabitRecord> current = <HabitRecord>[_habit('a')];
-      final List<HabitRecord> next = await CreateHabit(
-        repository,
-      )(current: current, title: '   ');
+      final List<HabitRecord> next = await CreateHabit(repository)(
+        current: current,
+        title: '   ',
+      );
 
       expect(next, same(current));
       expect(repository.saveCount, 0);
@@ -78,18 +78,20 @@ void main() {
     });
 
     test('toggles an inactive habit back to active', () async {
-      final List<HabitRecord> next = await ToggleHabit(
-        repository,
-      )(current: <HabitRecord>[_habit('a', active: false)], id: 'a');
+      final List<HabitRecord> next = await ToggleHabit(repository)(
+        current: <HabitRecord>[_habit('a', active: false)],
+        id: 'a',
+      );
 
       expect(next.single.active, isTrue);
     });
 
     test('an unknown id changes nothing and does not save', () async {
       final List<HabitRecord> current = <HabitRecord>[_habit('a')];
-      final List<HabitRecord> next = await ToggleHabit(
-        repository,
-      )(current: current, id: 'missing');
+      final List<HabitRecord> next = await ToggleHabit(repository)(
+        current: current,
+        id: 'missing',
+      );
 
       expect(next, same(current));
       expect(repository.saveCount, 0);
@@ -117,9 +119,7 @@ void main() {
         same(current),
       );
       expect(
-        await UpdateHabit(
-          repository,
-        )(current: current, id: 'nope', title: 'x'),
+        await UpdateHabit(repository)(current: current, id: 'nope', title: 'x'),
         same(current),
       );
       expect(repository.saveCount, 0);
@@ -128,9 +128,10 @@ void main() {
 
   group('DeleteHabit', () {
     test('removes the habit and persists', () async {
-      final List<HabitRecord> next = await DeleteHabit(
-        repository,
-      )(current: <HabitRecord>[_habit('a'), _habit('b')], id: 'a');
+      final List<HabitRecord> next = await DeleteHabit(repository)(
+        current: <HabitRecord>[_habit('a'), _habit('b')],
+        id: 'a',
+      );
 
       expect(next.single.id, 'b');
       expect(repository.saveCount, 1);

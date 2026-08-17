@@ -22,13 +22,13 @@ class SIIntentModule {
       'start focus',
       'focus now',
       'begin focus',
-      'focus session',
+      'focus block',
       'deep work',
     ])) {
       primary = const IntentCandidate(
         label: 'start_focus',
         score: 0.86,
-        why: 'Focus-session wording detected',
+        why: 'Focus-block wording detected',
       );
       secondary = const IntentCandidate(
         label: 'productivity_optimization',

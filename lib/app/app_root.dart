@@ -317,7 +317,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
       'home' => RoutePaths.home,
       'plan' => RoutePaths.plan,
       'creator' => RoutePaths.creator,
-      'insights' => RoutePaths.insights,
+      'insights' => RoutePaths.plan,
       'settings' => RoutePaths.settings,
       'notifications' => RoutePaths.notifications,
       'support' => RoutePaths.support,

@@ -16,7 +16,7 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
-import 'package:fantastic_guacamole/state/providers/session_score_provider.dart';
+import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -105,7 +105,7 @@ void main() {
     final TaskEntity? stored = await repository.getTaskById('task-1');
     expect(stored?.isCompleted, isTrue);
     expect(await container.read(tasksProvider.future), isEmpty);
-    expect(container.read(sessionScoreProvider), isNotNull);
+    expect(container.read(completionScoreProvider), isNotNull);
     expect(container.read(profileProvider).xp, greaterThan(0));
     expect(container.read(learningProvider).completed, 1);
     expect(container.read(siStateProvider).completedToday, 1);
@@ -151,7 +151,7 @@ void main() {
 
       final TaskEntity? stored = await repository.getTaskById('task-stale');
       expect(stored?.isCompleted, isTrue);
-      final score = container.read(sessionScoreProvider);
+      final score = container.read(completionScoreProvider);
       expect(score, isNotNull);
       expect(score!.xp, greaterThan(0));
     },

@@ -39,7 +39,7 @@ class LogsActions {
     String? id,
     DateTime? timestamp,
     bool updateInsights = false,
-    bool syncSoulMap = false,
+    bool syncPersonalAlignment = false,
   }) {
     return _ref
         .read(logsProvider.notifier)
@@ -49,7 +49,7 @@ class LogsActions {
           id: id,
           timestamp: timestamp,
           updateInsights: updateInsights,
-          syncSoulMap: syncSoulMap,
+          syncPersonalAlignment: syncPersonalAlignment,
         );
   }
 
@@ -81,9 +81,9 @@ class LogsActions {
           id: id,
           timestamp: timestamp,
           syncTimeline: false,
-          refreshCoach: false,
+          refreshPlanner: false,
           updateInsights: false,
-          syncSoulMap: false,
+          syncPersonalAlignment: false,
         );
   }
 
@@ -91,7 +91,7 @@ class LogsActions {
     required String task,
     bool mirrored = false,
     bool updateInsights = false,
-    bool syncSoulMap = false,
+    bool syncPersonalAlignment = false,
   }) {
     if (mirrored) {
       return _ref
@@ -99,9 +99,9 @@ class LogsActions {
           .addCompletedTask(
             task,
             syncTimeline: false,
-            refreshCoach: false,
+            refreshPlanner: false,
             updateInsights: false,
-            syncSoulMap: false,
+            syncPersonalAlignment: false,
           );
     }
     return _ref
@@ -109,7 +109,7 @@ class LogsActions {
         .addCompletedTask(
           task,
           updateInsights: updateInsights,
-          syncSoulMap: syncSoulMap,
+          syncPersonalAlignment: syncPersonalAlignment,
         );
   }
 }
@@ -140,9 +140,9 @@ class LogsController extends Notifier<LogsState> {
     String? id,
     DateTime? timestamp,
     bool syncTimeline = true,
-    bool refreshCoach = true,
+    bool refreshPlanner = true,
     bool updateInsights = false,
-    bool syncSoulMap = false,
+    bool syncPersonalAlignment = false,
   }) async {
     final String normalizedMessage = message.trim();
     if (normalizedMessage.isEmpty) {
@@ -183,11 +183,11 @@ class LogsController extends Notifier<LogsState> {
     if (updateInsights) {
       ref.invalidate(insightsBundleProvider);
     }
-    if (syncSoulMap) {
+    if (syncPersonalAlignment) {
       ref.invalidate(soulStateProvider);
     }
-    if (refreshCoach) {
-      await _refreshCoachDecision();
+    if (refreshPlanner) {
+      await _refreshPlannerDecision();
     }
 
     ref
@@ -204,17 +204,17 @@ class LogsController extends Notifier<LogsState> {
   Future<void> addCompletedTask(
     String task, {
     bool syncTimeline = true,
-    bool refreshCoach = true,
+    bool refreshPlanner = true,
     bool updateInsights = false,
-    bool syncSoulMap = false,
+    bool syncPersonalAlignment = false,
   }) {
     return add(
       source: 'completed_task',
       message: task,
       syncTimeline: syncTimeline,
-      refreshCoach: refreshCoach,
+      refreshPlanner: refreshPlanner,
       updateInsights: updateInsights,
-      syncSoulMap: syncSoulMap,
+      syncPersonalAlignment: syncPersonalAlignment,
     );
   }
 
@@ -222,12 +222,12 @@ class LogsController extends Notifier<LogsState> {
     state = state.copyWith(activeFilter: source, clearFilter: source == null);
   }
 
-  Future<void> _refreshCoachDecision() async {
+  Future<void> _refreshPlannerDecision() async {
     try {
       await ref.read(generateSiDecisionUseCaseProvider).call();
       ref.invalidate(domainSiDecisionProvider);
     } catch (_) {
-      // Avoid blocking log writes if coach refresh fails.
+      // Avoid blocking log writes if planner refresh fails.
     }
   }
 }

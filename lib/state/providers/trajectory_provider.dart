@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/engine/si/prediction.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
-import 'package:fantastic_guacamole/state/models/session_score_view.dart';
+import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,7 +10,7 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final energy = ref.watch(energyProvider);
   final learning = ref.watch(learningProvider);
   final learningMetrics = ref.watch(learningMetricsProvider);
-  final sessionScore = ref.watch(sessionScoreProvider);
+  final completionScore = ref.watch(completionScoreProvider);
   final siState = ref.watch(siStateProvider);
 
   final int pendingTasks = tasksAsync.maybeWhen(
@@ -20,9 +20,9 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final int completedTasks = learning.completed;
   final int completedToday = siState.completedToday;
 
-  final SessionScoreView? lastScore = sessionScore;
-  final int lastSessionXp = lastScore?.xp ?? 0;
-  final double lastSessionQuality = lastScore?.quality ?? 0.0;
+  final CompletionScoreView? lastScore = completionScore;
+  final int lastCompletionXp = lastScore?.xp ?? 0;
+  final double lastCompletionQuality = lastScore?.quality ?? 0.0;
 
   final int pressureIndex =
       ((pendingTasks * 16) +
@@ -61,8 +61,8 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
     energy: energy,
     momentum: learningMetrics.momentum,
     adaptability: learningMetrics.adaptability,
-    lastSessionXp: lastSessionXp,
-    lastSessionQuality: lastSessionQuality,
+    lastCompletionXp: lastCompletionXp,
+    lastCompletionQuality: lastCompletionQuality,
     pressureIndex: pressureIndex,
     behaviorDivergence: behaviorDivergence,
     alert: alert,

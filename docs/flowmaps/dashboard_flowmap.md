@@ -1,7 +1,7 @@
 # Dashboard FlowMap
 
 ## Trigger
-User enters coach/home shell and requests current system status.
+User enters planner/home shell and requests current system status.
 
 ## Flow
 1. Dashboard/home screen loads.
@@ -12,7 +12,7 @@ User enters coach/home shell and requests current system status.
 6. Interaction events are logged.
 
 ## Data and Services
-- Screen: SmartCoach/Home shell
+- Screen: SmartPlanner/Home shell
 - Provider/Controller: SI pipeline + feature providers
 - Use case: aggregate state + generate dashboard output
 - Repository: tasks/goals/memory/timeline/profile repos

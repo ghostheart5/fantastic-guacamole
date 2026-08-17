@@ -72,7 +72,7 @@ $files = @(
   'lib/domain/logic/planning_engine.dart',
   'lib/domain/logic/insight_engine.dart',
   'lib/engine/si_ai_service.dart',
-  'lib/features/home/smart_coach_screen.dart',
+  'lib/features/home/smart_planner_screen.dart',
   'lib/features/plan/chronoflow_screen.dart',
   'lib/features/creator/creator_screen.dart',
   'lib/features/focus/focus_screen.dart',

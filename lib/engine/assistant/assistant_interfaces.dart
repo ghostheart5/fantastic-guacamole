@@ -13,7 +13,7 @@ abstract class AssistantIntentDetector {
 }
 
 abstract class AssistantContextBuilder {
-  Map<String, dynamic> buildSmartCoachContext({
+  Map<String, dynamic> buildSmartPlannerContext({
     required String input,
     required AssistantIntent intent,
     required double energy,
@@ -56,8 +56,8 @@ abstract class RecommendationEngine {
   Future<Map<String, dynamic>> execute(Map<String, dynamic> request);
 }
 
-abstract class SmartCoachInterface {
-  Future<dynamic> requestCoaching({
+abstract class SmartPlannerInterface {
+  Future<dynamic> requestPlanningGuidance({
     required double energy,
     required EmotionalState emotion,
     required String notes,

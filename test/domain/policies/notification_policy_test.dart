@@ -10,7 +10,7 @@ void main() {
       final notification = NotificationEntity(
         id: 'n1',
         title: 'Reminder',
-        message: 'Start session',
+        message: 'Start focus block',
         scheduledAt: now.add(const Duration(minutes: 1)),
       );
 

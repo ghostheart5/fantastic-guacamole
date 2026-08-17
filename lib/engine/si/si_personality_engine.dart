@@ -45,7 +45,7 @@ class SIPersonalityEngine {
     return AIPersonalityProfile(
       persona: blend.primary,
       traits: _shapeTraits(blend.traits, p),
-      style: AIStyleDirective(
+      style: AIStyleGuidance(
         tone: _tone(blend.primary, p),
         maxWords: _maxWords(p, instinct),
         useSteps: instinct.reduceConfusion || p.mode == PresenceMode.steady,
@@ -76,8 +76,8 @@ class SIPersonalityEngine {
         return 'grounded_mentor';
       case SIPersona.assistant:
         return 'clear_assistant';
-      case SIPersona.coach:
-        return 'focused_coach';
+      case SIPersona.planner:
+        return 'focused_planner';
       case SIPersona.companion:
         return 'warm_companion';
       case SIPersona.analyst:
@@ -88,7 +88,7 @@ class SIPersonalityEngine {
   int _maxWords(PresenceProfile p, InstinctGuidance instinct) {
     if (instinct.avoidOverwhelm || p.mode == PresenceMode.quiet) return 38;
     if (p.mode == PresenceMode.steady) return 58;
-    if (p.mode == PresenceMode.directive) return 72;
+    if (p.mode == PresenceMode.guiding) return 72;
     return 86;
   }
 
@@ -98,8 +98,8 @@ class SIPersonalityEngine {
         return 'steady guide';
       case SIPersona.assistant:
         return 'clarity assistant';
-      case SIPersona.coach:
-        return 'focus coach';
+      case SIPersona.planner:
+        return 'focus planner';
       case SIPersona.companion:
         return 'supportive companion';
       case SIPersona.analyst:

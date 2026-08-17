@@ -93,8 +93,8 @@ class TimelineActions {
         .read(timelineProvider.notifier)
         .record(
           event,
-          refreshCoach: false,
-          syncSoulMap: false,
+          refreshPlanner: false,
+          syncPersonalAlignment: false,
           awardProgression: false,
         );
   }
@@ -110,8 +110,8 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
 
   Future<void> record(
     TimelineEventEntity event, {
-    bool refreshCoach = true,
-    bool syncSoulMap = true,
+    bool refreshPlanner = true,
+    bool syncPersonalAlignment = true,
     bool awardProgression = false,
   }) async {
     await ref.read(addTimelineEventUseCaseProvider).call(event);
@@ -126,14 +126,14 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
         ? updated.sublist(0, _maxEvents)
         : updated;
 
-    if (syncSoulMap) {
+    if (syncPersonalAlignment) {
       ref.invalidate(soulStateProvider);
     }
     if (awardProgression) {
       ref.read(profileProvider.notifier).addXP(10);
     }
-    if (refreshCoach) {
-      await _refreshCoachDecision();
+    if (refreshPlanner) {
+      await _refreshPlannerDecision();
     }
     ref
         .read(eventBusProvider)
@@ -151,12 +151,12 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
     state = state.where((event) => event.id != id).toList(growable: false);
   }
 
-  Future<void> _refreshCoachDecision() async {
+  Future<void> _refreshPlannerDecision() async {
     try {
       await ref.read(generateSiDecisionUseCaseProvider).call();
       ref.invalidate(domainSiDecisionProvider);
     } catch (_) {
-      // Avoid blocking timeline writes if coach refresh fails.
+      // Avoid blocking timeline writes if planner refresh fails.
     }
   }
 }

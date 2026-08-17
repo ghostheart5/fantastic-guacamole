@@ -2,7 +2,7 @@ class AppAssets {
   // Animations
   static const animFocusPulse = 'assets/animations/focus_pulse.json';
   static const animLevelUp = 'assets/animations/level_up.json';
-  static const animSessionComplete = 'assets/animations/session_complete.json';
+  static const animCompletionBurst = 'assets/animations/completion_burst.json';
 
   // Audio
   static const audioAiDecision = 'assets/audio/ai_decision.wav';
@@ -14,7 +14,6 @@ class AppAssets {
   static const bgCreator = 'assets/backgrounds/creator_bg.jpg';
   static const bgFocus = 'assets/backgrounds/focus_bg.jpg';
   static const bgHome = 'assets/backgrounds/home_bg.jpg';
-  static const bgInsights = 'assets/backgrounds/insigh_bg.jpg';
   static const bgLogin = 'assets/backgrounds/login_bg.jpg';
   static const bgLogs = 'assets/backgrounds/logs_bg.jpg';
   static const bgNexus = 'assets/backgrounds/nexus_bg.jpg';
@@ -41,10 +40,8 @@ class AppAssets {
 
   // Icons
   static const iconAddTask = 'assets/icons/add_task.svg';
-  static const iconCoach = 'assets/icons/coach.svg';
   static const iconFocus = 'assets/icons/focus.svg';
   static const iconHome = 'assets/icons/home.svg';
-  static const iconInsights = 'assets/icons/insights.svg';
   static const iconLevel = 'assets/icons/level.svg';
   static const iconLogs = 'assets/icons/logs.svg';
   static const iconNexus = 'assets/icons/nexus.svg';

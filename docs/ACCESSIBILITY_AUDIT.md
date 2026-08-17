@@ -95,7 +95,7 @@ Coverage: 1 semantic label on error icon
 |--------|----------|-------|
 | System Header icons (3) | system_header.dart | No Semantics; only Icon size 18-20 |
 | Premium feature gate | premium_feature_gate.dart | No Semantics; icon only |
-| Mission tiles (delete) | mission_tile.dart | Tooltip only; no Semantics |
+| Goal tiles (delete) | mission_tile.dart | Tooltip only; no Semantics |
 | Console input area | si_console_page.dart | Text input no Semantics |
 | Task creation | multiple | No Semantics on create buttons |
 | Settings buttons | settings_page | No Semantics |
@@ -382,7 +382,7 @@ Semantics(label: 'Create time block for ${timeBlock.name}', ...)
 OutlinedButton(...)
 // Text label visible but no Semantics
 
-// Mission create button ❌
+// Goal create button ❌
 FloatingActionButton(...)
 // No Semantics labels
 ```

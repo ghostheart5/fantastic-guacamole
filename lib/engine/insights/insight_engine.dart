@@ -18,7 +18,7 @@ class CompletionInsightEngine {
     String suggestion;
 
     if (seconds < 60) {
-      observation = "Short session.";
+      observation = "Short effort.";
       suggestion = energy < 0.3
           ? "Low energy — rest before your next attempt."
           : "Try stretching your focus time.";
@@ -28,10 +28,10 @@ class CompletionInsightEngine {
           ? "Energy is low — consider a short break."
           : "Push a bit further next time.";
     } else {
-      observation = "Strong session.";
+      observation = "Strong completion.";
       suggestion = energy > 0.6
           ? "Energy is high — keep building this rhythm."
-          : "Great work — recharge before the next session.";
+          : "Great work — recharge before the next focused effort.";
     }
 
     return CompletionInsight(

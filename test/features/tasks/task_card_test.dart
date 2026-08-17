@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
-    'tap routes to smart coach and complete action dispatches callback',
+    'tap routes to Smart Planner and complete action dispatches callback',
     (WidgetTester tester) async {
       final ProviderContainer container = ProviderContainer();
       addTearDown(container.dispose);
@@ -40,7 +40,7 @@ void main() {
 
       await tester.tap(find.text('Stabilize release path'));
       await tester.pump();
-      expect(container.read(appFlowProvider), AppView.smartCoach);
+      expect(container.read(appFlowProvider), AppView.smartPlanner);
 
       await tester.tap(find.byTooltip('Complete task'));
       await tester.pump();

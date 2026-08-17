@@ -12,113 +12,113 @@ class LightweightEntity {
 }
 
 // Smart Planner Entities
-class CoachMessage extends LightweightEntity {
-  const CoachMessage({required super.id, super.label});
+class PlannerMessage extends LightweightEntity {
+  const PlannerMessage({required super.id, super.label});
 }
 
-class CoachConversation extends LightweightEntity {
-  const CoachConversation({required super.id, super.label});
+class PlannerConversation extends LightweightEntity {
+  const PlannerConversation({required super.id, super.label});
 }
 
-class CoachSession extends LightweightEntity {
-  const CoachSession({required super.id, super.label});
+class PlannerExchange extends LightweightEntity {
+  const PlannerExchange({required super.id, super.label});
 }
 
-class CoachIntent extends LightweightEntity {
-  const CoachIntent({required super.id, super.label});
+class PlannerIntent extends LightweightEntity {
+  const PlannerIntent({required super.id, super.label});
 }
 
-class CoachCategory extends LightweightEntity {
-  const CoachCategory({required super.id, super.label});
+class PlannerCategory extends LightweightEntity {
+  const PlannerCategory({required super.id, super.label});
 }
 
-class CoachResponse extends LightweightEntity {
-  const CoachResponse({required super.id, super.label});
+class PlannerResponse extends LightweightEntity {
+  const PlannerResponse({required super.id, super.label});
 }
 
-class CoachSuggestion extends LightweightEntity {
-  const CoachSuggestion({required super.id, super.label});
+class PlannerSuggestion extends LightweightEntity {
+  const PlannerSuggestion({required super.id, super.label});
 }
 
-class CoachActionPlan extends LightweightEntity {
-  const CoachActionPlan({required super.id, super.label});
+class PlannerActionPlan extends LightweightEntity {
+  const PlannerActionPlan({required super.id, super.label});
 }
 
-class CoachFollowUpQuestion extends LightweightEntity {
-  const CoachFollowUpQuestion({required super.id, super.label});
+class PlannerFollowUpQuestion extends LightweightEntity {
+  const PlannerFollowUpQuestion({required super.id, super.label});
 }
 
-class CoachRecommendation extends LightweightEntity {
-  const CoachRecommendation({required super.id, super.label});
+class PlannerRecommendation extends LightweightEntity {
+  const PlannerRecommendation({required super.id, super.label});
 }
 
-class CoachInsight extends LightweightEntity {
-  const CoachInsight({required super.id, super.label});
+class PlannerInsight extends LightweightEntity {
+  const PlannerInsight({required super.id, super.label});
 }
 
-class CoachTone extends LightweightEntity {
-  const CoachTone({required super.id, super.label});
+class PlannerTone extends LightweightEntity {
+  const PlannerTone({required super.id, super.label});
 }
 
-class CoachContext extends LightweightEntity {
-  const CoachContext({required super.id, super.label});
+class PlannerContext extends LightweightEntity {
+  const PlannerContext({required super.id, super.label});
 }
 
-class CoachFeedback extends LightweightEntity {
-  const CoachFeedback({required super.id, super.label});
+class PlannerFeedback extends LightweightEntity {
+  const PlannerFeedback({required super.id, super.label});
 }
 
-// Coaching Use Case Entities
-class CoachUseCase extends LightweightEntity {
-  const CoachUseCase({required super.id, super.label});
+// PlanningGuidance Use Case Entities
+class PlannerUseCase extends LightweightEntity {
+  const PlannerUseCase({required super.id, super.label});
 }
 
-class CoachUseCaseCategory extends LightweightEntity {
-  const CoachUseCaseCategory({required super.id, super.label});
+class PlannerUseCaseCategory extends LightweightEntity {
+  const PlannerUseCaseCategory({required super.id, super.label});
 }
 
-class CoachTriggerPhrase extends LightweightEntity {
-  const CoachTriggerPhrase({required super.id, super.label});
+class PlannerTriggerPhrase extends LightweightEntity {
+  const PlannerTriggerPhrase({required super.id, super.label});
 }
 
-class CoachResponseTemplate extends LightweightEntity {
-  const CoachResponseTemplate({required super.id, super.label});
+class PlannerResponseTemplate extends LightweightEntity {
+  const PlannerResponseTemplate({required super.id, super.label});
 }
 
-class CoachRequiredContext extends LightweightEntity {
-  const CoachRequiredContext({required super.id, super.label});
+class PlannerRequiredContext extends LightweightEntity {
+  const PlannerRequiredContext({required super.id, super.label});
 }
 
-class CoachActionStep extends LightweightEntity {
-  const CoachActionStep({required super.id, super.label});
+class PlannerActionStep extends LightweightEntity {
+  const PlannerActionStep({required super.id, super.label});
 }
 
-class CoachOutcome extends LightweightEntity {
-  const CoachOutcome({required super.id, super.label});
+class PlannerOutcome extends LightweightEntity {
+  const PlannerOutcome({required super.id, super.label});
 }
 
-class WeightLossCoachingUseCase extends LightweightEntity {
-  const WeightLossCoachingUseCase({required super.id, super.label});
+class WeightLossPlanningGuidanceUseCase extends LightweightEntity {
+  const WeightLossPlanningGuidanceUseCase({required super.id, super.label});
 }
 
-class FatigueCoachingUseCase extends LightweightEntity {
-  const FatigueCoachingUseCase({required super.id, super.label});
+class FatiguePlanningGuidanceUseCase extends LightweightEntity {
+  const FatiguePlanningGuidanceUseCase({required super.id, super.label});
 }
 
-class StressCoachingUseCase extends LightweightEntity {
-  const StressCoachingUseCase({required super.id, super.label});
+class StressPlanningGuidanceUseCase extends LightweightEntity {
+  const StressPlanningGuidanceUseCase({required super.id, super.label});
 }
 
-class MotivationCoachingUseCase extends LightweightEntity {
-  const MotivationCoachingUseCase({required super.id, super.label});
+class MotivationPlanningGuidanceUseCase extends LightweightEntity {
+  const MotivationPlanningGuidanceUseCase({required super.id, super.label});
 }
 
-class FocusCoachingUseCase extends LightweightEntity {
-  const FocusCoachingUseCase({required super.id, super.label});
+class FocusPlanningGuidanceUseCase extends LightweightEntity {
+  const FocusPlanningGuidanceUseCase({required super.id, super.label});
 }
 
-class SleepCoachingUseCase extends LightweightEntity {
-  const SleepCoachingUseCase({required super.id, super.label});
+class SleepPlanningGuidanceUseCase extends LightweightEntity {
+  const SleepPlanningGuidanceUseCase({required super.id, super.label});
 }
 
 // SI Console Entities
@@ -645,8 +645,8 @@ class DateTimeSetting extends LightweightEntity {
   const DateTimeSetting({required super.id, super.label});
 }
 
-class CoachSetting extends LightweightEntity {
-  const CoachSetting({required super.id, super.label});
+class PlannerSetting extends LightweightEntity {
+  const PlannerSetting({required super.id, super.label});
 }
 
 class SiConsoleSetting extends LightweightEntity {
@@ -769,8 +769,8 @@ class DraftState extends LightweightEntity {
   const DraftState({required super.id, super.label});
 }
 
-class LastSessionState extends LightweightEntity {
-  const LastSessionState({required super.id, super.label});
+class LastCompletionState extends LightweightEntity {
+  const LastCompletionState({required super.id, super.label});
 }
 
 class ResumePoint extends LightweightEntity {

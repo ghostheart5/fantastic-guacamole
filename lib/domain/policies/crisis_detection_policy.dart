@@ -1,6 +1,6 @@
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: SI Console
 ///
-/// Enforced by coachQueryController and siConsoleQueryController.
+/// Enforced by smartPlannerQueryController and siConsoleQueryController.
 abstract final class CrisisDetectionPolicy {
   static const List<String> _keywords = <String>[
     'suicide',

@@ -1,4 +1,4 @@
-/// CHRONOSPARK-CLASS: PLANNED | Feature: Sessions/focus
+/// CHRONOSPARK-CLASS: PLANNED | Feature: Planning/work blocks
 ///
 /// Typed-primitive layer for the domain. Entities still use raw primitives, so
 /// these are not yet adopted; they are kept as the intended target for a future

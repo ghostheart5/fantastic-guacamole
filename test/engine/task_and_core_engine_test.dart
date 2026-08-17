@@ -85,7 +85,7 @@ void main() {
     );
 
     final SIPipelineResult first = core.run(
-      input: const SIInputPacket(text: 'Help me start a focus session'),
+      input: const SIInputPacket(text: 'Help me start a focus block'),
       task: task,
     );
     final SIPipelineResult second = core.run(

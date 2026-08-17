@@ -1,5 +1,4 @@
-import 'package:fantastic_guacamole/data/repositories/habit_repository.dart'
-    show HabitRecord;
+import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
@@ -10,7 +9,7 @@ import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/insights_models.dart';
-import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
+import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 
 class SISignalExtraction {
@@ -52,7 +51,7 @@ class SIStateAggregation {
     required this.trajectory,
     required this.signals,
     required this.coreValues,
-    required this.soulMap,
+    required this.personalAlignment,
     this.habits = const <HabitRecord>[],
   });
 
@@ -69,7 +68,7 @@ class SIStateAggregation {
   final TrajectorySummaryView trajectory;
   final SISignalExtraction signals;
   final CoreValuesAlignment coreValues;
-  final SoulMapAlignment soulMap;
+  final PersonalAlignmentAlignment personalAlignment;
 
   /// Habits available to Smart Planner and SI. Empty when habit storage has not
   /// resolved yet, so aggregation never blocks on it.
@@ -82,7 +81,7 @@ class SIStateAggregation {
 class SIDecisionOutput {
   const SIDecisionOutput({
     required this.nextAction,
-    required this.coachMessage,
+    required this.plannerMessage,
     required this.suggestedPlanAdjustments,
     required this.insightPrompts,
     required this.progressionFeedback,
@@ -90,15 +89,15 @@ class SIDecisionOutput {
   });
 
   final String nextAction;
-  final String coachMessage;
+  final String plannerMessage;
   final List<String> suggestedPlanAdjustments;
   final List<String> insightPrompts;
   final String progressionFeedback;
   final List<String> warnings;
 }
 
-class SmartCoachScreenModel {
-  const SmartCoachScreenModel({
+class SmartPlannerScreenModel {
+  const SmartPlannerScreenModel({
     required this.aggregation,
     required this.decision,
   });

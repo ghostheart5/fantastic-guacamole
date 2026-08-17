@@ -123,7 +123,7 @@ class ProgressionScreen extends ConsumerWidget {
                 Row(
                   children: [
                     SmartPressable(
-                      onTap: () => ref.read(appFlowProvider.notifier).toCoach(),
+                      onTap: () => ref.read(appFlowProvider.notifier).toNexus(),
                       semanticLabel: 'Back to Smart Planner',
                       child: Container(
                         width: 48,
@@ -250,7 +250,7 @@ class _ProgressSignalsCard extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                'TACTICAL SIGNALS',
+                'GROWTH SIGNALS',
                 style: TextStyle(
                   fontSize: 10,
                   letterSpacing: 2.5,

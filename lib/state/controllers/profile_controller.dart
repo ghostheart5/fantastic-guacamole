@@ -221,7 +221,7 @@ class ProfileController extends Notifier<ProfileState> {
     if (streakBroke) {
       unawaited(_scheduleStreakBreakNotification(now: now));
     }
-    unawaited(_refreshCoachDecision());
+    unawaited(_refreshPlannerDecision());
   }
 
   void clearLeveledUp() {
@@ -267,21 +267,21 @@ class ProfileController extends Notifier<ProfileState> {
     if (streakBroke) {
       unawaited(_scheduleStreakBreakNotification(now: now));
     }
-    unawaited(_refreshCoachDecision());
+    unawaited(_refreshPlannerDecision());
   }
 
   void resetStreak() {
     state = state.copyWith(streak: 0, clearLastActiveDate: true);
     _save();
-    unawaited(_refreshCoachDecision());
+    unawaited(_refreshPlannerDecision());
   }
 
-  Future<void> _refreshCoachDecision() async {
+  Future<void> _refreshPlannerDecision() async {
     try {
       await ref.read(generateSiDecisionUseCaseProvider).call();
       ref.invalidate(domainSiDecisionProvider);
     } catch (_) {
-      // Avoid blocking progression updates if coach refresh fails.
+      // Avoid blocking progression updates if planner refresh fails.
     }
   }
 

@@ -25,12 +25,11 @@ Entity -> Interface -> Use cases -> Data implementation -> Provider -> UI screen
 | Timeline | timeline_event_entity.dart | i_timeline_repository.dart | get/add/remove timeline event | timeline_repository.dart | timeline_provider.dart | features/timeline/ui/timeline_screen.dart | Usecase tests added |
 | Calendar | calendar_entry_entity.dart / calendar_entry.dart | i_calendar_repository.dart | get/add/remove calendar entry | calendar_repository.dart | calendar_provider.dart | feature wiring exists | Not verified here |
 | Profile | profile_entity.dart | i_profile_repository.dart | get/update profile | profile_repository.dart | profile providers/controllers | feature wiring exists | Not verified here |
-| Session | session_entity.dart | i_session_repository.dart | start/pause/resume/end/get session | session_repository.dart | session providers/controllers | feature wiring exists | Not verified here |
 | Settings | settings_entity.dart | i_settings_repository.dart | get/update settings | settings_repository.dart | settings providers/controllers | settings UI exists | Not verified here |
 | Workspace | workspace_entity.dart | i_workspace_repository.dart | get/switch workspace | workspace_repository.dart | workspace/service wiring exists | app shell uses it | Not verified here |
 | Theme | app_theme_entity.dart | i_theme_repository.dart | get/save/get-all/switch theme | theme_repository.dart | theme_provider.dart | app_root.dart | Usecase tests added |
-| Identity/Auth | identity_profile_entity.dart + identity id | i_identity_repository.dart | get/save identity profile | identity_repository.dart | identity_provider.dart + identity_service.dart | profile/insights + startup identity bootstrap | Usecase tests added |
-| Insights | insight_entity.dart | i_insight_repository.dart | service-derived today | no data repo | insights_provider.dart | home surfaces use insights | Gap / likely derived |
+| Identity/Auth | identity_profile_entity.dart + identity id | i_identity_repository.dart | get/save identity profile | identity_repository.dart | identity_provider.dart + identity_service.dart | profile + startup identity bootstrap | Usecase tests added |
+| Insight outputs | insight_entity.dart | i_insight_repository.dart | generate/get/save derived outputs | insight_repository.dart | insights_provider.dart | Smart Planner, SI Console, and Nexus consume outputs; no standalone screen | Output pipeline, not a feature |
 | Learning | learning_entity.dart | i_learning_repository.dart | policy/usecases exist, data repo not added here | service-owned today | learning_controller.dart | indirect | Gap / explicit owner |
 | Progression | progression_entity.dart | i_progression_repository.dart | get progression and task completion integration exist | service-owned today | progression_provider.dart | progression/timeline surfaces | Gap / explicit owner |
 

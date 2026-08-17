@@ -19,7 +19,6 @@ import 'package:fantastic_guacamole/data/repositories/profile_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/progression_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/project_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/routine_repository.dart';
-import 'package:fantastic_guacamole/data/repositories/session_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/settings_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/si_engine_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/subtask_repository.dart';
@@ -164,10 +163,6 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((Ref ref) {
 
 final themeRepositoryProvider = Provider<ThemeRepository>((Ref ref) {
   return ThemeRepository(ref.read(sharedPrefsStoreProvider));
-});
-
-final sessionRepositoryProvider = Provider<SessionRepository>((Ref ref) {
-  return SessionRepository(ref.read(secureStoreProvider));
 });
 
 final learningRepositoryProvider = Provider<LearningRepository>((Ref ref) {

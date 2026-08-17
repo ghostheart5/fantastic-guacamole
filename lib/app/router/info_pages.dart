@@ -122,7 +122,7 @@ class AboutPage extends StatelessWidget {
           const _Section(
             title: 'Core Surfaces',
             body:
-                'Nexus for command, Trajectory for tasks, Ledger for logs, and Profile for identity and progression. Advanced modules (Plan, Creator, SI, Goals, Memories, Soul Map, Timeline) expand depth when needed.',
+                'Nexus for command, Trajectory for tasks, Ledger for logs, and Profile for identity and progression. Advanced modules (Plan, Creator, SI, Goals, Memories, Personal Alignment, Timeline) expand depth when needed.',
           ),
           const _Section(
             title: 'Guiding Principle',
@@ -137,7 +137,7 @@ class AboutPage extends StatelessWidget {
           const _Section(
             title: 'Voice Features',
             body:
-                'Microphone access powers optional voice-to-text in coaching and the SI console. Audio is used only after you start a voice action and remains off during normal planning flows.',
+                'Microphone access powers optional voice-to-text in Smart Planner and the SI Console. Audio is used only after you start a voice action and remains off during normal planning flows.',
           ),
         ],
       ),

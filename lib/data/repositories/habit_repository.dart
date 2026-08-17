@@ -1,35 +1,8 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
-import 'package:flutter/foundation.dart';
-
-@immutable
-class HabitRecord {
-  const HabitRecord({
-    required this.id,
-    required this.title,
-    this.active = true,
-  });
-
-  final String id;
-  final String title;
-  final bool active;
-
-  Map<String, dynamic> toJson() => <String, dynamic>{
-    'id': id,
-    'title': title,
-    'active': active,
-  };
-
-  factory HabitRecord.fromJson(Map<String, dynamic> json) {
-    return HabitRecord(
-      id: json['id']?.toString() ?? '',
-      title: json['title']?.toString() ?? '',
-      active: json['active'] as bool? ?? true,
-    );
-  }
-}
 
 class HabitRepository implements IHabitRepository {
   HabitRepository(this._storage);

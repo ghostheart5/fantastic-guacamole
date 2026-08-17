@@ -7,7 +7,7 @@ import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dar
 abstract class IExtendedDomainRepository {
   Future<void> initialize();
 
-  List<CoachMessage> getCoachMessages();
+  List<PlannerMessage> getPlannerMessages();
   List<SiQuery> getSiQueries();
   List<UserIntent> getUserIntents();
   List<JournalEntry> getJournalEntries();
@@ -24,7 +24,7 @@ abstract class IExtendedDomainRepository {
   List<PrivacyPolicy> getPrivacyPolicies();
   List<HealthCheckResult> getHealthChecks();
 
-  Future<void> saveCoachMessage(CoachMessage entity);
+  Future<void> savePlannerMessage(PlannerMessage entity);
   Future<void> saveSiQuery(SiQuery entity);
   Future<void> saveUserIntent(UserIntent entity);
   Future<void> saveJournalEntry(JournalEntry entity);

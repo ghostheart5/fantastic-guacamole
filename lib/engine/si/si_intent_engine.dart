@@ -26,7 +26,7 @@ class SIIntentEngine {
       'start focus',
       'focus now',
       'deep work',
-      'focus session',
+      'focus block',
     ])) {
       primary = const IntentCandidate(
         label: SIIntentLabels.startFocus,

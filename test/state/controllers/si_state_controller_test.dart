@@ -26,12 +26,12 @@ void main() {
     expect(container.read(siStateProvider), const SIState());
   });
 
-  test('sessionComplete updates energy fatigue and completion count', () {
+  test('recordCompletion updates energy fatigue and completion count', () {
     final ProviderContainer container = ProviderContainer();
     addTearDown(container.dispose);
 
     container.read(siStateProvider.notifier).reset();
-    container.read(siStateProvider.notifier).sessionComplete();
+    container.read(siStateProvider.notifier).recordCompletion();
 
     final state = container.read(siStateProvider);
     expect(state.completedToday, 1);

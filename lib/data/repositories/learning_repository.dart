@@ -8,7 +8,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_learning_repository.dart
 
 /// Persists the adaptive learning weights used by `LearningPolicy`.
 ///
-/// Follows the same SecureStore + JSON pattern as `SessionRepository`.
+/// Uses the shared SecureStore + JSON repository pattern.
 ///
 /// PLANNED SURFACE: this repository is bound in DI and fully functional, but
 /// `ApplyLearningFeedback` is not yet invoked automatically from the task

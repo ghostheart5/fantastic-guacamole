@@ -7,14 +7,16 @@ import 'package:fantastic_guacamole/domain/usecases/complete_task.dart';
 import 'package:fantastic_guacamole/features/plan/ui/plan_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
-import 'package:fantastic_guacamole/state/providers/session_score_provider.dart';
+import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('plan completion tap completes task and sets score', (WidgetTester tester) async {
+  testWidgets('plan completion tap completes task and sets score', (
+    WidgetTester tester,
+  ) async {
     final _MemoryTaskRepository repository = _MemoryTaskRepository();
     final TaskEntity seedEntity = TaskEntity(
       id: 'task-1',
@@ -36,7 +38,9 @@ void main() {
 
     final ProviderContainer container = ProviderContainer(
       overrides: [
-        secureStoreProvider.overrideWithValue(SecureStore(backend: InMemorySecureStoreBackend())),
+        secureStoreProvider.overrideWithValue(
+          SecureStore(backend: InMemorySecureStoreBackend()),
+        ),
         tasksProvider.overrideWith((Ref ref) async => <Task>[seededTask]),
         completeTaskUseCaseProvider.overrideWithValue(CompleteTask(repository)),
       ],
@@ -52,7 +56,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     final Finder completeCta = find.text('COMPLETE').first;
-    await tester.scrollUntilVisible(completeCta, 200, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      completeCta,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(completeCta);
     await tester.pump(const Duration(milliseconds: 600));
 
@@ -61,7 +69,7 @@ void main() {
     expect(updatedTask!.isCompleted, isTrue);
     expect(container.read(appFlowProvider), isA<AppView>());
 
-    final score = container.read(sessionScoreProvider);
+    final score = container.read(completionScoreProvider);
     expect(score, isNotNull);
     expect(score!.xp, greaterThan(0));
   });

@@ -39,13 +39,13 @@ class IdentityNotifier extends Notifier<IdentityState> {
   }
 
   Future<void> onFocusComplete({
-    required bool sessionCompleted,
+    required bool completionRecorded,
     required bool taskCompleted,
     required bool streakMaintained,
   }) async {
     state = _engine.update(
       current: state,
-      sessionCompleted: sessionCompleted,
+      completionRecorded: completionRecorded,
       taskCompleted: taskCompleted,
       streakMaintained: streakMaintained,
     );

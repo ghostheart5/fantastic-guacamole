@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/insight_entity.dart';
 
-/// CHRONOSPARK-CLASS: SHIPPING | Feature: Insights
+/// CHRONOSPARK-CLASS: SHIPPING | Output: Smart Planner/SI
 ///
 /// Bound to InsightRepository.
 abstract class IInsightRepository {

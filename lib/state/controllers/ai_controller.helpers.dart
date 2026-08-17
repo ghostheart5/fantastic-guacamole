@@ -250,7 +250,7 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
           history: previousMessage.isEmpty
               ? const <String>[]
               : <String>[previousMessage],
-          context: const <String, dynamic>{'appState': 'coach'},
+          context: const <String, dynamic>{'appState': 'planner'},
           latent: modular_si.SILatentInputs(
             frustration: si.fatigue,
             confusion: input.trim().isEmpty ? 0.5 : 0,
@@ -294,7 +294,7 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
     now: DateTime.now(),
     personality: personality,
     response: effectiveResponse,
-    appState: 'coach',
+    appState: 'planner',
     platform: 'flutter',
     history: previousMessage.isEmpty
         ? const <String>[]
@@ -338,7 +338,7 @@ AIPersonalityProfile _profileFor(
           curiosity: 0.55,
           empathy: 0.42,
         ),
-        style: AIStyleDirective(
+        style: AIStyleGuidance(
           tone: 'precise_practical',
           maxWords: 52,
           useSteps: true,
@@ -349,7 +349,7 @@ AIPersonalityProfile _profileFor(
       );
     case AIPersonality.strategist:
       return AIPersonalityProfile(
-        persona: SIPersona.coach,
+        persona: SIPersona.planner,
         traits: const PersonalityTraits(
           warmth: 0.62,
           directness: 0.78,
@@ -357,7 +357,7 @@ AIPersonalityProfile _profileFor(
           curiosity: 0.72,
           empathy: 0.68,
         ),
-        style: AIStyleDirective(
+        style: AIStyleGuidance(
           tone: mood == 'stressed' ? 'calm_supportive' : 'focused_motivating',
           maxWords: 60,
           useSteps: true,
@@ -366,7 +366,7 @@ AIPersonalityProfile _profileFor(
         ),
         identity: 'systems strategist',
       );
-    case AIPersonality.coach:
+    case AIPersonality.planner:
       return AIPersonalityProfile(
         persona: SIPersona.mentor,
         traits: const PersonalityTraits(
@@ -376,7 +376,7 @@ AIPersonalityProfile _profileFor(
           curiosity: 0.61,
           empathy: 0.88,
         ),
-        style: AIStyleDirective(
+        style: AIStyleGuidance(
           tone: mood == 'stressed' ? 'calm_supportive' : 'warm_grounded',
           maxWords: 64,
           useSteps: mood == 'confused',

@@ -34,7 +34,7 @@ ChronoSpark does not place AI-provider credentials in the mobile application. Re
 
 Information is used to:
 
-- Provide task, focus, progression, notification, insight, and coaching features.
+- Provide task, focus, progression, notification, Smart Planner, and SI-generated guidance features.
 - Preserve continuity between app sessions.
 - Generate and improve recommendations and conversational responses.
 - Authenticate accounts and restore enabled purchases.

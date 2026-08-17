@@ -20,7 +20,7 @@ class LevelProfile {
 class ProgressionPolicy {
   // Flat XP awards — one number per action type, users can understand instantly.
   static const int taskXp = 10;
-  static const int sessionXp = 25;
+  static const int completionXp = 25;
   static const int streakDayXp = 15;
 
   // Level = floor(sqrt(xp / 100)) + 1, minimum 1
@@ -53,7 +53,7 @@ class ProgressionPolicy {
     return levelFromXp(xp) > previousLevel;
   }
 
-  // Level band → session/difficulty/tone guidance
+  // Level band → completion/difficulty/tone guidance
   static LevelProfile levelProfile(int level) {
     if (level >= 8) {
       return const LevelProfile(

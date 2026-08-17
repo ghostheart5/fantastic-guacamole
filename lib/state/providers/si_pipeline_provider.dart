@@ -1,5 +1,4 @@
-import 'package:fantastic_guacamole/data/repositories/habit_repository.dart'
-    show HabitRecord;
+import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -8,7 +7,7 @@ import 'package:fantastic_guacamole/domain/usecases/extract_si_signals.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
-import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
+import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
@@ -30,7 +29,9 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   final EmotionalState emotion = ref.watch(emotionProvider);
   final trajectory = ref.watch(trajectorySummaryProvider);
   final CoreValuesAlignment coreValues = ref.watch(coreValuesAlignmentProvider);
-  final SoulMapAlignment soulMap = ref.watch(soulMapAlignmentProvider);
+  final PersonalAlignmentAlignment personalAlignment = ref.watch(
+    personalAlignmentAlignmentProvider,
+  );
   final double energy = ref.watch(energyProvider);
   // Habits feed Smart Planner and SI. Read non-blocking: if habit storage has
   // not resolved (or failed), aggregation continues with none rather than
@@ -79,7 +80,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     siState: siState,
     trajectory: trajectory,
     coreValues: coreValues,
-    soulMap: soulMap,
+    personalAlignment: personalAlignment,
     habits: habits,
     signals: SISignalExtraction(
       friction: signals.friction,
@@ -174,7 +175,7 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
 
   return SIDecisionOutput(
     nextAction: draft.nextAction,
-    coachMessage: draft.coachMessage,
+    plannerMessage: draft.plannerMessage,
     suggestedPlanAdjustments: draft.suggestedPlanAdjustments,
     insightPrompts: draft.insightPrompts,
     progressionFeedback: draft.progressionFeedback,
@@ -182,17 +183,20 @@ final siDecisionOutputProvider = FutureProvider<SIDecisionOutput>((
   );
 });
 
-final smartCoachScreenModelProvider = FutureProvider<SmartCoachScreenModel>((
-  Ref ref,
-) async {
-  final SIStateAggregation aggregation = await ref.watch(
-    siStateAggregationProvider.future,
-  );
-  final SIDecisionOutput decision = await ref.watch(
-    siDecisionOutputProvider.future,
-  );
-  return SmartCoachScreenModel(aggregation: aggregation, decision: decision);
-});
+final smartPlannerScreenModelProvider = FutureProvider<SmartPlannerScreenModel>(
+  (Ref ref) async {
+    final SIStateAggregation aggregation = await ref.watch(
+      siStateAggregationProvider.future,
+    );
+    final SIDecisionOutput decision = await ref.watch(
+      siDecisionOutputProvider.future,
+    );
+    return SmartPlannerScreenModel(
+      aggregation: aggregation,
+      decision: decision,
+    );
+  },
+);
 
 final nexusScreenModelProvider = FutureProvider<NexusScreenModel>((
   Ref ref,
@@ -216,7 +220,8 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
     siDecisionOutputProvider.future,
   );
   final CoreValuesAlignment coreValues = aggregation.coreValues;
-  final SoulMapAlignment soulMap = aggregation.soulMap;
+  final PersonalAlignmentAlignment personalAlignment =
+      aggregation.personalAlignment;
   final intelligence = ref.watch(intelligenceStateProvider);
   final latestSnapshot = ref.watch(latestSiSnapshotProvider);
   final Object? state = await ref.watch(siEngineStateProvider.future);
@@ -249,13 +254,14 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
   final String engineSnapshot = chunks.join(' · ').toUpperCase();
   final String valuesSnapshot =
       'VALUES ${coreValues.overall}% · LOW ${coreValueTitle(coreValues.mostNeglected).toUpperCase()} ${coreValues.scores[coreValues.mostNeglected]?.score ?? 0}%';
-  final String soulMapSnapshot =
-      'SOULMAP ${soulMap.overall}% · LOW ${soulMapDimensionTitle(soulMap.weakest).toUpperCase()} ${soulMap.scores[soulMap.weakest]?.score ?? 0}%';
+  final String personalAlignmentSnapshot =
+      'PERSONAL ALIGNMENT ${personalAlignment.overall}% · LOW ${personalAlignmentDimensionTitle(personalAlignment.weakest).toUpperCase()} ${personalAlignment.scores[personalAlignment.weakest]?.score ?? 0}%';
 
   return SIConsoleScreenModel(
     aggregation: aggregation,
     decision: decision,
-    engineSnapshot: '$engineSnapshot · $valuesSnapshot · $soulMapSnapshot',
+    engineSnapshot:
+        '$engineSnapshot · $valuesSnapshot · $personalAlignmentSnapshot',
   );
 });
 

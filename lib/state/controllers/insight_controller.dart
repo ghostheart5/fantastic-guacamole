@@ -19,7 +19,7 @@ final patternInsightEngineProvider = Provider<PatternInsightEngine>((ref) {
 });
 
 final completionInsightProvider = Provider<CompletionInsightView?>((ref) {
-  final score = ref.watch(sessionScoreProvider);
+  final score = ref.watch(completionScoreProvider);
   final energy = ref.watch(energyProvider);
 
   if (score == null) return null;

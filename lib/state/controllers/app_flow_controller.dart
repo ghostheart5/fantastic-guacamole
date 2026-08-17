@@ -1,13 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum AppView {
-  coach,
   nexus,
   tasks,
   logs,
   profile,
-  smartCoach,
-  insight,
+  smartPlanner,
   console,
   settings,
   progression,
@@ -16,7 +14,7 @@ enum AppView {
   goals,
   milestones,
   memories,
-  soulMap,
+  personalAlignment,
   timeline,
 }
 
@@ -25,6 +23,13 @@ AppView? appViewFromName(String? value) {
     return null;
   }
   final String target = value.trim();
+  if (target == 'coach') {
+    return AppView.nexus;
+  }
+  // Compatibility for navigation state saved before Smart Planner was renamed.
+  if (target == 'smartCoach' || target == 'insight') {
+    return AppView.smartPlanner;
+  }
   for (final AppView view in AppView.values) {
     if (view.name == target) {
       return view;
@@ -39,15 +44,13 @@ final appFlowProvider = NotifierProvider<AppFlowController, AppView>(
 
 class AppFlowController extends Notifier<AppView> {
   @override
-  AppView build() => AppView.coach;
+  AppView build() => AppView.nexus;
 
-  void toCoach() => state = AppView.coach;
   void toNexus() => state = AppView.nexus;
   void toTasks() => state = AppView.tasks;
   void toLogs() => state = AppView.logs;
   void toProfile() => state = AppView.profile;
-  void toSmartCoach() => state = AppView.smartCoach;
-  void toInsight() => state = AppView.insight;
+  void toSmartPlanner() => state = AppView.smartPlanner;
   void toConsole() => state = AppView.console;
   void toSettings() => state = AppView.settings;
   void toProgression() => state = AppView.progression;
@@ -56,7 +59,7 @@ class AppFlowController extends Notifier<AppView> {
   void toGoals() => state = AppView.goals;
   void toMilestones() => state = AppView.milestones;
   void toMemories() => state = AppView.memories;
-  void toSoulMap() => state = AppView.soulMap;
+  void toPersonalAlignment() => state = AppView.personalAlignment;
   void toTimeline() => state = AppView.timeline;
   void show(AppView view) => state = view;
 }

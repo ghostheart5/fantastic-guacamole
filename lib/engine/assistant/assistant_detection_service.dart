@@ -7,8 +7,8 @@ class DefaultAssistantIntentDetector implements AssistantIntentDetector {
   @override
   AssistantIntent detect({required String input, required String surface}) {
     final String normalized = input.toLowerCase();
-    if (surface == 'smart_coach') {
-      return _detectSmartCoachIntent(normalized);
+    if (surface == 'smart_planner') {
+      return _detectSmartPlannerIntent(normalized);
     }
     if (surface == 'si_console') {
       return _detectConsoleIntent(normalized);
@@ -21,11 +21,11 @@ class DefaultAssistantIntentDetector implements AssistantIntentDetector {
     );
   }
 
-  AssistantIntent _detectSmartCoachIntent(String text) {
+  AssistantIntent _detectSmartPlannerIntent(String text) {
     AssistantIntent result = const AssistantIntent(
       label: 'general_chat',
       confidence: 0.52,
-      surface: 'smart_coach',
+      surface: 'smart_planner',
       metadata: <String, dynamic>{'group': 'general'},
     );
 

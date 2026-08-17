@@ -60,9 +60,9 @@ class SICognitiveMetaPersonaEngine {
       secondary = SIPersona.mentor;
       reason = 'Insight requests need practical analysis with warmth.';
     } else if (action) {
-      primary = SIPersona.coach;
+      primary = SIPersona.planner;
       secondary = mood == 'stressed' ? SIPersona.mentor : null;
-      reason = 'Action intent benefits from focused coaching.';
+      reason = 'Action intent benefits from focused planning guidance.';
     } else {
       primary = SIPersona.companion;
       secondary = SIPersona.assistant;
@@ -150,7 +150,7 @@ class SICognitiveMetaPersonaEngine {
           curiosity: .55,
           empathy: .75,
         );
-      case SIPersona.coach:
+      case SIPersona.planner:
         return const PersonalityTraits(
           warmth: .72,
           directness: .9,

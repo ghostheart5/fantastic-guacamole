@@ -129,7 +129,7 @@ double _intentAffinityScore(String intent, String memory) {
     case 'status':
       return _queryOverlapScore('status summary overview progress', memory);
     default:
-      return _queryOverlapScore('coach guidance focus', memory);
+      return _queryOverlapScore('planner guidance focus', memory);
   }
 }
 

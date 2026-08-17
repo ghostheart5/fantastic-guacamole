@@ -10,12 +10,12 @@ void main() {
   const DefaultAssistantContextBuilder contextBuilder =
       DefaultAssistantContextBuilder();
 
-  test('detects smart coach usecases', () {
+  test('detects Smart Planner use cases', () {
     expect(
       detector
           .detect(
             input: 'I want to gain weight and build muscle',
-            surface: 'smart_coach',
+            surface: 'smart_planner',
           )
           .label,
       'weight_gain',
@@ -24,7 +24,7 @@ void main() {
       detector
           .detect(
             input: 'I am burned out and overloaded',
-            surface: 'smart_coach',
+            surface: 'smart_planner',
           )
           .label,
       'stress_support',
@@ -33,7 +33,7 @@ void main() {
       detector
           .detect(
             input: 'I need help with my career path',
-            surface: 'smart_coach',
+            surface: 'smart_planner',
           )
           .label,
       'life',

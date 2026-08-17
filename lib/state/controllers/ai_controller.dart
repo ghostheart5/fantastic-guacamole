@@ -35,7 +35,7 @@ import 'package:fantastic_guacamole/state/models/ai_credit_wallet.dart';
 import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_memory_models.dart';
-import 'package:fantastic_guacamole/state/models/soul_map_models.dart';
+import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/state/providers/access_provider.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
@@ -54,7 +54,7 @@ import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';
-import 'package:fantastic_guacamole/state/providers/soul_map_provider.dart';
+import 'package:fantastic_guacamole/state/providers/personal_alignment_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_provider.dart';
@@ -166,12 +166,11 @@ class AIController {
     final CoreValuesAlignment coreValuesAlignment = _ref.read(
       coreValuesAlignmentProvider,
     );
-    final SoulMapAlignment soulMapAlignment = _ref.read(
-      soulMapAlignmentProvider,
+    final PersonalAlignmentAlignment personalAlignmentAlignment = _ref.read(
+      personalAlignmentAlignmentProvider,
     );
-    final SoulMapFutureSelfComparison soulMapComparison = _ref.read(
-      soulMapFutureSelfComparisonProvider,
-    );
+    final PersonalAlignmentFutureSelfComparison personalAlignmentComparison =
+        _ref.read(personalAlignmentFutureSelfComparisonProvider);
     final progression = _ref.read(progressionProvider).progress;
     final soulState = _ref.read(soulStateProvider);
     final trajectory = _ref.read(trajectorySummaryProvider);
@@ -261,17 +260,17 @@ class AIController {
     if (milestoneDeterministic != null) {
       return milestoneDeterministic;
     }
-    final AIRecommendation? soulMapDeterministic =
-        _tryDeterministicSoulMapResponse(
+    final AIRecommendation? personalAlignmentDeterministic =
+        _tryDeterministicPersonalAlignmentResponse(
           input: input,
           forcedSurface: forcedSurface,
           matchedSurfaces: matchedSurfaces,
           category: siIntentCategory,
-          alignment: soulMapAlignment,
-          comparison: soulMapComparison,
+          alignment: personalAlignmentAlignment,
+          comparison: personalAlignmentComparison,
         );
-    if (soulMapDeterministic != null) {
-      return soulMapDeterministic;
+    if (personalAlignmentDeterministic != null) {
+      return personalAlignmentDeterministic;
     }
     final AIRecommendation? coreValuesDeterministic =
         _tryDeterministicCoreValuesResponse(
@@ -334,7 +333,7 @@ class AIController {
         'notifications',
         'plan',
         'emotions',
-        'soulmap',
+        'personal_alignment',
         'timeline',
         'milestones',
         'values',
@@ -396,7 +395,7 @@ class AIController {
           'current': emotion.name,
           'fatigue': si.fatigue,
         },
-        'soulmap': soulState.toJson(),
+        'personal_alignment': soulState.toJson(),
         'timeline': <String, dynamic>{
           'count': timelineEvents.length,
           'healthScore': timelineHealthScore,
@@ -432,22 +431,33 @@ class AIController {
           'momentum': trajectory.momentum,
           'prediction': trajectory.predictionOutcome,
         },
-        'soulMapAlignment': <String, dynamic>{
-          'overall': soulMapAlignment.overall,
-          'strongest': soulMapDimensionTitle(soulMapAlignment.strongest),
-          'weakest': soulMapDimensionTitle(soulMapAlignment.weakest),
-          'scores': soulMapAlignment.scores.map(
-            (SoulMapDimension key, SoulMapDimensionScore value) =>
-                MapEntry<String, int>(soulMapDimensionTitle(key), value.score),
+        'personalAlignmentAlignment': <String, dynamic>{
+          'overall': personalAlignmentAlignment.overall,
+          'strongest': personalAlignmentDimensionTitle(
+            personalAlignmentAlignment.strongest,
           ),
-          'recommendations': soulMapAlignment.recommendations,
+          'weakest': personalAlignmentDimensionTitle(
+            personalAlignmentAlignment.weakest,
+          ),
+          'scores': personalAlignmentAlignment.scores.map(
+            (
+              PersonalAlignmentDimension key,
+              PersonalAlignmentDimensionScore value,
+            ) => MapEntry<String, int>(
+              personalAlignmentDimensionTitle(key),
+              value.score,
+            ),
+          ),
+          'recommendations': personalAlignmentAlignment.recommendations,
         },
-        'soulMapComparison': <String, dynamic>{
-          'currentSelfAlignment': soulMapComparison.currentSelfAlignment,
-          'futureSelfReadiness': soulMapComparison.futureSelfReadiness,
-          'gap': soulMapComparison.gap,
-          'stance': soulMapComparison.stance,
-          'recommendation': soulMapComparison.recommendation,
+        'personalAlignmentComparison': <String, dynamic>{
+          'currentSelfAlignment':
+              personalAlignmentComparison.currentSelfAlignment,
+          'futureSelfReadiness':
+              personalAlignmentComparison.futureSelfReadiness,
+          'gap': personalAlignmentComparison.gap,
+          'stance': personalAlignmentComparison.stance,
+          'recommendation': personalAlignmentComparison.recommendation,
         },
         'coreValues': coreValues,
         'coreValuesAlignment': <String, dynamic>{
@@ -571,7 +581,7 @@ class AIController {
         'new task',
       ],
       'progression': <String>['xp', 'level', 'streak', 'progress', 'rank'],
-      'goals': <String>['goal', 'target', 'objective', 'mission'],
+      'goals': <String>['goal', 'target', 'objective', 'purpose'],
       'insights': <String>['insight', 'signal', 'pattern', 'analysis'],
       'logs': <String>[
         'log',
@@ -586,9 +596,9 @@ class AIController {
       'notifications': <String>['notification', 'alert', 'reminder', 'prompt'],
       'plan': <String>['plan', 'schedule', 'calendar', 'time block'],
       'emotions': <String>['emotion', 'mood', 'energy', 'fatigue', 'feel'],
-      'soulmap': <String>[
-        'soul map',
-        'soulmap',
+      'personal_alignment': <String>[
+        'personal alignment',
+        'personal_alignment',
         'analyze my life',
         'who am i becoming',
         'future self',
@@ -646,11 +656,11 @@ class AIController {
       '/memories': 'memories',
       '/memory': 'memories',
       '/plan': 'plan',
-      '/planner': 'plan',
+      '/coach': 'plan',
       '/emotions': 'emotions',
       '/emotion': 'emotions',
-      '/soulmap': 'soulmap',
-      '/soul': 'soulmap',
+      '/personal_alignment': 'personal_alignment',
+      '/soul': 'personal_alignment',
       '/timeline': 'timeline',
       '/milestones': 'milestones',
       '/values': 'values',
@@ -707,8 +717,8 @@ class AIController {
       return 'Milestone Query';
     }
     if (hasAny(<String>[
-      'soul map',
-      'soulmap',
+      'personal alignment',
+      'personal_alignment',
       'analyze my life',
       'who am i becoming',
       'future self',
@@ -779,7 +789,7 @@ class AIController {
     if (matchedSurfaces.contains('milestones')) {
       return 'Milestone Query';
     }
-    if (matchedSurfaces.contains('soulmap')) {
+    if (matchedSurfaces.contains('personal_alignment')) {
       return 'Life Query';
     }
     if (matchedSurfaces.contains('values')) {
@@ -1209,15 +1219,15 @@ class AIController {
     return forced || surface || (categoryMatch && asks);
   }
 
-  AIRecommendation? _tryDeterministicSoulMapResponse({
+  AIRecommendation? _tryDeterministicPersonalAlignmentResponse({
     required String input,
     required String? forcedSurface,
     required List<String> matchedSurfaces,
     required String category,
-    required SoulMapAlignment alignment,
-    required SoulMapFutureSelfComparison comparison,
+    required PersonalAlignmentAlignment alignment,
+    required PersonalAlignmentFutureSelfComparison comparison,
   }) {
-    if (!_isDeterministicSoulMapQuery(
+    if (!_isDeterministicPersonalAlignmentQuery(
       input: input,
       forcedSurface: forcedSurface,
       matchedSurfaces: matchedSurfaces,
@@ -1226,15 +1236,18 @@ class AIController {
       return null;
     }
 
-    final int purpose = alignment.scores[SoulMapDimension.purpose]?.score ?? 0;
+    final int purpose =
+        alignment.scores[PersonalAlignmentDimension.purpose]?.score ?? 0;
     final int identity =
-        alignment.scores[SoulMapDimension.identity]?.score ?? 0;
+        alignment.scores[PersonalAlignmentDimension.identity]?.score ?? 0;
     final int values =
-        alignment.scores[SoulMapDimension.coreValues]?.score ?? 0;
+        alignment.scores[PersonalAlignmentDimension.coreValues]?.score ?? 0;
     final int futureSelf =
-        alignment.scores[SoulMapDimension.futureSelf]?.score ?? 0;
-    final String strongest = soulMapDimensionTitle(alignment.strongest);
-    final String weakest = soulMapDimensionTitle(alignment.weakest);
+        alignment.scores[PersonalAlignmentDimension.futureSelf]?.score ?? 0;
+    final String strongest = personalAlignmentDimensionTitle(
+      alignment.strongest,
+    );
+    final String weakest = personalAlignmentDimensionTitle(alignment.weakest);
     final String recommendation = alignment.recommendations.firstWhere(
       (String item) =>
           item.toLowerCase().contains('schedule one concrete action'),
@@ -1248,7 +1261,7 @@ class AIController {
     if (compareMode) {
       final String compareOutput =
           'SI ANALYSIS\n\n'
-          'Query: SoulMap Current vs Future Self\n\n'
+          'Query: PersonalAlignment Current vs Future Self\n\n'
           'Current State:\n'
           '- Current Self Alignment: ${comparison.currentSelfAlignment}%\n'
           '- Future Self Readiness: ${comparison.futureSelfReadiness}%\n'
@@ -1259,13 +1272,13 @@ class AIController {
           'Timeline Effect: Gap reduction compounds identity consistency over 1/5/10 year horizons.\n\n'
           'Next Actions:\n'
           '1. ${comparison.recommendation}\n'
-          '2. Define one 1-year and one 5-year future-self outcome in SoulMap profile.\n'
+          '2. Define one 1-year and one 5-year future-self outcome in PersonalAlignment profile.\n'
           '3. Audit your current top goal for alignment before quitting or recommitting.\n\n'
           'Confidence: 95%';
 
       return AIRecommendation(
         message: compareOutput,
-        reasoning: 'si_console_soulmap_compare_deterministic',
+        reasoning: 'si_console_personal_alignment_compare_deterministic',
         emotion: 'focused',
         confidence: 0.95,
       );
@@ -1273,18 +1286,18 @@ class AIController {
 
     final String output =
         'SI ANALYSIS\n\n'
-        'Query: SoulMap Analysis\n\n'
+        'Query: PersonalAlignment Analysis\n\n'
         'Current State:\n'
         '- Purpose Alignment: $purpose%\n'
         '- Identity Alignment: $identity%\n'
         '- Values Alignment: $values%\n'
         '- Future Self Progress: $futureSelf%\n'
-        '- Overall SoulMap: ${alignment.overall}%\n'
+        '- Overall PersonalAlignment: ${alignment.overall}%\n'
         '- Strongest Area: $strongest\n'
         '- Weakest Area: $weakest\n\n'
         'Priority Task: Execute one decision today that strengthens $weakest.\n'
         'Impact: ${alignment.overall >= 70 ? 'Medium' : 'High'}\n'
-        'Timeline Effect: SoulMap aligns goals, values, and identity into one life direction compass.\n\n'
+        'Timeline Effect: PersonalAlignment aligns goals, values, and identity into one life direction compass.\n\n'
         'Next Actions:\n'
         '1. $recommendation\n'
         '2. Test one active goal against your Future Self before committing or quitting.\n'
@@ -1293,13 +1306,13 @@ class AIController {
 
     return AIRecommendation(
       message: output,
-      reasoning: 'si_console_soulmap_deterministic',
+      reasoning: 'si_console_personal_alignment_deterministic',
       emotion: 'focused',
       confidence: 0.95,
     );
   }
 
-  bool _isDeterministicSoulMapQuery({
+  bool _isDeterministicPersonalAlignmentQuery({
     required String input,
     required String? forcedSurface,
     required List<String> matchedSurfaces,
@@ -1308,15 +1321,15 @@ class AIController {
     final String lowered = input.toLowerCase();
     bool hasAny(List<String> values) => values.any(lowered.contains);
 
-    final bool forced = forcedSurface == 'soulmap';
-    final bool surface = matchedSurfaces.contains('soulmap');
+    final bool forced = forcedSurface == 'personal_alignment';
+    final bool surface = matchedSurfaces.contains('personal_alignment');
     final bool categoryMatch = category == 'Life Query';
     final bool asks = hasAny(<String>[
       'analyze my life',
       'compare current self to future self',
       'current self vs future self',
-      'soul map',
-      'soulmap',
+      'personal alignment',
+      'personal_alignment',
       'who am i becoming',
       'future self',
       'life direction',

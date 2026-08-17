@@ -12,7 +12,7 @@ class TestDataGenerator {
     'Write morning pages',
     'Deep work: system design',
     'Read 30 minutes',
-    'Weekly review session',
+    'Weekly review block',
     'Draft project proposal',
     'Meditate for 10 minutes',
     'Plan next sprint tasks',

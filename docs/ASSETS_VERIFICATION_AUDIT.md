@@ -117,12 +117,12 @@ Image.asset('assets/glows/glow_secondary.png')  // ❌ Missing
 ```yaml
 assets:
   - assets/backgrounds/nexus_bg.png ✅
-  - assets/backgrounds/chronocreator_bg.png ✅
-  - assets/backgrounds/chronologs_bg.png ✅
+  - assets/backgrounds/creator_bg.jpg ✅
+  - assets/backgrounds/timeline_bg.png ✅
   - assets/backgrounds/temporal_bg.png ✅
   - assets/backgrounds/si_console_bg.png ✅
   - assets/backgrounds/settings_bg.png ✅
-  - assets/icons/chronologs_icon.png ✅
+  - assets/icons/timeline_icon.png ✅
   - assets/icons/creator.png ✅
   - assets/icons/home.png ✅
   - assets/icons/ops_icon.png ✅
@@ -157,8 +157,8 @@ assets:
 
 **Backgrounds (6 files — 23 MB):**
 - `nexus_bg.png` (3.78 MB)
-- `chronocreator_bg.png` (3.12 MB)
-- `chronologs_bg.png` (2.81 MB)
+- `creator_bg.jpg` (61.8 KB)
+- `timeline_bg.png` (2.81 MB)
 - `temporal_bg.png` (2.65 MB)
 - `si_console_bg.png` (2.42 MB)
 - `settings_bg.png` (1.47 MB)
@@ -168,7 +168,7 @@ assets:
 - `home.png` (1.42 MB)
 - `creator.png` (187 KB)
 - `theme_icon.png` (1.43 MB)
-- `chronologs_icon.png` (324 KB)
+- `timeline_icon.png` (324 KB)
 - `ops_icon.png` (156 KB)
 - `si_console_icon.png` (142 KB)
 - `settings_icon.png` (165 KB)
@@ -208,7 +208,7 @@ assets:
 |------|------|--------|---------|--------|
 | `home.png` | 1.42 MB | 250 KB | 1.17 MB | PNG → WebP |
 | `theme_icon.png` | 1.43 MB | 250 KB | 1.18 MB | PNG → WebP |
-| `chronologs_icon.png` | 324 KB | 100 KB | 224 KB | PNG → WebP |
+| `timeline_icon.png` | 324 KB | 100 KB | 224 KB | PNG → WebP |
 | `creator.png` | 187 KB | 80 KB | 107 KB | PNG → WebP |
 | `ops_icon.png` | 156 KB | 60 KB | 96 KB | PNG → WebP |
 | `si_console_icon.png` | 142 KB | 60 KB | 82 KB | PNG → WebP |
@@ -224,8 +224,8 @@ assets:
 | Background | Size | Format | Issue |
 |------------|------|--------|-------|
 | `nexus_bg.png` | 3.78 MB | PNG | Very large; WebP could reduce 40-50% |
-| `chronocreator_bg.png` | 3.12 MB | PNG | Very large |
-| `chronologs_bg.png` | 2.81 MB | PNG | Very large |
+| `creator_bg.jpg` | 61.8 KB | JPEG | Optimized; within policy |
+| `timeline_bg.png` | 2.81 MB | PNG | Very large |
 | `temporal_bg.png` | 2.65 MB | PNG | Very large |
 | `si_console_bg.png` | 2.42 MB | PNG | Very large |
 | `settings_bg.png` | 1.47 MB | PNG | Large |
@@ -529,14 +529,14 @@ void initState() {
 ### Declared & Present ✅
 
 - [x] assets/backgrounds/nexus_bg.png (3.78 MB)
-- [x] assets/backgrounds/chronocreator_bg.png (3.12 MB)
-- [x] assets/backgrounds/chronologs_bg.png (2.81 MB)
+- [x] assets/backgrounds/creator_bg.jpg (61.8 KB)
+- [x] assets/backgrounds/timeline_bg.png (2.81 MB)
 - [x] assets/backgrounds/temporal_bg.png (2.65 MB)
 - [x] assets/backgrounds/si_console_bg.png (2.42 MB)
 - [x] assets/backgrounds/settings_bg.png (1.47 MB)
 - [x] assets/icons/home.png (1.42 MB)
 - [x] assets/icons/theme_icon.png (1.43 MB)
-- [x] assets/icons/chronologs_icon.png (324 KB)
+- [x] assets/icons/timeline_icon.png (324 KB)
 - [x] assets/icons/creator.png (187 KB)
 - [x] assets/icons/ops_icon.png (156 KB)
 - [x] assets/icons/si_console_icon.png (142 KB)

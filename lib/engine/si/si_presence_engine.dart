@@ -3,7 +3,7 @@
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/engine/si/si_cognitive_temperature_controller.dart';
 
-enum PresenceMode { quiet, steady, active, directive }
+enum PresenceMode { quiet, steady, active, guiding }
 
 class PresenceProfile {
   const PresenceProfile({
@@ -66,12 +66,12 @@ class SIPresenceEngine {
     if (intent.primary.label == 'start_focus' ||
         intent.primary.label == 'get_task') {
       return PresenceProfile(
-        mode: PresenceMode.directive,
+        mode: PresenceMode.guiding,
         assertiveness: siClamp01(0.72 + (temperature?.directness ?? 0.0) * 0.1),
         warmth: 0.74,
         guidanceDensity: 0.62,
         allowNudge: true,
-        reason: 'Action intent supports a more directive presence.',
+        reason: 'Action intent supports a more guiding presence.',
       );
     }
 
@@ -97,7 +97,7 @@ class SIPresenceEngine {
         return _truncate('$clean\n\nI’ll keep this clear.', 280);
       case PresenceMode.active:
         return _truncate(clean, 360);
-      case PresenceMode.directive:
+      case PresenceMode.guiding:
         return _truncate(clean, 340);
     }
   }

@@ -1,6 +1,6 @@
-import 'package:fantastic_guacamole/data/repositories/habit_repository.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 

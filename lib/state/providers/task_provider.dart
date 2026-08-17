@@ -10,20 +10,20 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/optimizer/optimization_config.dart';
-import 'package:fantastic_guacamole/engine/scoring/session_scoring_engine.dart';
+import 'package:fantastic_guacamole/engine/scoring/completion_scoring_engine.dart';
 import 'package:fantastic_guacamole/engine/tasks/task_filter.dart';
 import 'package:fantastic_guacamole/engine/tasks/task_ranker.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
-import 'package:fantastic_guacamole/state/models/session_score_view.dart';
+import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
-import 'package:fantastic_guacamole/state/providers/session_score_provider.dart';
+import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,7 +65,8 @@ class TaskActions {
   const TaskActions(this._ref);
 
   final Ref _ref;
-  static final SessionScoringEngine _scoringEngine = SessionScoringEngine();
+  static final CompletionScoringEngine _scoringEngine =
+      CompletionScoringEngine();
 
   Future<void> createTask(TaskEntity entity, {bool notify = false}) async {
     final String trimmed = entity.title.trim();
@@ -145,16 +146,16 @@ class TaskActions {
         taskPriority: selectedTask.priority,
       );
       _ref
-          .read(sessionScoreProvider.notifier)
+          .read(completionScoreProvider.notifier)
           .set(
-            SessionScoreView.fromScore(
+            CompletionScoreView.fromScore(
               score,
               durationSeconds: estimatedSeconds,
               taskTitle: selectedTask.title,
             ),
           );
       _ref.read(profileProvider.notifier).addXP(score.xp);
-      _ref.read(siStateProvider.notifier).sessionComplete();
+      _ref.read(siStateProvider.notifier).recordCompletion();
       unawaited(
         _recordCompletionSideEffects(
           task: selectedTask,
@@ -167,7 +168,7 @@ class TaskActions {
     }
 
     if (selectedTask == null) {
-      unawaited(_refreshCoachDecision(notify: notify));
+      unawaited(_refreshPlannerDecision(notify: notify));
     }
 
     if (selectedTask != null) {
@@ -257,7 +258,7 @@ class TaskActions {
           .read(notificationActionsProvider)
           .pushMirroredTaskSkipped(selectedTask.title);
     }
-    await _refreshCoachDecision(notify: notify);
+    await _refreshPlannerDecision(notify: notify);
 
     _ref
         .read(eventBusProvider)
@@ -273,7 +274,7 @@ class TaskActions {
     _ref.invalidate(goalProgressProvider);
   }
 
-  Future<void> _refreshCoachDecision({required bool notify}) async {
+  Future<void> _refreshPlannerDecision({required bool notify}) async {
     try {
       final decision = await _ref
           .read(generateSiDecisionUseCaseProvider)
@@ -299,7 +300,7 @@ class TaskActions {
           .read(notificationActionsProvider)
           .pushMirroredDecision(selectedTitle);
     } catch (_) {
-      // Skip coach refresh errors to avoid blocking task mutations.
+      // Skip planner refresh errors to avoid blocking task mutations.
     }
   }
 
@@ -354,7 +355,7 @@ class TaskActions {
             ),
           ),
     );
-    await _refreshCoachDecision(notify: notify);
+    await _refreshPlannerDecision(notify: notify);
   }
 
   Future<void> _recordCompletionSideEffects({
@@ -405,7 +406,7 @@ class TaskActions {
             .pushMirroredCompletionFeedback(task.title),
       );
     }
-    await _refreshCoachDecision(notify: notify);
+    await _refreshPlannerDecision(notify: notify);
   }
 
   Future<void> _bestEffort(Future<void> Function() operation) async {

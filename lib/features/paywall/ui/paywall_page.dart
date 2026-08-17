@@ -261,8 +261,8 @@ class _PaywallPageState extends ConsumerState<PaywallPage> {
               ? 'AI Credits + Premium'
               : 'Smart Credits + Premium',
           body: aiProxyConfigured
-              ? 'Unlock AI credits, premium coaching, deeper memory, and advanced tools.'
-              : 'Unlock smart credits, premium coaching, deeper memory, and advanced tools.',
+              ? 'Unlock AI credits, premium planning guidance, deeper memory, and advanced tools.'
+              : 'Unlock smart credits, premium planning guidance, deeper memory, and advanced tools.',
           plans: const <PaywallPlan>[],
           isUnlocked: false,
         );
@@ -968,11 +968,7 @@ class _PaywallErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.error_outline,
-            color: AppColors.recallRed,
-            size: 20,
-          ),
+          const Icon(Icons.error_outline, color: AppColors.recallRed, size: 20),
           const SizedBox(width: 10),
           const Expanded(
             child: Text(
@@ -985,10 +981,7 @@ class _PaywallErrorBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          TextButton(
-            onPressed: onRetry,
-            child: const Text('Retry'),
-          ),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );

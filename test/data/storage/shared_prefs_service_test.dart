@@ -10,10 +10,10 @@ void main() {
   });
 
   test('saves primitive settings', () async {
-    await SharedPrefsService.save('ui.theme', 'tactical');
+    await SharedPrefsService.save('ui.theme', 'midnight');
     await SharedPrefsService.save('focus.minutes', '25');
 
-    expect(SharedPrefsService.load('ui.theme'), 'tactical');
+    expect(SharedPrefsService.load('ui.theme'), 'midnight');
     expect(SharedPrefsService.load('focus.minutes'), '25');
   });
 

@@ -153,15 +153,18 @@ class TutorialProgress {
   factory TutorialProgress.fromJson(Map<String, Object?> json) {
     final completed = (json['completed'] as List<dynamic>? ?? const <dynamic>[])
         .whereType<String>()
+        .map(_normalizeTutorialStepId)
         .toSet();
 
     final dismissed = (json['dismissed'] as List<dynamic>? ?? const <dynamic>[])
         .whereType<String>()
+        .map(_normalizeTutorialStepId)
         .toSet();
 
     final skippedForever =
         (json['skippedForever'] as List<dynamic>? ?? const <dynamic>[])
             .whereType<String>()
+            .map(_normalizeTutorialStepId)
             .toSet();
 
     final started = json['started'] == true;
@@ -215,4 +218,9 @@ class TutorialProgress {
       contentVersion,
     );
   }
+}
+
+String _normalizeTutorialStepId(String id) {
+  // Preserve progress written before the Smart Planner terminology update.
+  return id == 'coach_quick_prompt' ? 'smart_planner_quick_prompt' : id;
 }

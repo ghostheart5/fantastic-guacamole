@@ -30,7 +30,7 @@ String? _followToStableLocation({
 }
 
 const List<String> _legacyPaths = <String>[
-  RoutePaths.legacyCoach,
+  RoutePaths.legacyPlanningRoute,
   RoutePaths.legacyLogs,
   RoutePaths.legacyNotifications,
   RoutePaths.legacyProgression,
@@ -46,7 +46,7 @@ const List<String> _allLocations = <String>[
   RoutePaths.home,
   RoutePaths.plan,
   RoutePaths.creator,
-  RoutePaths.insights,
+  RoutePaths.legacyInsights,
   RoutePaths.settings,
   RoutePaths.notifications,
   RoutePaths.logs,
@@ -72,29 +72,26 @@ void main() {
       for (final bool onboardingComplete in <bool>[false, true]) {
         for (final bool mockLoginEnabled in <bool>[false, true]) {
           for (final String location in _allLocations) {
-            test(
-              'stabilizes within redirectLimit: '
-              'auth=$isAuthenticated onboarding=$onboardingComplete '
-              'mock=$mockLoginEnabled @ $location',
-              () {
-                final String? stable = _followToStableLocation(
-                  isAuthenticated: isAuthenticated,
-                  onboardingComplete: onboardingComplete,
-                  mockLoginEnabled: mockLoginEnabled,
-                  location: location,
-                );
-                expect(
-                  stable,
-                  isNotNull,
-                  reason:
-                      'computeAppRedirect did not stabilize within 5 hops '
-                      'from $location (auth=$isAuthenticated, '
-                      'onboarding=$onboardingComplete, mock=$mockLoginEnabled) '
-                      '— this combination would throw '
-                      'TooManyRedirectsException in the real router.',
-                );
-              },
-            );
+            test('stabilizes within redirectLimit: '
+                'auth=$isAuthenticated onboarding=$onboardingComplete '
+                'mock=$mockLoginEnabled @ $location', () {
+              final String? stable = _followToStableLocation(
+                isAuthenticated: isAuthenticated,
+                onboardingComplete: onboardingComplete,
+                mockLoginEnabled: mockLoginEnabled,
+                location: location,
+              );
+              expect(
+                stable,
+                isNotNull,
+                reason:
+                    'computeAppRedirect did not stabilize within 5 hops '
+                    'from $location (auth=$isAuthenticated, '
+                    'onboarding=$onboardingComplete, mock=$mockLoginEnabled) '
+                    '— this combination would throw '
+                    'TooManyRedirectsException in the real router.',
+              );
+            });
           }
         }
       }
@@ -103,20 +100,17 @@ void main() {
 
   group('legacy routes', () {
     for (final String path in _legacyPaths) {
-      test(
-        '$path: onboarding incomplete redirects to onboarding first',
-        () {
-          expect(
-            computeAppRedirect(
-              isAuthenticated: true,
-              onboardingComplete: false,
-              mockLoginEnabled: false,
-              location: path,
-            ),
-            RoutePaths.onboarding,
-          );
-        },
-      );
+      test('$path: onboarding incomplete redirects to onboarding first', () {
+        expect(
+          computeAppRedirect(
+            isAuthenticated: true,
+            onboardingComplete: false,
+            mockLoginEnabled: false,
+            location: path,
+          ),
+          RoutePaths.onboarding,
+        );
+      });
 
       test('$path: onboarded but signed out redirects to login first', () {
         expect(
@@ -130,21 +124,18 @@ void main() {
         );
       });
 
-      test(
-        '$path: onboarded and authenticated defers to the route-level '
-        'redirect (top-level returns null)',
-        () {
-          expect(
-            computeAppRedirect(
-              isAuthenticated: true,
-              onboardingComplete: true,
-              mockLoginEnabled: false,
-              location: path,
-            ),
-            isNull,
-          );
-        },
-      );
+      test('$path: onboarded and authenticated defers to the route-level '
+          'redirect (top-level returns null)', () {
+        expect(
+          computeAppRedirect(
+            isAuthenticated: true,
+            onboardingComplete: true,
+            mockLoginEnabled: false,
+            location: path,
+          ),
+          isNull,
+        );
+      });
     }
   });
 

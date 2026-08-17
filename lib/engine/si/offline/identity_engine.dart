@@ -29,7 +29,7 @@ class IdentityEngine {
 
   IdentityState update({
     required IdentityState current,
-    required bool sessionCompleted,
+    required bool completionRecorded,
     required bool taskCompleted,
     required bool streakMaintained,
   }) {
@@ -39,8 +39,11 @@ class IdentityEngine {
             0.0,
             1.0,
           ),
-      focusIdentity: (current.focusIdentity + (sessionCompleted ? 0.03 : -0.01))
-          .clamp(0.0, 1.0),
+      focusIdentity:
+          (current.focusIdentity + (completionRecorded ? 0.03 : -0.01)).clamp(
+            0.0,
+            1.0,
+          ),
       growthIdentity: (current.growthIdentity + (streakMaintained ? 0.02 : 0.0))
           .clamp(0.0, 1.0),
     );

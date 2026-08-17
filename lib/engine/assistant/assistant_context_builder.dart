@@ -5,7 +5,7 @@ class DefaultAssistantContextBuilder implements AssistantContextBuilder {
   const DefaultAssistantContextBuilder();
 
   @override
-  Map<String, dynamic> buildSmartCoachContext({
+  Map<String, dynamic> buildSmartPlannerContext({
     required String input,
     required AssistantIntent intent,
     required double energy,
@@ -15,7 +15,7 @@ class DefaultAssistantContextBuilder implements AssistantContextBuilder {
     required List<String> goalSummaries,
   }) {
     return <String, dynamic>{
-      'surface': 'smart_coach',
+      'surface': 'smart_planner',
       'intent': intent.toJson(),
       'query': input,
       'energy': energy,

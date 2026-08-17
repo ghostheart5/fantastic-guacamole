@@ -119,7 +119,7 @@ class _MilestonesScreenState extends ConsumerState<MilestonesScreen> {
                   children: [
                     SmartPressable(
                       onTap: () =>
-                          ref.read(appFlowProvider.notifier).toSmartCoach(),
+                          ref.read(appFlowProvider.notifier).toSmartPlanner(),
                       child: Container(
                         width: 36,
                         height: 36,

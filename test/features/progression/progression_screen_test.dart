@@ -115,14 +115,14 @@ void main() {
     },
   );
 
-  testWidgets('the back arrow returns to the coach view', (
+  testWidgets('the back arrow returns to the planner view', (
     WidgetTester tester,
   ) async {
     final ProviderContainer container = await pumpProgression(
       tester,
       trajectory: _activeTrajectory,
     );
-    // Simulate having arrived here from somewhere other than the coach, so
+    // Simulate having arrived here from somewhere other than the planner, so
     // tapping back is actually exercising a transition, not a no-op.
     container.read(appFlowProvider.notifier).toProgression();
     await tester.pump();
@@ -130,7 +130,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
     await tester.pump();
 
-    expect(container.read(appFlowProvider), AppView.coach);
+    expect(container.read(appFlowProvider), AppView.nexus);
   });
 
   testWidgets(
@@ -204,8 +204,8 @@ const TrajectorySummaryView _emptyTrajectory = TrajectorySummaryView(
   energy: 0.5,
   momentum: 0.0,
   adaptability: 0.5,
-  lastSessionXp: 0,
-  lastSessionQuality: 0.0,
+  lastCompletionXp: 0,
+  lastCompletionQuality: 0.0,
   pressureIndex: 0,
   behaviorDivergence: 0,
   alert: '',
@@ -224,8 +224,8 @@ const TrajectorySummaryView _activeTrajectory = TrajectorySummaryView(
   energy: 0.78,
   momentum: 0.66,
   adaptability: 0.71,
-  lastSessionXp: 25,
-  lastSessionQuality: 0.83,
+  lastCompletionXp: 25,
+  lastCompletionQuality: 0.83,
   pressureIndex: 34,
   behaviorDivergence: 12,
   alert: 'Trajectory is calm.',
@@ -244,8 +244,8 @@ const TrajectorySummaryView _predictiveTrajectory = TrajectorySummaryView(
   energy: 0.6,
   momentum: 0.4,
   adaptability: 0.6,
-  lastSessionXp: 15,
-  lastSessionQuality: 0.7,
+  lastCompletionXp: 15,
+  lastCompletionQuality: 0.7,
   pressureIndex: 20,
   behaviorDivergence: 8,
   alert: 'Momentum dipping.',

@@ -147,9 +147,9 @@ All 29 expected feature folders are present.
 | insights | Present | ✅ |
 | progression | Present | ✅ |
 | memories | Present | ✅ |
-| soul_map | Present | ✅ |
+| personal_alignment | Present | ✅ |
 | si_console | Present | ✅ |
-| coach | Present | ✅ |
+| planner | Present | ✅ |
 | paywall | Present | ✅ |
 | notifications | Present | ✅ |
 | settings | Present | ✅ |
@@ -168,7 +168,7 @@ All 29 expected feature folders are present.
 | permissions | Present | ✅ |
 | support | Present | ✅ |
 
-Smart Coach audit (2026-07-11): 16/16 topics PASS, 7/7 audit questions PASS.
+Smart Planner audit (2026-07-11): 16/16 topics PASS, 7/7 audit questions PASS.
 
 ---
 
@@ -270,7 +270,7 @@ Total test files: 98 (up from 36 covered at v1 time).
 ## 10. References
 
 - [`AUDIT_SUMMARY.md`](AUDIT_SUMMARY.md) — v1 audit roadmap and Phase 1/2/3 plan
-- [`SMART_COACH_AUDIT.md`](SMART_COACH_AUDIT.md) — Coach topic coverage (all PASS)
+- [`SMART_PLANNER_AUDIT.md`](SMART_PLANNER_AUDIT.md) — Smart Planner topic coverage (all PASS)
 - [`PLAY_CLOSED_TESTING_AUDIT.md`](PLAY_CLOSED_TESTING_AUDIT.md) — Play upload gate checklist
 - [`SECURITY_PRIVACY_AUDIT.md`](SECURITY_PRIVACY_AUDIT.md) — Security controls checklist
 - [`FINAL_AUDIT_SCORECARD.md`](FINAL_AUDIT_SCORECARD.md) — Master checklist (update after each sprint)

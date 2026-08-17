@@ -27,7 +27,7 @@ AuthServiceContract createAuthService({
         user: const User(
           id: 'mock-always-auth-user',
           email: 'mock@chronospark.app',
-          displayName: 'Mock Operator',
+          displayName: 'Mock Planner',
           emailVerified: true,
         ),
       );

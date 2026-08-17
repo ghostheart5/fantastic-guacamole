@@ -29,7 +29,7 @@ class SISyntheticParacosmGenerator {
     final mode = safe && intent.primary.label == 'insight_request'
         ? 'constellation_room'
         : safe
-        ? 'command_center'
+        ? 'planning_hub'
         : 'quiet_room';
     final rule = safe
         ? 'Use symbolic framing only if it clarifies the next action.'

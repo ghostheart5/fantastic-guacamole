@@ -35,7 +35,7 @@ Grouped by feature area (UI files only; 38 screen/page files + shared widget/the
 
 **Canon feature screens**
 - Nexus (home): `features/nexus/ui/nexus_screen.dart`, `nexus_screen.widgets.dart`
-- Smart Planner: `features/home/ui/smart_coach_screen.dart` (+ `home/widgets/ai_decision_card.dart`)
+- Smart Planner: `features/home/ui/smart_planner_screen.dart` (+ `home/widgets/ai_decision_card.dart`)
 - Creator: `features/creator/ui/creator_screen.dart` (+ `widgets/dynamic_form.dart`, `input_field.dart`, `quick_input_bar.dart`, `type_selector.dart`)
 - SI Console: `features/si_console/ui/si_console_screen.dart`
 - Timeline: `features/timeline/ui/timeline_screen.dart`
@@ -46,7 +46,7 @@ Grouped by feature area (UI files only; 38 screen/page files + shared widget/the
 - Plan: `features/plan/ui/plan_screen.dart` (+ `widgets/timeline_view.dart`, `time_block_widget.dart`, `time_slot.dart`, `day_selector.dart`, `plan_header.dart`)
 - Profile: `features/profile/ui/profile_screen.dart` (+ `widgets/profile_header.dart`)
 - Settings: `features/settings/ui/settings_screen.dart`, `settings_screen.sections.dart`
-- Milestones/Goals/Memories/Soul Map/Flowmap: respective `ui/*_screen.dart`
+- Milestones/Goals/Memories/Personal Alignment/Flowmap: respective `ui/*_screen.dart`
 - Logs: `features/logs/ui/logs_screen.dart` (+ widgets)
 - Onboarding: `features/onboarding/ui/onboarding_screen.dart`
 - Tutorial: `lib/tutorial/tutorial_overlay.dart`, `widgets/micro_tutorial_card.dart`, `show_me_again_button.dart`
@@ -88,9 +88,9 @@ Grouped by feature area (UI files only; 38 screen/page files + shared widget/the
 - **H1 — Systemic sub-48dp touch targets.** Back buttons are 34–36px (`profile_header.dart:132`, `settings_screen.dart:74`, `paywall_page.dart:253`, `notification_screen.dart:68`, timeline/goals/memories/soul-map headers); "COMPLETE" is a 10px `Text` (`time_block_widget.dart:125`); priority bars are 6px tall (`dynamic_form.dart:306`); value/emotion chips ~26-28px. Below Material's 48×48 minimum.
 - **H2 — Icon-only controls lack `Semantics`/`Tooltip`.** Notification bell, voice/mic/speak/summary chips, chevrons, star toggle, delete-node all use bare `GestureDetector`/`SmartPressable`. Only `HoloButton` and a couple of `IconButton`s are labelled.
 - **H3 — Text-scaling fragility.** Dozens of fixed 7–11px fonts + `FittedBox` scale-down; `0` uses of `MediaQuery.textScaler`. Large-font accessibility users get clipped/misaligned layouts.
-- **H4 — Weak visual-state coverage on core surfaces.** Tasks, Profile, Timeline, Soul Map, Progression read synchronous providers or `.asData?.value` and render failures as empty (`timeline_screen.dart:41`, `nexus_screen.widgets.dart:725`, `profile_screen.dart:25`). No skeleton/error/retry.
+- **H4 — Weak visual-state coverage on core surfaces.** Tasks, Profile, Timeline, Personal Alignment, Progression read synchronous providers or `.asData?.value` and render failures as empty (`timeline_screen.dart:41`, `nexus_screen.widgets.dart:725`, `profile_screen.dart:25`). No skeleton/error/retry.
 - **H5 — Duplicate/competing components** (visual inconsistency): 4 buttons (`app_button` r-hardcoded, `neon_button`, `holo_button`, `smart_pressable` used in 20 files) and 4 card/panel looks with 4 radii (`app_card` r14, `neon_card` r24, `neon_panel` r32, `glass_panel` r20). Screens don't look like one product.
-- **H6 — "SMART COACH" appears in visible UI** (naming mismatch, report-only per scope): screen header `smart_coach_screen.dart:456`, onboarding tag `onboarding_screen.dart:45`, tutorial title `tutorial_content.dart:56` — while the same screens elsewhere say "Smart Planner". User sees two names for one feature.
+- **H6 — "SMART PLANNER" appears in visible UI** (naming mismatch, report-only per scope): screen header `smart_planner_screen.dart:456`, onboarding tag `onboarding_screen.dart:45`, tutorial title `tutorial_content.dart:56` — while the same screens elsewhere say "Smart Planner". User sees two names for one feature.
 - **H7 — Contrast.** Pervasive `Colors.white24/38/54` text at 9–11px on translucent dark cards — below WCAG AA for small text.
 - **H8 — Status-bar icon style unmanaged.** `0` uses of `SystemUiOverlayStyle`/`AnnotatedRegion`; on light backgrounds or certain OEMs the status-bar icons can be unreadable.
 
@@ -187,7 +187,7 @@ Grouped by feature area (UI files only; 38 screen/page files + shared widget/the
 | Paywall | ✅ | ⚠ (empty plans silent) | ✅ (restore) | ✅ | no purchase-in-progress state |
 | Login/Auth | ✅ | — | ✅ (mapped+timeout) | ✅ | best-in-app |
 | Logs | ✅ | ✅ | ✅ | ✅ | good |
-| Profile/Goals/Memories/Soul Map | ❌ | ✅ (some) | ❌ | ✅ | sync providers mask failures |
+| Profile/Goals/Memories/Personal Alignment | ❌ | ✅ (some) | ❌ | ✅ | sync providers mask failures |
 
 Legend: ✅ complete · ⚠ partial/weak · ❌ missing. **Offline** and **skeleton** states are essentially absent app-wide (only `OfflineBanner` exists as a global affordance).
 
@@ -197,7 +197,7 @@ Legend: ✅ complete · ⚠ partial/weak · ❌ missing. **Offline** and **skele
 
 **Phase 1 — Release blockers (visual/layout only):** B1 (Timeline `Expanded`), B2 (onboarding keyboard inset), B4 (TimeSlot color), B5 (SI composer height). Small, isolated, low-risk.
 
-**Phase 2 — High-priority visual consistency:** H1 touch targets, H2 semantics/tooltips on icon buttons, H4 add loading/error/skeleton to Tasks/Profile/Timeline/Nexus, H5 pick one button + one card component, H6 fix visible "SMART COACH" copy.
+**Phase 2 — High-priority visual consistency:** H1 touch targets, H2 semantics/tooltips on icon buttons, H4 add loading/error/skeleton to Tasks/Profile/Timeline/Nexus, H5 pick one button + one card component, H6 fix visible "SMART PLANNER" copy.
 
 **Phase 3 — Theme/token cleanup (larger):** B3 route colors through `colorScheme`; wire `darkTheme`+`themeMode`; merge the two palettes and three spacing/radius systems; fix `shadows.dart` violet; resolve `w800` (M8).
 

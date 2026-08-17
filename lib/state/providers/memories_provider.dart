@@ -127,7 +127,7 @@ class MemoriesActions {
   Future<void> saveMirroredMemory(String text) {
     return _ref
         .read(memoriesProvider.notifier)
-        .capture(text, refreshCoach: false, syncSoulMap: false);
+        .capture(text, refreshPlanner: false, syncPersonalAlignment: false);
   }
 }
 
@@ -145,8 +145,8 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
     List<String> tags = const <String>[],
     Map<String, String> metadata = const <String, String>{},
     String source = 'manual',
-    bool refreshCoach = true,
-    bool syncSoulMap = true,
+    bool refreshPlanner = true,
+    bool syncPersonalAlignment = true,
   }) async {
     final String normalizedText = text.trim();
     if (normalizedText.isEmpty) {
@@ -192,11 +192,11 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
       }
     }
 
-    if (syncSoulMap) {
+    if (syncPersonalAlignment) {
       ref.invalidate(soulStateProvider);
     }
-    if (refreshCoach) {
-      await _refreshCoachDecision();
+    if (refreshPlanner) {
+      await _refreshPlannerDecision();
     }
     ref
         .read(eventBusProvider)
@@ -314,8 +314,8 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
     if (lowered.contains('prefer') || lowered.contains('like to')) {
       return MemoryCategory.userPreference;
     }
-    if (lowered.contains('coach') && lowered.contains('style')) {
-      return MemoryCategory.coachingPreference;
+    if (lowered.contains('planner') && lowered.contains('style')) {
+      return MemoryCategory.planningGuidancePreference;
     }
     if (lowered.contains('value') || lowered.contains('belief')) {
       return MemoryCategory.value;
@@ -423,12 +423,12 @@ class MemoriesNotifier extends Notifier<List<MemoryEntity>> {
         .toList(growable: false);
   }
 
-  Future<void> _refreshCoachDecision() async {
+  Future<void> _refreshPlannerDecision() async {
     try {
       await ref.read(generateSiDecisionUseCaseProvider).call();
       ref.invalidate(domainSiDecisionProvider);
     } catch (_) {
-      // Avoid blocking memory saves if coach refresh fails.
+      // Avoid blocking memory saves if planner refresh fails.
     }
   }
 }

@@ -728,7 +728,7 @@ class _CoreSignalsStrip extends StatelessWidget {
                 ),
               ),
               SvgPicture.asset(
-                AppAssets.iconInsights,
+                AppAssets.iconReflect,
                 width: 16,
                 height: 16,
                 colorFilter: const ColorFilter.mode(
@@ -852,7 +852,7 @@ class _DependencyMesh extends ConsumerWidget {
         ? 'No recent memory capture'
         : memories.first.text;
 
-    // Sync copy is read by people, not operators: describe what happened
+    // Sync copy is read by people: describe what happened
     // rather than exposing the service state (LIVE/DEGRADED/SYNCING).
     final bool syncFailed = !modelAsync.isLoading && modelAsync.hasError;
     final String syncStatus = modelAsync.isLoading
@@ -890,18 +890,19 @@ class _DependencyMesh extends ConsumerWidget {
           runSpacing: 12,
           children: [
             _DependencyCard(
-              // The feature is Smart Planner. "Coach" was a leftover name for
+              // The feature is Smart Planner. "Planner" was a leftover name for
               // the same surface and made one feature look like two.
               label: 'Smart Planner',
               accent: AppColors.neonCyan,
               emphasize: true,
               value: modelAsync.isLoading
                   ? 'Syncing'
-                  : (decision?.coachMessage.trim().isNotEmpty ?? false)
+                  : (decision?.plannerMessage.trim().isNotEmpty ?? false)
                   ? 'Live'
                   : 'Idle',
               headline:
-                  decision?.coachMessage ?? 'No active coaching advice yet.',
+                  decision?.plannerMessage ??
+                  'No active planning guidance yet.',
               detail: (decision?.nextAction.trim().isNotEmpty ?? false)
                   ? 'Next action: ${decision!.nextAction}'
                   : 'SI engine advice routed into Nexus.',
@@ -1313,7 +1314,7 @@ class _ActionGrid extends ConsumerWidget {
           if (compact) ...[
             HoloButton(
               label: 'Smart Planner',
-              onTap: () => ref.read(appFlowProvider.notifier).toSmartCoach(),
+              onTap: () => ref.read(appFlowProvider.notifier).toSmartPlanner(),
             ),
             const SizedBox(height: 10),
             HoloButton(
@@ -1329,9 +1330,9 @@ class _ActionGrid extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             HoloButton(
-              label: 'Insights',
+              label: 'Planner Analysis',
               color: AppColors.neonViolet,
-              onTap: () => ref.read(appFlowProvider.notifier).toInsight(),
+              onTap: () => ref.read(appFlowProvider.notifier).toSmartPlanner(),
             ),
             const SizedBox(height: 10),
             HoloButton(
@@ -1357,7 +1358,7 @@ class _ActionGrid extends ConsumerWidget {
                   child: HoloButton(
                     label: 'Smart Planner',
                     onTap: () =>
-                        ref.read(appFlowProvider.notifier).toSmartCoach(),
+                        ref.read(appFlowProvider.notifier).toSmartPlanner(),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1383,9 +1384,10 @@ class _ActionGrid extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: HoloButton(
-                    label: 'Insights',
+                    label: 'Planner Analysis',
                     color: AppColors.neonViolet,
-                    onTap: () => ref.read(appFlowProvider.notifier).toInsight(),
+                    onTap: () =>
+                        ref.read(appFlowProvider.notifier).toSmartPlanner(),
                   ),
                 ),
               ],

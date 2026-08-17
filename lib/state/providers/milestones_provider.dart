@@ -483,7 +483,7 @@ class MilestonesNotifier extends AsyncNotifier<List<MilestoneEntity>> {
       status: TimelineEventStatus.planned,
       relatedId: milestone.id,
     );
-    await _refreshCoachDecision();
+    await _refreshPlannerDecision();
   }
 
   Future<void> updateMilestone(MilestoneEntity updated) async {
@@ -497,7 +497,7 @@ class MilestonesNotifier extends AsyncNotifier<List<MilestoneEntity>> {
         .toList(growable: false);
     await _persist(next);
     state = AsyncData(next);
-    await _refreshCoachDecision();
+    await _refreshPlannerDecision();
   }
 
   Future<void> updateProgress(String id, double completionPercent) async {
@@ -538,7 +538,7 @@ class MilestonesNotifier extends AsyncNotifier<List<MilestoneEntity>> {
         relatedId: target!.id,
       );
     }
-    await _refreshCoachDecision();
+    await _refreshPlannerDecision();
   }
 
   Future<void> complete(String id, {String? reflection}) async {
@@ -584,7 +584,7 @@ class MilestonesNotifier extends AsyncNotifier<List<MilestoneEntity>> {
             ),
           );
     }
-    await _refreshCoachDecision();
+    await _refreshPlannerDecision();
   }
 
   Future<void> archive(String id) async {
@@ -673,7 +673,7 @@ class MilestonesNotifier extends AsyncNotifier<List<MilestoneEntity>> {
         );
   }
 
-  Future<void> _refreshCoachDecision() async {
+  Future<void> _refreshPlannerDecision() async {
     try {
       await ref.read(generateSiDecisionUseCaseProvider).call();
       ref.invalidate(domainSiDecisionProvider);
