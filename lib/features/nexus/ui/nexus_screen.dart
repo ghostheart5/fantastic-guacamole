@@ -75,23 +75,23 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
         ? 'Moderate'
         : 'Light';
     final String growthTitle = profile.streak >= 21
-        ? 'Compounding Momentum'
+        ? 'Strong completion streak'
         : profile.streak >= 7
-        ? 'Stable Growth Arc'
+        ? 'Consistent completion streak'
         : completedTasks > 0
-        ? 'Early Growth Signal'
-        : 'Growth Engine Priming';
+        ? 'Early completion signal'
+        : 'No completion history yet';
     final String narrativeSummary = completedTasks > 0
         ? 'Momentum is active. Keep the next action small and immediate.'
-        : 'No completed actions yet. Start with one clear task to establish narrative continuity.';
-    final int soulContinuityPct =
+        : 'No completed actions yet. Start with one clear task to establish a baseline.';
+    final int energyMomentumPct =
         ((((1 - fatigue) * 0.55) + (momentum * 0.45)).clamp(0.0, 1.0) * 100)
             .round();
-    final double narrativePresence =
+    final double activityPresence =
         ((completedTasks > 0 ? 0.5 : 0.28) +
                 (profile.streak.clamp(0, 14) / 14) * 0.5)
             .clamp(0.0, 1.0);
-    final int narrativePresencePct = (narrativePresence * 100).round();
+    final int activityPresencePct = (activityPresence * 100).round();
 
     return AnimatedSystemBackground(
       backgroundAssetPath: 'assets/backgrounds/nexus_bg.jpg',
@@ -142,8 +142,8 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                     narrativeSummary: narrativeSummary,
                     consistencySignal: consistencySignal,
                     loadSignal: loadSignal,
-                    soulContinuityPct: soulContinuityPct,
-                    narrativePresencePct: narrativePresencePct,
+                    energyMomentumPct: energyMomentumPct,
+                    activityPresencePct: activityPresencePct,
                   ),
                 ),
               ),

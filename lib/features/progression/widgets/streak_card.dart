@@ -80,7 +80,7 @@ class StreakCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  progress.streakMessage,
+                  '${progress.streakMessage}  Longest: ${progress.longestStreak}d.',
                   style: const TextStyle(fontSize: 12, color: Colors.white54),
                 ),
               ],

@@ -89,7 +89,7 @@ class CreatorScreen extends ConsumerWidget {
                             ),
                           ),
                           const Text(
-                            'OPTIONAL ENTRY FORGE',
+                            'INTENTION → CONNECTED ACTION',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -126,7 +126,9 @@ class CreatorScreen extends ConsumerWidget {
                         ..hideCurrentSnackBar()
                         ..showSnackBar(
                           const SnackBar(
-                            content: Text('Entry created.'),
+                            content: Text(
+                              'Captured. Your next step is ready in Timeline.',
+                            ),
                             duration: Duration(seconds: 2),
                             behavior: SnackBarBehavior.floating,
                           ),
@@ -201,7 +203,7 @@ class _CreatorPurposeCard extends StatelessWidget {
         border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.14)),
       ),
       child: const Text(
-        'Creator is optional. Use Smart Planner and Day Plan for guided workflows. Use Creator when you want direct, manual task forging.',
+        'Start with a rough intention. Creator turns it into a clear action that can live in Timeline, inform Nexus, and leave evidence for Progression.',
         style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.45),
       ),
     );

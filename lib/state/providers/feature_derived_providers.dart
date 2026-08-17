@@ -23,7 +23,7 @@ final userGrowthProvider = Provider<UserGrowthState>((ref) {
 
   return const UserGrowthEngine().update(
     const UserGrowthState(),
-    completedTasks: profile.xp ~/ 10,
+    completedTasks: traj.completedTasks,
     streak: profile.streak,
     consistency: consistency,
   );
@@ -50,7 +50,7 @@ final narrativeProvider = Provider<UserNarrative>((ref) {
 
   return const NarrativeEngine().generate(
     streak: profile.streak,
-    completedTasks: profile.xp ~/ 10,
+    completedTasks: ref.watch(trajectorySummaryProvider).completedTasks,
     consistency: consistency,
   );
 });

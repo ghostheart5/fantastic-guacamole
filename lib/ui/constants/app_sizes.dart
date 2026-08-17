@@ -6,6 +6,9 @@ class AppSizes {
   static const sm = 10.0;
   static const md = 16.0;
   static const panelRadius = 22.0;
+  static const touchTarget = 48.0;
+  static const spaceLg = 24.0;
+  static const spaceXl = 32.0;
 
   // Font-size tier for the small/body text range that is duplicated across
   // many screens (Phase 6, M-1). Values match the literals already in use —

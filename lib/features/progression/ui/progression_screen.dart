@@ -167,7 +167,7 @@ class ProgressionScreen extends ConsumerWidget {
                             ),
                           ),
                           const Text(
-                            'MOMENTUM + HISTORY',
+                            'CAPABILITY BUILT THROUGH ACTION',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -250,7 +250,7 @@ class _ProgressSignalsCard extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                'GROWTH SIGNALS',
+                'CAPABILITY SIGNALS',
                 style: TextStyle(
                   fontSize: 10,
                   letterSpacing: 2.5,
@@ -261,13 +261,13 @@ class _ProgressSignalsCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 14),
-          _SignalRow(label: 'Momentum', value: signals.momentum),
+          _SignalRow(label: 'Follow-through', value: signals.momentum),
           const SizedBox(height: 10),
-          _SignalRow(label: 'Consistency', value: signals.consistency),
+          _SignalRow(label: 'Planning reliability', value: signals.consistency),
           const SizedBox(height: 10),
-          _SignalRow(label: 'Load', value: signals.load),
+          _SignalRow(label: 'Recovery load', value: signals.load),
           const SizedBox(height: 10),
-          _SignalRow(label: 'Direction', value: signals.direction),
+          _SignalRow(label: 'Future direction', value: signals.direction),
         ],
       ),
     );
@@ -343,7 +343,7 @@ class _NarrativeCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'TRAJECTORY NARRATIVE',
+            'WHAT YOUR ACTIONS ARE CHANGING',
             style: TextStyle(
               fontSize: 9,
               letterSpacing: 2.5,
@@ -394,7 +394,7 @@ class _AdvisorSummaryCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'SYSTEM GUIDANCE',
+            'NEXT CAPABILITY TO PRACTICE',
             style: TextStyle(
               fontSize: 9,
               letterSpacing: 2.5,
@@ -471,11 +471,17 @@ class _XpProgressChartCard extends ConsumerWidget {
             style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 110,
-            width: double.infinity,
-            child: CustomPaint(painter: _XpLineChartPainter(points: points)),
-          ),
+          if (points.isEmpty)
+            const Text(
+              'Complete activity to establish a real progress history.',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            )
+          else
+            SizedBox(
+              height: 110,
+              width: double.infinity,
+              child: CustomPaint(painter: _XpLineChartPainter(points: points)),
+            ),
         ],
       ),
     );
@@ -509,18 +515,7 @@ class _XpProgressChartCard extends ConsumerWidget {
       completedByDay[key] = math.max(existing, completed);
     }
 
-    if (completedByDay.isEmpty) {
-      final int base = math.max(0, currentXp - 60);
-      return List<_XpPoint>.generate(6, (int index) {
-        final DateTime day = DateTime(
-          now.year,
-          now.month,
-          now.day,
-        ).subtract(Duration(days: 5 - index));
-        final double t = index / 5;
-        return _XpPoint(day, (base + ((currentXp - base) * t)).round());
-      });
-    }
+    if (completedByDay.isEmpty) return <_XpPoint>[];
 
     final List<MapEntry<String, int>> sorted = completedByDay.entries.toList(
       growable: true,

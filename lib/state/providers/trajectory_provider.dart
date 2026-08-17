@@ -36,11 +36,14 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
           .clamp(0.0, 100.0)
           .round();
 
-  final String alert = pressureIndex >= 70
+  final bool hasTaskData = tasksAsync is AsyncData;
+  final String alert = !hasTaskData
+      ? 'SI STATUS: trajectory data is temporarily unavailable.'
+      : pressureIndex >= 70
       ? 'SI ALERT: load is high, reduce task density.'
       : pressureIndex >= 40
       ? 'SI ALERT: trajectory is stable but watch drift.'
-      : 'SI ALERT: trajectory is calm.';
+      : 'SI STATUS: current load signal is low.';
 
   final String? predictionTitle = tasksAsync.maybeWhen(
     data: (tasks) => tasks.isEmpty ? null : tasks.first.title,

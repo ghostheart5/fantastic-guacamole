@@ -234,7 +234,7 @@ class _TrajectorySummaryCard extends StatelessWidget {
           if (summary.hasPrediction) ...[
             const SizedBox(height: 12),
             Text(
-              'Prediction: ${summary.predictionOutcome} · ${(predictionProbability * 100).round()}%',
+              'Historical signal: ${summary.predictionOutcome} · ${(predictionProbability * 100).round()}%',
               style: const TextStyle(
                 color: Colors.white54,
                 fontSize: 12,
@@ -269,8 +269,8 @@ class _PredictiveSiReportCard extends StatelessWidget {
         summary.predictionExplanation ??
         'Prediction details are unavailable right now.';
     final String forecast = summary.hasPrediction
-        ? '${summary.predictionTitle}: ${summary.predictionOutcome} · ${(predictionProbability * 100).round()}%'
-        : 'No explicit model prediction yet. Using live trajectory signals.';
+        ? '${summary.predictionTitle}: historical signal ${summary.predictionOutcome} · ${(predictionProbability * 100).round()}%'
+        : 'No historical signal yet. Using live trajectory signals.';
     final String guidance = summary.hasPrediction
         ? predictionExplanation
         : summary.alert;

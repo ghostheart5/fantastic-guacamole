@@ -175,7 +175,7 @@ class _ConfidenceChip extends StatelessWidget {
         border: Border.all(color: Colors.white10, width: 0.5),
       ),
       child: Text(
-        '${(confidence * 100).round()}% CONF',
+        '${(confidence * 100).round()}% SIGNAL',
         style: const TextStyle(
           fontSize: 9,
           color: Colors.white38,

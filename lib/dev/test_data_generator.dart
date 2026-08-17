@@ -35,7 +35,9 @@ class TestDataGenerator {
 
     try {
       // Seed profile XP (addXP also triggers streak logic for today)
-      await ref.read(profileProvider.notifier).addXP(2400);
+      await ref
+          .read(profileProvider.notifier)
+          .awardXP(2400, source: 'test_seed');
 
       // Boost energy to 75% via SI state
       final si = ref.read(siStateProvider);

@@ -153,7 +153,9 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
       _GoalAction.updated => 6,
       _GoalAction.completed => 40,
     };
-    await ref.read(profileProvider.notifier).addXP(progressionXp);
+    await ref
+        .read(profileProvider.notifier)
+        .awardXP(progressionXp, source: 'goal_$actionName');
     ref.invalidate(insightsBundleProvider);
     await _refreshPlannerDecision();
     ref

@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,6 +23,11 @@ class WeeklySummaryCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
     final traj = ref.watch(trajectorySummaryProvider);
+    final milestoneSummary = ref.watch(milestoneSummaryProvider);
+    final timelineMilestones = ref
+        .watch(timelineProvider)
+        .where((event) => event.isMilestone)
+        .length;
 
     return Container(
       width: double.infinity,
@@ -86,7 +92,7 @@ class WeeklySummaryCard extends ConsumerWidget {
           Row(
             children: [
               _StatColumn(
-                label: 'TASKS DONE',
+                label: 'TOTAL COMPLETED',
                 value: '${traj.completedTasks}',
                 color: AppColors.neonCyan,
               ),
@@ -103,6 +109,11 @@ class WeeklySummaryCard extends ConsumerWidget {
                 color: _pressureColor(traj.pressureIndex),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Milestones completed: ${milestoneSummary.completed}/${milestoneSummary.total}  •  Timeline milestones: $timelineMilestones',
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
         ],
       ),

@@ -22,6 +22,7 @@ class ProfileState {
   final String name;
   final bool soundEnabled;
   final DateTime? lastActiveDate;
+  final Map<String, int> xpBySource;
 
   /// Highest level this user had reached under the pre-migration linear curve
   /// (`(xp ~/ 50) + 1`), which granted levels far faster than the canonical
@@ -45,6 +46,7 @@ class ProfileState {
     this.name = 'ChronoSpark User',
     this.soundEnabled = true,
     this.lastActiveDate,
+    this.xpBySource = const <String, int>{},
     this.legacyLevelFloor = 1,
   });
 
@@ -58,6 +60,7 @@ class ProfileState {
     bool? soundEnabled,
     DateTime? lastActiveDate,
     bool clearLastActiveDate = false,
+    Map<String, int>? xpBySource,
     int? legacyLevelFloor,
   }) {
     return ProfileState(
@@ -71,6 +74,7 @@ class ProfileState {
       lastActiveDate: clearLastActiveDate
           ? null
           : (lastActiveDate ?? this.lastActiveDate),
+      xpBySource: xpBySource ?? this.xpBySource,
       legacyLevelFloor: legacyLevelFloor ?? this.legacyLevelFloor,
     );
   }
@@ -83,6 +87,7 @@ class ProfileState {
     'name': name,
     'soundEnabled': soundEnabled,
     'lastActiveDate': lastActiveDate?.toIso8601String(),
+    'xpBySource': xpBySource,
     'legacyLevelFloor': legacyLevelFloor,
   };
 
@@ -114,6 +119,12 @@ class ProfileState {
       lastActiveDate: json['lastActiveDate'] != null
           ? DateTime.tryParse(json['lastActiveDate'] as String)
           : null,
+      xpBySource:
+          (json['xpBySource'] as Map?)?.map(
+            (key, value) =>
+                MapEntry(key.toString(), (value as num?)?.toInt() ?? 0),
+          ) ??
+          const <String, int>{},
       legacyLevelFloor: floor,
     );
   }
@@ -257,6 +268,18 @@ class ProfileController extends Notifier<ProfileState> {
       unawaited(_scheduleStreakBreakNotification(now: now));
     }
     unawaited(_refreshPlannerDecision());
+  }
+
+  /// Awards XP for a meaningful domain action and records its provenance.
+  /// Existing callers may continue using [addXP] for compatibility; new
+  /// product flows should use this method so progression remains explainable.
+  Future<void> awardXP(int amount, {required String source}) async {
+    await addXP(amount);
+    if (!ref.mounted) return;
+    final Map<String, int> sources = <String, int>{...state.xpBySource};
+    sources[source] = (sources[source] ?? 0) + amount;
+    state = state.copyWith(xpBySource: Map<String, int>.unmodifiable(sources));
+    await _save();
   }
 
   void clearLeveledUp() {

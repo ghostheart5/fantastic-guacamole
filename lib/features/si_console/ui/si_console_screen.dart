@@ -849,7 +849,7 @@ class _Header extends StatelessWidget {
                     // onboarding, so expand it here: a user arriving on this
                     // screen otherwise has no way to learn what it means.
                     const Text(
-                      'Synthetic Intelligence',
+                      'Systems intelligence · on-device guidance',
                       style: TextStyle(
                         fontSize: 10,
                         letterSpacing: 0.5,

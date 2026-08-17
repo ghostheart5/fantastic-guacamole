@@ -210,7 +210,9 @@ class ChatAgent extends AiAgent {
           message: message,
           reasoning: reasoning,
           emotion: payload['emotion']?.toString() ?? 'balanced',
-          confidence: (payload['confidence'] as num?)?.toDouble() ?? 0.8,
+          // A missing model confidence is not evidence of 80% reliability.
+          // Keep the fallback neutral and let the UI describe it as a signal.
+          confidence: (payload['confidence'] as num?)?.toDouble() ?? 0.5,
         ),
       );
     } on TimeoutException {

@@ -682,16 +682,16 @@ class _CoreSignalsStrip extends StatelessWidget {
     required this.narrativeSummary,
     required this.consistencySignal,
     required this.loadSignal,
-    required this.soulContinuityPct,
-    required this.narrativePresencePct,
+    required this.energyMomentumPct,
+    required this.activityPresencePct,
   });
 
   final String growthTitle;
   final String narrativeSummary;
   final String consistencySignal;
   final String loadSignal;
-  final int soulContinuityPct;
-  final int narrativePresencePct;
+  final int energyMomentumPct;
+  final int activityPresencePct;
 
   @override
   Widget build(BuildContext context) {
@@ -790,10 +790,13 @@ class _CoreSignalsStrip extends StatelessWidget {
               _SignalPill(label: 'Consistency', value: consistencySignal),
               _SignalPill(label: 'Load', value: loadSignal),
               _SignalPill(
-                label: 'Soul Continuity',
-                value: '$soulContinuityPct%',
+                label: 'Energy + momentum',
+                value: '$energyMomentumPct%',
               ),
-              _SignalPill(label: 'Narrative', value: '$narrativePresencePct%'),
+              _SignalPill(
+                label: 'Activity history',
+                value: '$activityPresencePct%',
+              ),
             ],
           ),
         ],
@@ -1216,8 +1219,8 @@ class _FirstRunCta extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Add one task you want to get done. '
-            'ChronoSpark builds your plan and tracks your progress from there.',
+            'Bring one imperfect intention. Creator will shape it into an action, '
+            'Timeline will remember it, and Nexus will use it to guide the next decision.',
             style: TextStyle(
               color: Colors.white70,
               fontSize: AppSizes.fontBodyLg,
@@ -1226,7 +1229,7 @@ class _FirstRunCta extends ConsumerWidget {
           ),
           const SizedBox(height: 14),
           HoloButton(
-            label: 'Create your first task',
+            label: 'Turn an intention into a path',
             onTap: () => ref.read(appFlowProvider.notifier).toCreator(),
           ),
         ],

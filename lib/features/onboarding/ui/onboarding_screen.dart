@@ -35,9 +35,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       iconColor: Color(0xFF00E5FF),
       tag: 'WELCOME',
       title: 'CHRONOSPARK',
-      subtitle: 'Temporal Intelligence System',
+      subtitle: 'A living decision system',
       body:
-          'Your personal intelligence core. ChronoSpark reads your energy, tracks your evolution, and helps you execute at your highest level every day.',
+          'Bring an intention, shape a path, act, and learn what your choices are changing. ChronoSpark keeps the context beside the decision.',
     ),
     _Slide(
       icon: Icons.psychology_rounded,
@@ -46,34 +46,34 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       title: 'LIFE GUIDANCE',
       subtitle: 'Adaptive personal planning',
       body:
-          'Smart Planner reads your emotional state, energy signature, and behavior patterns to generate practical guidance. This is not a checklist bot. It is your strategy layer.',
+          'Smart Planner reconciles your current tasks, time, energy, goals, and history into an explainable next move you can accept or change.',
     ),
     _Slide(
       icon: Icons.timer_rounded,
       iconColor: Color(0xFF00E5FF),
       tag: 'TRAJECTORY ENGINE',
-      title: 'PREDICTIONS & ACTIONS',
+      title: 'COMPARE POSSIBLE PATHS',
       subtitle: 'Own your next move',
       body:
-          'Trajectory Engine converts behavior signals into forward projections and practical actions so you can move with clarity.',
+          'Trajectory Engine compares explicit scenarios and tradeoffs. It helps you choose a direction without pretending the future is guaranteed.',
     ),
     _Slide(
       icon: Icons.trending_up_rounded,
       iconColor: Color(0xFF00E5FF),
-      tag: 'ACTIVITY LEDGER',
+      tag: 'TIMELINE MEMORY',
       title: 'VERIFIED HISTORY',
       subtitle: 'Review what actually happened',
       body:
-          'Activity Ledger records completed actions and milestones in one trusted timeline so you can audit execution and upgrade your system.',
+          'Timeline remembers actions, decisions, milestones, and consequences so each new choice has more context than the last.',
     ),
     _Slide(
       icon: Icons.touch_app_rounded,
       iconColor: Color(0xFF00E5FF),
-      tag: 'PAGE GUIDE',
-      title: 'WHAT TO CLICK',
-      subtitle: 'Quick control map',
+      tag: 'THE CHRONOSPARK LOOP',
+      title: 'SEE THE SYSTEM CONNECT',
+      subtitle: 'From intention to capability',
       body:
-          'Nexus: scan signals, choose one next move.\nTrajectory: read prediction, then commit to one next move.\nCreator: forge manual tasks only when needed.\nActivity Ledger: audit completed actions and patterns.',
+          'Creator shapes the intention. Timeline keeps the memory. Nexus synthesizes the present. Smart Planner explains the next move. Trajectory compares paths. Progression shows what became more reliable.',
     ),
   ];
 

@@ -25,4 +25,12 @@ class AppColors {
 
   static const textMuted = Color(0xFFB6AEC4);
   static const textDim = Color(0xFF8C839E);
+
+  static const surfaceBase = bgPrimary;
+  static const surfaceRaised = bgSecondary;
+  static const surfaceElevated = bgTertiary;
+  static const textTertiary = textDim;
+  static const statusPositive = neonCyan;
+  static const statusCaution = memoryAmber;
+  static const statusCritical = recallRed;
 }

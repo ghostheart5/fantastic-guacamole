@@ -42,7 +42,7 @@ const TrajectorySummaryView _summary = TrajectorySummaryView(
   lastCompletionQuality: 0.84,
   pressureIndex: 36,
   behaviorDivergence: 12,
-  alert: 'SI ALERT: trajectory is calm.',
+  alert: 'SI STATUS: current load signal is low.',
   predictionTitle: null,
   predictionOutcome: null,
   predictionProbability: null,

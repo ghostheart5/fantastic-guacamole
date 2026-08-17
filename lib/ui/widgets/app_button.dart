@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
 
 class AppButton extends StatelessWidget {
   const AppButton({
@@ -19,10 +20,17 @@ class AppButton extends StatelessWidget {
     final String caption = label ?? text ?? 'Action';
     final VoidCallback? action = onPressed ?? onTap;
 
-    return ElevatedButton(
-      onPressed: action,
-      style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
-      child: Text(caption),
+    return Semantics(
+      button: true,
+      label: caption,
+      child: ElevatedButton(
+        onPressed: action,
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(AppSizes.touchTarget, AppSizes.touchTarget),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+        child: Text(caption),
+      ),
     );
   }
 }

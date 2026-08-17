@@ -895,13 +895,13 @@ class AIController {
         '1. ${timelineOverdueCount > 0 ? 'Close one overdue item today.' : 'Protect timeline by completing the next deadline item.'}\n'
         '2. ${timelineUpcomingCount > 0 ? 'Pre-plan the next upcoming deadline block.' : 'Create one upcoming deadline anchor.'}\n'
         '3. ${timelineRiskEventsCount > 0 ? 'Apply one timeline recommendation to reduce risk.' : 'Record a milestone after completion to keep timeline fidelity high.'}\n\n'
-        'Confidence: 94%';
+        'Signal strength: deterministic timeline rules and current data.';
 
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_timeline_deterministic',
       emotion: 'focused',
-      confidence: 0.94,
+      confidence: 0.6,
     );
   }
 
@@ -1000,13 +1000,13 @@ class AIController {
         '1. $nextAction1\n'
         '2. $nextAction2\n'
         '3. $nextAction3\n\n'
-        'Confidence: 93%';
+        'Signal strength: deterministic trajectory rules and current data.';
 
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_trajectory_deterministic',
       emotion: 'focused',
-      confidence: 0.93,
+      confidence: 0.6,
     );
   }
 
@@ -1107,13 +1107,13 @@ class AIController {
         'Milestones: ${topMilestones.isEmpty ? 'None yet.' : topMilestones}\n'
         'Overdue list: ${overdueNames.isEmpty ? 'None' : overdueNames}\n'
         'Upcoming list: ${upcomingNames.isEmpty ? 'None' : upcomingNames}\n\n'
-        'Confidence: 94%';
+        'Signal strength: deterministic milestone rules and current data.';
 
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_milestone_deterministic',
       emotion: 'focused',
-      confidence: 0.94,
+      confidence: 0.6,
     );
   }
 
@@ -1187,13 +1187,13 @@ class AIController {
         '1. ${alignment.recommendations.firstWhere((String item) => item.toLowerCase().contains('schedule one action'), orElse: () => 'Schedule one action this week aligned to the neglected value.')}\n'
         '2. Use the guiding question for $neglected before your next major decision.\n'
         '3. Preserve momentum in $strongest while reducing the gap in $neglected.\n\n'
-        'Confidence: 95%';
+        'Signal strength: deterministic core-value rules and current data.';
 
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_core_values_deterministic',
       emotion: 'focused',
-      confidence: 0.95,
+      confidence: 0.6,
     );
   }
 
@@ -1274,13 +1274,13 @@ class AIController {
           '1. ${comparison.recommendation}\n'
           '2. Define one 1-year and one 5-year future-self outcome in PersonalAlignment profile.\n'
           '3. Audit your current top goal for alignment before quitting or recommitting.\n\n'
-          'Confidence: 95%';
+          'Signal strength: deterministic alignment rules and current data.';
 
       return AIRecommendation(
         message: compareOutput,
         reasoning: 'si_console_personal_alignment_compare_deterministic',
         emotion: 'focused',
-        confidence: 0.95,
+        confidence: 0.6,
       );
     }
 
@@ -1302,13 +1302,13 @@ class AIController {
         '1. $recommendation\n'
         '2. Test one active goal against your Future Self before committing or quitting.\n'
         '3. Protect your strongest area ($strongest) while repairing $weakest.\n\n'
-        'Confidence: 95%';
+        'Signal strength: deterministic alignment rules and current data.';
 
     return AIRecommendation(
       message: output,
       reasoning: 'si_console_personal_alignment_deterministic',
       emotion: 'focused',
-      confidence: 0.95,
+      confidence: 0.6,
     );
   }
 

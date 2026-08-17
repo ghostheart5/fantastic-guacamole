@@ -80,9 +80,11 @@ class ProductAdvisorEngine {
     Map<String, dynamic> snapshot,
     int momentumChainCount,
   ) {
+    // Task creation is not evidence that a task was seen or started. Only use
+    // the dedicated counters when instrumentation has supplied them.
     return analyze(
-      nextSeen: snapshot['tasks_created'] as int? ?? 0,
-      started: snapshot['tasks_created'] as int? ?? 0,
+      nextSeen: (snapshot['tasks_seen'] as num?)?.toInt() ?? 0,
+      started: (snapshot['tasks_started'] as num?)?.toInt() ?? 0,
       completed: snapshot['tasks_completed'] as int? ?? 0,
       momentumPeak: momentumChainCount,
     );

@@ -133,7 +133,6 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         channel: 'planner',
         content: message,
       );
-      await _ref.read(profileProvider.notifier).addXP(10);
       return SmartPlannerResult(
         prompt: prompt,
         message: message,
@@ -200,8 +199,6 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
       channel: 'planner',
       content: message,
     );
-
-    await _ref.read(profileProvider.notifier).addXP(10);
 
     return SmartPlannerResult(
       prompt: prompt,
