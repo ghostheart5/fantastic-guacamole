@@ -25,6 +25,7 @@ class FirebaseMessagingBootstrap {
   const FirebaseMessagingBootstrap();
 
   static String? _latestToken;
+  static Future<String?>? _initialization;
 
   static String? get latestToken => _latestToken;
 
@@ -39,7 +40,14 @@ class FirebaseMessagingBootstrap {
     if (isMockMode || kIsWeb) {
       return null;
     }
+    final Future<String?>? inFlight = _initialization;
+    if (inFlight != null) return inFlight;
+    final Future<String?> initialization = _initializeOnce();
+    _initialization = initialization;
+    return initialization;
+  }
 
+  Future<String?> _initializeOnce() async {
     try {
       final FirebaseMessaging messaging = FirebaseMessaging.instance;
       await messaging.requestPermission(alert: true, badge: true, sound: true);

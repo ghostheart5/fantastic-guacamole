@@ -338,11 +338,15 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   );
   startupError = _appendStartupIssue(startupError, firebaseIssue ?? '');
 
-  final String? messagingIssue = await _measureIssueStage(
-    'push_notifications',
-    () => _initMessagingSafe(isMockMode: intelligence.flags.mockMode),
+  // Push permission/token work is non-critical to first paint. Keep it out of
+  // the critical startup chain so an unavailable FCM service cannot hold the
+  // app behind the bootstrap gate.
+  unawaited(
+    _measureIssueStage(
+      'push_notifications',
+      () => _initMessagingSafe(isMockMode: intelligence.flags.mockMode),
+    ),
   );
-  startupError = _appendStartupIssue(startupError, messagingIssue ?? '');
 
   final String? supabaseIssue = await _measureIssueStage(
     'supabase',

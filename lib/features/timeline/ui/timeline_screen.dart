@@ -33,6 +33,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   _TimelineWindow _window = _TimelineWindow.week;
   _TimelineFocus _focus = _TimelineFocus.all;
   String _query = '';
+  List<TimelineEventEntity>? _cachedCombined;
+  int? _cachedCombinedKey;
+  DateTime? _cachedCombinedDay;
 
   @override
   Widget build(BuildContext context) {
@@ -42,19 +45,35 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         ref.watch(tasksProvider).asData?.value ?? const <Task>[];
     final DateTime now = DateTime.now();
 
-    final List<TimelineEventEntity> projected = _buildProjectedEvents(
-      now: now,
-      tasks: tasks,
-      goals: goals,
+    final int combinedKey = Object.hash(
+      identityHashCode(baseEvents),
+      identityHashCode(tasks),
+      identityHashCode(goals),
     );
-    final List<TimelineEventEntity> combined = <TimelineEventEntity>[
-      ...baseEvents,
-      ...projected,
-      ..._buildIntelligenceEvents(
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    final List<TimelineEventEntity> combined;
+    if (_cachedCombined != null &&
+        _cachedCombinedKey == combinedKey &&
+        _cachedCombinedDay == today) {
+      combined = _cachedCombined!;
+    } else {
+      final List<TimelineEventEntity> projected = _buildProjectedEvents(
         now: now,
-        events: <TimelineEventEntity>[...baseEvents, ...projected],
-      ),
-    ]..sort((a, b) => _eventMoment(b).compareTo(_eventMoment(a)));
+        tasks: tasks,
+        goals: goals,
+      );
+      combined = <TimelineEventEntity>[
+        ...baseEvents,
+        ...projected,
+        ..._buildIntelligenceEvents(
+          now: now,
+          events: <TimelineEventEntity>[...baseEvents, ...projected],
+        ),
+      ]..sort((a, b) => _eventMoment(b).compareTo(_eventMoment(a)));
+      _cachedCombined = combined;
+      _cachedCombinedKey = combinedKey;
+      _cachedCombinedDay = today;
+    }
 
     final List<TimelineEventEntity> filtered = combined
         .where((TimelineEventEntity event) {

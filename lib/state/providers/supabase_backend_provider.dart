@@ -49,6 +49,11 @@ class SupabaseBackendHealth {
   }
 }
 
+SupabaseBackendHealth? _healthCache;
+DateTime? _healthCacheAt;
+String? _healthCacheUserId;
+const Duration _healthCacheTtl = Duration(seconds: 60);
+
 final supabaseBackendHealthProvider = FutureProvider<SupabaseBackendHealth>((
   ref,
 ) async {
@@ -81,6 +86,14 @@ final supabaseBackendHealthProvider = FutureProvider<SupabaseBackendHealth>((
   }
 
   final bool authenticated = client.auth.currentSession != null;
+  final String currentUserId = client.auth.currentUser?.id ?? 'anonymous';
+  final DateTime now = DateTime.now().toUtc();
+  if (_healthCache != null &&
+      _healthCacheAt != null &&
+      _healthCacheUserId == currentUserId &&
+      now.difference(_healthCacheAt!) < _healthCacheTtl) {
+    return _healthCache!;
+  }
 
   bool databaseReachable = false;
   bool storageReachable = false;
@@ -99,8 +112,9 @@ final supabaseBackendHealthProvider = FutureProvider<SupabaseBackendHealth>((
   }
 
   try {
-    final String uid = client.auth.currentUser?.id ?? 'anonymous';
-    await client.storage.from('chronospark-sync').list(path: '$uid/backup');
+    await client.storage
+        .from('chronospark-sync')
+        .list(path: '$currentUserId/backup');
     storageReachable = true;
   } catch (error) {
     storagePermissionDenied = _looksLikePermissionDenied(error);
@@ -152,7 +166,7 @@ final supabaseBackendHealthProvider = FutureProvider<SupabaseBackendHealth>((
         'Supabase storage is not reachable with current credentials/policies.';
   }
 
-  return SupabaseBackendHealth(
+  final SupabaseBackendHealth health = SupabaseBackendHealth(
     configured: true,
     initialized: true,
     authenticated: authenticated,
@@ -162,6 +176,10 @@ final supabaseBackendHealthProvider = FutureProvider<SupabaseBackendHealth>((
     badge: badge,
     message: message,
   );
+  _healthCache = health;
+  _healthCacheAt = now;
+  _healthCacheUserId = currentUserId;
+  return health;
 });
 
 bool _looksLikePermissionDenied(Object error) {

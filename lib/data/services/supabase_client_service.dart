@@ -7,11 +7,20 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 class SupabaseClientService {
   const SupabaseClientService();
 
+  static Future<String?>? _initialization;
+
   Future<String?> initialize({required bool isMockMode}) async {
     if (isMockMode || !Env.isSupabaseConfigured) {
       return null;
     }
+    final Future<String?>? inFlight = _initialization;
+    if (inFlight != null) return inFlight;
+    final Future<String?> initialization = _initializeOnce();
+    _initialization = initialization;
+    return initialization;
+  }
 
+  Future<String?> _initializeOnce() async {
     try {
       await sb.Supabase.initialize(
         url: Env.supabaseUrl,

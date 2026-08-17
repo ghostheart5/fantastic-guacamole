@@ -17,6 +17,7 @@ class TrajectorySummaryView {
     required this.predictionOutcome,
     required this.predictionProbability,
     required this.predictionExplanation,
+    this.personalizationNote,
   });
 
   final int pendingTasks;
@@ -36,6 +37,7 @@ class TrajectorySummaryView {
   final String? predictionOutcome;
   final double? predictionProbability;
   final String? predictionExplanation;
+  final String? personalizationNote;
 
   bool get hasPrediction =>
       predictionTitle != null &&

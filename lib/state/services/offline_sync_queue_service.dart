@@ -13,6 +13,8 @@ class OfflineSyncQueueItem {
     required this.enqueuedAtUtc,
     required this.attempts,
     this.lastAttemptAtUtc,
+    this.nextAttemptAtUtc,
+    this.deadLettered = false,
   });
 
   final String id;
@@ -22,8 +24,15 @@ class OfflineSyncQueueItem {
   final String enqueuedAtUtc;
   final int attempts;
   final String? lastAttemptAtUtc;
+  final String? nextAttemptAtUtc;
+  final bool deadLettered;
 
-  OfflineSyncQueueItem copyWith({int? attempts, String? lastAttemptAtUtc}) {
+  OfflineSyncQueueItem copyWith({
+    int? attempts,
+    String? lastAttemptAtUtc,
+    String? nextAttemptAtUtc,
+    bool? deadLettered,
+  }) {
     return OfflineSyncQueueItem(
       id: id,
       actionType: actionType,
@@ -32,6 +41,8 @@ class OfflineSyncQueueItem {
       enqueuedAtUtc: enqueuedAtUtc,
       attempts: attempts ?? this.attempts,
       lastAttemptAtUtc: lastAttemptAtUtc ?? this.lastAttemptAtUtc,
+      nextAttemptAtUtc: nextAttemptAtUtc ?? this.nextAttemptAtUtc,
+      deadLettered: deadLettered ?? this.deadLettered,
     );
   }
 
@@ -44,6 +55,8 @@ class OfflineSyncQueueItem {
       'enqueuedAtUtc': enqueuedAtUtc,
       'attempts': attempts,
       'lastAttemptAtUtc': lastAttemptAtUtc,
+      'nextAttemptAtUtc': nextAttemptAtUtc,
+      'deadLettered': deadLettered,
     };
   }
 
@@ -62,6 +75,8 @@ class OfflineSyncQueueItem {
       enqueuedAtUtc: json['enqueuedAtUtc']?.toString() ?? '',
       attempts: (json['attempts'] as num?)?.toInt() ?? 0,
       lastAttemptAtUtc: json['lastAttemptAtUtc']?.toString(),
+      nextAttemptAtUtc: json['nextAttemptAtUtc']?.toString(),
+      deadLettered: json['deadLettered'] == true,
     );
   }
 }
@@ -70,6 +85,7 @@ class OfflineSyncQueueService {
   OfflineSyncQueueService(this._prefs);
 
   static const String storageKey = 'offline_sync_queue_v1';
+  static const int maxAttempts = 8;
 
   final HiveStorage<String> _prefs;
 
@@ -150,10 +166,14 @@ class OfflineSyncQueueService {
       if (processed >= maxItems) {
         break;
       }
+      if (item.deadLettered || !_isEligible(item)) {
+        continue;
+      }
 
       final DateTime now = DateTime.now().toUtc();
+      final int nextAttempts = item.attempts + 1;
       final OfflineSyncQueueItem attempted = item.copyWith(
-        attempts: item.attempts + 1,
+        attempts: nextAttempts,
         lastAttemptAtUtc: now.toIso8601String(),
       );
 
@@ -175,6 +195,14 @@ class OfflineSyncQueueService {
         working.removeWhere(
           (OfflineSyncQueueItem queued) => queued.id == item.id,
         );
+      } else if (nextAttempts >= maxAttempts) {
+        working[index] = attempted.copyWith(deadLettered: true);
+      } else {
+        working[index] = attempted.copyWith(
+          nextAttemptAtUtc: now
+              .add(_retryDelay(nextAttempts))
+              .toIso8601String(),
+        );
       }
 
       processed++;
@@ -182,6 +210,22 @@ class OfflineSyncQueueService {
 
     await _persist(working);
     return processed;
+  }
+
+  bool _isEligible(OfflineSyncQueueItem item) {
+    final String? nextAttempt = item.nextAttemptAtUtc;
+    if (nextAttempt == null || nextAttempt.trim().isEmpty) return true;
+    final DateTime? scheduled = DateTime.tryParse(nextAttempt)?.toUtc();
+    return scheduled == null || !scheduled.isAfter(DateTime.now().toUtc());
+  }
+
+  Duration _retryDelay(int attempts) {
+    final int exponent = attempts <= 1
+        ? 0
+        : attempts >= 6
+        ? 5
+        : attempts - 1;
+    return Duration(minutes: 1 << exponent);
   }
 
   Future<void> _persist(List<OfflineSyncQueueItem> queue) {

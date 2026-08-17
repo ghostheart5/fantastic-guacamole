@@ -29,6 +29,9 @@ class TimelineEventEntity {
     this.dueAt,
     this.phase,
     this.relatedId,
+    this.sourceFeature,
+    this.decisionId,
+    this.userOverride = false,
   });
 
   final String id;
@@ -40,6 +43,10 @@ class TimelineEventEntity {
   final DateTime? dueAt;
   final String? phase;
   final String? relatedId;
+  /// Provenance makes adaptive decisions auditable without storing raw prompts.
+  final String? sourceFeature;
+  final String? decisionId;
+  final bool userOverride;
 
   // Semantic helpers
   bool get isReflection => type == TimelineEventType.reflection;
@@ -128,6 +135,9 @@ class TimelineEventEntity {
     'dueAt': dueAt?.toIso8601String(),
     'phase': phase,
     'relatedId': relatedId,
+    'sourceFeature': sourceFeature,
+    'decisionId': decisionId,
+    'userOverride': userOverride,
   };
 
   factory TimelineEventEntity.fromJson(Map<String, dynamic> j) =>
@@ -149,5 +159,8 @@ class TimelineEventEntity {
             : DateTime.tryParse(j['dueAt'].toString()),
         phase: j['phase']?.toString(),
         relatedId: j['relatedId']?.toString(),
+        sourceFeature: j['sourceFeature']?.toString(),
+        decisionId: j['decisionId']?.toString(),
+        userOverride: j['userOverride'] as bool? ?? false,
       );
 }

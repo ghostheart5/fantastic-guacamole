@@ -99,6 +99,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           'primary_goal_type',
           selectedGoalType,
         );
+        await ref
+            .read(personalizationProfileProvider.notifier)
+            .updateGoalCategory(selectedGoalType);
       }
 
       await prefs.setBool(onboardingCompleteStorageKey, true);

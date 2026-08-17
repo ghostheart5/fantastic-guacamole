@@ -9,11 +9,20 @@ import 'package:flutter/foundation.dart';
 class FirebaseBootstrap {
   const FirebaseBootstrap();
 
+  static Future<String?>? _initialization;
+
   Future<String?> initialize({required bool isMockMode}) async {
     if (isMockMode) {
       return null;
     }
+    final Future<String?>? inFlight = _initialization;
+    if (inFlight != null) return inFlight;
+    final Future<String?> initialization = _initializeOnce();
+    _initialization = initialization;
+    return initialization;
+  }
 
+  Future<String?> _initializeOnce() async {
     try {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp(

@@ -17,11 +17,13 @@ import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/models/completion_score_view.dart';
+import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
+import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/completion_score_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
@@ -35,6 +37,7 @@ final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
   );
   final si = ref.watch(siStateProvider);
   final learning = ref.watch(learningProvider);
+  final personalization = ref.watch(personalizationProfileProvider);
   final SiStateEntity siState = SiStateEntity(
     energy: si.energy,
     focus: (si.energy * (1 - si.fatigue)).clamp(0.0, 1.0),
@@ -50,7 +53,14 @@ final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
         learning: learning,
         energy: si.energy,
         fatigue: si.fatigue,
-        priorityScale: optimization.nextActionAggressiveness,
+        priorityScale: optimization.nextActionAggressiveness *
+            switch (personalization.priorityStrategy) {
+              PriorityStrategy.deadlineFirst => 1.15,
+              PriorityStrategy.energyFirst => 0.85,
+              PriorityStrategy.goalFirst => 1.05,
+              PriorityStrategy.quickWins => 0.9,
+              PriorityStrategy.balanced => 1.0,
+            },
         difficultyScale: optimization.taskDifficultyScale,
         siState: siState,
       );
@@ -157,6 +167,9 @@ class TaskActions {
       await _ref
           .read(profileProvider.notifier)
           .awardXP(score.xp, source: 'task_completion');
+      await _ref
+          .read(observedPlanningPatternsProvider.notifier)
+          .recordCompletion(difficulty: selectedTask.difficulty);
       _ref.read(siStateProvider.notifier).recordCompletion();
       unawaited(
         _recordCompletionSideEffects(
@@ -240,6 +253,9 @@ class TaskActions {
     await _ref
         .read(learningProvider.notifier)
         .update(success: false, difficulty: selectedTask.difficulty);
+    await _ref
+        .read(observedPlanningPatternsProvider.notifier)
+        .recordSkip();
     _ref.read(siStateProvider.notifier).taskSkipped();
     await _ref
         .read(logsActionsProvider)
@@ -253,6 +269,8 @@ class TaskActions {
             title: 'Task Skipped',
             detail: '${selectedTask.title} skipped and adaptation triggered.',
             timestamp: now,
+            sourceFeature: 'task',
+            relatedId: selectedTask.id,
           ),
         );
     if (notify) {
@@ -354,6 +372,8 @@ class TaskActions {
               title: 'Task Added',
               detail: '${task.title} added to trajectory.',
               timestamp: timestamp,
+              sourceFeature: 'creator',
+              relatedId: task.id,
             ),
           ),
     );
@@ -398,6 +418,8 @@ class TaskActions {
               title: 'Task Completed',
               detail: '${task.title} marked complete.',
               timestamp: timestamp,
+              sourceFeature: 'task',
+              relatedId: task.id,
             ),
           ),
     );

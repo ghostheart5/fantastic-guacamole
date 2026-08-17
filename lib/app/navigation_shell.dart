@@ -59,6 +59,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   late final ProviderSubscription<AppView> _viewSubscription;
   late final ProviderSubscription<bool> _networkOnlineSubscription;
   final Set<int> _initializedTabIndexes = <int>{0};
+  bool _savingCurrentState = false;
   bool get _isFlutterTestBinding {
     final String bindingType = WidgetsBinding.instance.runtimeType.toString();
     return bindingType.contains('TestWidgetsFlutterBinding');
@@ -75,11 +76,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         }
         ref.invalidate(replayOfflineQueueProvider);
         ref.invalidate(syncToCloudProvider);
-      }
-      ..onPrecomputeAI = () {
-        if (mounted) {
-          ref.invalidate(aiDecisionProvider);
-        }
       };
     if (!_isFlutterTestBinding) {
       _systemScheduler.resume();
@@ -283,12 +279,17 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   }
 
   Future<void> _saveCurrentState() async {
-    if (!mounted) {
+    if (!mounted || _savingCurrentState) {
       return;
     }
-    final AppView view = ref.read(appFlowProvider);
-    await ref.read(appRecoveryProvider).saveState(lastRoute: view.name);
-    unawaited(_pushDailyMetrics());
+    _savingCurrentState = true;
+    try {
+      final AppView view = ref.read(appFlowProvider);
+      await ref.read(appRecoveryProvider).saveState(lastRoute: view.name);
+      unawaited(_pushDailyMetrics());
+    } finally {
+      _savingCurrentState = false;
+    }
   }
 
   Future<void> _pushDailyMetrics() async {

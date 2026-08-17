@@ -22,6 +22,7 @@ import 'package:fantastic_guacamole/state/providers/insights_provider.dart';
 import 'package:fantastic_guacamole/state/providers/logs_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
+import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/personal_alignment_provider.dart';
@@ -89,6 +90,10 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         ? 'Give me a practical planning guidance check-in for my current energy and '
               'emotional state. Include one clear next action.'
         : notes;
+    final personalization = _ref.read(personalizationProfileProvider);
+    final EmotionalState contextEmotion = personalization.useEmotionSignals
+        ? emotion
+        : EmotionalState.neutral;
     final _PlannerTopic detectedTopic = _detectTopic(prompt, emotion: emotion);
     final String detectedTopicLabel = _topicLabel(detectedTopic);
     final AssistantIntent assistantIntent =
@@ -104,12 +109,14 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         .map((goal) => goal.title.trim())
         .where((title) => title.isNotEmpty)
         .toList(growable: false);
-    final List<String> memorySummaries = _ref
-        .read(memoriesProvider)
-        .take(3)
-        .map((memory) => memory.text.trim())
-        .where((text) => text.isNotEmpty)
-        .toList(growable: false);
+    final List<String> memorySummaries = personalization.useMemoryContext
+        ? _ref
+              .read(memoriesProvider)
+              .take(3)
+              .map((memory) => memory.text.trim())
+              .where((text) => text.isNotEmpty)
+              .toList(growable: false)
+        : const <String>[];
     final List<String> timelineSummaries = _ref
         .read(timelineProvider)
         .take(3)
@@ -153,30 +160,32 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         : '$structuredPrompt\n\nCONTEXT SNAPSHOT:\n$knowledge';
 
     _ref.read(aiInputProvider.notifier).set(aiInput);
-    final recommendation = await _safeSmartPlannerQuery(
-      input: aiInput,
-      history: history,
-      context: <String, dynamic>{
-        'source': 'smart_planner',
-        'energy': energy,
-        'emotion': emotion.name,
-        'detectedTopic': detectedTopicLabel,
-        'assistantIntent': assistantIntent.toJson(),
-        'assistantContext': contextBuilder.buildSmartPlannerContext(
-          input: prompt,
-          intent: assistantIntent,
-          energy: energy,
-          emotion: emotion.name,
-          memorySummaries: memorySummaries,
-          timelineSummaries: timelineSummaries,
-          goalSummaries: goalSummaries,
-        ),
-        'reflection': notes,
-        'knowledge': knowledge,
-        ...moduleSnapshot,
-      },
-      source: 'smart_planner',
-    );
+    final recommendation = personalization.externalAiAllowed
+        ? await _safeSmartPlannerQuery(
+            input: aiInput,
+            history: history,
+            context: <String, dynamic>{
+              'source': 'smart_planner',
+              'energy': energy,
+              'emotion': contextEmotion.name,
+              'detectedTopic': detectedTopicLabel,
+              'assistantIntent': assistantIntent.toJson(),
+              'assistantContext': contextBuilder.buildSmartPlannerContext(
+                input: prompt,
+                intent: assistantIntent,
+                energy: energy,
+                emotion: contextEmotion.name,
+                memorySummaries: memorySummaries,
+                timelineSummaries: timelineSummaries,
+                goalSummaries: goalSummaries,
+              ),
+              'reflection': notes,
+              'knowledge': knowledge,
+              ...moduleSnapshot,
+            },
+            source: 'smart_planner',
+          )
+        : null;
 
     final String generated = recommendation?.message.trim() ?? '';
     final bool aiFallbackDetected = _isNonActionableAIFallback(
@@ -216,6 +225,10 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     required List<Map<String, String>> history,
   }) async {
     final _PlannerTopic detectedTopic = _detectTopic(input, emotion: emotion);
+    final personalization = _ref.read(personalizationProfileProvider);
+    final EmotionalState contextEmotion = personalization.useEmotionSignals
+        ? emotion
+        : EmotionalState.neutral;
     final String detectedTopicLabel = _topicLabel(detectedTopic);
     final AssistantIntent assistantIntent =
         const DefaultAssistantIntentDetector().detect(
@@ -230,12 +243,14 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         .map((goal) => goal.title.trim())
         .where((title) => title.isNotEmpty)
         .toList(growable: false);
-    final List<String> memorySummaries = _ref
-        .read(memoriesProvider)
-        .take(3)
-        .map((memory) => memory.text.trim())
-        .where((text) => text.isNotEmpty)
-        .toList(growable: false);
+    final List<String> memorySummaries = personalization.useMemoryContext
+        ? _ref
+              .read(memoriesProvider)
+              .take(3)
+              .map((memory) => memory.text.trim())
+              .where((text) => text.isNotEmpty)
+              .toList(growable: false)
+        : const <String>[];
     final List<String> timelineSummaries = _ref
         .read(timelineProvider)
         .take(3)
@@ -275,30 +290,32 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         : '$structuredPrompt\n\nCONTEXT SNAPSHOT:\n$knowledge';
 
     _ref.read(aiInputProvider.notifier).set(aiInput);
-    final recommendation = await _safeSmartPlannerQuery(
-      input: aiInput,
-      history: history,
-      context: <String, dynamic>{
-        'source': 'smart_planner_follow_up',
-        'energy': energy,
-        'emotion': emotion.name,
-        'detectedTopic': detectedTopicLabel,
-        'assistantIntent': assistantIntent.toJson(),
-        'assistantContext': contextBuilder.buildSmartPlannerContext(
-          input: input,
-          intent: assistantIntent,
-          energy: energy,
-          emotion: emotion.name,
-          memorySummaries: memorySummaries,
-          timelineSummaries: timelineSummaries,
-          goalSummaries: goalSummaries,
-        ),
-        'reflection': reflection,
-        'knowledge': knowledge,
-        ...moduleSnapshot,
-      },
-      source: 'smart_planner_follow_up',
-    );
+    final recommendation = personalization.externalAiAllowed
+        ? await _safeSmartPlannerQuery(
+            input: aiInput,
+            history: history,
+            context: <String, dynamic>{
+              'source': 'smart_planner_follow_up',
+              'energy': energy,
+              'emotion': contextEmotion.name,
+              'detectedTopic': detectedTopicLabel,
+              'assistantIntent': assistantIntent.toJson(),
+              'assistantContext': contextBuilder.buildSmartPlannerContext(
+                input: input,
+                intent: assistantIntent,
+                energy: energy,
+                emotion: contextEmotion.name,
+                memorySummaries: memorySummaries,
+                timelineSummaries: timelineSummaries,
+                goalSummaries: goalSummaries,
+              ),
+              'reflection': reflection,
+              'knowledge': knowledge,
+              ...moduleSnapshot,
+            },
+            source: 'smart_planner_follow_up',
+          )
+        : null;
 
     final String generated = recommendation?.message.trim() ?? '';
     final bool aiFallbackDetected = _isNonActionableAIFallback(
@@ -378,12 +395,17 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         .map((goal) => goal.title.trim())
         .where((title) => title.isNotEmpty)
         .toList(growable: false);
-    final List<String> recentMemories = memories
-        .take(3)
-        .map((memory) => memory.text.trim())
-        .where((text) => text.isNotEmpty)
-        .map((text) => text.length > 90 ? '${text.substring(0, 90)}...' : text)
-        .toList(growable: false);
+    final personalization = _ref.read(personalizationProfileProvider);
+    final List<String> recentMemories = personalization.useMemoryContext
+        ? memories
+              .take(3)
+              .map((memory) => memory.text.trim())
+              .where((text) => text.isNotEmpty)
+              .map(
+                (text) => text.length > 90 ? '${text.substring(0, 90)}...' : text,
+              )
+              .toList(growable: false)
+        : const <String>[];
 
     final List<String> chunks = <String>[];
     if (topGoals.isNotEmpty) {
@@ -397,6 +419,13 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     );
     chunks.add(
       'PersonalAlignment alignment: overall ${personalAlignment.overall}% | strongest ${personalAlignmentDimensionTitle(personalAlignment.strongest)} | weakest ${personalAlignmentDimensionTitle(personalAlignment.weakest)}',
+    );
+    final patterns = _ref.read(observedPlanningPatternsProvider);
+    chunks.add(
+      'Planning preferences: style=${personalization.planningStyle.name}, priority=${personalization.priorityStrategy.name}, recovery=${personalization.recoveryPolicy.name}, recommendations=${personalization.recommendationMode.name}',
+    );
+    chunks.add(
+      'Observed planning evidence: completed=${patterns.completed}, skipped=${patterns.skipped}, completionRate=${(patterns.completionRate * 100).round()}%',
     );
     return chunks.join('\n');
   }
@@ -422,6 +451,8 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     final PersonalAlignmentAlignment personalAlignment = _ref.read(
       personalAlignmentAlignmentProvider,
     );
+    final personalization = _ref.read(personalizationProfileProvider);
+    final patterns = _ref.read(observedPlanningPatternsProvider);
     final planPreview = _ref
         .read(generateAdaptivePlanUseCaseProvider)
         .call(tasks: tasks, energy: energy)
@@ -435,6 +466,18 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
       'level': profile.level,
       'xp': profile.xp,
       'streak': profile.streak,
+      'personalization': <String, dynamic>{
+        'goalCategory': personalization.goalCategory,
+        'planningStyle': personalization.planningStyle.name,
+        'priorityStrategy': personalization.priorityStrategy.name,
+        'recoveryPolicy': personalization.recoveryPolicy.name,
+        'recommendationMode': personalization.recommendationMode.name,
+        'explanationDepth': personalization.explanationDepth.name,
+        'useEmotionSignals': personalization.useEmotionSignals,
+        'useMemoryContext': personalization.useMemoryContext,
+        'externalAiAllowed': personalization.externalAiAllowed,
+        'observedCompletionRate': patterns.completionRate,
+      },
       'knowledge': <String, dynamic>{
         'reflection': reflection,
         'tasks': <String, dynamic>{
@@ -482,10 +525,12 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
         },
         'memories': <String, dynamic>{
           'count': memories.length,
-          'recent': memories
-              .take(5)
-              .map((memory) => memory.text)
-              .toList(growable: false),
+          'recent': personalization.useMemoryContext
+              ? memories
+                    .take(5)
+                    .map((memory) => memory.text)
+                    .toList(growable: false)
+              : const <String>[],
         },
         'notifications': <String, dynamic>{
           'count': notifications.length,

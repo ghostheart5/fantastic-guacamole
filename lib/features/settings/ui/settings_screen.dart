@@ -13,6 +13,7 @@ import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dar
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
+import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
@@ -243,6 +244,8 @@ class SettingsScreen extends ConsumerWidget {
               const _ReflectionReminderSection(),
               const SizedBox(height: 16),
               const _ReminderAutomationSection(),
+              const SizedBox(height: 16),
+              const _PersonalizationSection(),
               if (reflectionTutorialEnabled) ...[
                 const SizedBox(height: 12),
                 const _DailyReflectionTutorialPanel(),

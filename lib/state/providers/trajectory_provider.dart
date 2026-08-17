@@ -12,6 +12,7 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
   final learningMetrics = ref.watch(learningMetricsProvider);
   final completionScore = ref.watch(completionScoreProvider);
   final siState = ref.watch(siStateProvider);
+  final personalization = ref.watch(personalizationProfileProvider);
 
   final int pendingTasks = tasksAsync.maybeWhen(
     data: (tasks) => tasks.length,
@@ -73,5 +74,7 @@ final trajectorySummaryProvider = Provider<TrajectorySummaryView>((ref) {
     predictionOutcome: prediction?.outcome,
     predictionProbability: prediction?.probability,
     predictionExplanation: prediction?.explanation,
+    personalizationNote:
+        'Trajectory is weighted by ${personalization.priorityStrategy.name} priorities and ${personalization.planningStyle.name} planning.',
   );
 });

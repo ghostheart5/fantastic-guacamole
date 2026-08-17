@@ -339,6 +339,174 @@ class _ReminderAutomationSectionState
   }
 }
 
+class _PersonalizationSection extends ConsumerWidget {
+  const _PersonalizationSection();
+
+  Future<void> _save(
+    BuildContext context,
+    WidgetRef ref,
+    PersonalizationProfile next,
+  ) async {
+    await ref.read(personalizationProfileProvider.notifier).update(next);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Planning preferences updated.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final PersonalizationProfile profile = ref.watch(
+      personalizationProfileProvider,
+    );
+    final ObservedPlanningPatterns patterns = ref.watch(
+      observedPlanningPatternsProvider,
+    );
+    final PersonalizationDecision decision = ref.watch(
+      personalizationDecisionProvider('settings'),
+    );
+
+    return _Section(
+      label: 'PLANNING PERSONALIZATION',
+      accentColor: AppColors.neonCyan,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 10, 16, 4),
+            child: Text(
+              'These choices tune guidance. You can change them at any time; learned patterns remain separate from your explicit preferences.',
+              style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.4),
+            ),
+          ),
+          _PreferenceDropdown<String>(
+            label: 'Planning style',
+            value: profile.planningStyle.name,
+            items: const <String>['flexible', 'timeBlocked', 'energyMatched', 'singleFocus'],
+            onChanged: (String value) => _save(
+              context,
+              ref,
+              profile.copyWith(
+                planningStyle: PlanningStyle.values.byName(value),
+              ),
+            ),
+          ),
+          _PreferenceDropdown<String>(
+            label: 'Priority strategy',
+            value: profile.priorityStrategy.name,
+            items: const <String>['balanced', 'deadlineFirst', 'energyFirst', 'goalFirst', 'quickWins'],
+            onChanged: (String value) => _save(
+              context,
+              ref,
+              profile.copyWith(
+                priorityStrategy: PriorityStrategy.values.byName(value),
+              ),
+            ),
+          ),
+          _PreferenceDropdown<String>(
+            label: 'Missed-task recovery',
+            value: profile.recoveryPolicy.name,
+            items: const <String>['askFirst', 'reschedule', 'reduceScope', 'recoveryQueue'],
+            onChanged: (String value) => _save(
+              context,
+              ref,
+              profile.copyWith(recoveryPolicy: RecoveryPolicy.values.byName(value)),
+            ),
+          ),
+          _NeonToggleTile(
+            title: 'Use emotional state in guidance',
+            value: profile.useEmotionSignals,
+            onChanged: (bool value) => _save(
+              context,
+              ref,
+              profile.copyWith(useEmotionSignals: value),
+            ),
+          ),
+          _NeonToggleTile(
+            title: 'Use memories in guidance',
+            value: profile.useMemoryContext,
+            onChanged: (bool value) => _save(
+              context,
+              ref,
+              profile.copyWith(useMemoryContext: value),
+            ),
+          ),
+          _NeonToggleTile(
+            title: 'Allow external AI assistance',
+            value: profile.externalAiAllowed,
+            onChanged: (bool value) => _save(
+              context,
+              ref,
+              profile.copyWith(externalAiAllowed: value),
+            ),
+          ),
+          _NeonStatusTile(
+            title: 'Why suggestions appear',
+            subtitle: decision.explanation,
+          ),
+          _NeonStatusTile(
+            title: 'Learned evidence',
+            subtitle:
+                '${patterns.completed} completed · ${patterns.skipped} skipped · ${(patterns.completionRate * 100).round()}% completion rate',
+          ),
+          _NeonNavTile(
+            title: 'Reset learned planning patterns',
+            subtitle: 'Deletes inferred completion/skip evidence only.',
+            onTap: () => unawaited(
+              ref.read(observedPlanningPatternsProvider.notifier).reset(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PreferenceDropdown<T> extends StatelessWidget {
+  const _PreferenceDropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final String label;
+  final T value;
+  final List<T> items;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: DropdownButtonFormField<T>(
+        initialValue: value,
+        dropdownColor: const Color(0xFF0B111C),
+        style: const TextStyle(color: Colors.white70, fontSize: 13),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.white54),
+          enabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.2)),
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        items: items
+            .map(
+              (T item) => DropdownMenuItem<T>(
+                value: item,
+                child: Text(item.toString().split('.').last),
+              ),
+            )
+            .toList(growable: false),
+        onChanged: (T? next) {
+          if (next != null) onChanged(next);
+        },
+      ),
+    );
+  }
+}
+
 class _ChronoSparkAcademySection extends StatelessWidget {
   const _ChronoSparkAcademySection();
 
