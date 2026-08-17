@@ -240,7 +240,7 @@ class _TestProfileController extends ProfileController {
   ProfileState build() => ProfileState();
 
   @override
-  void addXP(int amount) {
+  Future<void> addXP(int amount) async {
     state = state.copyWith(xp: state.xp + amount);
   }
 }

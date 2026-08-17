@@ -22,7 +22,9 @@ void main() {
   ) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [
-        onboardingCompleteProvider.overrideWith(_OnboardingIncompleteNotifier.new),
+        onboardingCompleteProvider.overrideWith(
+          _OnboardingIncompleteNotifier.new,
+        ),
         intelligenceStateProvider.overrideWithValue(_authenticatedIntelligence),
         currentThemeProvider.overrideWith(_StaticThemeController.new),
         siStateProvider.overrideWith(_FixedSiStateController.new),
@@ -43,7 +45,8 @@ void main() {
     expect(
       find.byType(OnboardingScreen),
       findsOneWidget,
-      reason: 'With onboarding incomplete, app should route to onboarding surface.',
+      reason:
+          'With onboarding incomplete, app should route to onboarding surface.',
     );
     expect(find.byType(NavigationShell), findsNothing);
   });
@@ -80,7 +83,8 @@ class _StaticThemeController extends CurrentThemeController {
 
 class _FixedSiStateController extends SIStateController {
   @override
-  SIState build() => const SIState(energy: 0.75, fatigue: 0.2, completedToday: 1);
+  SIState build() =>
+      const SIState(energy: 0.75, fatigue: 0.2, completedToday: 1);
 }
 
 class _FixedLearningController extends LearningController {

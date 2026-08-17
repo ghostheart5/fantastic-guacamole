@@ -130,7 +130,7 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
       ref.invalidate(soulStateProvider);
     }
     if (awardProgression) {
-      ref.read(profileProvider.notifier).addXP(10);
+      await ref.read(profileProvider.notifier).addXP(10);
     }
     if (refreshPlanner) {
       await _refreshPlannerDecision();

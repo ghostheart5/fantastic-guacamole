@@ -15,7 +15,10 @@ import 'package:flutter_test/flutter_test.dart';
 /// These drive the contract rather than a backend, so nothing here touches
 /// Firebase or Supabase configuration.
 void main() {
-  Future<void> pumpGate(WidgetTester tester, AuthServiceContract service) async {
+  Future<void> pumpGate(
+    WidgetTester tester,
+    AuthServiceContract service,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
@@ -64,7 +67,9 @@ void main() {
   testWidgets('a rejected sign-in leaves the user signed out', (
     WidgetTester tester,
   ) async {
-    final _FakeAuthService service = _FakeAuthService(failWith: 'wrong-password');
+    final _FakeAuthService service = _FakeAuthService(
+      failWith: 'wrong-password',
+    );
     addTearDown(service.dispose);
 
     await pumpGate(tester, service);
@@ -205,28 +210,29 @@ void main() {
     expect(find.text('Password reset link sent.'), findsOneWidget);
   });
 
-  testWidgets('forgot password rejects an invalid email without a network call', (
-    WidgetTester tester,
-  ) async {
-    final _FakeAuthService service = _FakeAuthService();
-    addTearDown(service.dispose);
+  testWidgets(
+    'forgot password rejects an invalid email without a network call',
+    (WidgetTester tester) async {
+      final _FakeAuthService service = _FakeAuthService();
+      addTearDown(service.dispose);
 
-    await pumpGate(tester, service);
+      await pumpGate(tester, service);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('login-email-field')),
-      'not-an-email',
-    );
-    await tester.tap(find.text('Forgot Password?'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+      await tester.enterText(
+        find.byKey(const ValueKey('login-email-field')),
+        'not-an-email',
+      );
+      await tester.tap(find.text('Forgot Password?'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-    expect(service.passwordResetCalls, isEmpty);
-    expect(
-      find.text('Enter account email, then trigger password reset.'),
-      findsOneWidget,
-    );
-  });
+      expect(service.passwordResetCalls, isEmpty);
+      expect(
+        find.text('Enter account email, then trigger password reset.'),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets(
     'Google/GitHub sign-in buttons are hidden behind the mock-login hint',

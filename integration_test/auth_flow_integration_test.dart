@@ -176,7 +176,7 @@ void main() {
     final Map<String, dynamic> metrics = await container
         .read(localMetricsAccumulatorProvider)
         .snapshot();
-    expect(metrics['tasks_created'], anyOf(isNull, 0, 1));
+    expect(metrics['tasks_created'], 1);
     expect(metrics['tasks_completed'], 0);
   });
 
@@ -292,7 +292,7 @@ class _IntegrationProfileController extends ProfileController {
   ProfileState build() => ProfileState();
 
   @override
-  void addXP(int amount) {
+  Future<void> addXP(int amount) async {
     final int newXP = state.xp + amount;
     state = state.copyWith(
       xp: newXP,

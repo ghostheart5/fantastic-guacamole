@@ -59,7 +59,7 @@ void main() {
 
   test('active product surfaces contain no retired terminology', () {
     final RegExp retired = RegExp(
-      r'\b(?:smart[ _-]?coach|chrono[ _-]?creator|chrono[ _-]?logs|soul[ _-]?maps?|mission|command[ _-]?cent(?:er|re)|control[ _-]?room|tactical|directive|session[ _-]?(?:score|scoring|complete)|last[ _-]?session)\b',
+      r'\b(?:smart[ _-]?coach|chrono[ _-]?creator|chrono[ _-]?logs|soul[ _-]?maps?|mission|command[ _-]?cent(?:er|re)|control[ _-]?room|tactical|directive|ops|intel|session[ _-]?(?:score|scoring|complete)|last[ _-]?session)\b',
       caseSensitive: false,
     );
     final List<String> violations = <String>[];

@@ -52,10 +52,7 @@ void main() {
     });
 
     test('allows an explicitly intended clear', () {
-      expect(
-        InputGuard.batch(<String>[], 'items', allowClear: true),
-        isEmpty,
-      );
+      expect(InputGuard.batch(<String>[], 'items', allowClear: true), isEmpty);
     });
 
     test('always allows a non-empty list', () {

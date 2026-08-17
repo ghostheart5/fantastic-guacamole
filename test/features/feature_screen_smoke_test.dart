@@ -47,7 +47,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('TIMELINE OPS'), findsOneWidget);
+    expect(find.text('TIMELINE'), findsOneWidget);
     expect(find.text('Completed sprint review'), findsOneWidget);
   });
 
@@ -173,7 +173,7 @@ class _StaticProfileController extends ProfileController {
     level: 10,
     streak: 21,
     longestStreak: 21,
-    name: 'Operative',
+    name: 'ChronoSpark User',
   );
 }
 

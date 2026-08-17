@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SIStateController extends Notifier<SIState> {
   bool _loadScheduled = false;
+  int _mutationVersion = 0;
 
   /// Owns live SI operating state used by chat and recommendation flows.
   @override
@@ -18,9 +19,13 @@ class SIStateController extends Notifier<SIState> {
   }
 
   Future<void> _loadFromAsset() async {
+    final int loadVersion = _mutationVersion;
     try {
       final String raw = await rootBundle.loadString('assets/data/user.json');
       final Map<String, dynamic> data = jsonDecode(raw) as Map<String, dynamic>;
+      if (!ref.mounted || _mutationVersion != loadVersion) {
+        return;
+      }
       state = SIState(
         energy: (data['energy'] as num?)?.toDouble() ?? 0.7,
         fatigue: (data['fatigue'] as num?)?.toDouble() ?? 0.3,
@@ -32,6 +37,7 @@ class SIStateController extends Notifier<SIState> {
   }
 
   void recordCompletion() {
+    _mutationVersion++;
     state = state.copyWith(
       energy: (state.energy - 0.08).clamp(0.0, 1.0),
       fatigue: (state.fatigue + 0.10).clamp(0.0, 1.0),
@@ -40,14 +46,17 @@ class SIStateController extends Notifier<SIState> {
   }
 
   void taskSkipped() {
+    _mutationVersion++;
     state = state.copyWith(fatigue: (state.fatigue + 0.05).clamp(0.0, 1.0));
   }
 
   void adjustEnergy(double delta) {
+    _mutationVersion++;
     state = state.copyWith(energy: (state.energy + delta).clamp(0.0, 1.0));
   }
 
   void adjustFatigue(double delta) {
+    _mutationVersion++;
     state = state.copyWith(fatigue: (state.fatigue + delta).clamp(0.0, 1.0));
   }
 
@@ -56,6 +65,7 @@ class SIStateController extends Notifier<SIState> {
     required double fatigue,
     int? completedToday,
   }) {
+    _mutationVersion++;
     state = state.copyWith(
       energy: energy.clamp(0.0, 1.0),
       fatigue: fatigue.clamp(0.0, 1.0),
@@ -64,6 +74,7 @@ class SIStateController extends Notifier<SIState> {
   }
 
   void reset() {
+    _mutationVersion++;
     state = const SIState();
   }
 }

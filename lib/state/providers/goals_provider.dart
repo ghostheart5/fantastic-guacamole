@@ -59,7 +59,7 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     DateTime? targetDate,
   }) async {
     final goal = GoalEntity(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
       title: title.trim(),
       createdAt: DateTime.now(),
       description: description?.trim().isEmpty ?? true
@@ -153,7 +153,7 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
       _GoalAction.updated => 6,
       _GoalAction.completed => 40,
     };
-    ref.read(profileProvider.notifier).addXP(progressionXp);
+    await ref.read(profileProvider.notifier).addXP(progressionXp);
     ref.invalidate(insightsBundleProvider);
     await _refreshPlannerDecision();
     ref

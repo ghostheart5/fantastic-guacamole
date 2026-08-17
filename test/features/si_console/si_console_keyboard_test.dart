@@ -157,7 +157,8 @@ Future<void> _pumpUntilScrollSettled(
     await tester.pump(const Duration(milliseconds: 50));
     final double pixels = scrollable.position.pixels;
     final double maxExtent = scrollable.position.maxScrollExtent;
-    if ((pixels - lastPixels).abs() < 0.5 && (maxExtent - lastMax).abs() < 0.5) {
+    if ((pixels - lastPixels).abs() < 0.5 &&
+        (maxExtent - lastMax).abs() < 0.5) {
       stableCount += 1;
       if (stableCount >= 3) {
         return;

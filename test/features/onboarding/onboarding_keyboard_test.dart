@@ -41,8 +41,7 @@ void main() {
 
       final Rect fieldRect = tester.getRect(find.byType(TextField));
       final double visibleBottom =
-          tester.view.physicalSize.height / tester.view.devicePixelRatio -
-          300;
+          tester.view.physicalSize.height / tester.view.devicePixelRatio - 300;
 
       expect(fieldRect.bottom, lessThanOrEqualTo(visibleBottom));
     },

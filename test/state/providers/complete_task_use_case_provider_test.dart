@@ -45,9 +45,7 @@ void main() {
 
       await container.read(completeTaskUseCaseProvider).call('task-1');
 
-      final TaskEntity? completed = await taskRepository.getTaskById(
-        'task-1',
-      );
+      final TaskEntity? completed = await taskRepository.getTaskById('task-1');
       expect(completed?.isCompleted, isTrue);
       expect(
         progressionRepository.progression?.xp,
@@ -65,10 +63,7 @@ void main() {
             'confidence path actually runs when a task is completed via the '
             'real provider graph.',
       );
-      expect(
-        siRepository.savedStates.single.confidence,
-        closeTo(0.55, 0.0001),
-      );
+      expect(siRepository.savedStates.single.confidence, closeTo(0.55, 0.0001));
     },
   );
 }

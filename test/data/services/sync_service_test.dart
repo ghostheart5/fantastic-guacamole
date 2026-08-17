@@ -293,45 +293,43 @@ void main() {
     );
   });
 
-  test('syncDelta ranks a completed local task above an older cloud copy', () async {
-    // _taskTimestamp prefers updatedAt, then completedAt, then createdAt.
-    // TaskEntity has no updatedAt field, so completedAt is the only signal a
-    // local change can actually produce.
-    await repository.saveTask(
-      TaskEntity(
-        id: 'shared',
-        title: 'Local completed later',
-        createdAt: DateTime.utc(2026, 7, 1),
-        isCompleted: true,
-        completedAt: DateTime.utc(2026, 7, 9),
-      ),
-    );
-    gateway.fullBackup = <String, dynamic>{
-      'version': '3.0.0',
-      'tasks': <Map<String, dynamic>>[
-        <String, dynamic>{
-          'id': 'shared',
-          'title': 'Cloud created later, never completed',
-          'createdAt': '2026-07-05T00:00:00.000Z',
-        },
-      ],
-    };
+  test(
+    'syncDelta ranks a completed local task above an older cloud copy',
+    () async {
+      // _taskTimestamp prefers updatedAt, then completedAt, then createdAt.
+      // This case protects compatibility with records that predate updatedAt.
+      await repository.saveTask(
+        TaskEntity(
+          id: 'shared',
+          title: 'Local completed later',
+          createdAt: DateTime.utc(2026, 7, 1),
+          isCompleted: true,
+          completedAt: DateTime.utc(2026, 7, 9),
+        ),
+      );
+      gateway.fullBackup = <String, dynamic>{
+        'version': '3.0.0',
+        'tasks': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'shared',
+            'title': 'Cloud created later, never completed',
+            'createdAt': '2026-07-05T00:00:00.000Z',
+          },
+        ],
+      };
 
-    expect(await syncService.syncDelta(), isTrue);
-    expect(mergedTasks().single['title'], 'Local completed later');
-  });
+      expect(await syncService.syncDelta(), isTrue);
+      expect(mergedTasks().single['title'], 'Local completed later');
+    },
+  );
 
-  test('syncDelta loses a local edit that changes no timestamp', () async {
-    // Documents a real data-loss vector rather than endorsing it. TaskEntity
-    // carries no updatedAt, so renaming or re-prioritising a task locally
-    // leaves createdAt untouched. Conflict resolution therefore cannot see the
-    // edit, and any cloud copy with a later timestamp silently overwrites it.
-    // Adding updatedAt to TaskEntity should flip this assertion.
+  test('syncDelta keeps a local edit with a newer updatedAt', () async {
     await repository.saveTask(
       TaskEntity(
         id: 'shared',
         title: 'Locally renamed, never synced',
         createdAt: DateTime.utc(2026, 7, 1),
+        updatedAt: DateTime.utc(2026, 7, 6),
       ),
     );
     gateway.fullBackup = <String, dynamic>{
@@ -341,20 +339,15 @@ void main() {
           'id': 'shared',
           'title': 'Stale cloud title',
           'createdAt': '2026-07-05T00:00:00.000Z',
+          'updatedAt': '2026-07-05T12:00:00.000Z',
         },
       ],
     };
 
     expect(await syncService.syncDelta(), isTrue);
-    expect(
-      mergedTasks().single['title'],
-      'Stale cloud title',
-      reason:
-          'Local edits are invisible to merge because TaskEntity has no '
-          'updatedAt to bump.',
-    );
+    expect(mergedTasks().single['title'], 'Locally renamed, never synced');
+    expect(mergedTasks().single['updatedAt'], '2026-07-06T00:00:00.000Z');
   });
-
 
   test(
     'syncDelta resurrects a locally deleted task that is still in the cloud',

@@ -29,7 +29,9 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    hiveDirectory = await Directory.systemTemp.createTemp('chronospark_offline_sync_');
+    hiveDirectory = await Directory.systemTemp.createTemp(
+      'chronospark_offline_sync_',
+    );
     Hive.init(hiveDirectory.path);
 
     prefs = SharedPrefsStorage(await SharedPreferences.getInstance());
@@ -45,7 +47,9 @@ void main() {
 
     container = ProviderContainer(
       overrides: [
-        syncServiceProvider.overrideWithValue(SyncService(backup: backupService, gateway: gateway)),
+        syncServiceProvider.overrideWithValue(
+          SyncService(backup: backupService, gateway: gateway),
+        ),
       ],
     );
   });
@@ -59,33 +63,46 @@ void main() {
     }
   });
 
-  test('offline sync queues failed upload and replays after reconnect', () async {
-    await repository.saveTask(
-      TaskEntity(id: 'task-1', title: 'Offline task', createdAt: DateTime.utc(2026, 7, 5)),
-    );
+  test(
+    'offline sync queues failed upload and replays after reconnect',
+    () async {
+      await repository.saveTask(
+        TaskEntity(
+          id: 'task-1',
+          title: 'Offline task',
+          createdAt: DateTime.utc(2026, 7, 5),
+        ),
+      );
 
-    final bool firstSync = await container.read(syncToCloudProvider.future);
-    expect(firstSync, isFalse);
+      final bool firstSync = await container.read(syncToCloudProvider.future);
+      expect(firstSync, isFalse);
 
-    final int queuedAfterFailure = await container.read(offlineQueueCountProvider.future);
-    expect(queuedAfterFailure, 1);
+      final int queuedAfterFailure = await container.read(
+        offlineQueueCountProvider.future,
+      );
+      expect(queuedAfterFailure, 1);
 
-    gateway.uploadShouldFail = false;
+      gateway.uploadShouldFail = false;
 
-    final int replayed = await container.read(replayOfflineQueueProvider.future);
-    expect(replayed, greaterThanOrEqualTo(1));
+      final int replayed = await container.read(
+        replayOfflineQueueProvider.future,
+      );
+      expect(replayed, greaterThanOrEqualTo(1));
 
-    final int queuedAfterReplay = await container.read(offlineQueueCountProvider.future);
-    expect(queuedAfterReplay, lessThanOrEqualTo(1));
+      final int queuedAfterReplay = await container.read(
+        offlineQueueCountProvider.future,
+      );
+      expect(queuedAfterReplay, lessThanOrEqualTo(1));
 
-    // syncToCloudProvider is a future provider, so the container caches the
-    // first (failed) result. Without invalidating, this second read returns
-    // that cached false and the assertion can never pass regardless of what
-    // the sync layer does.
-    container.invalidate(syncToCloudProvider);
-    final bool secondSync = await container.read(syncToCloudProvider.future);
-    expect(secondSync, isTrue);
-  });
+      // syncToCloudProvider is a future provider, so the container caches the
+      // first (failed) result. Without invalidating, this second read returns
+      // that cached false and the assertion can never pass regardless of what
+      // the sync layer does.
+      container.invalidate(syncToCloudProvider);
+      final bool secondSync = await container.read(syncToCloudProvider.future);
+      expect(secondSync, isTrue);
+    },
+  );
 }
 
 class _FlakyCloudBackupGateway implements CloudBackupGateway {

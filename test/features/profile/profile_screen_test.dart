@@ -121,6 +121,7 @@ void main() {
       await tester.enterText(find.byType(TextField), '  Nova  ');
       await tester.tap(find.text('Update Identity'));
       await tester.pump();
+      await tester.pump();
 
       expect(container.read(profileProvider).name, 'Nova');
     });
@@ -152,7 +153,10 @@ void main() {
     await tester.tap(disciplineChip);
     await tester.pump();
 
-    expect(container.read(profileValuesProvider), isNot(contains('Discipline')));
+    expect(
+      container.read(profileValuesProvider),
+      isNot(contains('Discipline')),
+    );
 
     await tester.tap(disciplineChip);
     await tester.pump();
@@ -225,6 +229,14 @@ class _StaticProfile extends ProfileController {
 
   @override
   ProfileState build() => _state;
+
+  @override
+  Future<void> updateName(String name) async {
+    final String trimmed = name.trim();
+    if (trimmed.isNotEmpty) {
+      state = state.copyWith(name: trimmed);
+    }
+  }
 }
 
 class _StaticGoals extends GoalsNotifier {

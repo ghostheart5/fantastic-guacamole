@@ -78,18 +78,21 @@ void main() {
       expect(repository.lastFeatureId, 'si_console');
     });
 
-    test('returns a denied entitlement without treating it as an error', () async {
-      final _FakePaywallRepository repository = _FakePaywallRepository(
-        entitled: false,
-      );
+    test(
+      'returns a denied entitlement without treating it as an error',
+      () async {
+        final _FakePaywallRepository repository = _FakePaywallRepository(
+          entitled: false,
+        );
 
-      final Entitlement entitlement = await CheckEntitlement(
-        repository,
-      ).call(featureId: 'si_console');
+        final Entitlement entitlement = await CheckEntitlement(
+          repository,
+        ).call(featureId: 'si_console');
 
-      expect(entitlement.isEntitled, isFalse);
-      expect(entitlement.featureId, 'si_console');
-    });
+        expect(entitlement.isEntitled, isFalse);
+        expect(entitlement.featureId, 'si_console');
+      },
+    );
 
     test('rejects a blank feature id', () async {
       final _FakePaywallRepository repository = _FakePaywallRepository();
@@ -144,7 +147,11 @@ class _FakePaywallRepository implements IPaywallRepository {
 
   @override
   Future<SubscriptionState> getUserSubscriptionState() async =>
-      const SubscriptionState(isActive: false, status: 'inactive', source: 'test');
+      const SubscriptionState(
+        isActive: false,
+        status: 'inactive',
+        source: 'test',
+      );
 
   @override
   Future<SubscriptionState> startSubscription(String planId) async {
@@ -159,9 +166,16 @@ class _FakePaywallRepository implements IPaywallRepository {
 
   @override
   Future<SubscriptionState> cancelSubscription() async =>
-      const SubscriptionState(isActive: false, status: 'canceled', source: 'test');
+      const SubscriptionState(
+        isActive: false,
+        status: 'canceled',
+        source: 'test',
+      );
 
   @override
-  Future<SubscriptionState> restorePurchases() async =>
-      const SubscriptionState(isActive: false, status: 'inactive', source: 'test');
+  Future<SubscriptionState> restorePurchases() async => const SubscriptionState(
+    isActive: false,
+    status: 'inactive',
+    source: 'test',
+  );
 }

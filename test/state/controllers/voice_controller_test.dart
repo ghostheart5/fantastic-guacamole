@@ -46,63 +46,75 @@ void main() {
     expect(speech.listenCallCount, 0);
   });
 
-  test('unavailable speech engine surfaces an error and stays not listening', () async {
-    speech.available = false;
-    container = buildContainer();
-    final controller = container.read(voiceControllerProvider.notifier);
+  test(
+    'unavailable speech engine surfaces an error and stays not listening',
+    () async {
+      speech.available = false;
+      container = buildContainer();
+      final controller = container.read(voiceControllerProvider.notifier);
 
-    await controller.startListening();
+      await controller.startListening();
 
-    final VoiceState state = container.read(voiceControllerProvider);
-    expect(state.isListening, isFalse);
-    expect(state.isAvailable, isFalse);
-    expect(state.error, isNotNull);
-    expect(speech.listenCallCount, 0);
-  });
+      final VoiceState state = container.read(voiceControllerProvider);
+      expect(state.isListening, isFalse);
+      expect(state.isAvailable, isFalse);
+      expect(state.error, isNotNull);
+      expect(speech.listenCallCount, 0);
+    },
+  );
 
-  test('happy path listens, populates recognizedText, and stop preserves it', () async {
-    container = buildContainer();
-    final controller = container.read(voiceControllerProvider.notifier);
+  test(
+    'happy path listens, populates recognizedText, and stop preserves it',
+    () async {
+      container = buildContainer();
+      final controller = container.read(voiceControllerProvider.notifier);
 
-    await controller.startListening();
-    expect(container.read(voiceControllerProvider).isListening, isTrue);
-    expect(container.read(voiceControllerProvider).error, isNull);
+      await controller.startListening();
+      expect(container.read(voiceControllerProvider).isListening, isTrue);
+      expect(container.read(voiceControllerProvider).error, isNull);
 
-    speech.emitResult('turn on focus mode', isFinal: true);
-    expect(
-      container.read(voiceControllerProvider).recognizedText,
-      'turn on focus mode',
-    );
+      speech.emitResult('turn on focus mode', isFinal: true);
+      expect(
+        container.read(voiceControllerProvider).recognizedText,
+        'turn on focus mode',
+      );
 
-    await controller.stopListening();
-    final VoiceState afterStop = container.read(voiceControllerProvider);
-    expect(afterStop.isListening, isFalse);
-    expect(afterStop.recognizedText, 'turn on focus mode');
+      await controller.stopListening();
+      final VoiceState afterStop = container.read(voiceControllerProvider);
+      expect(afterStop.isListening, isFalse);
+      expect(afterStop.recognizedText, 'turn on focus mode');
 
-    controller.clearRecognizedText();
-    expect(container.read(voiceControllerProvider).recognizedText, isEmpty);
-  });
+      controller.clearRecognizedText();
+      expect(container.read(voiceControllerProvider).recognizedText, isEmpty);
+    },
+  );
 
-  test('the plugin stopping on its own flips isListening back to false', () async {
-    container = buildContainer();
-    final controller = container.read(voiceControllerProvider.notifier);
+  test(
+    'the plugin stopping on its own flips isListening back to false',
+    () async {
+      container = buildContainer();
+      final controller = container.read(voiceControllerProvider.notifier);
 
-    await controller.startListening();
-    expect(container.read(voiceControllerProvider).isListening, isTrue);
+      await controller.startListening();
+      expect(container.read(voiceControllerProvider).isListening, isTrue);
 
-    speech.emitDone();
+      speech.emitDone();
 
-    expect(container.read(voiceControllerProvider).isListening, isFalse);
-  });
+      expect(container.read(voiceControllerProvider).isListening, isFalse);
+    },
+  );
 
-  test('startListening stops any active TTS before listening (mutual exclusion)', () async {
-    container = buildContainer();
-    final controller = container.read(voiceControllerProvider.notifier);
+  test(
+    'startListening stops any active TTS before listening (mutual exclusion)',
+    () async {
+      container = buildContainer();
+      final controller = container.read(voiceControllerProvider.notifier);
 
-    await controller.startListening();
+      await controller.startListening();
 
-    expect(voice.stopCallCount, 1);
-  });
+      expect(voice.stopCallCount, 1);
+    },
+  );
 
   test('startListening while already listening is a no-op', () async {
     container = buildContainer();

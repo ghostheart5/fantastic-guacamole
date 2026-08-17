@@ -5,7 +5,7 @@
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "AI-powered productivity planner with adaptive focus, temporal ops, and SI guidance.",
+    "description": "AI-powered productivity planner with adaptive focus, timeline context, and SI guidance.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

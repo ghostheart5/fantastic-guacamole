@@ -35,7 +35,11 @@ void main() {
       final AwardXp awardXp = AwardXp(repository);
 
       await awardXp.call(99);
-      expect(repository.progression?.level, 1, reason: '99 XP is still level 1');
+      expect(
+        repository.progression?.level,
+        1,
+        reason: '99 XP is still level 1',
+      );
 
       await awardXp.call(1); // 100
       expect(repository.progression?.level, 2);
@@ -64,7 +68,10 @@ void main() {
     test('rejects a negative award without touching storage', () async {
       repository.progression = const ProgressionEntity(xp: 40);
 
-      await expectLater(() => AwardXp(repository).call(-1), throwsArgumentError);
+      await expectLater(
+        () => AwardXp(repository).call(-1),
+        throwsArgumentError,
+      );
 
       expect(repository.progression?.xp, 40);
       expect(repository.saveCount, 0);
@@ -98,10 +105,7 @@ void main() {
     });
 
     test('rejects negative awards', () {
-      expect(
-        () => const ProgressionEntity().awardXp(-5),
-        throwsArgumentError,
-      );
+      expect(() => const ProgressionEntity().awardXp(-5), throwsArgumentError);
     });
   });
 }

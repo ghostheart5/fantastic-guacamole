@@ -18,12 +18,12 @@ class ProfileActions {
 
   final Ref _ref;
 
-  void toggleSound(bool value) {
-    _ref.read(profileProvider.notifier).toggleSound(value);
+  Future<void> toggleSound(bool value) {
+    return _ref.read(profileProvider.notifier).toggleSound(value);
   }
 
-  void updateName(String name) {
-    _ref.read(profileProvider.notifier).updateName(name);
+  Future<void> updateName(String name) {
+    return _ref.read(profileProvider.notifier).updateName(name);
   }
 
   void openProgression() {

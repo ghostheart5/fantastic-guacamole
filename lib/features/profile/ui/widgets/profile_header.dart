@@ -90,7 +90,7 @@ class ProfileHeader extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'OPERATIVE L$level',
+                      'CHRONOSPARK L$level',
                       style: const TextStyle(
                         fontSize: 9,
                         color: AppColors.neonCyan,

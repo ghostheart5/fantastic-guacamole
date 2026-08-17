@@ -72,34 +72,37 @@ void main() {
       );
 
       expect(
-        find.text("Couldn't load the latest plan details. Showing what we have."),
+        find.text(
+          "Couldn't load the latest plan details. Showing what we have.",
+        ),
         findsOneWidget,
       );
       expect(find.text('Retry'), findsOneWidget);
     },
   );
 
-  testWidgets('tapping Retry on the error banner re-fetches the failed provider', (
-    WidgetTester tester,
-  ) async {
-    int rebuilds = 0;
+  testWidgets(
+    'tapping Retry on the error banner re-fetches the failed provider',
+    (WidgetTester tester) async {
+      int rebuilds = 0;
 
-    await pumpPaywall(
-      tester,
-      onConfigRebuild: () => rebuilds++,
-      config: (Ref ref) async => throw Exception('config failed'),
-    );
-    expect(rebuilds, 1);
+      await pumpPaywall(
+        tester,
+        onConfigRebuild: () => rebuilds++,
+        config: (Ref ref) async => throw Exception('config failed'),
+      );
+      expect(rebuilds, 1);
 
-    await tester.tap(find.text('Retry'));
-    await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.text('Retry'));
+      await tester.pump(const Duration(milliseconds: 400));
 
-    expect(
-      rebuilds,
-      2,
-      reason: 'Retry must invalidate the failed provider so it re-fetches.',
-    );
-  });
+      expect(
+        rebuilds,
+        2,
+        reason: 'Retry must invalidate the failed provider so it re-fetches.',
+      );
+    },
+  );
 
   testWidgets('a healthy fetch renders no error banner', (
     WidgetTester tester,

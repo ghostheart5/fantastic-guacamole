@@ -1,183 +1,121 @@
-# Release Test Plan
+# ChronoSpark Release Reliability Plan
 
-This plan closes the highest-risk test gaps before production release.
+This plan defines the current non-build automated gate and the validation that
+must remain separate because it requires a built application or physical
+device. It replaces the former list of proposed tests whose paths no longer
+matched the repository.
 
-## Scope
+## Current Automated Estate
 
-Areas covered:
-- onboarding
-- navigation
-- task flow
-- SI/chatbot
-- persistence
-- error states
-- offline mode
+- Unit/widget/contract test files: see the live inventory in `test/`.
+- Fast cross-layer tests: `test/integration/`.
+- Application-root integration journeys: `integration_test/`.
+- Supabase Edge Function tests: `supabase/functions/**/*_test.ts`.
+- Maestro flows: `.maestro/flows/`, with static YAML/subflow validation in CI.
+- Golden baselines: authentication and Nexus at compact and regular widths.
+- Coverage enforcement: `scripts/coverage_guard.ps1 -Mode ratchet` blocks
+  regression from the measured baseline; the default `-Mode target` audits the
+  higher release-quality destination and remains intentionally strict.
+- Canonical commands and isolation rules: `test/README.md`.
 
-## Current Baseline
+Counts are intentionally not frozen in this document. CI discovers the live
+suite so adding or moving tests cannot silently make a hand-maintained count
+authoritative.
 
-- Unit test files: 18
-- Integration test files: 5
-- Dedicated widget test files under `test/`: none
-- Snapshot line coverage from `coverage/lcov.info`: ~15.19%
+## Required Pull-Request Gate
 
-## Release Gate
+The primary CI workflow must pass all of these without creating a distributable
+build or launching a device:
 
-Before release, all P0 and P1 tests below should pass in CI.
+1. Formatting verification for `lib`, `test`, and `integration_test`.
+2. Secret scanning.
+3. Flutter analyzer with informational diagnostics treated as failures.
+4. Architecture boundary validation.
+5. Maestro YAML and `runFlow` target validation.
+6. Deno type checks for every Edge Function.
+7. Deno unit tests for extracted Edge Function logic.
+8. Flutter `test/` execution with serialized isolation and coverage.
+9. Overall, layer, and release-critical coverage ratchet floors. The target
+   audit remains required before claiming the coverage destination is met.
 
-- P0: required to ship
-- P1: strongly recommended for first stable release
-- P2: nice to have / hardening
+Validation CI is read-only. It must never update golden files, commit, or push.
+Golden regeneration remains a manually dispatched and reviewable workflow.
 
-## Test Cases By Layer
+## Release-Critical Automated Flows
 
-### Unit Tests (logic/state/services)
+### Authentication and startup
 
-1. File: `test/onboarding/onboarding_controller_test.dart` (P1)
-- start sets `OnboardingInProgress(step: 0)`
-- nextStep advances and completes at last step
-- previousStep does not underflow below 0
-- reset returns to `OnboardingInitial`
+- `integration_test/app_startup_test.dart`
+- `integration_test/auth_flow_integration_test.dart`
+- `test/features/auth/auth_signin_chain_test.dart`
+- `test/data/services/auth_service_delete_account_test.dart`
 
-2. File: `test/state/services/offline_sync_queue_service_test.dart` (P0)
-- enqueue dedupes by `dedupeKey`
-- replay increments attempts and sets `lastAttemptAtUtc`
-- successful replay removes item
-- failed replay keeps item
-- replay respects `maxItems`
-- malformed queue entries are ignored safely
+### Persistence, recovery, and offline behavior
 
-3. File: `test/state/providers/sync_provider_test.dart` (P0)
-- `syncToCloudProvider` enqueues `sync_to_cloud` on failure
-- `syncToCloudProvider` replays queue before current sync
-- `replayOfflineQueueProvider` returns processed count
-- unknown queue action type returns false and remains queued
+- `integration_test/persistence_recovery_test.dart`
+- `test/integration/offline_sync_roundtrip_integration_test.dart`
+- `test/state/services/offline_sync_queue_service_test.dart`
+- `test/state/services/app_recovery_service_test.dart`
+- `test/data/services/backup_service_test.dart`
+- `test/data/services/sync_service_test.dart`
 
-4. File: `test/app/navigation_shell_lifecycle_test.dart` (P1)
-- pause/inactive triggers state save
-- resume triggers recovery load
-- recovered route maps to valid `AppView`
+### Tasks, planning, and intelligence
 
-5. File: `test/data/services/ai/chat_agent_network_fallback_test.dart` (P1)
-- non-200 proxy responses return null and fallback path is used
-- timeout returns null without exception leak
-- malformed JSON returns null safely
+- `test/integration/task_lifecycle_test.dart`
+- `test/integration/si_console_flow_test.dart`
+- `test/integration/si_engine_guardrails_integration_test.dart`
+- `test/domain/usecases/smart_planner_usecases_test.dart`
+- `test/state/controllers/smart_planner_query_controller_test.dart`
+- `test/features/home/smart_planner_screen_test.dart`
 
-6. File: `test/ui/widgets/offline_banner_state_test.dart` (P1)
-- online => hidden banner
-- offline => visible banner text/icon
+### Creator and connected feature chain
 
-### Widget Tests (UI behavior in isolation)
+- `test/features/creator/dynamic_form_test.dart`
+- `test/state/providers/creator_provider_type_mapping_test.dart`
+- `test/domain/usecases/feature_chain_usecases_test.dart`
+- `test/features/nexus/nexus_navigation_test.dart`
+- `test/features/feature_screen_smoke_test.dart`
 
-1. File: `test/onboarding/onboarding_screen_test.dart` (P0)
-- SKIP marks onboarding complete
-- NEXT progresses pages and indicators
-- personalization step writes name and goal type
-- complete action updates `onboardingCompleteProvider`
+### Progression, state races, and integrity
 
-2. File: `test/app/navigation_shell_test.dart` (P0)
-- bottom nav tab changes screen index
-- AppView switch renders correct route screen
-- premium route gate appears for locked console
-- offline banner appears when network state is offline
+- `test/domain/policies/progression_curve_test.dart`
+- `test/domain/policies/progression_policy_test.dart`
+- `test/state/controllers/profile_level_migration_test.dart`
+- `test/state/controllers/profile_persistence_race_test.dart`
+- `test/state/providers/identity_provider_race_test.dart`
+- `test/data/repositories/goal_repository_corruption_test.dart`
 
-3. File: `test/features/tasks/task_screen_test.dart` (P0)
-- empty state visible with no tasks
-- render task list item from provider
-- open task details and mark complete action path
+### Security, privacy, and configuration
 
-4. File: `test/features/creator/creator_screen_test.dart` (P1)
-- invalid form blocks create
-- valid form triggers create action and clears input
-- create error surfaces user-visible feedback
+- `test/security/security_hardening_test.dart`
+- `test/security/supabase_data_boundary_contract_test.dart`
+- `test/config/production_gates_test.dart`
+- `test/product_canon/product_terminology_contract_test.dart`
+- `supabase/functions/_shared/storage_cleanup_test.ts`
 
-5. File: `test/features/home/smart_planner_screen_test.dart` (P1)
-- send prompt triggers AI action
-- failed AI response shows error/retry state
-- credit exhausted state shows paywall prompt
+## Device and Build Validation
 
-6. File: `test/ui/widgets/error_boundary_widget_test.dart` (P1)
-- child error renders fallback UI
-- retry callback restores content path
+The following are not represented as passed by the non-build suite:
 
-### Integration Tests (cross-feature journeys)
+- signed Android App Bundle creation and install;
+- application-root `integration_test/` execution on target devices;
+- Maestro release-critical and destructive flows;
+- Play Billing license-account purchase and restore;
+- microphone, notification, deep-link, and audio-focus behavior;
+- Firebase/Supabase behavior with production credentials and policies;
+- tablet, foldable, orientation, accessibility, performance, and lifecycle UAT;
+- visual review before accepting regenerated goldens.
 
-1. File: `integration_test/onboarding_full_journey_integration_test.dart` (P0)
-- complete entire onboarding flow across all pages
-- persist and reload app -> onboarding is skipped
-- personalization values are present after restart
+Execute these using `docs/testing/CHRONOSPARK_UAT_MATRIX.md` and retain the
+required evidence. A deferred device scenario is never counted as an automated
+pass.
 
-2. File: `integration_test/navigation_recovery_integration_test.dart` (P0)
-- navigate to non-default route
-- simulate lifecycle pause/resume
-- verify route restoration and stable render
+## Definition of Done
 
-3. File: `integration_test/task_crud_and_recurrence_integration_test.dart` (P0)
-- create/edit/delete task from UI
-- complete recurring task and verify next instance behavior
-- verify persisted state after app restart
-
-4. File: `integration_test/offline_sync_roundtrip_integration_test.dart` (P0)
-- offline state shows banner
-- sync action enqueues when cloud unavailable
-- reconnect triggers queue replay
-- queued item count returns to zero after success
-
-5. File: `integration_test/chatbot_failure_recovery_integration_test.dart` (P1)
-- proxy timeout/failure path shows safe fallback
-- retry from UI succeeds after network recovers
-- no duplicate assistant response after retry
-
-6. File: `integration_test/error_state_surface_integration_test.dart` (P1)
-- auth failure shows mapped error message
-- paywall/credit exhaustion displays expected CTA
-- sync failure surfaces non-blocking warning and recovery option
-
-## Mapping To Requested Areas
-
-- onboarding:
-  - `test/onboarding/onboarding_controller_test.dart`
-  - `test/onboarding/onboarding_screen_test.dart`
-  - `integration_test/onboarding_full_journey_integration_test.dart`
-
-- navigation:
-  - `test/app/navigation_shell_test.dart`
-  - `test/app/navigation_shell_lifecycle_test.dart`
-  - `integration_test/navigation_recovery_integration_test.dart`
-
-- task flow:
-  - `test/features/tasks/task_screen_test.dart`
-  - `test/features/creator/creator_screen_test.dart`
-  - `integration_test/task_crud_and_recurrence_integration_test.dart`
-
-- SI/chatbot:
-  - `test/data/services/ai/chat_agent_network_fallback_test.dart`
-  - `test/features/home/smart_planner_screen_test.dart`
-  - `integration_test/chatbot_failure_recovery_integration_test.dart`
-
-- persistence:
-  - `test/state/services/offline_sync_queue_service_test.dart`
-  - `test/state/providers/sync_provider_test.dart`
-  - `integration_test/task_crud_and_recurrence_integration_test.dart`
-
-- error states:
-  - `test/ui/widgets/error_boundary_widget_test.dart`
-  - `integration_test/error_state_surface_integration_test.dart`
-
-- offline mode:
-  - `test/ui/widgets/offline_banner_state_test.dart`
-  - `test/state/services/offline_sync_queue_service_test.dart`
-  - `integration_test/offline_sync_roundtrip_integration_test.dart`
-
-## Suggested CI Rollout
-
-1. Add all P0 unit/widget tests first and run on every PR.
-2. Add P0 integration tests to a required nightly or release workflow.
-3. Promote P1 integration tests to required before launch candidate tagging.
-4. Track coverage trend and require net positive coverage deltas for P0/P1 files.
-
-## Definition Of Done (Pre-Release)
-
-- All P0 tests implemented and green in CI.
-- P1 tests implemented for navigation recovery, chatbot failure, and error surfaces.
-- No flaky failures across 3 consecutive CI runs.
-- Release candidate build passes integration suite with offline + recovery scenarios.
+- The complete non-build gate passes twice from independent test processes.
+- No unexpected skips, swallowed failures, or CI-generated source changes.
+- CI coverage ratchets pass, critical target files appear in the report, and
+  target-mode debt is explicitly recorded rather than hidden or lowered.
+- Remaining failures are classified with owner, environment, and exact rerun.
+- Physical-device UAT and release builds are completed later on the signed
+  release candidate before any store submission.

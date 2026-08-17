@@ -20,7 +20,10 @@ void main() {
 
       await UpdateTask(repository).call(task);
 
-      expect((await repository.getTaskById('task-1'))?.title, 'Refine UI');
+      final TaskEntity? saved = await repository.getTaskById('task-1');
+      expect(saved?.title, 'Refine UI');
+      expect(saved?.updatedAt, isNotNull);
+      expect(saved?.updatedAt?.isAfter(task.createdAt), isTrue);
     });
 
     test('throws for invalid task', () async {

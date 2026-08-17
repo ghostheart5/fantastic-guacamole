@@ -19,9 +19,7 @@ void useTemporaryPathProvider() {
     TestWidgetsFlutterBinding.ensureInitialized();
     directory = await Directory.systemTemp.createTemp('chronospark_test_');
 
-    TestDefaultBinaryMessengerBinding
-        .instance
-        .defaultBinaryMessenger
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.flutter.io/path_provider'),
           (MethodCall call) async => directory.path,
@@ -29,9 +27,7 @@ void useTemporaryPathProvider() {
   });
 
   tearDown(() async {
-    TestDefaultBinaryMessengerBinding
-        .instance
-        .defaultBinaryMessenger
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.flutter.io/path_provider'),
           null,

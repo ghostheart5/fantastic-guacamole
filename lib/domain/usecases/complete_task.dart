@@ -26,7 +26,7 @@ class CompleteTask {
 
     final now = DateTime.now();
     await repository.saveTask(
-      task.copyWith(isCompleted: true, completedAt: now),
+      task.copyWith(isCompleted: true, completedAt: now, updatedAt: now),
     );
 
     // If recurring, create the next occurrence
@@ -39,6 +39,7 @@ class CompleteTask {
         isCompleted: false,
         completedAt: null,
         createdAt: now,
+        updatedAt: now,
         scheduledFor: now.add(offset),
       );
       await repository.saveTask(next);

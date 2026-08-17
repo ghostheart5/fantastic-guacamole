@@ -396,7 +396,7 @@ class _PopulatedProfileController extends ProfileController {
     level: 10,
     streak: 21,
     longestStreak: 21,
-    name: 'Operative',
+    name: 'ChronoSpark User',
   );
 }
 

@@ -17,7 +17,7 @@ appId: com.ghostheart5.chronospark
 #    not "TIMELINE", for anything built from HoloButton.
 #
 # 2. Plain Text widgets are exposed as written, so screen headers really are
-#    uppercase: "NEXUS", "CREATOR", "TIMELINE OPS", "PROGRESSION".
+#    uppercase: "NEXUS", "CREATOR", "TIMELINE", "PROGRESSION".
 #
 # 3. Two login fields carry real widget keys and are the only keyed widgets in
 #    the app: login-email-field and login-password-field. Everything else has

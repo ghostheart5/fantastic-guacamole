@@ -25,7 +25,10 @@ void main() {
               paywallDisabled: false,
               testerFullAccess: false,
             ),
-            auth: AuthStateSnapshot(hasMockSession: false, hasAuthenticatedUser: false),
+            auth: AuthStateSnapshot(
+              hasMockSession: false,
+              hasAuthenticatedUser: false,
+            ),
             mockLogin: MockLoginConfigState(
               email: 'mock@chronospark.app',
               password: 'ChronoSpark123!',

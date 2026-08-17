@@ -9,58 +9,55 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test(
-    'scheduleNotificationUseCaseProvider wires generateSiDecision so a '
-    'scheduled notification is adapted through the SI pipeline instead of '
-    'always shipping its original, non-adaptive message',
-    () async {
-      final _FakeNotificationRepository notificationRepository =
-          _FakeNotificationRepository();
-      final _FakeTaskRepository taskRepository = _FakeTaskRepository();
-      final _FakeSiRepository siRepository = _FakeSiRepository();
+  test('scheduleNotificationUseCaseProvider wires generateSiDecision so a '
+      'scheduled notification is adapted through the SI pipeline instead of '
+      'always shipping its original, non-adaptive message', () async {
+    final _FakeNotificationRepository notificationRepository =
+        _FakeNotificationRepository();
+    final _FakeTaskRepository taskRepository = _FakeTaskRepository();
+    final _FakeSiRepository siRepository = _FakeSiRepository();
 
-      await taskRepository.saveTask(
-        TaskEntity(
-          id: 'task-1',
-          title: 'Ship report',
-          priority: 9,
-          createdAt: DateTime.utc(2026, 8, 1),
+    await taskRepository.saveTask(
+      TaskEntity(
+        id: 'task-1',
+        title: 'Ship report',
+        priority: 9,
+        createdAt: DateTime.utc(2026, 8, 1),
+      ),
+    );
+    siRepository.state = SiStateEntity(energy: 0.8, focus: 0.8, fatigue: 0.1);
+
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        domainNotificationRepositoryProvider.overrideWithValue(
+          notificationRepository,
         ),
-      );
-      siRepository.state = SiStateEntity(energy: 0.8, focus: 0.8, fatigue: 0.1);
+        domainTaskRepositoryProvider.overrideWithValue(taskRepository),
+        domainSiRepositoryProvider.overrideWithValue(siRepository),
+      ],
+    );
+    addTearDown(container.dispose);
 
-      final ProviderContainer container = ProviderContainer(
-        overrides: [
-          domainNotificationRepositoryProvider.overrideWithValue(
-            notificationRepository,
+    await container
+        .read(scheduleNotificationUseCaseProvider)
+        .call(
+          NotificationEntity(
+            id: 'notif-1',
+            title: 'Nudge',
+            message: 'Original message',
+            scheduledAt: DateTime.now().add(const Duration(minutes: 5)),
           ),
-          domainTaskRepositoryProvider.overrideWithValue(taskRepository),
-          domainSiRepositoryProvider.overrideWithValue(siRepository),
-        ],
-      );
-      addTearDown(container.dispose);
+        );
 
-      await container
-          .read(scheduleNotificationUseCaseProvider)
-          .call(
-            NotificationEntity(
-              id: 'notif-1',
-              title: 'Nudge',
-              message: 'Original message',
-              scheduledAt: DateTime.now().add(const Duration(minutes: 5)),
-            ),
-          );
-
-      expect(
-        notificationRepository.scheduled.single.message,
-        'Focus on: Ship report',
-        reason:
-            'scheduleNotificationUseCaseProvider must supply generateSiDecision '
-            'so ScheduleNotification actually adapts the notification message '
-            'through the SI pipeline when wired via the real provider graph.',
-      );
-    },
-  );
+    expect(
+      notificationRepository.scheduled.single.message,
+      'Focus on: Ship report',
+      reason:
+          'scheduleNotificationUseCaseProvider must supply generateSiDecision '
+          'so ScheduleNotification actually adapts the notification message '
+          'through the SI pipeline when wired via the real provider graph.',
+    );
+  });
 }
 
 class _FakeNotificationRepository implements INotificationRepository {

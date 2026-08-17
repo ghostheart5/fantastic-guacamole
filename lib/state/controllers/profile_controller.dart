@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
 import 'package:fantastic_guacamole/state/models/streak.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -41,7 +42,7 @@ class ProfileState {
     this.streak = 0,
     this.longestStreak = 0,
     this.leveledUp = false,
-    this.name = 'Operative',
+    this.name = 'ChronoSpark User',
     this.soundEnabled = true,
     this.lastActiveDate,
     this.legacyLevelFloor = 1,
@@ -96,13 +97,19 @@ class ProfileState {
     final int floor =
         (json['legacyLevelFloor'] as num?)?.toInt() ??
         (storedLevel > 1 ? storedLevel : 1);
+    final String storedName =
+        (json['name'] as String?)?.trim().isNotEmpty == true
+        ? (json['name'] as String).trim()
+        : 'ChronoSpark User';
 
     return ProfileState(
       xp: storedXp,
       level: levelFor(xp: storedXp, floor: floor),
       streak: (json['streak'] as num?)?.toInt() ?? 0,
       longestStreak: (json['longestStreak'] as num?)?.toInt() ?? 0,
-      name: json['name'] as String? ?? 'Operative',
+      // Migrate the retired built-in military-style default without changing
+      // any real custom profile name.
+      name: storedName == 'Operative' ? 'ChronoSpark User' : storedName,
       soundEnabled: json['soundEnabled'] as bool? ?? true,
       lastActiveDate: json['lastActiveDate'] != null
           ? DateTime.tryParse(json['lastActiveDate'] as String)
@@ -130,14 +137,12 @@ final profileProvider = NotifierProvider<ProfileController, ProfileState>(
 );
 
 class ProfileController extends Notifier<ProfileState> {
-  bool _initScheduled = false;
+  Future<void>? _initialization;
+  Future<void> _pendingSave = Future<void>.value();
 
   @override
   ProfileState build() {
-    if (!_initScheduled) {
-      _initScheduled = true;
-      Future<void>.microtask(_init);
-    }
+    _initialization ??= Future<void>.microtask(_init);
     return ProfileState();
   }
 
@@ -155,26 +160,54 @@ class ProfileController extends Notifier<ProfileState> {
   SecureStore get _secureStore => ref.read(secureStoreProvider);
 
   Future<void> _init() async {
-    String? raw = await _secureStore.readString(_secureStateKey);
-    if (raw == null) {
-      await _storage.open();
-      raw = _storage.get(_stateKey);
-      if (raw != null) {
-        await _secureStore.writeString(_secureStateKey, raw);
-        await _storage.delete(_stateKey);
-      }
-    }
-    if (raw == null) return;
     try {
+      String? raw = await _secureStore.readString(_secureStateKey);
+      if (raw == null) {
+        await _storage.open();
+        raw = _storage.get(_stateKey);
+        if (raw != null) {
+          await _secureStore.writeString(_secureStateKey, raw);
+          await _storage.delete(_stateKey);
+        }
+      }
+      if (raw == null || !ref.mounted) return;
       state = ProfileState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      Logger.errorCategory(
+        'ProfileHydration',
+        'Failed to restore the saved profile; keeping safe defaults.',
+        error,
+        stackTrace,
+      );
+    }
   }
 
-  Future<void> _save() async {
-    await _secureStore.writeString(_secureStateKey, jsonEncode(state.toJson()));
+  Future<void> _ensureInitialized() async {
+    await (_initialization ??= Future<void>.microtask(_init));
   }
 
-  void addXP(int amount) {
+  Future<void> _save() {
+    final SecureStore store = _secureStore;
+    final String encoded = jsonEncode(state.toJson());
+    final Future<void> operation = _pendingSave.then<void>(
+      (_) => store.writeString(_secureStateKey, encoded),
+      onError: (_, _) => store.writeString(_secureStateKey, encoded),
+    );
+    _pendingSave = operation.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stackTrace) {
+        Logger.errorCategory(
+          'ProfilePersistence',
+          'Failed to persist the latest profile state.',
+          error,
+          stackTrace,
+        );
+      },
+    );
+    return operation;
+  }
+
+  Future<void> addXP(int amount) async {
     if (amount < 0) {
       throw ArgumentError.value(
         amount,
@@ -182,6 +215,8 @@ class ProfileController extends Notifier<ProfileState> {
         'XP award cannot be negative',
       );
     }
+    await _ensureInitialized();
+    if (!ref.mounted) return;
     final DateTime now = DateTime.now();
     final bool streakBroke = _streakLogic.didBreak(
       Streak(
@@ -217,7 +252,7 @@ class ProfileController extends Notifier<ProfileState> {
       longestStreak: updated.longest,
       lastActiveDate: updated.lastActiveDate,
     );
-    _save();
+    await _save();
     if (streakBroke) {
       unawaited(_scheduleStreakBreakNotification(now: now));
     }
@@ -228,19 +263,25 @@ class ProfileController extends Notifier<ProfileState> {
     state = state.copyWith(leveledUp: false);
   }
 
-  void updateName(String name) {
+  Future<void> updateName(String name) async {
+    await _ensureInitialized();
+    if (!ref.mounted) return;
     state = state.copyWith(
       name: name.trim().isEmpty ? state.name : name.trim(),
     );
-    _save();
+    await _save();
   }
 
-  void toggleSound(bool value) {
+  Future<void> toggleSound(bool value) async {
+    await _ensureInitialized();
+    if (!ref.mounted) return;
     state = state.copyWith(soundEnabled: value);
-    _save();
+    await _save();
   }
 
-  void incrementStreak() {
+  Future<void> incrementStreak() async {
+    await _ensureInitialized();
+    if (!ref.mounted) return;
     final DateTime now = DateTime.now();
     final bool streakBroke = _streakLogic.didBreak(
       Streak(
@@ -263,16 +304,18 @@ class ProfileController extends Notifier<ProfileState> {
       longestStreak: updated.longest,
       lastActiveDate: updated.lastActiveDate,
     );
-    _save();
+    await _save();
     if (streakBroke) {
       unawaited(_scheduleStreakBreakNotification(now: now));
     }
     unawaited(_refreshPlannerDecision());
   }
 
-  void resetStreak() {
+  Future<void> resetStreak() async {
+    await _ensureInitialized();
+    if (!ref.mounted) return;
     state = state.copyWith(streak: 0, clearLastActiveDate: true);
-    _save();
+    await _save();
     unawaited(_refreshPlannerDecision());
   }
 

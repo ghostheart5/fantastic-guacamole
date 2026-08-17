@@ -865,7 +865,7 @@ class SIEngine {
       memory: memoryUpdate.store,
     );
     final emptyContinuity = ContinuityProfile(
-      identityLabel: 'steady_operator',
+      identityLabel: 'steady_planner',
       goals: const <String>[],
       behaviorPatterns: const <String>[],
       continuityScore: 0.5,

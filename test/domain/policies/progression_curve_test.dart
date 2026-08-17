@@ -43,10 +43,7 @@ void main() {
     });
 
     test('didLevelUp agrees with levelFromXp', () {
-      expect(
-        ProgressionPolicy.didLevelUp(previousLevel: 1, xp: 99),
-        isFalse,
-      );
+      expect(ProgressionPolicy.didLevelUp(previousLevel: 1, xp: 99), isFalse);
       expect(ProgressionPolicy.didLevelUp(previousLevel: 1, xp: 100), isTrue);
     });
   });

@@ -33,7 +33,10 @@ void main() {
     });
 
     test('overwhelm triggers at pressure 75 or divergence 50', () {
-      expect(_extract(pressureIndex: 74, behaviorDivergence: 49).overwhelm, isFalse);
+      expect(
+        _extract(pressureIndex: 74, behaviorDivergence: 49).overwhelm,
+        isFalse,
+      );
       expect(_extract(pressureIndex: 75).overwhelm, isTrue);
       expect(_extract(behaviorDivergence: 50).overwhelm, isTrue);
     });
@@ -50,9 +53,18 @@ void main() {
 
   group('goal drift and task avoidance', () {
     test('goal drift requires goals and divergence 40', () {
-      expect(_extract(hasGoals: false, behaviorDivergence: 90).goalDrift, isFalse);
-      expect(_extract(hasGoals: true, behaviorDivergence: 39).goalDrift, isFalse);
-      expect(_extract(hasGoals: true, behaviorDivergence: 40).goalDrift, isTrue);
+      expect(
+        _extract(hasGoals: false, behaviorDivergence: 90).goalDrift,
+        isFalse,
+      );
+      expect(
+        _extract(hasGoals: true, behaviorDivergence: 39).goalDrift,
+        isFalse,
+      );
+      expect(
+        _extract(hasGoals: true, behaviorDivergence: 40).goalDrift,
+        isTrue,
+      );
     });
 
     test('task avoidance requires two or more skips', () {
@@ -99,7 +111,6 @@ void main() {
         isNot(contains('overload_pattern')),
       );
     });
-
   });
 
   group('equivalence with the previous inline provider logic', () {

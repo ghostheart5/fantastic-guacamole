@@ -113,28 +113,29 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
-  testWidgets('Show all plans reveals the deprioritized plan, and collapses back', (
-    WidgetTester tester,
-  ) async {
-    await pumpPaywall(tester, config: _threePlanConfig);
+  testWidgets(
+    'Show all plans reveals the deprioritized plan, and collapses back',
+    (WidgetTester tester) async {
+      await pumpPaywall(tester, config: _threePlanConfig);
 
-    // Prioritization narrows 3 plans (1 featured) down to 2, so the third
-    // plan's title starts out hidden.
-    expect(find.text('Show all plans'), findsOneWidget);
-    expect(find.text('Third Tier'), findsNothing);
+      // Prioritization narrows 3 plans (1 featured) down to 2, so the third
+      // plan's title starts out hidden.
+      expect(find.text('Show all plans'), findsOneWidget);
+      expect(find.text('Third Tier'), findsNothing);
 
-    await tester.tap(find.text('Show all plans'));
-    await tester.pump();
+      await tester.tap(find.text('Show all plans'));
+      await tester.pump();
 
-    expect(find.text('Third Tier'), findsOneWidget);
-    expect(find.text('Show fewer plans'), findsOneWidget);
+      expect(find.text('Third Tier'), findsOneWidget);
+      expect(find.text('Show fewer plans'), findsOneWidget);
 
-    await tester.tap(find.text('Show fewer plans'));
-    await tester.pump();
+      await tester.tap(find.text('Show fewer plans'));
+      await tester.pump();
 
-    expect(find.text('Third Tier'), findsNothing);
-    expect(find.text('Show all plans'), findsOneWidget);
-  });
+      expect(find.text('Third Tier'), findsNothing);
+      expect(find.text('Show all plans'), findsOneWidget);
+    },
+  );
 
   testWidgets('the comparison ExpansionTile expands and collapses', (
     WidgetTester tester,

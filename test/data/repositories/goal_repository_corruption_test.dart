@@ -75,7 +75,8 @@ void main() {
     expect(
       repository.lastReadCorrupted,
       isTrue,
-      reason: 'an empty result from a corrupted read must be distinguishable '
+      reason:
+          'an empty result from a corrupted read must be distinguishable '
           'from a genuinely empty collection',
     );
   });
@@ -90,23 +91,26 @@ void main() {
     expect(repository.lastReadCorrupted, isTrue);
   });
 
-  test('the unreadable payload is quarantined before being overwritten', () async {
-    const String corrupt = 'this is not json';
-    await storage.put(key, corrupt);
+  test(
+    'the unreadable payload is quarantined before being overwritten',
+    () async {
+      const String corrupt = 'this is not json';
+      await storage.put(key, corrupt);
 
-    await Logger.withMutedErrors(() async {
-      // Simulates the real data-loss chain: corrupt read -> empty list ->
-      // user adds a goal -> save would overwrite the original.
-      await repository.saveGoal(goal('new'));
-    });
+      await Logger.withMutedErrors(() async {
+        // Simulates the real data-loss chain: corrupt read -> empty list ->
+        // user adds a goal -> save would overwrite the original.
+        await repository.saveGoal(goal('new'));
+      });
 
-    expect(
-      storage.get(backupKey),
-      corrupt,
-      reason: 'the original payload must remain recoverable',
-    );
-    expect(repository.getGoals().single.id, 'new');
-  });
+      expect(
+        storage.get(backupKey),
+        corrupt,
+        reason: 'the original payload must remain recoverable',
+      );
+      expect(repository.getGoals().single.id, 'new');
+    },
+  );
 
   test('a normal save does not create a quarantine backup', () async {
     await repository.saveGoals(<GoalEntity>[goal('a')]);
@@ -125,6 +129,19 @@ void main() {
     repository.getGoals();
 
     expect(repository.lastReadCorrupted, isFalse);
+  });
+
+  test('concurrent saves do not lose either goal', () async {
+    await Future.wait(<Future<void>>[
+      repository.saveGoal(goal('first')),
+      repository.saveGoal(goal('second')),
+    ]);
+
+    expect(
+      repository.getGoals().map((GoalEntity item) => item.id),
+      containsAll(<String>['first', 'second']),
+    );
+    expect(repository.getGoals(), hasLength(2));
   });
 }
 

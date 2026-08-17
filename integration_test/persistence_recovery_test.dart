@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
+import 'package:fantastic_guacamole/core/errors/app_exception.dart';
 import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/features/plan/ui/plan_screen.dart';
@@ -22,7 +23,9 @@ void main() {
     final InMemorySecureStoreBackend backend = InMemorySecureStoreBackend();
 
     final ProviderContainer firstRun = _containerFor(backend);
-    await firstRun.read(taskActionsProvider).createQuickTask('Persisted integration task');
+    await firstRun
+        .read(taskActionsProvider)
+        .createQuickTask('Persisted integration task');
     expect(
       (await firstRun.read(tasksProvider.future)).map((t) => t.title),
       contains('Persisted integration task'),
@@ -32,18 +35,22 @@ void main() {
     final ProviderContainer secondRun = _containerFor(backend);
     addTearDown(secondRun.dispose);
     final recovered = await secondRun.read(tasksProvider.future);
-    expect(recovered.map((t) => t.title), contains('Persisted integration task'));
+    expect(
+      recovered.map((t) => t.title),
+      contains('Persisted integration task'),
+    );
 
     await backend.write(key: 'task_entries_v2', value: '{ malformed-json');
 
     final ProviderContainer corruptedRun = _containerFor(backend);
     addTearDown(corruptedRun.dispose);
 
-    try {
-      await corruptedRun.read(tasksProvider.future).timeout(const Duration(seconds: 2));
-    } on Object {
-      // Corrupted payload may surface as a handled read failure.
-    }
+    await expectLater(
+      corruptedRun
+          .read(tasksProvider.future)
+          .timeout(const Duration(seconds: 2)),
+      throwsA(isA<StorageException>()),
+    );
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -71,7 +78,8 @@ ProviderContainer _containerFor(InMemorySecureStoreBackend backend) {
 
 class _FixedSiStateController extends SIStateController {
   @override
-  SIState build() => const SIState(energy: 0.7, fatigue: 0.2, completedToday: 0);
+  SIState build() =>
+      const SIState(energy: 0.7, fatigue: 0.2, completedToday: 0);
 }
 
 class _FixedLearningController extends LearningController {

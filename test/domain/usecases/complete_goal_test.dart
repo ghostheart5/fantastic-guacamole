@@ -53,7 +53,10 @@ void main() {
       await completeGoal.call('goal-1', completedAt: DateTime.utc(2026, 7, 6));
       await completeGoal.call('goal-1', completedAt: DateTime.utc(2026, 7, 9));
 
-      expect(repository.getGoals().single.completedAt, DateTime.utc(2026, 7, 6));
+      expect(
+        repository.getGoals().single.completedAt,
+        DateTime.utc(2026, 7, 6),
+      );
     });
 
     test('rejects a blank id', () async {

@@ -19,6 +19,7 @@ class TaskEntityMapper {
       createdAt:
           _dateTimeFromJson(json['createdAt']) ??
           DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      updatedAt: _dateTimeFromJson(json['updatedAt']),
       isCompleted: json['isCompleted'] as bool? ?? legacyCompleted,
       priority: (json['priority'] as num?)?.toInt() ?? 3,
       difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,
@@ -48,6 +49,7 @@ class TaskEntityMapper {
     'title': task.title,
     'description': task.description,
     'createdAt': task.createdAt.toIso8601String(),
+    'updatedAt': task.updatedAt?.toIso8601String(),
     'isCompleted': task.isCompleted,
     'priority': task.priority,
     'difficulty': task.difficulty,

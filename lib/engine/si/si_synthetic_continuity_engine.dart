@@ -110,6 +110,6 @@ class SISyntheticContinuityEngine {
     if ((learning?.momentum ?? 0.5) >= 0.68) return 'momentum_builder';
     if (behaviors.contains('skipResistance')) return 'resistance_reframer';
     if (context.userState.motivation >= 0.65) return 'focused_builder';
-    return 'steady_operator';
+    return 'steady_planner';
   }
 }

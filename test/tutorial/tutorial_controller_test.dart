@@ -77,15 +77,18 @@ void main() {
       expect(controller.activeStep?.id, 'step-1');
     });
 
-    test('reportEvent matching the active tap trigger advances to next step', () async {
-      await controller.loadAssets(<String>['ignored']);
-      await controller.start('home_onboarding');
+    test(
+      'reportEvent matching the active tap trigger advances to next step',
+      () async {
+        await controller.loadAssets(<String>['ignored']);
+        await controller.start('home_onboarding');
 
-      controller.reportEvent('tap:target-1');
-      await Future<void>.value();
+        controller.reportEvent('tap:target-1');
+        await Future<void>.value();
 
-      expect(controller.activeStep?.id, 'step-2');
-    });
+        expect(controller.activeStep?.id, 'step-2');
+      },
+    );
 
     test('a branch is taken when its condition matches', () async {
       await controller.loadAssets(<String>['ignored']);
@@ -146,23 +149,26 @@ void main() {
       expect(controller.activeStep, isNull);
     });
 
-    test('pause stops further auto-progression until the step is re-triggered', () async {
-      await controller.loadAssets(<String>['ignored']);
-      await controller.start('home_onboarding');
-      expect(controller.activeStep?.id, 'step-1');
+    test(
+      'pause stops further auto-progression until the step is re-triggered',
+      () async {
+        await controller.loadAssets(<String>['ignored']);
+        await controller.start('home_onboarding');
+        expect(controller.activeStep?.id, 'step-1');
 
-      await controller.pause();
-      expect(controller.paused, isTrue);
+        await controller.pause();
+        expect(controller.paused, isTrue);
 
-      controller.reportEvent('tap:target-1');
-      await Future<void>.value();
+        controller.reportEvent('tap:target-1');
+        await Future<void>.value();
 
-      expect(
-        controller.activeStep?.id,
-        'step-1',
-        reason: 'a paused controller must not advance on a matching trigger',
-      );
-    });
+        expect(
+          controller.activeStep?.id,
+          'step-1',
+          reason: 'a paused controller must not advance on a matching trigger',
+        );
+      },
+    );
   });
 }
 

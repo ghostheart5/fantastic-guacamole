@@ -41,6 +41,7 @@ void main() {
       id: 'task-1',
       title: 'Persist me',
       createdAt: DateTime.utc(2026, 7, 5),
+      updatedAt: DateTime.utc(2026, 7, 6, 9, 30),
     );
 
     await repository.saveTask(task);
@@ -49,6 +50,7 @@ void main() {
     expect(loaded, isNotNull);
     expect(loaded?.id, 'task-1');
     expect(loaded?.title, 'Persist me');
+    expect(loaded?.updatedAt, DateTime.utc(2026, 7, 6, 9, 30));
   });
 
   test('deletes task by id', () async {

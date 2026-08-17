@@ -129,28 +129,25 @@ void main() {
       );
     });
 
-    test(
-      'TimeBlock has no description field, so that data cannot survive',
-      () {
-        final CalendarEntryEntity withDescription = CalendarEntryEntity(
-          id: 'entry-4',
-          title: 'Has a description',
-          description: 'this is lost when converted to TimeBlock',
-          start: start,
-          end: end,
-        );
+    test('TimeBlock has no description field, so that data cannot survive', () {
+      final CalendarEntryEntity withDescription = CalendarEntryEntity(
+        id: 'entry-4',
+        title: 'Has a description',
+        description: 'this is lost when converted to TimeBlock',
+        start: start,
+        end: end,
+      );
 
-        final TimeBlock block = TimeBlock(
-          id: withDescription.id,
-          taskId: withDescription.taskId ?? '',
-          title: withDescription.title,
-          start: withDescription.start,
-          end: withDescription.end,
-          completed: withDescription.isCompleted,
-        );
+      final TimeBlock block = TimeBlock(
+        id: withDescription.id,
+        taskId: withDescription.taskId ?? '',
+        title: withDescription.title,
+        start: withDescription.start,
+        end: withDescription.end,
+        completed: withDescription.isCompleted,
+      );
 
-        expect(entityFromTimeBlock(block).description, isNull);
-      },
-    );
+      expect(entityFromTimeBlock(block).description, isNull);
+    });
   });
 }

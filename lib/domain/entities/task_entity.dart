@@ -9,6 +9,7 @@ class TaskEntity {
     required this.title,
     this.description,
     required this.createdAt,
+    this.updatedAt,
     this.isCompleted = false,
     this.priority = 3,
     this.difficulty = 3,
@@ -27,6 +28,7 @@ class TaskEntity {
   final String title;
   final String? description;
   final DateTime createdAt;
+  final DateTime? updatedAt;
   final bool isCompleted;
   final int priority;
   final int difficulty;
@@ -45,6 +47,7 @@ class TaskEntity {
     String? title,
     String? description,
     DateTime? createdAt,
+    DateTime? updatedAt,
     bool? isCompleted,
     int? priority,
     int? difficulty,
@@ -63,6 +66,7 @@ class TaskEntity {
       title: title ?? this.title,
       description: description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       isCompleted: isCompleted ?? this.isCompleted,
       priority: priority ?? this.priority,
       difficulty: difficulty ?? this.difficulty,
@@ -79,10 +83,12 @@ class TaskEntity {
   }
 
   // Domain behavior
-  TaskEntity complete() =>
-      copyWith(isCompleted: true, completedAt: DateTime.now());
+  TaskEntity complete() {
+    final DateTime now = DateTime.now();
+    return copyWith(isCompleted: true, completedAt: now, updatedAt: now);
+  }
 
-  TaskEntity cancel() => copyWith(isCanceled: true);
+  TaskEntity cancel() => copyWith(isCanceled: true, updatedAt: DateTime.now());
 
   bool get isScheduled => scheduledFor != null;
 
@@ -93,10 +99,13 @@ class TaskEntity {
 
   bool get hasSubtasks => subtasks.isNotEmpty;
 
-  TaskEntity addSubtask(String id) => copyWith(subtasks: [...subtasks, id]);
+  TaskEntity addSubtask(String id) =>
+      copyWith(subtasks: [...subtasks, id], updatedAt: DateTime.now());
 
-  TaskEntity removeSubtask(String id) =>
-      copyWith(subtasks: subtasks.where((t) => t != id).toList());
+  TaskEntity removeSubtask(String id) => copyWith(
+    subtasks: subtasks.where((t) => t != id).toList(),
+    updatedAt: DateTime.now(),
+  );
 
   bool get isHighPriority => priority >= 4;
   bool get isLowPriority => priority <= 2;

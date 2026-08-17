@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/identity_profile_entity.dart';
 import 'package:fantastic_guacamole/engine/si/offline/identity_engine.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
@@ -9,14 +10,11 @@ final identityStateProvider = NotifierProvider<IdentityNotifier, IdentityState>(
 
 class IdentityNotifier extends Notifier<IdentityState> {
   static const _engine = IdentityEngine();
-  bool _hydrateScheduled = false;
+  Future<void>? _hydration;
 
   @override
   IdentityState build() {
-    if (!_hydrateScheduled) {
-      _hydrateScheduled = true;
-      Future<void>.microtask(_hydrate);
-    }
+    _hydration ??= Future<void>.microtask(_hydrate);
     return const IdentityState(
       disciplineIdentity: 0.1,
       focusIdentity: 0.1,
@@ -25,17 +23,26 @@ class IdentityNotifier extends Notifier<IdentityState> {
   }
 
   Future<void> _hydrate() async {
-    final IdentityProfileEntity? profile = await ref
-        .read(getIdentityProfileUseCaseProvider)
-        .call();
-    if (profile == null) {
-      return;
+    try {
+      final IdentityProfileEntity? profile = await ref
+          .read(getIdentityProfileUseCaseProvider)
+          .call();
+      if (profile == null || !ref.mounted) {
+        return;
+      }
+      state = IdentityState(
+        disciplineIdentity: profile.disciplineIdentity,
+        focusIdentity: profile.focusIdentity,
+        growthIdentity: profile.growthIdentity,
+      );
+    } catch (error, stackTrace) {
+      Logger.errorCategory(
+        'IdentityHydration',
+        'Failed to restore the identity profile; keeping safe defaults.',
+        error,
+        stackTrace,
+      );
     }
-    state = IdentityState(
-      disciplineIdentity: profile.disciplineIdentity,
-      focusIdentity: profile.focusIdentity,
-      growthIdentity: profile.growthIdentity,
-    );
   }
 
   Future<void> onFocusComplete({
@@ -43,6 +50,8 @@ class IdentityNotifier extends Notifier<IdentityState> {
     required bool taskCompleted,
     required bool streakMaintained,
   }) async {
+    await (_hydration ??= Future<void>.microtask(_hydrate));
+    if (!ref.mounted) return;
     state = _engine.update(
       current: state,
       completionRecorded: completionRecorded,

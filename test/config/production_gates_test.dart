@@ -50,7 +50,10 @@ void main() {
     });
 
     test('"production" now resolves to production in release', () {
-      expect(Env.resolveIsProduction('production', isReleaseMode: true), isTrue);
+      expect(
+        Env.resolveIsProduction('production', isReleaseMode: true),
+        isTrue,
+      );
       expect(Env.resolveIsProduction('prod', isReleaseMode: true), isTrue);
     });
 

@@ -167,7 +167,7 @@ class ProgressionScreen extends ConsumerWidget {
                             ),
                           ),
                           const Text(
-                            'MOMENTUM INTEL + HISTORY',
+                            'MOMENTUM + HISTORY',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -394,7 +394,7 @@ class _AdvisorSummaryCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'SYSTEM INTEL',
+            'SYSTEM GUIDANCE',
             style: TextStyle(
               fontSize: 9,
               letterSpacing: 2.5,

@@ -14,6 +14,7 @@ class GoalRepository implements IGoalRepository {
   static const String _corruptBackupKey = 'goals_v2_corrupt_backup';
 
   final HiveStorage<String> _store;
+  Future<void> _writeTail = Future<void>.value();
 
   bool _lastReadCorrupted = false;
 
@@ -62,20 +63,27 @@ class GoalRepository implements IGoalRepository {
 
   @override
   Future<void> saveGoal(GoalEntity goal) {
-    final List<GoalEntity> existing = getGoals().toList(growable: true);
-    final int index = existing.indexWhere(
-      (GoalEntity item) => item.id == goal.id,
-    );
-    if (index >= 0) {
-      existing[index] = goal;
-    } else {
-      existing.insert(0, goal);
-    }
-    return saveGoals(existing);
+    return _enqueueWrite(() async {
+      final List<GoalEntity> existing = getGoals().toList(growable: true);
+      final int index = existing.indexWhere(
+        (GoalEntity item) => item.id == goal.id,
+      );
+      if (index >= 0) {
+        existing[index] = goal;
+      } else {
+        existing.insert(0, goal);
+      }
+      await _saveGoalsUnlocked(existing);
+    });
   }
 
   @override
-  Future<void> saveGoals(List<GoalEntity> goals) async {
+  Future<void> saveGoals(List<GoalEntity> goals) {
+    final List<GoalEntity> snapshot = List<GoalEntity>.unmodifiable(goals);
+    return _enqueueWrite(() => _saveGoalsUnlocked(snapshot));
+  }
+
+  Future<void> _saveGoalsUnlocked(List<GoalEntity> goals) async {
     await _quarantineCorruptPayloadIfNeeded();
     await _store.put(
       _key,
@@ -85,10 +93,21 @@ class GoalRepository implements IGoalRepository {
 
   @override
   Future<void> deleteGoal(String id) {
-    final List<GoalEntity> next = getGoals()
-        .where((GoalEntity goal) => goal.id != id)
-        .toList(growable: false);
-    return saveGoals(next);
+    return _enqueueWrite(() async {
+      final List<GoalEntity> next = getGoals()
+          .where((GoalEntity goal) => goal.id != id)
+          .toList(growable: false);
+      await _saveGoalsUnlocked(next);
+    });
+  }
+
+  Future<void> _enqueueWrite(Future<void> Function() operation) {
+    final Future<void> next = _writeTail.then<void>(
+      (_) => operation(),
+      onError: (Object _, StackTrace _) => operation(),
+    );
+    _writeTail = next.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return next;
   }
 
   /// Copies an undecodable payload to [_corruptBackupKey] before it is

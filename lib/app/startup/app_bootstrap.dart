@@ -70,18 +70,19 @@ class AppBootstrapper {
     );
 
     FlutterError.onError = (errorDetails) {
-      FlutterError.presentError(errorDetails);
-      final String stack = (errorDetails.stack ?? StackTrace.current)
-          .toString();
-      debugPrint(
-        'FLUTTER_ERROR_MARKER >>> ${errorDetails.exceptionAsString()}',
+      final String exceptionText = Logger.redactSensitive(
+        errorDetails.exceptionAsString(),
       );
+      final String stack = Logger.redactSensitive(
+        (errorDetails.stack ?? StackTrace.current).toString(),
+      );
+      debugPrint('FLUTTER_ERROR_MARKER >>> $exceptionText');
       debugPrint(stack);
       debugPrint('FLUTTER_ERROR_MARKER <<<');
       RuntimeDiagnostics.record(
         _formatGlobalErrorForDiagnostics(
           prefix: 'Flutter framework error',
-          error: errorDetails.exceptionAsString(),
+          error: exceptionText,
           stack: stack,
         ),
       );
@@ -90,24 +91,36 @@ class AppBootstrapper {
         errorDetails.stack,
       );
       if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-        FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+        FirebaseCrashlytics.instance.recordError(
+          Exception(exceptionText),
+          errorDetails.stack,
+          reason: 'Flutter framework error',
+          fatal: true,
+        );
       }
     };
 
     PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-      debugPrint('PLATFORM_ERROR_MARKER >>> $error');
-      debugPrint(stack.toString());
+      final String errorText = Logger.redactSensitive(error.toString());
+      final String stackText = Logger.redactSensitive(stack.toString());
+      debugPrint('PLATFORM_ERROR_MARKER >>> $errorText');
+      debugPrint(stackText);
       debugPrint('PLATFORM_ERROR_MARKER <<<');
       RuntimeDiagnostics.record(
         _formatGlobalErrorForDiagnostics(
           prefix: 'Platform dispatcher uncaught error',
-          error: error,
-          stack: stack.toString(),
+          error: errorText,
+          stack: stackText,
         ),
       );
       ErrorBoundary.reportGlobalError(error, stack);
       if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        FirebaseCrashlytics.instance.recordError(
+          Exception(errorText),
+          stack,
+          reason: 'Platform dispatcher uncaught error',
+          fatal: true,
+        );
       }
       return true;
     };

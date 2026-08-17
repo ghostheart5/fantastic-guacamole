@@ -34,7 +34,7 @@ class TaskScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 6),
               const Text(
-                'PREDICTIVE INTEL · TRAJECTORY SIGNALS · SI ALERTS',
+                'PREDICTIVE GUIDANCE · TRAJECTORY SIGNALS · SI ALERTS',
                 style: TextStyle(
                   fontSize: 10,
                   color: Colors.white54,

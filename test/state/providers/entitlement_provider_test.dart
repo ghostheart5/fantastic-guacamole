@@ -34,28 +34,31 @@ const SubscriptionState _inactiveSubscription = SubscriptionState(
 
 void main() {
   group('entitlement restores premium across launches', () {
-    test('premium survives restart when the account owns the subscription', () async {
-      final _Harness harness = await _Harness.create(
-        subscription: _activeSubscription,
-        owner: 'user-a',
-        user: _user('user-a'),
-      );
+    test(
+      'premium survives restart when the account owns the subscription',
+      () async {
+        final _Harness harness = await _Harness.create(
+          subscription: _activeSubscription,
+          owner: 'user-a',
+          user: _user('user-a'),
+        );
 
-      final EntitlementState entitlement = await harness.container.read(
-        entitlementProvider.future,
-      );
+        final EntitlementState entitlement = await harness.container.read(
+          entitlementProvider.future,
+        );
 
-      expect(entitlement.isPremium, isTrue);
-      expect(
-        harness.container.read(appAccessProvider).hasPremiumAccess,
-        isTrue,
-      );
+        expect(entitlement.isPremium, isTrue);
+        expect(
+          harness.container.read(appAccessProvider).hasPremiumAccess,
+          isTrue,
+        );
 
-      final AiCreditWallet wallet = await harness.container.read(
-        aiCreditWalletProvider.future,
-      );
-      expect(wallet.tier, 'premium');
-    });
+        final AiCreditWallet wallet = await harness.container.read(
+          aiCreditWalletProvider.future,
+        );
+        expect(wallet.tier, 'premium');
+      },
+    );
 
     test('free user stays free with no active subscription', () async {
       final _Harness harness = await _Harness.create(
@@ -106,72 +109,81 @@ void main() {
   });
 
   group('entitlement is account safe', () {
-    test('a different account does not inherit premium on the same device', () async {
-      // User A paid on this device; User B is now signed in.
-      final _Harness harness = await _Harness.create(
-        subscription: _activeSubscription,
-        owner: 'user-a',
-        user: _user('user-b'),
-      );
+    test(
+      'a different account does not inherit premium on the same device',
+      () async {
+        // User A paid on this device; User B is now signed in.
+        final _Harness harness = await _Harness.create(
+          subscription: _activeSubscription,
+          owner: 'user-a',
+          user: _user('user-b'),
+        );
 
-      final EntitlementState entitlement = await harness.container.read(
-        entitlementProvider.future,
-      );
+        final EntitlementState entitlement = await harness.container.read(
+          entitlementProvider.future,
+        );
 
-      expect(entitlement.isPremium, isFalse);
-      expect(entitlement.source, 'other_account');
-      expect(
-        harness.container.read(appAccessProvider).hasPremiumAccess,
-        isFalse,
-      );
-    });
+        expect(entitlement.isPremium, isFalse);
+        expect(entitlement.source, 'other_account');
+        expect(
+          harness.container.read(appAccessProvider).hasPremiumAccess,
+          isFalse,
+        );
+      },
+    );
 
-    test('an unclaimed subscription is not granted to the signed-in account', () async {
-      final _Harness harness = await _Harness.create(
-        subscription: _activeSubscription,
-        user: _user('user-a'),
-      );
+    test(
+      'an unclaimed subscription is not granted to the signed-in account',
+      () async {
+        final _Harness harness = await _Harness.create(
+          subscription: _activeSubscription,
+          user: _user('user-a'),
+        );
 
-      final EntitlementState entitlement = await harness.container.read(
-        entitlementProvider.future,
-      );
+        final EntitlementState entitlement = await harness.container.read(
+          entitlementProvider.future,
+        );
 
-      expect(entitlement.isPremium, isFalse);
-      expect(entitlement.source, 'unclaimed');
-    });
+        expect(entitlement.isPremium, isFalse);
+        expect(entitlement.source, 'unclaimed');
+      },
+    );
 
-    test('sign-out clears premium access and the wallet recomputes as free', () async {
-      final _Harness harness = await _Harness.create(
-        subscription: _activeSubscription,
-        owner: 'user-a',
-        user: _user('user-a'),
-      );
+    test(
+      'sign-out clears premium access and the wallet recomputes as free',
+      () async {
+        final _Harness harness = await _Harness.create(
+          subscription: _activeSubscription,
+          owner: 'user-a',
+          user: _user('user-a'),
+        );
 
-      expect(
-        (await harness.container.read(entitlementProvider.future)).isPremium,
-        isTrue,
-      );
-      expect(
-        (await harness.container.read(aiCreditWalletProvider.future)).tier,
-        'premium',
-      );
+        expect(
+          (await harness.container.read(entitlementProvider.future)).isPremium,
+          isTrue,
+        );
+        expect(
+          (await harness.container.read(aiCreditWalletProvider.future)).tier,
+          'premium',
+        );
 
-      harness.signOut();
-      await harness.settle();
+        harness.signOut();
+        await harness.settle();
 
-      expect(
-        (await harness.container.read(entitlementProvider.future)).isPremium,
-        isFalse,
-      );
-      expect(
-        harness.container.read(appAccessProvider).hasPremiumAccess,
-        isFalse,
-      );
-      expect(
-        (await harness.container.read(aiCreditWalletProvider.future)).tier,
-        'free',
-      );
-    });
+        expect(
+          (await harness.container.read(entitlementProvider.future)).isPremium,
+          isFalse,
+        );
+        expect(
+          harness.container.read(appAccessProvider).hasPremiumAccess,
+          isFalse,
+        );
+        expect(
+          (await harness.container.read(aiCreditWalletProvider.future)).tier,
+          'free',
+        );
+      },
+    );
   });
 
   group('purchase and restore update access immediately', () {

@@ -48,8 +48,9 @@ Quick release gate audit: [GOOGLE_PLAY_READINESS_AUDIT.md](GOOGLE_PLAY_READINESS
 
 ## Testing
 - [x] `flutter analyze` clean
-- [ ] Expand `test/` and `integration_test/` coverage for critical flows and keep tests green in CI
-- [x] Audit script (`python uats.py`) clean
+- [ ] Complete the non-build reliability gate in `test/README.md` and retain its coverage artifact
+- [ ] Execute the physical-device scenarios in `docs/testing/CHRONOSPARK_UAT_MATRIX.md`
+- [ ] Execute release-critical Maestro flows on the signed release candidate
 
 ## Closed Testing Notes
 - [x] Tester access mode can bypass auth and premium restrictions for QA builds

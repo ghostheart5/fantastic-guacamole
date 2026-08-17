@@ -1,5 +1,8 @@
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -65,5 +68,31 @@ void main() {
 
     container.read(siStateProvider.notifier).reset();
     expect(container.read(siStateProvider), const SIState());
+  });
+
+  test('late asset hydration cannot overwrite a live mutation', () async {
+    final Completer<ByteData?> assetLoad = Completer<ByteData?>();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler(
+          'flutter/assets',
+          (ByteData? _) => assetLoad.future,
+        );
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMessageHandler('flutter/assets', (ByteData? _) async => null);
+    });
+    final ProviderContainer container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    container.read(siStateProvider.notifier).recordCompletion();
+    const String encoded = '{"energy":0.99,"fatigue":0.01,"completedToday":99}';
+    final Uint8List bytes = Uint8List.fromList(utf8.encode(encoded));
+    assetLoad.complete(ByteData.sublistView(bytes));
+    await pumpEventQueue();
+
+    final SIState state = container.read(siStateProvider);
+    expect(state.energy, closeTo(0.62, 0.0001));
+    expect(state.fatigue, closeTo(0.4, 0.0001));
+    expect(state.completedToday, 1);
   });
 }

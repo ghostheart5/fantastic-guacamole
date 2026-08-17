@@ -1,5 +1,5 @@
 name: fantastic_guacamole
-description: "AI-powered productivity planner with adaptive focus, temporal ops, and SI guidance."
+description: "AI-powered productivity planner with adaptive focus, timeline context, and SI guidance."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

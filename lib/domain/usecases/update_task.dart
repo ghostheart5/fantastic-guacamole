@@ -15,6 +15,6 @@ class UpdateTask {
     if (!TaskPolicy.isValid(task)) {
       throw Exception('Invalid task');
     }
-    await repository.saveTask(task);
+    await repository.saveTask(task.copyWith(updatedAt: DateTime.now()));
   }
 }

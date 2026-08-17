@@ -91,7 +91,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       final String? selectedGoalType = _selectedGoalType;
 
       if (name.isNotEmpty) {
-        ref.read(profileProvider.notifier).updateName(name);
+        await ref.read(profileProvider.notifier).updateName(name);
       }
       if (selectedGoalType != null && selectedGoalType.trim().isNotEmpty) {
         await prefs.setString('primary_goal_type', selectedGoalType);

@@ -43,25 +43,22 @@ void main() {
       expect((await GetCurrentTheme(repository).call())?.id, 'light');
     });
 
-    test(
-      'switching to an unknown theme id preserves the existing saved theme '
-      'instead of overwriting it with the default',
-      () async {
-        const AppThemeEntity dark = AppThemeEntity(
-          id: 'dark',
-          name: 'Dark',
-          isDark: true,
-        );
-        await SaveTheme(repository).call(dark);
+    test('switching to an unknown theme id preserves the existing saved theme '
+        'instead of overwriting it with the default', () async {
+      const AppThemeEntity dark = AppThemeEntity(
+        id: 'dark',
+        name: 'Dark',
+        isDark: true,
+      );
+      await SaveTheme(repository).call(dark);
 
-        final AppThemeEntity? switched = await SwitchTheme(
-          repository,
-        ).call('stale-theme-id');
+      final AppThemeEntity? switched = await SwitchTheme(
+        repository,
+      ).call('stale-theme-id');
 
-        expect(switched, isNull);
-        expect((await GetCurrentTheme(repository).call())?.id, 'dark');
-      },
-    );
+      expect(switched, isNull);
+      expect((await GetCurrentTheme(repository).call())?.id, 'dark');
+    });
   });
 
   group('identity profile usecases', () {

@@ -109,6 +109,14 @@ void main() {
 class _TestProfileController extends ProfileController {
   @override
   ProfileState build() => ProfileState();
+
+  @override
+  Future<void> updateName(String name) async {
+    final String trimmed = name.trim();
+    if (trimmed.isNotEmpty) {
+      state = state.copyWith(name: trimmed);
+    }
+  }
 }
 
 Future<void> _tapPrimaryButton(WidgetTester tester, String label) async {

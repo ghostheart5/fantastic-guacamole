@@ -44,7 +44,8 @@ Future<void> pumpForGolden(
 /// font/breakpoint regression moves far more than that, so a generous
 /// tolerance still catches it while absorbing animation jitter.
 void useTolerantGoldenComparator() {
-  final LocalFileComparator delegate = goldenFileComparator as LocalFileComparator;
+  final LocalFileComparator delegate =
+      goldenFileComparator as LocalFileComparator;
   goldenFileComparator = _TolerantGoldenComparator(delegate);
 }
 

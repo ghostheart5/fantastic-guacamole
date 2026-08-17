@@ -69,7 +69,10 @@ void main() {
         for (final int floor in <int>[1, 5, 21, 49]) {
           final int level = ProfileState.levelFor(xp: xp, floor: floor);
           expect(level, greaterThanOrEqualTo(floor));
-          expect(level, greaterThanOrEqualTo(ProgressionPolicy.levelFromXp(xp)));
+          expect(
+            level,
+            greaterThanOrEqualTo(ProgressionPolicy.levelFromXp(xp)),
+          );
         }
       }
     });

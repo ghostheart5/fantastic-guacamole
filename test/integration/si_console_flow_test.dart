@@ -10,7 +10,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-
   testWidgets(
     'SI console responds, avoids duplicate output, and handles malformed command safely',
     (WidgetTester tester) async {
@@ -22,7 +21,9 @@ void main() {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           intelligenceStateProvider.overrideWithValue(_intelligence),
-          aiControllerProvider.overrideWith((Ref ref) => _ScriptedAiController(ref)),
+          aiControllerProvider.overrideWith(
+            (Ref ref) => _ScriptedAiController(ref),
+          ),
           voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
         ],
       );
@@ -40,7 +41,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       await _send(tester, 'What should I do now?');
-      await _pumpUntilFound(tester, find.byKey(const ValueKey<String>('si-msg-false-$firstReply')));
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const ValueKey<String>('si-msg-false-$firstReply')),
+      );
 
       await _send(tester, 'What should I do now, exactly?');
       await _pumpUntilFound(
@@ -50,7 +54,9 @@ void main() {
       expect(secondReply, isNot(firstReply));
 
       final AIController controller = container.read(aiControllerProvider);
-      final AIRecommendation? malformed = await controller.sendMessage('/malformed ???');
+      final AIRecommendation? malformed = await controller.sendMessage(
+        '/malformed ???',
+      );
       expect(malformed, isNotNull);
       expect(malformed!.message.toLowerCase(), contains('malformed'));
       expect(find.byType(SIConsoleScreen), findsOneWidget);
@@ -122,7 +128,8 @@ class _ScriptedAiController extends AIController {
     }
     if (_calls == 1) {
       return const AIRecommendation(
-        message: 'Start with your highest-priority unfinished task for 15 focused minutes.',
+        message:
+            'Start with your highest-priority unfinished task for 15 focused minutes.',
         reasoning: 'first-pass',
         emotion: 'focused',
         confidence: 0.8,
@@ -130,7 +137,8 @@ class _ScriptedAiController extends AIController {
     }
 
     return const AIRecommendation(
-      message: 'Pick one frictionless win first, then escalate to your hardest task.',
+      message:
+          'Pick one frictionless win first, then escalate to your hardest task.',
       reasoning: 'second-pass',
       emotion: 'balanced',
       confidence: 0.78,

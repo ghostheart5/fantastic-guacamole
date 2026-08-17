@@ -154,7 +154,7 @@ class TaskActions {
               taskTitle: selectedTask.title,
             ),
           );
-      _ref.read(profileProvider.notifier).addXP(score.xp);
+      await _ref.read(profileProvider.notifier).addXP(score.xp);
       _ref.read(siStateProvider.notifier).recordCompletion();
       unawaited(
         _recordCompletionSideEffects(

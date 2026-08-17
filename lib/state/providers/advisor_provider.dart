@@ -80,7 +80,7 @@ final weeklySummaryProvider = FutureProvider<String>((ref) async {
         ? 'Complete one started task fully before opening another.'
         : 'Keep momentum by finishing one high-impact task now.';
 
-    return 'SYSTEM INTEL REPORT\n\n'
+    return 'SYSTEM GUIDANCE REPORT\n\n'
         '$executionState (${(completionRate * 100).round()}% completion). '
         '$pressureState (index ${trajectory.pressureIndex}). '
         '$timelineState (health $timelineHealth%, risk $timelineRisk%, overdue $overdue). '

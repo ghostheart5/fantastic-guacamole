@@ -460,7 +460,7 @@ class _NavButtons extends StatelessWidget {
           children: [
             Expanded(
               child: _NavBtn(
-                label: 'TIMELINE OPS',
+                label: 'TIMELINE',
                 icon: Icons.timeline_rounded,
                 color: AppColors.neonViolet,
                 onTap: onTimeline,
@@ -469,7 +469,7 @@ class _NavButtons extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _NavBtn(
-                label: 'PROGRESSION INTEL',
+                label: 'PROGRESSION',
                 icon: Icons.bolt,
                 color: AppColors.memoryAmber,
                 onTap: onProgression,
@@ -537,7 +537,7 @@ class _NameEditor extends StatefulWidget {
   const _NameEditor({required this.initialName, required this.onSave});
 
   final String initialName;
-  final ValueChanged<String> onSave;
+  final Future<void> Function(String value) onSave;
 
   @override
   State<_NameEditor> createState() => _NameEditorState();
@@ -545,6 +545,8 @@ class _NameEditor extends StatefulWidget {
 
 class _NameEditorState extends State<_NameEditor> {
   late final TextEditingController _controller;
+  bool _saving = false;
+  String? _saveError;
 
   @override
   void initState() {
@@ -565,6 +567,30 @@ class _NameEditorState extends State<_NameEditor> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _save() async {
+    final String nextName = _controller.text.trim();
+    if (nextName.isEmpty || _saving) return;
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      await widget.onSave(nextName);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saveError = 'Unable to update your profile. Try again.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+      }
+    }
   }
 
   @override
@@ -632,16 +658,24 @@ class _NameEditorState extends State<_NameEditor> {
               ),
             ),
           ),
+          if (_saveError case final String message) ...[
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+            ),
+          ],
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton(
-              onPressed: () {
-                final String nextName = _controller.text.trim();
-                if (nextName.isEmpty) return;
-                widget.onSave(nextName);
-              },
-              child: const Text('Update Identity'),
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Update Identity'),
             ),
           ),
         ],

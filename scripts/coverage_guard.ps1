@@ -1,6 +1,8 @@
 param(
   [string]$CoverageFile = 'coverage/lcov.info',
-  [double]$MinOverallPercent = 37.0
+  [double]$MinOverallPercent = 37.0,
+  [ValidateSet('target', 'ratchet')]
+  [string]$Mode = 'target'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -14,6 +16,35 @@ $criticalThresholds = @{
   'lib/data/repositories/google_play_paywall_repository.dart' = 88.0
   'lib/data/services/sync_service.dart' = 95.0
   'lib/core/debug/runtime_diagnostics.dart' = 94.0
+}
+
+# Target mode is the release-quality destination. Ratchet mode is the
+# enforceable CI floor captured by the 2026-08-17 full-suite baseline. Keeping
+# these separate prevents regression without pretending the existing
+# repository already satisfies its declared target architecture.
+$ratchetCriticalThresholds = @{
+  'lib/data/services/auth_service.dart' = 80.5
+  'lib/data/services/backup_service.dart' = 93.5
+  'lib/data/repositories/google_play_paywall_repository.dart' = 76.0
+  'lib/data/services/sync_service.dart' = 61.5
+  'lib/core/debug/runtime_diagnostics.dart' = 89.5
+}
+
+$ratchetLayerThresholds = @{
+  'domain/usecases' = 60.0
+  'domain/policies' = 99.0
+  'domain/value_objects' = 63.0
+  'data/repositories' = 52.0
+  'data/storage' = 51.0
+  'state/controllers/providers' = 41.5
+  'engine/si' = 64.5
+  'features/ui' = 62.5
+}
+
+$effectiveOverallMinimum = if ($Mode -eq 'ratchet') {
+  [math]::Max($MinOverallPercent, 52.0)
+} else {
+  $MinOverallPercent
 }
 
 $layerThresholds = @(
@@ -210,6 +241,11 @@ foreach ($layer in $layerThresholds) {
     LF = $layerLf
     LH = $layerLh
     Min = [double]$layer.Min
+    GateMin = if ($Mode -eq 'ratchet') {
+      [double]$ratchetLayerThresholds[$layer.Name]
+    } else {
+      [double]$layer.Min
+    }
     Target = $layer.Target
     SourceCount = $layerSourceCount
     TrackedFiles = ($layerRecords | Measure-Object).Count
@@ -222,18 +258,35 @@ foreach ($layer in $layerThresholds) {
     continue
   }
 
-  if ($layerLf -gt 0 -and [double]$layerCoverage -lt [double]$layer.Min) {
+  $gateMinimum = if ($Mode -eq 'ratchet') {
+    [double]$ratchetLayerThresholds[$layer.Name]
+  } else {
+    [double]$layer.Min
+  }
+
+  if ($layerLf -gt 0 -and [double]$layerCoverage -lt $gateMinimum) {
     $failures.Add(
-      "Layer $($layer.Name) coverage is $layerCoverage% but requires at least $($layer.Min)% (target $($layer.Target))."
+      "Layer $($layer.Name) coverage is $layerCoverage% but the $Mode gate requires at least $gateMinimum% (target $($layer.Target))."
+    ) | Out-Null
+  } elseif ($Mode -eq 'ratchet' -and [double]$layerCoverage -lt [double]$layer.Min) {
+    $warnings.Add(
+      "Layer $($layer.Name) is above its ratchet floor but below the $($layer.Min)% target."
     ) | Out-Null
   }
 }
 
-$integrationTestsPath = Join-Path $root 'integration_test'
-$integrationFlowCount = if (Test-Path $integrationTestsPath) {
-  (Get-ChildItem -Path $integrationTestsPath -Filter '*_test.dart' -File | Measure-Object).Count
-} else {
-  0
+$integrationTestPaths = @(
+  (Join-Path $root 'integration_test'),
+  (Join-Path $root 'test/integration')
+)
+$integrationFlowCount = 0
+foreach ($integrationTestsPath in $integrationTestPaths) {
+  if (Test-Path $integrationTestsPath) {
+    $integrationFlowCount += (
+      Get-ChildItem -Path $integrationTestsPath -Filter '*_test.dart' -File |
+        Measure-Object
+    ).Count
+  }
 }
 
 if ($integrationFlowCount -lt $integrationFlowMinimum) {
@@ -248,15 +301,20 @@ if ($integrationFlowCount -gt $integrationFlowTargetMax) {
   ) | Out-Null
 }
 
-if ($overallCoverage -lt $MinOverallPercent) {
+if ($overallCoverage -lt $effectiveOverallMinimum) {
   $failures.Add(
-    "Overall coverage $overallCoverage% is below required minimum $MinOverallPercent%."
+    "Overall coverage $overallCoverage% is below the $Mode gate minimum $effectiveOverallMinimum%."
   ) | Out-Null
 }
 
 foreach ($entry in $criticalThresholds.GetEnumerator()) {
   $path = $entry.Key
-  $required = [double]$entry.Value
+  $target = [double]$entry.Value
+  $required = if ($Mode -eq 'ratchet') {
+    [double]$ratchetCriticalThresholds[$path]
+  } else {
+    $target
+  }
   $record = $activeRecords | Where-Object { $_.File -eq $path } | Select-Object -First 1
 
   if (-not $record) {
@@ -267,6 +325,10 @@ foreach ($entry in $criticalThresholds.GetEnumerator()) {
   if ([double]$record.Coverage -lt $required) {
     $failures.Add(
       "Coverage for $path is $($record.Coverage)% but requires at least $required%."
+    ) | Out-Null
+  } elseif ($Mode -eq 'ratchet' -and [double]$record.Coverage -lt $target) {
+    $warnings.Add(
+      "Coverage for $path is above its ratchet floor but below the $target% target."
     ) | Out-Null
   }
 }
@@ -282,7 +344,8 @@ foreach ($entry in $criticalTestFiles.GetEnumerator()) {
   }
 }
 
-Write-Host ("Overall coverage: {0}%" -f $overallCoverage)
+Write-Host ("Coverage gate mode: {0}" -f $Mode)
+Write-Host ("Overall coverage: {0}% (gate {1}%)" -f $overallCoverage, $effectiveOverallMinimum)
 Write-Host ("Critical-only coverage: {0}%" -f $criticalCoverage)
 Write-Host ("Integration flow count: {0}" -f $integrationFlowCount)
 Write-Host 'Critical coverage targets:'
@@ -299,12 +362,12 @@ foreach ($entry in $criticalThresholds.GetEnumerator()) {
 Write-Host 'Layer coverage targets:'
 foreach ($layer in $layerResults) {
   Write-Host (
-    " - {0}: {1}% ({2}/{3}), min {4}% target {5}" -f
+    " - {0}: {1}% ({2}/{3}), gate {4}% target {5}" -f
       $layer.Name,
       $layer.Coverage,
       $layer.LH,
       $layer.LF,
-      $layer.Min,
+      $layer.GateMin,
       $layer.Target
   )
 }

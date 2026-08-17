@@ -26,8 +26,36 @@ function Run-Step {
 
 Write-Host 'Running strict ChronoSpark gate...'
 
+Run-Step -Name 'Format verification' -Action {
+  dart format --output=none --set-exit-if-changed lib test integration_test
+}
+
+Run-Step -Name 'Security secret guard' -Action {
+  powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/security_secret_guard.ps1')
+}
+
 Run-Step -Name 'Flutter analyze' -Action {
-  flutter analyze
+  flutter analyze --fatal-infos
+}
+
+Run-Step -Name 'Maestro flow contract validation' -Action {
+  dart run tool/validate_maestro_flows.dart
+}
+
+Run-Step -Name 'AI proxy type check' -Action {
+  deno check supabase/functions/ai-proxy/index.ts
+}
+
+Run-Step -Name 'Account deletion type check' -Action {
+  deno check supabase/functions/account-delete/index.ts
+}
+
+Run-Step -Name 'Receipt verification type check' -Action {
+  deno check supabase/functions/verify-receipt/index.ts
+}
+
+Run-Step -Name 'Supabase Edge Function tests' -Action {
+  deno test supabase/functions/_shared/storage_cleanup_test.ts
 }
 
 if ($IncludeCoverage) {
@@ -36,7 +64,7 @@ if ($IncludeCoverage) {
   }
 
   Run-Step -Name 'Coverage guard' -Action {
-    powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/coverage_guard.ps1')
+    powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/coverage_guard.ps1') -Mode ratchet
   }
 } else {
   Run-Step -Name 'Flutter test' -Action {

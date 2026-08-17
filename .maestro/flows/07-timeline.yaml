@@ -13,4 +13,4 @@ tags:
     env:
       TARGET: "Timeline"
 
-- assertVisible: "TIMELINE OPS"
+- assertVisible: "TIMELINE"

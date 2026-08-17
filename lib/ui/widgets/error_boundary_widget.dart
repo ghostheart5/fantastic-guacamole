@@ -15,8 +15,10 @@ class ErrorBoundary extends StatefulWidget {
   }
 
   static void reportGlobalError(Object error, [StackTrace? stackTrace]) {
-    final String errorText = error.toString();
-    final String stackText = (stackTrace ?? StackTrace.current).toString();
+    final String errorText = Logger.redactSensitive(error.toString());
+    final String stackText = Logger.redactSensitive(
+      (stackTrace ?? StackTrace.current).toString(),
+    );
 
     // Prevent recursive ErrorBoundary / Crashlytics / FlutterError loops.
     if (_isReportingError) {
@@ -109,6 +111,10 @@ class ErrorBoundaryState extends State<ErrorBoundary> {
       return widget.child;
     }
 
+    final String safeErrorText = Logger.redactSensitive(
+      effectiveError.toString(),
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFF050D1A),
       body: Center(
@@ -134,7 +140,7 @@ class ErrorBoundaryState extends State<ErrorBoundary> {
               ),
               const SizedBox(height: 10),
               Text(
-                effectiveError.toString(),
+                safeErrorText,
                 textAlign: TextAlign.center,
                 maxLines: 5,
                 overflow: TextOverflow.ellipsis,

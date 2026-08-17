@@ -191,7 +191,10 @@ void main() {
         const Duration(minutes: 30),
       );
 
-      expect(recommend(blocks: <TimeBlock>[later, active], now: now)?.id, 'active');
+      expect(
+        recommend(blocks: <TimeBlock>[later, active], now: now)?.id,
+        'active',
+      );
     });
 
     test('otherwise returns the earliest upcoming block', () {

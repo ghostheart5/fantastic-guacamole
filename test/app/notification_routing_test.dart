@@ -87,7 +87,8 @@ void main() {
   ) async {
     final ProviderContainer container = await pumpShell(tester);
 
-    NotificationScheduler.tappedPayloadListenable.value = 'habit_reminder_daily';
+    NotificationScheduler.tappedPayloadListenable.value =
+        'habit_reminder_daily';
     await tester.pump();
     expect(container.read(appFlowProvider), AppView.tasks);
     expect(NotificationScheduler.tappedPayloadListenable.value, isNull);

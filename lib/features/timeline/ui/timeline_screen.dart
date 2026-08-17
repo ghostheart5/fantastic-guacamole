@@ -167,7 +167,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                               ],
                             ).createShader(bounds),
                             child: const Text(
-                              'TIMELINE OPS',
+                              'TIMELINE',
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
