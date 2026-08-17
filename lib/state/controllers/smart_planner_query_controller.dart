@@ -404,7 +404,8 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
               .map((memory) => memory.text.trim())
               .where((text) => text.isNotEmpty)
               .map(
-                (text) => text.length > 90 ? '${text.substring(0, 90)}...' : text,
+                (text) =>
+                    text.length > 90 ? '${text.substring(0, 90)}...' : text,
               )
               .toList(growable: false)
         : const <String>[];

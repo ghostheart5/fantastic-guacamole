@@ -53,7 +53,8 @@ final tasksProvider = FutureProvider<List<Task>>((Ref ref) async {
         learning: learning,
         energy: si.energy,
         fatigue: si.fatigue,
-        priorityScale: optimization.nextActionAggressiveness *
+        priorityScale:
+            optimization.nextActionAggressiveness *
             switch (personalization.priorityStrategy) {
               PriorityStrategy.deadlineFirst => 1.15,
               PriorityStrategy.energyFirst => 0.85,
@@ -253,9 +254,7 @@ class TaskActions {
     await _ref
         .read(learningProvider.notifier)
         .update(success: false, difficulty: selectedTask.difficulty);
-    await _ref
-        .read(observedPlanningPatternsProvider.notifier)
-        .recordSkip();
+    await _ref.read(observedPlanningPatternsProvider.notifier).recordSkip();
     _ref.read(siStateProvider.notifier).taskSkipped();
     await _ref
         .read(logsActionsProvider)

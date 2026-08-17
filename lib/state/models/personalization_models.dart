@@ -1,6 +1,12 @@
 enum PlanningStyle { flexible, timeBlocked, energyMatched, singleFocus }
 
-enum PriorityStrategy { balanced, deadlineFirst, energyFirst, goalFirst, quickWins }
+enum PriorityStrategy {
+  balanced,
+  deadlineFirst,
+  energyFirst,
+  goalFirst,
+  quickWins,
+}
 
 enum RecoveryPolicy { askFirst, reschedule, reduceScope, recoveryQueue }
 
@@ -170,19 +176,16 @@ class ObservedPlanningPatterns {
     'lastUpdatedAt': lastUpdatedAt?.toIso8601String(),
   };
 
-  factory ObservedPlanningPatterns.fromJson(Map<String, dynamic> json) =>
-      ObservedPlanningPatterns(
-        version: (json['version'] as num?)?.toInt() ?? 1,
-        completed: (json['completed'] as num?)?.toInt() ?? 0,
-        skipped: (json['skipped'] as num?)?.toInt() ?? 0,
-        shortTaskCompletions:
-            (json['shortTaskCompletions'] as num?)?.toInt() ?? 0,
-        deepTaskCompletions:
-            (json['deepTaskCompletions'] as num?)?.toInt() ?? 0,
-        lastUpdatedAt: DateTime.tryParse(
-          json['lastUpdatedAt']?.toString() ?? '',
-        ),
-      );
+  factory ObservedPlanningPatterns.fromJson(
+    Map<String, dynamic> json,
+  ) => ObservedPlanningPatterns(
+    version: (json['version'] as num?)?.toInt() ?? 1,
+    completed: (json['completed'] as num?)?.toInt() ?? 0,
+    skipped: (json['skipped'] as num?)?.toInt() ?? 0,
+    shortTaskCompletions: (json['shortTaskCompletions'] as num?)?.toInt() ?? 0,
+    deepTaskCompletions: (json['deepTaskCompletions'] as num?)?.toInt() ?? 0,
+    lastUpdatedAt: DateTime.tryParse(json['lastUpdatedAt']?.toString() ?? ''),
+  );
 }
 
 class PersonalizationDecision {

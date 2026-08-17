@@ -43,6 +43,7 @@ class TimelineEventEntity {
   final DateTime? dueAt;
   final String? phase;
   final String? relatedId;
+
   /// Provenance makes adaptive decisions auditable without storing raw prompts.
   final String? sourceFeature;
   final String? decisionId;
