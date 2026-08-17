@@ -65,13 +65,17 @@ abstract final class Env {
     'CHRONOSPARK_AI_PROXY_ENDPOINT',
     defaultValue: '',
   );
+  static const String _aiReportEndpointDefine = String.fromEnvironment(
+    'CHRONOSPARK_AI_REPORT_ENDPOINT',
+    defaultValue: '',
+  );
   static const String _accountDeleteEndpointDefine = String.fromEnvironment(
     'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
     defaultValue: '',
   );
   static const String _oauthRedirectUrlDefine = String.fromEnvironment(
     'CHRONOSPARK_OAUTH_REDIRECT_URL',
-    defaultValue: 'https://chronospark.app/app/auth/callback',
+    defaultValue: 'chronospark://auth-callback',
   );
   static const String _githubOauthRedirectUrlDefine = String.fromEnvironment(
     'CHRONOSPARK_GITHUB_OAUTH_REDIRECT_URL',
@@ -142,6 +146,10 @@ abstract final class Env {
   );
   static String get aiProxyEndpoint =>
       _readString('CHRONOSPARK_AI_PROXY_ENDPOINT', _aiProxyEndpointDefine);
+  static String get aiReportEndpoint => resolveAiReportEndpoint(
+    _readString('CHRONOSPARK_AI_REPORT_ENDPOINT', _aiReportEndpointDefine),
+    supabaseUrl: supabaseUrl,
+  );
   static String get accountDeleteEndpoint => _readString(
     'CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT',
     _accountDeleteEndpointDefine,
@@ -290,6 +298,25 @@ abstract final class Env {
     }
 
     return 'https://chronospark.app/verify-receipt';
+  }
+
+  static String resolveAiReportEndpoint(
+    String configuredValue, {
+    required String supabaseUrl,
+  }) {
+    final String configured = configuredValue.trim();
+    if (configured.isNotEmpty) {
+      return configured;
+    }
+
+    final Uri? supabaseUri = Uri.tryParse(supabaseUrl.trim());
+    if (supabaseUri != null &&
+        supabaseUri.hasAuthority &&
+        supabaseUri.scheme == 'https') {
+      return supabaseUri.resolve('/functions/v1/ai-report').toString();
+    }
+
+    return '';
   }
 
   static List<String> productionReadinessIssues({bool force = false}) {

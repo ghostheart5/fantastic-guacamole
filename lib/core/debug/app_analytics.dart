@@ -102,6 +102,13 @@ class AppAnalytics {
           ? key.substring(0, _maxParamNameLength)
           : key;
       final String value = entry.value?.toString() ?? '';
+      final Object? rawValue = entry.value;
+      final bool approvedStringField = RegExp(
+        r'^(method|status|source|feature|step|step_index|type|mode|outcome|state|result|view|action|category|permission|route|selected_goal_type)$',
+      ).hasMatch(loweredKey);
+      if (rawValue is String && !approvedStringField) {
+        continue;
+      }
       result[cappedKey] = value.length > _maxParamValueLength
           ? value.substring(0, _maxParamValueLength)
           : value;

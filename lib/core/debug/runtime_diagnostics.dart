@@ -52,9 +52,25 @@ class RuntimeDiagnostics {
       category: category.trim(),
       message: Logger.redactSensitive(message.trim()),
       data: Map<String, Object?>.unmodifiable(
-        data.map(
-          (String key, Object? value) =>
-              MapEntry(key, Logger.redactSensitive(value?.toString() ?? '')),
+        Map<String, Object?>.fromEntries(
+          data.entries
+              .where((entry) {
+                final String key = entry.key.toLowerCase();
+                return !key.contains('title') &&
+                    !key.contains('text') &&
+                    !key.contains('message') &&
+                    !key.contains('prompt') &&
+                    !key.contains('content') &&
+                    !key.contains('token') &&
+                    !key.contains('device') &&
+                    !key.endsWith('id');
+              })
+              .map(
+                (MapEntry<String, Object?> entry) => MapEntry(
+                  entry.key,
+                  Logger.redactSensitive(entry.value?.toString() ?? ''),
+                ),
+              ),
         ),
       ),
     );

@@ -78,6 +78,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '956622397052',
     projectId: 'chronospark-app',
     storageBucket: 'chronospark-app.firebasestorage.app',
-    iosBundleId: 'com.example.chronospark',
+    iosBundleId: 'com.ghostheart5.chronospark',
   );
 }

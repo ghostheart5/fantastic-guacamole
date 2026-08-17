@@ -23,9 +23,44 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Ensure dependency lockfile is reproducible
+        run: git diff --exit-code -- pubspec.lock
+
       - name: Run security secret guard
         shell: pwsh
         run: ./scripts/security_secret_guard.ps1
+
+      - name: Run secret content guard
+        shell: pwsh
+        run: ./scripts/secret_content_guard.ps1
+
+      - name: Validate release version and tag
+        shell: pwsh
+        run: ./scripts/version_consistency_guard.ps1 -RequireTag
+
+      - name: Run release source guard
+        shell: pwsh
+        run: ./scripts/release_guard.ps1
+
+      - name: Verify formatting and analyze source
+        run: |
+          dart format --output=none --set-exit-if-changed lib test integration_test
+          flutter analyze --fatal-infos
+
+      - name: Validate Maestro contracts
+        run: dart run tool/validate_maestro_flows.dart
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.1.4
+
+      - name: Type-check and test all Edge Functions
+        shell: pwsh
+        run: ./scripts/edge_function_gate.ps1 -RunTests
+
+      - name: Run release tests before signing
+        run: flutter test test --concurrency=1
 
       - name: Decode keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
@@ -87,7 +122,8 @@ jobs:
             printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
             echo "Configured android/app/google-services.json from ANDROID_GOOGLE_SERVICES_JSON."
           else
-            echo "::warning::ANDROID_GOOGLE_SERVICES_JSON(_BASE64) is not set; building without Firebase Google Services config."
+            echo "::error::ANDROID_GOOGLE_SERVICES_JSON(_BASE64) is required for a production release."
+            exit 1
           fi
 
       - name: Validate production configuration
@@ -100,19 +136,15 @@ jobs:
           ANDROID_SHA256: ${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
           IOS_TEAM_ID: ${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
         run: |
-          [ -n "$SUPABASE_URL" ] || echo "::warning::CHRONOSPARK_SUPABASE_URL is empty"
-          [ -n "$SUPABASE_ANON_KEY" ] || echo "::warning::CHRONOSPARK_SUPABASE_ANON_KEY is empty"
-          [ -n "$RECEIPT_ENDPOINT" ] || echo "::warning::CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT is empty"
-          [ -n "$AI_ENDPOINT" ] || echo "::warning::CHRONOSPARK_AI_PROXY_ENDPOINT is empty"
-          [ -n "$DELETE_ENDPOINT" ] || echo "::warning::CHRONOSPARK_ACCOUNT_DELETE_ENDPOINT is empty"
-          [ -n "$ANDROID_SHA256" ] || echo "::warning::CHRONOSPARK_ANDROID_SHA256_CERT is empty"
-          [ -n "$IOS_TEAM_ID" ] || echo "::warning::CHRONOSPARK_IOS_TEAM_ID is empty"
-          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
-            echo "PROD_READINESS=true" >> "$GITHUB_ENV"
-          else
-            echo "::warning::Disabling CHRONOSPARK_ENFORCE_PROD_READINESS because required prod secrets are missing"
-            echo "PROD_READINESS=false" >> "$GITHUB_ENV"
-          fi
+          missing=0
+          for value in SUPABASE_URL SUPABASE_ANON_KEY RECEIPT_ENDPOINT AI_ENDPOINT DELETE_ENDPOINT ANDROID_SHA256 IOS_TEAM_ID; do
+            if [ -z "${!value}" ]; then
+              echo "::error::Required production secret is missing: $value"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          echo "PROD_READINESS=true" >> "$GITHUB_ENV"
 
       - name: Create empty .env file for asset bundling
         run: touch .env
@@ -130,14 +162,25 @@ jobs:
           --dart-define=CHRONOSPARK_ANDROID_SHA256_CERT=${{ secrets.CHRONOSPARK_ANDROID_SHA256_CERT }}
           --dart-define=CHRONOSPARK_IOS_TEAM_ID=${{ secrets.CHRONOSPARK_IOS_TEAM_ID }}
 
+      - name: Verify and fingerprint release artifact
+        run: |
+          AAB=build/app/outputs/bundle/release/app-release.aab
+          test -s "$AAB"
+          jarsigner -verify -strict "$AAB"
+          sha256sum "$AAB" | tee "$AAB.sha256"
+
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: chronospark-release-${{ github.ref_name }}
-          path: build/app/outputs/bundle/release/app-release.aab
+          path: |
+            build/app/outputs/bundle/release/app-release.aab
+            build/app/outputs/bundle/release/app-release.aab.sha256
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/app/outputs/bundle/release/app-release.aab
+          files: |
+            build/app/outputs/bundle/release/app-release.aab
+            build/app/outputs/bundle/release/app-release.aab.sha256
           prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-pre') }}

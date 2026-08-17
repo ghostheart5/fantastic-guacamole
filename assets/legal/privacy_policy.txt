@@ -1,66 +1,36 @@
 ChronoSpark Privacy Policy
 
-Effective date: July 4, 2026
+Effective date: August 17, 2026
+Product: ChronoSpark by GhostHeart5
 
-This policy explains what information ChronoSpark processes during normal use and during closed community testing.
+ChronoSpark processes account email and authentication identifiers; planning
+content you choose to save (tasks, goals, notes, reflections, recurring
+planning items, Timeline entries, preferences, and progression); and limited
+device, app, crash, and reliability diagnostics. A push token is stored only
+when you enable notifications. We do not collect contacts or precise location
+for planning features.
 
-1. Information processed
+Planning data can remain local to your device. If you sign in and enable cloud
+sync or backup, selected account data is stored in the GhostHeart5 Supabase
+project under your account. Account data is not shared between users.
 
-ChronoSpark may process:
+Smart Planner and SI Console use on-device guidance where available. An
+external AI request is optional and sends only minimized context after you opt
+in. Reporting an AI response sends only that response and your selected reason
+for safety review; it does not send your prompt or conversation history.
 
-- Account information, such as an email address and display name, when account authentication is enabled.
-- Content you create, including tasks, goals, notes, reflections, memories, settings, and conversation prompts.
-- Productivity information, including focus sessions, completion history, energy, emotion, momentum, streak, and progression data.
-- Purchase or entitlement status when billing features are enabled.
-- Technical information, including app events, crash diagnostics, operating-system information, an app-generated device identifier, and performance data.
+Supabase may provide authentication, account data, and Edge Functions. Firebase
+may provide aggregate analytics, crash diagnostics, and push delivery after
+permission. Google Play services may provide distribution and purchase
+entitlement processing. Each provider receives only the data needed for its
+function. ChronoSpark does not sell personal information.
 
-2. Local storage
+Delete your account from Settings > Account or use the public account-deletion
+page. Account-scoped cloud data is removed through the approved deletion flow;
+legally required or aggregated records may remain for the required period.
+Local data can be cleared with the app's local-data controls.
 
-Most productivity content is stored locally on the device using application storage, preferences, Hive databases, or secure storage where appropriate. Local information remains on the device until it is removed by an available reset feature, app storage is cleared, or the app is uninstalled.
+Do not enter passwords, access tokens, payment credentials, medical records,
+or other highly sensitive secrets into general planning fields.
 
-3. External services
-
-Depending on how a build is configured, ChronoSpark may use:
-
-- Firebase Analytics to record feature-usage events.
-- Firebase Crashlytics to receive crash reports and technical diagnostics.
-- Supabase for authentication and aggregated daily productivity metrics. Aggregated metrics may include focus counts, completed tasks, focus duration, momentum, date, and an app-generated device identifier.
-- A configured AI proxy and its upstream AI provider to generate conversational responses. When enabled, the newest prompt, limited recent conversation history, and relevant context such as energy, emotion, profile level, task information, or focus state may be transmitted for processing.
-- Google Play or Apple services for purchases and entitlement restoration when billing is enabled.
-
-ChronoSpark does not place AI-provider credentials in the mobile application. Requests are sent through the configured server-side proxy.
-
-4. How information is used
-
-Information is used to:
-
-- Provide task, focus, progression, notification, Smart Planner, and SI-generated guidance features.
-- Preserve continuity between app sessions.
-- Generate and improve recommendations and conversational responses.
-- Authenticate accounts and restore enabled purchases.
-- Diagnose crashes, measure reliability, and understand aggregate feature usage.
-
-5. Sharing and sale
-
-ChronoSpark does not sell personal information. Information is disclosed to configured service providers only as needed to provide authentication, analytics, crash reporting, AI processing, billing, or other enabled app functionality.
-
-6. Closed-test builds
-
-Closed-test builds may provide Tester Access, bypass premium restrictions, use local AI fallback responses, or disable unfinished cloud-sync functionality. Tester Access creates a local test session and should not be treated as a production account.
-
-7. Retention and deletion
-
-Local data is retained until it is cleared from the device or the app is uninstalled. External providers may retain information according to their own operational and legal requirements. For account or external-data deletion requests, contact the address below.
-
-8. Security
-
-ChronoSpark uses platform storage and secure-storage facilities where appropriate. No system can guarantee absolute security, so closed-test users should avoid entering highly sensitive personal, medical, financial, or confidential information into tasks, reflections, or AI conversations.
-
-9. Changes
-
-This policy may be updated as testing and external-service configuration change. The effective date above identifies the current version.
-
-10. Contact
-
-Privacy and support requests:
-ghostheart131517@gmail.com
+Privacy and support requests: support@chronospark.app

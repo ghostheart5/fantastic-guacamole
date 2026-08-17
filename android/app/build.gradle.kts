@@ -68,7 +68,10 @@ fun Properties.hasReleaseSigningValues(): Boolean {
 
 android {
     namespace = releaseApplicationId
-    compileSdk = maxOf(flutter.compileSdkVersion, 34)
+    // Google Play requires API 36 for new submissions and updates starting
+    // 2026-08-31. Keep the floor explicit so a stale Flutter toolchain cannot
+    // silently produce a noncompliant release artifact.
+    compileSdk = maxOf(flutter.compileSdkVersion, 36)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -80,7 +83,7 @@ android {
     defaultConfig {
         applicationId = releaseApplicationId
         minSdk = flutter.minSdkVersion
-        targetSdk = maxOf(flutter.targetSdkVersion, 34)
+        targetSdk = maxOf(flutter.targetSdkVersion, 36)
         versionCode = releaseVersionCode
         versionName = releaseVersionName
     }

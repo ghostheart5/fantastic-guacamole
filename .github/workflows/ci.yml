@@ -33,12 +33,19 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Ensure dependency lockfile is reproducible
+        run: git diff --exit-code -- pubspec.lock
+
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test integration_test
 
       - name: Run security secret guard
         shell: pwsh
         run: ./scripts/security_secret_guard.ps1
+
+      - name: Run secret content guard
+        shell: pwsh
+        run: ./scripts/secret_content_guard.ps1
 
       - name: Analyze project source
         run: flutter analyze --fatal-infos
@@ -50,21 +57,39 @@ jobs:
       - name: Validate Maestro flow contracts
         run: dart run tool/validate_maestro_flows.dart
 
+      - name: Validate version consistency
+        shell: pwsh
+        run: ./scripts/version_consistency_guard.ps1
+
       - name: Set up Deno
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
-          deno-version: v2.x
+          deno-version: v2.1.4
 
       - name: Type-check and test Supabase Edge Functions
-        run: |
-          deno check supabase/functions/ai-proxy/index.ts
-          deno check supabase/functions/account-delete/index.ts
-          deno check supabase/functions/verify-receipt/index.ts
-          deno test supabase/functions/_shared/storage_cleanup_test.ts
+        shell: pwsh
+        run: ./scripts/edge_function_gate.ps1 -RunTests
+
+      - name: Generate dependency audit evidence
+        shell: pwsh
+        run: ./scripts/dependency_audit.ps1
 
       - name: Run tests with coverage
         run: flutter test test --coverage --concurrency=1
 
+      - name: Run app-root integration tests
+        run: flutter test integration_test --concurrency=1
+
       - name: Enforce coverage and critical-test contracts
         shell: pwsh
         run: ./scripts/coverage_guard.ps1 -Mode ratchet
+
+      - name: Upload CI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronospark-ci-evidence-${{ github.run_id }}
+          if-no-files-found: warn
+          path: |
+            coverage/lcov.info
+            artifacts/dependency-audit/**

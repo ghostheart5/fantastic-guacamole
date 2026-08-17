@@ -46,7 +46,7 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
       return 'Account access disabled. Contact support.';
     case 'user-token-expired':
     case 'invalid-user-token':
-      return 'Session expired. Re-authenticate.';
+      return 'Session expired. Local work is safe and cloud sync is paused. Sign in again to resume.';
     case 'requires-recent-login':
       return 'Re-authenticate to continue securely.';
     case 'google-sign-in-cancelled':
@@ -55,31 +55,18 @@ String friendlyAuthErrorMessage(String code, {String? rawMessage}) {
     case 'github-sign-in-cancelled':
       return 'GitHub sign-in canceled.';
     case 'no-current-user':
-      return 'Session ended. Sign in again.';
+      return 'Session ended. Local work remains on this device; sign in again to resume account features.';
     case 'auth-unavailable':
-      return backendMessage.isNotEmpty
-          ? backendMessage
-          : 'Auth backend unavailable in this runtime.';
+      return 'Sign-in services are temporarily unavailable. Your local work is safe; retry when connected.';
     case 'operation-failed':
-      return backendMessage.isNotEmpty
-          ? backendMessage
-          : 'Operation failed. Retry.';
+      return 'The account operation could not be completed. Retry or contact support if it continues.';
     case 'operation-not-supported':
-      return backendMessage.isNotEmpty
-          ? backendMessage
-          : 'This operation is unavailable in the current build.';
+      return 'This account operation is unavailable right now. Contact support for help.';
     case 'missing-password':
-      return backendMessage.isNotEmpty
-          ? backendMessage
-          : 'Password is required.';
+      return 'Enter your password to continue.';
     case 'missing-email':
-      return backendMessage.isNotEmpty
-          ? backendMessage
-          : 'Account email is unavailable.';
+      return 'Your account email could not be confirmed. Sign in again.';
     default:
-      if (backendMessage.isNotEmpty) {
-        return backendMessage;
-      }
       return 'Authentication failed. Retry.';
   }
 }

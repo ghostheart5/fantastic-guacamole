@@ -219,49 +219,13 @@ final siConsoleScreenModelProvider = FutureProvider<SIConsoleScreenModel>((
   final SIDecisionOutput decision = await ref.watch(
     siDecisionOutputProvider.future,
   );
-  final CoreValuesAlignment coreValues = aggregation.coreValues;
-  final PersonalAlignmentAlignment personalAlignment =
-      aggregation.personalAlignment;
-  final intelligence = ref.watch(intelligenceStateProvider);
-  final latestSnapshot = ref.watch(latestSiSnapshotProvider);
-  final Object? state = await ref.watch(siEngineStateProvider.future);
-
-  final List<String> chunks = <String>[
-    intelligence.environment.appFlavor.toUpperCase(),
-  ];
-
-  if (state == null) {
-    if (latestSnapshot != null) {
-      chunks.add('MEM ${latestSnapshot.completed}/${latestSnapshot.skipped}');
-    }
-  }
-
-  if (state is Map<String, dynamic>) {
-    final String personality = state['personality']?.toString() ?? '';
-    final String emotion = state['emotion']?.toString() ?? '';
-    final String confidence = state['confidence'] is num
-        ? '${((state['confidence'] as num) * 100).round()}%'
-        : '';
-    chunks.addAll(<String>[
-      if (personality.isNotEmpty) personality,
-      if (emotion.isNotEmpty) emotion,
-      if (confidence.isNotEmpty) confidence,
-      if (latestSnapshot != null)
-        'MEM ${latestSnapshot.completed}/${latestSnapshot.skipped}',
-    ]);
-  }
-
-  final String engineSnapshot = chunks.join(' · ').toUpperCase();
-  final String valuesSnapshot =
-      'VALUES ${coreValues.overall}% · LOW ${coreValueTitle(coreValues.mostNeglected).toUpperCase()} ${coreValues.scores[coreValues.mostNeglected]?.score ?? 0}%';
-  final String personalAlignmentSnapshot =
-      'PERSONAL ALIGNMENT ${personalAlignment.overall}% · LOW ${personalAlignmentDimensionTitle(personalAlignment.weakest).toUpperCase()} ${personalAlignment.scores[personalAlignment.weakest]?.score ?? 0}%';
+  final String engineSnapshot =
+      'Sources available: tasks ${aggregation.tasks.length}, goals ${aggregation.goals.length}, Timeline ${aggregation.timeline.length}, memories ${aggregation.memories.length}';
 
   return SIConsoleScreenModel(
     aggregation: aggregation,
     decision: decision,
-    engineSnapshot:
-        '$engineSnapshot · $valuesSnapshot · $personalAlignmentSnapshot',
+    engineSnapshot: engineSnapshot,
   );
 });
 

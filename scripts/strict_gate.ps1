@@ -1,6 +1,8 @@
 param(
   [switch]$IncludeAndroidRuntime,
   [switch]$IncludeCoverage,
+  [switch]$IncludeIntegrationTest,
+  [switch]$IncludeDependencyAudit,
   [switch]$RequireAndroidDevice,
   [string]$AndroidPackageName = 'com.ghostheart5.chronospark'
 )
@@ -9,6 +11,7 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
+$powerShellCommand = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
 
 function Run-Step {
   param(
@@ -31,7 +34,11 @@ Run-Step -Name 'Format verification' -Action {
 }
 
 Run-Step -Name 'Security secret guard' -Action {
-  powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/security_secret_guard.ps1')
+  & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/security_secret_guard.ps1')
+}
+
+Run-Step -Name 'Secret content guard' -Action {
+  & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/secret_content_guard.ps1')
 }
 
 Run-Step -Name 'Flutter analyze' -Action {
@@ -42,20 +49,8 @@ Run-Step -Name 'Maestro flow contract validation' -Action {
   dart run tool/validate_maestro_flows.dart
 }
 
-Run-Step -Name 'AI proxy type check' -Action {
-  deno check supabase/functions/ai-proxy/index.ts
-}
-
-Run-Step -Name 'Account deletion type check' -Action {
-  deno check supabase/functions/account-delete/index.ts
-}
-
-Run-Step -Name 'Receipt verification type check' -Action {
-  deno check supabase/functions/verify-receipt/index.ts
-}
-
-Run-Step -Name 'Supabase Edge Function tests' -Action {
-  deno test supabase/functions/_shared/storage_cleanup_test.ts
+Run-Step -Name 'Supabase Edge Function gate' -Action {
+  & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/edge_function_gate.ps1') -RunTests
 }
 
 if ($IncludeCoverage) {
@@ -64,7 +59,7 @@ if ($IncludeCoverage) {
   }
 
   Run-Step -Name 'Coverage guard' -Action {
-    powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/coverage_guard.ps1') -Mode ratchet
+    & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/coverage_guard.ps1') -Mode ratchet
   }
 } else {
   Run-Step -Name 'Flutter test' -Action {
@@ -72,12 +67,28 @@ if ($IncludeCoverage) {
   }
 }
 
+if ($IncludeIntegrationTest) {
+  Run-Step -Name 'Flutter integration tests (host/device prerequisites required)' -Action {
+    flutter test integration_test --concurrency=1
+  }
+}
+
+if ($IncludeDependencyAudit) {
+  Run-Step -Name 'Dependency audit report' -Action {
+    & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/dependency_audit.ps1')
+  }
+}
+
 Run-Step -Name 'Architecture check' -Action {
-  powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'check_architecture.ps1')
+  & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'check_architecture.ps1')
 }
 
 Run-Step -Name 'Release guard' -Action {
-  powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/release_guard.ps1')
+  & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/release_guard.ps1')
+}
+
+Run-Step -Name 'Version consistency guard' -Action {
+  & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts/version_consistency_guard.ps1')
 }
 
 if ($IncludeAndroidRuntime) {
@@ -97,7 +108,7 @@ if ($IncludeAndroidRuntime) {
       $args += '-RequireDevice'
     }
 
-    powershell @args
+    & $powerShellCommand @args
   }
 }
 

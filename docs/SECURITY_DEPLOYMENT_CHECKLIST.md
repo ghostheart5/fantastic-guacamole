@@ -23,8 +23,10 @@ Repository safeguards cannot configure external consoles. Before production:
 - Configure `ALLOWED_ORIGINS`, `ANDROID_PACKAGE_NAME`, `ANTHROPIC_API_KEY`, and
   `GOOGLE_SERVICE_ACCOUNT_JSON` as server-side secrets or environment values.
 - Keep `SUPABASE_SERVICE_ROLE_KEY` server-side only.
-- Configure the OAuth redirect allow-list with
-  `https://chronospark.app/app/auth/callback`.
+- Configure the OAuth redirect allow-list with the exact value supplied by the
+  release environment. The safe source default is
+  `chronospark://auth-callback`; only add a verified HTTPS callback after the
+  production domain is live and tested.
 - Verify `assetlinks.json` and Apple associated-domain files against the
   production signing identities.
 - Rotate any credential discovered in historical diagnostic archives and

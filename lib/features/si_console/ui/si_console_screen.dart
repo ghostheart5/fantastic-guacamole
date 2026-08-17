@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
+import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
+import 'package:fantastic_guacamole/data/services/ai/ai_content_report_service.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
@@ -13,6 +15,7 @@ import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
 import 'package:fantastic_guacamole/state/providers/core_values_provider.dart';
+import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
@@ -35,10 +38,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ---------------------------------------------------------------------------
 
 class _Msg {
-  const _Msg({required this.text, required this.isUser, this.emotion});
+  const _Msg({
+    required this.text,
+    required this.isUser,
+    this.emotion,
+    this.rationale,
+    this.confidence,
+  });
   final String text;
   final bool isUser;
   final String? emotion;
+  final String? rationale;
+  final double? confidence;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,9 +137,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     // Greeting after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _addSI(
-        'System online. Strategic Intelligence interface active.\n'
-        'I have access to tasks, progression, goals, memories, day plan, emotions, personal alignment, milestones, and console history. '
-        'Ask me anything - or type "help" to see available commands.',
+        'Strategic Intelligence is ready. I will use only the sources available in this session, such as tasks, goals, Timeline, Progression, and saved preferences. '
+        'Responses may be limited when a source is missing, stale, or offline. Type "help" to see available commands.',
         emotion: 'confident',
       );
     });
@@ -173,6 +183,100 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       () => _messages.add(_Msg(text: text, isUser: false, emotion: emotion)),
     );
     _scrollToBottom();
+  }
+
+  Future<void> _showReportDialog(_Msg msg) async {
+    AiContentReportReason selected = AiContentReportReason.unsafe;
+    final AiContentReportReason?
+    reason = await showDialog<AiContentReportReason>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return AlertDialog(
+              title: const Text('Report AI response'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text(
+                      'Only the selected response and your reason are sent for safety review. Your prompt and conversation history are not included.',
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<AiContentReportReason>(
+                      initialValue: selected,
+                      decoration: const InputDecoration(labelText: 'Reason'),
+                      items:
+                          <AiContentReportReason>[
+                                AiContentReportReason.unsafe,
+                                AiContentReportReason.inaccurate,
+                                AiContentReportReason.privacy,
+                                AiContentReportReason.other,
+                              ]
+                              .map(
+                                (AiContentReportReason option) =>
+                                    DropdownMenuItem<AiContentReportReason>(
+                                      value: option,
+                                      child: Text(switch (option) {
+                                        AiContentReportReason.unsafe =>
+                                          'Unsafe or harmful',
+                                        AiContentReportReason.inaccurate =>
+                                          'Misleading or inaccurate',
+                                        AiContentReportReason.privacy =>
+                                          'Privacy concern',
+                                        AiContentReportReason.other => 'Other',
+                                      }),
+                                    ),
+                              )
+                              .toList(growable: false),
+                      onChanged: (AiContentReportReason? value) {
+                        if (value != null) setState(() => selected = value);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(selected),
+                  child: const Text('Send report'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (reason == null || !mounted) return;
+    try {
+      await ref
+          .read(aiContentReportServiceProvider)
+          .submit(responseText: msg.text, reason: reason);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Thanks. The response was reported for safety review.',
+            ),
+          ),
+        );
+      }
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'The response could not be reported. Please try again.',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _showAccessibilityGuide() async {
@@ -599,6 +703,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             text: message,
             isUser: false,
             emotion: recommendation?.emotion ?? 'balanced',
+            rationale: recommendation?.reasoning,
+            confidence: recommendation?.confidence,
           ),
         );
       });
@@ -707,7 +813,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                             child: (consoleError != null && _messages.isEmpty)
                                 ? ErrorView(
                                     title: 'SI Context Error',
-                                    message: consoleError.toString(),
+                                    message: PublicFailure.from(
+                                      consoleError,
+                                      fallback:
+                                          'Strategic context is temporarily unavailable. Your saved work is unchanged; retry when ready.',
+                                    ).message,
                                     onRetry: () {
                                       ref.invalidate(
                                         siConsoleScreenModelProvider,
@@ -731,7 +841,14 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                                           animation: _typingAnim,
                                         );
                                       }
-                                      return _BubbleTile(msg: _messages[i]);
+                                      return _BubbleTile(
+                                        msg: _messages[i],
+                                        onReport: _messages[i].isUser
+                                            ? null
+                                            : () => unawaited(
+                                                _showReportDialog(_messages[i]),
+                                              ),
+                                      );
                                     },
                                   ),
                           ),
@@ -869,12 +986,11 @@ class _Header extends StatelessWidget {
             Text(
               engineSnapshot ?? '',
               style: const TextStyle(
-                fontSize: 8,
+                fontSize: 12,
                 letterSpacing: 1,
                 color: Colors.white54,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ],
           const SizedBox(height: 8),
@@ -967,8 +1083,9 @@ class _Header extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _BubbleTile extends ConsumerWidget {
-  const _BubbleTile({required this.msg});
+  const _BubbleTile({required this.msg, this.onReport});
   final _Msg msg;
+  final VoidCallback? onReport;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1043,46 +1160,53 @@ class _BubbleTile extends ConsumerWidget {
                     ],
                   ),
                 ),
+                if (!isUser &&
+                    (msg.rationale != null || msg.confidence != null))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      [
+                        if (msg.rationale != null &&
+                            msg.rationale!.trim().isNotEmpty)
+                          'Why this appears: ${msg.rationale!.trim()}',
+                        if (msg.confidence != null)
+                          'Confidence: ${(msg.confidence!.clamp(0, 1) * 100).round()}% — verify before acting.',
+                      ].join('\n'),
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
                 if (!isUser) ...[
                   const SizedBox(height: 4),
-                  GestureDetector(
-                    onTap: () => unawaited(
-                      ref.read(voiceServiceProvider).speak(msg.text),
-                    ),
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.neonCyan.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: AppColors.neonCyan.withValues(alpha: 0.25),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      Semantics(
+                        button: true,
+                        label: 'Read response aloud',
+                        child: TextButton.icon(
+                          onPressed: () => unawaited(
+                            ref.read(voiceServiceProvider).speak(msg.text),
+                          ),
+                          icon: const Icon(Icons.volume_up_rounded, size: 16),
+                          label: const Text('SPEAK'),
                         ),
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.volume_up_rounded,
-                            color: AppColors.neonCyan,
-                            size: 12,
+                      if (onReport != null)
+                        Semantics(
+                          button: true,
+                          label: 'Report response',
+                          child: TextButton.icon(
+                            onPressed: onReport,
+                            icon: const Icon(Icons.flag_outlined, size: 16),
+                            label: const Text('REPORT'),
                           ),
-                          SizedBox(width: 4),
-                          Text(
-                            'SPEAK',
-                            style: TextStyle(
-                              color: AppColors.neonCyan,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                        ),
+                    ],
                   ),
                 ],
               ],

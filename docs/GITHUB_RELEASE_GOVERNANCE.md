@@ -21,9 +21,9 @@ To enforce this in GitHub settings:
    - Require a pull request before merging
    - Require review from Code Owners
    - Require status checks to pass before merging
-4. Select required checks:
+4. Select required checks (use the exact current names shown in GitHub):
    - `PR Policy / enforce-maintainer-only`
-   - `Dart / build`
+   - `CI/CD / Analyze & Test`
    - `Deploy Flutter Web to GitHub Pages / build`
 5. Enable Restrict who can push to matching branches and allow only `ghostheart5`.
 
@@ -31,7 +31,13 @@ To enforce this in GitHub settings:
 
 - Workflow: `.github/workflows/android-release.yml`
 - Trigger: push a tag like `v1.2.3`
-- Output: signed AAB uploaded as workflow artifact and GitHub release asset.
+- Output: signed AAB, SHA-256 checksum, and CI evidence uploaded as workflow
+  artifacts and GitHub release assets.
+- The tag must match the `pubspec.yaml` semantic version. Missing production
+  secrets fail the workflow; no development-readiness fallback is permitted.
+- Repository-side gates are documented in
+  [`CI_CD_RELEASE_GATES.md`](CI_CD_RELEASE_GATES.md). Device, Play Console,
+  and signed-artifact runtime checks remain separate release-phase evidence.
 
 Required repository secrets:
 

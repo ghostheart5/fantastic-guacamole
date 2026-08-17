@@ -376,13 +376,22 @@ class _PersonalizationSection extends ConsumerWidget {
             padding: EdgeInsets.fromLTRB(16, 10, 16, 4),
             child: Text(
               'These choices tune guidance. You can change them at any time; learned patterns remain separate from your explicit preferences.',
-              style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.4),
+              style: TextStyle(
+                color: Colors.white60,
+                fontSize: 12,
+                height: 1.4,
+              ),
             ),
           ),
           _PreferenceDropdown<String>(
             label: 'Planning style',
             value: profile.planningStyle.name,
-            items: const <String>['flexible', 'timeBlocked', 'energyMatched', 'singleFocus'],
+            items: const <String>[
+              'flexible',
+              'timeBlocked',
+              'energyMatched',
+              'singleFocus',
+            ],
             onChanged: (String value) => _save(
               context,
               ref,
@@ -394,7 +403,13 @@ class _PersonalizationSection extends ConsumerWidget {
           _PreferenceDropdown<String>(
             label: 'Priority strategy',
             value: profile.priorityStrategy.name,
-            items: const <String>['balanced', 'deadlineFirst', 'energyFirst', 'goalFirst', 'quickWins'],
+            items: const <String>[
+              'balanced',
+              'deadlineFirst',
+              'energyFirst',
+              'goalFirst',
+              'quickWins',
+            ],
             onChanged: (String value) => _save(
               context,
               ref,
@@ -406,39 +421,37 @@ class _PersonalizationSection extends ConsumerWidget {
           _PreferenceDropdown<String>(
             label: 'Missed-task recovery',
             value: profile.recoveryPolicy.name,
-            items: const <String>['askFirst', 'reschedule', 'reduceScope', 'recoveryQueue'],
+            items: const <String>[
+              'askFirst',
+              'reschedule',
+              'reduceScope',
+              'recoveryQueue',
+            ],
             onChanged: (String value) => _save(
               context,
               ref,
-              profile.copyWith(recoveryPolicy: RecoveryPolicy.values.byName(value)),
+              profile.copyWith(
+                recoveryPolicy: RecoveryPolicy.values.byName(value),
+              ),
             ),
           ),
           _NeonToggleTile(
             title: 'Use emotional state in guidance',
             value: profile.useEmotionSignals,
-            onChanged: (bool value) => _save(
-              context,
-              ref,
-              profile.copyWith(useEmotionSignals: value),
-            ),
+            onChanged: (bool value) =>
+                _save(context, ref, profile.copyWith(useEmotionSignals: value)),
           ),
           _NeonToggleTile(
             title: 'Use memories in guidance',
             value: profile.useMemoryContext,
-            onChanged: (bool value) => _save(
-              context,
-              ref,
-              profile.copyWith(useMemoryContext: value),
-            ),
+            onChanged: (bool value) =>
+                _save(context, ref, profile.copyWith(useMemoryContext: value)),
           ),
           _NeonToggleTile(
             title: 'Allow external AI assistance',
             value: profile.externalAiAllowed,
-            onChanged: (bool value) => _save(
-              context,
-              ref,
-              profile.copyWith(externalAiAllowed: value),
-            ),
+            onChanged: (bool value) =>
+                _save(context, ref, profile.copyWith(externalAiAllowed: value)),
           ),
           _NeonStatusTile(
             title: 'Why suggestions appear',
@@ -487,7 +500,9 @@ class _PreferenceDropdown<T> extends StatelessWidget {
           labelText: label,
           labelStyle: const TextStyle(color: Colors.white54),
           enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: AppColors.neonCyan.withValues(alpha: 0.2)),
+            borderSide: BorderSide(
+              color: AppColors.neonCyan.withValues(alpha: 0.2),
+            ),
             borderRadius: BorderRadius.circular(10),
           ),
         ),
@@ -774,6 +789,50 @@ class _SupabaseBackendHealthSection extends ConsumerWidget {
           title: 'Backend Health Error',
           subtitle: error.toString(),
         ),
+      ),
+    );
+  }
+}
+
+class _CloudDataControlSection extends ConsumerWidget {
+  const _CloudDataControlSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<bool> syncAsync = ref.watch(cloudSyncPreferenceProvider);
+    final bool enabled = syncAsync.asData?.value ?? false;
+    final bool available = Env.enableCloudSync;
+    return _Section(
+      label: 'YOUR DATA',
+      accentColor: AppColors.neonCyan,
+      child: Column(
+        children: [
+          _NeonToggleTile(
+            title: 'Cloud Backup',
+            value: enabled && available,
+            onChanged: (bool value) {
+              if (!available) return;
+              unawaited(
+                ref
+                    .read(cloudSyncPreferenceProvider.notifier)
+                    .setEnabled(value),
+              );
+            },
+          ),
+          _NeonStatusTile(
+            title: 'Storage scope',
+            subtitle: !available
+                ? 'This build is local-only.'
+                : enabled
+                ? 'Tasks, profile, and settings may be encrypted and synced to your account.'
+                : 'Local-only. Nothing is sent to cloud backup.',
+          ),
+          const _NeonStatusTile(
+            title: 'Guidance processing',
+            subtitle:
+                'Smart Planner and SI Console explain when a request stays local or uses an opted-in external service.',
+          ),
+        ],
       ),
     );
   }

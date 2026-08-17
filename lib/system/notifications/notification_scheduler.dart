@@ -53,8 +53,13 @@ class NotificationScheduler {
 
   static void _handleNotificationResponse(NotificationResponse response) {
     final String? payload = response.payload;
-    Logger.log('Notifications', 'Notification tapped: ${payload ?? '(none)'}');
-    RuntimeDiagnostics.record('Notification tapped: ${payload ?? '(none)'}');
+    Logger.log(
+      'Notifications',
+      payload == null || payload.isEmpty
+          ? 'Notification tapped without a route payload.'
+          : 'Notification tapped; route payload withheld from diagnostics.',
+    );
+    RuntimeDiagnostics.record('Notification tapped.');
     if (payload != null && payload.isNotEmpty) {
       tappedPayloadListenable.value = payload;
     }
@@ -206,13 +211,8 @@ class NotificationScheduler {
     }
     final scheduledTz = tz.TZDateTime.from(notification.scheduledAt, tz.local);
     if (scheduledTz.isBefore(tz.TZDateTime.now(tz.local))) {
-      Logger.log(
-        'Notifications',
-        'Skipped schedule for past time: ${notification.id}.',
-      );
-      RuntimeDiagnostics.record(
-        'Skipped notification schedule for past time: ${notification.id}.',
-      );
+      Logger.log('Notifications', 'Skipped schedule for past time.');
+      RuntimeDiagnostics.record('Skipped notification schedule for past time.');
       return;
     }
     await _plugin.zonedSchedule(
@@ -240,7 +240,7 @@ class NotificationScheduler {
         'initialized.',
       );
       RuntimeDiagnostics.record(
-        'Skipped daily notification schedule "$id": scheduler not initialized.',
+        'Skipped daily notification schedule: scheduler not initialized.',
       );
       return;
     }
@@ -250,7 +250,7 @@ class NotificationScheduler {
         'Skipped daily schedule "$id" because permission is not granted.',
       );
       RuntimeDiagnostics.record(
-        'Skipped daily notification schedule "$id": permission not granted.',
+        'Skipped daily notification schedule: permission not granted.',
       );
       return;
     }

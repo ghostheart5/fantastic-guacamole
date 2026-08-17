@@ -35,9 +35,16 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Ensure dependency lockfile is reproducible
+        run: git diff --exit-code -- pubspec.lock
+
       - name: Run security secret guard
         shell: pwsh
         run: ./scripts/security_secret_guard.ps1
+
+      - name: Run secret content guard
+        shell: pwsh
+        run: ./scripts/secret_content_guard.ps1
 
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test integration_test
@@ -45,14 +52,34 @@ jobs:
       - name: Analyze project source
         run: flutter analyze --fatal-infos
 
+      - name: Validate version consistency
+        shell: pwsh
+        run: ./scripts/version_consistency_guard.ps1
+
       # Executing Maestro flows needs a booted device, which this job does not
       # have. This parses them and checks every runFlow target resolves, so a
       # broken flow is caught on push rather than on the next device run.
       - name: Validate Maestro flows
         run: dart run tool/validate_maestro_flows.dart
 
+      - name: Set up Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.1.4
+
+      - name: Type-check and test all Edge Functions
+        shell: pwsh
+        run: ./scripts/edge_function_gate.ps1 -RunTests
+
+      - name: Generate dependency audit evidence
+        shell: pwsh
+        run: ./scripts/dependency_audit.ps1
+
       - name: Run tests
         run: flutter test test --coverage --concurrency=1
+
+      - name: Run app-root integration tests
+        run: flutter test integration_test --concurrency=1
 
       - name: Enforce coverage and critical-test contracts
         shell: pwsh

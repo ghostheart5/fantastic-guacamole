@@ -286,7 +286,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   hasScrollBody: false,
                   child: Center(
                     child: Text(
-                      'No timeline matches this window/filter.\nTry another view or reduce filters.',
+                      'No Timeline evidence matches this window or filter.\nTry another view, reduce filters, or create an item in Creator to establish a baseline.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white38,

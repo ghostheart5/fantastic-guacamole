@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 class SupabaseClientService {
@@ -39,7 +40,11 @@ class SupabaseClientService {
         'Supabase initialization failed',
         error,
       );
-      return 'Supabase initialization failed: $error';
+      return PublicFailure.from(
+        error,
+        fallback:
+            'Cloud services are unavailable in this session. Local work remains available.',
+      ).message;
     }
   }
 

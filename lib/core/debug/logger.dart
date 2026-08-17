@@ -56,7 +56,7 @@ class Logger {
     }
     if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
       FirebaseCrashlytics.instance.recordError(
-        exception ?? Exception(redactSensitive(safeString(message))),
+        Exception(redactSensitive(safeString(exception ?? message))),
         stackTrace,
         reason: '$category: ${redactSensitive(safeString(message))}',
         fatal: false,

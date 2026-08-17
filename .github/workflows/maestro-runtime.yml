@@ -1,0 +1,46 @@
+name: Maestro Runtime Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      flow_glob:
+        description: 'Flow or directory to execute (for example .maestro/flows)'
+        required: false
+        default: '.maestro/flows'
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    # This gate is intentionally separate from source CI. It requires a
+    # maintainer-provided self-hosted runner with a prepared app/device and
+    # never builds or publishes an APK/AAB.
+    runs-on: [self-hosted, android, maestro]
+    steps:
+      - name: Checkout flow definitions
+        uses: actions/checkout@v4
+
+      - name: Verify runtime prerequisites
+        shell: bash
+        run: |
+          command -v maestro
+          command -v adb
+          adb get-state | grep -q '^device$'
+          maestro --version
+
+      - name: Execute approved Maestro flows
+        shell: bash
+        env:
+          FLOW_GLOB: ${{ inputs.flow_glob }}
+        run: |
+          mkdir -p artifacts/maestro
+          maestro test "$FLOW_GLOB" --format junit --output artifacts/maestro/results.xml
+
+      - name: Upload Maestro evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronospark-maestro-${{ github.run_id }}
+          if-no-files-found: warn
+          path: artifacts/maestro/results.xml

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
@@ -28,13 +29,19 @@ class GlobalAggregationService {
     if (!Env.enableAnalytics) {
       return;
     }
+    if (SharedPrefsService.load('cloud_sync_enabled_v1') != 'true') {
+      return;
+    }
     final sb.SupabaseClient? client = _client;
     final String? userId = client?.auth.currentUser?.id;
     if (!Env.isSupabaseConfigured || client == null || userId == null) {
       return;
     }
     try {
-      final deviceId = await _ensureIdentity();
+      final deviceId = sha256
+          .convert(utf8.encode('${await _ensureIdentity()}:$userId'))
+          .toString()
+          .substring(0, 32);
       await client.from(_kTable).upsert({
         'device_id': deviceId,
         'user_id': userId,
@@ -49,6 +56,9 @@ class GlobalAggregationService {
   }
 
   Future<GlobalMetrics> fetchGlobalMetrics() async {
+    if (SharedPrefsService.load('cloud_sync_enabled_v1') != 'true') {
+      return GlobalMetrics.empty();
+    }
     final cached = _loadCache();
     if (cached != null) return cached;
     final sb.SupabaseClient? client = _client;
@@ -57,10 +67,12 @@ class GlobalAggregationService {
         client.auth.currentUser == null) {
       return GlobalMetrics.empty();
     }
+    final String userId = client.auth.currentUser!.id;
     try {
       final data = await client
           .from(_kTable)
           .select()
+          .eq('user_id', userId)
           .order('created_at', ascending: false)
           .limit(1000);
       final rows = (data as List).cast<Map<String, dynamic>>();

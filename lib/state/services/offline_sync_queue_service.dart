@@ -15,6 +15,7 @@ class OfflineSyncQueueItem {
     this.lastAttemptAtUtc,
     this.nextAttemptAtUtc,
     this.deadLettered = false,
+    this.accountId,
   });
 
   final String id;
@@ -26,6 +27,7 @@ class OfflineSyncQueueItem {
   final String? lastAttemptAtUtc;
   final String? nextAttemptAtUtc;
   final bool deadLettered;
+  final String? accountId;
 
   OfflineSyncQueueItem copyWith({
     int? attempts,
@@ -43,6 +45,7 @@ class OfflineSyncQueueItem {
       lastAttemptAtUtc: lastAttemptAtUtc ?? this.lastAttemptAtUtc,
       nextAttemptAtUtc: nextAttemptAtUtc ?? this.nextAttemptAtUtc,
       deadLettered: deadLettered ?? this.deadLettered,
+      accountId: accountId,
     );
   }
 
@@ -57,6 +60,7 @@ class OfflineSyncQueueItem {
       'lastAttemptAtUtc': lastAttemptAtUtc,
       'nextAttemptAtUtc': nextAttemptAtUtc,
       'deadLettered': deadLettered,
+      'accountId': accountId,
     };
   }
 
@@ -77,21 +81,44 @@ class OfflineSyncQueueItem {
       lastAttemptAtUtc: json['lastAttemptAtUtc']?.toString(),
       nextAttemptAtUtc: json['nextAttemptAtUtc']?.toString(),
       deadLettered: json['deadLettered'] == true,
+      accountId: json['accountId']?.toString(),
     );
   }
 }
 
 class OfflineSyncQueueService {
-  OfflineSyncQueueService(this._prefs);
+  OfflineSyncQueueService(
+    this._prefs, {
+    String? accountId,
+    this._enforceAccountBinding = false,
+  }) : _accountId = accountId?.trim().isEmpty == true
+           ? null
+           : accountId?.trim();
 
   static const String storageKey = 'offline_sync_queue_v1';
   static const int maxAttempts = 8;
 
   final HiveStorage<String> _prefs;
+  final bool _enforceAccountBinding;
+  String? _accountId;
+
+  String? get accountId => _accountId;
+
+  void rebind(String? accountId) {
+    final String? normalized = accountId?.trim();
+    _accountId = normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
+  String get _scopedStorageKey => !_enforceAccountBinding || _accountId == null
+      ? storageKey
+      : '$storageKey:${_accountId!}';
 
   Future<List<OfflineSyncQueueItem>> loadQueue() async {
+    if (_enforceAccountBinding && _accountId == null) {
+      return const <OfflineSyncQueueItem>[];
+    }
     await _prefs.open();
-    final String? encoded = _prefs.get(storageKey);
+    final String? encoded = _prefs.get(_scopedStorageKey);
     if (encoded == null || encoded.trim().isEmpty) {
       return const <OfflineSyncQueueItem>[];
     }
@@ -110,7 +137,10 @@ class OfflineSyncQueueService {
         )
         .where(
           (OfflineSyncQueueItem item) =>
-              item.id.isNotEmpty && item.actionType.isNotEmpty,
+              item.id.isNotEmpty &&
+                  item.actionType.isNotEmpty &&
+                  !_enforceAccountBinding ||
+              item.accountId == _accountId,
         )
         .toList(growable: false);
   }
@@ -125,6 +155,7 @@ class OfflineSyncQueueService {
     required String dedupeKey,
     Map<String, dynamic> payload = const <String, dynamic>{},
   }) async {
+    if (_enforceAccountBinding && _accountId == null) return;
     final List<OfflineSyncQueueItem> queue = await loadQueue();
     if (queue.any((OfflineSyncQueueItem item) => item.dedupeKey == dedupeKey)) {
       return;
@@ -138,19 +169,22 @@ class OfflineSyncQueueService {
       payload: payload,
       enqueuedAtUtc: now.toIso8601String(),
       attempts: 0,
+      accountId: _enforceAccountBinding ? _accountId : null,
     );
 
     await _persist(<OfflineSyncQueueItem>[...queue, item]);
   }
 
   Future<void> clear() async {
-    await _prefs.delete(storageKey);
+    if (_enforceAccountBinding && _accountId == null) return;
+    await _prefs.delete(_scopedStorageKey);
   }
 
   Future<int> replay({
     required Future<bool> Function(OfflineSyncQueueItem item) executor,
     int maxItems = 10,
   }) async {
+    if (_enforceAccountBinding && _accountId == null) return 0;
     final List<OfflineSyncQueueItem> queue = await loadQueue();
     if (queue.isEmpty) {
       return 0;
@@ -230,7 +264,7 @@ class OfflineSyncQueueService {
 
   Future<void> _persist(List<OfflineSyncQueueItem> queue) {
     return _prefs.put(
-      storageKey,
+      _scopedStorageKey,
       jsonEncode(
         queue
             .map((OfflineSyncQueueItem item) => item.toJson())

@@ -2,6 +2,8 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 $failures = New-Object System.Collections.Generic.List[string]
+$requiredTargetApi = 36
+$powerShellCommand = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
 
 function Add-Failure([string]$message) {
   $script:failures.Add($message)
@@ -64,13 +66,13 @@ if (-not (Test-Path $androidGradle)) {
   $gradleContent = Get-Content -Path $androidGradle -Raw
 
   $compileSdk = Get-RegexIntegerValue -Text $gradleContent -Pattern 'compileSdk\s*=\s*maxOf\(flutter\.compileSdkVersion,\s*(\d+)\)'
-  if ($null -eq $compileSdk -or $compileSdk -lt 34) {
-    Add-Failure 'compileSdk floor must be >= 34.'
+  if ($null -eq $compileSdk -or $compileSdk -lt $requiredTargetApi) {
+    Add-Failure "compileSdk floor must be >= $requiredTargetApi for the 2026-08-31 Google Play policy change."
   }
 
   $targetSdk = Get-RegexIntegerValue -Text $gradleContent -Pattern 'targetSdk\s*=\s*maxOf\(flutter\.targetSdkVersion,\s*(\d+)\)'
-  if ($null -eq $targetSdk -or $targetSdk -lt 34) {
-    Add-Failure 'targetSdk floor must be >= 34.'
+  if ($null -eq $targetSdk -or $targetSdk -lt $requiredTargetApi) {
+    Add-Failure "targetSdk floor must be >= $requiredTargetApi for the 2026-08-31 Google Play policy change."
   }
 
   if ($gradleContent -notmatch '(?:id\(|apply\(plugin\s*=\s*)"com\.google\.firebase\.crashlytics"') {
@@ -85,6 +87,11 @@ if (-not (Test-Path $androidGradle)) {
 $firebaseOptions = Join-Path $root 'lib/firebase_options.dart'
 if (-not (Test-Path $firebaseOptions)) {
   Add-Failure "Missing firebase_options.dart: $firebaseOptions"
+} else {
+  $firebaseContent = Get-Content -Path $firebaseOptions -Raw
+  if ($firebaseContent -match "iosBundleId:\s*'com\.example\.chronospark'") {
+    Add-Failure 'firebase_options.dart still contains the retired com.example.chronospark macOS identity.'
+  }
 }
 
 $mainEntrypoint = Join-Path $root 'lib/main.dart'
@@ -148,6 +155,14 @@ if (Test-Path $pubspec) {
   }
 } else {
   Add-Failure "Missing pubspec.yaml: $pubspec"
+}
+
+$versionGuard = Join-Path $root 'scripts/version_consistency_guard.ps1'
+if (Test-Path $versionGuard) {
+  & $powerShellCommand -NoProfile -ExecutionPolicy Bypass -File $versionGuard
+  if ($LASTEXITCODE -ne 0) { Add-Failure 'Version consistency guard failed.' }
+} else {
+  Add-Failure "Missing version consistency guard: $versionGuard"
 }
 
 if ($failures.Count -gt 0) {

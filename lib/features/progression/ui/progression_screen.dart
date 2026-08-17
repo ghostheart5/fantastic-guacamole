@@ -19,6 +19,33 @@ import 'package:share_plus/share_plus.dart';
 class ProgressionScreen extends ConsumerWidget {
   const ProgressionScreen({super.key});
 
+  Future<bool> _confirmShare(
+    BuildContext context, {
+    required String title,
+    required String preview,
+  }) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) => AlertDialog(
+            title: Text(title),
+            content: Text(
+              'Review before sharing. This summary contains progress metrics, not your task or note text.\n\n$preview',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Share'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   Future<void> _shareProgressCard(BuildContext context, WidgetRef ref) async {
     final profile = ref.read(profileProvider);
     final trajectory = ref.read(trajectorySummaryProvider);
@@ -27,6 +54,14 @@ class ProgressionScreen extends ConsumerWidget {
         'Level ${profile.level} • XP ${profile.xp} • Streak ${profile.streak}d\n'
         'Momentum ${(trajectory.momentum * 100).round()}% • Completed tasks ${trajectory.completedTasks}\n'
         'Building consistency with ChronoSpark: ${AppUrls.website}';
+
+    if (!await _confirmShare(
+      context,
+      title: 'Review progress snapshot',
+      preview: text,
+    )) {
+      return;
+    }
 
     try {
       await SharePlus.instance.share(
@@ -72,6 +107,14 @@ class ProgressionScreen extends ConsumerWidget {
         'Current streak: ${profile.streak} days\n'
         'Momentum ${(trajectory.momentum * 100).round()}%\n'
         'Join me in ChronoSpark: ${AppUrls.website}';
+
+    if (!await _confirmShare(
+      context,
+      title: 'Review achievement snapshot',
+      preview: text,
+    )) {
+      return;
+    }
 
     try {
       await SharePlus.instance.share(
@@ -413,11 +456,11 @@ class _AdvisorSummaryCard extends ConsumerWidget {
               ),
             ),
             loading: () => const Text(
-              'Scanning signal matrix...',
+              'Building a progress view from your saved Timeline and completed actions...',
               style: TextStyle(color: Colors.white38, fontSize: 12),
             ),
             error: (_, _) => const Text(
-              'Insufficient signal data.',
+              'Not enough saved evidence yet. Add or complete an item, then return to see a grounded progression signal.',
               style: TextStyle(color: Colors.white38, fontSize: 12),
             ),
           ),

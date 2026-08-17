@@ -1,9 +1,15 @@
+import 'package:fantastic_guacamole/config/env.dart';
+import 'package:fantastic_guacamole/data/di/repositories_providers.dart';
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
+import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsUiActions {
   SettingsUiActions(this._ref);
@@ -31,6 +37,36 @@ class SettingsUiActions {
 
   Future<bool> requestNotificationPermission() {
     return _reminderService.requestNotificationPermission();
+  }
+
+  /// The only user-facing entry point that can request remote push permission.
+  /// Local scheduling permission remains explicit as well; startup never calls
+  /// either operating-system prompt.
+  Future<bool> requestNotificationPermissionAndRegisterPush() async {
+    final bool localGranted = await requestNotificationPermission();
+    if (!localGranted) {
+      return false;
+    }
+    final String? issue = await const FirebaseMessagingBootstrap()
+        .requestPermissionAndToken(isMockMode: Env.isMockMode);
+    if (issue != null) {
+      // Local reminders remain enabled when remote push registration is
+      // unavailable on a platform or during a transient backend outage.
+      return localGranted;
+    }
+    final String? token = FirebaseMessagingBootstrap.latestToken;
+    final client = _ref.read(supabaseClientProvider);
+    if (token != null && token.isNotEmpty && client != null) {
+      try {
+        await _ref
+            .read(firebaseSupabaseBridgeRepositoryProvider)
+            .syncFirebaseMessagingToken(client, token, source: 'settings');
+      } on Object {
+        // Permission remains granted even if cloud token sync is temporarily
+        // unavailable; the bridge retries on a later authenticated refresh.
+      }
+    }
+    return true;
   }
 
   ReminderOrchestratorPrefs loadAdvancedReminderPrefs() {
@@ -83,6 +119,33 @@ class SettingsUiActions {
 final settingsUiActionsProvider = Provider<SettingsUiActions>((Ref ref) {
   return SettingsUiActions(ref);
 });
+
+const String _cloudSyncPreferenceKey = 'cloud_sync_enabled_v1';
+
+class CloudSyncPreferenceNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    // Cloud transfer is opt-in. A build flag only makes the capability
+    // available; it must not silently authorize data transfer.
+    return prefs.getBool(_cloudSyncPreferenceKey) ?? false;
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    state = AsyncData<bool>(enabled);
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_cloudSyncPreferenceKey, enabled);
+    if (!enabled) {
+      await SharedPrefsService.delete('global_metrics_cache');
+      await SharedPrefsService.delete('global_metrics_cache_ts');
+    }
+  }
+}
+
+final cloudSyncPreferenceProvider =
+    AsyncNotifierProvider<CloudSyncPreferenceNotifier, bool>(
+      CloudSyncPreferenceNotifier.new,
+    );
 
 final notificationPermissionListenableProvider =
     Provider<ValueListenable<bool?>>((ref) {

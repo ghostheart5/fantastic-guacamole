@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/optimization_provider.dart';
+import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,10 +41,20 @@ final _backupServiceProvider = Provider<BackupService?>((ref) {
 
 final _offlineSyncQueueProvider = Provider<OfflineSyncQueueService?>((ref) {
   final HiveStore hive = ref.read(hiveStoreProvider);
+  final client = ref.read(supabaseClientProvider);
   return OfflineSyncQueueService(
     HiveStorage<String>(HiveBoxes.offlineQueue, hive: hive),
+    accountId: client?.auth.currentUser?.id,
+    enforceAccountBinding: true,
   );
 });
+
+OfflineSyncQueueService? _boundQueue(Ref ref) {
+  final OfflineSyncQueueService? queue = ref.read(_offlineSyncQueueProvider);
+  final client = ref.read(supabaseClientProvider);
+  queue?.rebind(client?.auth.currentUser?.id);
+  return queue;
+}
 
 final syncServiceProvider = Provider<SyncService?>((ref) {
   final AsyncValue<SharedPrefsStorage> prefsAsync = ref.watch(
@@ -51,6 +62,8 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
   );
   final BackupService? backup = ref.watch(_backupServiceProvider);
   final supabaseClient = ref.watch(supabaseClientProvider);
+  final bool userEnabled =
+      ref.watch(cloudSyncPreferenceProvider).asData?.value ?? false;
   return prefsAsync.whenOrNull(
     data: (SharedPrefsStorage prefs) => backup == null
         ? null
@@ -58,7 +71,7 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
             backup: backup,
             gateway: Env.isMockMode
                 ? LocalTestCloudBackupGateway(prefs)
-                : (Env.enableCloudSync && supabaseClient != null)
+                : (Env.enableCloudSync && userEnabled && supabaseClient != null)
                 ? SupabaseStorageCloudBackupGateway(client: supabaseClient)
                 : const UnavailableCloudBackupGateway(),
             secureStore: ref.read(secureStoreProvider),
@@ -67,7 +80,12 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
 });
 
 final syncToCloudProvider = FutureProvider<bool>((ref) async {
-  final OfflineSyncQueueService? queue = ref.read(_offlineSyncQueueProvider);
+  if (!Env.enableCloudSync ||
+      !(await ref.read(cloudSyncPreferenceProvider.future))) {
+    return false;
+  }
+  final OfflineSyncQueueService? queue = _boundQueue(ref);
+  if (queue?.accountId == null) return false;
   try {
     await queue?.replay(
       executor: (OfflineSyncQueueItem item) async {
@@ -97,7 +115,7 @@ final syncToCloudProvider = FutureProvider<bool>((ref) async {
 });
 
 final replayOfflineQueueProvider = FutureProvider<int>((ref) async {
-  final OfflineSyncQueueService? queue = ref.read(_offlineSyncQueueProvider);
+  final OfflineSyncQueueService? queue = _boundQueue(ref);
   if (queue == null) {
     return 0;
   }
@@ -109,7 +127,7 @@ final replayOfflineQueueProvider = FutureProvider<int>((ref) async {
 });
 
 final offlineQueueCountProvider = FutureProvider<int>((ref) async {
-  final OfflineSyncQueueService? queue = ref.read(_offlineSyncQueueProvider);
+  final OfflineSyncQueueService? queue = _boundQueue(ref);
   if (queue == null) {
     return 0;
   }
@@ -118,6 +136,14 @@ final offlineQueueCountProvider = FutureProvider<int>((ref) async {
 
 final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
   try {
+    if (!Env.enableCloudSync ||
+        !(await ref.read(cloudSyncPreferenceProvider.future))) {
+      return false;
+    }
+    final client = ref.read(supabaseClientProvider);
+    if (client?.auth.currentUser == null) {
+      return false;
+    }
     final bool restored =
         await ref.read(syncServiceProvider)?.restoreFromCloud() ?? false;
     if (restored) {

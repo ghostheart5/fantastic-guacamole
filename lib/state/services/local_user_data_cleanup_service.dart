@@ -49,6 +49,21 @@ class LocalUserDataCleanupService {
     'cloud_backup_encryption_key_v1',
   ];
 
+  static const List<String> _userPreferenceKeys = <String>[
+    'user_preferences_json',
+    'personalization_profile_v1',
+    'observed_planning_patterns_v1',
+    'profile_values',
+    'soul_map_profile_v1',
+    'behavior_state_v1',
+    'global_metrics_cache',
+    'global_metrics_cache_ts',
+    'last_route',
+    'active_task_id',
+    'draft_task_title',
+    'primary_goal_type',
+  ];
+
   Future<void> clearForAccountSwitch() async {
     await _hive.init();
     for (final String box in _userBoxes) {
@@ -57,7 +72,9 @@ class LocalUserDataCleanupService {
     for (final String key in _userSecureKeys) {
       await _secureStore.delete(key);
     }
-    await _sensitivePreferences.clear();
+    for (final String key in _userPreferenceKeys) {
+      await _sensitivePreferences.delete(key);
+    }
     await SharedPrefsService.delete('last_opened_tab');
     await _notifications.cancelAll();
   }

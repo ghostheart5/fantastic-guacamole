@@ -50,18 +50,6 @@ class FirebaseMessagingBootstrap {
   Future<String?> _initializeOnce() async {
     try {
       final FirebaseMessaging messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission(alert: true, badge: true, sound: true);
-
-      final String? token = await messaging.getToken();
-      if (token != null && token.trim().isNotEmpty) {
-        _latestToken = token.trim();
-        Logger.log('Push', 'FCM token acquired.');
-        RuntimeDiagnostics.record('FCM token acquired.');
-      } else {
-        Logger.warn('FCM token is empty.');
-        RuntimeDiagnostics.record('FCM token is empty.');
-      }
-
       messaging.onTokenRefresh.listen((String refreshedToken) {
         if (refreshedToken.trim().isEmpty) {
           Logger.warn('FCM token refresh returned empty token.');
@@ -82,8 +70,46 @@ class FirebaseMessagingBootstrap {
       });
 
       return null;
-    } on Object catch (error) {
-      return 'Firebase Messaging initialization failed: $error';
+    } on Object {
+      Logger.warn('Firebase Messaging initialization failed.');
+      RuntimeDiagnostics.record('Firebase Messaging initialization failed.');
+      return 'Firebase Messaging initialization failed.';
+    }
+  }
+
+  /// Requests push permission and obtains a token only after an explicit
+  /// user-facing notification action. Startup calls [initialize], which only
+  /// installs listeners and never opens an operating-system prompt.
+  Future<String?> requestPermissionAndToken({required bool isMockMode}) async {
+    if (isMockMode || kIsWeb) {
+      return null;
+    }
+    final String? initializationError = await initialize(isMockMode: false);
+    if (initializationError != null) {
+      return initializationError;
+    }
+    try {
+      final FirebaseMessaging messaging = FirebaseMessaging.instance;
+      final NotificationSettings settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        return 'Push notification permission was denied.';
+      }
+      final String? token = await messaging.getToken();
+      if (token == null || token.trim().isEmpty) {
+        return 'Push notification registration is unavailable.';
+      }
+      _latestToken = token.trim();
+      Logger.log('Push', 'FCM token acquired after explicit permission.');
+      RuntimeDiagnostics.record(
+        'FCM token acquired after explicit permission.',
+      );
+      return null;
+    } on Object catch (_) {
+      return 'Push notification registration failed.';
     }
   }
 }

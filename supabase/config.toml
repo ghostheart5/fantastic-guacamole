@@ -3,3 +3,6 @@ verify_jwt = true
 
 [functions.verify-receipt]
 verify_jwt = true
+
+[functions.ai-report]
+verify_jwt = true

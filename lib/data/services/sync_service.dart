@@ -97,6 +97,9 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   }
 
   Future<Map<String, dynamic>> _downloadObject(String baseObjectPath) async {
+    if (_client.auth.currentUser == null) {
+      return const <String, dynamic>{};
+    }
     final String objectPath = _scopedPath(baseObjectPath);
     try {
       final List<int> bytes = await _client.storage
@@ -134,6 +137,9 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
     String baseObjectPath,
     Map<String, dynamic> payload,
   ) async {
+    if (_client.auth.currentUser == null) {
+      return false;
+    }
     final String objectPath = _scopedPath(baseObjectPath);
     try {
       final String json = jsonEncode(payload);
@@ -160,7 +166,7 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
   }
 
   String _scopedPath(String objectPath) {
-    final String uid = _client.auth.currentUser?.id ?? 'anonymous';
+    final String uid = _client.auth.currentUser!.id;
     return '$uid/$objectPath';
   }
 }

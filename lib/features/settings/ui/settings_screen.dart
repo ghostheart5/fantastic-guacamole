@@ -172,7 +172,8 @@ class SettingsScreen extends ConsumerWidget {
                         };
                         return _NeonStatusTile(
                           title: 'Alert Permission',
-                          subtitle: subtitle,
+                          subtitle:
+                              '$subtitle · reminder text may appear in device previews',
                         );
                       },
                     ),
@@ -187,7 +188,7 @@ class SettingsScreen extends ConsumerWidget {
                           onRequestPermission: () async {
                             final bool granted = await ref
                                 .read(settingsUiActionsProvider)
-                                .requestNotificationPermission();
+                                .requestNotificationPermissionAndRegisterPush();
                             return granted;
                           },
                           onOpenSystemSettings: () async {
@@ -275,6 +276,13 @@ class SettingsScreen extends ConsumerWidget {
                         _signOut(context, ref, hasMockSession: hasMockSession),
                       ),
                     ),
+                    _NeonNavTile(
+                      title: 'Clear Local Data',
+                      subtitle:
+                          'Remove saved planning data, offline actions, notifications, and local intelligence from this device.',
+                      onTap: () =>
+                          unawaited(_confirmClearLocalData(context, ref)),
+                    ),
                     if (access.hasTesterFullAccess)
                       _NeonNavTile(
                         title: 'Reset Tester Data',
@@ -300,43 +308,49 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
-              _Section(
-                label: 'RUNTIME FLAGS',
-                accentColor: AppColors.neonCyan,
-                child: Column(
-                  children: [
-                    _NeonStatusTile(
-                      title: 'Flavor',
-                      subtitle: intelligence.environment.appFlavor,
-                    ),
-                    _NeonStatusTile(
-                      title: 'Mock Mode',
-                      subtitle: intelligence.flags.mockMode
-                          ? 'Enabled (offline local mode)'
-                          : 'Disabled',
-                    ),
-                    _NeonStatusTile(
-                      title: 'Paywall Disabled',
-                      subtitle: intelligence.flags.paywallDisabled
-                          ? 'Enabled (dev-only bypass)'
-                          : 'Disabled',
-                    ),
-                    _NeonStatusTile(
-                      title: 'Mock Login',
-                      subtitle: intelligence.flags.mockLoginEnabled
-                          ? 'Enabled'
-                          : 'Disabled',
-                    ),
-                    _NeonStatusTile(
-                      title: 'Extended Settings',
-                      subtitle: '$extendedSettingsCount loaded',
-                    ),
-                  ],
+              if (kDebugMode) ...[
+                _Section(
+                  label: 'RUNTIME FLAGS',
+                  accentColor: AppColors.neonCyan,
+                  child: Column(
+                    children: [
+                      _NeonStatusTile(
+                        title: 'Flavor',
+                        subtitle: intelligence.environment.appFlavor,
+                      ),
+                      _NeonStatusTile(
+                        title: 'Mock Mode',
+                        subtitle: intelligence.flags.mockMode
+                            ? 'Enabled (offline local mode)'
+                            : 'Disabled',
+                      ),
+                      _NeonStatusTile(
+                        title: 'Paywall Disabled',
+                        subtitle: intelligence.flags.paywallDisabled
+                            ? 'Enabled (dev-only bypass)'
+                            : 'Disabled',
+                      ),
+                      _NeonStatusTile(
+                        title: 'Mock Login',
+                        subtitle: intelligence.flags.mockLoginEnabled
+                            ? 'Enabled'
+                            : 'Disabled',
+                      ),
+                      _NeonStatusTile(
+                        title: 'Extended Settings',
+                        subtitle: '$extendedSettingsCount loaded',
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 16),
+              ],
+              const _CloudDataControlSection(),
               const SizedBox(height: 16),
-              const _SupabaseBackendHealthSection(),
-              const SizedBox(height: 16),
+              if (kDebugMode) ...[
+                const _SupabaseBackendHealthSection(),
+                const SizedBox(height: 16),
+              ],
 
               _Section(
                 label: 'LEGAL PROTOCOLS',
@@ -385,7 +399,8 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     _NeonNavTile(
                       title: 'Contact Support',
-                      subtitle: 'Send email with diagnostics context prefilled',
+                      subtitle:
+                          'Review app/device context before sending; no stable device ID is included.',
                       onTap: () => unawaited(
                         _contactSupportWithDiagnostics(context, ref),
                       ),
@@ -399,7 +414,8 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     _NeonNavTile(
                       title: 'Copy Diagnostics',
-                      subtitle: 'Copy app and device context for support forms',
+                      subtitle:
+                          'Copy a reviewable, identifier-free support summary',
                       onTap: () =>
                           unawaited(_copyDiagnosticsToClipboard(context)),
                     ),
@@ -519,6 +535,50 @@ class SettingsScreen extends ConsumerWidget {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _confirmClearLocalData(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) => AlertDialog(
+            title: const Text('Clear local data?'),
+            content: const Text(
+              'This removes planning records, Timeline history, offline actions, notification schedules, profile progress, and local intelligence from this device. It does not delete your cloud account. This cannot be undone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Clear local data'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !context.mounted) return;
+    try {
+      await ref
+          .read(localUserDataCleanupServiceProvider)
+          .clearForAccountSwitch();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Local data cleared from this device.')),
+      );
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Local data could not be cleared. Retry.'),
+        ),
+      );
     }
   }
 
@@ -643,7 +703,6 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   String _friendlyDeleteError(FirebaseAuthException error) {
-    final String message = error.message?.trim() ?? '';
     switch (error.code) {
       case 'wrong-password':
       case 'invalid-credential':
@@ -653,13 +712,10 @@ class SettingsScreen extends ConsumerWidget {
       case 'operation-not-supported':
       case 'operation-failed':
       case 'network-request-failed':
-        return message.isNotEmpty ? message : 'Account purge failed.';
+        return 'Account deletion could not be completed. Retry or use the support request path.';
       case 'no-current-user':
-        return 'Session expired. Sign in again.';
+        return 'Session expired. Sign in again before deleting the account.';
       default:
-        if (message.isNotEmpty) {
-          return message;
-        }
         return 'Account purge failed. Retry.';
     }
   }
@@ -837,7 +893,7 @@ class SettingsScreen extends ConsumerWidget {
         'OS: ${diagnostics.osVersion}\n'
         'Device: ${diagnostics.model}\n'
         'Physical device: ${diagnostics.isPhysicalDevice}\n'
-        'Device ID: ${diagnostics.deviceId}\n';
+        'Stable device identifier: omitted by default\n';
   }
 }
 

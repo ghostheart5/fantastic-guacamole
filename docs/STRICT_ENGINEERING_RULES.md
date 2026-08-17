@@ -36,8 +36,8 @@ Run all commands from repository root:
   - `android:usesCleartextTraffic="false"`
 - Android permission set is allowlisted and checked in `scripts/release_guard.ps1`.
 - `android/app/build.gradle.kts` must keep:
-  - compile SDK floor >= 34
-  - target SDK floor >= 34
+  - compile SDK floor >= 36
+  - target SDK floor >= 36 (Google Play API 36 requirement begins 2026-08-31)
   - Firebase Crashlytics plugin
   - Google services plugin
 

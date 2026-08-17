@@ -76,9 +76,11 @@ class AppBootstrapper {
       final String stack = Logger.redactSensitive(
         (errorDetails.stack ?? StackTrace.current).toString(),
       );
-      debugPrint('FLUTTER_ERROR_MARKER >>> $exceptionText');
-      debugPrint(stack);
-      debugPrint('FLUTTER_ERROR_MARKER <<<');
+      if (kDebugMode || Env.enableVerboseLogs) {
+        debugPrint('FLUTTER_ERROR_MARKER >>> $exceptionText');
+        debugPrint(stack);
+        debugPrint('FLUTTER_ERROR_MARKER <<<');
+      }
       RuntimeDiagnostics.record(
         _formatGlobalErrorForDiagnostics(
           prefix: 'Flutter framework error',
@@ -103,9 +105,11 @@ class AppBootstrapper {
     PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
       final String errorText = Logger.redactSensitive(error.toString());
       final String stackText = Logger.redactSensitive(stack.toString());
-      debugPrint('PLATFORM_ERROR_MARKER >>> $errorText');
-      debugPrint(stackText);
-      debugPrint('PLATFORM_ERROR_MARKER <<<');
+      if (kDebugMode || Env.enableVerboseLogs) {
+        debugPrint('PLATFORM_ERROR_MARKER >>> $errorText');
+        debugPrint(stackText);
+        debugPrint('PLATFORM_ERROR_MARKER <<<');
+      }
       RuntimeDiagnostics.record(
         _formatGlobalErrorForDiagnostics(
           prefix: 'Platform dispatcher uncaught error',
@@ -146,7 +150,11 @@ class AppBootstrapper {
     );
     ErrorBoundary.reportGlobalError(error, stack);
     if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      FirebaseCrashlytics.instance.recordError(
+        Exception('Uncaught zone error (${error.runtimeType})'),
+        null,
+        fatal: true,
+      );
     }
   }
 
@@ -154,8 +162,8 @@ class AppBootstrapper {
     try {
       await dotenv.load(fileName: '.env');
       Logger.info('Loaded local .env configuration.');
-    } on Object catch (error) {
-      Logger.info('No local .env loaded: $error');
+    } on Object {
+      Logger.info('No local .env loaded.');
     }
   }
 }
@@ -172,7 +180,10 @@ String _formatGlobalErrorForDiagnostics({
         orElse: () => '',
       )
       .trim();
-  return '$prefix: $error\n${appLine.isEmpty ? '' : 'app: $appLine\n'}$stack';
+  if (kDebugMode || Env.enableVerboseLogs) {
+    return '$prefix (${error.runtimeType})\n${appLine.isEmpty ? '' : 'app: $appLine\n'}$stack';
+  }
+  return '$prefix (${error.runtimeType})';
 }
 
 bool get _supportsCrashlytics =>
@@ -294,8 +305,8 @@ Future<String?> _runStateBootstrapSafe(WidgetRef ref) async {
     return 'State bootstrap timed out.';
   } on Object catch (error) {
     Logger.error('State bootstrap failed.', error);
-    RuntimeDiagnostics.record('State bootstrap failed: $error');
-    return 'State bootstrap failed: $error';
+    RuntimeDiagnostics.record('State bootstrap failed.');
+    return 'State bootstrap failed. Local data remains available; retry from the app when ready.';
   }
 }
 
@@ -430,8 +441,8 @@ Future<void> _configureLocalTimezone() async {
     Logger.log('Startup', 'Timezone configured: $timezoneName');
     RuntimeDiagnostics.record('Timezone configured: $timezoneName');
   } catch (error) {
-    Logger.warn('Failed to configure local timezone: $error');
-    RuntimeDiagnostics.record('Failed to configure local timezone: $error');
+    Logger.warn('Failed to configure local timezone.');
+    RuntimeDiagnostics.record('Failed to configure local timezone.');
   }
 }
 
@@ -449,7 +460,7 @@ Future<String?> _initStorageSafe() async {
   } on Object catch (error) {
     Logger.error('Local storage initialization failed.', error);
     RuntimeDiagnostics.record('Local storage initialization failed: $error');
-    return 'Local storage initialization failed: $error';
+    return 'Local storage could not be opened. Restart ChronoSpark and retry.';
   }
 }
 
@@ -569,7 +580,7 @@ Future<void> _captureDiagnosticsContext() async {
       );
     }
   } on Object catch (error, stackTrace) {
-    Logger.warn('Diagnostics context capture failed (non-fatal): $error');
+    Logger.warn('Diagnostics context capture failed (non-fatal).');
     if (_supportsCrashlytics && Firebase.apps.isNotEmpty) {
       FirebaseCrashlytics.instance.recordError(
         error,
@@ -635,7 +646,7 @@ Future<String?> _initNotificationSchedulerSafe({
   } on Object catch (error) {
     Logger.warn('Notification scheduler startup failed (non-fatal): $error');
     RuntimeDiagnostics.record(
-      'Notification scheduler startup failed (non-fatal): $error',
+      'Notification scheduler startup failed (non-fatal).',
     );
     return null;
   }
@@ -659,9 +670,7 @@ Future<String?> _initDeepLinksSafe() async {
     return null;
   } on Object catch (error) {
     Logger.warn('Deep link initialization failed (non-fatal): $error');
-    RuntimeDiagnostics.record(
-      'Deep link initialization failed (non-fatal): $error',
-    );
+    RuntimeDiagnostics.record('Deep link initialization failed (non-fatal).');
     return null;
   }
 }
@@ -683,8 +692,8 @@ Future<String?> _initIdentitySafe(WidgetRef ref) async {
     return 'Identity bootstrap timed out.';
   } on Object catch (error) {
     Logger.error('Identity bootstrap failed.', error);
-    RuntimeDiagnostics.record('Identity bootstrap failed: $error');
-    return 'Identity bootstrap failed: $error';
+    RuntimeDiagnostics.record('Identity bootstrap failed.');
+    return 'Account state could not be restored. Sign in again and retry.';
   }
 }
 
@@ -753,12 +762,10 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
     );
   } on Object catch (error) {
     Logger.error('Local preferences initialization failed.', error);
-    RuntimeDiagnostics.record(
-      'Local preferences initialization failed: $error',
-    );
-    return PrefsLoadResult(
+    RuntimeDiagnostics.record('Local preferences initialization failed.');
+    return const PrefsLoadResult(
       hasOnboarded: false,
-      issue: 'Local preferences initialization failed: $error',
+      issue: 'Local preferences initialization failed. Retry from the app.',
     );
   }
 }

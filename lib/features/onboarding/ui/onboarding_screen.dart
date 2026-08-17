@@ -818,6 +818,15 @@ class _PersonalizationSlide extends StatelessWidget {
                   );
                 }).toList(),
               ),
+              const SizedBox(height: 14),
+              const Text(
+                'Your name and goal stay on this device unless you choose cloud backup. Smart Planner and SI Console use saved planning context; external AI processing is opt-in and explained in Settings.',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 11,
+                  height: 1.5,
+                ),
+              ),
             ],
           ),
         );

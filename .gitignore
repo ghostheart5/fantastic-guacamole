@@ -36,6 +36,7 @@ node_modules/
 .pub/
 /build/
 /coverage/
+/artifacts/dependency-audit/
 
 # Symbolication related
 app.*.symbols

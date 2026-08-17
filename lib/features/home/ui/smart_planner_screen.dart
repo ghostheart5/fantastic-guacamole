@@ -990,9 +990,13 @@ class _MicButton extends ConsumerWidget {
         }
         final String? error = ref.read(voiceControllerProvider).error;
         if (error != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(error)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Voice input is unavailable. Check permission and retry.',
+              ),
+            ),
+          );
         }
       },
       child: Container(

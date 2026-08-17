@@ -47,6 +47,34 @@ void main() {
     expect(queue.single.actionType, 'sync_to_cloud');
   });
 
+  test('account-bound queues cannot read or replay another account', () async {
+    final OfflineSyncQueueService accountA = OfflineSyncQueueService(
+      queueStorage,
+      accountId: 'account-a',
+      enforceAccountBinding: true,
+    );
+    final OfflineSyncQueueService accountB = OfflineSyncQueueService(
+      queueStorage,
+      accountId: 'account-b',
+      enforceAccountBinding: true,
+    );
+
+    await accountA.enqueue(
+      actionType: 'sync_to_cloud',
+      dedupeKey: 'account-a-sync',
+    );
+
+    expect(await accountA.queuedCount(), 1);
+    expect(await accountB.queuedCount(), 0);
+    expect(
+      await accountB.replay(
+        executor: (_) async =>
+            fail('another account must never replay this item'),
+      ),
+      0,
+    );
+  });
+
   test('replay updates attempts and removes successful entries', () async {
     await service.enqueue(
       actionType: 'sync_to_cloud',
