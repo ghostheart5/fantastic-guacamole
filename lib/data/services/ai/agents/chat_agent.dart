@@ -62,6 +62,7 @@ class ChatAgent extends AiAgent {
     final Map<String, dynamic> context =
         request['context'] as Map<String, dynamic>? ??
         const <String, dynamic>{};
+    final bool externalAiAllowed = context['externalAiAllowed'] == true;
     final List<Map<String, String>> history = _readHistory(request['history']);
 
     final AiProxyAttempt attempt = await _tryProxy(
@@ -69,6 +70,7 @@ class ChatAgent extends AiAgent {
       history: history,
       context: context,
       personality: personality,
+      externalAiAllowed: externalAiAllowed,
     );
     final AIResponse? proxyResponse = attempt.response;
     final AIResponse response =
@@ -139,7 +141,11 @@ class ChatAgent extends AiAgent {
     required List<Map<String, String>> history,
     required Map<String, dynamic> context,
     required AIPersonality personality,
+    required bool externalAiAllowed,
   }) async {
+    if (!externalAiAllowed) {
+      return const AiProxyAttempt(AiProxyOutcome.withheld);
+    }
     final Uri? endpoint = parseSecureHttpsEndpoint(Env.aiProxyEndpoint);
     if (endpoint == null || prompt.trim().isEmpty) {
       return const AiProxyAttempt(AiProxyOutcome.notAttempted);
@@ -173,6 +179,7 @@ class ChatAgent extends AiAgent {
               'prompt': prompt.trim(),
               'history': minimizedHistory,
               'system': _systemPrompt(personality, minimizedContext),
+              'allowExternalAi': true,
             }),
           )
           .timeout(const Duration(seconds: 15));

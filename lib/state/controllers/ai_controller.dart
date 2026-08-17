@@ -51,6 +51,7 @@ import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/paywall_provider.dart';
+import 'package:fantastic_guacamole/state/providers/personalization_provider.dart';
 import 'package:fantastic_guacamole/state/providers/progression_provider.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/providers/si_memory_provider.dart';
@@ -126,6 +127,7 @@ class AIController {
     final si = _ref.read(siStateProvider);
     final learning = _ref.read(learningProvider);
     final profile = _ref.read(profileProvider);
+    final personalization = _ref.read(personalizationProfileProvider);
     final emotion = _ref.read(emotionProvider);
     final goals = _ref.read(goalsProvider);
     final insightsBundle = _ref.read(insightsBundleProvider);
@@ -296,6 +298,7 @@ class AIController {
 
     final Map<String, dynamic> context = <String, dynamic>{
       'source': 'si_console',
+      'externalAiAllowed': personalization.externalAiAllowed,
       'mode': 'system_console',
       'intent': _deriveConsoleIntent(matchedSurfaces),
       'siIntentCategory': siIntentCategory,

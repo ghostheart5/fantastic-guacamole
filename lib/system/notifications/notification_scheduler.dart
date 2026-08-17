@@ -75,6 +75,7 @@ class NotificationScheduler {
       importance: Importance.high,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
+      visibility: NotificationVisibility.private,
     ),
   );
 

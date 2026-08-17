@@ -2,7 +2,10 @@ import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 
 class MockAuthService implements AuthServiceContract {
-  MockAuthService();
+  MockAuthService({Future<void> Function()? onSignedOut})
+    : _onSignedOut = onSignedOut;
+
+  final Future<void> Function()? _onSignedOut;
 
   User? _currentUser;
 
@@ -84,6 +87,7 @@ class MockAuthService implements AuthServiceContract {
   @override
   Future<void> signOut() async {
     _currentUser = null;
+    await _onSignedOut?.call();
   }
 
   @override

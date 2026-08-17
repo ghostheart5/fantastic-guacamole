@@ -19,6 +19,7 @@ function cors(req: Request): Record<string, string> {
       : {}),
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
+    "Cache-Control": "no-store",
     "Vary": "Origin",
   };
 }
@@ -61,6 +62,7 @@ interface ProxyRequest {
   system?: string;
   model?: string;
   maxTokens?: number;
+  allowExternalAi?: boolean;
   context?: Record<string, unknown>; // arbitrary agent context
 }
 
@@ -102,7 +104,14 @@ serve(async (req) => {
       history = [],
       system,
       maxTokens = MAX_TOKENS,
+      allowExternalAi = false,
     } = body;
+    if (allowExternalAi !== true) {
+      return new Response(JSON.stringify({ error: "external AI is disabled" }), {
+        status: 403,
+        headers: { ...headers, "Content-Type": "application/json" },
+      });
+    }
     const prompt = explicitPrompt ?? inputMessage ?? "";
 
     if (!prompt?.trim()) {

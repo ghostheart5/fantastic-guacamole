@@ -71,7 +71,7 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     state = [goal, ...state];
     AppAnalytics.track(
       'goal_created',
-      params: <String, Object?>{'goal_id': goal.id},
+      params: <String, Object?>{'has_goal_id': goal.id.isNotEmpty},
     );
     await ref
         .read(reminderOrchestratorServiceProvider)
@@ -111,7 +111,7 @@ class GoalsNotifier extends Notifier<List<GoalEntity>> {
     if (selectedGoal != null) {
       AppAnalytics.track(
         'goal_completed',
-        params: <String, Object?>{'goal_id': selectedGoal.id},
+        params: <String, Object?>{'has_goal_id': selectedGoal.id.isNotEmpty},
       );
       await _fanOutGoalEvent(goal: selectedGoal, action: _GoalAction.completed);
     }

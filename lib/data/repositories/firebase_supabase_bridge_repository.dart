@@ -75,17 +75,13 @@ class FirebaseSupabaseBridgeRepository {
       }
     }
 
-    final Map<String, dynamic> metadata = <String, dynamic>{
-      ...?user.userMetadata,
-      'firebase_messaging_token': trimmed,
-      'firebase_messaging_token_source': source,
-      'firebase_messaging_token_updated_at': DateTime.now()
-          .toUtc()
-          .toIso8601String(),
-    };
-
     try {
-      await client.auth.updateUser(sb.UserAttributes(data: metadata));
+      await client.from('user_push_tokens').upsert(<String, dynamic>{
+        'user_id': user.id,
+        'token': trimmed,
+        'source': source,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }, onConflict: 'user_id,token');
       _lastSyncedToken = trimmed;
       _lastSyncedAt = now;
       Logger.log(

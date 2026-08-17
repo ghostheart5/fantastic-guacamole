@@ -91,12 +91,9 @@ class DeepLinkService {
     const Set<String> hosts = <String>{
       'chronospark.app',
       'www.chronospark.app',
-      'ghostheart5.github.io',
     };
     return hosts.contains(uri.host.toLowerCase()) &&
-        (uri.path == '/app' ||
-            uri.path.startsWith('/app/') ||
-            uri.path.startsWith('/fantastic-guacamole/app'));
+        (uri.path == '/app' || uri.path.startsWith('/app/'));
   }
 
   void dispose() {

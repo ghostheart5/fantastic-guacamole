@@ -166,6 +166,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
             history: history,
             context: <String, dynamic>{
               'source': 'smart_planner',
+              'externalAiAllowed': true,
               'energy': energy,
               'emotion': contextEmotion.name,
               'detectedTopic': detectedTopicLabel,
@@ -296,6 +297,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
             history: history,
             context: <String, dynamic>{
               'source': 'smart_planner_follow_up',
+              'externalAiAllowed': true,
               'energy': energy,
               'emotion': contextEmotion.name,
               'detectedTopic': detectedTopicLabel,

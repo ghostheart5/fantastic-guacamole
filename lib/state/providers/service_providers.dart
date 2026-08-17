@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/state/services/cache_cleanup_service.dart';
 import 'package:fantastic_guacamole/state/services/data_hygiene_scheduler.dart';
 import 'package:fantastic_guacamole/state/services/expired_session_cleanup.dart';
 import 'package:fantastic_guacamole/state/services/identity_service.dart';
+import 'package:fantastic_guacamole/state/services/local_user_data_cleanup_service.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:fantastic_guacamole/state/services/orphan_data_cleanup.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
@@ -44,6 +45,16 @@ final identityServiceProvider = Provider<IdentityServiceContract>((Ref ref) {
 final notificationsServiceProvider = Provider<NotificationsService>((Ref ref) {
   return NotificationsService(ref.read(notificationsRepositoryProvider));
 });
+
+final localUserDataCleanupServiceProvider =
+    Provider<LocalUserDataCleanupService>((Ref ref) {
+      return LocalUserDataCleanupService(
+        hive: ref.read(hiveStoreProvider),
+        secureStore: ref.read(secureStoreProvider),
+        sensitivePreferences: ref.read(sensitivePrefsStoreProvider),
+        notifications: ref.read(notificationSchedulerProvider),
+      );
+    });
 
 final reminderOrchestratorServiceProvider =
     Provider<ReminderOrchestratorService>((Ref ref) {

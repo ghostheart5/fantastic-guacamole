@@ -19,13 +19,15 @@ class AuthService implements AuthServiceContract {
     String? accountDeleteEndpoint,
     String? oauthGoogleRedirectUrl,
     String? oauthGitHubRedirectUrl,
+    Future<void> Function()? onSignedOut,
   }) : _auth = supabaseClient,
        _httpClient = httpClient ?? _sharedHttpClient,
        _accountDeleteEndpoint =
            accountDeleteEndpoint ?? Env.accountDeleteEndpoint,
        _oauthGoogleRedirectUrl = oauthGoogleRedirectUrl ?? Env.oauthRedirectUrl,
        _oauthGitHubRedirectUrl =
-           oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl;
+           oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl,
+       _onSignedOut = onSignedOut;
 
   static final http.Client _sharedHttpClient = http.Client();
 
@@ -35,6 +37,7 @@ class AuthService implements AuthServiceContract {
   final String _accountDeleteEndpoint;
   final String _oauthGoogleRedirectUrl;
   final String _oauthGitHubRedirectUrl;
+  final Future<void> Function()? _onSignedOut;
   int _failedSignInAttempts = 0;
   DateTime? _signInBlockedUntil;
 
@@ -241,7 +244,16 @@ class AuthService implements AuthServiceContract {
 
   @override
   Future<void> signOut() async {
+    final sb.User? user = _auth.auth.currentUser;
+    if (user != null) {
+      try {
+        await _auth.from('user_push_tokens').delete().eq('user_id', user.id);
+      } on Object catch (error) {
+        Logger.warn('Push-token cleanup during sign-out failed: $error');
+      }
+    }
     await _auth.auth.signOut();
+    await _onSignedOut?.call();
   }
 
   @override
@@ -304,10 +316,9 @@ class AuthService implements AuthServiceContract {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $accessToken',
             },
-            body: jsonEncode(<String, String>{
-              'userId': user.id,
-              'email': email,
-            }),
+            // The endpoint derives the deletion target from the bearer token;
+            // do not transmit redundant identity or email fields.
+            body: jsonEncode(const <String, String>{}),
           )
           .timeout(const Duration(seconds: 20));
 
@@ -333,6 +344,7 @@ class AuthService implements AuthServiceContract {
       if (deleted) {
         await _store.deleteAll();
         await _auth.auth.signOut();
+        await _onSignedOut?.call();
       }
     }
   }

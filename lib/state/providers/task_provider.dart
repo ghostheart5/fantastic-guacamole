@@ -93,7 +93,7 @@ class TaskActions {
     await _ref.read(createTaskUseCaseProvider).call(normalized);
     AppAnalytics.track(
       'task_created',
-      params: <String, Object?>{'task_id': normalized.id},
+      params: <String, Object?>{'has_task_id': normalized.id.isNotEmpty},
     );
     unawaited(
       _recordCreationSideEffects(
@@ -189,7 +189,7 @@ class TaskActions {
     if (selectedTask != null) {
       AppAnalytics.track(
         'task_completed',
-        params: <String, Object?>{'task_id': selectedTask.id},
+        params: <String, Object?>{'has_task_id': selectedTask.id.isNotEmpty},
       );
       _ref
           .read(eventBusProvider)

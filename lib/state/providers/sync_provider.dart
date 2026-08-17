@@ -61,6 +61,7 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
                 : (Env.enableCloudSync && supabaseClient != null)
                 ? SupabaseStorageCloudBackupGateway(client: supabaseClient)
                 : const UnavailableCloudBackupGateway(),
+            secureStore: ref.read(secureStoreProvider),
           ),
   );
 });

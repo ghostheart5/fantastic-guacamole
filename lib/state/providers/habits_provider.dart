@@ -71,7 +71,7 @@ class HabitsNotifier extends AsyncNotifier<List<HabitRecord>> {
     if (toggled != null && toggled.active) {
       AppAnalytics.track(
         'habit_completed',
-        params: <String, Object?>{'habit_id': toggled.id},
+        params: <String, Object?>{'has_habit_id': toggled.id.isNotEmpty},
       );
     }
     await _apply(current, next);

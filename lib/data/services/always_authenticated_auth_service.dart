@@ -2,9 +2,13 @@ import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 
 class AlwaysAuthenticatedAuthService implements AuthServiceContract {
-  AlwaysAuthenticatedAuthService({required this._user});
+  AlwaysAuthenticatedAuthService({
+    required this._user,
+    Future<void> Function()? onSignedOut,
+  }) : _onSignedOut = onSignedOut;
 
   final User _user;
+  final Future<void> Function()? _onSignedOut;
 
   @override
   Stream<User?> authStateChanges() => Stream<User?>.value(_user);
@@ -58,7 +62,9 @@ class AlwaysAuthenticatedAuthService implements AuthServiceContract {
   }
 
   @override
-  Future<void> signOut() async {}
+  Future<void> signOut() async {
+    await _onSignedOut?.call();
+  }
 
   @override
   Future<void> deleteCurrentAccount({required String password}) async {}

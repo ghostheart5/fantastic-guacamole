@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
+import 'package:fantastic_guacamole/data/services/backup_cipher.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 abstract class CloudBackupGateway {
@@ -164,14 +166,22 @@ class SupabaseStorageCloudBackupGateway implements CloudBackupGateway {
 }
 
 class SyncService {
-  SyncService({required this.backup, required this.gateway});
+  SyncService({
+    required this.backup,
+    required this.gateway,
+    SecureStore? secureStore,
+  }) : _cipher = secureStore == null ? null : BackupCipher(secureStore);
 
   final BackupService backup;
   final CloudBackupGateway gateway;
+  final BackupCipher? _cipher;
 
   Future<bool> syncToCloud() async {
     final Map<String, dynamic> fullBackup = await backup.createFullBackup();
-    return gateway.uploadBackup(fullBackup);
+    final Map<String, dynamic> protectedBackup = _cipher == null
+        ? fullBackup
+        : await _cipher.encryptPayload(fullBackup);
+    return gateway.uploadBackup(protectedBackup);
   }
 
   Future<bool> restoreFromCloud() async {
@@ -179,19 +189,28 @@ class SyncService {
     if (cloudData.isEmpty) {
       return false;
     }
-    await backup.restoreFullBackup(cloudData);
+    final Map<String, dynamic> restored = _cipher == null
+        ? cloudData
+        : await _cipher.decryptPayload(cloudData);
+    await backup.restoreFullBackup(restored);
     return true;
   }
 
   Future<bool> syncDelta() async {
     final Map<String, dynamic> localBackup = await backup.createFullBackup();
-    final Map<String, dynamic> cloudBackup = await gateway.downloadBackup();
+    final Map<String, dynamic> downloaded = await gateway.downloadBackup();
+    final Map<String, dynamic> cloudBackup = _cipher == null
+        ? downloaded
+        : await _cipher.decryptPayload(downloaded);
     if (cloudBackup.isEmpty) {
       return gateway.uploadBackup(localBackup);
     }
 
     final Map<String, dynamic> merged = _mergeBackups(localBackup, cloudBackup);
-    if (!await gateway.uploadBackup(merged)) {
+    final Map<String, dynamic> protectedMerged = _cipher == null
+        ? merged
+        : await _cipher.encryptPayload(merged);
+    if (!await gateway.uploadBackup(protectedMerged)) {
       return false;
     }
     await backup.restoreFullBackup(merged);
@@ -199,7 +218,10 @@ class SyncService {
   }
 
   Future<bool> syncTasksOnly() async {
-    return gateway.uploadTasks(await backup.backupTasks());
+    final Map<String, dynamic> tasks = await backup.backupTasks();
+    return gateway.uploadTasks(
+      _cipher == null ? tasks : await _cipher.encryptPayload(tasks),
+    );
   }
 
   Future<bool> restoreTasksOnly() async {
@@ -207,7 +229,9 @@ class SyncService {
     if (cloudTasks.isEmpty) {
       return false;
     }
-    await backup.restoreTasks(cloudTasks);
+    await backup.restoreTasks(
+      _cipher == null ? cloudTasks : await _cipher.decryptPayload(cloudTasks),
+    );
     return true;
   }
 

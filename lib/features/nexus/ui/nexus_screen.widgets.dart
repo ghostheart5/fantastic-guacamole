@@ -165,6 +165,9 @@ class _NexusHeader extends ConsumerWidget {
     try {
       if (hasMockSession) {
         ref.read(mockAuthSessionProvider.notifier).set(false);
+        await ref
+            .read(localUserDataCleanupServiceProvider)
+            .clearForAccountSwitch();
       } else {
         await ref.read(authServiceProvider).signOut();
       }

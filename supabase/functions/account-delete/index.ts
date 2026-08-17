@@ -27,6 +27,7 @@ function cors(req: Request): Record<string, string> {
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
     "Vary": "Origin",
+    "Cache-Control": "no-store",
   };
 }
 
@@ -65,11 +66,6 @@ async function deleteAuthUser(
     },
   });
   return { ok: res.ok, status: res.status };
-}
-
-interface DeleteRequest {
-  userId?: string; // client-provided for informational verification only
-  email?: string; // client-provided for informational verification only
 }
 
 interface DeleteResponse {

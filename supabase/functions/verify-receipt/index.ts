@@ -22,6 +22,7 @@ function cors(req: Request): Record<string, string> {
   return {
     ...(ALLOWED_ORIGINS.has(origin) ? { "Access-Control-Allow-Origin": origin } : {}),
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Cache-Control": "no-store",
     "Vary": "Origin",
   };
 }
@@ -89,7 +90,26 @@ async function bindPurchaseToken(
       product_id: productId,
     }),
   });
-  return inserted.ok;
+  if (inserted.ok) return true;
+
+  // Two concurrent first-time verifications can race between the lookup and
+  // insert. A conflict is safe only when the existing binding belongs to the
+  // same authenticated user; never treat a conflict as proof of ownership.
+  if (inserted.status === 409) {
+    const retry = await fetch(
+      `${endpoint}?token_hash=eq.${tokenHash}&select=user_id`,
+      {
+        headers: {
+          apikey: SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      },
+    );
+    if (!retry.ok) return false;
+    const rows = await retry.json();
+    return Array.isArray(rows) && rows[0]?.user_id === userId;
+  }
+  return false;
 }
 
 // Set GOOGLE_SERVICE_ACCOUNT_JSON as a Supabase secret:

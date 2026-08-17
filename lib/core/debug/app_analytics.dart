@@ -84,6 +84,20 @@ class AppAnalytics {
       if (key.isEmpty) {
         continue;
       }
+      // Analytics is an aggregate product signal, not a user-data export.
+      // Never forward identifiers or free-form content even if a new call
+      // site accidentally supplies them.
+      final String loweredKey = key.toLowerCase();
+      if (loweredKey.endsWith('_id') ||
+          loweredKey.contains('email') ||
+          loweredKey.contains('prompt') ||
+          loweredKey.contains('content') ||
+          loweredKey.contains('message') ||
+          loweredKey.contains('error') ||
+          loweredKey.contains('title') ||
+          loweredKey.contains('text')) {
+        continue;
+      }
       final String cappedKey = key.length > _maxParamNameLength
           ? key.substring(0, _maxParamNameLength)
           : key;

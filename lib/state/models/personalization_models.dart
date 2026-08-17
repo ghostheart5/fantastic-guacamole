@@ -22,7 +22,7 @@ class PersonalizationProfile {
     this.explanationDepth = ExplanationDepth.standard,
     this.useEmotionSignals = true,
     this.useMemoryContext = true,
-    this.externalAiAllowed = true,
+    this.externalAiAllowed = false,
     this.lastReviewedAt,
   });
 
@@ -115,7 +115,7 @@ class PersonalizationProfile {
       ),
       useEmotionSignals: json['useEmotionSignals'] as bool? ?? true,
       useMemoryContext: json['useMemoryContext'] as bool? ?? true,
-      externalAiAllowed: json['externalAiAllowed'] as bool? ?? true,
+      externalAiAllowed: json['externalAiAllowed'] as bool? ?? false,
       lastReviewedAt: DateTime.tryParse(
         json['lastReviewedAt']?.toString() ?? '',
       ),
