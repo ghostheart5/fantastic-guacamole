@@ -46,13 +46,16 @@ deno check supabase/functions/ai-proxy/index.ts
 deno check supabase/functions/account-delete/index.ts
 deno check supabase/functions/verify-receipt/index.ts
 deno test supabase/functions/_shared/storage_cleanup_test.ts
+./scripts/list_flutter_tests.ps1
 flutter test test --coverage --concurrency=1
 ./scripts/coverage_guard.ps1
 ```
 
 These commands do not build a distributable application or launch a device.
-`integration_test`, Maestro execution, golden regeneration, and release builds
-are deliberately separate gates.
+`scripts/list_flutter_tests.ps1` is a static inventory step for Flutter SDKs
+that do not expose a `flutter test --list-tests` option. `integration_test`,
+Maestro execution, golden regeneration, and release builds are deliberately
+separate gates.
 
 ## Shared Test Support
 

@@ -66,10 +66,10 @@ dependencies:
   crypto: ^3.0.3
   encrypt: ^5.0.3
   connectivity_plus: ^7.2.0
-  internet_connection_checker_plus: ^2.8.0
+  internet_connection_checker_plus: ^3.1.1
   path_provider: ^2.1.1
   timezone: ^0.11.1
-  flutter_timezone: ^4.1.1
+  flutter_timezone: ^5.1.0
   firebase_remote_config: ^6.5.3
   share_plus: ^13.2.0
   cached_network_image: ^3.4.1

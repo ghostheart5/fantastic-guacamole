@@ -113,9 +113,13 @@ android {
 
             if (releaseSigningConfig != null) {
                 signingConfig = releaseSigningConfig
-            } else {
+            } else if (isReleaseBuild) {
                 error(
                     "Release signing is not configured. Populate android/key.properties with the upload keystore values before building a Play bundle.",
+                )
+            } else {
+                logger.lifecycle(
+                    "Release signing is not configured. Continuing because this is not a release build.",
                 )
             }
         }

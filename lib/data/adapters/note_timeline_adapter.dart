@@ -12,7 +12,9 @@ class NoteTimelineAdapter {
 
   Future<void> record(NoteEntity note, NoteTimelineMutation mutation) async {
     final String id = eventIdFor(note, mutation);
-    if (_timeline.getEvents().any((TimelineEventEntity event) => event.id == id)) {
+    if (_timeline.getEvents().any(
+      (TimelineEventEntity event) => event.id == id,
+    )) {
       return;
     }
     final TimelineEventType type = switch (mutation) {
@@ -27,15 +29,17 @@ class NoteTimelineAdapter {
       NoteTimelineMutation.archived => 'Note Archived',
       NoteTimelineMutation.deleted => 'Note Deleted',
     };
-    await _timeline.addEvent(TimelineEventEntity(
-      id: id,
-      type: type,
-      title: label,
-      detail: note.title,
-      timestamp: note.updatedAt,
-      status: TimelineEventStatus.info,
-      relatedId: note.id,
-    ));
+    await _timeline.addEvent(
+      TimelineEventEntity(
+        id: id,
+        type: type,
+        title: label,
+        detail: note.title,
+        timestamp: note.updatedAt,
+        status: TimelineEventStatus.info,
+        relatedId: note.id,
+      ),
+    );
   }
 
   static String eventIdFor(NoteEntity note, NoteTimelineMutation mutation) =>

@@ -71,10 +71,7 @@ void main() {
     testWidgets('loading and error states are explicit and recoverable', (
       WidgetTester tester,
     ) async {
-      await _pumpSection(
-        tester,
-        _model(status: NexusBriefingStatus.loading),
-      );
+      await _pumpSection(tester, _model(status: NexusBriefingStatus.loading));
       expect(find.text('PREPARING YOUR SUMMARY'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
 

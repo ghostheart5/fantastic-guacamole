@@ -180,4 +180,6 @@ final firebaseSupabaseBridgeRepositoryProvider =
         store: ref.read(secureStoreProvider),
       );
     });
-final noteRepositoryProvider = Provider<NoteRepository>((Ref ref) => NoteRepository(ref.read(sharedPrefsStoreProvider)));
+final noteRepositoryProvider = Provider<NoteRepository>(
+  (Ref ref) => NoteRepository(ref.read(sharedPrefsStoreProvider)),
+);

@@ -32,7 +32,9 @@ class SIConsoleMessage {
       text: json['text']?.toString() ?? '',
       isUser: json['isUser'] == true,
       emotion: json['emotion']?.toString(),
-      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '')?.toUtc(),
+      createdAt: DateTime.tryParse(
+        json['createdAt']?.toString() ?? '',
+      )?.toUtc(),
       receipt: rawReceipt is Map<Object?, Object?>
           ? SIIntelligenceReceipt.fromJson(
               Map<String, dynamic>.from(rawReceipt),

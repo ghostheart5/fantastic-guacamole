@@ -435,7 +435,7 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
 
 Future<void> _configureLocalTimezone() async {
   try {
-    final String timezoneName = await FlutterTimezone.getLocalTimezone();
+    final timezoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
     final tz.Location location = tz.getLocation(timezoneName);
     tz.setLocalLocation(location);
     Logger.log('Startup', 'Timezone configured: $timezoneName');

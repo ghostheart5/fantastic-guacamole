@@ -9,12 +9,11 @@ void main() {
 
     expect(container.read(trajectoryCustomScenarioProvider), isNull);
 
-    const TrajectoryCustomScenarioDraft draft =
-        TrajectoryCustomScenarioDraft(
-          subjectId: 'task-42',
-          adjustment: TrajectoryCustomAdjustment.delay,
-          delayDays: 3,
-        );
+    const TrajectoryCustomScenarioDraft draft = TrajectoryCustomScenarioDraft(
+      subjectId: 'task-42',
+      adjustment: TrajectoryCustomAdjustment.delay,
+      delayDays: 3,
+    );
     container.read(trajectoryCustomScenarioProvider.notifier).compose(draft);
 
     expect(container.read(trajectoryCustomScenarioProvider), same(draft));

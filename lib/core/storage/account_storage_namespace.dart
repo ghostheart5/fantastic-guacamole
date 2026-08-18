@@ -12,7 +12,11 @@ enum LegacyScopeOwnership {
 }
 
 /// Eligibility only; this foundation never copies or removes stored data.
-enum LegacyMigrationEligibility { copyAllowed, retainExistingV2, preserveLegacy }
+enum LegacyMigrationEligibility {
+  copyAllowed,
+  retainExistingV2,
+  preserveLegacy,
+}
 
 /// Canonical, versioned local storage namespace for one account or signed out.
 ///
@@ -32,7 +36,11 @@ final class AccountStorageNamespace {
 
   factory AccountStorageNamespace.authenticated(String userId) {
     if (userId.isEmpty || userId.trim().isEmpty || userId != userId.trim()) {
-      throw ArgumentError.value(userId, 'userId', 'must be non-empty and trimmed');
+      throw ArgumentError.value(
+        userId,
+        'userId',
+        'must be non-empty and trimmed',
+      );
     }
     return AccountStorageNamespace._authenticated(userId);
   }
@@ -55,7 +63,10 @@ final class AccountStorageNamespace {
 
   String get legacyV1Scope => legacyV1ScopeForUser(rawUserId);
 
-  String scopedKey(String baseKey, {StorageScopeVersion version = StorageScopeVersion.v2}) {
+  String scopedKey(
+    String baseKey, {
+    StorageScopeVersion version = StorageScopeVersion.v2,
+  }) {
     if (baseKey.trim().isEmpty) {
       throw ArgumentError.value(baseKey, 'baseKey', 'must be non-empty');
     }

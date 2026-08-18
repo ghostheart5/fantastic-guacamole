@@ -86,9 +86,7 @@ class SIIntelligenceReceipt {
     if (!expiresAt.isAfter(generatedAt)) {
       throw StateError('SI intelligence receipts require a future expiry.');
     }
-    if (confidenceScore.isNaN ||
-        confidenceScore < 0 ||
-        confidenceScore > 1) {
+    if (confidenceScore.isNaN || confidenceScore < 0 || confidenceScore > 1) {
       throw StateError('SI confidence must be between zero and one.');
     }
   }
@@ -146,7 +144,8 @@ class SIIntelligenceReceipt {
             value.name == json['confidence']?.toString(),
         orElse: () => OperatingConfidence.insufficientEvidence,
       ),
-      confidenceScore: (json['confidenceScore'] as num?)
+      confidenceScore:
+          (json['confidenceScore'] as num?)
               ?.toDouble()
               .clamp(0.0, 1.0)
               .toDouble() ??
@@ -154,9 +153,8 @@ class SIIntelligenceReceipt {
       evidence: (json['evidence'] as List<dynamic>? ?? const <dynamic>[])
           .whereType<Map<Object?, Object?>>()
           .map(
-            (Map<Object?, Object?> item) => OperatingEvidence.fromJson(
-              Map<String, dynamic>.from(item),
-            ),
+            (Map<Object?, Object?> item) =>
+                OperatingEvidence.fromJson(Map<String, dynamic>.from(item)),
           )
           .toList(growable: false),
       sourceRevisions: Map<String, String>.from(
@@ -187,12 +185,14 @@ class SIIntelligenceReceipt {
     OperatingDecisionReceipt decision, {
     double? confidenceScore,
   }) {
-    final double score = confidenceScore ?? switch (decision.confidence) {
-      OperatingConfidence.high => .85,
-      OperatingConfidence.moderate => .65,
-      OperatingConfidence.low => .4,
-      OperatingConfidence.insufficientEvidence => .15,
-    };
+    final double score =
+        confidenceScore ??
+        switch (decision.confidence) {
+          OperatingConfidence.high => .85,
+          OperatingConfidence.moderate => .65,
+          OperatingConfidence.low => .4,
+          OperatingConfidence.insufficientEvidence => .15,
+        };
     final SIIntelligenceReceipt receipt = SIIntelligenceReceipt(
       decisionId: decision.decisionId,
       rationale: decision.rationale,
