@@ -72,5 +72,7 @@
 		<string>Chronospark uses your microphone for voice coaching commands.</string>
 		<key>NSSpeechRecognitionUsageDescription</key>
 		<string>Chronospark converts your speech to text to process AI requests.</string>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>Chronospark uses your location only when you ask for local context or location-aware planning.</string>
 	</dict>
 </plist>

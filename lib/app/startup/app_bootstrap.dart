@@ -25,7 +25,6 @@ import 'package:fantastic_guacamole/state/providers/service_providers.dart'
     show identityServiceProvider;
 import 'package:fantastic_guacamole/state/services/intelligence_service.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_bootstrap.dart';
-import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 import 'package:fantastic_guacamole/system/system_boot.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
@@ -48,7 +47,6 @@ class AppBootstrapper {
     runZonedGuarded(() async {
       WidgetsFlutterBinding.ensureInitialized();
       await _loadDotEnv();
-      FirebaseMessagingBootstrap.configureBackgroundHandler();
       _runApp();
     }, _handleUncaughtZoneError);
   }
@@ -349,16 +347,6 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   );
   startupError = _appendStartupIssue(startupError, firebaseIssue ?? '');
 
-  // Push permission/token work is non-critical to first paint. Keep it out of
-  // the critical startup chain so an unavailable FCM service cannot hold the
-  // app behind the bootstrap gate.
-  unawaited(
-    _measureIssueStage(
-      'push_notifications',
-      () => _initMessagingSafe(isMockMode: intelligence.flags.mockMode),
-    ),
-  );
-
   final String? supabaseIssue = await _measureIssueStage(
     'supabase',
     () => _initSupabaseSafe(isMockMode: intelligence.flags.mockMode),
@@ -512,33 +500,6 @@ Future<String?> _initFirebaseSafe({required bool isMockMode}) async {
   } else {
     Logger.error('Firebase initialization failed.', issue);
     RuntimeDiagnostics.record('Firebase initialization failed: $issue');
-  }
-  return issue;
-}
-
-Future<String?> _initMessagingSafe({required bool isMockMode}) async {
-  if (isMockMode) {
-    Logger.log(
-      'Startup',
-      'Mock mode active: Push notifications startup skipped.',
-    );
-    RuntimeDiagnostics.record(
-      'Mock mode active: Push notifications startup skipped.',
-    );
-    return null;
-  }
-
-  Logger.log('Startup', 'Initializing Firebase Messaging...');
-  RuntimeDiagnostics.record('Initializing Firebase Messaging...');
-  final String? issue = await const FirebaseMessagingBootstrap().initialize(
-    isMockMode: isMockMode,
-  );
-  if (issue == null) {
-    Logger.log('Startup', 'Firebase Messaging initialized.');
-    RuntimeDiagnostics.record('Firebase Messaging initialized.');
-  } else {
-    Logger.warn(issue);
-    RuntimeDiagnostics.record(issue);
   }
   return issue;
 }

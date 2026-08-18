@@ -1,21 +1,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 
 class VoiceService {
   const VoiceService();
 
-  static final FlutterTts _tts = FlutterTts();
+  static const MethodChannel _tts = MethodChannel('chronospark/tts');
   static bool _initialized = false;
   static bool _isSpeaking = false;
 
   /// Serialises [speak] so two utterances cannot interleave.
   ///
-  /// `awaitSpeakCompletion(true)` means `_tts.speak` does not complete until
-  /// the utterance finishes, so two rapid taps previously issued
-  /// stop/speak(A)/stop/speak(B) with A's completer still pending — the
-  /// documented route to an orphaned completer on Android. Every call site is
-  /// fire-and-forget, so nothing else rate-limited them.
+  /// Native TTS completes the `speak` method when the utterance finishes, so
+  /// two rapid taps otherwise race stop/speak(A)/stop/speak(B) with A's
+  /// completer still pending. Every call site is fire-and-forget, so nothing
+  /// else rate-limits them.
   static Future<void> _speakQueue = Future<void>.value();
 
   bool get isSpeaking => _isSpeaking;
@@ -32,10 +30,15 @@ class VoiceService {
     // absorbed so one bad utterance cannot poison the queue for the session.
     final Future<void> queued = _speakQueue.then((_) async {
       try {
-        await _tts.stop();
-        await _tts.speak(value);
+        await _tts.invokeMethod<void>('stop');
+        _isSpeaking = true;
+        await _tts.invokeMethod<void>('speak', <String, Object?>{
+          'text': value,
+        });
       } catch (_) {
         // Do not crash UI flows when TTS is unavailable.
+      } finally {
+        _isSpeaking = false;
       }
     });
     _speakQueue = queued.catchError((Object _) {});
@@ -89,26 +92,26 @@ class VoiceService {
   }
 
   Future<void> stop() async {
-    if (!await _ensureInitialized()) {
+    if (!_initialized) {
       return;
     }
     try {
-      await _tts.stop();
+      await _tts.invokeMethod<void>('stop');
       _isSpeaking = false;
     } catch (_) {
-      // Ignore plugin-level failures.
+      // Ignore platform-level failures.
     }
   }
 
   Future<void> pause() async {
-    if (!await _ensureInitialized()) {
+    if (!_initialized) {
       return;
     }
     try {
-      await _tts.pause();
+      await _tts.invokeMethod<void>('pause');
       _isSpeaking = false;
     } catch (_) {
-      // Ignore plugin-level failures.
+      // Ignore platform-level failures.
     }
   }
 
@@ -117,9 +120,9 @@ class VoiceService {
       return;
     }
     try {
-      await _tts.setLanguage(language);
+      await _tts.invokeMethod<void>('setLanguage', language);
     } catch (_) {
-      // Ignore plugin-level failures.
+      // Ignore platform-level failures.
     }
   }
 
@@ -128,9 +131,9 @@ class VoiceService {
       return;
     }
     try {
-      await _tts.setVolume(volume.clamp(0.0, 1.0));
+      await _tts.invokeMethod<void>('setVolume', volume.clamp(0.0, 1.0));
     } catch (_) {
-      // Ignore plugin-level failures.
+      // Ignore platform-level failures.
     }
   }
 
@@ -139,9 +142,9 @@ class VoiceService {
       return;
     }
     try {
-      await _tts.setSpeechRate(rate.clamp(0.0, 1.0));
+      await _tts.invokeMethod<void>('setRate', rate.clamp(0.0, 1.0));
     } catch (_) {
-      // Ignore plugin-level failures.
+      // Ignore platform-level failures.
     }
   }
 
@@ -150,9 +153,9 @@ class VoiceService {
       return;
     }
     try {
-      await _tts.setPitch(pitch.clamp(0.5, 2.0));
+      await _tts.invokeMethod<void>('setPitch', pitch.clamp(0.5, 2.0));
     } catch (_) {
-      // Ignore plugin-level failures.
+      // Ignore platform-level failures.
     }
   }
 
@@ -161,28 +164,8 @@ class VoiceService {
       return true;
     }
     try {
-      _tts.setStartHandler(() {
-        _isSpeaking = true;
-      });
-      _tts.setCompletionHandler(() {
-        _isSpeaking = false;
-      });
-      _tts.setCancelHandler(() {
-        _isSpeaking = false;
-      });
-      _tts.setErrorHandler((_) {
-        _isSpeaking = false;
-      });
-      try {
-        await _tts.awaitSpeakCompletion(true);
-      } catch (_) {
-        // Some devices/plugins throw on completion wiring; continue with best effort.
-      }
-      try {
-        await _tts.setLanguage('en-US');
-      } catch (_) {
-        // Keep default engine language if explicit locale is unavailable.
-      }
+      await _tts.invokeMethod<void>('initialize');
+      await _tts.invokeMethod<void>('setLanguage', 'en-US');
       _initialized = true;
       return true;
     } on MissingPluginException {

@@ -52,7 +52,6 @@ dependencies:
   just_audio: ^0.10.5
   audio_session: ^0.2.2
   audioplayers: ^6.8.1
-  flutter_tts: ^4.2.3
   vibration: ^3.2.0
   riverpod_annotation: ^4.0.3
   intl: ^0.20.0
@@ -81,7 +80,6 @@ dependencies:
   speech_to_text: ^7.4.0
   cloud_firestore: ^6.6.0
   firebase_storage: ^13.4.3
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

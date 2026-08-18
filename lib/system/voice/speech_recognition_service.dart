@@ -4,7 +4,7 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 /// Speech-to-text abstraction, mirroring [VoiceService]'s wrap-and-degrade
-/// pattern for `flutter_tts` so callers never crash when no recognition
+/// pattern so callers never crash when no recognition
 /// engine is present, and so tests can substitute a fake instead of driving
 /// the real platform channel.
 abstract class SpeechRecognitionService {

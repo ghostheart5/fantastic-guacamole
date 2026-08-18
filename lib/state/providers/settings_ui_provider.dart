@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:fantastic_guacamole/state/services/reflection_reminder_service.dart';
 import 'package:fantastic_guacamole/state/services/reminder_orchestrator_service.dart';
+import 'package:fantastic_guacamole/system/location/location_service.dart';
 import 'package:fantastic_guacamole/system/firebase/firebase_messaging_bootstrap.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -102,6 +103,20 @@ class SettingsUiActions {
     return _ref.read(voicePermissionServiceProvider).requestPermission();
   }
 
+  Future<AppLocationResult> requestLocationPermissionAndCurrentLocation() {
+    return _ref
+        .read(appLocationServiceProvider)
+        .requestPermissionAndCurrentLocation();
+  }
+
+  Future<bool> openLocationAppSettings() {
+    return _ref.read(appLocationServiceProvider).openAppSettings();
+  }
+
+  Future<bool> openLocationSystemSettings() {
+    return _ref.read(appLocationServiceProvider).openLocationSettings();
+  }
+
   Future<bool> openSystemAppSettings() async {
     final external = _ref.read(externalUrlServiceProvider);
     const List<String> candidates = <String>['app-settings:', 'App-Prefs:root'];
@@ -162,4 +177,20 @@ class VoicePermissionStatusNotifier extends Notifier<bool?> {
 final voicePermissionStatusProvider =
     NotifierProvider<VoicePermissionStatusNotifier, bool?>(
       VoicePermissionStatusNotifier.new,
+    );
+
+final appLocationServiceProvider = Provider<AppLocationService>((Ref ref) {
+  return const AppLocationService();
+});
+
+class LocationPermissionStatusNotifier extends Notifier<AppLocationResult?> {
+  @override
+  AppLocationResult? build() => null;
+
+  void set(AppLocationResult result) => state = result;
+}
+
+final locationPermissionStatusProvider =
+    NotifierProvider<LocationPermissionStatusNotifier, AppLocationResult?>(
+      LocationPermissionStatusNotifier.new,
     );

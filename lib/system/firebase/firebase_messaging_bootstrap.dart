@@ -84,6 +84,7 @@ class FirebaseMessagingBootstrap {
     if (isMockMode || kIsWeb) {
       return null;
     }
+    configureBackgroundHandler();
     final String? initializationError = await initialize(isMockMode: false);
     if (initializationError != null) {
       return initializationError;

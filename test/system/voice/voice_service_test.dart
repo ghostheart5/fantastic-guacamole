@@ -1,9 +1,33 @@
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('VoiceService degrades safely without a platform channel', () {
     const VoiceService service = VoiceService();
+    const MethodChannel ttsChannel = MethodChannel('chronospark/tts');
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(ttsChannel, null);
+    });
+
+    test('stop and pause are no-ops before first speech output', () async {
+      final List<String> calls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(ttsChannel, (MethodCall call) async {
+            calls.add(call.method);
+            return null;
+          });
+
+      await service.stop();
+      await service.pause();
+
+      expect(calls, isEmpty);
+      expect(service.isSpeaking, isFalse);
+    });
 
     test(
       'speak completes without throwing and leaves isSpeaking false',

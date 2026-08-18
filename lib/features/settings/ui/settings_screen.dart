@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart'
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
 import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
+import 'package:fantastic_guacamole/features/permissions/location_permission_prompt.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -16,6 +17,7 @@ import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
+import 'package:fantastic_guacamole/system/location/location_service.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_reset_service.dart';
@@ -60,6 +62,9 @@ class SettingsScreen extends ConsumerWidget {
     );
     final bool? voicePermissionGranted = ref.watch(
       voicePermissionStatusProvider,
+    );
+    final locationPermissionResult = ref.watch(
+      locationPermissionStatusProvider,
     );
 
     return AnimatedSystemBackground(
@@ -236,6 +241,51 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                           ),
                         );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    LocationPermissionPrompt(
+                      result: locationPermissionResult,
+                      onRequestLocation: () async {
+                        final AppLocationResult result = await ref
+                            .read(settingsUiActionsProvider)
+                            .requestLocationPermissionAndCurrentLocation();
+                        ref
+                            .read(locationPermissionStatusProvider.notifier)
+                            .set(result);
+                        return result;
+                      },
+                      onOpenAppSettings: () async {
+                        final bool opened = await ref
+                            .read(settingsUiActionsProvider)
+                            .openLocationAppSettings();
+                        if (!context.mounted || opened) {
+                          return opened;
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Open app settings and enable location for ChronoSpark.',
+                            ),
+                          ),
+                        );
+                        return opened;
+                      },
+                      onOpenLocationSettings: () async {
+                        final bool opened = await ref
+                            .read(settingsUiActionsProvider)
+                            .openLocationSystemSettings();
+                        if (!context.mounted || opened) {
+                          return opened;
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Open device location settings and turn location services on.',
+                            ),
+                          ),
+                        );
+                        return opened;
                       },
                     ),
                   ],
