@@ -41,7 +41,7 @@ class SICognitiveMetaPersonaEngine {
     final bool insight = intent.primary.label == 'insight_request';
     final bool action =
         intent.primary.label == 'get_task' ||
-        intent.primary.label == 'start_focus';
+        intent.primary.label == 'start_execution';
 
     SIPersona primary;
     SIPersona? secondary;

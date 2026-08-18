@@ -111,7 +111,7 @@ class SIResponseModule {
       return SIPersona.assistant;
     }
     switch (decision.action) {
-      case 'launch_focus_block':
+      case 'launch_execution_block':
       case 'present_task_recommendation':
         return SIPersona.planner;
       case 'show_insight_summary':
@@ -188,7 +188,7 @@ class SIResponseModule {
     }
 
     switch (decision.action) {
-      case 'launch_focus_block':
+      case 'launch_execution_block':
         return task.isNotEmpty
             ? 'Start a focused block on "$task".'
             : 'Start a short focus block.';

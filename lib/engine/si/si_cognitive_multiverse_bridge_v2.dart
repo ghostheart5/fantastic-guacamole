@@ -124,8 +124,8 @@ class SIMultiverseBridgeV2 {
 
   String _action(String intent) {
     switch (intent) {
-      case 'start_focus':
-        return 'launch_focus_block';
+      case 'start_execution':
+        return 'launch_execution_block';
       case 'get_task':
         return 'present_task_recommendation';
       case 'reflect':

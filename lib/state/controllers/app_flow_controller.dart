@@ -16,6 +16,7 @@ enum AppView {
   memories,
   personalAlignment,
   timeline,
+  trajectoryEngine,
 }
 
 AppView? appViewFromName(String? value) {
@@ -23,12 +24,11 @@ AppView? appViewFromName(String? value) {
     return null;
   }
   final String target = value.trim();
-  if (target == 'coach') {
-    return AppView.nexus;
+  if (target == 'tasks') {
+    return AppView.creator;
   }
-  // Compatibility for navigation state saved before Smart Planner was renamed.
-  if (target == 'smartCoach' || target == 'insight') {
-    return AppView.smartPlanner;
+  if (target == 'logs') {
+    return AppView.timeline;
   }
   for (final AppView view in AppView.values) {
     if (view.name == target) {
@@ -47,11 +47,16 @@ class AppFlowController extends Notifier<AppView> {
   AppView build() => AppView.nexus;
 
   void toNexus() => state = AppView.nexus;
-  void toTasks() => state = AppView.tasks;
-  void toLogs() => state = AppView.logs;
+
+  /// Compatibility aliases. Tasks and habits are created in Creator; the
+  /// former Logs destination is the canonical Timeline.
+  void toTasks() => state = AppView.creator;
+  void toLogs() => state = AppView.timeline;
   void toProfile() => state = AppView.profile;
   void toSmartPlanner() => state = AppView.smartPlanner;
   void toConsole() => state = AppView.console;
+  void toSIConsole() => toConsole();
+  void toTrajectoryEngine() => state = AppView.trajectoryEngine;
   void toSettings() => state = AppView.settings;
   void toProgression() => state = AppView.progression;
   void toPlan() => state = AppView.plan;

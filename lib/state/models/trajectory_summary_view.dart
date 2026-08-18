@@ -1,3 +1,6 @@
+import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
+import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
+
 class TrajectorySummaryView {
   const TrajectorySummaryView({
     required this.pendingTasks,
@@ -17,6 +20,14 @@ class TrajectorySummaryView {
     required this.predictionOutcome,
     required this.predictionProbability,
     required this.predictionExplanation,
+    this.sourceState = TrajectorySourceState.ready,
+    this.riskBand = TrajectoryRiskBand.unknown,
+    this.statusDetail = '',
+    this.predictionLowerBound,
+    this.predictionUpperBound,
+    this.predictionSampleSize = 0,
+    this.predictionConfidence,
+    this.predictionModelVersion,
     this.personalizationNote,
   });
 
@@ -37,6 +48,14 @@ class TrajectorySummaryView {
   final String? predictionOutcome;
   final double? predictionProbability;
   final String? predictionExplanation;
+  final TrajectorySourceState sourceState;
+  final TrajectoryRiskBand riskBand;
+  final String statusDetail;
+  final double? predictionLowerBound;
+  final double? predictionUpperBound;
+  final int predictionSampleSize;
+  final PredictiveConfidenceProfile? predictionConfidence;
+  final String? predictionModelVersion;
   final String? personalizationNote;
 
   bool get hasPrediction =>
@@ -44,4 +63,11 @@ class TrajectorySummaryView {
       predictionOutcome != null &&
       predictionProbability != null &&
       predictionExplanation != null;
+
+  bool get predictionReliable =>
+      predictionProbability != null &&
+      predictionSampleSize >= 3 &&
+      predictionConfidence?.band != PredictiveConfidenceBand.low &&
+      predictionConfidence?.band !=
+          PredictiveConfidenceBand.insufficientEvidence;
 }

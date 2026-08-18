@@ -36,7 +36,7 @@ class SISyntheticArchetypeSystem {
         : intent.primary.label == 'reflect'
         ? 'seeker'
         : (intent.primary.label == 'get_task' ||
-              intent.primary.label == 'start_focus')
+              intent.primary.label == 'start_execution')
         ? 'builder'
         : 'guide';
     final symbol = {

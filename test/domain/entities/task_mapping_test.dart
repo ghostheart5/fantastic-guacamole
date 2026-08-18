@@ -19,6 +19,15 @@ Task taskFromEntityAsProductionDoes(TaskEntity entity) {
     priority: entity.priority,
     difficulty: entity.difficulty,
     energyRequired: entity.energyRequired,
+    scheduledFor: entity.scheduledFor,
+    dueDate: entity.dueDate,
+    estimatedDuration: entity.estimatedDuration ?? const Duration(minutes: 30),
+    isCompleted: entity.isCompleted,
+    isCanceled: entity.isCanceled,
+    completedAt: entity.completedAt,
+    goalId: entity.goalId,
+    subtasks: entity.subtasks,
+    recurrenceRule: entity.recurrenceRule,
   );
 }
 
@@ -31,6 +40,11 @@ Task taskFromEntityComplete(TaskEntity entity) {
     difficulty: entity.difficulty,
     energyRequired: entity.energyRequired,
     scheduledFor: entity.scheduledFor,
+    dueDate: entity.dueDate,
+    estimatedDuration: entity.estimatedDuration ?? const Duration(minutes: 30),
+    isCompleted: entity.isCompleted,
+    isCanceled: entity.isCanceled,
+    completedAt: entity.completedAt,
     goalId: entity.goalId,
     subtasks: entity.subtasks,
     recurrenceRule: entity.recurrenceRule,
@@ -67,26 +81,21 @@ void main() {
       expect(task.difficulty, 2);
       expect(task.energyRequired, 5);
       expect(task.scheduledFor, DateTime.utc(2026, 7, 6));
+      expect(task.dueDate, DateTime.utc(2026, 7, 7));
+      expect(task.estimatedDuration, const Duration(minutes: 45));
+      expect(task.isCompleted, isTrue);
+      expect(task.completedAt, DateTime.utc(2026, 7, 5));
+      expect(task.isCanceled, isFalse);
       expect(task.goalId, 'goal-1');
       expect(task.subtasks, <String>['sub-1', 'sub-2']);
       expect(task.recurrenceRule, RecurrenceRule.daily);
     });
   });
 
-  group('TaskEntity -> Task drops fields Task cannot represent', () {
-    test('the seven lost fields are documented and unrecoverable', () {
-      // Task has no home for these. If Task ever grows one of them, delete the
-      // corresponding line here as the compatibility migration advances.
-      const List<String> knownLostFields = <String>[
-        'description',
-        'createdAt',
-        'isCompleted',
-        'completedAt',
-        'dueDate',
-        'isCanceled',
-        'estimatedDuration',
-      ];
-      expect(knownLostFields, hasLength(7));
+  group('TaskEntity -> Task compatibility boundary', () {
+    test('preserves planning state and drops only non-planning metadata', () {
+      const List<String> knownLostFields = <String>['description', 'createdAt'];
+      expect(knownLostFields, hasLength(2));
 
       final Task task = taskFromEntityComplete(fullEntity);
 
@@ -98,19 +107,24 @@ void main() {
         priority: task.priority,
         difficulty: task.difficulty,
         energyRequired: task.energyRequired,
+        isCompleted: task.isCompleted,
+        completedAt: task.completedAt,
         scheduledFor: task.scheduledFor,
+        dueDate: task.dueDate,
+        estimatedDuration: task.estimatedDuration,
         goalId: task.goalId,
+        isCanceled: task.isCanceled,
         subtasks: task.subtasks,
         recurrenceRule: task.recurrenceRule,
       );
 
       expect(rebuilt.description, isNull);
       expect(rebuilt.createdAt, isNot(fullEntity.createdAt));
-      expect(rebuilt.isCompleted, isFalse);
-      expect(rebuilt.completedAt, isNull);
-      expect(rebuilt.dueDate, isNull);
-      expect(rebuilt.estimatedDuration, isNull);
-      expect(rebuilt.isCanceled, isFalse);
+      expect(rebuilt.isCompleted, fullEntity.isCompleted);
+      expect(rebuilt.completedAt, fullEntity.completedAt);
+      expect(rebuilt.dueDate, fullEntity.dueDate);
+      expect(rebuilt.estimatedDuration, fullEntity.estimatedDuration);
+      expect(rebuilt.isCanceled, fullEntity.isCanceled);
 
       // Everything Task DOES carry must survive intact.
       expect(rebuilt.id, fullEntity.id);
@@ -124,19 +138,19 @@ void main() {
       expect(rebuilt.recurrenceRule, fullEntity.recurrenceRule);
     });
 
-    test(
-      'the production mapping additionally drops scheduling and recurrence',
-      () {
-        final Task task = taskFromEntityAsProductionDoes(fullEntity);
+    test('the production mapping preserves planning and lifecycle state', () {
+      final Task task = taskFromEntityAsProductionDoes(fullEntity);
 
-        // These are silently lost today by `_taskFromEntity`, on top of the
-        // seven fields Task structurally cannot hold.
-        expect(task.scheduledFor, isNull);
-        expect(task.goalId, isNull);
-        expect(task.subtasks, isEmpty);
-        expect(task.recurrenceRule, RecurrenceRule.none);
-      },
-    );
+      expect(task.scheduledFor, fullEntity.scheduledFor);
+      expect(task.dueDate, fullEntity.dueDate);
+      expect(task.estimatedDuration, fullEntity.estimatedDuration);
+      expect(task.isCompleted, fullEntity.isCompleted);
+      expect(task.completedAt, fullEntity.completedAt);
+      expect(task.isCanceled, fullEntity.isCanceled);
+      expect(task.goalId, fullEntity.goalId);
+      expect(task.subtasks, fullEntity.subtasks);
+      expect(task.recurrenceRule, fullEntity.recurrenceRule);
+    });
   });
 
   group('Task JSON coercion is lossy on invalid input', () {
@@ -165,6 +179,10 @@ void main() {
         difficulty: 2,
         energyRequired: 5,
         scheduledFor: DateTime.utc(2026, 7, 6),
+        dueDate: DateTime.utc(2026, 7, 7),
+        estimatedDuration: const Duration(minutes: 45),
+        isCompleted: true,
+        completedAt: DateTime.utc(2026, 7, 8),
         goalId: 'goal-1',
         subtasks: const <String>['sub-1'],
         recurrenceRule: RecurrenceRule.daily,
@@ -178,6 +196,10 @@ void main() {
       expect(restored.difficulty, task.difficulty);
       expect(restored.energyRequired, task.energyRequired);
       expect(restored.scheduledFor, task.scheduledFor);
+      expect(restored.dueDate, task.dueDate);
+      expect(restored.estimatedDuration, task.estimatedDuration);
+      expect(restored.isCompleted, task.isCompleted);
+      expect(restored.completedAt, task.completedAt);
       expect(restored.goalId, task.goalId);
       expect(restored.subtasks, task.subtasks);
       expect(restored.recurrenceRule, task.recurrenceRule);

@@ -4,7 +4,11 @@ import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
+import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
@@ -23,6 +27,9 @@ class SISignalExtraction {
     required this.emotionalStrain,
     required this.emotionalStability,
     required this.emotionalPatterns,
+    this.executionCompletedToday = 0,
+    this.executionSkippedToday = 0,
+    this.executionDelayedToday = 0,
   });
 
   final bool friction;
@@ -34,10 +41,41 @@ class SISignalExtraction {
   final bool emotionalStrain;
   final bool emotionalStability;
   final List<String> emotionalPatterns;
+  final int executionCompletedToday;
+  final int executionSkippedToday;
+  final int executionDelayedToday;
+}
+
+enum SISourceStatus { ready, empty, loading, error, unavailable }
+
+class SISourceHealth {
+  const SISourceHealth({
+    required this.tasks,
+    required this.goals,
+    required this.memories,
+    required this.observedAt,
+  });
+
+  final SISourceStatus tasks;
+  final SISourceStatus goals;
+  final SISourceStatus memories;
+  final DateTime observedAt;
+
+  double get readyFraction {
+    final List<SISourceStatus> sources = <SISourceStatus>[
+      tasks,
+      goals,
+      memories,
+    ];
+    return sources
+            .where((SISourceStatus status) => status == SISourceStatus.ready)
+            .length /
+        sources.length;
+  }
 }
 
 class SIStateAggregation {
-  const SIStateAggregation({
+  SIStateAggregation({
     required this.tasks,
     required this.goals,
     required this.insights,
@@ -52,8 +90,21 @@ class SIStateAggregation {
     required this.signals,
     required this.coreValues,
     required this.personalAlignment,
+    DecisionRecommendation? planningDecision,
+    SISourceHealth? sourceHealth,
     this.habits = const <HabitRecord>[],
-  });
+  }) : planningDecision =
+           planningDecision ?? _fallbackPlanningDecision(tasks, siState),
+       sourceHealth =
+           sourceHealth ??
+           SISourceHealth(
+             tasks: tasks.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+             goals: goals.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+             memories: memories.isEmpty
+                 ? SISourceStatus.empty
+                 : SISourceStatus.ready,
+             observedAt: DateTime.now(),
+           );
 
   final List<Task> tasks;
   final List<GoalEntity> goals;
@@ -69,6 +120,8 @@ class SIStateAggregation {
   final SISignalExtraction signals;
   final CoreValuesAlignment coreValues;
   final PersonalAlignmentAlignment personalAlignment;
+  final DecisionRecommendation planningDecision;
+  final SISourceHealth sourceHealth;
 
   /// Habits available to Smart Planner and SI. Empty when habit storage has not
   /// resolved yet, so aggregation never blocks on it.
@@ -76,6 +129,20 @@ class SIStateAggregation {
 
   int get activeHabitCount =>
       habits.where((HabitRecord habit) => habit.active).length;
+
+  static DecisionRecommendation _fallbackPlanningDecision(
+    List<Task> tasks,
+    SIState siState,
+  ) => const DecisionEngine().recommend(
+    inputs: PlannerInputAdapter.fromLegacyTasks(tasks),
+    state: SiStateEntity(
+      energy: siState.energy,
+      focus: 1 - siState.fatigue,
+      fatigue: siState.fatigue,
+      lastUpdated: null,
+    ),
+    learning: const LearningEntity(),
+  );
 }
 
 class SIDecisionOutput {

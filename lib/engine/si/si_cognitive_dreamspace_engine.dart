@@ -135,7 +135,7 @@ class SICognitiveDreamspaceEngine {
   }
 
   String _symbol(SIIntent intent, SIContext context) {
-    if (intent.primary.label == 'start_focus') return 'lens';
+    if (intent.primary.label == 'start_execution') return 'lens';
     if (intent.primary.label == 'get_task') return 'compass';
     if (intent.primary.label == 'reflect') return 'mirror';
     if (intent.primary.label == 'insight_request') return 'constellation';
@@ -146,7 +146,7 @@ class SICognitiveDreamspaceEngine {
   String _metaphor(SIIntent intent, SIContext context, bool safe) {
     if (!safe) return 'a small step on solid ground';
     switch (intent.primary.label) {
-      case 'start_focus':
+      case 'start_execution':
         return 'a lens narrowing scattered light into one beam';
       case 'get_task':
         return 'a compass pointing toward the next useful move';

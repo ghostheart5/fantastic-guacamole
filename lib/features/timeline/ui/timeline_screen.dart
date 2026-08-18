@@ -370,6 +370,11 @@ class _TimelineEventTile extends StatelessWidget {
         return AppColors.recallRed;
       case TimelineEventType.recommendation:
         return AppColors.neonCyan;
+      case TimelineEventType.noteCreated:
+      case TimelineEventType.noteUpdated:
+      case TimelineEventType.noteArchived:
+      case TimelineEventType.noteDeleted:
+        return AppColors.memoryAmber;
     }
   }
 
@@ -403,6 +408,14 @@ class _TimelineEventTile extends StatelessWidget {
         return Icons.warning_amber_rounded;
       case TimelineEventType.recommendation:
         return Icons.tips_and_updates_rounded;
+      case TimelineEventType.noteCreated:
+        return Icons.note_add_rounded;
+      case TimelineEventType.noteUpdated:
+        return Icons.edit_note_rounded;
+      case TimelineEventType.noteArchived:
+        return Icons.archive_rounded;
+      case TimelineEventType.noteDeleted:
+        return Icons.delete_outline_rounded;
     }
   }
 

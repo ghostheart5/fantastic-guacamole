@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/app/router/app_router.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
@@ -133,6 +134,11 @@ class _AppRootState extends ConsumerState<AppRoot> {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: AppConfig.fromEnv().appName,
+      supportedLocales: ChronoSparkLocalizations.supportedLocales,
+      localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+        ChronoSparkLocalizations.delegate,
+        DefaultWidgetsLocalizations.delegate,
+      ],
       theme: (themeEntity?.isDark ?? true) ? appTheme : appLightTheme,
       routerConfig: router,
       builder: (context, child) {
@@ -309,12 +315,12 @@ class _AppRootState extends ConsumerState<AppRoot> {
     }
 
     if (appPath == '/app' || appPath == '/app/') {
-      return RoutePaths.home;
+      return RoutePaths.nexus;
     }
 
     final String leaf = appPath.substring('/app/'.length);
     return switch (leaf) {
-      'home' => RoutePaths.home,
+      'home' || 'nexus' => RoutePaths.nexus,
       'plan' => RoutePaths.plan,
       'creator' => RoutePaths.creator,
       'insights' => RoutePaths.plan,
@@ -323,7 +329,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
       'support' => RoutePaths.support,
       'privacy' => RoutePaths.privacy,
       'terms' => RoutePaths.terms,
-      _ => RoutePaths.home,
+      _ => RoutePaths.nexus,
     };
   }
 

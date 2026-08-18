@@ -28,6 +28,7 @@ class AppAssets {
   static const bgReflect = bgReflectionPool;
   static const bgSettings = bgTemporalCalm;
   static const bgSiConsole = bgTrajectoryFork;
+  static const bgTrajectory = bgTrajectoryFork;
   static const bgTasks = bgActivityArchive;
   static const bgCreatorIntent =
       'assets/backgrounds/creator_intent_field_v1.jpg';

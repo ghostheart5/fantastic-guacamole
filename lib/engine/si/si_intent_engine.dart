@@ -29,7 +29,7 @@ class SIIntentEngine {
       'focus block',
     ])) {
       primary = const IntentCandidate(
-        label: SIIntentLabels.startFocus,
+        label: SIIntentLabels.startExecution,
         score: .86,
         why: 'Focus wording detected.',
       );
@@ -97,12 +97,12 @@ class SIIntentEngine {
   String _next(String label) {
     switch (label) {
       case SIIntentLabels.getTask:
-        return SIIntentLabels.startFocus;
-      case SIIntentLabels.startFocus:
+        return SIIntentLabels.startExecution;
+      case SIIntentLabels.startExecution:
       case SIIntentLabels.reflect:
         return SIIntentLabels.insightRequest;
       case SIIntentLabels.insightRequest:
-        return SIIntentLabels.startFocus;
+        return SIIntentLabels.startExecution;
       default:
         return SIIntentLabels.getTask;
     }

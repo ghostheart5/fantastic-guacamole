@@ -147,7 +147,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byType(HoloButton),
-          matching: find.text('CREATE YOUR FIRST TASK'),
+          matching: find.text('TURN AN INTENTION INTO A PATH'),
         ),
       );
       await tester.pump();

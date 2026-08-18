@@ -52,7 +52,7 @@ String _resolveInitialLocation({
   if (!isAuthenticated) {
     return RoutePaths.login;
   }
-  return RoutePaths.home;
+  return RoutePaths.nexus;
 }
 
 /// Pure decision logic for the top-level go_router redirect. Extracted so it
@@ -74,7 +74,11 @@ String? computeAppRedirect({
   }
 
   if (location == RoutePaths.shell && isAuthenticated) {
-    return RoutePaths.home;
+    return RoutePaths.nexus;
+  }
+
+  if (location == RoutePaths.home && isAuthenticated) {
+    return RoutePaths.nexus;
   }
 
   if (location == RoutePaths.onboarding) {
@@ -82,7 +86,7 @@ String? computeAppRedirect({
       return null;
     }
     if (isAuthenticated) {
-      return RoutePaths.home;
+      return RoutePaths.nexus;
     }
     return RoutePaths.login;
   }
@@ -98,7 +102,7 @@ String? computeAppRedirect({
   }
 
   if (location == RoutePaths.login && isAuthenticated) {
-    return RoutePaths.home;
+    return RoutePaths.nexus;
   }
 
   return null;
@@ -136,7 +140,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             const OnboardingScreen(),
       ),
       GoRoute(
-        path: RoutePaths.home,
+        path: RoutePaths.nexus,
         builder: (BuildContext context, GoRouterState state) =>
             const NavigationShell(),
       ),
@@ -165,12 +169,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.logs,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.logs),
+            const NavigationShell(initialView: AppView.timeline),
       ),
       GoRoute(
         path: RoutePaths.tasks,
         builder: (BuildContext context, GoRouterState state) =>
-            const NavigationShell(initialView: AppView.tasks),
+            const NavigationShell(initialView: AppView.creator),
       ),
       GoRoute(
         path: RoutePaths.profile,
@@ -188,6 +192,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             const NavigationShell(initialView: AppView.console),
       ),
       GoRoute(
+        path: RoutePaths.timeline,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.timeline),
+      ),
+      GoRoute(
+        path: RoutePaths.trajectoryEngine,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NavigationShell(initialView: AppView.trajectoryEngine),
+      ),
+      GoRoute(
         path: RoutePaths.advisor,
         builder: (BuildContext context, GoRouterState state) =>
             const ProductAdvisorScreen(),
@@ -197,7 +211,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Sunset target is tracked in docs/LEGACY_ROUTE_SUNSET.md and reviewed by 2026-10-01.
       GoRoute(
         path: RoutePaths.legacyPlanningRoute,
-        redirect: (_, _) => RoutePaths.home,
+        redirect: (_, _) => RoutePaths.nexus,
       ),
       GoRoute(
         path: RoutePaths.legacyInsights,

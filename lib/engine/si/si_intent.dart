@@ -2,7 +2,7 @@
 
 class SIIntentLabels {
   static const String generalQuery = 'general_query';
-  static const String startFocus = 'start_focus';
+  static const String startExecution = 'start_execution';
   static const String getTask = 'get_task';
   static const String reflect = 'reflect';
   static const String insightRequest = 'insight_request';
@@ -15,8 +15,8 @@ class SIIntentUtils {
 
   String actionFor(String intent) {
     switch (intent) {
-      case SIIntentLabels.startFocus:
-        return 'launch_focus_block';
+      case SIIntentLabels.startExecution:
+        return 'launch_execution_block';
       case SIIntentLabels.getTask:
         return 'present_task_recommendation';
       case SIIntentLabels.reflect:
@@ -29,5 +29,6 @@ class SIIntentUtils {
   }
 
   bool isActionIntent(String intent) =>
-      intent == SIIntentLabels.startFocus || intent == SIIntentLabels.getTask;
+      intent == SIIntentLabels.startExecution ||
+      intent == SIIntentLabels.getTask;
 }

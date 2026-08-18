@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/usecases/analyze_plan_context.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_adaptive_plan.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/day_overview_card.dart';
@@ -127,7 +128,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
       return cached;
     }
     final List<TimeBlock> generated = generateAdaptivePlan(
-      tasks: tasks,
+      inputs: PlannerInputAdapter.fromLegacyTasks(tasks),
       energy: energy,
     );
     _cachedPlan = generated;

@@ -45,8 +45,12 @@ void main() {
 
     expect(find.textContaining('person@example.com'), findsNothing);
     expect(find.textContaining('super-secret'), findsNothing);
-    expect(find.textContaining('[redacted-email]'), findsOneWidget);
-    expect(find.textContaining('[redacted-password]'), findsOneWidget);
+    expect(
+      find.textContaining('ChronoSpark recovered the failure'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('[redacted-email]'), findsNothing);
+    expect(find.textContaining('[redacted-password]'), findsNothing);
   });
 }
 

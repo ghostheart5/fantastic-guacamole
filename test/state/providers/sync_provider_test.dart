@@ -26,7 +26,9 @@ void main() {
   late ProviderContainer container;
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'cloud_sync_enabled_v1': true,
+    });
     hiveDirectory = await Directory.systemTemp.createTemp(
       'chronospark_sync_provider_',
     );
@@ -48,6 +50,12 @@ void main() {
     container = ProviderContainer(
       overrides: [
         hiveStoreProvider.overrideWithValue(hiveStore),
+        cloudSyncCapabilityProvider.overrideWithValue(true),
+        offlineSyncQueueProvider.overrideWithValue(
+          OfflineSyncQueueService(
+            HiveStorage<String>(HiveBoxes.offlineQueue, hive: hiveStore),
+          ),
+        ),
         syncServiceProvider.overrideWithValue(
           SyncService(backup: backupService, gateway: gateway),
         ),

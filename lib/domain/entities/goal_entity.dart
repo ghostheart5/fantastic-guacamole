@@ -25,6 +25,7 @@ class GoalEntity {
   final DateTime? completedAt;
 
   bool get isCompleted => completedAt != null;
+  bool get isActive => !isCompleted;
 
   GoalEntity copyWith({
     String? title,

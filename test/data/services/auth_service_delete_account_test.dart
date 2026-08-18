@@ -867,10 +867,10 @@ void main() {
               'https://api.chronospark.app/account/delete') {
             deleteCalls += 1;
             expect(request.headers['authorization'], 'Bearer access-token');
-            expect(jsonDecode(request.body), <String, dynamic>{
-              'userId': 'user-1',
-              'email': 'planner@chronospark.app',
-            });
+            // The authenticated deletion endpoint derives ownership solely
+            // from the bearer token. Redundant identity fields must not be
+            // sent because they can conflict with the authenticated subject.
+            expect(jsonDecode(request.body), <String, dynamic>{});
             return http.Response('{}', 204);
           }
           return http.Response('{}', 200);

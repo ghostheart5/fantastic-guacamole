@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/engine/planning/calendar_service.dart';
 import 'package:fantastic_guacamole/features/plan/ui/plan_screen.dart';
 import 'package:fantastic_guacamole/state/providers/calendar_provider.dart';
@@ -86,7 +87,7 @@ void main() {
 class _EmptyCalendarService extends CalendarService {
   @override
   List<TimeBlock> generateAdaptivePlan({
-    required List<Task> tasks,
+    required List<PlannerInput> inputs,
     required double energy,
     DateTime? startTime,
   }) {

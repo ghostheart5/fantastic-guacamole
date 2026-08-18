@@ -52,8 +52,8 @@ void main() {
   for (final (String payload, AppView expected) in <(String, AppView)>[
     ('goal_reminder_abc123', AppView.goals),
     ('daily_planning_reminder', AppView.plan),
-    ('habit_reminder_daily', AppView.tasks),
-    ('reflection_reminder', AppView.logs),
+    ('habit_reminder_daily', AppView.creator),
+    ('reflection_reminder', AppView.timeline),
     ('streak_break_recovery_xyz', AppView.progression),
   ]) {
     testWidgets('tapping "$payload" routes to $expected', (
@@ -79,7 +79,7 @@ void main() {
     NotificationScheduler.tappedPayloadListenable.value = 'something_unmapped';
     await tester.pump();
 
-    expect(container.read(appFlowProvider), AppView.logs);
+    expect(container.read(appFlowProvider), AppView.timeline);
   });
 
   testWidgets('the payload is cleared so one tap does not route twice', (
@@ -90,7 +90,7 @@ void main() {
     NotificationScheduler.tappedPayloadListenable.value =
         'habit_reminder_daily';
     await tester.pump();
-    expect(container.read(appFlowProvider), AppView.tasks);
+    expect(container.read(appFlowProvider), AppView.creator);
     expect(NotificationScheduler.tappedPayloadListenable.value, isNull);
 
     // Navigating away must stick: a stale payload should not drag the user

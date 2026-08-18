@@ -1,3 +1,5 @@
+import 'package:fantastic_guacamole/data/di/storage_providers.dart';
+import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_task.dart';
@@ -15,6 +17,9 @@ void main() {
     final _FakeLocalMetricsAccumulator metrics = _FakeLocalMetricsAccumulator();
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        secureStoreProvider.overrideWithValue(
+          SecureStore(backend: InMemorySecureStoreBackend()),
+        ),
         createTaskUseCaseProvider.overrideWithValue(capture),
         localMetricsAccumulatorProvider.overrideWithValue(metrics),
       ],
@@ -43,6 +48,9 @@ void main() {
     final _CaptureCreateTaskUseCase capture = _CaptureCreateTaskUseCase();
     final ProviderContainer container = ProviderContainer(
       overrides: [
+        secureStoreProvider.overrideWithValue(
+          SecureStore(backend: InMemorySecureStoreBackend()),
+        ),
         createTaskUseCaseProvider.overrideWithValue(capture),
         localMetricsAccumulatorProvider.overrideWithValue(
           _FakeLocalMetricsAccumulator(),

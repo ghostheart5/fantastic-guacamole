@@ -36,7 +36,7 @@ class SIMultiverseIdentity {
         : intent.primary.label == 'insight_request'
         ? 'analyst'
         : intent.primary.label == 'get_task' ||
-              intent.primary.label == 'start_focus'
+              intent.primary.label == 'start_execution'
         ? 'builder'
         : 'guide';
 

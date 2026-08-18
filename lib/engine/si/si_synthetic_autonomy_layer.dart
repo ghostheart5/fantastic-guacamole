@@ -59,7 +59,7 @@ class SISyntheticAutonomyLayer {
   }
 
   String _action(String i) => switch (i) {
-    'start_focus' => 'launch_focus_block',
+    'start_execution' => 'launch_execution_block',
     'get_task' => 'present_task_recommendation',
     'reflect' => 'open_reflection_flow',
     'insight_request' => 'show_insight_summary',

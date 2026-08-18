@@ -1,5 +1,333 @@
 part of 'nexus_screen.dart';
 
+class NexusCommandSection extends StatelessWidget {
+  const NexusCommandSection({
+    required this.model,
+    required this.onRetry,
+    required this.onAction,
+    required this.onAcknowledge,
+    super.key,
+  });
+
+  final NexusBriefingModel model;
+  final VoidCallback onRetry;
+  final ValueChanged<OperatingActionIntent> onAction;
+  final VoidCallback onAcknowledge;
+
+  @override
+  Widget build(BuildContext context) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    if (model.status == NexusBriefingStatus.loading) {
+      return _NexusCommandPanel(
+        child: Semantics(
+          liveRegion: true,
+          label: l10n.text(ChronoSparkString.preparingSummary),
+          child: Row(
+            children: <Widget>[
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  l10n.text(ChronoSparkString.preparingSummary).toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (model.status == NexusBriefingStatus.error ||
+        !model.hasAuthoritativeBriefing) {
+      return _NexusCommandPanel(
+        child: Semantics(
+          liveRegion: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Text(
+                'NEXUS RECOVERY',
+                style: TextStyle(
+                  color: AppColors.recallRed,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                model.statusDetail,
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: Text(l10n.text(ChronoSparkString.retryNexus)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final OperatingBriefing briefing = model.briefing!;
+    final OperatingDecisionReceipt decision = briefing.decision;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (model.status == NexusBriefingStatus.offline)
+          Semantics(
+            liveRegion: true,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: AppColors.memoryAmber.withValues(alpha: .12),
+                border: Border.all(color: AppColors.memoryAmber),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'OFFLINE: ${model.statusDetail}',
+                style: const TextStyle(
+                  color: AppColors.memoryAmber,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        _NexusCommandPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                model.attentionLabel.toUpperCase(),
+                style: const TextStyle(
+                  color: AppColors.neonCyan,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                model.isEmpty
+                    ? l10n.text(ChronoSparkString.startInCreator)
+                    : l10n
+                          .text(ChronoSparkString.whatMattersNext)
+                          .toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .8,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                decision.recommendedAction,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${decision.whyItMatters} ${decision.rationale}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: () => onAction(decision.actionIntent),
+                child: Text(
+                  model.isEmpty
+                      ? l10n.text(ChronoSparkString.openCreator)
+                      : decision.actionIntent.label,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                l10n.text(ChronoSparkString.topRisk).toUpperCase(),
+                style: const TextStyle(
+                  color: AppColors.memoryAmber,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                model.topRisk,
+                style: const TextStyle(color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                l10n.text(ChronoSparkString.whatChanged).toUpperCase(),
+                style: const TextStyle(
+                  color: AppColors.neonViolet,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                model.recentProgress,
+                style: const TextStyle(color: AppColors.textPrimary),
+              ),
+              if (briefing.acknowledgedSnapshotId !=
+                  briefing.snapshot.snapshotId) ...<Widget>[
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: onAcknowledge,
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Mark briefing reviewed'),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        NexusFeatureSignalMesh(model: model),
+      ],
+    );
+  }
+}
+
+class NexusFeatureSignalMesh extends StatelessWidget {
+  const NexusFeatureSignalMesh({required this.model, super.key});
+
+  final NexusBriefingModel model;
+
+  @override
+  Widget build(BuildContext context) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double width = constraints.maxWidth >= 640
+            ? (constraints.maxWidth - 10) / 2
+            : constraints.maxWidth;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: model.featureSignals
+              .map((NexusFeatureSignal signal) {
+                final String status = signal.health.name.toUpperCase();
+                final String name = _featureName(l10n, signal.featureId);
+                return SizedBox(
+                  width: width,
+                  child: Semantics(
+                    container: true,
+                    label: '$name. $status. ${signal.headline}',
+                    child: _NexusCommandPanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  name.toUpperCase(),
+                                  style: const TextStyle(
+                                    color: AppColors.neonCyan,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                status,
+                                style: TextStyle(
+                                  color: _healthColor(signal.health),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 7),
+                          Text(
+                            signal.headline,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            signal.detail,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              })
+              .toList(growable: false),
+        );
+      },
+    );
+  }
+
+  static Color _healthColor(NexusFeatureHealth health) => switch (health) {
+    NexusFeatureHealth.ready => AppColors.statusPositive,
+    NexusFeatureHealth.loading => AppColors.pulseNeonBlue,
+    NexusFeatureHealth.empty => AppColors.textMuted,
+    NexusFeatureHealth.degraded => AppColors.statusCaution,
+    NexusFeatureHealth.unavailable => AppColors.statusCritical,
+  };
+
+  static String _featureName(
+    ChronoSparkLocalizations l10n,
+    ChronoSparkFeatureId feature,
+  ) => switch (feature) {
+    ChronoSparkFeatureId.nexus => l10n.text(ChronoSparkString.nexus),
+    ChronoSparkFeatureId.smartPlanner => l10n.text(
+      ChronoSparkString.smartPlanner,
+    ),
+    ChronoSparkFeatureId.creator => l10n.text(ChronoSparkString.creator),
+    ChronoSparkFeatureId.siConsole => l10n.text(ChronoSparkString.siConsole),
+    ChronoSparkFeatureId.timeline => l10n.text(ChronoSparkString.timeline),
+    ChronoSparkFeatureId.trajectoryEngine => l10n.text(
+      ChronoSparkString.trajectoryEngine,
+    ),
+    ChronoSparkFeatureId.progression => l10n.text(
+      ChronoSparkString.progression,
+    ),
+  };
+}
+
+class _NexusCommandPanel extends StatelessWidget {
+  const _NexusCommandPanel({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppColors.bgSecondary.withValues(alpha: .88),
+      border: Border.all(color: AppColors.panelBorder),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: child,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Header
 // ---------------------------------------------------------------------------
@@ -165,9 +493,17 @@ class _NexusHeader extends ConsumerWidget {
     try {
       if (hasMockSession) {
         ref.read(mockAuthSessionProvider.notifier).set(false);
+        // End the synthetic session and leave the protected surface
+        // immediately. Cleanup still completes before this method returns,
+        // but it must not hold the visible logout transition hostage to local
+        // storage/plugin latency.
+        if (context.mounted) {
+          context.go(routes.login);
+        }
         await ref
             .read(localUserDataCleanupServiceProvider)
             .clearForAccountSwitch();
+        return;
       } else {
         await ref.read(authServiceProvider).signOut();
       }

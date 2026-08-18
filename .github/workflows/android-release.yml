@@ -153,7 +153,7 @@ jobs:
         run: >-
           flutter build appbundle --release
           --dart-define=CHRONOSPARK_APP_FLAVOR=prod
-          --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=${{ env.PROD_READINESS }}
+          --dart-define=CHRONOSPARK_ENFORCE_PROD_READINESS=true
           --dart-define=CHRONOSPARK_SUPABASE_URL=${{ secrets.CHRONOSPARK_SUPABASE_URL }}
           --dart-define=CHRONOSPARK_SUPABASE_ANON_KEY=${{ secrets.CHRONOSPARK_SUPABASE_ANON_KEY }}
           --dart-define=CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT=${{ secrets.CHRONOSPARK_RECEIPT_VERIFY_ENDPOINT }}

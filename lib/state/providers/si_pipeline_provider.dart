@@ -1,13 +1,17 @@
 import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/usecases/assemble_si_decision_output.dart';
 import 'package:fantastic_guacamole/domain/usecases/extract_si_signals.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/core_values_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
+import 'package:fantastic_guacamole/engine/decision/decision_engine.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
@@ -17,7 +21,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   Ref ref,
 ) async {
-  final List<Task> tasks = await _loadAllActiveTasks(ref);
+  final List<TaskEntity> taskEntities = await _loadAllActiveTaskEntities(ref);
+  final List<PlannerInput> plannerInputs = PlannerInputAdapter.fromTaskEntities(
+    taskEntities,
+  );
+  final List<Task> tasks = PlannerInputAdapter.toLegacyTasks(plannerInputs);
   final goals = ref.watch(goalsProvider);
   final insights = ref.watch(insightsBundleProvider);
   final logs = ref.watch(logsProvider).entries;
@@ -33,6 +41,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     personalAlignmentAlignmentProvider,
   );
   final double energy = ref.watch(energyProvider);
+  final DateTime observedAt = DateTime.now();
   // Habits feed Smart Planner and SI. Read non-blocking: if habit storage has
   // not resolved (or failed), aggregation continues with none rather than
   // stalling the whole SI pipeline on it.
@@ -45,10 +54,20 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
 
   final List<String> planPreview = ref
       .read(generateAdaptivePlanUseCaseProvider)
-      .call(tasks: tasks, energy: energy)
+      .call(inputs: plannerInputs, energy: energy)
       .take(3)
       .map((block) => block.title)
       .toList(growable: false);
+
+  int countToday(Set<String> sources) => logs
+      .where(
+        (entry) =>
+            sources.contains(entry.source.trim().toLowerCase()) &&
+            entry.timestamp.year == observedAt.year &&
+            entry.timestamp.month == observedAt.month &&
+            entry.timestamp.day == observedAt.day,
+      )
+      .length;
 
   // Signal thresholds live in the domain layer so this provider orchestrates
   // rather than owning core SI logic.
@@ -67,6 +86,26 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
         insightsSummary: insights.summary,
       );
 
+  final LearningEntity learning =
+      await ref.read(domainLearningRepositoryProvider).getState() ??
+      const LearningEntity();
+  final DecisionRecommendation planningDecision = const DecisionEngine()
+      .recommend(
+        inputs: plannerInputs,
+        state: SiStateEntity(
+          energy: siState.energy,
+          focus: (1 - siState.fatigue).clamp(0.0, 1.0),
+          fatigue: siState.fatigue,
+          mood: emotion.name,
+          avoidOverwhelm: signals.overwhelm,
+          frictionScore: signals.friction ? .8 : .2,
+          highFriction: signals.friction,
+          lastUpdated: observedAt,
+        ),
+        learning: learning,
+        now: observedAt,
+      );
+
   return SIStateAggregation(
     tasks: tasks,
     goals: goals,
@@ -81,6 +120,13 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
     trajectory: trajectory,
     coreValues: coreValues,
     personalAlignment: personalAlignment,
+    planningDecision: planningDecision,
+    sourceHealth: SISourceHealth(
+      tasks: tasks.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+      goals: goals.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+      memories: memories.isEmpty ? SISourceStatus.empty : SISourceStatus.ready,
+      observedAt: observedAt,
+    ),
     habits: habits,
     signals: SISignalExtraction(
       friction: signals.friction,
@@ -92,29 +138,27 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
       emotionalStrain: signals.emotionalStrain,
       emotionalStability: signals.emotionalStability,
       emotionalPatterns: signals.emotionalPatterns,
+      executionCompletedToday: countToday(const <String>{
+        'completed_task',
+        'task_completed',
+        'goal_completed',
+      }),
+      executionSkippedToday: countToday(const <String>{'task_skipped'}),
+      executionDelayedToday: countToday(const <String>{
+        'task_rescheduled',
+        'task_delayed',
+        'task_not_completed',
+      }),
     ),
   );
 });
 
-Future<List<Task>> _loadAllActiveTasks(Ref ref) async {
+Future<List<TaskEntity>> _loadAllActiveTaskEntities(Ref ref) async {
   final List<TaskEntity> entities = await ref
       .read(domainTaskRepositoryProvider)
       .getAllTasks();
   return entities
       .where((TaskEntity item) => !item.isCompleted && !item.isCanceled)
-      .map(
-        (TaskEntity item) => Task(
-          id: item.id,
-          title: item.title,
-          priority: item.priority,
-          difficulty: item.difficulty,
-          energyRequired: item.energyRequired,
-          scheduledFor: item.scheduledFor,
-          goalId: item.goalId,
-          subtasks: item.subtasks,
-          recurrenceRule: item.recurrenceRule,
-        ),
-      )
       .toList(growable: false);
 }
 

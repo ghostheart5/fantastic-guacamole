@@ -30,7 +30,7 @@ class SISyntheticDreamEngine {
         ? 'mirror'
         : intent.primary.label == 'insight_request'
         ? 'constellation'
-        : intent.primary.label == 'start_focus'
+        : intent.primary.label == 'start_execution'
         ? 'lens'
         : 'compass';
     final reframe = safe

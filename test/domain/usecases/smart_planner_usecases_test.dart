@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/usecases/analyze_plan_context.dart';
 import 'package:fantastic_guacamole/domain/usecases/generate_adaptive_plan.dart';
 import 'package:fantastic_guacamole/domain/usecases/recommend_next_block.dart';
@@ -38,12 +39,12 @@ void main() {
       ];
 
       final List<TimeBlock> direct = service.generateAdaptivePlan(
-        tasks: tasks,
+        inputs: PlannerInputAdapter.fromLegacyTasks(tasks),
         energy: 0.6,
         startTime: start,
       );
       final List<TimeBlock> viaUseCase = useCase(
-        tasks: tasks,
+        inputs: PlannerInputAdapter.fromLegacyTasks(tasks),
         energy: 0.6,
         startTime: start,
       );
@@ -59,7 +60,7 @@ void main() {
       final GenerateAdaptivePlan useCase = GenerateAdaptivePlan(
         CalendarService(),
       );
-      expect(useCase(tasks: const <Task>[], energy: 0.5), isEmpty);
+      expect(useCase(inputs: const <PlannerInput>[], energy: 0.5), isEmpty);
     });
 
     test('ranks higher priority work first', () {
@@ -67,7 +68,10 @@ void main() {
         CalendarService(),
       );
       final List<TimeBlock> blocks = useCase(
-        tasks: <Task>[_task('low', priority: 1), _task('high', priority: 5)],
+        inputs: PlannerInputAdapter.fromLegacyTasks(<Task>[
+          _task('low', priority: 1),
+          _task('high', priority: 5),
+        ]),
         energy: 0.5,
         startTime: start,
       );

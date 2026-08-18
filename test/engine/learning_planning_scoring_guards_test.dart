@@ -1,5 +1,6 @@
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
@@ -91,7 +92,7 @@ void main() {
         final DateTime start = DateTime.utc(2026, 7, 5, 9);
 
         final List<TimeBlock> lowEnergyPlan = service.generateAdaptivePlan(
-          tasks: const <Task>[
+          inputs: PlannerInputAdapter.fromLegacyTasks(const <Task>[
             Task(
               id: 'overwhelm',
               title: 'Hard deep-work task',
@@ -106,7 +107,7 @@ void main() {
               difficulty: 1,
               energyRequired: 1,
             ),
-          ],
+          ]),
           energy: 0.2,
           startTime: start,
         );

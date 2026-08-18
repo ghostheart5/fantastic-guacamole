@@ -414,7 +414,7 @@ class UserNarrativeEngine {
       return 'analyst';
     }
     if (label == 'get_task' ||
-        label == 'start_focus' ||
+        label == 'start_execution' ||
         theme == 'momentum' ||
         theme == 'execution') {
       return 'builder';

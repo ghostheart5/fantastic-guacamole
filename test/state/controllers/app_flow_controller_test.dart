@@ -21,15 +21,20 @@ void main() {
     controller.toTimeline();
     expect(container.read(appFlowProvider), AppView.timeline);
 
+    controller.toTrajectoryEngine();
+    expect(container.read(appFlowProvider), AppView.trajectoryEngine);
+
     controller.show(AppView.settings);
     expect(container.read(appFlowProvider), AppView.settings);
   });
 
   test('appViewFromName resolves valid names and rejects unknown values', () {
-    expect(appViewFromName('coach'), AppView.nexus);
-    expect(appViewFromName('smartCoach'), AppView.smartPlanner);
-    expect(appViewFromName('insight'), AppView.smartPlanner);
+    expect(appViewFromName('coach'), isNull);
+    expect(appViewFromName('smartCoach'), isNull);
+    expect(appViewFromName('insight'), isNull);
     expect(appViewFromName('timeline'), AppView.timeline);
+    expect(appViewFromName('tasks'), AppView.creator);
+    expect(appViewFromName('logs'), AppView.timeline);
     expect(appViewFromName(''), isNull);
     expect(appViewFromName('unknown_view'), isNull);
   });

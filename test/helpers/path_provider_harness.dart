@@ -15,10 +15,13 @@ import 'package:flutter_test/flutter_test.dart';
 void useTemporaryPathProvider() {
   late Directory directory;
 
-  setUp(() async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    directory = await Directory.systemTemp.createTemp('chronospark_test_');
+  TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUpAll(() async {
+    directory = await Directory.systemTemp.createTemp('chronospark_test_');
+  });
+
+  setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.flutter.io/path_provider'),
@@ -26,13 +29,15 @@ void useTemporaryPathProvider() {
         );
   });
 
-  tearDown(() async {
+  tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.flutter.io/path_provider'),
           null,
         );
+  });
 
+  tearDownAll(() async {
     if (await directory.exists()) {
       try {
         await directory.delete(recursive: true);

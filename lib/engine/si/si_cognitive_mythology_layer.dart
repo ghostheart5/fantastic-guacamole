@@ -88,7 +88,7 @@ class SICognitiveMythologyLayer {
     if (context.userState.fatigue >= 0.68) return SIArchetype.restorer;
     switch (intent.primary.label) {
       case 'get_task':
-      case 'start_focus':
+      case 'start_execution':
         return SIArchetype.builder;
       case 'reflect':
         return SIArchetype.seeker;

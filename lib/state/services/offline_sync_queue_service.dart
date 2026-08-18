@@ -103,6 +103,7 @@ class OfflineSyncQueueService {
   String? _accountId;
 
   String? get accountId => _accountId;
+  bool get requiresAccountBinding => _enforceAccountBinding;
 
   void rebind(String? accountId) {
     final String? normalized = accountId?.trim();
@@ -138,9 +139,8 @@ class OfflineSyncQueueService {
         .where(
           (OfflineSyncQueueItem item) =>
               item.id.isNotEmpty &&
-                  item.actionType.isNotEmpty &&
-                  !_enforceAccountBinding ||
-              item.accountId == _accountId,
+              item.actionType.isNotEmpty &&
+              (!_enforceAccountBinding || item.accountId == _accountId),
         )
         .toList(growable: false);
   }

@@ -7,6 +7,7 @@ class RoutePaths {
 
   // Primary navigation surfaces.
   static const home = '/home';
+  static const nexus = '/nexus';
   static const plan = '/plan';
   static const creator = '/creator';
   static const settings = '/settings';
@@ -20,6 +21,17 @@ class RoutePaths {
   static const progression = '$advancedRoot/progression';
   static const si = '$advancedRoot/si-console';
   static const advisor = '$advancedRoot/advisor';
+
+  // Canonical aliases used by the operating-system contracts. Keeping these
+  // aliases here preserves one route registry while older screens migrate.
+  static const smartPlanner = plan;
+  static const siConsole = si;
+  static const timeline = '/timeline';
+  static const trajectoryEngine = '/trajectory';
+  static const creatorTasks = creator;
+  static const creatorGoals = creator;
+  static const creatorHabits = creator;
+  static const creatorNotes = creator;
 
   // Legal and account routes.
   static const paywall = '/paywall';

@@ -99,7 +99,7 @@ class SIPersonalityEngine {
       case SIPersona.assistant:
         return 'clarity assistant';
       case SIPersona.planner:
-        return 'focus planner';
+        return 'execution planner';
       case SIPersona.companion:
         return 'supportive companion';
       case SIPersona.analyst:

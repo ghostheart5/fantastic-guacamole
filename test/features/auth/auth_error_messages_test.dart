@@ -9,7 +9,10 @@ void main() {
         rawMessage: 'Account cannot be deleted during active billing cycle.',
       );
 
-      expect(message, 'Account cannot be deleted during active billing cycle.');
+      expect(
+        message,
+        'The account operation could not be completed. Retry or contact support if it continues.',
+      );
     });
 
     test('returns backend message for operation-not-supported', () {
@@ -18,7 +21,10 @@ void main() {
         rawMessage: 'Deletion endpoint is not configured.',
       );
 
-      expect(message, 'Deletion endpoint is not configured.');
+      expect(
+        message,
+        'This account operation is unavailable right now. Contact support for help.',
+      );
     });
 
     test('keeps standard mapping for known auth code', () {
@@ -33,7 +39,7 @@ void main() {
         rawMessage: 'Please contact support with code E-13.',
       );
 
-      expect(message, 'Please contact support with code E-13.');
+      expect(message, 'Authentication failed. Retry.');
     });
   });
 }

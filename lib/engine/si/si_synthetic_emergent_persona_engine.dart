@@ -30,7 +30,7 @@ class SISyntheticEmergentPersonaEngine {
         : intent.primary.label == 'insight_request'
         ? SIPersona.analyst
         : (intent.primary.label == 'get_task' ||
-              intent.primary.label == 'start_focus')
+              intent.primary.label == 'start_execution')
         ? SIPersona.planner
         : context.userState.emotion == 'confused'
         ? SIPersona.assistant

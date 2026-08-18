@@ -815,6 +815,15 @@ Task _taskFromEntity(TaskEntity task) {
     priority: task.priority,
     difficulty: task.difficulty,
     energyRequired: task.energyRequired,
+    scheduledFor: task.scheduledFor,
+    dueDate: task.dueDate,
+    estimatedDuration: task.estimatedDuration ?? const Duration(minutes: 30),
+    isCompleted: task.isCompleted,
+    isCanceled: task.isCanceled,
+    completedAt: task.completedAt,
+    goalId: task.goalId,
+    subtasks: task.subtasks,
+    recurrenceRule: task.recurrenceRule,
   );
 }
 

@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/engine/planning/calendar_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,7 +9,7 @@ void main() {
     final DateTime scheduled = DateTime(2026, 7, 8);
 
     final blocks = CalendarService().generateAdaptivePlan(
-      tasks: <Task>[
+      inputs: PlannerInputAdapter.fromLegacyTasks(<Task>[
         Task(
           id: 'future-task',
           title: 'Future task',
@@ -17,7 +18,7 @@ void main() {
           energyRequired: 2,
           scheduledFor: scheduled,
         ),
-      ],
+      ]),
       energy: 0.5,
       startTime: now,
     );
@@ -31,7 +32,7 @@ void main() {
 
   test('adaptive plan compares energy on the same normalized scale', () {
     final blocks = CalendarService().generateAdaptivePlan(
-      tasks: const <Task>[
+      inputs: PlannerInputAdapter.fromLegacyTasks(const <Task>[
         Task(
           id: 'high-energy',
           title: 'High energy',
@@ -46,7 +47,7 @@ void main() {
           difficulty: 2,
           energyRequired: 1,
         ),
-      ],
+      ]),
       energy: 0.2,
       startTime: DateTime(2026, 7, 6, 10),
     );

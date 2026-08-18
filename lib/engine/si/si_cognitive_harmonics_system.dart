@@ -133,7 +133,7 @@ class SICognitiveHarmonicsSystem {
         : siClamp01(0.7 + (1 - context.userState.stress) * 0.15);
     final double actionability = siClamp01(
       intent.primary.label == 'get_task' ||
-              intent.primary.label == 'start_focus'
+              intent.primary.label == 'start_execution'
           ? 0.85
           : 0.65,
     );

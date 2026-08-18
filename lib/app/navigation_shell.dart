@@ -6,7 +6,6 @@ import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
-import 'package:fantastic_guacamole/features/logs/ui/logs_screen.dart';
 import 'package:fantastic_guacamole/features/memories/ui/memories_screen.dart';
 import 'package:fantastic_guacamole/features/milestones/ui/milestones_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
@@ -16,8 +15,8 @@ import 'package:fantastic_guacamole/features/progression/ui/progression_screen.d
 import 'package:fantastic_guacamole/features/settings/ui/settings_screen.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
 import 'package:fantastic_guacamole/features/personal_alignment/ui/personal_alignment_screen.dart';
-import 'package:fantastic_guacamole/features/tasks/ui/task_screen.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
+import 'package:fantastic_guacamole/features/trajectory_engine/ui/trajectory_engine_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
@@ -346,8 +345,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   int _tabIndexForView(AppView view) {
     return switch (view) {
       AppView.nexus => 0,
-      AppView.tasks => 1,
-      AppView.logs => 2,
+      AppView.trajectoryEngine => 1,
+      AppView.logs || AppView.timeline => 2,
       AppView.profile => 3,
       _ => 0,
     };
@@ -355,8 +354,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
   AppView _viewForTabIndex(int index) {
     return switch (index) {
-      1 => AppView.tasks,
-      2 => AppView.logs,
+      1 => AppView.trajectoryEngine,
+      2 => AppView.timeline,
       3 => AppView.profile,
       _ => AppView.nexus,
     };
@@ -370,9 +369,9 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       case 0:
         controller.toNexus();
       case 1:
-        controller.toTasks();
+        controller.toTrajectoryEngine();
       case 2:
-        controller.toLogs();
+        controller.toTimeline();
       case 3:
         controller.toProfile();
     }
@@ -384,8 +383,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         return const SizedBox.shrink();
       }
       return switch (index) {
-        1 => const TaskScreen(),
-        2 => const LogsScreen(),
+        1 => const TrajectoryEngineScreen(),
+        2 => const TimelineScreen(),
         3 => const ProfileScreen(),
         _ => const NexusScreen(),
       };
@@ -429,12 +428,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
               navItem(
                 'Trajectory',
                 'Future scenarios and execution',
-                AppView.tasks,
+                AppView.trajectoryEngine,
               ),
               navItem(
                 'Timeline',
                 'Decision memory and context history',
-                AppView.logs,
+                AppView.timeline,
               ),
               navItem('Profile', 'Identity and progression', AppView.profile),
               const Divider(),
@@ -480,9 +479,10 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
     final Widget body = switch (view) {
       AppView.nexus ||
-      AppView.tasks ||
       AppView.logs ||
-      AppView.profile => Scaffold(
+      AppView.profile ||
+      AppView.trajectoryEngine ||
+      AppView.timeline => Scaffold(
         floatingActionButton: FloatingActionButton.small(
           onPressed: _showNavigationMap,
           tooltip: 'Open navigation map',
@@ -500,13 +500,14 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           showUnselectedLabels: true,
           items: <BottomNavigationBarItem>[
             _navItem(AppAssets.iconNexus, 'Nexus', tabIndex == 0),
-            _navItem(AppAssets.iconTasks, 'Trajectory', tabIndex == 1),
+            _navItem(AppAssets.iconTasks, 'Trajectory Engine', tabIndex == 1),
             _navItem(AppAssets.iconLogs, 'Timeline', tabIndex == 2),
             _navItem(AppAssets.iconProfile, 'Profile', tabIndex == 3),
           ],
         ),
       ),
       AppView.smartPlanner => const SmartPlannerScreen(),
+      AppView.tasks => const CreatorScreen(),
       AppView.console => const SIConsoleScreen(),
       AppView.settings => const SettingsScreen(),
       AppView.progression => const ProgressionScreen(),
@@ -516,7 +517,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
       AppView.milestones => const MilestonesScreen(),
       AppView.memories => const MemoriesScreen(),
       AppView.personalAlignment => const PersonalAlignmentScreen(),
-      AppView.timeline => const TimelineScreen(),
     };
 
     return PopScope(
@@ -529,16 +529,15 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         final AppView current = ref.read(appFlowProvider);
 
         if (current != AppView.nexus &&
-            current != AppView.tasks &&
             current != AppView.logs &&
-            current != AppView.profile) {
+            current != AppView.profile &&
+            current != AppView.trajectoryEngine &&
+            current != AppView.timeline) {
           controller.toNexus();
           return;
         }
 
-        if (current == AppView.tasks ||
-            current == AppView.logs ||
-            current == AppView.profile) {
+        if (current == AppView.logs || current == AppView.profile) {
           controller.toNexus();
           return;
         }

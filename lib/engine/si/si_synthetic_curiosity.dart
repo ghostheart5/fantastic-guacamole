@@ -103,7 +103,7 @@ class SISyntheticCuriosity {
     }
 
     if (intent.primary.label == 'get_task' ||
-        intent.primary.label == 'start_focus') {
+        intent.primary.label == 'start_execution') {
       return const CuriosityPrompt(
         text: 'Want a shorter focus version?',
         reason: 'Action intent detected.',

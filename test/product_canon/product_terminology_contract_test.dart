@@ -30,9 +30,9 @@ void main() {
   });
 
   test('legacy navigation names resolve into current canon', () {
-    expect(appViewFromName('coach'), AppView.nexus);
-    expect(appViewFromName('smartCoach'), AppView.smartPlanner);
-    expect(appViewFromName('insight'), AppView.smartPlanner);
+    expect(appViewFromName('coach'), isNull);
+    expect(appViewFromName('smartCoach'), isNull);
+    expect(appViewFromName('insight'), isNull);
   });
 
   test('legacy tutorial step progress migrates to Smart Planner', () {

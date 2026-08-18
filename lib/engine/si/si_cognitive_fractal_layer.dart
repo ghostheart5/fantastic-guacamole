@@ -96,7 +96,7 @@ class SICognitiveFractalLayer {
     if (intent.primary.label == 'get_task') {
       return 'The immediate need is task selection.';
     }
-    if (intent.primary.label == 'start_focus') {
+    if (intent.primary.label == 'start_execution') {
       return 'The immediate need is focus protection.';
     }
     if (context.userState.cognitiveLoad >= 0.7) {

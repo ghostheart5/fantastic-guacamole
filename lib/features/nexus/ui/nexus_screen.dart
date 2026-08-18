@@ -1,9 +1,15 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/app/feature_canon.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
+import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
+import 'package:fantastic_guacamole/features/nexus/application/nexus_briefing_provider.dart';
+import 'package:fantastic_guacamole/features/nexus/domain/nexus_briefing_model.dart';
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
@@ -57,6 +63,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     final trajectory = ref.watch(trajectorySummaryProvider);
     final double momentum = trajectory.momentum;
     final int completedTasks = trajectory.completedTasks;
+    final NexusBriefingModel briefingModel = ref.watch(nexusBriefingProvider);
 
     // A brand-new user lands on a dashboard where every metric reads zero and
     // nothing indicates what to do first. When there is genuinely nothing to
@@ -101,6 +108,21 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(child: _NexusHeader(profile: profile)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: NexusCommandSection(
+                    model: briefingModel,
+                    onRetry: ref.read(nexusBriefingActionsProvider).refresh,
+                    onAction: _openBriefingAction,
+                    onAcknowledge: () => unawaited(
+                      ref
+                          .read(operatingContinuityActionsProvider)
+                          .acknowledgeCurrentBriefing(),
+                    ),
+                  ),
+                ),
+              ),
               if (hasNothingYet)
                 const SliverToBoxAdapter(
                   child: Padding(
@@ -164,5 +186,40 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
         ),
       ),
     );
+  }
+
+  void _openBriefingAction(OperatingActionIntent intent) {
+    final NexusActionDestination destination = NexusActionResolver.resolve(
+      intent,
+    );
+    if (destination == NexusActionDestination.acknowledge) {
+      unawaited(
+        ref
+            .read(operatingContinuityActionsProvider)
+            .acknowledgeCurrentBriefing(),
+      );
+      return;
+    }
+    if (destination == NexusActionDestination.none) return;
+    if (destination == NexusActionDestination.unsupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This action is not available from Nexus yet.'),
+        ),
+      );
+      return;
+    }
+    final String route = switch (destination) {
+      NexusActionDestination.creator => RoutePaths.creator,
+      NexusActionDestination.timeline => RoutePaths.timeline,
+      NexusActionDestination.smartPlanner => RoutePaths.smartPlanner,
+      NexusActionDestination.siConsole => RoutePaths.siConsole,
+      NexusActionDestination.trajectoryEngine => RoutePaths.trajectoryEngine,
+      NexusActionDestination.progression => RoutePaths.progression,
+      NexusActionDestination.acknowledge ||
+      NexusActionDestination.none ||
+      NexusActionDestination.unsupported => RoutePaths.nexus,
+    };
+    context.push(route);
   }
 }

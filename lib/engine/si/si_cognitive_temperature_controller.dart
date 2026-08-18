@@ -41,7 +41,7 @@ class SICognitiveTemperatureController {
     double empathy = 0.7;
     double maxLoad = 0.55;
 
-    if (intent.primary.label == 'start_focus' ||
+    if (intent.primary.label == 'start_execution' ||
         intent.primary.label == 'get_task') {
       directness += 0.12;
       intensity += 0.08;

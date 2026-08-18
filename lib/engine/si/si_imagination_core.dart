@@ -144,7 +144,7 @@ class SIImaginationCore {
     if (intent.primary.label == 'get_task') {
       return 'Reframe it as: choose the next smallest useful task.';
     }
-    if (intent.primary.label == 'start_focus') {
+    if (intent.primary.label == 'start_execution') {
       return 'Reframe it as: protect one short focus block.';
     }
     return 'Reframe it as: turn the idea into one clear next action.';

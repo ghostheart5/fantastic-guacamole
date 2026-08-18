@@ -58,7 +58,7 @@ class SICognitiveResonanceEngine {
     }
 
     if (intent.primary.label == 'get_task' ||
-        intent.primary.label == 'start_focus') {
+        intent.primary.label == 'start_execution') {
       emphasis.add('next_action');
       score += 0.05;
     }

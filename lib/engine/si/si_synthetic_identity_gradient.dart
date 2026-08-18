@@ -27,7 +27,7 @@ class SISyntheticIdentityGradient {
       'guardian': instinct.safetyFirst ? .9 : .25,
       'builder':
           intent.primary.label == 'get_task' ||
-              intent.primary.label == 'start_focus'
+              intent.primary.label == 'start_execution'
           ? .8
           : .35,
       'analyst': intent.primary.label == 'insight_request' ? .85 : .3,

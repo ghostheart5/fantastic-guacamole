@@ -111,7 +111,12 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('Insufficient signal data.'), findsOneWidget);
+      expect(
+        find.text(
+          'Not enough saved evidence yet. Add or complete an item, then return to see a grounded progression signal.',
+        ),
+        findsOneWidget,
+      );
     },
   );
 
@@ -181,6 +186,9 @@ void main() {
       await pumpProgression(tester, trajectory: _activeTrajectory);
 
       await tester.tap(find.byTooltip('Share progress snapshot'));
+      await tester.pump();
+      expect(find.text('Review progress snapshot'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Share'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 

@@ -14,6 +14,10 @@ enum TimelineEventType {
   snapshot,
   risk,
   recommendation,
+  noteCreated,
+  noteUpdated,
+  noteArchived,
+  noteDeleted,
 }
 
 enum TimelineEventStatus { planned, active, completed, overdue, atRisk, info }
@@ -62,6 +66,10 @@ class TimelineEventEntity {
   bool get isRisk =>
       type == TimelineEventType.risk || status == TimelineEventStatus.atRisk;
   bool get isRecommendation => type == TimelineEventType.recommendation;
+  bool get isNoteCreated => type == TimelineEventType.noteCreated;
+  bool get isNoteUpdated => type == TimelineEventType.noteUpdated;
+  bool get isNoteArchived => type == TimelineEventType.noteArchived;
+  bool get isNoteDeleted => type == TimelineEventType.noteDeleted;
   bool get isDeadline => type == TimelineEventType.deadline;
   bool get isForecast => type == TimelineEventType.forecast;
   bool get isOverdue => status == TimelineEventStatus.overdue;
@@ -109,6 +117,14 @@ class TimelineEventEntity {
         return 'Risk';
       case TimelineEventType.recommendation:
         return 'Recommendation';
+      case TimelineEventType.noteCreated:
+        return 'Note Created';
+      case TimelineEventType.noteUpdated:
+        return 'Note Updated';
+      case TimelineEventType.noteArchived:
+        return 'Note Archived';
+      case TimelineEventType.noteDeleted:
+        return 'Note Deleted';
     }
   }
 

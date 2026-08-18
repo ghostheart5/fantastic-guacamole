@@ -63,7 +63,7 @@ class SIPresenceEngine {
       );
     }
 
-    if (intent.primary.label == 'start_focus' ||
+    if (intent.primary.label == 'start_execution' ||
         intent.primary.label == 'get_task') {
       return PresenceProfile(
         mode: PresenceMode.guiding,

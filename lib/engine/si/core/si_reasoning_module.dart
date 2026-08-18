@@ -57,7 +57,7 @@ class SIReasoningModule {
   String _plan(String intent, InstinctGuidance instinct) {
     if (instinct.safetyFirst) return 'Stabilize before recommending action';
     switch (intent) {
-      case 'start_focus':
+      case 'start_execution':
         return 'Prepare one clear focus-block starting step';
       case 'get_task':
         return 'Recommend the most useful next task';

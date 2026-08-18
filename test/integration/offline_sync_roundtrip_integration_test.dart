@@ -5,9 +5,11 @@ import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/services/backup_service.dart';
 import 'package:fantastic_guacamole/data/services/sync_service.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
+import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/state/providers/sync_provider.dart';
+import 'package:fantastic_guacamole/state/services/offline_sync_queue_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
@@ -28,7 +30,9 @@ void main() {
   late ProviderContainer container;
 
   setUp(() async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'cloud_sync_enabled_v1': true,
+    });
     hiveDirectory = await Directory.systemTemp.createTemp(
       'chronospark_offline_sync_',
     );
@@ -47,6 +51,12 @@ void main() {
 
     container = ProviderContainer(
       overrides: [
+        cloudSyncCapabilityProvider.overrideWithValue(true),
+        offlineSyncQueueProvider.overrideWithValue(
+          OfflineSyncQueueService(
+            HiveStorage<String>(HiveBoxes.offlineQueue, hive: _TestHiveStore()),
+          ),
+        ),
         syncServiceProvider.overrideWithValue(
           SyncService(backup: backupService, gateway: gateway),
         ),

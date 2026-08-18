@@ -26,7 +26,7 @@ class SIIntentModule {
       'deep work',
     ])) {
       primary = const IntentCandidate(
-        label: 'start_focus',
+        label: 'start_execution',
         score: 0.86,
         why: 'Focus-block wording detected',
       );
@@ -115,13 +115,13 @@ class SIIntentModule {
   String _predictNext(String intent) {
     switch (intent) {
       case 'get_task':
-        return 'start_focus';
-      case 'start_focus':
+        return 'start_execution';
+      case 'start_execution':
         return 'insight_request';
       case 'reflect':
         return 'insight_request';
       case 'insight_request':
-        return 'start_focus';
+        return 'start_execution';
       default:
         return 'get_task';
     }

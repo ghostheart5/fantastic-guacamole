@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/extended_domain_entities.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/domain/policies/crisis_detection_policy.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_detection_service.dart';
@@ -439,6 +440,8 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
   }) {
     final List<Task> tasks =
         _ref.read(tasksProvider).asData?.value ?? const <Task>[];
+    final List<PlannerInput> plannerInputs =
+        PlannerInputAdapter.fromLegacyTasks(tasks);
     final profile = _ref.read(profileProvider);
     final goals = _ref.read(goalsProvider);
     final insightsBundle = _ref.read(insightsBundleProvider);
@@ -458,7 +461,7 @@ class SmartPlannerQueryController implements SmartPlannerInterface {
     final patterns = _ref.read(observedPlanningPatternsProvider);
     final planPreview = _ref
         .read(generateAdaptivePlanUseCaseProvider)
-        .call(tasks: tasks, energy: energy)
+        .call(inputs: plannerInputs, energy: energy)
         .take(3)
         .map((block) => block.title)
         .toList(growable: false);

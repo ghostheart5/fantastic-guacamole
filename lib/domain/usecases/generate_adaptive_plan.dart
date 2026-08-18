@@ -1,5 +1,5 @@
-import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/engine/planning/calendar_service.dart';
 
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Smart Planner
@@ -18,15 +18,15 @@ class GenerateAdaptivePlan {
 
   /// Builds the in-memory adaptive day plan. [energy] is clamped by the engine.
   List<TimeBlock> call({
-    required List<Task> tasks,
+    required List<PlannerInput> inputs,
     required double energy,
     DateTime? startTime,
   }) {
-    if (tasks.isEmpty) {
+    if (inputs.isEmpty) {
       return const <TimeBlock>[];
     }
     return _calendarService.generateAdaptivePlan(
-      tasks: tasks,
+      inputs: inputs,
       energy: energy,
       startTime: startTime,
     );

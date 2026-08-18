@@ -28,7 +28,14 @@ class LearningRepository implements ILearningRepository {
       return null;
     }
 
-    final Object? decoded = jsonDecode(raw);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException {
+      // Preserve the invalid payload for support/recovery and return a safe
+      // empty state instead of disabling planning and prediction.
+      return null;
+    }
     if (decoded is! Map) {
       // Corrupted payload: surface as "no state" rather than a wrong state, and
       // do not overwrite storage so the raw value stays recoverable.
@@ -38,24 +45,12 @@ class LearningRepository implements ILearningRepository {
     final Map<String, dynamic> json = decoded.map(
       (dynamic key, dynamic value) => MapEntry(key.toString(), value),
     );
-    return LearningEntity(
-      effortWeight: (json['effortWeight'] as num?)?.toDouble() ?? 1.0,
-      priorityWeight: (json['priorityWeight'] as num?)?.toDouble() ?? 1.0,
-      completed: (json['completed'] as num?)?.toInt() ?? 0,
-      skipped: (json['skipped'] as num?)?.toInt() ?? 0,
-    );
+    return LearningEntity.fromJson(json);
   }
 
   @override
   Future<void> saveState(LearningEntity state) {
-    return _store.writeString(
-      _stateKey,
-      jsonEncode(<String, dynamic>{
-        'effortWeight': state.effortWeight,
-        'priorityWeight': state.priorityWeight,
-        'completed': state.completed,
-        'skipped': state.skipped,
-      }),
-    );
+    state.validate();
+    return _store.writeString(_stateKey, jsonEncode(state.toJson()));
   }
 }

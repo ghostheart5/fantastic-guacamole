@@ -254,6 +254,11 @@ class TaskActions {
     await _ref
         .read(learningProvider.notifier)
         .update(success: false, difficulty: selectedTask.difficulty);
+    await _bestEffort(
+      () => _ref
+          .read(skipTaskUseCaseProvider)
+          .call(taskId: selectedTask!.id, difficulty: selectedTask.difficulty),
+    );
     await _ref.read(observedPlanningPatternsProvider.notifier).recordSkip();
     _ref.read(siStateProvider.notifier).taskSkipped();
     await _ref
@@ -392,6 +397,17 @@ class TaskActions {
           .update(success: true, difficulty: task.difficulty),
     );
     await _bestEffort(
+      () => _ref
+          .read(applyLearningFeedbackUseCaseProvider)
+          .call(
+            success: true,
+            difficulty: task.difficulty,
+            taskId: task.id,
+            source: 'task_completion',
+          )
+          .then((_) {}),
+    );
+    await _bestEffort(
       () => _ref.read(localMetricsAccumulatorProvider).recordTaskCompleted(),
     );
     await _bestEffort(
@@ -450,6 +466,11 @@ Task _taskFromEntity(TaskEntity task) {
     difficulty: task.difficulty,
     energyRequired: task.energyRequired,
     scheduledFor: task.scheduledFor,
+    dueDate: task.dueDate,
+    estimatedDuration: task.estimatedDuration ?? const Duration(minutes: 30),
+    isCompleted: task.isCompleted,
+    isCanceled: task.isCanceled,
+    completedAt: task.completedAt,
     goalId: task.goalId,
     subtasks: task.subtasks,
     recurrenceRule: task.recurrenceRule,

@@ -23,6 +23,8 @@ class TimeBlock {
   final DateTime end;
   final bool completed;
 
+  bool validate() => end.isAfter(start) && title.trim().isNotEmpty;
+
   TimeBlock copyWith({
     String? id,
     String? taskId,

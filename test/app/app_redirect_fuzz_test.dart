@@ -44,6 +44,7 @@ const List<String> _allLocations = <String>[
   RoutePaths.onboarding,
   RoutePaths.login,
   RoutePaths.home,
+  RoutePaths.nexus,
   RoutePaths.plan,
   RoutePaths.creator,
   RoutePaths.legacyInsights,
@@ -148,7 +149,7 @@ void main() {
           mockLoginEnabled: false,
           location: RoutePaths.shell,
         ),
-        RoutePaths.home,
+        RoutePaths.nexus,
       );
     });
 
@@ -172,7 +173,7 @@ void main() {
           mockLoginEnabled: false,
           location: RoutePaths.login,
         ),
-        RoutePaths.home,
+        RoutePaths.nexus,
       );
     });
   });
