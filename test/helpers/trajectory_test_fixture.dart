@@ -1,7 +1,7 @@
 import 'package:fantastic_guacamole/domain/predictive/predictive_planning_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/engine/trajectory/future_consequence_engine.dart';
-import 'package:fantastic_guacamole/features/trajectory_engine/application/trajectory_engine_model_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/momentum_engine_provider.dart';
 

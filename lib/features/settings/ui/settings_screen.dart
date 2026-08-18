@@ -17,7 +17,6 @@ import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/state/providers/settings_ui_provider.dart';
 import 'package:fantastic_guacamole/state/models/personalization_models.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
-import 'package:fantastic_guacamole/system/location/location_service.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_content.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_reset_service.dart';
@@ -247,7 +246,7 @@ class SettingsScreen extends ConsumerWidget {
                     LocationPermissionPrompt(
                       result: locationPermissionResult,
                       onRequestLocation: () async {
-                        final AppLocationResult result = await ref
+                        final result = await ref
                             .read(settingsUiActionsProvider)
                             .requestLocationPermissionAndCurrentLocation();
                         ref

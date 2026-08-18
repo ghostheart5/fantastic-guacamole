@@ -1,17 +1,16 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:fantastic_guacamole/app/feature_canon.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
-import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/models/chronospark_feature_id.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
-import 'package:fantastic_guacamole/features/nexus/application/nexus_briefing_provider.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_briefing_model.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
+import 'package:fantastic_guacamole/state/providers/nexus_briefing_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -209,16 +208,17 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
       );
       return;
     }
+    final RouteSurface routes = ref.read(routeSurfaceProvider);
     final String route = switch (destination) {
-      NexusActionDestination.creator => RoutePaths.creator,
-      NexusActionDestination.timeline => RoutePaths.timeline,
-      NexusActionDestination.smartPlanner => RoutePaths.smartPlanner,
-      NexusActionDestination.siConsole => RoutePaths.siConsole,
-      NexusActionDestination.trajectoryEngine => RoutePaths.trajectoryEngine,
-      NexusActionDestination.progression => RoutePaths.progression,
+      NexusActionDestination.creator => routes.creator,
+      NexusActionDestination.timeline => routes.timeline,
+      NexusActionDestination.smartPlanner => routes.smartPlanner,
+      NexusActionDestination.siConsole => routes.siConsole,
+      NexusActionDestination.trajectoryEngine => routes.trajectoryEngine,
+      NexusActionDestination.progression => routes.progression,
       NexusActionDestination.acknowledge ||
       NexusActionDestination.none ||
-      NexusActionDestination.unsupported => RoutePaths.nexus,
+      NexusActionDestination.unsupported => routes.nexus,
     };
     context.push(route);
   }

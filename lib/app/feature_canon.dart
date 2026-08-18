@@ -1,14 +1,8 @@
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/domain/models/chronospark_feature_id.dart';
 
-enum ChronoSparkFeatureId {
-  nexus,
-  smartPlanner,
-  creator,
-  siConsole,
-  timeline,
-  trajectoryEngine,
-  progression,
-}
+export 'package:fantastic_guacamole/domain/models/chronospark_feature_id.dart'
+    show ChronoSparkFeatureId;
 
 enum ChronoSparkFeatureStatus { active, compatibilityOnly, removed }
 

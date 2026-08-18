@@ -144,7 +144,7 @@ $interfaceFiles = Get-ChildItem -Path (Join-Path $libRoot 'domain/interfaces') -
 foreach ($interfaceFile in $interfaceFiles) {
   $relativeInterfacePath = $interfaceFile.FullName.Replace($root + '\\', '').Replace('\\', '/')
   $content = Get-Content -Path $interfaceFile.FullName -Raw
-  if ($content -match 'abstract class\s+(I[A-Za-z0-9]+Repository)') {
+  if ($content -match 'abstract(?:\s+interface)?\s+class\s+(I[A-Za-z0-9]+Repository)') {
     $interfaceName = $matches[1]
     $hasImplementation = $implementedInterfaces.Contains($interfaceName)
     $hasExplicitOwner = $explicitOwners.ContainsKey($interfaceName)
@@ -627,8 +627,8 @@ foreach ($file in $domainInterfaceFiles) {
   if ($raw -match "import\s+'package:fantastic_guacamole/(data/|system/)") {
     $violations.Add("${relativePath}:1 -> domain interfaces must not depend on data or system implementation layers") | Out-Null
   }
-  if ($raw -notmatch 'abstract class\s+I[A-Za-z0-9]+Repository') {
-    $violations.Add("${relativePath}:1 -> repository interface file looks incomplete; expected abstract class I*Repository") | Out-Null
+  if ($raw -notmatch 'abstract(?:\s+interface)?\s+class\s+I[A-Za-z0-9]+Repository') {
+    $violations.Add("${relativePath}:1 -> repository interface file looks incomplete; expected abstract class or abstract interface class I*Repository") | Out-Null
   }
 }
 

@@ -1,5 +1,5 @@
-import 'package:fantastic_guacamole/app/feature_canon.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/domain/models/chronospark_feature_id.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 
 enum NexusBriefingStatus { loading, ready, partial, offline, error }
@@ -20,9 +20,6 @@ class NexusFeatureSignal {
   final String headline;
   final String detail;
   final String revision;
-
-  ChronoSparkFeatureDefinition get definition =>
-      ChronoSparkFeatureCanon.definition(featureId);
 }
 
 class NexusBriefingModel {

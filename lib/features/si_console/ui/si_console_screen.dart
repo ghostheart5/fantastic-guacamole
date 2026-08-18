@@ -4,9 +4,9 @@ import 'dart:math' as math;
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
-import 'package:fantastic_guacamole/data/services/ai/ai_content_report_service.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/value_objects/ai_content_report_reason.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
@@ -255,7 +255,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     if (reason == null || !mounted) return;
     try {
       await ref
-          .read(aiContentReportServiceProvider)
+          .read(aiContentReportActionsProvider)
           .submit(responseText: msg.text, reason: reason);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

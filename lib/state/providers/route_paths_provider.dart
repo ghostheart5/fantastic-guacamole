@@ -13,6 +13,13 @@ class RouteSurface {
     required this.support,
     required this.advisor,
     required this.notifications,
+    required this.nexus,
+    required this.creator,
+    required this.timeline,
+    required this.smartPlanner,
+    required this.siConsole,
+    required this.trajectoryEngine,
+    required this.progression,
   });
 
   final String onboarding;
@@ -25,6 +32,13 @@ class RouteSurface {
   final String support;
   final String advisor;
   final String notifications;
+  final String nexus;
+  final String creator;
+  final String timeline;
+  final String smartPlanner;
+  final String siConsole;
+  final String trajectoryEngine;
+  final String progression;
 }
 
 final routeSurfaceProvider = Provider<RouteSurface>((_) {
@@ -39,5 +53,12 @@ final routeSurfaceProvider = Provider<RouteSurface>((_) {
     support: RoutePaths.support,
     advisor: RoutePaths.advisor,
     notifications: RoutePaths.notifications,
+    nexus: RoutePaths.nexus,
+    creator: RoutePaths.creator,
+    timeline: RoutePaths.timeline,
+    smartPlanner: RoutePaths.smartPlanner,
+    siConsole: RoutePaths.siConsole,
+    trajectoryEngine: RoutePaths.trajectoryEngine,
+    progression: RoutePaths.progression,
   );
 });

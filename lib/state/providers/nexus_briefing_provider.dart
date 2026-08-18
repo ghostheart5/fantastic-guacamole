@@ -1,7 +1,7 @@
-import 'package:fantastic_guacamole/app/feature_canon.dart';
 import 'package:fantastic_guacamole/core/network/network_status_service.dart';
 import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/models/chronospark_feature_id.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_briefing_model.dart';
 import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_message.dart';
