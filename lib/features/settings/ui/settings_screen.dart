@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/domain/entities/app_theme_entity.dart';
 import 'package:fantastic_guacamole/features/permissions/notification_permission_prompt.dart';
 import 'package:fantastic_guacamole/features/permissions/voice_permission_prompt.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart'
     as extended_domain;
@@ -62,7 +63,7 @@ class SettingsScreen extends ConsumerWidget {
     );
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/settings_bg.jpg',
+      backgroundAssetPath: AppAssets.bgTemporalCalm,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

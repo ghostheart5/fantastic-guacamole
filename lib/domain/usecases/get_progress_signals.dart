@@ -2,8 +2,8 @@ import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Progression
 ///
-/// Resolved by featureDerivedProviders -> Progression UI. See TODO on its
-/// presentation-layer input type.
+/// Resolved by featureDerivedProviders -> Progression UI. The presentation
+/// layer input type is kept as a stable projection at this boundary.
 class ProgressSignals {
   const ProgressSignals({
     required this.momentum,

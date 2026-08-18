@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// These do NOT assert that the mapping is good — they pin down exactly which
 /// fields survive a round trip and which are lost, so a future migration has a
 /// safety net and nobody "fixes" the mapping without noticing the gap.
-/// See the TODO on `lib/domain/entities/task.dart`.
+/// See the compatibility note on `lib/domain/entities/task.dart`.
 
 /// Mirrors the production mapping in
 /// `lib/state/providers/domain_usecase_providers.dart` (`_taskFromEntity`).
@@ -76,7 +76,7 @@ void main() {
   group('TaskEntity -> Task drops fields Task cannot represent', () {
     test('the seven lost fields are documented and unrecoverable', () {
       // Task has no home for these. If Task ever grows one of them, delete the
-      // corresponding line here and the TODO on task.dart shrinks.
+      // corresponding line here as the compatibility migration advances.
       const List<String> knownLostFields = <String>[
         'description',
         'createdAt',

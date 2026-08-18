@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/features/logs/widgets/logs_insight_card.dart
 import 'package:fantastic_guacamole/features/logs/widgets/logs_timeline.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +21,7 @@ class LogsScreen extends ConsumerWidget {
     final List<String> pastMissions = buckets.pastMissions;
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/logs_bg.jpg',
+      backgroundAssetPath: AppAssets.bgActivityArchive,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

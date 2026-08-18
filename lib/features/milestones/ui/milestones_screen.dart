@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
@@ -96,7 +97,7 @@ class _MilestonesScreenState extends ConsumerState<MilestonesScreen> {
     final MilestoneSummary summary = ref.watch(milestoneSummaryProvider);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/progression_bg.jpg',
+      backgroundAssetPath: AppAssets.bgProgressionAscension,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         floatingActionButton: FloatingActionButton.extended(

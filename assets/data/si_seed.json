@@ -1,7 +1,8 @@
 {
   "reflections": [
-    "Noticed less friction after batching communications.",
-    "Stress increased during context-switching window at 3 PM."
+    "Starter reflection: What made progress easier today?",
+    "Starter reflection: Where did friction show up?"
   ],
-  "stressLevel": 0.34
+  "reflectionEntries": [],
+  "stressLevel": 0.5
 }

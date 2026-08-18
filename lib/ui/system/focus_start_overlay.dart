@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
@@ -95,7 +96,7 @@ class _FocusStartOverlayState extends State<_FocusStartOverlay> {
                 width: 184,
                 height: 184,
                 child: Lottie.asset(
-                  'assets/animations/focus_pulse.json',
+                  AppAssets.animSignalPulse,
                   repeat: false,
                   fit: BoxFit.contain,
                 ),

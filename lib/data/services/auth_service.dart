@@ -19,15 +19,14 @@ class AuthService implements AuthServiceContract {
     String? accountDeleteEndpoint,
     String? oauthGoogleRedirectUrl,
     String? oauthGitHubRedirectUrl,
-    Future<void> Function()? onSignedOut,
+    this._onSignedOut,
   }) : _auth = supabaseClient,
        _httpClient = httpClient ?? _sharedHttpClient,
        _accountDeleteEndpoint =
            accountDeleteEndpoint ?? Env.accountDeleteEndpoint,
        _oauthGoogleRedirectUrl = oauthGoogleRedirectUrl ?? Env.oauthRedirectUrl,
        _oauthGitHubRedirectUrl =
-           oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl,
-       _onSignedOut = onSignedOut;
+           oauthGitHubRedirectUrl ?? Env.githubOauthRedirectUrl;
 
   static final http.Client _sharedHttpClient = http.Client();
 

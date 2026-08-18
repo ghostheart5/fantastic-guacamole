@@ -5,16 +5,16 @@
     "steps": [
         {
             "id": "welcome",
-            "title": "Interactive Tutorial",
-            "body": "You will get one focused tip at a time. Follow the pulse and move at your own pace.",
+            "title": "Make Your First Plan",
+            "body": "Each step connects an intention, an observed outcome, and a thoughtful next decision.",
             "trigger": "manual",
             "blockMode": "allowTarget",
             "nextStepId": "pulse_goal_button"
         },
         {
             "id": "pulse_goal_button",
-            "title": "Pulse Goal Button",
-            "body": "Tap here to create powerful goals.",
+            "title": "Declare What Matters",
+            "body": "Create one commitment. Creator will record why it matters and which systems it changes.",
             "targetId": "goals.add_button",
             "trigger": "manual",
             "blockMode": "allowTarget",
@@ -22,8 +22,8 @@
         },
         {
             "id": "pulse_timeline",
-            "title": "Pulse Timeline",
-            "body": "Your life journey appears here.",
+            "title": "Record the Outcome",
+            "body": "Timeline compares intention with action so ChronoSpark can adapt future decisions.",
             "targetId": "timeline.intelligence_strip",
             "trigger": "manual",
             "blockMode": "allowTarget",
@@ -31,26 +31,26 @@
         },
         {
             "id": "pulse_habit_area",
-            "title": "Pulse Habit Area",
-            "body": "Habits build momentum every day.",
+            "title": "Build Behavioral Evidence",
+            "body": "Repeated outcomes give Progression and Trajectory Engine stronger evidence about what is sustainable.",
             "targetId": "settings.habit_toggle",
             "trigger": "manual",
             "blockMode": "allowTarget",
-            "nextStepId": "planner_pulse"
+            "nextStepId": "pulse_si_console"
         },
         {
-            "id": "planner_pulse",
-            "title": "Planner Pulse",
-            "body": "Your Smart Planner is always available.",
-            "targetId": "home.start_focus_button",
+            "id": "pulse_si_console",
+            "title": "SI Console",
+            "body": "Inspect why a decision was made, which evidence supports it, what is uncertain, and what to do next.",
+            "targetId": "home.open_si_console",
             "trigger": "manual",
             "blockMode": "allowTarget",
             "nextStepId": "finish"
         },
         {
             "id": "finish",
-            "title": "You are ready",
-            "body": "Great start. Open ChronoSpark Academy in Settings anytime to replay lessons.",
+            "title": "Your first plan is ready",
+            "body": "ChronoSpark can now help you choose a next action, learn from the outcome, and show how your path changes. Replay this guide from Settings anytime.",
             "trigger": "manual",
             "blockMode": "allowTarget"
         }

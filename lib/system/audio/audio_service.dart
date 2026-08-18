@@ -23,10 +23,6 @@ class AudioService {
     final List<String> candidates = <String>[
       path,
       if (!path.startsWith('assets/')) 'assets/$path',
-      if (path == 'audio/ai_decision.wav') 'audio/focus_start.wav',
-      if (path == 'audio/ai_decision.wav') 'assets/audio/focus_start.wav',
-      if (path == 'audio/ai_decision.wav') 'audio/task_complete.wav',
-      if (path == 'audio/ai_decision.wav') 'assets/audio/task_complete.wav',
     ];
 
     for (final String candidate in candidates) {
@@ -74,7 +70,7 @@ class AudioService {
       await _typingPlayer.setVolume(0.2);
       final bool ok = await _playWithFallback(
         _typingPlayer,
-        'audio/ai_decision.wav',
+        AppAssets.audioActionTick,
       );
       if (!ok) {
         _typingSoundAvailable = false;

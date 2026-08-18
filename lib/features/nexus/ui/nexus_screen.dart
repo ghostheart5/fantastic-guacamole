@@ -94,7 +94,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
     final int activityPresencePct = (activityPresence * 100).round();
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/nexus_bg.jpg',
+      backgroundAssetPath: AppAssets.bgTimelineThreads,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

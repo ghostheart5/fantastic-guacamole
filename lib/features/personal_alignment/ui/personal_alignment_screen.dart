@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/personal_alignment_models.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
@@ -25,7 +26,7 @@ class PersonalAlignmentScreen extends ConsumerWidget {
     );
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/progression_bg.jpg',
+      backgroundAssetPath: AppAssets.bgIdentity,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

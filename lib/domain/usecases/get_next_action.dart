@@ -6,7 +6,7 @@ import 'package:fantastic_guacamole/engine/si/api.dart';
 ///
 /// Exploratory natural-language entry point onto the SI engine. No provider;
 /// depends on the engine layer directly.
-/// TODO(architecture): this use case depends on the engine layer directly
+/// Architecture note: this use case depends on the engine layer directly
 /// (`SIEngineService` is a concrete type, not a domain interface), which
 /// inverts the dependency rule. Introduce a domain-owned SI engine port and
 /// have the engine implement it. Tracked separately — not changed here to keep

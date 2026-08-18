@@ -2,10 +2,7 @@ import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/data/services/contracts/auth_service_contract.dart';
 
 class AlwaysAuthenticatedAuthService implements AuthServiceContract {
-  AlwaysAuthenticatedAuthService({
-    required this._user,
-    Future<void> Function()? onSignedOut,
-  }) : _onSignedOut = onSignedOut;
+  AlwaysAuthenticatedAuthService({required this._user, this._onSignedOut});
 
   final User _user;
   final Future<void> Function()? _onSignedOut;

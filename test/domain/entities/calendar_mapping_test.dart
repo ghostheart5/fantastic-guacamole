@@ -4,7 +4,7 @@ import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Characterisation tests for the `CalendarEntry` / `CalendarEntryEntity` /
-/// `TimeBlock` triplication. See the TODOs on those three files.
+/// `TimeBlock` triplication. See the compatibility notes on those three files.
 ///
 /// All three describe the same concept with the same six fields. These tests
 /// pin that equivalence down so a field added to one type without the others

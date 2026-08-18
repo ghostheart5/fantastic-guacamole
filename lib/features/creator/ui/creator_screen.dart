@@ -7,6 +7,7 @@ import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/widgets/micro_tutorial_card.dart';
 import 'package:fantastic_guacamole/tutorial/widgets/show_me_again_button.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
@@ -18,7 +19,7 @@ class CreatorScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/creator_bg.jpg',
+      backgroundAssetPath: AppAssets.bgCreatorIntent,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

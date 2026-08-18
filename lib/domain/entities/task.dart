@@ -4,7 +4,7 @@ import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 ///
 /// Older task shape still used by the UI and engine. Migration target is
 /// TaskEntity; do not add fields here.
-/// TODO(duplication): [Task] and `TaskEntity` model the same concept.
+/// Compatibility note: [Task] and `TaskEntity` model the same concept.
 /// `TaskEntity` is a strict superset — it additionally carries `description`,
 /// `createdAt`, `isCompleted`, `completedAt`, `dueDate`, `isCanceled` and
 /// `estimatedDuration`. Anything mapping `TaskEntity -> Task` therefore DROPS

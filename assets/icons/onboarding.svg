@@ -1,4 +1,5 @@
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-  <path d="M4 12H20" />
-  <path d="M12 4L18 12L12 20" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M5 19V5h14v14H5Z"/>
+  <path d="m9.5 12 2 2 4-4"/>
+  <path d="M8 7.5h.01M16 16.5h.01"/>
 </svg>

@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:flutter/material.dart';
 
 class GlassPanel extends StatelessWidget {
@@ -24,7 +25,7 @@ class GlassPanel extends StatelessWidget {
         padding: padding,
         decoration: BoxDecoration(
           image: const DecorationImage(
-            image: AssetImage('assets/backgrounds/home_bg.jpg'),
+            image: AssetImage(AppAssets.bgHomeOrbit),
             fit: BoxFit.cover,
           ),
           color: const Color(0x1A000000),

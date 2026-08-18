@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
@@ -140,7 +141,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     final TimelineEventEntity? nextDeadline = _nearestUpcoming(filtered, now);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/progression_bg.jpg',
+      backgroundAssetPath: AppAssets.bgTimelineThreads,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

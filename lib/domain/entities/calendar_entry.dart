@@ -2,7 +2,7 @@
 ///
 /// Older calendar shape used by CalendarService. Migration target is
 /// CalendarEntryEntity.
-/// TODO(duplication): [CalendarEntry] and `CalendarEntryEntity` have identical
+/// Compatibility note: [CalendarEntry] and `CalendarEntryEntity` have identical
 /// field sets. The engine (`engine/planning/calendar_service.dart`) uses this
 /// one; the data layer and use cases use `CalendarEntryEntity`. `TimeBlock` is a
 /// third shape with the same six fields (only `completed` vs `isCompleted`

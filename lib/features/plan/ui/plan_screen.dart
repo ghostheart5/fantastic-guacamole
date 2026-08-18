@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/features/plan/widgets/day_selector.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/plan_header.dart';
 import 'package:fantastic_guacamole/features/plan/widgets/timeline.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
@@ -143,7 +144,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     final recommendNextBlock = ref.read(recommendNextBlockUseCaseProvider);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/plan_bg.jpg',
+      backgroundAssetPath: AppAssets.bgTemporalFocus,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         resizeToAvoidBottomInset: false,

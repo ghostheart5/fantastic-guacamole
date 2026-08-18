@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
@@ -95,7 +96,7 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen> {
           });
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/progression_bg.jpg',
+      backgroundAssetPath: AppAssets.bgIdentity,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         floatingActionButton: FloatingActionButton.extended(

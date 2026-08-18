@@ -1,30 +1,55 @@
 class AppAssets {
   // Animations
-  static const animFocusPulse = 'assets/animations/focus_pulse.json';
+  static const animFocusPulse = animSignalPulse;
   static const animLevelUp = 'assets/animations/level_up.json';
-  static const animCompletionBurst = 'assets/animations/completion_burst.json';
+  static const animCompletionBurst = animSignalPulse;
+  static const animSignalPulse = 'assets/animations/signal_pulse.json';
 
   // Audio
-  static const audioAiDecision = 'assets/audio/ai_decision.wav';
+  static const audioAiDecision = audioActionTick;
   static const audioErrorSoft = 'assets/audio/error_soft.wav';
-  static const audioFocusStart = 'assets/audio/focus_start.wav';
-  static const audioTaskComplete = 'assets/audio/task_complete.wav';
+  static const audioFocusStart = audioActionTick;
+  static const audioTaskComplete = audioMilestoneLift;
+  static const audioActionTick = 'assets/audio/action_tick.wav';
+  static const audioSignalPing = 'assets/audio/signal_ping.wav';
+  static const audioMilestoneLift = 'assets/audio/milestone_lift.wav';
 
   // Backgrounds
-  static const bgCreator = 'assets/backgrounds/creator_bg.jpg';
-  static const bgFocus = 'assets/backgrounds/focus_bg.jpg';
-  static const bgHome = 'assets/backgrounds/home_bg.jpg';
-  static const bgLogin = 'assets/backgrounds/login_bg.jpg';
-  static const bgLogs = 'assets/backgrounds/logs_bg.jpg';
-  static const bgNexus = 'assets/backgrounds/nexus_bg.jpg';
-  static const bgOnboarding = 'assets/backgrounds/onboarding_screen.jpg';
-  static const bgPlan = 'assets/backgrounds/plan_bg.jpg';
-  static const bgProfile = 'assets/backgrounds/profile_bg.jpg';
-  static const bgProgression = 'assets/backgrounds/progression_bg.jpg';
-  static const bgReflect = 'assets/backgrounds/reflect_bg.jpg';
-  static const bgSettings = 'assets/backgrounds/settings_bg.jpg';
-  static const bgSiConsole = 'assets/backgrounds/si_console_bg.jpg';
-  static const bgTasks = 'assets/backgrounds/tasks_bg.jpg';
+  static const bgCreator = bgCreatorIntent;
+  static const bgFocus = bgTemporalFocus;
+  static const bgHome = bgHomeOrbit;
+  static const bgLogin = bgArrival;
+  static const bgLogs = bgActivityArchive;
+  static const bgNexus = bgTimelineThreads;
+  static const bgOnboarding = bgFirstSignal;
+  static const bgPlan = bgTemporalFocus;
+  static const bgProfile = bgIdentity;
+  static const bgProgression = bgProgressionAscension;
+  static const bgReflect = bgReflectionPool;
+  static const bgSettings = bgTemporalCalm;
+  static const bgSiConsole = bgTrajectoryFork;
+  static const bgTasks = bgActivityArchive;
+  static const bgCreatorIntent =
+      'assets/backgrounds/creator_intent_field_v1.jpg';
+  static const bgHomeOrbit = 'assets/backgrounds/home_daily_orbit_v1.jpg';
+  static const bgArrival = 'assets/backgrounds/arrival_threshold_v1.jpg';
+  static const bgFirstSignal =
+      'assets/backgrounds/first_signal_activation_v1.jpg';
+  static const bgIdentity = 'assets/backgrounds/identity_constellation_v1.jpg';
+  static const bgProgressionAscension =
+      'assets/backgrounds/progression_ascension_v1.jpg';
+  static const bgSettingsControlPlane =
+      'assets/backgrounds/settings_control_plane_v1.jpg';
+  static const bgTemporalCalm =
+      'assets/backgrounds/temporal_atmosphere_calm_v1.jpg';
+  static const bgTemporalFocus =
+      'assets/backgrounds/temporal_atmosphere_focus_v1.jpg';
+  static const bgTemporalRecovery =
+      'assets/backgrounds/temporal_atmosphere_recovery_v1.jpg';
+  static const bgTimelineThreads = 'assets/backgrounds/timeline_threads_v1.jpg';
+  static const bgTrajectoryFork = 'assets/backgrounds/trajectory_fork_v1.jpg';
+  static const bgActivityArchive = 'assets/backgrounds/activity_archive_v1.jpg';
+  static const bgReflectionPool = 'assets/backgrounds/reflection_pool_v1.jpg';
 
   // Data
   static const dataCreatorSeed = 'assets/data/creator_seed.json';
@@ -37,6 +62,8 @@ class AppAssets {
   static const fontInterBold = 'assets/fonts/Inter-Bold.ttf';
   static const fontInterMedium = 'assets/fonts/Inter-Medium.ttf';
   static const fontInterRegular = 'assets/fonts/Inter-Regular.ttf';
+  static const fontSpaceGrotesk = 'assets/fonts/SpaceGrotesk-Variable.ttf';
+  static const fontJetBrainsMono = 'assets/fonts/JetBrainsMono-Variable.ttf';
 
   // Icons
   static const iconAddTask = 'assets/icons/add_task.svg';
@@ -57,6 +84,12 @@ class AppAssets {
   static const iconStop = 'assets/icons/stop.svg';
   static const iconStreak = 'assets/icons/streak.svg';
   static const iconTasks = 'assets/icons/tasks.svg';
+  static const iconCoach = 'assets/icons/coach.svg';
+  static const iconInsights = 'assets/icons/insights.svg';
+  static const iconApp = 'assets/icons/app_icon.png';
+
+  // Atmosphere
+  static const overlayNoise = 'assets/overlays/noise_atmosphere_v2.png';
 
   // Legal
   static const legalPrivacyTxt = 'assets/legal/privacy_policy.txt';

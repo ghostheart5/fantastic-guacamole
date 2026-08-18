@@ -3,32 +3,32 @@
   "timelineItems": [
     {
       "time": "08:30",
-      "title": "Morning Calibration",
-      "kind": "Focus Block",
+      "title": "Choose today's focus block",
+      "kind": "Starter",
       "colorHex": "0xFF00F0FF"
     },
     {
       "time": "10:00",
-      "title": "Adaptive Routine Update",
-      "kind": "High Priority",
+      "title": "Protect the next important step",
+      "kind": "Focus Block",
       "colorHex": "0xFFFF4D6D"
     },
     {
       "time": "13:00",
-      "title": "Timeline Review",
+      "title": "Evidence check: notice what changed",
       "kind": "Review",
       "colorHex": "0xFFFFB347"
     },
     {
       "time": "15:00",
-      "title": "Team Sync",
-      "kind": "Event",
+      "title": "Recovery buffer",
+      "kind": "Reset",
       "colorHex": "0xFF8A5CFF"
     },
     {
       "time": "16:30",
-      "title": "Output Plan Lock",
-      "kind": "Execution",
+      "title": "Close the loop and revise tomorrow",
+      "kind": "Reflection",
       "colorHex": "0xFF00FFA3"
     }
   ]

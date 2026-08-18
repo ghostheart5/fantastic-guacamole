@@ -116,13 +116,12 @@ flutter:
   uses-material-design: true
   assets:
     - .env
-    - assets/animations/focus_pulse.json
     - assets/animations/level_up.json
-    - assets/animations/completion_burst.json
-    - assets/audio/ai_decision.wav
+    - assets/animations/signal_pulse.json
     - assets/audio/error_soft.wav
-    - assets/audio/focus_start.wav
-    - assets/audio/task_complete.wav
+    - assets/audio/action_tick.wav
+    - assets/audio/signal_ping.wav
+    - assets/audio/milestone_lift.wav
     - assets/backgrounds/
     - assets/data/creator_seed.json
     - assets/data/si_seed.json
@@ -132,6 +131,8 @@ flutter:
     - assets/fonts/Inter-Bold.ttf
     - assets/fonts/Inter-Medium.ttf
     - assets/fonts/Inter-Regular.ttf
+    - assets/fonts/SpaceGrotesk-Variable.ttf
+    - assets/fonts/JetBrainsMono-Variable.ttf
     - assets/icons/add_task.svg
     - assets/icons/focus.svg
     - assets/icons/home.svg
@@ -150,10 +151,15 @@ flutter:
     - assets/icons/stop.svg
     - assets/icons/streak.svg
     - assets/icons/tasks.svg
+    - assets/icons/coach.svg
+    - assets/icons/insights.svg
+    - assets/icons/app_icon.png
+    - assets/overlays/noise_atmosphere_v2.png
     - assets/legal/privacy_policy.txt
     - assets/legal/terms_of_service.html
     - assets/legal/terms_of_service.txt
     - assets/tutorials/home.json
+    - assets/tutorials/tasks.json
   fonts:
     - family: Inter
       fonts:

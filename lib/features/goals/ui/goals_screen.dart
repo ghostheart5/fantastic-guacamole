@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/state/models/goal_progress_view.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/tutorial_target_registry.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_urls.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
@@ -20,7 +21,7 @@ class GoalsScreen extends ConsumerWidget {
     final goals = ref.watch(goalsProvider);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/settings_bg.jpg',
+      backgroundAssetPath: AppAssets.bgTemporalCalm,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         floatingActionButton: FloatingActionButton(

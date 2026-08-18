@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/tutorial/tutorial_provider.dart';
 import 'package:fantastic_guacamole/tutorial/widgets/micro_tutorial_card.dart';
 import 'package:fantastic_guacamole/tutorial/widgets/show_me_again_button.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
+import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +18,7 @@ class TaskScreen extends ConsumerWidget {
     final TrajectorySummaryView summary = ref.watch(trajectorySummaryProvider);
 
     return AnimatedSystemBackground(
-      backgroundAssetPath: 'assets/backgrounds/tasks_bg.jpg',
+      backgroundAssetPath: AppAssets.bgActivityArchive,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(

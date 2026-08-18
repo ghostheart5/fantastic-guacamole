@@ -1,0 +1,42 @@
+{
+    "id": "tasks_onboarding",
+    "title": "Tasks Tutorial",
+    "version": 1,
+    "steps": [
+        {
+            "id": "tasks_intro",
+            "title": "Task Flow",
+            "body": "Capture one clear task to start momentum.",
+            "trigger": "manual",
+            "blockMode": "nonBlocking",
+            "nextStepId": "open_create"
+        },
+        {
+            "id": "open_create",
+            "title": "Open Task Creator",
+            "body": "Tap the add task control.",
+            "targetId": "tasks.add_button",
+            "trigger": "tap",
+            "blockMode": "allowTarget",
+            "nextStepId": "title_input"
+        },
+        {
+            "id": "title_input",
+            "title": "Name Your Task",
+            "body": "Enter a clear title to continue.",
+            "targetId": "tasks.title_input",
+            "trigger": "input",
+            "inputKey": "task_title",
+            "expectedValue": "Plan tomorrow",
+            "nextStepId": "tasks_done"
+        },
+        {
+            "id": "tasks_done",
+            "title": "Task Flow Ready",
+            "body": "You can now capture and execute tasks quickly.",
+            "trigger": "manual",
+            "autoAdvance": true,
+            "delayMs": 700
+        }
+    ]
+}
