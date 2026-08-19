@@ -32,6 +32,10 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
       onboardingCompleteGuardProvider,
       (_, _) => notifyListeners(),
     );
+    _ref.listen<bool>(
+      onboardingWelcomeCompleteGuardProvider,
+      (_, _) => notifyListeners(),
+    );
     _ref.listen(intelligenceStateProvider, (_, _) => notifyListeners());
     _ref.listen(mockLoginConfigProvider, (_, _) => notifyListeners());
   }
@@ -40,17 +44,22 @@ class _AppRouterRefreshListenable extends ChangeNotifier {
 
   bool get isAuthenticated => _ref.read(authenticatedGuardProvider);
   bool get onboardingComplete => _ref.read(onboardingCompleteGuardProvider);
+  bool get welcomeComplete => _ref.read(onboardingWelcomeCompleteGuardProvider);
 }
 
 String _resolveInitialLocation({
   required bool isAuthenticated,
+  required bool welcomeComplete,
   required bool onboardingComplete,
 }) {
-  if (!onboardingComplete) {
+  if (!welcomeComplete) {
     return RoutePaths.onboarding;
   }
   if (!isAuthenticated) {
     return RoutePaths.login;
+  }
+  if (!onboardingComplete) {
+    return RoutePaths.onboarding;
   }
   return RoutePaths.nexus;
 }
@@ -62,15 +71,20 @@ String _resolveInitialLocation({
 /// per-route `redirect` (e.g. the legacy aliases below) may still apply.
 String? computeAppRedirect({
   required bool isAuthenticated,
+  required bool welcomeComplete,
   required bool onboardingComplete,
-  required bool mockLoginEnabled,
   required String location,
 }) {
-  if (!onboardingComplete && location != RoutePaths.onboarding) {
-    if (mockLoginEnabled && location == RoutePaths.login) {
-      return null;
-    }
+  if (!welcomeComplete && location != RoutePaths.onboarding) {
     return RoutePaths.onboarding;
+  }
+
+  if (welcomeComplete && !isAuthenticated && location != RoutePaths.login) {
+    return RoutePaths.login;
+  }
+
+  if (welcomeComplete && isAuthenticated && !onboardingComplete) {
+    return location == RoutePaths.onboarding ? null : RoutePaths.onboarding;
   }
 
   if (location == RoutePaths.shell && isAuthenticated) {
@@ -82,7 +96,7 @@ String? computeAppRedirect({
   }
 
   if (location == RoutePaths.onboarding) {
-    if (!onboardingComplete) {
+    if (!welcomeComplete || (isAuthenticated && !onboardingComplete)) {
       return null;
     }
     if (isAuthenticated) {
@@ -91,18 +105,12 @@ String? computeAppRedirect({
     return RoutePaths.login;
   }
 
-  if (!isAuthenticated && onboardingComplete && location != RoutePaths.login) {
-    return RoutePaths.login;
-  }
-
-  if (location == RoutePaths.login &&
-      !onboardingComplete &&
-      !mockLoginEnabled) {
+  if (location == RoutePaths.login && !welcomeComplete) {
     return RoutePaths.onboarding;
   }
 
   if (location == RoutePaths.login && isAuthenticated) {
-    return RoutePaths.nexus;
+    return onboardingComplete ? RoutePaths.nexus : RoutePaths.onboarding;
   }
 
   return null;
@@ -114,6 +122,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
   final String initialLocation = _resolveInitialLocation(
     isAuthenticated: refresh.isAuthenticated,
+    welcomeComplete: refresh.welcomeComplete,
     onboardingComplete: refresh.onboardingComplete,
   );
 
@@ -124,11 +133,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       return computeAppRedirect(
         isAuthenticated: refresh.isAuthenticated,
+        welcomeComplete: refresh.welcomeComplete,
         onboardingComplete: refresh.onboardingComplete,
-        mockLoginEnabled: ref
-            .read(intelligenceStateProvider)
-            .flags
-            .mockLoginEnabled,
         location: state.matchedLocation,
       );
     },

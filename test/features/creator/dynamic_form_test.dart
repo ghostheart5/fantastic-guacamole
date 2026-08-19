@@ -3,6 +3,88 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('schedule picker pauses guidance while its dialog is open', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    bool pickerVisible = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DynamicForm(
+              onPickerVisibilityChanged: (bool value) => pickerVisible = value,
+              onSubmit: (_) async {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(find.text('Schedule date and time...'));
+    await tester.tap(find.text('Schedule date and time...'));
+    await tester.pumpAndSettle();
+    expect(pickerVisible, isTrue);
+    expect(find.byType(DatePickerDialog), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(pickerVisible, isFalse);
+  });
+
+  testWidgets('guided first task requires real choices and a schedule', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    bool titleReady = false;
+    bool typeChosen = false;
+    bool priorityChosen = false;
+    bool submitted = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: DynamicForm(
+              guidedFirstTask: true,
+              onTitleValidityChanged: (bool value) => titleReady = value,
+              onTypeChosen: () => typeChosen = true,
+              onPriorityChosen: () => priorityChosen = true,
+              onSubmit: (_) async => submitted = true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final Finder titleField = find.byWidgetPredicate(
+      (Widget widget) =>
+          widget is TextField && widget.decoration?.hintText == 'Title *',
+    );
+    await tester.enterText(titleField, 'Prepare the first launch');
+    await tester.tap(find.text('TASK'));
+    await tester.tap(find.bySemanticsLabel('Set priority level 4'));
+    await tester.ensureVisible(find.text('FORGE TASK'));
+    await tester.tap(find.text('FORGE TASK'));
+    await tester.pump();
+
+    expect(titleReady, isTrue);
+    expect(typeChosen, isTrue);
+    expect(priorityChosen, isTrue);
+    expect(submitted, isFalse);
+    expect(
+      find.text(
+        'Choose a date and time so your first task can appear on Timeline.',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('failed task save preserves the form and shows a retry message', (
     WidgetTester tester,
   ) async {

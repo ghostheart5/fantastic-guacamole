@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
+import 'package:fantastic_guacamole/tutorial/interactive_tutorial_overlay.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_sizes.dart';
@@ -25,6 +27,7 @@ class LoginScreen extends StatefulWidget {
     this.startupError,
     this.showMockHint = false,
     this.mockHint,
+    this.showFirstRunGuide = false,
     super.key,
   });
 
@@ -44,6 +47,7 @@ class LoginScreen extends StatefulWidget {
   final String? startupError;
   final bool showMockHint;
   final String? mockHint;
+  final bool showFirstRunGuide;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -53,6 +57,8 @@ class _LoginScreenState extends State<LoginScreen>
     with TickerProviderStateMixin {
   late final AnimationController _pulse;
   late final AnimationController _entry;
+  final GlobalKey _loginFormKey = GlobalKey(debugLabel: 'first-login-form');
+  bool _guideVisible = true;
 
   @override
   void initState() {
@@ -76,6 +82,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
     final VoidCallback? onMockLogin = widget.onMockLogin;
     final String? startupError = widget.startupError;
     final String? startupMessage =
@@ -85,6 +92,8 @@ class _LoginScreenState extends State<LoginScreen>
     final Size size = MediaQuery.sizeOf(context);
     final bool landscape = size.width > size.height;
     final bool wideLayout = size.width >= 900;
+    final bool showFirstLoginGuide =
+        _guideVisible && widget.showFirstRunGuide && !widget.isSubmitting;
     final Animation<double> brandAnimation = CurvedAnimation(
       parent: _entry,
       curve: const Interval(0.0, 0.62, curve: Curves.easeOutCubic),
@@ -129,6 +138,7 @@ class _LoginScreenState extends State<LoginScreen>
 
           if (landscape && wideLayout)
             _LandscapeLoginContent(
+              formKey: _loginFormKey,
               pulse: _pulse,
               startupMessage: startupMessage,
               isSubmitting: widget.isSubmitting,
@@ -151,6 +161,7 @@ class _LoginScreenState extends State<LoginScreen>
             )
           else
             _PortraitLoginContent(
+              formKey: _loginFormKey,
               pulse: _pulse,
               startupMessage: startupMessage,
               isSubmitting: widget.isSubmitting,
@@ -189,6 +200,21 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ),
             ),
+          if (showFirstLoginGuide)
+            InteractiveTutorialOverlay(
+              targetKey: _loginFormKey,
+              stepLabel: l10n.isSpanish
+                  ? 'Configuración 2 de 4'
+                  : 'First setup 2 of 4',
+              title: l10n.isSpanish
+                  ? 'Inicia sesión o crea tu cuenta'
+                  : 'Sign in or create your account',
+              body: l10n.isSpanish
+                  ? 'Usa la cuenta real que quieres que ChronoSpark recuerde. Después de autenticarte, continuarás con tu nombre visible.'
+                  : 'Use the real account you want ChronoSpark to remember. After authentication, setup continues with your display name.',
+              primaryLabel: l10n.isSpanish ? 'Comenzar acceso' : 'Start login',
+              onPrimary: () => setState(() => _guideVisible = false),
+            ),
         ],
       ),
     );
@@ -197,6 +223,7 @@ class _LoginScreenState extends State<LoginScreen>
 
 class _PortraitLoginContent extends StatelessWidget {
   const _PortraitLoginContent({
+    required this.formKey,
     required this.pulse,
     required this.startupMessage,
     required this.isSubmitting,
@@ -218,6 +245,7 @@ class _PortraitLoginContent extends StatelessWidget {
     required this.formAnimation,
   });
 
+  final GlobalKey formKey;
   final AnimationController pulse;
   final String? startupMessage;
   final bool isSubmitting;
@@ -274,6 +302,7 @@ class _PortraitLoginContent extends StatelessWidget {
                     animation: formAnimation,
                     offsetY: 24,
                     child: _LoginFormCard(
+                      key: formKey,
                       startupMessage: startupMessage,
                       isSubmitting: isSubmitting,
                       isSignUpMode: isSignUpMode,
@@ -305,6 +334,7 @@ class _PortraitLoginContent extends StatelessWidget {
 
 class _LandscapeLoginContent extends StatelessWidget {
   const _LandscapeLoginContent({
+    required this.formKey,
     required this.pulse,
     required this.startupMessage,
     required this.isSubmitting,
@@ -326,6 +356,7 @@ class _LandscapeLoginContent extends StatelessWidget {
     required this.formAnimation,
   });
 
+  final GlobalKey formKey;
   final AnimationController pulse;
   final String? startupMessage;
   final bool isSubmitting;
@@ -392,6 +423,7 @@ class _LandscapeLoginContent extends StatelessWidget {
                                 animation: formAnimation,
                                 offsetY: 18,
                                 child: _LoginFormCard(
+                                  key: formKey,
                                   startupMessage: startupMessage,
                                   isSubmitting: isSubmitting,
                                   isSignUpMode: isSignUpMode,
@@ -567,6 +599,7 @@ class _LoginFormCard extends StatelessWidget {
     required this.showMockHint,
     required this.mockHint,
     required this.compactSecondaryButtons,
+    super.key,
   });
 
   final String? startupMessage;

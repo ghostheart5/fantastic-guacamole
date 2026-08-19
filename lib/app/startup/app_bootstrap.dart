@@ -18,7 +18,9 @@ import 'package:fantastic_guacamole/state/core/app_providers.dart'
     show
         onboardingCompleteProvider,
         onboardingCompleteStorageKey,
-        onboardingContentVersionStorageKey;
+        onboardingContentVersionStorageKey,
+        onboardingWelcomeCompleteProvider,
+        onboardingWelcomeCompleteStorageKey;
 import 'package:fantastic_guacamole/state/core/state_bootstrap.dart'
     show stateBootstrapProvider;
 import 'package:fantastic_guacamole/state/providers/auth_session_boundary_coordinator_provider.dart';
@@ -223,6 +225,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
     // forever with no crash report — strictly worse than crashing.
     StartupBootstrapResult result = const StartupBootstrapResult(
       hasOnboarded: false,
+      hasSeenWelcome: false,
       startupError: null,
     );
     String fatalIssue = '';
@@ -236,6 +239,7 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
           );
           return const StartupBootstrapResult(
             hasOnboarded: false,
+            hasSeenWelcome: false,
             startupError:
                 'Startup bootstrap timed out. App started in degraded mode.',
           );
@@ -280,6 +284,9 @@ class _StartupBootstrapGateState extends ConsumerState<StartupBootstrapGate> {
       return;
     }
     ref.read(onboardingCompleteProvider.notifier).set(result.hasOnboarded);
+    ref
+        .read(onboardingWelcomeCompleteProvider.notifier)
+        .set(result.hasSeenWelcome);
     setState(() {
       _startupError = startupError;
       _ready = true;
@@ -325,17 +332,24 @@ Future<String?> _runStateBootstrapSafe(WidgetRef ref) async {
 class StartupBootstrapResult {
   const StartupBootstrapResult({
     required this.hasOnboarded,
+    required this.hasSeenWelcome,
     required this.startupError,
   });
 
   final bool hasOnboarded;
+  final bool hasSeenWelcome;
   final String? startupError;
 }
 
 class PrefsLoadResult {
-  const PrefsLoadResult({required this.hasOnboarded, required this.issue});
+  const PrefsLoadResult({
+    required this.hasOnboarded,
+    required this.hasSeenWelcome,
+    required this.issue,
+  });
 
   final bool hasOnboarded;
+  final bool hasSeenWelcome;
   final String? issue;
 }
 
@@ -387,6 +401,7 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
   startupError = _appendStartupIssue(startupError, prefsResult.issue ?? '');
 
   final bool hasOnboarded = prefsResult.hasOnboarded;
+  final bool hasSeenWelcome = prefsResult.hasSeenWelcome;
 
   final List<String> readinessIssues = intelligenceService
       .productionReadinessIssues();
@@ -431,6 +446,7 @@ Future<StartupBootstrapResult> _initializeStartup(WidgetRef ref) async {
 
   return StartupBootstrapResult(
     hasOnboarded: hasOnboarded,
+    hasSeenWelcome: hasSeenWelcome,
     startupError: startupError,
   );
 }
@@ -674,6 +690,7 @@ Future<String?> _initIdentitySafe(WidgetRef ref) async {
 
 Future<PrefsLoadResult> _loadPrefsSafe() async {
   bool hasOnboarded = false;
+  bool hasSeenWelcome = false;
 
   try {
     Logger.log('Startup', 'Loading local preferences...');
@@ -687,6 +704,15 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
     hasOnboarded = _coercePrefsBool(rawOnboardingComplete) ?? false;
     if (rawOnboardingComplete is String) {
       await prefs.setBool(onboardingCompleteStorageKey, hasOnboarded);
+    }
+
+    final Object? rawWelcomeComplete = prefs.get(
+      onboardingWelcomeCompleteStorageKey,
+    );
+    hasSeenWelcome = _coercePrefsBool(rawWelcomeComplete) ?? hasOnboarded;
+    if (rawWelcomeComplete is String ||
+        (rawWelcomeComplete == null && hasOnboarded)) {
+      await prefs.setBool(onboardingWelcomeCompleteStorageKey, hasSeenWelcome);
     }
 
     final Object? rawOnboardingVersion = prefs.get(
@@ -728,12 +754,17 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
     RuntimeDiagnostics.record(
       'Local preferences loaded. onboardingComplete=$hasOnboarded',
     );
-    return PrefsLoadResult(hasOnboarded: hasOnboarded, issue: null);
+    return PrefsLoadResult(
+      hasOnboarded: hasOnboarded,
+      hasSeenWelcome: hasSeenWelcome,
+      issue: null,
+    );
   } on TimeoutException {
     Logger.warn('Local preferences initialization timed out.');
     RuntimeDiagnostics.record('Local preferences initialization timed out.');
     return const PrefsLoadResult(
       hasOnboarded: false,
+      hasSeenWelcome: false,
       issue: 'Local preferences initialization timed out.',
     );
   } on Object catch (error) {
@@ -741,6 +772,7 @@ Future<PrefsLoadResult> _loadPrefsSafe() async {
     RuntimeDiagnostics.record('Local preferences initialization failed.');
     return const PrefsLoadResult(
       hasOnboarded: false,
+      hasSeenWelcome: false,
       issue: 'Local preferences initialization failed. Retry from the app.',
     );
   }

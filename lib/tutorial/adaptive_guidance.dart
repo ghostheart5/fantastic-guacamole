@@ -2,6 +2,7 @@ import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/state/providers/daily_decision_intelligence_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -397,9 +398,12 @@ class AdaptiveGuidanceNotifier extends AsyncNotifier<AdaptiveGuidanceState> {
     await record(GuidanceMilestone.replayed);
     await restartLessons();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(onboardingWelcomeCompleteStorageKey, false);
     await prefs.setBool(onboardingCompleteStorageKey, false);
     await prefs.setInt(onboardingContentVersionStorageKey, 0);
+    await ref.read(accountOnboardingCompleteProvider.notifier).reset();
     ref.read(onboardingCompleteProvider.notifier).set(false);
+    ref.read(onboardingWelcomeCompleteProvider.notifier).set(false);
   }
 
   Future<AdaptiveGuidanceState> _current() async {

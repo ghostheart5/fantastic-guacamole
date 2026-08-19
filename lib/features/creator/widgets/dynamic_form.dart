@@ -1,14 +1,32 @@
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/type_selector.dart';
 import 'package:fantastic_guacamole/state/models/creator_form_data.dart';
+import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 
 class DynamicForm extends StatefulWidget {
-  const DynamicForm({super.key, required this.onSubmit});
+  const DynamicForm({
+    super.key,
+    required this.onSubmit,
+    this.guidedFirstTask = false,
+    this.onTitleValidityChanged,
+    this.onTypeChosen,
+    this.onPriorityChosen,
+    this.onScheduleValidityChanged,
+    this.tutorialController,
+    this.onPickerVisibilityChanged,
+  });
 
   final Future<void> Function(CreatorFormData data) onSubmit;
+  final bool guidedFirstTask;
+  final ValueChanged<bool>? onTitleValidityChanged;
+  final VoidCallback? onTypeChosen;
+  final VoidCallback? onPriorityChosen;
+  final ValueChanged<bool>? onScheduleValidityChanged;
+  final CreatorTutorialFormController? tutorialController;
+  final ValueChanged<bool>? onPickerVisibilityChanged;
 
   @override
   State<DynamicForm> createState() => _DynamicFormState();
@@ -23,9 +41,26 @@ class _DynamicFormState extends State<DynamicForm> {
   RecurrenceRule _recurrenceRule = RecurrenceRule.none;
   bool _submitting = false;
   String? _errorMessage;
+  late final Future<void> Function() _tutorialSubmitAction;
+
+  @override
+  void initState() {
+    super.initState();
+    _tutorialSubmitAction = _submit;
+    widget.tutorialController?.attach(_tutorialSubmitAction);
+    _titleController.addListener(_notifyTitleValidity);
+  }
+
+  void _notifyTitleValidity() {
+    widget.onTitleValidityChanged?.call(
+      _titleController.text.trim().isNotEmpty,
+    );
+  }
 
   @override
   void dispose() {
+    widget.tutorialController?.detach(_tutorialSubmitAction);
+    _titleController.removeListener(_notifyTitleValidity);
     _titleController.dispose();
     _descController.dispose();
     super.dispose();
@@ -36,6 +71,13 @@ class _DynamicFormState extends State<DynamicForm> {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
       setState(() => _errorMessage = 'Add a title before creating the task.');
+      return;
+    }
+    if (widget.guidedFirstTask && _scheduledFor == null) {
+      setState(
+        () => _errorMessage =
+            'Choose a date and time so your first task can appear on Timeline.',
+      );
       return;
     }
 
@@ -101,7 +143,14 @@ class _DynamicFormState extends State<DynamicForm> {
         children: [
           _sectionLabel('ENTRY DETAILS', AppColors.memoryAmber),
           const SizedBox(height: 14),
-          _buildTextField(_titleController, 'Title *', maxLines: 1),
+          _buildTextField(
+            _titleController,
+            'Title *',
+            key: widget.guidedFirstTask
+                ? FirstRunTutorialTargets.creatorTitle
+                : null,
+            maxLines: 1,
+          ),
           const SizedBox(height: 10),
           _buildTextField(
             _descController,
@@ -111,20 +160,37 @@ class _DynamicFormState extends State<DynamicForm> {
             maxLines: _selectedType.toLowerCase() == 'note' ? 5 : 3,
           ),
           const SizedBox(height: 20),
-          TypeSelector(
-            selected: _selectedType,
-            onSelect: (t) => setState(() {
-              _selectedType = t;
-              final String kind = t.trim().toLowerCase();
-              if (kind == 'routine' && _recurrenceRule == RecurrenceRule.none) {
-                _recurrenceRule = RecurrenceRule.daily;
-              }
-            }),
+          KeyedSubtree(
+            key: widget.guidedFirstTask
+                ? FirstRunTutorialTargets.creatorType
+                : null,
+            child: TypeSelector(
+              selected: _selectedType,
+              onSelect: (t) {
+                widget.onTypeChosen?.call();
+                setState(() {
+                  _selectedType = t;
+                  final String kind = t.trim().toLowerCase();
+                  if (kind == 'routine' &&
+                      _recurrenceRule == RecurrenceRule.none) {
+                    _recurrenceRule = RecurrenceRule.daily;
+                  }
+                });
+              },
+            ),
           ),
           const SizedBox(height: 20),
-          _PriorityPicker(
-            value: _priority,
-            onChanged: (v) => setState(() => _priority = v),
+          KeyedSubtree(
+            key: widget.guidedFirstTask
+                ? FirstRunTutorialTargets.creatorPriority
+                : null,
+            child: _PriorityPicker(
+              value: _priority,
+              onChanged: (v) {
+                widget.onPriorityChosen?.call();
+                setState(() => _priority = v);
+              },
+            ),
           ),
           const SizedBox(height: 20),
           _RecurrencePicker(
@@ -132,9 +198,18 @@ class _DynamicFormState extends State<DynamicForm> {
             onChanged: (value) => setState(() => _recurrenceRule = value),
           ),
           const SizedBox(height: 20),
-          _ScheduleDatePicker(
-            selected: _scheduledFor,
-            onPick: (date) => setState(() => _scheduledFor = date),
+          KeyedSubtree(
+            key: widget.guidedFirstTask
+                ? FirstRunTutorialTargets.creatorSchedule
+                : null,
+            child: _ScheduleDatePicker(
+              selected: _scheduledFor,
+              onVisibilityChanged: widget.onPickerVisibilityChanged,
+              onPick: (date) {
+                widget.onScheduleValidityChanged?.call(true);
+                setState(() => _scheduledFor = date);
+              },
+            ),
           ),
           if (_errorMessage != null) ...[
             const SizedBox(height: 12),
@@ -144,45 +219,50 @@ class _DynamicFormState extends State<DynamicForm> {
             ),
           ],
           const SizedBox(height: 20),
-          SmartPressable(
-            onTap: _submitting ? () {} : _submit,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: AppColors.memoryAmber.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: AppColors.memoryAmber.withValues(alpha: 0.5),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.memoryAmber.withValues(alpha: 0.2),
-                    blurRadius: 12,
+          KeyedSubtree(
+            key: widget.guidedFirstTask
+                ? FirstRunTutorialTargets.creatorSave
+                : null,
+            child: SmartPressable(
+              onTap: _submitting ? () {} : _submit,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.memoryAmber.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.memoryAmber.withValues(alpha: 0.5),
                   ),
-                ],
-              ),
-              child: _submitting
-                  ? const Center(
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.memoryAmber.withValues(alpha: 0.2),
+                      blurRadius: 12,
+                    ),
+                  ],
+                ),
+                child: _submitting
+                    ? const Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.memoryAmber,
+                          ),
+                        ),
+                      )
+                    : const Text(
+                        'FORGE TASK',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          letterSpacing: 2.5,
+                          fontWeight: FontWeight.w800,
                           color: AppColors.memoryAmber,
                         ),
                       ),
-                    )
-                  : const Text(
-                      'FORGE TASK',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        letterSpacing: 2.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.memoryAmber,
-                      ),
-                    ),
+              ),
             ),
           ),
         ],
@@ -193,9 +273,11 @@ class _DynamicFormState extends State<DynamicForm> {
   Widget _buildTextField(
     TextEditingController controller,
     String hint, {
+    Key? key,
     int maxLines = 1,
   }) {
     return TextField(
+      key: key,
       controller: controller,
       maxLines: maxLines,
       style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
@@ -340,26 +422,52 @@ class _PriorityPicker extends StatelessWidget {
 }
 
 class _ScheduleDatePicker extends StatelessWidget {
-  const _ScheduleDatePicker({required this.selected, required this.onPick});
+  const _ScheduleDatePicker({
+    required this.selected,
+    required this.onPick,
+    this.onVisibilityChanged,
+  });
 
   final DateTime? selected;
   final ValueChanged<DateTime?> onPick;
+  final ValueChanged<bool>? onVisibilityChanged;
+
+  Future<void> _pickDateAndTime(BuildContext context) async {
+    onVisibilityChanged?.call(true);
+    try {
+      final DateTime now = DateTime.now();
+      final DateTime? date = await showDatePicker(
+        context: context,
+        initialDate: selected ?? now,
+        firstDate: DateTime(now.year, now.month, now.day),
+        lastDate: now.add(const Duration(days: 365)),
+        builder: (context, child) => Theme(
+          data: ThemeData.dark(),
+          child: child ?? const SizedBox.shrink(),
+        ),
+      );
+      if (date == null || !context.mounted) return;
+
+      final DateTime suggested = selected ?? now.add(const Duration(hours: 1));
+      final TimeOfDay? time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(suggested),
+        builder: (context, child) => Theme(
+          data: ThemeData.dark(),
+          child: child ?? const SizedBox.shrink(),
+        ),
+      );
+      if (time == null) return;
+      onPick(DateTime(date.year, date.month, date.day, time.hour, time.minute));
+    } finally {
+      onVisibilityChanged?.call(false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return SmartPressable(
-      onTap: () {
-        showDatePicker(
-          context: context,
-          initialDate: selected ?? DateTime.now(),
-          firstDate: DateTime.now(),
-          lastDate: DateTime.now().add(const Duration(days: 365)),
-          builder: (context, child) => Theme(
-            data: ThemeData.dark(),
-            child: child ?? const SizedBox.shrink(),
-          ),
-        ).then(onPick);
-      },
+      onTap: () => _pickDateAndTime(context),
       semanticLabel: 'Schedule date',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -380,8 +488,8 @@ class _ScheduleDatePicker extends StatelessWidget {
             const SizedBox(width: 10),
             Text(
               selected == null
-                  ? 'Schedule for...'
-                  : '${selected!.day}/${selected!.month}/${selected!.year}',
+                  ? 'Schedule date and time...'
+                  : '${selected!.day}/${selected!.month}/${selected!.year}  ${TimeOfDay.fromDateTime(selected!).format(context)}',
               style: TextStyle(
                 fontSize: 13,
                 color: selected == null ? Colors.white24 : Colors.white70,

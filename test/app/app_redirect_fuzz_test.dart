@@ -9,16 +9,16 @@ import 'package:flutter_test/flutter_test.dart';
 /// `TooManyRedirectsException` in the real app.
 String? _followToStableLocation({
   required bool isAuthenticated,
+  required bool welcomeComplete,
   required bool onboardingComplete,
-  required bool mockLoginEnabled,
   required String location,
 }) {
   String current = location;
   for (int i = 0; i < 5; i++) {
     final String? next = computeAppRedirect(
       isAuthenticated: isAuthenticated,
+      welcomeComplete: welcomeComplete,
       onboardingComplete: onboardingComplete,
-      mockLoginEnabled: mockLoginEnabled,
       location: current,
     );
     if (next == null) {
@@ -68,16 +68,16 @@ const List<String> _allLocations = <String>[
 void main() {
   group('computeAppRedirect fuzz grid', () {
     for (final bool isAuthenticated in <bool>[false, true]) {
-      for (final bool onboardingComplete in <bool>[false, true]) {
-        for (final bool mockLoginEnabled in <bool>[false, true]) {
+      for (final bool welcomeComplete in <bool>[false, true]) {
+        for (final bool onboardingComplete in <bool>[false, true]) {
           for (final String location in _allLocations) {
             test('stabilizes within redirectLimit: '
-                'auth=$isAuthenticated onboarding=$onboardingComplete '
-                'mock=$mockLoginEnabled @ $location', () {
+                'auth=$isAuthenticated welcome=$welcomeComplete '
+                'onboarding=$onboardingComplete @ $location', () {
               final String? stable = _followToStableLocation(
                 isAuthenticated: isAuthenticated,
+                welcomeComplete: welcomeComplete,
                 onboardingComplete: onboardingComplete,
-                mockLoginEnabled: mockLoginEnabled,
                 location: location,
               );
               expect(
@@ -86,7 +86,8 @@ void main() {
                 reason:
                     'computeAppRedirect did not stabilize within 5 hops '
                     'from $location (auth=$isAuthenticated, '
-                    'onboarding=$onboardingComplete, mock=$mockLoginEnabled) '
+                    'welcome=$welcomeComplete, '
+                    'onboarding=$onboardingComplete) '
                     '— this combination would throw '
                     'TooManyRedirectsException in the real router.',
               );
@@ -99,27 +100,39 @@ void main() {
 
   group('legacy routes', () {
     for (final String path in _legacyPaths) {
-      test('$path: onboarding incomplete redirects to onboarding first', () {
+      test('$path: welcome incomplete redirects to welcome first', () {
         expect(
           computeAppRedirect(
             isAuthenticated: true,
+            welcomeComplete: false,
             onboardingComplete: false,
-            mockLoginEnabled: false,
             location: path,
           ),
           RoutePaths.onboarding,
         );
       });
 
-      test('$path: onboarded but signed out redirects to login first', () {
+      test('$path: welcome complete but signed out redirects to login', () {
         expect(
           computeAppRedirect(
             isAuthenticated: false,
+            welcomeComplete: true,
             onboardingComplete: true,
-            mockLoginEnabled: false,
             location: path,
           ),
           RoutePaths.login,
+        );
+      });
+
+      test('$path: authenticated profile setup redirects to onboarding', () {
+        expect(
+          computeAppRedirect(
+            isAuthenticated: true,
+            welcomeComplete: true,
+            onboardingComplete: false,
+            location: path,
+          ),
+          RoutePaths.onboarding,
         );
       });
 
@@ -128,8 +141,8 @@ void main() {
         expect(
           computeAppRedirect(
             isAuthenticated: true,
+            welcomeComplete: true,
             onboardingComplete: true,
-            mockLoginEnabled: false,
             location: path,
           ),
           isNull,
@@ -143,23 +156,35 @@ void main() {
       expect(
         computeAppRedirect(
           isAuthenticated: true,
+          welcomeComplete: true,
           onboardingComplete: true,
-          mockLoginEnabled: false,
           location: RoutePaths.shell,
         ),
         RoutePaths.nexus,
       );
     });
 
-    test('mock login bypasses the onboarding gate at /login', () {
+    test('login cannot bypass the welcome gate', () {
       expect(
         computeAppRedirect(
           isAuthenticated: false,
+          welcomeComplete: false,
           onboardingComplete: false,
-          mockLoginEnabled: true,
           location: RoutePaths.login,
         ),
-        isNull,
+        RoutePaths.onboarding,
+      );
+    });
+
+    test('successful login continues to name setup', () {
+      expect(
+        computeAppRedirect(
+          isAuthenticated: true,
+          welcomeComplete: true,
+          onboardingComplete: false,
+          location: RoutePaths.login,
+        ),
+        RoutePaths.onboarding,
       );
     });
 
@@ -167,8 +192,8 @@ void main() {
       expect(
         computeAppRedirect(
           isAuthenticated: true,
+          welcomeComplete: true,
           onboardingComplete: true,
-          mockLoginEnabled: false,
           location: RoutePaths.login,
         ),
         RoutePaths.nexus,

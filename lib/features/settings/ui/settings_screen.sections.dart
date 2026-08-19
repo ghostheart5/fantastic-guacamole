@@ -514,9 +514,9 @@ class _AdaptiveGuidanceSection extends ConsumerWidget {
                 onTap: () => unawaited(_restartGuide(context, ref)),
               ),
               _NeonNavTile(
-                title: 'Replay Two-Slide Onboarding',
+                title: 'Replay First-Run Tutorial',
                 subtitle:
-                    'Reopens the welcome and personalization slides only.',
+                    'Reopens welcome, profile setup, Creator, and Timeline guidance.',
                 onTap: () => unawaited(_replayOnboarding(context, ref)),
               ),
             ],

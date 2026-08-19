@@ -166,11 +166,11 @@ class ChronoSparkLocalizations {
     ChronoSparkString.notNow: 'Not now',
     ChronoSparkString.securingAccountData: 'Securing account data',
     ChronoSparkString.onboardingPrivacy:
-        'Your name and goal stay on this device unless you choose cloud backup. Smart Planner and SI Console use saved planning context; external AI processing is opt-in and explained in Settings.',
+        'Your display name stays on this device unless you choose cloud backup. Smart Planner and SI Console use saved planning context; external AI processing is opt-in and explained in Settings.',
     ChronoSparkString.onboardingWideBody:
-        'A clean profile anchors the first setup. Choose a name and goal, then ChronoSpark tunes the rest from real outcomes.',
+        'Choose what ChronoSpark should call you. The rest of setup learns from the real task you create next.',
     ChronoSparkString.onboardingCompactBody:
-        'This takes under a minute. Choose only the context needed to shape the first plan.',
+        'Choose what ChronoSpark should call you, then build your first real task.',
     ChronoSparkString.onboardingFinishError:
         'Unable to finish onboarding. Please try again.',
     ChronoSparkString.preservedDataIssue:
@@ -238,11 +238,11 @@ class ChronoSparkLocalizations {
     ChronoSparkString.notNow: 'Ahora no',
     ChronoSparkString.securingAccountData: 'Protegiendo datos de la cuenta',
     ChronoSparkString.onboardingPrivacy:
-        'Tu nombre y objetivo permanecen en este dispositivo salvo que actives la copia en la nube. Planificador Inteligente y Consola SI usan el contexto guardado; el procesamiento externo con IA es opcional y se explica en Ajustes.',
+        'Tu nombre visible permanece en este dispositivo salvo que actives la copia en la nube. Planificador Inteligente y Consola SI usan el contexto guardado; el procesamiento externo con IA es opcional y se explica en Ajustes.',
     ChronoSparkString.onboardingWideBody:
-        'Un perfil claro fija la primera configuración. Elige un nombre y un objetivo; ChronoSpark ajustará el resto con resultados reales.',
+        'Elige cómo debe llamarte ChronoSpark. El resto de la configuración aprenderá de la tarea real que crearás después.',
     ChronoSparkString.onboardingCompactBody:
-        'Esto tarda menos de un minuto. Elige solo el contexto necesario para formar el primer plan.',
+        'Elige cómo debe llamarte ChronoSpark y luego crea tu primera tarea real.',
     ChronoSparkString.onboardingFinishError:
         'No se pudo terminar la introducción. Inténtalo de nuevo.',
     ChronoSparkString.preservedDataIssue:

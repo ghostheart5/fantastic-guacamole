@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/features/onboarding/ui/onboarding_screen.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,21 +13,16 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
+      final ProviderContainer container = ProviderContainer();
+      container.read(onboardingWelcomeCompleteProvider.notifier).set(true);
+      addTearDown(container.dispose);
       await tester.pumpWidget(
-        const ProviderScope(child: MaterialApp(home: OnboardingScreen())),
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: OnboardingScreen()),
+        ),
       );
       await tester.pump();
-
-      // The starfield background repeats an AnimationController forever, so
-      // pumpAndSettle would never converge. A single large pump can also
-      // land mid-transition for the PageController-driven scroll, so settle
-      // the 400ms page-turn animation with several smaller steps instead.
-      for (int i = 0; i < 1; i++) {
-        await tester.tap(find.text('NEXT'));
-        for (int step = 0; step < 10; step++) {
-          await tester.pump(const Duration(milliseconds: 50));
-        }
-      }
 
       final Finder nameField = find.byType(TextField);
       expect(nameField, findsOneWidget);

@@ -1,12 +1,10 @@
-import 'dart:async';
-
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
-import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
+import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
@@ -39,26 +37,6 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   List<TimelineEventEntity>? _cachedCombined;
   int? _cachedCombinedKey;
   DateTime? _cachedCombinedDay;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        unawaited(_recordTimelineReview());
-      }
-    });
-  }
-
-  Future<void> _recordTimelineReview() async {
-    try {
-      await ref
-          .read(adaptiveGuidanceProvider.notifier)
-          .record(GuidanceMilestone.firstTimelineReview);
-    } catch (_) {
-      // Timeline remains usable if local guide persistence is unavailable.
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +114,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       grouped.putIfAbsent(key, () => <TimelineEventEntity>[]).add(event);
     }
     final List<String> days = grouped.keys.toList(growable: false);
+    String? tutorialEventId;
+    for (final TimelineEventEntity event in filtered) {
+      if (event.phase == 'task') {
+        tutorialEventId = event.id;
+        break;
+      }
+    }
 
     final int overdueCount = filtered
         .where((TimelineEventEntity event) => event.isOverdue)
@@ -339,8 +324,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                             ),
                           ),
                           ...dayEvents.map(
-                            (TimelineEventEntity event) =>
-                                _TimelineEventTile(event: event),
+                            (TimelineEventEntity event) => _TimelineEventTile(
+                              event: event,
+                              tutorialTarget: event.id == tutorialEventId,
+                            ),
                           ),
                         ],
                       );
@@ -356,8 +343,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 }
 
 class _TimelineEventTile extends StatelessWidget {
-  const _TimelineEventTile({required this.event});
+  const _TimelineEventTile({required this.event, required this.tutorialTarget});
   final TimelineEventEntity event;
+  final bool tutorialTarget;
 
   Color get _color {
     switch (event.type) {
@@ -441,6 +429,7 @@ class _TimelineEventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
+      key: tutorialTarget ? FirstRunTutorialTargets.timelineEvidence : null,
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

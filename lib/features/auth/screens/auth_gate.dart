@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/core/utils/validators.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
 import 'package:fantastic_guacamole/features/auth/ui/login_screen.dart';
+import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/auth_provider.dart';
 import 'package:fantastic_guacamole/state/providers/intelligence_provider.dart';
 import 'package:fantastic_guacamole/state/services/auth_gateway_support.dart';
@@ -348,7 +349,7 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   }
 }
 
-class _AuthScreen extends StatefulWidget {
+class _AuthScreen extends ConsumerStatefulWidget {
   const _AuthScreen({
     required this.authService,
     required this.startupError,
@@ -368,10 +369,10 @@ class _AuthScreen extends StatefulWidget {
   final VoidCallback onMockSignIn;
 
   @override
-  State<_AuthScreen> createState() => _AuthScreenState();
+  ConsumerState<_AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<_AuthScreen> {
+class _AuthScreenState extends ConsumerState<_AuthScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _recoveryPasswordController =
@@ -425,6 +426,9 @@ class _AuthScreenState extends State<_AuthScreen> {
       mockHint: widget.enableMockLogin
           ? 'Mock login: ${widget.mockLoginEmail}  /  ${widget.mockLoginPassword}'
           : null,
+      showFirstRunGuide:
+          ref.watch(onboardingWelcomeCompleteProvider) &&
+          !ref.watch(onboardingCompleteProvider),
       onTogglePassword: () {
         setState(() => _obscuredPassword = !_obscuredPassword);
       },

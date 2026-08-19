@@ -14,6 +14,8 @@ export 'package:fantastic_guacamole/state/providers/task_provider.dart';
 
 const String onboardingCompleteStorageKey = 'onboarding_complete';
 const String onboardingContentVersionStorageKey = 'onboarding_content_version';
+const String onboardingWelcomeCompleteStorageKey =
+    'onboarding_welcome_complete';
 
 final soundEnabledProvider = NotifierProvider<SoundEnabledNotifier, bool>(
   SoundEnabledNotifier.new,
@@ -21,6 +23,10 @@ final soundEnabledProvider = NotifierProvider<SoundEnabledNotifier, bool>(
 final onboardingCompleteProvider =
     NotifierProvider<OnboardingCompleteNotifier, bool>(
       OnboardingCompleteNotifier.new,
+    );
+final onboardingWelcomeCompleteProvider =
+    NotifierProvider<OnboardingWelcomeCompleteNotifier, bool>(
+      OnboardingWelcomeCompleteNotifier.new,
     );
 
 class SoundEnabledNotifier extends Notifier<bool> {
@@ -31,6 +37,13 @@ class SoundEnabledNotifier extends Notifier<bool> {
 }
 
 class OnboardingCompleteNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+class OnboardingWelcomeCompleteNotifier extends Notifier<bool> {
   @override
   bool build() => false;
 

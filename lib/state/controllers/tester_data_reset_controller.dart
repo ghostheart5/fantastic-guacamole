@@ -6,6 +6,7 @@ import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
 import 'package:fantastic_guacamole/state/core/app_providers.dart';
 import 'package:fantastic_guacamole/state/providers/behavior_provider.dart';
+import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/state/providers/emotion_provider.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
 import 'package:fantastic_guacamole/state/providers/identity_provider.dart';
@@ -30,6 +31,8 @@ class TesterDataResetController {
 
     _ref.read(mockSignInProvider.notifier).set(false);
     _ref.read(onboardingCompleteProvider.notifier).set(false);
+    _ref.read(onboardingWelcomeCompleteProvider.notifier).set(false);
+    _ref.invalidate(accountOnboardingCompleteProvider);
     _ref.read(aiInputProvider.notifier).set(null);
     _ref.read(notificationProvider.notifier).clear();
 

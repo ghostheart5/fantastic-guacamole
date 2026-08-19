@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
@@ -5,7 +6,9 @@ import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/features/onboarding/domain/onboarding_content_contract.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
+import 'package:fantastic_guacamole/state/providers/account_onboarding_provider.dart';
 import 'package:fantastic_guacamole/state/providers/route_paths_provider.dart';
+import 'package:fantastic_guacamole/tutorial/interactive_tutorial_overlay.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:flutter/material.dart';
@@ -23,60 +26,103 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     with TickerProviderStateMixin {
-  final PageController _page = PageController();
-  int _current = 0;
+  late final PageController _page;
+  late int _current;
   final _nameCtrl = TextEditingController();
-  String? _selectedGoalType;
+  final GlobalKey _welcomeActionKey = GlobalKey(debugLabel: 'welcome-continue');
+  final GlobalKey _nameFieldKey = GlobalKey(debugLabel: 'name-field');
+  bool _submitting = false;
 
   static const _totalPages = OnboardingContentContract.pageCount;
 
   @override
   void initState() {
     super.initState();
+    _current = ref.read(onboardingWelcomeCompleteProvider) ? 1 : 0;
+    _page = PageController(initialPage: _current);
+    _nameCtrl.addListener(_handleNameChanged);
     AppAnalytics.track('onboarding_started');
   }
 
-  Future<void> _complete() async {
-    try {
-      final PreferenceService preferenceService = PreferenceService();
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String name = _nameCtrl.text.trim();
-      final String? selectedGoalType = _selectedGoalType;
+  void _handleNameChanged() {
+    if (mounted) setState(() {});
+  }
 
-      if (name.isNotEmpty) {
-        await ref.read(profileProvider.notifier).updateName(name);
+  Future<void> _completeWelcome() async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(onboardingWelcomeCompleteStorageKey, true);
+      if (!mounted) return;
+      ref.read(onboardingWelcomeCompleteProvider.notifier).set(true);
+      AppAnalytics.track('onboarding_welcome_completed');
+
+      final bool isAuthenticated = ref
+          .read(intelligenceStateProvider)
+          .auth
+          .isAuthenticated;
+      if (isAuthenticated) {
+        setState(() {
+          _current = 1;
+          _submitting = false;
+        });
+        _page.jumpToPage(1);
+      } else {
+        final GoRouter? router = GoRouter.maybeOf(context);
+        if (router != null) {
+          context.go(ref.read(routeSurfaceProvider).login);
+        }
       }
-      if (selectedGoalType != null && selectedGoalType.trim().isNotEmpty) {
-        await prefs.setString('primary_goal_type', selectedGoalType);
-        await preferenceService.setUserPreference(
-          'primary_goal_type',
-          selectedGoalType,
+    } on Object catch (error, stackTrace) {
+      Logger.errorCategory(
+        'onboarding',
+        'Welcome completion failed.',
+        error,
+        stackTrace,
+      );
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to continue. Please try again.'),
+          ),
         );
-        await ref
-            .read(personalizationProfileProvider.notifier)
-            .updateGoalCategory(selectedGoalType);
       }
+    }
+  }
+
+  Future<void> _complete() async {
+    if (_submitting) return;
+    final String name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter what you want to be called.')),
+      );
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await ref.read(profileProvider.notifier).updateName(name);
 
       await prefs.setBool(onboardingCompleteStorageKey, true);
       await prefs.setInt(
         onboardingContentVersionStorageKey,
         OnboardingContentContract.currentVersion,
       );
+      await ref.read(accountOnboardingCompleteProvider.notifier).complete();
       AppAnalytics.track(
         'onboarding_completed',
-        params: <String, Object?>{'selected_goal_type': selectedGoalType ?? ''},
+        params: <String, Object?>{'has_display_name': true},
       );
       if (!mounted) return;
 
       ref.read(onboardingCompleteProvider.notifier).set(true);
-      final bool isAuthenticated = ref
-          .read(intelligenceStateProvider)
-          .auth
-          .isAuthenticated;
       final routes = ref.read(routeSurfaceProvider);
       final GoRouter? router = GoRouter.maybeOf(context);
       if (router != null) {
-        context.go(isAuthenticated ? '/' : routes.login);
+        context.go(routes.creator);
       }
     } on Object catch (error, stackTrace) {
       Logger.errorCategory(
@@ -92,6 +138,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       if (!mounted) {
         return;
       }
+      setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -105,31 +152,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   }
 
   void _next() {
-    if (_current < _totalPages - 1) {
-      AppAnalytics.track(
-        'onboarding_step_advanced',
-        params: <String, Object?>{'step_index': _current},
-      );
-      _page.nextPage(
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
+    if (_current == 0) {
+      unawaited(_completeWelcome());
     } else {
-      _complete();
+      unawaited(_complete());
     }
-  }
-
-  void _skip() {
-    AppAnalytics.track(
-      'onboarding_skipped',
-      params: <String, Object?>{'step_index': _current},
-    );
-    _complete();
   }
 
   @override
   void dispose() {
     _page.dispose();
+    _nameCtrl.removeListener(_handleNameChanged);
     _nameCtrl.dispose();
     super.dispose();
   }
@@ -137,6 +170,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   @override
   Widget build(BuildContext context) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final bool hasName = _nameCtrl.text.trim().isNotEmpty;
+    final String continueToLogin = l10n.isSpanish
+        ? 'CONTINUAR AL ACCESO'
+        : 'CONTINUE TO LOGIN';
+    final String continueToCreator = l10n.isSpanish
+        ? 'CONTINUAR A CREADOR'
+        : 'CONTINUE TO CREATOR';
     final List<_Slide> slides = <_Slide>[
       _Slide(
         icon: Icons.bolt_rounded,
@@ -159,15 +199,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           // Page content
           PageView.builder(
             controller: _page,
+            physics: const NeverScrollableScrollPhysics(),
             onPageChanged: (i) => setState(() => _current = i),
             itemCount: _totalPages,
             itemBuilder: (context, i) {
               if (i < slides.length) return _SlideView(slide: slides[i]);
               return _PersonalizationSlide(
                 nameCtrl: _nameCtrl,
-                selectedGoalType: _selectedGoalType,
-                onGoalTypeSelected: (v) =>
-                    setState(() => _selectedGoalType = v),
+                nameFieldKey: _nameFieldKey,
               );
             },
           ),
@@ -217,32 +256,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                           const SizedBox(width: 18),
                           SizedBox(
                             width: 180,
-                            child: _GradientButton(
-                              label: _current == _totalPages - 1
-                                  ? l10n
-                                        .text(ChronoSparkString.initialize)
-                                        .toUpperCase()
-                                  : l10n
-                                        .text(ChronoSparkString.next)
-                                        .toUpperCase(),
-                              onTap: _next,
+                            child: KeyedSubtree(
+                              key: _welcomeActionKey,
+                              child: _GradientButton(
+                                label: _current == 0
+                                    ? continueToLogin
+                                    : continueToCreator,
+                                onTap: _next,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          if (_current < _totalPages - 1)
-                            SizedBox(
-                              height: 48,
-                              child: TextButton(
-                                onPressed: _skip,
-                                child: Text(
-                                  l10n
-                                      .text(ChronoSparkString.skip)
-                                      .toUpperCase(),
-                                ),
-                              ),
-                            )
-                          else
-                            const SizedBox(width: 40),
                         ],
                       )
                     : Column(
@@ -281,37 +304,51 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                           const SizedBox(height: 20),
 
                           // Primary action button
-                          _GradientButton(
-                            label: _current == _totalPages - 1
-                                ? l10n
-                                      .text(ChronoSparkString.initializeSystem)
-                                      .toUpperCase()
-                                : l10n
-                                      .text(ChronoSparkString.next)
-                                      .toUpperCase(),
-                            onTap: _next,
+                          KeyedSubtree(
+                            key: _welcomeActionKey,
+                            child: _GradientButton(
+                              label: _current == 0
+                                  ? continueToLogin
+                                  : continueToCreator,
+                              onTap: _next,
+                            ),
                           ),
-                          const SizedBox(height: 14),
-
-                          // Skip link
-                          if (_current < _totalPages - 1)
-                            SizedBox(
-                              height: 48,
-                              child: TextButton(
-                                onPressed: _skip,
-                                child: Text(
-                                  l10n
-                                      .text(ChronoSparkString.skip)
-                                      .toUpperCase(),
-                                ),
-                              ),
-                            )
-                          else
-                            const SizedBox(height: 17),
+                          const SizedBox(height: 17),
                         ],
                       ),
               ),
             ),
+          ),
+          InteractiveTutorialOverlay(
+            targetKey: _current == 0 ? _welcomeActionKey : _nameFieldKey,
+            stepLabel: _current == 0
+                ? (l10n.isSpanish
+                      ? 'Configuración 1 de 4'
+                      : 'First setup 1 of 4')
+                : (l10n.isSpanish
+                      ? 'Configuración 3 de 4'
+                      : 'First setup 3 of 4'),
+            title: _current == 0
+                ? (l10n.isSpanish
+                      ? 'Bienvenido a ChronoSpark'
+                      : 'Welcome to ChronoSpark')
+                : l10n.text(ChronoSparkString.nameQuestion),
+            body: _current == 0
+                ? (l10n.isSpanish
+                      ? 'Comienza aquí e inicia sesión para que tu primera tarea pertenezca a tu cuenta.'
+                      : 'Start here, then sign in so your first task belongs to your account.')
+                : (l10n.isSpanish
+                      ? 'Escribe el nombre que debe usar ChronoSpark. Se guarda antes de comenzar la lección interactiva de Creador.'
+                      : 'Enter the name ChronoSpark should use. This is saved before your interactive Creator lesson begins.'),
+            primaryLabel: _submitting
+                ? (l10n.isSpanish ? 'Espera' : 'Please wait')
+                : _current == 0
+                ? (l10n.isSpanish ? 'Continuar al acceso' : 'Continue to login')
+                : (l10n.isSpanish
+                      ? 'Continuar a Creador'
+                      : 'Continue to Creator'),
+            primaryEnabled: !_submitting && (_current == 0 || hasName),
+            onPrimary: _next,
           ),
         ],
       ),
@@ -616,30 +653,15 @@ class _SlideView extends StatelessWidget {
 class _PersonalizationSlide extends StatelessWidget {
   const _PersonalizationSlide({
     required this.nameCtrl,
-    required this.selectedGoalType,
-    required this.onGoalTypeSelected,
+    required this.nameFieldKey,
   });
 
   final TextEditingController nameCtrl;
-  final String? selectedGoalType;
-  final ValueChanged<String> onGoalTypeSelected;
-
-  static const _goalTypes = [
-    ('execution', Icons.bolt_rounded, Color(0xFF00E5FF)),
-    ('growth', Icons.trending_up_rounded, Color(0xFF9B8AFB)),
-    ('wellness', Icons.self_improvement_rounded, Color(0xFF00E5FF)),
-    ('exploring', Icons.explore_rounded, Color(0xFFFFC857)),
-  ];
+  final GlobalKey nameFieldKey;
 
   @override
   Widget build(BuildContext context) {
     final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
-    String goalLabel(String id) => switch (id) {
-      'execution' => l10n.text(ChronoSparkString.goalExecution),
-      'growth' => l10n.text(ChronoSparkString.goalGrowth),
-      'wellness' => l10n.text(ChronoSparkString.goalWellness),
-      _ => l10n.text(ChronoSparkString.goalExplore),
-    };
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool wideLayout = constraints.maxWidth >= 820;
@@ -651,10 +673,6 @@ class _PersonalizationSlide extends StatelessWidget {
           wideLayout ? (landscapeCompact ? 40 : 56) : 28,
           wideLayout ? (landscapeCompact ? 150 : 188) : 160,
         );
-        final int goalColumns = constraints.maxWidth >= 980
-            ? 4
-            : (landscapeCompact ? 3 : 2);
-
         final Widget formCard = Container(
           width: wideLayout ? (landscapeCompact ? 440 : 460) : double.infinity,
           decoration: BoxDecoration(
@@ -688,9 +706,10 @@ class _PersonalizationSlide extends StatelessWidget {
                   ),
                 ),
                 child: TextField(
+                  key: nameFieldKey,
                   controller: nameCtrl,
                   style: const TextStyle(color: Colors.white, fontSize: 15),
-                  textInputAction: TextInputAction.next,
+                  textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
                     labelText: l10n.text(ChronoSparkString.name),
                     hintText: l10n.text(ChronoSparkString.nameHint),
@@ -702,53 +721,6 @@ class _PersonalizationSlide extends StatelessWidget {
                     border: InputBorder.none,
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                l10n.text(ChronoSparkString.primaryGoal).toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 10,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 10),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: goalColumns,
-                childAspectRatio: goalColumns >= 4
-                    ? 2.1
-                    : (landscapeCompact ? 3.0 : 2.6),
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                children: _goalTypes.map((entry) {
-                  final (id, icon, color) = entry;
-                  final String label = goalLabel(id);
-                  final selected = selectedGoalType == id;
-                  return Semantics(
-                    selected: selected,
-                    label: label,
-                    child: ChoiceChip(
-                      selected: selected,
-                      onSelected: (_) => onGoalTypeSelected(id),
-                      avatar: Icon(icon, color: color, size: 18),
-                      label: SizedBox(
-                        width: double.infinity,
-                        child: Text(label, overflow: TextOverflow.ellipsis),
-                      ),
-                      showCheckmark: true,
-                      selectedColor: color.withValues(alpha: 0.2),
-                      backgroundColor: Colors.white.withValues(alpha: 0.04),
-                      side: BorderSide(
-                        color: selected
-                            ? color.withValues(alpha: 0.8)
-                            : Colors.white.withValues(alpha: 0.12),
-                      ),
-                    ),
-                  );
-                }).toList(),
               ),
               const SizedBox(height: 14),
               Text(
@@ -801,7 +773,7 @@ class _PersonalizationSlide extends StatelessWidget {
                                     ).createShader(bounds),
                                 child: Text(
                                   l10n
-                                      .text(ChronoSparkString.lifeDirection)
+                                      .text(ChronoSparkString.nameQuestion)
                                       .toUpperCase(),
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -882,7 +854,7 @@ class _PersonalizationSlide extends StatelessWidget {
                       colors: [Colors.white, AppColors.neonCyan],
                     ).createShader(bounds),
                     child: Text(
-                      l10n.text(ChronoSparkString.lifeDirection).toUpperCase(),
+                      l10n.text(ChronoSparkString.nameQuestion).toUpperCase(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 36,
