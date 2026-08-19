@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
@@ -107,7 +107,7 @@ class SIStateAggregation {
     required this.signals,
     DecisionRecommendation? planningDecision,
     SISourceHealth? sourceHealth,
-    this.habits = const <HabitRecord>[],
+    this.habits = const <HabitEntity>[],
   }) : planningDecision =
            planningDecision ?? _fallbackPlanningDecision(tasks, siState),
        sourceHealth =
@@ -145,10 +145,10 @@ class SIStateAggregation {
 
   /// Habits available to Smart Planner and SI. Empty when habit storage has not
   /// resolved yet, so aggregation never blocks on it.
-  final List<HabitRecord> habits;
+  final List<HabitEntity> habits;
 
   int get activeHabitCount =>
-      habits.where((HabitRecord habit) => habit.active).length;
+      habits.where((HabitEntity habit) => habit.active).length;
 
   static DecisionRecommendation _fallbackPlanningDecision(
     List<Task> tasks,

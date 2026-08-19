@@ -45,11 +45,7 @@ class SIConsoleThreadStore {
           .whereType<Map<Object?, Object?>>()
           .map((Map<Object?, Object?> item) {
             final Map<String, dynamic> json = Map<String, dynamic>.from(item);
-            return SIConsoleMessage(
-              text: json['text']?.toString() ?? '',
-              isUser: json['isUser'] == true,
-              emotion: json['emotion']?.toString(),
-            );
+            return SIConsoleMessage.fromJson(json);
           })
           .where((SIConsoleMessage item) => item.text.trim().isNotEmpty)
           .toList(growable: false);
@@ -72,13 +68,7 @@ class SIConsoleThreadStore {
       key,
       jsonEncode(
         bounded
-            .map(
-              (SIConsoleMessage item) => <String, dynamic>{
-                'text': item.text,
-                'isUser': item.isUser,
-                'emotion': item.emotion,
-              },
-            )
+            .map((SIConsoleMessage item) => item.toJson())
             .toList(growable: false),
       ),
     );

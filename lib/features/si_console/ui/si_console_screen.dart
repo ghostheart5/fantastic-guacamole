@@ -1,21 +1,25 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/app/router/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/core/errors/public_failure.dart';
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/value_objects/ai_content_report_reason.dart';
+import 'package:fantastic_guacamole/features/si_console/ui/models/si_console_message.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/si_console_query_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
+import 'package:fantastic_guacamole/state/models/ai_recommendation.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/providers/ai_content_report_provider.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/event_bus_provider.dart';
 import 'package:fantastic_guacamole/state/providers/milestones_provider.dart';
+import 'package:fantastic_guacamole/state/providers/si_console_thread_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
@@ -23,8 +27,6 @@ import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/system/crisis_dialog.dart';
-import 'package:fantastic_guacamole/ui/widgets/error_view.dart';
-import 'package:fantastic_guacamole/ui/widgets/loading_overlay.dart';
 import 'package:fantastic_guacamole/ui/widgets/typing_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -41,12 +43,29 @@ class _Msg {
     this.emotion,
     this.rationale,
     this.confidence,
+    this.processingMode = AIProcessingMode.unknown,
+    this.systemPanel = false,
   });
   final String text;
   final bool isUser;
   final String? emotion;
   final String? rationale;
   final double? confidence;
+  final AIProcessingMode processingMode;
+  final bool systemPanel;
+
+  SIConsoleMessage toStoredMessage() => SIConsoleMessage(
+    text: text,
+    isUser: isUser,
+    emotion: emotion,
+    createdAt: DateTime.now().toUtc(),
+  );
+
+  static _Msg fromStoredMessage(SIConsoleMessage message) => _Msg(
+    text: message.text,
+    isUser: message.isUser,
+    emotion: message.emotion,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +89,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
   // right after the first frame — see _measureComposer.
   final ValueNotifier<double> _composerHeight = ValueNotifier<double>(220);
   bool _typing = false;
+  bool _threadRestored = false;
   late final AnimationController _typingAnim;
   StreamSubscription<GoalLifecycleEvent>? _goalEventSubscription;
 
@@ -121,9 +141,11 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 text: 'GOAL SYNC: ${event.action.toUpperCase()} ${event.title}',
                 isUser: false,
                 emotion: 'engaged',
+                systemPanel: true,
               ),
             );
           });
+          _schedulePersistThread();
           _scrollToBottom();
         });
     _typingAnim = AnimationController(
@@ -131,13 +153,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       duration: const Duration(milliseconds: 900),
     )..repeat();
 
-    // Greeting after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _addSI(
-        'Strategic Intelligence is ready. I will use only the sources currently available, such as tasks, goals, Timeline, Progression, and saved preferences. '
-        'Responses may be limited when a source is missing, stale, or offline. Type "help" to see available shortcuts.',
-        emotion: 'confident',
-      );
+      unawaited(_restoreThread());
     });
   }
 
@@ -175,11 +192,43 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     }
   }
 
-  void _addSI(String text, {String emotion = 'balanced'}) {
-    _safeSetState(
-      () => _messages.add(_Msg(text: text, isUser: false, emotion: emotion)),
+  Future<void> _restoreThread() async {
+    if (_threadRestored) return;
+    final List<SIConsoleMessage> stored = await ref.read(
+      siConsoleThreadProvider.future,
     );
+    if (!mounted || _threadRestored) return;
+    _safeSetState(() {
+      _threadRestored = true;
+      if (stored.isNotEmpty) {
+        _messages
+          ..clear()
+          ..addAll(stored.map(_Msg.fromStoredMessage));
+        return;
+      }
+      _messages.add(
+        const _Msg(
+          text:
+              'Strategic Intelligence is ready. I will use only the sources currently available, such as tasks, goals, Timeline, Progression, and saved preferences. '
+              'Responses may be limited when a source is missing, stale, or offline. Type "help" to see available shortcuts.',
+          isUser: false,
+          emotion: 'confident',
+          systemPanel: true,
+        ),
+      );
+    });
     _scrollToBottom();
+  }
+
+  void _schedulePersistThread() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final List<SIConsoleMessage> persisted = _messages
+          .where((message) => message.text.trim().isNotEmpty)
+          .map((message) => message.toStoredMessage())
+          .toList(growable: false);
+      unawaited(ref.read(siConsoleThreadStoreProvider).save(persisted));
+    });
   }
 
   Future<void> _showReportDialog(_Msg msg) async {
@@ -191,6 +240,8 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
             return AlertDialog(
+              backgroundColor: const Color(0xFF0C1420),
+              surfaceTintColor: Colors.transparent,
               title: const Text('Report AI response'),
               content: SingleChildScrollView(
                 child: Column(
@@ -284,18 +335,18 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
       'Type a prompt in the input field, then tap send.',
       'Use Summary to hear recent assistant responses.',
       'Use Speak on assistant bubbles to read aloud.',
-      'Use Back to return to Smart Planner.',
+      'Use Back to return to Nexus.',
     ];
-    await showModalBottomSheet<void>(
+    await showDialog<void>(
       context: context,
-      backgroundColor: const Color(0xFF0D1420),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      barrierColor: Colors.black87,
       builder: (BuildContext context) {
-        return const SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(20, 16, 20, 20),
+        return Dialog(
+          backgroundColor: const Color(0xFF0C1420),
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: const Padding(
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,34 +357,33 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
                   ),
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'A11Y means accessibility. These controls help with readable and spoken guidance.',
+                  'Use these controls for readable and spoken guidance.',
                   style: TextStyle(
                     color: Colors.white70,
-                    fontSize: 12,
+                    fontSize: 13,
                     height: 1.5,
                   ),
                 ),
-                SizedBox(height: 10),
+                SizedBox(height: 12),
                 Text(
-                  '1. Type prompt then send',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  '1. Type a prompt, then send.',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
                 ),
                 Text(
-                  '2. Summary for quick recap',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  '2. Summary reads recent assistant responses.',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
                 ),
                 Text(
-                  '3. Speak reads responses aloud',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  '3. Speak reads one response aloud.',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
                 ),
                 Text(
-                  '4. Back returns to Smart Planner',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  '4. Back returns to Nexus.',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
                 ),
               ],
             ),
@@ -346,9 +396,31 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     );
   }
 
+  void _addShortcutResponse({
+    required String query,
+    required String response,
+    String emotion = 'engaged',
+  }) {
+    _safeSetState(() {
+      _messages.add(_Msg(text: query, isUser: true));
+      _messages.add(
+        _Msg(
+          text: response,
+          isUser: false,
+          emotion: emotion,
+          systemPanel: true,
+          processingMode: AIProcessingMode.onDevice,
+        ),
+      );
+    });
+    _schedulePersistThread();
+    _scrollToBottom();
+  }
+
   void _send() {
     final String text = _input.text.trim();
     if (text.isEmpty) return;
+    if (_typing) return;
 
     if (ref.read(siConsoleQueryControllerProvider).detectsCrisis(text)) {
       showCrisisDialog(context);
@@ -368,6 +440,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     _input.clear();
 
     _safeSetState(() => _messages.add(_Msg(text: text, isUser: true)));
+    _schedulePersistThread();
     _scrollToBottom();
     _safeSetState(() => _typing = true);
 
@@ -384,36 +457,29 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
     final SIStateAggregation? aggregation = consoleModel?.aggregation;
 
     if (normalized == '/help' || normalized == 'help') {
-      _safeSetState(() {
-        _messages.add(_Msg(text: text, isUser: true));
-        _messages.add(
-          const _Msg(
-            text:
-                'SI QUERY SHORTCUTS\n\n'
-                'Quick shortcuts:\n'
-                '- /tasks: inspect active tasks and next actions\n'
-                '- /goals: summarize goals and drift\n'
-                '- /milestones: summarize checkpoint health, risk, and next target\n'
-                '- /plan: summarize schedule and next blocks\n'
-                '- /timeline: summarize recent milestones/events\n'
-                '- /trajectory: summarize momentum, pressure, and prediction\n\n'
-                'Rules:\n'
-                '- Task creation is Creator-only. Use Creator to create tasks/goals.\n'
-                '- SI Console is analysis + guidance, not data-entry.\n\n'
-                'High-signal prompts SI responds well to:\n'
-                '- "List my 3 newest tasks and what to do first."\n'
-                '- "Did I create a task just now? Show the latest task title."\n'
-                '- "Summarize trajectory pressure and one corrective action."\n'
-                '- "Show plan risks for today and 3 next actions."\n'
-                '- "Summarize goals at risk and what to do next."\n'
-                '- "Compare current self to future self."\n\n'
-                'Tip: use a shortcut first, then add intent. Example: /tasks what should I execute now?',
-            isUser: false,
-            emotion: 'engaged',
-          ),
-        );
-      });
-      _scrollToBottom();
+      _addShortcutResponse(
+        query: text,
+        response:
+            'SI QUERY SHORTCUTS\n\n'
+            'Quick shortcuts:\n'
+            '- /tasks: inspect active tasks and next actions\n'
+            '- /goals: summarize goals and drift\n'
+            '- /milestones: summarize checkpoint health, risk, and next target\n'
+            '- /plan: summarize schedule and next blocks\n'
+            '- /timeline: summarize recent milestones/events\n'
+            '- /trajectory: summarize momentum, pressure, and prediction\n\n'
+            'Rules:\n'
+            '- Task creation is Creator-only. Use Creator to create tasks/goals.\n'
+            '- SI Console is analysis and guidance, not data entry.\n\n'
+            'High-signal prompts SI responds well to:\n'
+            '- "List my 3 newest tasks and what to do first."\n'
+            '- "Did I create a task just now? Show the latest task title."\n'
+            '- "Summarize trajectory pressure and one corrective action."\n'
+            '- "Show plan risks for today and 3 next actions."\n'
+            '- "Summarize goals at risk and what to do next."\n'
+            '- "Compare current self to future self."\n\n'
+            'Tip: use a shortcut first, then add intent. Example: /tasks what should I execute now?',
+      );
       return true;
     }
 
@@ -438,11 +504,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 '- divergence: ${aggregation.trajectory.behaviorDivergence}%\n\n'
                 'Use /tasks, /goals, /milestones, /plan, /timeline, and /trajectory for module-specific responses.';
 
-      _safeSetState(() {
-        _messages.add(_Msg(text: text, isUser: true));
-        _messages.add(_Msg(text: status, isUser: false, emotion: 'engaged'));
-      });
-      _scrollToBottom();
+      _addShortcutResponse(query: text, response: status);
       return true;
     }
 
@@ -453,11 +515,7 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         shortcut == '/timeline' ||
         shortcut == '/trajectory') {
       final String response = _localSurfaceSummary(shortcut, aggregation);
-      _safeSetState(() {
-        _messages.add(_Msg(text: text, isUser: true));
-        _messages.add(_Msg(text: response, isUser: false, emotion: 'engaged'));
-      });
-      _scrollToBottom();
+      _addShortcutResponse(query: text, response: response);
       return true;
     }
 
@@ -474,14 +532,25 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 
     switch (shortcut) {
       case '/tasks':
-        final List<String> top = aggregation.tasks
+        final String? selectedTaskId =
+            aggregation.planningDecision.selectedTask?.id;
+        final String? selectedTaskTitle =
+            aggregation.planningDecision.selectedTask?.title;
+        final List<String> active = aggregation.tasks
+            .where((task) => task.id != selectedTaskId)
             .take(3)
-            .map((t) => t.title)
+            .map((task) => task.title)
             .toList(growable: false);
-        final String topText = top.isEmpty
+        final String activeText = active.isEmpty
             ? 'No active tasks yet.'
-            : top.map((t) => '- $t').join('\n');
-        return 'TASKS SNAPSHOT\n\nActive tasks: ${aggregation.tasks.length}\n\nTop tasks:\n$topText\n\nPrompt: "which one should I execute first and why?"';
+            : active.map((task) => '- $task').join('\n');
+        return 'TASKS SNAPSHOT\n\n'
+            'Active tasks: ${aggregation.tasks.length}\n\n'
+            'Recommended next:\n'
+            '${selectedTaskTitle == null || selectedTaskTitle.trim().isEmpty ? 'No ranked task available yet.' : '- $selectedTaskTitle'}\n\n'
+            'Why:\n${aggregation.planningDecision.rationale}\n\n'
+            'Other active tasks:\n$activeText\n\n'
+            'Prompt: "why this task first, and what is the smallest next step?"';
       case '/goals':
         final List<String> top = aggregation.goals
             .take(3)
@@ -595,9 +664,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                   'No grounded response was generated. Ask with a specific feature and intent, for example: "show trajectory pressure", "summarize goals", or "plan next 3 tasks".',
               isUser: false,
               emotion: 'balanced',
+              systemPanel: true,
+              processingMode: AIProcessingMode.onDevice,
             ),
           );
         });
+        _schedulePersistThread();
         _scrollToBottom();
         return;
       }
@@ -610,9 +682,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
             emotion: recommendation?.emotion ?? 'balanced',
             rationale: recommendation?.reasoning,
             confidence: recommendation?.confidence,
+            processingMode:
+                recommendation?.processingMode ?? AIProcessingMode.unknown,
           ),
         );
       });
+      _schedulePersistThread();
       _scrollToBottom();
     } catch (_) {
       if (!mounted) return;
@@ -624,9 +699,12 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
                 'Full intelligence context lock failed for that request. Retry, or target a module directly: tasks, progression, goals, memories, plan, emotions, or milestones.',
             isUser: false,
             emotion: 'cautious',
+            systemPanel: true,
+            processingMode: AIProcessingMode.onDeviceFallback,
           ),
         );
       });
+      _schedulePersistThread();
       _scrollToBottom();
     }
   }
@@ -674,114 +752,99 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
         resizeToAvoidBottomInset: false,
         body: SafeArea(
           bottom: false,
-          child: LoadingOverlay(
-            isLoading: consoleModelAsync.isLoading && _messages.isEmpty,
-            message: 'Initializing SI context...',
-            child: Column(
-              children: [
-                _Header(
-                  onBack: () {
-                    unawaited(ref.read(voiceServiceProvider).stop());
-                    ref.read(appFlowProvider.notifier).toNexus();
-                  },
-                  engineSnapshot: engineSnapshot,
-                  seededQueryCount: seededQueryCount,
-                  onSpeakSummary: () {
-                    final List<_Msg> recentAssistant = _messages
-                        .where((msg) => !msg.isUser)
-                        .toList(growable: false);
-                    final List<String> points = recentAssistant.reversed
-                        .take(3)
-                        .map((msg) => msg.text)
-                        .toList(growable: false);
-                    unawaited(
-                      ref
-                          .read(voiceServiceProvider)
-                          .speakSummary(
-                            title: 'SI console voice summary',
-                            points: points,
+          child: Column(
+            children: [
+              _Header(
+                onBack: () {
+                  unawaited(ref.read(voiceServiceProvider).stop());
+                  goToAppView(context, ref, AppView.nexus);
+                },
+                engineSnapshot: engineSnapshot,
+                seededQueryCount: seededQueryCount,
+                onSpeakSummary: () {
+                  final List<_Msg> recentAssistant = _messages
+                      .where((msg) => !msg.isUser)
+                      .toList(growable: false);
+                  final List<String> points = recentAssistant.reversed
+                      .take(3)
+                      .map((msg) => msg.text)
+                      .toList(growable: false);
+                  unawaited(
+                    ref
+                        .read(voiceServiceProvider)
+                        .speakSummary(
+                          title: 'SI console voice summary',
+                          points: points,
+                        ),
+                  );
+                },
+                onSpeakAccessibility: () {
+                  unawaited(_showAccessibilityGuide());
+                },
+              ),
+              _ContextStatusBanner(
+                loading: consoleModelAsync.isLoading,
+                error: consoleError,
+                model: consoleModel,
+                onRetry: () => ref.invalidate(siConsoleScreenModelProvider),
+              ),
+              Expanded(
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _composerHeight,
+                  builder: (context, composerHeight, _) {
+                    final double composerReservedHeight = composerHeight;
+                    return Stack(
+                      children: [
+                        Positioned.fill(
+                          child: ListView.builder(
+                            controller: _scroll,
+                            padding: EdgeInsets.fromLTRB(
+                              16,
+                              8,
+                              16,
+                              composerReservedHeight + composerBottomInset,
+                            ),
+                            itemCount: _messages.length + (_typing ? 1 : 0),
+                            itemBuilder: (context, i) {
+                              if (_typing && i == _messages.length) {
+                                return _TypingIndicator(animation: _typingAnim);
+                              }
+                              return _BubbleTile(
+                                msg: _messages[i],
+                                onReport: _messages[i].isUser
+                                    ? null
+                                    : () => unawaited(
+                                        _showReportDialog(_messages[i]),
+                                      ),
+                              );
+                            },
                           ),
-                    );
-                  },
-                  onSpeakAccessibility: () {
-                    unawaited(_showAccessibilityGuide());
-                  },
-                ),
-                Expanded(
-                  child: ValueListenableBuilder<double>(
-                    valueListenable: _composerHeight,
-                    builder: (context, composerHeight, _) {
-                      final double composerReservedHeight = composerHeight;
-                      return Stack(
-                        children: [
-                          Positioned.fill(
-                            child: (consoleError != null && _messages.isEmpty)
-                                ? ErrorView(
-                                    title: 'SI Context Error',
-                                    message: PublicFailure.from(
-                                      consoleError,
-                                      fallback:
-                                          'Strategic context is temporarily unavailable. Your saved work is unchanged; retry when ready.',
-                                    ).message,
-                                    onRetry: () {
-                                      ref.invalidate(
-                                        siConsoleScreenModelProvider,
-                                      );
-                                    },
-                                  )
-                                : ListView.builder(
-                                    controller: _scroll,
-                                    padding: EdgeInsets.fromLTRB(
-                                      16,
-                                      8,
-                                      16,
-                                      composerReservedHeight +
-                                          composerBottomInset,
-                                    ),
-                                    itemCount:
-                                        _messages.length + (_typing ? 1 : 0),
-                                    itemBuilder: (context, i) {
-                                      if (_typing && i == _messages.length) {
-                                        return _TypingIndicator(
-                                          animation: _typingAnim,
-                                        );
-                                      }
-                                      return _BubbleTile(
-                                        msg: _messages[i],
-                                        onReport: _messages[i].isUser
-                                            ? null
-                                            : () => unawaited(
-                                                _showReportDialog(_messages[i]),
-                                              ),
-                                      );
-                                    },
-                                  ),
-                          ),
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                bottom: composerBottomInset,
-                              ),
-                              child: KeyedSubtree(
-                                key: _composerKey,
-                                child: _InputBar(
-                                  controller: _input,
-                                  onSend: _send,
-                                  compact: keyboardVisible,
-                                ),
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              bottom: composerBottomInset,
+                            ),
+                            child: KeyedSubtree(
+                              key: _composerKey,
+                              child: _InputBar(
+                                controller: _input,
+                                onSend: _send,
+                                compact: keyboardVisible,
+                                busy: _typing,
                               ),
                             ),
                           ),
-                        ],
-                      );
-                    },
-                  ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -792,6 +855,76 @@ class _SIConsoleScreenState extends ConsumerState<SIConsoleScreen>
 // ---------------------------------------------------------------------------
 // Header
 // ---------------------------------------------------------------------------
+
+class _ContextStatusBanner extends StatelessWidget {
+  const _ContextStatusBanner({
+    required this.loading,
+    required this.error,
+    required this.model,
+    required this.onRetry,
+  });
+
+  final bool loading;
+  final Object? error;
+  final SIConsoleScreenModel? model;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final String message;
+    final IconData icon;
+    final Color accent;
+    if (error != null) {
+      message = PublicFailure.from(
+        error!,
+        fallback:
+            'Strategic context is temporarily unavailable. Saved work is unchanged.',
+      ).message;
+      icon = Icons.error_outline_rounded;
+      accent = Colors.amberAccent;
+    } else if (loading) {
+      message = 'Initializing SI context...';
+      icon = Icons.sync_rounded;
+      accent = AppColors.neonCyan;
+    } else {
+      final SIStateAggregation? aggregation = model?.aggregation;
+      message = aggregation == null
+          ? 'Evidence state unavailable.'
+          : 'Evidence ready: ${aggregation.tasks.length} tasks, ${aggregation.goals.length} goals, ${aggregation.timeline.length} timeline events.';
+      icon = Icons.verified_rounded;
+      accent = Colors.greenAccent;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFF07111C),
+        border: Border(bottom: BorderSide(color: Colors.white12)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(icon, color: accent, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+          ),
+          if (error != null) ...<Widget>[
+            const SizedBox(width: 8),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 class _Header extends StatelessWidget {
   const _Header({
@@ -813,6 +946,7 @@ class _Header extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: const BoxDecoration(
+        color: Color(0xFF07111C),
         border: Border(bottom: BorderSide(color: Colors.white10)),
       ),
       child: Column(
@@ -822,18 +956,14 @@ class _Header extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Semantics(
-                label: 'Back to Smart Planner',
-                button: true,
-                child: GestureDetector(
-                  onTap: onBack,
-                  behavior: HitTestBehavior.opaque,
-                  child: const Padding(
-                    padding: EdgeInsets.all(11),
-                    child: Icon(
-                      Icons.arrow_back_ios,
-                      color: Colors.white54,
-                      size: 18,
-                    ),
+                label: 'Back to Nexus',
+                child: IconButton(
+                  onPressed: onBack,
+                  tooltip: 'Back to Nexus',
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Colors.white70,
+                    size: 20,
                   ),
                 ),
               ),
@@ -871,7 +1001,7 @@ class _Header extends StatelessWidget {
                     // onboarding, so expand it here: a user arriving on this
                     // screen otherwise has no way to learn what it means.
                     const Text(
-                      'Systems intelligence · on-device guidance',
+                      'Systems intelligence - source-aware guidance',
                       style: TextStyle(
                         fontSize: 10,
                         letterSpacing: 0.5,
@@ -903,75 +1033,35 @@ class _Header extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              GestureDetector(
-                onTap: onSpeakSummary,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: compact ? 7 : 8,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.neonCyan.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: AppColors.neonCyan.withValues(alpha: 0.35),
+              SizedBox(
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: onSpeakSummary,
+                  icon: const Icon(Icons.summarize_rounded, size: 16),
+                  label: Text(compact ? 'Summary' : 'Read Summary'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.neonCyan,
+                    side: const BorderSide(color: AppColors.neonCyan),
+                    backgroundColor: const Color(0xFF102436),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.summarize_rounded,
-                        size: 11,
-                        color: AppColors.neonCyan,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        'SUMMARY',
-                        style: TextStyle(
-                          fontSize: 8,
-                          letterSpacing: 1,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.neonCyan,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ),
-              GestureDetector(
-                onTap: onSpeakAccessibility,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: compact ? 6 : 7,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.accessibility_new_rounded,
-                        size: 11,
-                        color: Colors.white70,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        'ACCESS',
-                        style: TextStyle(
-                          fontSize: 8,
-                          letterSpacing: 1,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
+              SizedBox(
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: onSpeakAccessibility,
+                  icon: const Icon(Icons.accessibility_new_rounded, size: 16),
+                  label: Text(compact ? 'Access' : 'Accessibility'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    side: const BorderSide(color: Colors.white30),
+                    backgroundColor: const Color(0xFF161D27),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
                   ),
                 ),
               ),
@@ -996,6 +1086,12 @@ class _BubbleTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bool isUser = msg.isUser;
     final String? emotion = msg.emotion;
+    final bool systemPanel = msg.systemPanel && !isUser;
+    final Color bubbleColor = isUser
+        ? const Color(0xFF1A1330)
+        : systemPanel
+        ? const Color(0xFF101A24)
+        : const Color(0xFF0B1622);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -1018,28 +1114,20 @@ class _BubbleTile extends ConsumerWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: isUser
-                        ? const Color(0xFF1E1330)
-                        : const Color(0xFF0D1A2A),
+                    color: bubbleColor,
                     borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: Radius.circular(isUser ? 16 : 4),
-                      bottomRight: Radius.circular(isUser ? 4 : 16),
+                      topLeft: Radius.circular(systemPanel ? 8 : 16),
+                      topRight: Radius.circular(systemPanel ? 8 : 16),
+                      bottomLeft: Radius.circular(isUser ? 16 : 6),
+                      bottomRight: Radius.circular(isUser ? 6 : 16),
                     ),
                     border: Border.all(
                       color: isUser
                           ? Colors.purple.withValues(alpha: 0.25)
-                          : AppColors.neonCyan.withValues(alpha: 0.18),
+                          : systemPanel
+                          ? Colors.white24
+                          : AppColors.neonCyan.withValues(alpha: 0.22),
                     ),
-                    boxShadow: isUser
-                        ? null
-                        : [
-                            BoxShadow(
-                              color: AppColors.neonCyan.withValues(alpha: 0.06),
-                              blurRadius: 12,
-                            ),
-                          ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1048,6 +1136,12 @@ class _BubbleTile extends ConsumerWidget {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 5),
                           child: _EmotionTag(emotion: emotion),
+                        ),
+                      if (!isUser &&
+                          msg.processingMode != AIProcessingMode.unknown)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: _ProcessingModeTag(mode: msg.processingMode),
                         ),
                       TypingText(
                         msg.text,
@@ -1059,7 +1153,7 @@ class _BubbleTile extends ConsumerWidget {
                           fontSize: 13,
                           height: 1.55,
                           color: isUser ? Colors.white70 : Colors.white,
-                          fontFamily: isUser ? null : 'monospace',
+                          fontFamily: null,
                         ),
                       ),
                     ],
@@ -1216,6 +1310,61 @@ class _EmotionTag extends StatelessWidget {
   }
 }
 
+class _ProcessingModeTag extends StatelessWidget {
+  const _ProcessingModeTag({required this.mode});
+
+  final AIProcessingMode mode;
+
+  String get _label {
+    switch (mode) {
+      case AIProcessingMode.external:
+        return 'External AI';
+      case AIProcessingMode.onDevice:
+        return 'On device';
+      case AIProcessingMode.onDeviceFallback:
+        return 'On-device fallback';
+      case AIProcessingMode.unknown:
+        return 'Processing unknown';
+    }
+  }
+
+  Color get _color {
+    switch (mode) {
+      case AIProcessingMode.external:
+        return Colors.deepPurpleAccent;
+      case AIProcessingMode.onDevice:
+        return Colors.greenAccent;
+      case AIProcessingMode.onDeviceFallback:
+        return Colors.amberAccent;
+      case AIProcessingMode.unknown:
+        return Colors.white54;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Processing mode: $_label',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF07111C),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: _color.withValues(alpha: 0.55)),
+        ),
+        child: Text(
+          _label,
+          style: TextStyle(
+            color: _color,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Typing indicator
 // ---------------------------------------------------------------------------
@@ -1293,20 +1442,24 @@ class _InputBar extends ConsumerWidget {
     required this.controller,
     required this.onSend,
     this.compact = false,
+    this.busy = false,
   });
   final TextEditingController controller;
   final VoidCallback onSend;
   final bool compact;
+  final bool busy;
 
-  static const List<String> _commands = <String>[
-    '/help',
-    '/status',
-    '/tasks',
-    '/goals',
-    '/plan',
-    '/timeline',
-    '/trajectory',
-  ];
+  static const List<({String label, String shortcut})> _commands =
+      <({String label, String shortcut})>[
+        (label: 'Help', shortcut: '/help'),
+        (label: 'Status', shortcut: '/status'),
+        (label: 'Tasks', shortcut: '/tasks'),
+        (label: 'Goals', shortcut: '/goals'),
+        (label: 'Plan', shortcut: '/plan'),
+        (label: 'Milestones', shortcut: '/milestones'),
+        (label: 'Timeline', shortcut: '/timeline'),
+        (label: 'Trajectory', shortcut: '/trajectory'),
+      ];
 
   void _insertShortcut(String shortcut) {
     controller
@@ -1344,7 +1497,8 @@ class _InputBar extends ConsumerWidget {
             effectiveCompact ? 10 : 16,
           ),
           decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: Colors.white10)),
+            color: Color(0xFF07111C),
+            border: Border(top: BorderSide(color: Colors.white24)),
           ),
           child: SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
@@ -1354,11 +1508,10 @@ class _InputBar extends ConsumerWidget {
               children: [
                 if (!effectiveCompact) ...[
                   const Text(
-                    'Quick shortcuts',
+                    'Explore evidence',
                     style: TextStyle(
-                      color: Colors.white38,
-                      fontSize: 10,
-                      letterSpacing: 1.2,
+                      color: Colors.white60,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -1371,32 +1524,39 @@ class _InputBar extends ConsumerWidget {
                             (shortcut) => Padding(
                               padding: const EdgeInsets.only(right: 6),
                               child: GestureDetector(
-                                onTap: () {
-                                  _insertShortcut(shortcut);
-                                  onSend();
-                                },
+                                onTap: busy
+                                    ? null
+                                    : () {
+                                        _insertShortcut(shortcut.shortcut);
+                                        onSend();
+                                      },
                                 behavior: HitTestBehavior.opaque,
                                 child: Container(
+                                  constraints: const BoxConstraints(
+                                    minHeight: 44,
+                                  ),
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 9,
+                                    horizontal: 12,
+                                    vertical: 11,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.neonCyan.withValues(
-                                      alpha: 0.08,
-                                    ),
-                                    borderRadius: BorderRadius.circular(999),
+                                    color: busy
+                                        ? const Color(0xFF151B22)
+                                        : const Color(0xFF102436),
+                                    borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: AppColors.neonCyan.withValues(
-                                        alpha: 0.28,
-                                      ),
+                                      color: busy
+                                          ? Colors.white12
+                                          : AppColors.neonCyan,
                                     ),
                                   ),
                                   child: Text(
-                                    shortcut,
-                                    style: const TextStyle(
-                                      color: AppColors.neonCyan,
-                                      fontSize: 11,
+                                    shortcut.label,
+                                    style: TextStyle(
+                                      color: busy
+                                          ? Colors.white38
+                                          : AppColors.neonCyan,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -1416,7 +1576,8 @@ class _InputBar extends ConsumerWidget {
                       child: TextField(
                         controller: controller,
                         minLines: 1,
-                        maxLines: 1,
+                        maxLines: 4,
+                        enabled: !busy,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
@@ -1426,7 +1587,7 @@ class _InputBar extends ConsumerWidget {
                         decoration: InputDecoration(
                           hintText: 'Query the system...',
                           hintStyle: const TextStyle(
-                            color: Colors.white24,
+                            color: Colors.white60,
                             fontSize: 13,
                           ),
                           filled: true,
@@ -1454,7 +1615,9 @@ class _InputBar extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        onSubmitted: (_) => onSend(),
+                        onSubmitted: (_) {
+                          if (!busy) onSend();
+                        },
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1464,17 +1627,19 @@ class _InputBar extends ConsumerWidget {
                           : 'Start voice input',
                       button: true,
                       child: GestureDetector(
-                        onTap: () async {
-                          if (listening) {
-                            await ref
-                                .read(voiceControllerProvider.notifier)
-                                .stopListening();
-                            return;
-                          }
-                          await ref
-                              .read(voiceControllerProvider.notifier)
-                              .startListening();
-                        },
+                        onTap: busy
+                            ? null
+                            : () async {
+                                if (listening) {
+                                  await ref
+                                      .read(voiceControllerProvider.notifier)
+                                      .stopListening();
+                                  return;
+                                }
+                                await ref
+                                    .read(voiceControllerProvider.notifier)
+                                    .startListening();
+                              },
                         child: Container(
                           width: 48,
                           height: 48,
@@ -1482,16 +1647,16 @@ class _InputBar extends ConsumerWidget {
                             shape: BoxShape.circle,
                             color: listening
                                 ? AppColors.neonCyan.withValues(alpha: 0.22)
-                                : AppColors.neonCyan.withValues(alpha: 0.12),
+                                : busy
+                                ? const Color(0xFF151B22)
+                                : const Color(0xFF102436),
                             border: Border.all(
-                              color: AppColors.neonCyan.withValues(
-                                alpha: listening ? 0.6 : 0.4,
-                              ),
+                              color: busy ? Colors.white12 : AppColors.neonCyan,
                             ),
                           ),
                           child: Icon(
                             listening ? Icons.mic : Icons.mic_none_rounded,
-                            color: AppColors.neonCyan,
+                            color: busy ? Colors.white38 : AppColors.neonCyan,
                             size: 18,
                           ),
                         ),
@@ -1502,20 +1667,24 @@ class _InputBar extends ConsumerWidget {
                       label: 'Send query',
                       button: true,
                       child: GestureDetector(
-                        onTap: onSend,
+                        onTap: busy ? null : onSend,
                         child: Container(
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: AppColors.neonCyan.withValues(alpha: 0.12),
+                            color: busy
+                                ? const Color(0xFF151B22)
+                                : const Color(0xFF102436),
                             border: Border.all(
-                              color: AppColors.neonCyan.withValues(alpha: 0.4),
+                              color: busy ? Colors.white12 : AppColors.neonCyan,
                             ),
                           ),
-                          child: const Icon(
-                            Icons.send_rounded,
-                            color: AppColors.neonCyan,
+                          child: Icon(
+                            busy
+                                ? Icons.hourglass_top_rounded
+                                : Icons.send_rounded,
+                            color: busy ? Colors.white38 : AppColors.neonCyan,
                             size: 18,
                           ),
                         ),

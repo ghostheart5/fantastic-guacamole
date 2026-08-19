@@ -94,5 +94,6 @@ User? _mapSupabaseUser(sb.User? supabaseUser) {
         ? fullName
         : ((name?.isNotEmpty ?? false) ? name : null),
     emailVerified: supabaseUser.emailConfirmedAt != null,
+    appMetadata: Map<String, dynamic>.unmodifiable(supabaseUser.appMetadata),
   );
 }

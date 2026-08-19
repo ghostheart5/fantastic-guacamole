@@ -21,13 +21,11 @@ import 'package:fantastic_guacamole/engine/learning/learning_history.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/si/ai_personality.dart';
 import 'package:fantastic_guacamole/engine/si/ai_response.dart';
-import 'package:fantastic_guacamole/engine/si/core/si_core.dart' as modular_si;
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart'
-    show SIPersona, PersonalityTraits;
+    show PersonalityTraits, SIInputPacket, SILatentInputs, SIPersona;
 import 'package:fantastic_guacamole/engine/si/si_decision.dart';
 import 'package:fantastic_guacamole/engine/si/si_response_policy.dart';
 import 'package:fantastic_guacamole/engine/si/si_task_core.dart';
-import 'package:fantastic_guacamole/engine/si/synthetic_intelligence_engine.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_memory_selection.dart';
 import 'package:fantastic_guacamole/state/controllers/learning_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';

@@ -47,7 +47,8 @@ void main() {
             widget is Container &&
             widget.decoration ==
                 const BoxDecoration(
-                  border: Border(top: BorderSide(color: Colors.white10)),
+                  color: Color(0xFF07111C),
+                  border: Border(top: BorderSide(color: Colors.white24)),
                 ),
       );
       expect(composerSubtree, findsOneWidget);

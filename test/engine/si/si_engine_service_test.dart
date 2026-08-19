@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/domain/entities/log_entry_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/plan_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/plan_proposal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/profile_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/progression_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
@@ -59,6 +60,12 @@ void main() {
 }
 
 class _NoopSiEngineRepository implements SiEngineRepository {
+  @override
+  Future<void> clearState() async {}
+
+  @override
+  Future<Map<String, dynamic>?> exportState() async => null;
+
   @override
   Future<Map<String, dynamic>?> loadState() async => null;
 
@@ -178,6 +185,18 @@ class _FakePlanRepository implements IPlanRepository {
 
   @override
   Future<void> savePlan(PlanEntity plan) async {}
+
+  @override
+  Future<PlanProposalEntity?> getProposal(String id) async => null;
+
+  @override
+  Future<void> saveProposal(PlanProposalEntity proposal) async {}
+
+  @override
+  Future<void> applyProposal({
+    required PlanProposalEntity proposal,
+    required PlanEntity plan,
+  }) async {}
 }
 
 class _FakeNotificationRepository implements INotificationRepository {

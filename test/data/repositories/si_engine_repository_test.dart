@@ -48,4 +48,17 @@ void main() {
 
     expect(state, isNull);
   });
+
+  test('exports a copy and clears only SI engine state', () async {
+    await repository.saveState(<String, dynamic>{
+      'memoryEvents': <String>['a'],
+    });
+
+    final Map<String, dynamic>? exported = await repository.exportState();
+    exported?['changed'] = true;
+    expect((await repository.loadState())?['changed'], isNull);
+
+    await repository.clearState();
+    expect(await repository.loadState(), isNull);
+  });
 }

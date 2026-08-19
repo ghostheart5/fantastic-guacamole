@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/learning_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
@@ -39,7 +39,7 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
   // Habits feed Smart Planner and SI. Read non-blocking: if habit storage has
   // not resolved (or failed), aggregation continues with none rather than
   // stalling the whole SI pipeline on it.
-  final AsyncValue<List<HabitRecord>> habitsAsync = ref.watch(habitsProvider);
+  final AsyncValue<List<HabitEntity>> habitsAsync = ref.watch(habitsProvider);
   final SISourceStatus habitsHealth = habitsAsync.isLoading
       ? SISourceStatus.loading
       : habitsAsync.hasError
@@ -47,9 +47,9 @@ final siStateAggregationProvider = FutureProvider<SIStateAggregation>((
       : (habitsAsync.asData?.value.isEmpty ?? true)
       ? SISourceStatus.empty
       : SISourceStatus.ready;
-  final List<HabitRecord> habits = habitsAsync.maybeWhen(
-    data: (List<HabitRecord> value) => value,
-    orElse: () => const <HabitRecord>[],
+  final List<HabitEntity> habits = habitsAsync.maybeWhen(
+    data: (List<HabitEntity> value) => value,
+    orElse: () => const <HabitEntity>[],
   );
 
   final List<String> planPreview = ref

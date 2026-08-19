@@ -11,6 +11,7 @@ import 'package:fantastic_guacamole/engine/si/si_engine_service.dart';
 
 typedef SyntheticIntelligenceOutput = SIFinalOutputBundle;
 
+@Deprecated('Use SIEngineService. This class is a compatibility adapter.')
 class SyntheticIntelligenceEngine {
   SyntheticIntelligenceEngine({SIEngineService? service})
     : _service = service ?? SIEngineService();

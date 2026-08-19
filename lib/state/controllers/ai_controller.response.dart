@@ -299,6 +299,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         reasoning: response.metadata['reasoning']?.toString(),
         emotion: response.emotion,
         confidence: response.confidence,
+        processingMode: aiProcessingModeFromMetadata(response.metadata),
       );
       final double baseConfidenceSeed = (baseRecommendation.confidence ?? 0.55)
           .clamp(0.0, 1.0);
@@ -372,19 +373,21 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
             : '${selected.reasoning} | grounded_fallback:${validatedDecision.violations.join(',')}',
         emotion: selected.emotion,
         confidence: selected.confidence,
+        processingMode: baseRecommendation.processingMode,
       );
 
       final SlidingWindowRateLimiter suggestionLimiter = ref.read(
         aiSuggestionRateLimiterProvider,
       );
       if (selection.repeatedTask && !suggestionLimiter.tryAcquire()) {
-        recommendation = const AIRecommendation(
+        recommendation = AIRecommendation(
           task: null,
           message:
               'I am holding repeated nudges for a moment. Tell me if you want an alternative action and I will switch strategies.',
           reasoning: 'task_cooldown',
           emotion: 'balanced',
           confidence: 0.64,
+          processingMode: baseRecommendation.processingMode,
         );
       }
 
@@ -397,6 +400,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
               '${recommendation.reasoning ?? 'policy'} | policy_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: (recommendation.confidence ?? 0.6).clamp(0.0, 1.0),
+          processingMode: recommendation.processingMode,
         );
       }
 
@@ -419,6 +423,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
               '${recommendation.reasoning ?? 'response'} | final_dedup_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: recommendation.confidence,
+          processingMode: recommendation.processingMode,
         );
         usedFinalDedupFallback = true;
         finalRepeated = isSubstantiallyRepeatedResponse(
@@ -452,6 +457,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
               '${recommendation.reasoning ?? 'validation'} | facade_validation_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: (recommendation.confidence ?? 0.5).clamp(0.0, 1.0),
+          processingMode: recommendation.processingMode,
         );
       }
 
@@ -476,6 +482,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
               '${recommendation.reasoning ?? 'response'} | final_dedup_fallback',
           emotion: recommendation.emotion ?? 'balanced',
           confidence: recommendation.confidence,
+          processingMode: recommendation.processingMode,
         );
         usedFinalDedupFallback = true;
       }
@@ -502,6 +509,7 @@ class AIResponseController extends AsyncNotifier<AIRecommendation?>
         reasoning: recommendation.reasoning,
         emotion: recommendation.emotion,
         confidence: calibratedConfidence,
+        processingMode: recommendation.processingMode,
       );
 
       stopwatch.stop();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/features/si_console/ui/si_console_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/ai_controller.dart';
 import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
@@ -119,6 +121,88 @@ void main() {
     );
   });
 
+  testWidgets('send is disabled while a request is in flight', (
+    WidgetTester tester,
+  ) async {
+    late _SlowAiController slowController;
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        aiControllerProvider.overrideWith((Ref ref) {
+          slowController = _SlowAiController(ref);
+          return slowController;
+        }),
+        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+        intelligenceStateProvider.overrideWithValue(_intelligence),
+      ],
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SIConsoleScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    await tester.enterText(find.byType(TextField), 'summarize today');
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.hourglass_top_rounded));
+    await tester.pump();
+
+    expect(slowController.calls, 1);
+
+    slowController.complete();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(
+      find.textContaining('held response', skipOffstage: false),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('assistant response shows processing provenance', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        aiControllerProvider.overrideWith(
+          (Ref ref) => _ExternalAiController(ref),
+        ),
+        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+        intelligenceStateProvider.overrideWithValue(_intelligence),
+      ],
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    });
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SIConsoleScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    await tester.enterText(find.byType(TextField), 'what should I do');
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('External AI', skipOffstage: false), findsOneWidget);
+    expect(
+      find.textContaining('external response', skipOffstage: false),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'a crisis phrase prefixed with a slash shortcut still triggers the '
     'crisis dialog instead of being handled as a local shortcut',
@@ -220,5 +304,46 @@ class _ErrorAiController extends AIController {
   @override
   Future<AIRecommendation?> sendMessage(String text) async {
     throw StateError('simulated non-exception AI failure');
+  }
+}
+
+class _SlowAiController extends AIController {
+  _SlowAiController(super.ref);
+
+  final Completer<AIRecommendation?> _completer =
+      Completer<AIRecommendation?>();
+  int calls = 0;
+
+  @override
+  Future<AIRecommendation?> sendMessage(String text) {
+    calls += 1;
+    return _completer.future;
+  }
+
+  void complete() {
+    _completer.complete(
+      const AIRecommendation(
+        message: 'held response',
+        reasoning: 'n/a',
+        emotion: 'balanced',
+        confidence: 1,
+        processingMode: AIProcessingMode.onDevice,
+      ),
+    );
+  }
+}
+
+class _ExternalAiController extends AIController {
+  _ExternalAiController(super.ref);
+
+  @override
+  Future<AIRecommendation?> sendMessage(String text) async {
+    return const AIRecommendation(
+      message: 'external response',
+      reasoning: 'n/a',
+      emotion: 'balanced',
+      confidence: 1,
+      processingMode: AIProcessingMode.external,
+    );
   }
 }

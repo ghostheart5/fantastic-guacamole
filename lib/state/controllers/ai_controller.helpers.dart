@@ -199,6 +199,8 @@ AIResponse _responseFromAgentResult({
     taskTitle: task?.title,
     metadata: <String, dynamic>{
       'reasoning': result.reasoning,
+      'source': result.payload['source']?.toString() ?? result.mode,
+      'modelBacked': result.payload['modelBacked'] == true,
       if (task != null) 'task': task.toJson(),
     },
   );
@@ -232,6 +234,7 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
           taskTitle: recommendation.task?.title,
           metadata: <String, dynamic>{
             'reasoning': recommendation.reasoning ?? '',
+            'processingMode': recommendation.processingMode.name,
           },
         );
   final List<Task> tasks = await ref.watch(tasksProvider.future);
@@ -242,65 +245,53 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
   );
   final String previousMessage =
       previousState?['message']?.toString().trim() ?? '';
-  final modular_si.SIPipelineResult coreResult = ref
-      .read(modularSiCoreProvider)
-      .run(
-        input: modular_si.SIInputPacket(
+  final bundle = await ref
+      .read(siEngineServiceProvider)
+      .handleUserInput(
+        SIInputPacket(
           text: input,
           history: previousMessage.isEmpty
               ? const <String>[]
               : <String>[previousMessage],
-          context: const <String, dynamic>{'appState': 'planner'},
-          latent: modular_si.SILatentInputs(
+          metadata: <String, dynamic>{
+            'completed': learning.completed,
+            'skipped': learning.skipped,
+            if (response != null) 'seedResponse': response.toJson(),
+          },
+          context: <String, dynamic>{
+            'appState': 'planner',
+            'energy': si.energy,
+            if (response != null) 'seedReasoning': response.reasoning,
+          },
+          latent: SILatentInputs(
             frustration: si.fatigue,
             confusion: input.trim().isEmpty ? 0.5 : 0,
             confidence: response?.confidence ?? 0.5,
             hesitation: si.fatigue,
           ),
         ),
-        mood: response?.emotion ?? 'neutral',
         task: selectedTask,
-        energy: si.energy,
-        fatigue: si.fatigue,
-        completed: learning.completed,
-        skipped: learning.skipped,
+        previousMood: response?.emotion,
       );
   final AIResponse effectiveResponse =
       response ??
       AIResponse(
-        message: coreResult.response.message,
-        emotion: coreResult.response.emotion,
-        confidence: coreResult.response.confidence,
-        personality: _profileFor(
-          personality,
-          mood: coreResult.response.emotion,
-        ),
-        action: coreResult.decision.action,
-        safe: coreResult.decision.safe,
-        taskTitle: coreResult.response.task?.title,
-        metadata: <String, dynamic>{'reasoning': coreResult.decision.reasoning},
+        message: bundle.response.message,
+        emotion: bundle.response.emotion,
+        confidence: bundle.response.confidence,
+        personality: _profileFor(personality, mood: bundle.response.emotion),
+        action: bundle.decision.action,
+        safe: bundle.decision.safe,
+        taskTitle: bundle.response.task?.title,
+        metadata: <String, dynamic>{'reasoning': bundle.decision.reasoning},
       );
   final Map<String, dynamic> coreContext = <String, dynamic>{
-    'intent': coreResult.intent.primary.label,
-    'action': coreResult.decision.action,
-    'reasoning': coreResult.cognition.summary,
-    'askClarification': coreResult.cognition.meta.askClarification,
-    'memoryCount': coreResult.memoryUpdate.store.snapshots.length,
+    'intent': bundle.core.intent.primary.label,
+    'action': bundle.decision.action,
+    'reasoning': bundle.core.cognition.summary,
+    'askClarification': bundle.core.cognition.meta.askClarification,
+    'memoryCount': bundle.memory.snapshots.length,
   };
-
-  final synthetic = SyntheticIntelligenceEngine();
-  final bundle = await synthetic.build(
-    input: input,
-    now: DateTime.now(),
-    personality: personality,
-    response: effectiveResponse,
-    appState: 'planner',
-    platform: 'flutter',
-    history: previousMessage.isEmpty
-        ? const <String>[]
-        : <String>[previousMessage],
-    context: coreContext,
-  );
 
   return <String, dynamic>{
     ...effectiveResponse.toJson(),
@@ -316,12 +307,9 @@ final siOutputBundleProvider = FutureProvider<Map<String, dynamic>>((
       'reasoning': bundle.decision.reasoning,
     },
     'core_pipeline': coreContext,
+    'provenance': bundle.provenance.toJson(),
   };
 });
-
-final modularSiCoreProvider = Provider<modular_si.SICore>(
-  (_) => modular_si.SICore(),
-);
 
 AIPersonalityProfile _profileFor(
   AIPersonality personality, {
