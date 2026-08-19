@@ -4,15 +4,37 @@ import 'package:fantastic_guacamole/app/feature_canon.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('feature canon exposes exactly seven unique active surfaces', () {
-    expect(ChronoSparkFeatureCanon.active, hasLength(7));
+  test('feature canon exposes exactly eight unique active surfaces', () {
+    expect(ChronoSparkFeatureCanon.active, hasLength(8));
     expect(
       ChronoSparkFeatureCanon.active.map((item) => item.id).toSet(),
-      hasLength(7),
+      hasLength(8),
     );
     expect(
       ChronoSparkFeatureCanon.active.map((item) => item.route).toSet(),
-      hasLength(7),
+      hasLength(8),
+    );
+  });
+
+  test('feature canon separates primary features from support surfaces', () {
+    expect(
+      ChronoSparkFeatureCanon.byCategory(
+        ChronoSparkFeatureCategory.primaryCanonFeature,
+      ).map((ChronoSparkFeatureDefinition item) => item.displayName),
+      containsAll(<String>[
+        'Nexus',
+        'Smart Planner',
+        'Creator',
+        'Settings',
+        'Timeline',
+        'Trajectory Engine',
+      ]),
+    );
+    expect(
+      ChronoSparkFeatureCanon.byCategory(
+        ChronoSparkFeatureCategory.supportSurface,
+      ).map((ChronoSparkFeatureDefinition item) => item.displayName),
+      containsAll(<String>['Progression', 'SI Console']),
     );
   });
 

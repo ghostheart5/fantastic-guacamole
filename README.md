@@ -34,12 +34,18 @@ This is a planning cycle, not a promise that every day will be predictable or op
 | **Nexus** | Home surface for the current operating state and next-best action. |
 | **Smart Planner** | Explainable planning guidance and plan reconciliation. |
 | **Creator** | Structured intake for tasks, goals, Daily Rhythms, and notes. |
-| **SI Console** | Explainable recommendations and deeper decision investigation. |
+| **Settings** | Preferences, account controls, privacy, support, and advanced access points. |
 | **Timeline** | Planning and review of scheduled action and operational history. |
 | **Trajectory Engine** | Forward-looking scenario comparison, assumptions, and corrections. |
+
+## Support surfaces
+
+| Surface | Purpose |
+| --- | --- |
+| **SI Console** | Advanced strategic investigation and guidance. |
 | **Progression** | Evidence-backed advancement and leverage-action review. |
 
-Smart Planner, SI Console, Trajectory Engine, and Progression provide guidance or context to evaluate. They do not replace the user's judgment or guarantee an outcome.
+Smart Planner, SI Console, Trajectory Engine, and Progression provide guidance or context to evaluate. Insights, signals, forecasts, recommendations, and activity summaries are outputs inside those features, not standalone product surfaces.
 
 ## Documentation
 

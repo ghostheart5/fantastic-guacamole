@@ -6,8 +6,6 @@ import 'package:fantastic_guacamole/engine/learning/learning_state.dart';
 import 'package:fantastic_guacamole/features/creator/ui/creator_screen.dart';
 import 'package:fantastic_guacamole/features/goals/ui/goals_screen.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
-import 'package:fantastic_guacamole/features/memories/ui/memories_screen.dart';
-import 'package:fantastic_guacamole/features/milestones/ui/milestones_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/profile/ui/profile_screen.dart';
 import 'package:fantastic_guacamole/features/progression/ui/progression_screen.dart';
@@ -35,11 +33,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
 class NavigationShell extends ConsumerStatefulWidget {
-  const NavigationShell({super.key, this.initialView = AppView.nexus});
+  const NavigationShell({
+    super.key,
+    this.initialView = AppView.nexus,
+    this.allowSavedTabRestore = false,
+  });
 
   final AppView initialView;
+  final bool allowSavedTabRestore;
 
   @override
   ConsumerState<NavigationShell> createState() => _NavigationShellState();
@@ -124,8 +128,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(_restoreLastOpenedTab(widget.initialView));
-      _checkRecovery();
+      if (widget.allowSavedTabRestore) {
+        _restoreDefaultLaunchTab();
+      } else {
+        _syncAppFlowToRouteView(widget.initialView);
+      }
       unawaited(_handleNotificationLaunch());
     });
     NotificationScheduler.tappedPayloadListenable.addListener(
@@ -160,50 +167,27 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
   /// dropped, which is what happened before — no response handler existed at
   /// all, so a tap only ever opened the app on whatever tab it was last on.
   void _routeNotificationPayload(String payload) {
-    final AppFlowController flow = ref.read(appFlowProvider.notifier);
     if (payload.startsWith('goal_reminder_')) {
-      flow.toGoals();
+      _goToView(AppView.goals);
       return;
     }
     if (payload.startsWith('daily_planning_reminder')) {
-      flow.toTimeline();
+      _goToView(AppView.timeline);
       return;
     }
     if (payload.startsWith('habit_reminder')) {
-      flow.toTasks();
+      _goToView(AppView.creator);
       return;
     }
     if (payload.startsWith('reflection_reminder')) {
-      flow.toLogs();
+      _goToView(AppView.timeline);
       return;
     }
     if (payload.startsWith('streak_break_recovery_')) {
-      flow.toProgression();
+      _goToView(AppView.progression);
       return;
     }
-    flow.toLogs();
-  }
-
-  Future<void> _restoreLastOpenedTab(AppView fallbackView) async {
-    // A deep link or an explicit guide destination is authoritative. Restoring
-    // a saved top-level tab here used to replace the requested screen while the
-    // URL continued to advertise the original route.
-    if (fallbackView != AppView.nexus) {
-      if (mounted) {
-        ref.read(appFlowProvider.notifier).show(fallbackView);
-      }
-      return;
-    }
-    final int? restoredTab = _preferenceService.getLastOpenedTab();
-    if (!mounted) {
-      return;
-    }
-    if (restoredTab == null || restoredTab < 0 || restoredTab > 3) {
-      ref.read(appFlowProvider.notifier).show(fallbackView);
-      return;
-    }
-    _initializedTabIndexes.add(restoredTab);
-    ref.read(appFlowProvider.notifier).show(_viewForTabIndex(restoredTab));
+    _goToView(AppView.timeline);
   }
 
   @override
@@ -228,10 +212,8 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
     if (oldWidget.initialView != widget.initialView) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          return;
-        }
-        ref.read(appFlowProvider.notifier).show(widget.initialView);
+        if (!mounted) return;
+        _syncAppFlowToRouteView(widget.initialView);
       });
     }
   }
@@ -262,7 +244,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
           _systemScheduler.resume();
           _dataHygieneScheduler.start();
         }
-        unawaited(_checkRecovery());
+        _syncAppFlowToRouteView(widget.initialView);
         break;
     }
   }
@@ -290,7 +272,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     }
     _savingCurrentState = true;
     try {
-      final AppView view = ref.read(appFlowProvider);
+      final AppView view = widget.initialView;
       await ref.read(appRecoveryProvider).saveState(lastRoute: view.name);
       unawaited(_pushDailyMetrics());
     } finally {
@@ -307,17 +289,34 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     await ref.read(globalAggregationServiceProvider).push(snapshot);
   }
 
-  Future<void> _checkRecovery() async {
-    if (!mounted) {
-      return;
+  void _syncAppFlowToRouteView(AppView view) {
+    _initializedTabIndexes.add(_tabIndexForView(view));
+    if (ref.read(appFlowProvider) != view) {
+      ref.read(appFlowProvider.notifier).show(view);
     }
-    final recovery = await ref.read(appRecoveryProvider).loadState();
-    if (!mounted || recovery == null) {
-      return;
-    }
-    final AppView? recoveredView = appViewFromName(recovery.lastRoute);
-    if (recoveredView != null) {
-      ref.read(appFlowProvider.notifier).show(recoveredView);
+  }
+
+  void _restoreDefaultLaunchTab() {
+    final int? restoredTab = _preferenceService.getLastOpenedTab();
+    final AppView restoredView =
+        restoredTab == null || restoredTab < 0 || restoredTab > 3
+        ? AppView.nexus
+        : _viewForTabIndex(restoredTab);
+    _goToView(restoredView);
+  }
+
+  void _goToView(AppView view) {
+    _syncAppFlowToRouteView(view);
+    final String routePath = routePathForAppView(view);
+    try {
+      final GoRouter router = GoRouter.of(context);
+      final Uri currentUri = router.routeInformationProvider.value.uri;
+      if (currentUri.path != routePath || currentUri.hasQuery) {
+        router.go(routePath);
+      }
+    } on Object {
+      // Widget tests and standalone shell previews may mount the shell without
+      // a GoRouter. Keep the compatibility provider updated in that case.
     }
   }
 
@@ -353,7 +352,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
     return switch (view) {
       AppView.nexus => 0,
       AppView.trajectoryEngine => 1,
-      AppView.logs || AppView.timeline => 2,
+      AppView.timeline => 2,
       AppView.profile => 3,
       _ => 0,
     };
@@ -370,18 +369,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
   void _onTabSelected(int index) {
     _initializedTabIndexes.add(index);
-    unawaited(_preferenceService.setLastOpenedTab(index));
-    final AppFlowController controller = ref.read(appFlowProvider.notifier);
-    switch (index) {
-      case 0:
-        controller.toNexus();
-      case 1:
-        controller.toTrajectoryEngine();
-      case 2:
-        controller.toTimeline();
-      case 3:
-        controller.toProfile();
-    }
+    _goToView(_viewForTabIndex(index));
   }
 
   Widget _buildTabbedBody(int tabIndex) {
@@ -416,7 +404,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).pop();
-              ref.read(appFlowProvider.notifier).show(target);
+              _goToView(target);
             },
           );
         }
@@ -433,7 +421,7 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
               const Divider(),
               navItem('Nexus', 'Connected planning home', AppView.nexus),
               navItem(
-                'Trajectory',
+                'Trajectory Engine',
                 'Future scenarios and execution',
                 AppView.trajectoryEngine,
               ),
@@ -448,11 +436,6 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
                 'Creator',
                 'Turn intention into connected action',
                 AppView.creator,
-              ),
-              navItem(
-                'Milestones',
-                'Checkpoint planning and tracking',
-                AppView.milestones,
               ),
               navItem(
                 'Smart Planner',
@@ -479,13 +462,12 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
 
   @override
   Widget build(BuildContext context) {
-    final AppView view = ref.watch(appFlowProvider);
+    final AppView view = widget.initialView;
     final int tabIndex = _tabIndexForView(view);
     _initializedTabIndexes.add(tabIndex);
 
     final Widget body = switch (view) {
       AppView.nexus ||
-      AppView.logs ||
       AppView.profile ||
       AppView.trajectoryEngine ||
       AppView.timeline => Scaffold(
@@ -513,14 +495,11 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         ),
       ),
       AppView.smartPlanner => const SmartPlannerScreen(),
-      AppView.tasks => const CreatorScreen(),
       AppView.console => const SIConsoleScreen(),
       AppView.settings => const SettingsScreen(),
       AppView.progression => const ProgressionScreen(),
       AppView.creator => const CreatorScreen(),
       AppView.goals => const GoalsScreen(),
-      AppView.milestones => const MilestonesScreen(),
-      AppView.memories => const MemoriesScreen(),
     };
 
     return PopScope(
@@ -529,20 +508,18 @@ class _NavigationShellState extends ConsumerState<NavigationShell>
         if (didPop) {
           return;
         }
-        final AppFlowController controller = ref.read(appFlowProvider.notifier);
-        final AppView current = ref.read(appFlowProvider);
+        final AppView current = widget.initialView;
 
         if (current != AppView.nexus &&
-            current != AppView.logs &&
             current != AppView.profile &&
             current != AppView.trajectoryEngine &&
             current != AppView.timeline) {
-          controller.toNexus();
+          _goToView(AppView.nexus);
           return;
         }
 
-        if (current == AppView.logs || current == AppView.profile) {
-          controller.toNexus();
+        if (current == AppView.profile) {
+          _goToView(AppView.nexus);
           return;
         }
 

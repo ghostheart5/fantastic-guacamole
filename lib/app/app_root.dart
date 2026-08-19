@@ -1,6 +1,7 @@
 import 'package:fantastic_guacamole/app/router/app_router.dart';
 import 'package:fantastic_guacamole/l10n/chronospark_localizations.dart';
 import 'package:fantastic_guacamole/app/router/deep_link_service.dart';
+import 'package:fantastic_guacamole/app/router/route_access_policy.dart';
 import 'package:fantastic_guacamole/app/router/route_paths.dart';
 import 'package:fantastic_guacamole/config/app_config.dart';
 import 'package:fantastic_guacamole/core/debug/runtime_diagnostics.dart';
@@ -235,7 +236,6 @@ class _AppRootState extends ConsumerState<AppRoot> {
     if (_handledDeepLinks.contains(deepLinkKey)) {
       return;
     }
-    _handledDeepLinks.add(deepLinkKey);
 
     final String location = _resolveDeepLinkLocation(uri);
     if (location.isEmpty) {
@@ -243,11 +243,17 @@ class _AppRootState extends ConsumerState<AppRoot> {
     }
     final String currentLocation = router.state.matchedLocation;
     if (currentLocation == location) {
+      _handledDeepLinks.add(deepLinkKey);
       return;
     }
     // Deep links are handled automatically without direct user interaction.
     // Use replace to avoid creating a synthetic browser history entry.
-    router.replace<Object?>(location);
+    try {
+      router.replace<Object?>(location);
+      _handledDeepLinks.add(deepLinkKey);
+    } on Exception {
+      // Do not mark the link handled unless the router accepted the target.
+    }
   }
 
   String _resolveDeepLinkLocation(Uri uri) {
@@ -265,7 +271,19 @@ class _AppRootState extends ConsumerState<AppRoot> {
         'signup' || 'email_change' || 'invite' => 'verify-email',
         _ => 'auth-callback',
       };
-      return '${RoutePaths.login}?mode=$mode';
+      final String? returnTo = RouteAccessPolicy.validatedReturnTo(
+        params[RouteAccessPolicy.returnToQueryParameter],
+      );
+      final Map<String, String> queryParameters = <String, String>{
+        'mode': mode,
+      };
+      if (returnTo != null) {
+        queryParameters[RouteAccessPolicy.returnToQueryParameter] = returnTo;
+      }
+      return Uri(
+        path: RoutePaths.login,
+        queryParameters: queryParameters,
+      ).toString();
     }
 
     if (appPath == '/app' || appPath == '/app/') {
@@ -273,7 +291,7 @@ class _AppRootState extends ConsumerState<AppRoot> {
     }
 
     final String leaf = appPath.substring('/app/'.length);
-    return switch (leaf) {
+    final String route = switch (leaf) {
       'home' || 'nexus' => RoutePaths.nexus,
       'plan' => RoutePaths.timeline,
       'creator' => RoutePaths.creator,
@@ -284,6 +302,18 @@ class _AppRootState extends ConsumerState<AppRoot> {
       'terms' => RoutePaths.terms,
       _ => RoutePaths.nexus,
     };
+    return _withAllowedLinkParts(route, uri);
+  }
+
+  String _withAllowedLinkParts(String route, Uri source) {
+    final Map<String, String> query = Map<String, String>.of(
+      source.queryParameters,
+    )..remove(RouteAccessPolicy.returnToQueryParameter);
+    return Uri(
+      path: route,
+      queryParameters: query.isEmpty ? null : query,
+      fragment: source.fragment.isEmpty ? null : source.fragment,
+    ).toString();
   }
 
   String _normalizeAppPath(String path) {
@@ -457,6 +487,19 @@ class _AccountDataLock extends ConsumerWidget {
                         ),
                       ),
                     ],
+                    if (boundary.canClearPreservedData) ...<Widget>[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 48,
+                        child: OutlinedButton(
+                          onPressed: () =>
+                              _confirmClearPreservedData(context, ref),
+                          child: Text(
+                            l10n.text(ChronoSparkString.clearPreservedData),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -465,5 +508,35 @@ class _AccountDataLock extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmClearPreservedData(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) => AlertDialog(
+            title: Text(l10n.text(ChronoSparkString.clearPreservedDataTitle)),
+            content: Text(l10n.text(ChronoSparkString.clearPreservedDataBody)),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(l10n.text(ChronoSparkString.cancel)),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(l10n.text(ChronoSparkString.clearPreservedData)),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !context.mounted) return;
+    await ref
+        .read(authSessionBoundaryCoordinatorProvider)
+        .clearPreservedDataForCurrentAccount();
   }
 }

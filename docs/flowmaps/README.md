@@ -1,5 +1,7 @@
 # FlowMaps
 
+Status: Internal engineering documentation; not a product surface.
+
 FlowMaps define how a feature actually runs from trigger to UI output.
 
 ## Core Definition

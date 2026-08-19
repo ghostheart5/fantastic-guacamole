@@ -5,9 +5,12 @@ Legacy route redirects in `lib/app/router/app_router.dart` exist only to preserv
 ## Current Legacy Routes
 
 - `/coach`
+- `/insights`
 - `/logs`
 - `/notifications`
+- `/plan`
 - `/progression`
+- `/signals`
 - `/si`
 - `/tasks`
 - `/profile`

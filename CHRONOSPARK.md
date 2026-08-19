@@ -30,6 +30,10 @@ Nexus is the main and home surface. It presents the current operating state, rel
 
 Creator owns structured planning inputs. It is where tasks, goals, Daily Rhythms, and notes are created and managed. Timeline is their scheduling projection rather than a second authoring surface.
 
+### Settings
+
+Settings owns preferences, account controls, privacy, support, notifications, and advanced/internal access points.
+
 ### Timeline
 
 Timeline plans and reviews scheduled action, operational sequencing, and history across time.
@@ -40,7 +44,7 @@ Smart Planner provides explainable planning assistance and reconciles available 
 
 ### SI Console
 
-SI Console supports deeper strategic investigation. It presents relevant context, limitations, and executable guidance without replacing the user's judgment.
+SI Console is a support surface for deeper strategic investigation. It presents relevant context, limitations, and executable guidance without replacing the user's judgment.
 
 ### Trajectory Engine
 
@@ -48,7 +52,7 @@ Trajectory Engine compares explicit future scenarios, assumptions, trade-offs, a
 
 ### Progression
 
-Progression presents evidence-backed advancement and leverage-action context. Levels, experience, streaks, momentum, and confidence are product signals—not guarantees or judgments of personal worth.
+Progression is a support surface for evidence-backed advancement and leverage-action context. Levels, experience, streaks, momentum, and confidence are product signals—not guarantees or judgments of personal worth.
 
 ## Core planning records
 
@@ -62,7 +66,9 @@ These records can support one another, but they do not automatically become a sc
 ## Product boundaries
 
 - Nexus is the home surface.
-- Signal is an output from Smart Planner or SI Console, not a standalone feature.
+- Insight and signal are outputs inside features, not standalone features.
+- Product Advisor is internal/admin diagnostics, not a premium product feature.
+- FlowMaps are internal architecture documentation, not user-facing product surfaces.
 - Daily Rhythms is the current public term for recurring behaviors.
 - Reflection is the current public term for reviewing and retaining useful experience.
 - Smart Planner and SI Console provide guidance, not automatic authority.

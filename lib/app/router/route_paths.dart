@@ -49,4 +49,7 @@ class RoutePaths {
   static const legacySi = '/si';
   static const legacyTasks = '/tasks';
   static const legacyProfile = '/profile';
+  static const legacyCoach = '/coach';
+  static const legacySignals = '/signals';
+  static const legacyInsights = '/insights';
 }

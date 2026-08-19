@@ -6,12 +6,21 @@ export 'package:fantastic_guacamole/domain/models/chronospark_feature_id.dart'
 
 enum ChronoSparkFeatureStatus { active, compatibilityOnly, removed }
 
+enum ChronoSparkFeatureCategory {
+  primaryCanonFeature,
+  supportSurface,
+  evidenceOutput,
+  legacyRedirect,
+  diagnosticInternalTool,
+}
+
 class ChronoSparkFeatureDefinition {
   const ChronoSparkFeatureDefinition({
     required this.id,
     required this.displayName,
     required this.route,
     required this.purpose,
+    required this.category,
     this.status = ChronoSparkFeatureStatus.active,
   });
 
@@ -19,6 +28,7 @@ class ChronoSparkFeatureDefinition {
   final String displayName;
   final String route;
   final String purpose;
+  final ChronoSparkFeatureCategory category;
   final ChronoSparkFeatureStatus status;
 }
 
@@ -36,52 +46,72 @@ abstract final class ChronoSparkFeatureCanon {
           displayName: 'Nexus',
           route: RoutePaths.nexus,
           purpose: 'Current decision context and next-best action.',
+          category: ChronoSparkFeatureCategory.primaryCanonFeature,
         ),
         ChronoSparkFeatureDefinition(
           id: ChronoSparkFeatureId.smartPlanner,
           displayName: 'Smart Planner',
           route: RoutePaths.smartPlanner,
           purpose: 'Explainable planning and plan reconciliation.',
+          category: ChronoSparkFeatureCategory.primaryCanonFeature,
         ),
         ChronoSparkFeatureDefinition(
           id: ChronoSparkFeatureId.creator,
           displayName: 'Creator',
           route: RoutePaths.creator,
           purpose: 'Intelligent intake for tasks, goals, habits, and notes.',
+          category: ChronoSparkFeatureCategory.primaryCanonFeature,
+        ),
+        ChronoSparkFeatureDefinition(
+          id: ChronoSparkFeatureId.settings,
+          displayName: 'Settings',
+          route: RoutePaths.settings,
+          purpose: 'Preferences, account controls, privacy, and support.',
+          category: ChronoSparkFeatureCategory.primaryCanonFeature,
         ),
         ChronoSparkFeatureDefinition(
           id: ChronoSparkFeatureId.siConsole,
           displayName: 'SI Console',
           route: RoutePaths.siConsole,
           purpose: 'Deep strategic investigation and executable guidance.',
+          category: ChronoSparkFeatureCategory.supportSurface,
         ),
         ChronoSparkFeatureDefinition(
           id: ChronoSparkFeatureId.timeline,
           displayName: 'Timeline',
           route: RoutePaths.timeline,
           purpose: 'Planning history, schedule, and outcomes.',
+          category: ChronoSparkFeatureCategory.primaryCanonFeature,
         ),
         ChronoSparkFeatureDefinition(
           id: ChronoSparkFeatureId.trajectoryEngine,
           displayName: 'Trajectory Engine',
           route: RoutePaths.trajectoryEngine,
           purpose: 'Explicit future scenarios, assumptions, and corrections.',
+          category: ChronoSparkFeatureCategory.primaryCanonFeature,
         ),
         ChronoSparkFeatureDefinition(
           id: ChronoSparkFeatureId.progression,
           displayName: 'Progression',
           route: RoutePaths.progression,
           purpose: 'Evidence-backed advancement and leverage actions.',
+          category: ChronoSparkFeatureCategory.supportSurface,
         ),
       ];
+
+  static Iterable<ChronoSparkFeatureDefinition> byCategory(
+    ChronoSparkFeatureCategory category,
+  ) => active.where(
+    (ChronoSparkFeatureDefinition feature) => feature.category == category,
+  );
 
   static const Set<String> prohibitedStandaloneProductTerms = <String>{
     'Ses'
         'sion',
     'Fo'
         'cus',
-    'Signal',
-    'Signals',
+    'Insight',
+    'Insights',
     'Co'
         'ach',
     'Flowmap',

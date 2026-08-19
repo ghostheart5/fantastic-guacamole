@@ -164,6 +164,7 @@ class ChronoSparkLocalizations {
     ChronoSparkString.collapseGuidance: 'Collapse guidance',
     ChronoSparkString.useThisScreen: 'Use this screen',
     ChronoSparkString.notNow: 'Not now',
+    ChronoSparkString.cancel: 'Cancel',
     ChronoSparkString.securingAccountData: 'Securing account data',
     ChronoSparkString.onboardingPrivacy:
         'Your display name stays on this device unless you choose cloud backup. Smart Planner and SI Console use saved planning context; external AI processing is opt-in and explained in Settings.',
@@ -179,6 +180,38 @@ class ChronoSparkLocalizations {
         'Continue only if this preserved device data belongs to the signed-in account.',
     ChronoSparkString.claimPreservedData:
         'Use preserved data with this account',
+    ChronoSparkString.clearPreservedData: 'Clear preserved data',
+    ChronoSparkString.clearPreservedDataTitle: 'Clear preserved data?',
+    ChronoSparkString.clearPreservedDataBody:
+        'This removes preserved planning records, Timeline history, offline actions, notification schedules, profile progress, and local intelligence from this device. It does not delete your cloud account. This cannot be undone.',
+    ChronoSparkString.privacyPolicyTitle: 'Privacy Policy',
+    ChronoSparkString.privacyPolicyBody:
+        'ChronoSpark publishes its authoritative privacy policy at the public HTTPS URL below. Use the hosted policy for current data handling, retention, and support terms.',
+    ChronoSparkString.openHostedPrivacyPolicy: 'Open Hosted Privacy Policy',
+    ChronoSparkString.deleteAccountTitle: 'Delete Account',
+    ChronoSparkString.deleteAccountBody:
+        'ChronoSpark publishes account deletion steps at the public HTTPS URL below. Use the hosted page to submit a deletion request and review deletion and retention details.',
+    ChronoSparkString.openHostedDeleteAccountPage:
+        'Open Hosted Delete Account Page',
+    ChronoSparkString.termsTitle: 'Terms of Service',
+    ChronoSparkString.termsBody:
+        'ChronoSpark maintains its current Terms of Service on the public HTTPS page below so release builds and store listings reference the same source of truth.',
+    ChronoSparkString.openHostedTerms: 'Open Hosted Terms',
+    ChronoSparkString.supportTitle: 'Support',
+    ChronoSparkString.supportBody:
+        'ChronoSpark publishes release-facing support and account assistance at the public HTTPS URL below so store reviewers and users can reach the current support process from every build.',
+    ChronoSparkString.openHostedSupportPage: 'Open Hosted Support Page',
+    ChronoSparkString.openWebsite: 'Open Website',
+    ChronoSparkString.unableToOpenWebsite:
+        'Unable to open the website from this device.',
+    ChronoSparkString.couldNotLoadContent: 'Could not load content.',
+    ChronoSparkString.routerErrorTitle: "We couldn't open that link",
+    ChronoSparkString.routerErrorBody:
+        'The link does not match an available ChronoSpark screen. We recorded a safe diagnostic event without exposing technical details.',
+    ChronoSparkString.routerErrorReturnNexus: 'Return to Nexus',
+    ChronoSparkString.routerErrorReturnLogin: 'Return to Login',
+    ChronoSparkString.routerErrorReturnOnboarding: 'Return to Setup',
+    ChronoSparkString.routerErrorReturnSupport: 'Return to Support',
   };
 
   static const Map<ChronoSparkString, String> _es = <ChronoSparkString, String>{
@@ -236,6 +269,7 @@ class ChronoSparkLocalizations {
     ChronoSparkString.collapseGuidance: 'Contraer guía',
     ChronoSparkString.useThisScreen: 'Usar esta pantalla',
     ChronoSparkString.notNow: 'Ahora no',
+    ChronoSparkString.cancel: 'Cancelar',
     ChronoSparkString.securingAccountData: 'Protegiendo datos de la cuenta',
     ChronoSparkString.onboardingPrivacy:
         'Tu nombre visible permanece en este dispositivo salvo que actives la copia en la nube. Planificador Inteligente y Consola SI usan el contexto guardado; el procesamiento externo con IA es opcional y se explica en Ajustes.',
@@ -251,6 +285,39 @@ class ChronoSparkLocalizations {
         'Continúa solo si estos datos conservados pertenecen a la cuenta iniciada.',
     ChronoSparkString.claimPreservedData:
         'Usar datos conservados con esta cuenta',
+    ChronoSparkString.clearPreservedData: 'Borrar datos conservados',
+    ChronoSparkString.clearPreservedDataTitle: '¿Borrar datos conservados?',
+    ChronoSparkString.clearPreservedDataBody:
+        'Esto elimina de este dispositivo los registros de planificación, historial de Línea de Tiempo, acciones sin conexión, recordatorios, progreso del perfil e inteligencia local conservados. No elimina tu cuenta en la nube. No se puede deshacer.',
+    ChronoSparkString.privacyPolicyTitle: 'Política de privacidad',
+    ChronoSparkString.privacyPolicyBody:
+        'ChronoSpark publica su política de privacidad autorizada en la URL HTTPS pública de abajo. Usa la política alojada para consultar el manejo de datos, la retención y los términos de soporte actuales.',
+    ChronoSparkString.openHostedPrivacyPolicy:
+        'Abrir política de privacidad alojada',
+    ChronoSparkString.deleteAccountTitle: 'Eliminar cuenta',
+    ChronoSparkString.deleteAccountBody:
+        'ChronoSpark publica los pasos para eliminar una cuenta en la URL HTTPS pública de abajo. Usa la página alojada para enviar una solicitud y revisar los detalles de eliminación y retención.',
+    ChronoSparkString.openHostedDeleteAccountPage:
+        'Abrir página alojada para eliminar cuenta',
+    ChronoSparkString.termsTitle: 'Términos de servicio',
+    ChronoSparkString.termsBody:
+        'ChronoSpark mantiene sus Términos de servicio actuales en la página HTTPS pública de abajo para que las versiones de lanzamiento y las fichas de tienda apunten a la misma fuente de verdad.',
+    ChronoSparkString.openHostedTerms: 'Abrir términos alojados',
+    ChronoSparkString.supportTitle: 'Soporte',
+    ChronoSparkString.supportBody:
+        'ChronoSpark publica soporte y ayuda de cuenta para lanzamientos en la URL HTTPS pública de abajo para que revisores de tienda y usuarios puedan llegar al proceso de soporte actual desde cada versión.',
+    ChronoSparkString.openHostedSupportPage: 'Abrir página de soporte alojada',
+    ChronoSparkString.openWebsite: 'Abrir sitio web',
+    ChronoSparkString.unableToOpenWebsite:
+        'No se pudo abrir el sitio web desde este dispositivo.',
+    ChronoSparkString.couldNotLoadContent: 'No se pudo cargar el contenido.',
+    ChronoSparkString.routerErrorTitle: 'No pudimos abrir ese enlace',
+    ChronoSparkString.routerErrorBody:
+        'El enlace no coincide con una pantalla disponible de ChronoSpark. Registramos un diagnóstico seguro sin mostrar detalles técnicos.',
+    ChronoSparkString.routerErrorReturnNexus: 'Volver a Nexus',
+    ChronoSparkString.routerErrorReturnLogin: 'Volver al inicio de sesión',
+    ChronoSparkString.routerErrorReturnOnboarding: 'Volver a configuración',
+    ChronoSparkString.routerErrorReturnSupport: 'Volver a soporte',
   };
 }
 
@@ -305,6 +372,7 @@ enum ChronoSparkString {
   collapseGuidance,
   useThisScreen,
   notNow,
+  cancel,
   securingAccountData,
   onboardingPrivacy,
   onboardingWideBody,
@@ -313,6 +381,30 @@ enum ChronoSparkString {
   preservedDataIssue,
   preservedDataBody,
   claimPreservedData,
+  clearPreservedData,
+  clearPreservedDataTitle,
+  clearPreservedDataBody,
+  privacyPolicyTitle,
+  privacyPolicyBody,
+  openHostedPrivacyPolicy,
+  deleteAccountTitle,
+  deleteAccountBody,
+  openHostedDeleteAccountPage,
+  termsTitle,
+  termsBody,
+  openHostedTerms,
+  supportTitle,
+  supportBody,
+  openHostedSupportPage,
+  openWebsite,
+  unableToOpenWebsite,
+  couldNotLoadContent,
+  routerErrorTitle,
+  routerErrorBody,
+  routerErrorReturnNexus,
+  routerErrorReturnLogin,
+  routerErrorReturnOnboarding,
+  routerErrorReturnSupport,
 }
 
 class _ChronoSparkLocalizationsDelegate
