@@ -1,516 +1,144 @@
 part of 'nexus_screen.dart';
 
-class NexusCommandSection extends StatelessWidget {
-  const NexusCommandSection({
-    required this.model,
-    required this.onRetry,
-    required this.onAction,
-    required this.onAcknowledge,
-    super.key,
-  });
-
-  final NexusBriefingModel model;
-  final VoidCallback onRetry;
-  final ValueChanged<OperatingActionIntent> onAction;
-  final VoidCallback onAcknowledge;
-
-  @override
-  Widget build(BuildContext context) {
-    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
-    if (model.status == NexusBriefingStatus.loading) {
-      return _NexusCommandPanel(
-        child: Semantics(
-          liveRegion: true,
-          label: l10n.text(ChronoSparkString.preparingSummary),
-          child: Row(
-            children: <Widget>[
-              const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  l10n.text(ChronoSparkString.preparingSummary).toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    if (model.status == NexusBriefingStatus.error ||
-        !model.hasAuthoritativeBriefing) {
-      return _NexusCommandPanel(
-        child: Semantics(
-          liveRegion: true,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Text(
-                'NEXUS RECOVERY',
-                style: TextStyle(
-                  color: AppColors.recallRed,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                model.statusDetail,
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: Text(l10n.text(ChronoSparkString.retryNexus)),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final OperatingBriefing briefing = model.briefing!;
-    final OperatingDecisionReceipt decision = briefing.decision;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        if (model.status == NexusBriefingStatus.offline)
-          Semantics(
-            liveRegion: true,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 10),
-              decoration: BoxDecoration(
-                color: AppColors.memoryAmber.withValues(alpha: .12),
-                border: Border.all(color: AppColors.memoryAmber),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'OFFLINE: ${model.statusDetail}',
-                style: const TextStyle(
-                  color: AppColors.memoryAmber,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        _NexusCommandPanel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                model.attentionLabel.toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.neonCyan,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                model.isEmpty
-                    ? l10n.text(ChronoSparkString.startInCreator)
-                    : l10n
-                          .text(ChronoSparkString.whatMattersNext)
-                          .toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: .8,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                decision.recommendedAction,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '${decision.whyItMatters} ${decision.rationale}',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () => onAction(decision.actionIntent),
-                child: Text(
-                  model.isEmpty
-                      ? l10n.text(ChronoSparkString.openCreator)
-                      : decision.actionIntent.label,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                l10n.text(ChronoSparkString.topRisk).toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.memoryAmber,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                model.topRisk,
-                style: const TextStyle(color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                l10n.text(ChronoSparkString.whatChanged).toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.neonViolet,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                model.recentProgress,
-                style: const TextStyle(color: AppColors.textPrimary),
-              ),
-              if (briefing.acknowledgedSnapshotId !=
-                  briefing.snapshot.snapshotId) ...<Widget>[
-                const SizedBox(height: 10),
-                TextButton.icon(
-                  onPressed: onAcknowledge,
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Mark briefing reviewed'),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        NexusFeatureSignalMesh(model: model),
-      ],
-    );
-  }
-}
-
-class NexusFeatureSignalMesh extends StatelessWidget {
-  const NexusFeatureSignalMesh({required this.model, super.key});
-
-  final NexusBriefingModel model;
-
-  @override
-  Widget build(BuildContext context) {
-    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final double width = constraints.maxWidth >= 640
-            ? (constraints.maxWidth - 10) / 2
-            : constraints.maxWidth;
-        return Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: model.featureSignals
-              .map((NexusFeatureSignal signal) {
-                final String status = signal.health.name.toUpperCase();
-                final String name = _featureName(l10n, signal.featureId);
-                return SizedBox(
-                  width: width,
-                  child: Semantics(
-                    container: true,
-                    label: '$name. $status. ${signal.headline}',
-                    child: _NexusCommandPanel(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  name.toUpperCase(),
-                                  style: const TextStyle(
-                                    color: AppColors.neonCyan,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                status,
-                                style: TextStyle(
-                                  color: _healthColor(signal.health),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 7),
-                          Text(
-                            signal.headline,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            signal.detail,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                              height: 1.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              })
-              .toList(growable: false),
-        );
-      },
-    );
-  }
-
-  static Color _healthColor(NexusFeatureHealth health) => switch (health) {
-    NexusFeatureHealth.ready => AppColors.statusPositive,
-    NexusFeatureHealth.loading => AppColors.pulseNeonBlue,
-    NexusFeatureHealth.empty => AppColors.textMuted,
-    NexusFeatureHealth.degraded => AppColors.statusCaution,
-    NexusFeatureHealth.unavailable => AppColors.statusCritical,
-  };
-
-  static String _featureName(
-    ChronoSparkLocalizations l10n,
-    ChronoSparkFeatureId feature,
-  ) => switch (feature) {
-    ChronoSparkFeatureId.nexus => l10n.text(ChronoSparkString.nexus),
-    ChronoSparkFeatureId.smartPlanner => l10n.text(
-      ChronoSparkString.smartPlanner,
-    ),
-    ChronoSparkFeatureId.creator => l10n.text(ChronoSparkString.creator),
-    ChronoSparkFeatureId.siConsole => l10n.text(ChronoSparkString.siConsole),
-    ChronoSparkFeatureId.timeline => l10n.text(ChronoSparkString.timeline),
-    ChronoSparkFeatureId.trajectoryEngine => l10n.text(
-      ChronoSparkString.trajectoryEngine,
-    ),
-    ChronoSparkFeatureId.progression => l10n.text(
-      ChronoSparkString.progression,
-    ),
-  };
-}
-
-class _NexusCommandPanel extends StatelessWidget {
-  const _NexusCommandPanel({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: AppColors.bgSecondary.withValues(alpha: .88),
-      border: Border.all(color: AppColors.panelBorder),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: child,
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Header
-// ---------------------------------------------------------------------------
-
 class _NexusHeader extends ConsumerWidget {
   const _NexusHeader({required this.profile});
+
   final ProfileState profile;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final int unread = ref.watch(unreadNotificationsProvider);
-    final bool hasMockSession = ref.watch(mockAuthSessionProvider);
     final routes = ref.watch(routeSurfaceProvider);
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final bool compact = constraints.maxWidth < Breakpoints.compact;
-        final bool ultraCompact =
-            constraints.maxWidth < Breakpoints.ultraCompact;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            ultraCompact ? 12 : 20,
-            16,
-            ultraCompact ? 12 : 20,
-            0,
+    final double width = MediaQuery.sizeOf(context).width;
+    final bool ultraCompact = width < Breakpoints.ultraCompact;
+    final bool compact = width < Breakpoints.compact;
+    final double statusFontSize = ultraCompact
+        ? AppSizes.fontMicro
+        : compact
+        ? AppSizes.fontXs
+        : AppSizes.fontSm;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        ultraCompact ? 12 : 16,
+        16,
+        ultraCompact ? 12 : 16,
+        0,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SmartPressable(
+            onTap: () => context.push(routes.notifications),
+            semanticLabel: 'Open notifications',
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Badge(
+                isLabelVisible: unread > 0,
+                label: Text('$unread'),
+                child: const Icon(
+                  Icons.notifications_outlined,
+                  color: AppColors.neonCyan,
+                ),
+              ),
+            ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SmartPressable(
-                onTap: () => context.push(routes.notifications),
-                semanticLabel: 'Open notifications',
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Badge(
-                    isLabelVisible: unread > 0,
-                    label: Text('$unread'),
-                    child: Icon(
-                      Icons.notifications_outlined,
-                      color: AppColors.neonCyan,
-                      size: ultraCompact ? 20 : (compact ? 22 : 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SvgPicture.asset(
+                  AppAssets.iconNexus,
+                  width: 22,
+                  height: 22,
+                  colorFilter: const ColorFilter.mode(
+                    AppColors.neonCyan,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'NEXUS',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 6,
+                      color: Colors.white,
                     ),
                   ),
                 ),
-              ),
-              SizedBox(width: ultraCompact ? 6 : (compact ? 8 : 12)),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    SvgPicture.asset(
-                      AppAssets.iconNexus,
-                      width: ultraCompact ? 18 : (compact ? 20 : 22),
-                      height: ultraCompact ? 18 : (compact ? 20 : 22),
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.neonCyan,
-                        BlendMode.srcIn,
-                      ),
-                    ),
-                    SizedBox(height: ultraCompact ? 3 : 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        'NEXUS',
-                        style: TextStyle(
-                          fontSize: ultraCompact ? 25 : (compact ? 29 : 32),
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: ultraCompact
-                              ? 3.2
-                              : (compact ? 4.8 : 6),
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        'ADAPTIVE LOGIC CORE',
-                        style: TextStyle(
-                          fontSize: ultraCompact ? 7 : (compact ? 8 : 9),
-                          letterSpacing: ultraCompact
-                              ? 1.3
-                              : (compact ? 2.0 : 2.4),
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          shadows: const [
-                            Shadow(
-                              color: Colors.black87,
-                              blurRadius: 6,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(width: ultraCompact ? 2 : (compact ? 4 : 8)),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: ultraCompact ? 72 : (compact ? 86 : 102),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // No hardcoded connectivity chip here: it was always green
-                    // regardless of real state, so it contradicted the global
-                    // OfflineBanner whenever the device actually went offline.
-                    Text(
-                      'LVL ${profile.level}  ·  ${profile.streak}d',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: ultraCompact
-                            ? AppSizes.fontMicro
-                            : (compact ? AppSizes.fontXs : AppSizes.fontSm),
-                        color: Colors.white38,
-                        letterSpacing: ultraCompact ? 0.3 : 1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(width: ultraCompact ? 4 : (compact ? 6 : 8)),
-              SmartPressable(
-                onTap: () => unawaited(
-                  _signOut(context, ref, hasMockSession: hasMockSession),
-                ),
-                child: Tooltip(
-                  message: hasMockSession ? 'Sign out mock session' : 'Log out',
-                  child: Container(
-                    padding: const EdgeInsets.all(11),
-                    decoration: BoxDecoration(
-                      color: AppColors.neonViolet.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: AppColors.neonViolet.withValues(alpha: 0.38),
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.logout,
-                      size: ultraCompact ? 16 : 18,
-                      color: AppColors.neonViolet,
+                const SizedBox(height: 2),
+                const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'ADAPTIVE LOGIC CORE',
+                    style: TextStyle(
+                      fontSize: 9,
+                      letterSpacing: 2.4,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  profile.name.isEmpty
+                      ? 'Today is ready when you are.'
+                      : 'Welcome back, ${profile.name}.',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'LVL ${profile.level}  |  STREAK ${profile.streak}d',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: statusFontSize,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+          const SizedBox(width: 8),
+          SmartPressable(
+            onTap: () => unawaited(_signOut(context, ref)),
+            child: Tooltip(
+              message: 'Log out',
+              child: Container(
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: AppColors.neonViolet.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.neonViolet.withValues(alpha: 0.38),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.logout,
+                  size: 18,
+                  color: AppColors.neonViolet,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Future<void> _signOut(
-    BuildContext context,
-    WidgetRef ref, {
-    required bool hasMockSession,
-  }) async {
+  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     final routes = ref.read(routeSurfaceProvider);
     try {
-      if (hasMockSession) {
-        ref.read(mockAuthSessionProvider.notifier).set(false);
-        // End the synthetic session and leave the protected surface
-        // immediately. Cleanup still completes before this method returns,
-        // but it must not hold the visible logout transition hostage to local
-        // storage/plugin latency.
-        if (context.mounted) {
-          context.go(routes.login);
-        }
-        await ref
-            .read(localUserDataCleanupServiceProvider)
-            .clearForAccountSwitch();
-        return;
-      } else {
-        await ref.read(authServiceProvider).signOut();
+      await ref.read(authServiceProvider).signOut();
+      if (context.mounted) {
+        context.go(routes.login);
       }
-      if (!context.mounted) {
-        return;
-      }
-      context.go(routes.login);
     } on Exception {
       if (!context.mounted) {
         return;
@@ -522,58 +150,351 @@ class _NexusHeader extends ConsumerWidget {
   }
 }
 
-class _PulseDot extends StatefulWidget {
-  const _PulseDot({required this.color});
-  final Color color;
+class _NexusTimeBlockSchedule extends StatelessWidget {
+  const _NexusTimeBlockSchedule({
+    required this.blocks,
+    required this.nextBlockId,
+    required this.decisionModel,
+    required this.completingTaskIds,
+    required this.onCompleteTask,
+    required this.onRetry,
+    required this.onCreateTask,
+    required this.onOpenTimeline,
+    required this.onReviewPlan,
+  });
 
-  @override
-  State<_PulseDot> createState() => _PulseDotState();
-}
-
-class _PulseDotState extends State<_PulseDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
+  final AsyncValue<List<TimeBlock>> blocks;
+  final String? nextBlockId;
+  final NexusDecisionModel decisionModel;
+  final Set<String> completingTaskIds;
+  final Future<void> Function(String taskId) onCompleteTask;
+  final VoidCallback onRetry;
+  final VoidCallback onCreateTask;
+  final VoidCallback onOpenTimeline;
+  final VoidCallback onReviewPlan;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (_, _) => Container(
-        width: 7,
-        height: 7,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: widget.color,
-          boxShadow: [
-            BoxShadow(
-              color: widget.color.withValues(alpha: 0.3 + _c.value * 0.5),
-              blurRadius: 4 + _c.value * 8,
-            ),
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    final Color accent = _statusAccent(decisionModel.status);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.neonCyan.withValues(alpha: 0.12),
+            AppColors.neonViolet.withValues(alpha: 0.08),
+            Colors.black.withValues(alpha: 0.32),
           ],
         ),
+        border: Border.all(color: accent.withValues(alpha: 0.34)),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.12),
+            blurRadius: 22,
+            spreadRadius: -6,
+          ),
+        ],
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ScheduleHeader(
+            status: decisionModel.statusLabel,
+            detail: decisionModel.statusDetail,
+            accent: accent,
+            pendingSyncCount: decisionModel.pendingSyncCount,
+            isOnline: decisionModel.isOnline,
+          ),
+          const SizedBox(height: 12),
+          blocks.when(
+            loading: () => _ScheduleLoading(accent: accent),
+            error: (_, _) =>
+                _ScheduleRecovery(onRetry: onRetry, accent: accent),
+            data: (List<TimeBlock> value) {
+              final List<TimeBlock> ordered = value
+                  .where((TimeBlock block) => block.validate())
+                  .toList(growable: false);
+              if (ordered.isEmpty) {
+                return _EmptySchedulePrompt(
+                  onCreateTask: onCreateTask,
+                  onOpenTimeline: onOpenTimeline,
+                  accent: accent,
+                );
+              }
+
+              return Column(
+                children: [
+                  for (final TimeBlock block in ordered) ...[
+                    TimeBlockWidget(
+                      taskId: block.taskId,
+                      title: block.title,
+                      start: _formatTime(block.start),
+                      end: _formatTime(block.end),
+                      accent: block.id == nextBlockId
+                          ? AppColors.neonCyan
+                          : AppColors.neonViolet,
+                      completed: block.completed,
+                      isNext: block.id == nextBlockId,
+                      isCompleting: completingTaskIds.contains(block.taskId),
+                      supportingText: block.id == nextBlockId
+                          ? _supportingText(decisionModel)
+                          : null,
+                      onReviewPlan: block.id == nextBlockId
+                          ? onReviewPlan
+                          : null,
+                      onCompleteTask: onCompleteTask,
+                    ),
+                    if (block != ordered.last) const SizedBox(height: 10),
+                  ],
+                ],
+              );
+            },
+          ),
+          if (decisionModel.status == NexusDecisionStatus.error) ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: Text(l10n.text(ChronoSparkString.retryNexus)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static Color _statusAccent(NexusDecisionStatus status) => switch (status) {
+    NexusDecisionStatus.ready => AppColors.neonCyan,
+    NexusDecisionStatus.partial => AppColors.memoryAmber,
+    NexusDecisionStatus.offline => AppColors.memoryAmber,
+    NexusDecisionStatus.loading => AppColors.neonViolet,
+    NexusDecisionStatus.error => AppColors.recallRed,
+  };
+
+  static String _formatTime(DateTime value) {
+    final int hour = value.hour;
+    final int displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    final String minute = value.minute.toString().padLeft(2, '0');
+    final String period = hour >= 12 ? 'PM' : 'AM';
+    return '$displayHour:$minute $period';
+  }
+
+  static String? _supportingText(NexusDecisionModel model) {
+    final OperatingDecisionReceipt? decision = model.intelligence?.decision;
+    if (decision == null) {
+      return null;
+    }
+    final String reason = decision.whyItMatters.trim();
+    final String rationale = decision.rationale.trim();
+    if (reason.isEmpty) {
+      return rationale.isEmpty ? null : rationale;
+    }
+    if (rationale.isEmpty || rationale == reason) {
+      return reason;
+    }
+    return '$reason $rationale';
+  }
+}
+
+class _ScheduleHeader extends StatelessWidget {
+  const _ScheduleHeader({
+    required this.status,
+    required this.detail,
+    required this.accent,
+    required this.pendingSyncCount,
+    required this.isOnline,
+  });
+
+  final String status;
+  final String detail;
+  final Color accent;
+  final int pendingSyncCount;
+  final bool isOnline;
+
+  @override
+  Widget build(BuildContext context) {
+    final String syncCopy = isOnline
+        ? (pendingSyncCount == 0
+              ? 'Synced locally'
+              : '$pendingSyncCount queued')
+        : 'Offline mode';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          margin: const EdgeInsets.only(top: 5),
+          decoration: BoxDecoration(
+            color: accent,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: accent.withValues(alpha: 0.55), blurRadius: 10),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    status,
+                    style: TextStyle(
+                      color: accent,
+                      fontSize: AppSizes.fontSm,
+                      letterSpacing: 1.6,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    syncCopy,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: AppSizes.fontSm,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Text(
+                detail,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: AppSizes.fontBody,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Rings
-// ---------------------------------------------------------------------------
+class _ScheduleLoading extends StatelessWidget {
+  const _ScheduleLoading({required this.accent});
+
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(accent),
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Expanded(
+          child: Text(
+            'Building today from the current plan.',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ScheduleRecovery extends StatelessWidget {
+  const _ScheduleRecovery({required this.onRetry, required this.accent});
+
+  final VoidCallback onRetry;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final ChronoSparkLocalizations l10n = ChronoSparkLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Today could not load from local planning evidence.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: onRetry,
+          icon: Icon(Icons.refresh, color: accent),
+          label: Text(l10n.text(ChronoSparkString.retryNexus)),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptySchedulePrompt extends StatelessWidget {
+  const _EmptySchedulePrompt({
+    required this.onCreateTask,
+    required this.onOpenTimeline,
+    required this.accent,
+  });
+
+  final VoidCallback onCreateTask;
+  final VoidCallback onOpenTimeline;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'No time blocks are scheduled for today.',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: AppSizes.fontLabelLg,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Create one task or open Timeline to give Nexus something concrete to order.',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: AppSizes.fontBody,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            FilledButton.icon(
+              onPressed: onCreateTask,
+              icon: const Icon(Icons.add_task),
+              label: const Text('Create task'),
+            ),
+            OutlinedButton.icon(
+              onPressed: onOpenTimeline,
+              icon: Icon(Icons.timeline, color: accent),
+              label: const Text('Open Timeline'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
 
 class _SystemRings extends StatelessWidget {
   const _SystemRings({
@@ -618,74 +539,57 @@ class _SystemRings extends StatelessWidget {
               Transform.rotate(
                 angle: -pulse * (math.pi / 8),
                 child: Container(
-                  width: 168,
-                  height: 168,
+                  width: 172,
+                  height: 172,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: AppColors.neonViolet.withValues(alpha: 0.20),
-                      width: 1,
+                      color: AppColors.neonViolet.withValues(alpha: 0.18),
+                      width: 1.2,
                     ),
                   ),
                 ),
               ),
               CustomPaint(
-                size: const Size(210, 210),
+                size: const Size(160, 160),
                 painter: _RingPainter(
                   energy: energy,
                   fatigue: fatigue,
                   pulse: pulse,
                 ),
               ),
-              Container(
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.neonCyan.withValues(alpha: 0.28 + pulse * 0.12),
-                      const Color(0xFF061624),
-                    ],
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$energyPct',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 42,
+                      fontWeight: FontWeight.w900,
+                      height: .92,
+                    ),
                   ),
-                  border: Border.all(
-                    color: AppColors.neonCyan.withValues(alpha: 0.45),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'ENERGY',
+                    style: TextStyle(
+                      color: AppColors.neonCyan,
+                      fontSize: AppSizes.fontMicro,
+                      letterSpacing: 2.0,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.neonCyan.withValues(alpha: 0.26),
-                      blurRadius: 16,
+                  const SizedBox(height: 6),
+                  Text(
+                    'CLARITY $clarityPct%',
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: AppSizes.fontSm,
+                      fontWeight: FontWeight.w700,
                     ),
-                    BoxShadow(
-                      color: AppColors.neonViolet.withValues(alpha: 0.16),
-                      blurRadius: 20,
-                      spreadRadius: -4,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '$energyPct%',
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    Text(
-                      'CLARITY $clarityPct%',
-                      style: const TextStyle(
-                        fontSize: AppSizes.fontMicro,
-                        color: Colors.white70,
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -706,116 +610,48 @@ class _RingPainter extends CustomPainter {
   final double fatigue;
   final double pulse;
 
-  static const double _outerR = 74.0;
-  static const double _innerR = 50.0;
-  static const double _stroke = 8.0;
+  static const double _stroke = 10;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Offset c = Offset(size.width / 2, size.height / 2);
+    final Offset center = Offset(size.width / 2, size.height / 2);
+    final Rect outer = Rect.fromCircle(center: center, radius: 70);
+    final Rect inner = Rect.fromCircle(center: center, radius: 52);
 
-    _drawTicks(canvas, c);
-    _drawAura(canvas, c);
-    _drawRing(
+    _drawArc(canvas, outer, energy.clamp(0, 1), AppColors.neonCyan, pulse);
+    _drawArc(
       canvas,
-      c,
-      _outerR,
-      energy,
-      const Color(0xFF00E5FF),
-      reversed: false,
-    );
-    _drawRing(
-      canvas,
-      c,
-      _innerR,
-      1 - fatigue,
-      const Color(0xFF9B8AFB),
-      reversed: false,
-    );
-
-    // Center glow
-    canvas.drawCircle(
-      c,
-      5,
-      Paint()
-        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.35 + pulse * 0.3)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8 + pulse * 6),
-    );
-    canvas.drawCircle(c, 2.5, Paint()..color = const Color(0xFF00E5FF));
-  }
-
-  void _drawAura(Canvas canvas, Offset c) {
-    canvas.drawCircle(
-      c,
-      _outerR + 24,
-      Paint()
-        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.04 + pulse * 0.04)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18),
-    );
-    canvas.drawCircle(
-      c,
-      _innerR + 20,
-      Paint()
-        ..color = const Color(0xFF9B8AFB).withValues(alpha: 0.04 + pulse * 0.03)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
+      inner,
+      (1 - fatigue).clamp(0, 1),
+      AppColors.neonViolet,
+      pulse,
+      reversed: true,
     );
   }
 
-  void _drawTicks(Canvas canvas, Offset c) {
-    final Paint tick = Paint()
-      ..color = Colors.white.withValues(alpha: 0.07)
-      ..strokeWidth = 1;
-    for (int i = 0; i < 24; i++) {
-      final double a = (i / 24) * 2 * math.pi - math.pi / 2;
-      final double r1 = _outerR + 10;
-      final double r2 = _outerR + (i % 6 == 0 ? 20 : 14);
-      canvas.drawLine(
-        c + Offset(math.cos(a) * r1, math.sin(a) * r1),
-        c + Offset(math.cos(a) * r2, math.sin(a) * r2),
-        tick,
-      );
-    }
-  }
-
-  void _drawRing(
+  void _drawArc(
     Canvas canvas,
-    Offset c,
-    double r,
+    Rect rect,
     double value,
-    Color color, {
-    required bool reversed,
+    Color color,
+    double pulse, {
+    bool reversed = false,
   }) {
-    // Dim track
-    canvas.drawCircle(
-      c,
-      r,
-      Paint()
-        ..color = color.withValues(alpha: 0.08)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = _stroke,
-    );
-
-    if (value <= 0) return;
-
-    final double sweep = value * 2 * math.pi * 0.88;
-    final double start = -math.pi / 2;
-    final Rect rect = Rect.fromCircle(center: c, radius: r);
-
-    // Glow bloom
+    final Offset center = rect.center;
+    final double radius = rect.width / 2;
+    final double start = -math.pi / 2 + (pulse * math.pi / 14);
+    final double sweep = math.pi * 2 * value;
     canvas.drawArc(
       rect,
-      start,
-      reversed ? -sweep : sweep,
+      0,
+      math.pi * 2,
       false,
       Paint()
-        ..color = color.withValues(alpha: 0.18 + pulse * 0.12)
+        ..color = Colors.white.withValues(alpha: 0.08)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = _stroke + 10
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+        ..strokeWidth = _stroke
+        ..strokeCap = StrokeCap.round,
     );
-
-    // Main arc
     canvas.drawArc(
       rect,
       start,
@@ -828,30 +664,29 @@ class _RingPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // Endpoint glowing dot
-    final double endA = start + (reversed ? -sweep : sweep);
-    final Offset dot = c + Offset(r * math.cos(endA), r * math.sin(endA));
+    final double end = start + (reversed ? -sweep : sweep);
+    final Offset dot =
+        center + Offset(radius * math.cos(end), radius * math.sin(end));
     canvas.drawCircle(
       dot,
-      8,
+      7,
       Paint()
-        ..color = color.withValues(alpha: 0.4 + pulse * 0.3)
+        ..color = color.withValues(alpha: 0.35 + pulse * 0.25)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
     );
-    canvas.drawCircle(dot, 4, Paint()..color = color);
+    canvas.drawCircle(dot, 3.5, Paint()..color = color);
   }
 
   @override
-  bool shouldRepaint(_RingPainter old) =>
-      old.energy != energy || old.fatigue != fatigue || old.pulse != pulse;
+  bool shouldRepaint(_RingPainter oldDelegate) =>
+      oldDelegate.energy != energy ||
+      oldDelegate.fatigue != fatigue ||
+      oldDelegate.pulse != pulse;
 }
-
-// ---------------------------------------------------------------------------
-// Ring labels
-// ---------------------------------------------------------------------------
 
 class _RingLabels extends StatelessWidget {
   const _RingLabels({required this.energy, required this.fatigue});
+
   final double energy;
   final double fatigue;
 
@@ -883,87 +718,13 @@ class _RingLabels extends StatelessWidget {
   }
 }
 
-class _NexusBridgeCard extends StatelessWidget {
-  const _NexusBridgeCard({
-    required this.profile,
-    required this.energy,
-    required this.completedToday,
-  });
-
-  final ProfileState profile;
-  final double energy;
-  final int completedToday;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool ultraCompact =
-        MediaQuery.sizeOf(context).width < Breakpoints.ultraCompact;
-
-    final String greeting = energy >= 0.65
-        ? 'High-capacity window active. Start one high-impact step now.'
-        : energy >= 0.4
-        ? 'Stable state online. Build momentum with one clear step.'
-        : 'Low reserve detected. Start with one light win to restore rhythm.';
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        ultraCompact ? 10 : 12,
-        ultraCompact ? 8 : 10,
-        ultraCompact ? 10 : 12,
-        ultraCompact ? 8 : 10,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.28),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.neonViolet.withValues(alpha: 0.28)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'WELCOME BACK, ${profile.name.toUpperCase()}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.neonViolet,
-              fontSize: AppSizes.fontSm,
-              letterSpacing: 1.4,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            greeting,
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: ultraCompact ? AppSizes.fontCaption : AppSizes.fontBody,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'LVL ${profile.level}  ·  STREAK ${profile.streak}d  ·  TODAY $completedToday',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: ultraCompact ? AppSizes.fontXs : AppSizes.fontSm,
-              letterSpacing: ultraCompact ? 0.8 : 1.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _RingLabel extends StatelessWidget {
   const _RingLabel({
     required this.label,
     required this.value,
     required this.color,
   });
+
   final String label;
   final String value;
   final Color color;
@@ -1007,744 +768,6 @@ class _RingLabel extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Dependency mesh
-// ---------------------------------------------------------------------------
-
-class _CoreSignalsStrip extends StatelessWidget {
-  const _CoreSignalsStrip({
-    required this.growthTitle,
-    required this.narrativeSummary,
-    required this.consistencySignal,
-    required this.loadSignal,
-    required this.energyMomentumPct,
-    required this.activityPresencePct,
-  });
-
-  final String growthTitle;
-  final String narrativeSummary;
-  final String consistencySignal;
-  final String loadSignal;
-  final int energyMomentumPct;
-  final int activityPresencePct;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.neonViolet.withValues(alpha: 0.14),
-            AppColors.neonCyan.withValues(alpha: 0.08),
-            Colors.black.withValues(alpha: 0.22),
-          ],
-        ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'SYSTEM SYNTHESIS (CROSS-MODULE)',
-                  style: TextStyle(
-                    color: AppColors.neonViolet,
-                    fontSize: AppSizes.fontSm,
-                    letterSpacing: 1.6,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              SvgPicture.asset(
-                AppAssets.iconReflect,
-                width: 16,
-                height: 16,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.neonViolet,
-                  BlendMode.srcIn,
-                ),
-              ),
-              const SizedBox(width: 6),
-              SvgPicture.asset(
-                AppAssets.iconReflect,
-                width: 16,
-                height: 16,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.neonCyan,
-                  BlendMode.srcIn,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  growthTitle,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: AppSizes.fontTitle,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              SvgPicture.asset(
-                AppAssets.iconFocus,
-                width: 22,
-                height: 22,
-                colorFilter: ColorFilter.mode(
-                  Colors.white.withValues(alpha: 0.82),
-                  BlendMode.srcIn,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            narrativeSummary,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: AppSizes.fontBody,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _SignalPill(label: 'Consistency', value: consistencySignal),
-              _SignalPill(label: 'Load', value: loadSignal),
-              _SignalPill(
-                label: 'Energy + momentum',
-                value: '$energyMomentumPct%',
-              ),
-              _SignalPill(
-                label: 'Activity history',
-                value: '$activityPresencePct%',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DependencyMesh extends ConsumerWidget {
-  const _DependencyMesh();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final modelAsync = ref.watch(nexusScreenModelProvider);
-    final progression = ref.watch(progressionProvider);
-    final model = modelAsync.asData?.value;
-    final aggregation = model?.aggregation;
-    final decision = model?.decision;
-    final List<Task> tasks = aggregation?.tasks ?? const <Task>[];
-    final List<GoalEntity> goals = aggregation?.goals ?? const <GoalEntity>[];
-    final List<MemoryEntity> memories =
-        aggregation?.memories ?? const <MemoryEntity>[];
-
-    final int pendingTasks = tasks.length;
-    final String nextTaskTitle = aggregation == null
-        ? 'Loading task queue...'
-        : (tasks.isEmpty ? 'Queue clear' : tasks.first.title);
-    final int linkedTasks = tasks
-        .where((Task task) => task.goalId != null && task.goalId!.isNotEmpty)
-        .length;
-
-    final List<String> goalTitles = goals
-        .map((GoalEntity goal) => goal.title.trim())
-        .where((String title) => title.isNotEmpty)
-        .toList(growable: false);
-    final String goalHeadline = goalTitles.isEmpty
-        ? 'No active goals'
-        : goalTitles.firstWhere(
-            (String title) =>
-                title.toLowerCase() != nextTaskTitle.toLowerCase(),
-            orElse: () => 'Goal linked to "$nextTaskTitle"',
-          );
-    final int goalsWithTarget = goals
-        .where((GoalEntity goal) => goal.targetDate != null)
-        .length;
-
-    
-
-   
-
-    // Sync copy is read by people: describe what happened
-    // rather than exposing the service state (LIVE/DEGRADED/SYNCING).
-    final bool syncFailed = !modelAsync.isLoading && modelAsync.hasError;
-    final String syncStatus = modelAsync.isLoading
-        ? 'Updating…'
-        : (syncFailed ? "Couldn't update — showing last saved" : 'Up to date');
-    final DateTime now = DateTime.now();
-    final String syncTime =
-        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-
-    final progress = progression.progress;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _NexusSyncStrip(
-          status: syncStatus,
-          degraded: syncFailed,
-          timestamp: syncTime,
-        ),
-        const SizedBox(height: 10),
-        const Padding(
-          padding: EdgeInsets.only(bottom: 10),
-          child: Text(
-            'NEXUS DEPENDENCY MESH (HOW MODULES CONNECT)',
-            style: TextStyle(
-              color: AppColors.neonCyan,
-              fontSize: AppSizes.fontSm,
-              letterSpacing: 1.8,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            _DependencyCard(
-              // The feature is Smart Planner. "Planner" was a leftover name for
-              // the same surface and made one feature look like two.
-              label: 'Smart Planner',
-              accent: AppColors.neonCyan,
-              emphasize: true,
-              value: modelAsync.isLoading
-                  ? 'Syncing'
-                  : (decision?.plannerMessage.trim().isNotEmpty ?? false)
-                  ? 'Live'
-                  : 'Idle',
-              headline:
-                  decision?.plannerMessage ??
-                  'No active planning guidance yet.',
-              detail: (decision?.nextAction.trim().isNotEmpty ?? false)
-                  ? 'Next action: ${decision!.nextAction}'
-                  : 'SI engine advice routed into Nexus.',
-            ),
-            _DependencyCard(
-              label: 'Progression',
-              accent: const Color(0xFFFFD166),
-              value: 'LVL ${progress.level}',
-              headline: progress.levelTitle,
-              detail: '${progress.xp} XP · ${progress.streak}d streak.',
-            ),
-            _DependencyCard(
-              label: 'Tasks',
-              accent: AppColors.memoryAmber,
-              value: '$pendingTasks queued',
-              headline: nextTaskTitle,
-              detail: '$linkedTasks linked to goals.',
-            ),
-            _DependencyCard(
-              label: 'Goals',
-              accent: const Color(0xFF7AF7C4),
-              value: '${goals.length} active',
-              headline: goalHeadline,
-              detail: '$goalsWithTarget with target dates.',
-            ),
-            
-
-class _SignalPill extends StatelessWidget {
-  const _SignalPill({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: Colors.black.withValues(alpha: 0.24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
-      child: Text(
-        '$label: $value',
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: AppSizes.fontCaption,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _NexusSyncStrip extends StatelessWidget {
-  const _NexusSyncStrip({
-    required this.status,
-    required this.degraded,
-    required this.timestamp,
-  });
-
-  final String status;
-  final bool degraded;
-  final String timestamp;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color accent = degraded ? AppColors.recallRed : AppColors.neonCyan;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        color: Colors.black.withValues(alpha: 0.22),
-        border: Border.all(color: accent.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              color: accent,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 8),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              status,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: accent,
-                fontSize: AppSizes.fontSm,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.4,
-              ),
-            ),
-          ),
-          const Spacer(),
-          Text(
-            timestamp,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: AppSizes.fontSm,
-              letterSpacing: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DependencyCard extends StatelessWidget {
-  const _DependencyCard({
-    required this.label,
-    required this.value,
-    required this.headline,
-    required this.detail,
-    required this.accent,
-    this.emphasize = false,
-  });
-
-  final String label;
-  final String value;
-  final String headline;
-  final String detail;
-  final Color accent;
-  final bool emphasize;
-
-  @override
-  Widget build(BuildContext context) {
-    final double width = MediaQuery.sizeOf(context).width;
-    final double contentWidth = width - 32;
-    final int columns = width >= 1120
-        ? 3
-        : width >= 640
-        ? 2
-        : 1;
-    final double cardWidth = emphasize || columns == 1
-        ? contentWidth
-        : columns == 3
-        ? (contentWidth - 24) / 3
-        : (contentWidth - 12) / 2;
-
-    return Container(
-      width: cardWidth,
-      padding: EdgeInsets.all(emphasize ? 13 : 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: Colors.black.withValues(alpha: emphasize ? 0.28 : 0.24),
-        border: Border.all(
-          color: accent.withValues(alpha: emphasize ? 0.34 : 0.26),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withValues(alpha: emphasize ? 0.14 : 0.10),
-            blurRadius: emphasize ? 20 : 16,
-            spreadRadius: -6,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: accent,
-                  boxShadow: [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.45),
-                      blurRadius: 8,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  label.toUpperCase(),
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: AppSizes.fontSm,
-                    letterSpacing: 1.4,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: AppSizes.fontBody,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            headline,
-            maxLines: emphasize ? 3 : 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: emphasize ? AppSizes.fontLabelLg : AppSizes.fontLabel,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            detail,
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: AppSizes.fontCaption,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-String _truncate(String text, {int max = 52}) {
-  final String normalized = text.trim();
-  if (normalized.length <= max) {
-    return normalized;
-  }
-  return '${normalized.substring(0, max - 1)}...';
-}
-
-// ---------------------------------------------------------------------------
-// Action grid
-// ---------------------------------------------------------------------------
-
-/// First-run call to action.
-///
-/// Without this the empty Nexus is a wall of zeroed gauges with no obvious
-/// entry point, which is the single biggest drop-off moment in the app. It
-/// deliberately uses plain language rather than the surrounding system
-/// vocabulary, because the reader has not learned that vocabulary yet.
-class _FirstRunCta extends ConsumerWidget {
-  const _FirstRunCta();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.neonCyan.withValues(alpha: 0.16),
-            AppColors.neonViolet.withValues(alpha: 0.10),
-            Colors.black.withValues(alpha: 0.25),
-          ],
-        ),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.45)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonCyan.withValues(alpha: 0.18),
-            blurRadius: 20,
-            spreadRadius: -2,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Start here',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: AppSizes.fontTitle,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Bring one imperfect intention. Creator will shape it into an action, '
-            'Timeline will remember it, and Nexus will use it to guide the next decision.',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: AppSizes.fontBodyLg,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 14),
-          HoloButton(
-            label: 'Turn an intention into a path',
-            onTap: () => ref.read(appFlowProvider.notifier).toCreator(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionGrid extends ConsumerWidget {
-  const _ActionGrid();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final double width = MediaQuery.sizeOf(context).width;
-    final bool compact = width < Breakpoints.compact;
-    final bool ultraCompact = width < Breakpoints.ultraCompact;
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        ultraCompact ? 10 : 12,
-        ultraCompact ? 9 : 10,
-        ultraCompact ? 10 : 12,
-        ultraCompact ? 10 : 12,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.neonCyan.withValues(alpha: 0.10),
-            AppColors.neonViolet.withValues(alpha: 0.08),
-            Colors.black.withValues(alpha: 0.25),
-          ],
-        ),
-        border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.28)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonCyan.withValues(alpha: 0.14),
-            blurRadius: 18,
-            spreadRadius: -2,
-          ),
-          BoxShadow(
-            color: AppColors.neonViolet.withValues(alpha: 0.10),
-            blurRadius: 24,
-            spreadRadius: -6,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 2,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: AppColors.neonCyan,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  // "Action hub" was internal naming, not a product concept.
-                  // Nexus is the home screen; this is simply where you go next.
-                  child: Text(
-                    'GO TO',
-                    style: TextStyle(
-                      fontSize: AppSizes.fontSm,
-                      letterSpacing: 1.6,
-                      color: AppColors.neonCyan,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: ultraCompact ? 10 : 12),
-          if (compact) ...[
-            HoloButton(
-              label: 'Smart Planner',
-              onTap: () => ref.read(appFlowProvider.notifier).toSmartPlanner(),
-            ),
-            const SizedBox(height: 10),
-            HoloButton(
-              label: 'Plan View',
-              color: AppColors.memoryAmber,
-              onTap: () => ref.read(appFlowProvider.notifier).toPlan(),
-            ),
-            const SizedBox(height: 10),
-            HoloButton(
-              label: 'Create Task',
-              color: AppColors.memoryAmber,
-              onTap: () => ref.read(appFlowProvider.notifier).toCreator(),
-            ),
-            const SizedBox(height: 10),
-            HoloButton(
-              label: 'Smart Planner',
-              color: AppColors.neonViolet,
-              onTap: () => ref.read(appFlowProvider.notifier).toSmartPlanner(),
-            ),
-            const SizedBox(height: 10),
-            HoloButton(
-              label: 'SI Console',
-              onTap: () => ref.read(appFlowProvider.notifier).toConsole(),
-            ),
-            const SizedBox(height: 10),
-            HoloButton(
-              label: 'Timeline',
-              color: AppColors.neonViolet,
-              onTap: () => ref.read(appFlowProvider.notifier).toTimeline(),
-            ),
-            const SizedBox(height: 10),
-            HoloButton(
-              label: 'Progression',
-              color: AppColors.memoryAmber,
-              onTap: () => ref.read(appFlowProvider.notifier).toProgression(),
-            ),
-          ] else ...[
-            Row(
-              children: [
-                Expanded(
-                  child: HoloButton(
-                    label: 'Smart Planner',
-                    onTap: () =>
-                        ref.read(appFlowProvider.notifier).toSmartPlanner(),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: HoloButton(
-                    label: 'Plan View',
-                    color: AppColors.memoryAmber,
-                    onTap: () => ref.read(appFlowProvider.notifier).toPlan(),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: HoloButton(
-                    label: 'Create Task',
-                    color: AppColors.memoryAmber,
-                    onTap: () => ref.read(appFlowProvider.notifier).toCreator(),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: HoloButton(
-                    label: 'Smart Planner',
-                    color: AppColors.neonViolet,
-                    onTap: () =>
-                        ref.read(appFlowProvider.notifier).toSmartPlanner(),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: HoloButton(
-                    label: 'SI Console',
-                    onTap: () => ref.read(appFlowProvider.notifier).toConsole(),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: HoloButton(
-                    label: 'Timeline',
-                    color: AppColors.neonViolet,
-                    onTap: () =>
-                        ref.read(appFlowProvider.notifier).toTimeline(),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: HoloButton(
-                    label: 'Progression',
-                    color: AppColors.memoryAmber,
-                    onTap: () =>
-                        ref.read(appFlowProvider.notifier).toProgression(),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Trailing slot keeps the two-column rhythm intact.
-                const Expanded(child: SizedBox.shrink()),
-              ],
-            ),
-          ],
-        ],
-      ),
     );
   }
 }
