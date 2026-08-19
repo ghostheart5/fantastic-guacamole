@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/app/router/route_paths.dart';
+import 'package:fantastic_guacamole/app/router/app_view_navigation.dart';
 import 'package:fantastic_guacamole/features/creator/widgets/dynamic_form.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/creator_provider.dart';
@@ -11,7 +11,6 @@ import 'package:fantastic_guacamole/ui/layout/animated_system_background.dart';
 import 'package:fantastic_guacamole/ui/widgets/smart_pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 class CreatorScreen extends ConsumerWidget {
   const CreatorScreen({super.key});
@@ -42,7 +41,7 @@ class CreatorScreen extends ConsumerWidget {
                 Row(
                   children: [
                     SmartPressable(
-                      onTap: () => ref.read(appFlowProvider.notifier).toNexus(),
+                      onTap: () => goToAppView(context, ref, AppView.nexus),
                       semanticLabel: 'Back to Smart Planner',
                       child: Container(
                         width: 48,
@@ -162,11 +161,7 @@ class CreatorScreen extends ConsumerWidget {
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
-                      ref.read(appFlowProvider.notifier).toTimeline();
-                      final GoRouter? router = GoRouter.maybeOf(context);
-                      if (router != null) {
-                        context.go(RoutePaths.timeline);
-                      }
+                      goToAppView(context, ref, AppView.timeline);
                     }
                   },
                 ),

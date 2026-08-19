@@ -31,7 +31,7 @@ class ProductAdvisorScreen extends ConsumerWidget {
             colors: [AppColors.neonCyan, AppColors.neonViolet],
           ).createShader(bounds),
           child: const Text(
-            'PRODUCT ADVISOR',
+            'ADVISOR DIAGNOSTICS',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
@@ -63,7 +63,9 @@ class ProductAdvisorScreen extends ConsumerWidget {
                   child: CircularProgressIndicator(color: AppColors.neonCyan),
                 ),
               ),
-              error: (e, _) => _ErrorTile(message: e.toString()),
+              error: (_, _) => const _ErrorTile(
+                message: 'Advisor diagnostics are unavailable right now.',
+              ),
             ),
             const SizedBox(height: 24),
             const _SectionHeader(label: 'OPTIMIZATION STATE'),
@@ -106,12 +108,12 @@ class _RecommendationsList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionHeader(label: 'TOP RECOMMENDATION'),
+        const _SectionHeader(label: 'TOP DIAGNOSTIC FINDING'),
         const SizedBox(height: 8),
         _RecommendationCard(recommendation: recommendations.first, isTop: true),
         if (recommendations.length > 1) ...[
           const SizedBox(height: 20),
-          const _SectionHeader(label: 'ALL RECOMMENDATIONS'),
+          const _SectionHeader(label: 'ALL DIAGNOSTIC FINDINGS'),
           const SizedBox(height: 8),
           ...recommendations
               .skip(1)
@@ -183,7 +185,7 @@ class _RecommendationCard extends StatelessWidget {
           const SizedBox(height: 10),
           _Label(label: 'Cause', value: recommendation.cause),
           const SizedBox(height: 6),
-          _Label(label: 'Recommendation', value: recommendation.recommendation),
+          _Label(label: 'Repair path', value: recommendation.recommendation),
         ],
       ),
     );
@@ -307,7 +309,7 @@ class _EmptyState extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 40),
       child: Center(
         child: Text(
-          'Not enough data yet.\nKeep using the app to build recommendations.',
+          'Not enough diagnostic data yet.\nKeep using the app to build product health evidence.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.white38, fontSize: 13, height: 1.6),
         ),

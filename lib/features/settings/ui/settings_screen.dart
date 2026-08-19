@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:fantastic_guacamole/app/router/app_view_navigation.dart';
 import 'package:fantastic_guacamole/config/env.dart';
 import 'package:fantastic_guacamole/core/debug/diagnostics_context_service.dart';
 import 'package:fantastic_guacamole/dev/test_data_generator.dart';
@@ -46,6 +48,9 @@ class SettingsScreen extends ConsumerWidget {
     final themeAsync = ref.watch(currentThemeProvider);
     final bool isDarkMode = themeAsync.asData?.value.isDark ?? true;
     final access = ref.watch(appAccessProvider);
+    final bool hasInternalAdvisorAccess = ref.watch(
+      internalAdvisorAccessProvider,
+    );
     final hasMockSignIn = ref.watch(mockSignInProvider);
     final intelligence = ref.watch(intelligenceStateProvider);
     final bool accountDeletionConfigured = _hasSecureHttpsEndpoint(
@@ -78,7 +83,7 @@ class SettingsScreen extends ConsumerWidget {
                           context.pop();
                           return;
                         }
-                        ref.read(appFlowProvider.notifier).toNexus();
+                        goToAppView(context, ref, AppView.nexus);
                       },
                       child: Container(
                         width: 48,
@@ -470,16 +475,18 @@ class SettingsScreen extends ConsumerWidget {
                         unawaited(TestDataGenerator.generate(ref, context)),
                   ),
                 ),
-                const SizedBox(height: 8),
-                _Section(
-                  label: 'PRODUCT ADVISOR',
-                  accentColor: AppColors.memoryAmber,
-                  child: _NeonNavTile(
-                    title: 'Open Advisor',
-                    subtitle: 'Recommendations and optimizer state',
-                    onTap: () => context.push(routes.advisor),
+                if (hasInternalAdvisorAccess) ...[
+                  const SizedBox(height: 8),
+                  _Section(
+                    label: 'INTERNAL DIAGNOSTICS',
+                    accentColor: AppColors.memoryAmber,
+                    child: _NeonNavTile(
+                      title: 'Advisor Diagnostics',
+                      subtitle: 'Admin-only product health and optimizer state',
+                      onTap: () => context.push(routes.advisor),
+                    ),
                   ),
-                ),
+                ],
                 const SizedBox(height: 16),
                 const _GlobalMetricsDebugSection(),
                 const SizedBox(height: 16),
@@ -501,9 +508,6 @@ class SettingsScreen extends ConsumerWidget {
     try {
       if (hasMockSignIn) {
         ref.read(mockSignInProvider.notifier).set(false);
-        await ref
-            .read(localUserDataCleanupServiceProvider)
-            .clearForAccountSwitch();
       } else {
         await ref.read(authServiceProvider).signOut();
       }

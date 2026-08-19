@@ -1,3 +1,4 @@
+import 'package:fantastic_guacamole/app/router/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/profile/ui/widgets/profile_header.dart';
 import 'package:fantastic_guacamole/features/profile/ui/widgets/stats_card.dart';
@@ -127,7 +128,7 @@ class _ProfileBody extends ConsumerWidget {
         const _IdentityCard(),
         const SizedBox(height: 16),
         _NavButtons(
-          onTimeline: () => ref.read(appFlowProvider.notifier).toTimeline(),
+          onTimeline: () => goToAppView(context, ref, AppView.timeline),
           onProgression: actions.openProgression,
           onInviteFriends: () => _inviteFriends(context, state),
         ),

@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:fantastic_guacamole/features/progression/ui/progression_screen.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +20,10 @@ void main() {
   Future<ProviderContainer> pumpProgression(
     WidgetTester tester, {
     required TrajectorySummaryView trajectory,
+    FutureOr<String> Function(Ref ref)? weeklySummaryOverride,
+    FutureOr<List<Task>> Function(Ref ref)? tasksOverride,
+    List<TimelineEventEntity>? timelineOverdue,
+    List<LearningHistorySnapshot>? learningHistorySnapshots,
   }) async {
     tester.platformDispatcher.views.first
       ..physicalSize = const Size(1200, 4000)
@@ -26,7 +35,18 @@ void main() {
     });
 
     final ProviderContainer container = ProviderContainer(
-      overrides: [trajectorySummaryProvider.overrideWithValue(trajectory)],
+      overrides: [
+        trajectorySummaryProvider.overrideWithValue(trajectory),
+        if (weeklySummaryOverride != null)
+          weeklySummaryProvider.overrideWith(weeklySummaryOverride),
+        if (tasksOverride != null) tasksProvider.overrideWith(tasksOverride),
+        if (timelineOverdue != null)
+          timelineOverdueProvider.overrideWithValue(timelineOverdue),
+        if (learningHistorySnapshots != null)
+          learningHistorySnapshotsProvider.overrideWithValue(
+            learningHistorySnapshots,
+          ),
+      ],
     );
     addTearDown(container.dispose);
 
@@ -120,9 +140,7 @@ void main() {
     },
   );
 
-  testWidgets('the back arrow returns to the planner view', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('the back arrow returns to Nexus', (WidgetTester tester) async {
     final ProviderContainer container = await pumpProgression(
       tester,
       trajectory: _activeTrajectory,
@@ -132,11 +150,82 @@ void main() {
     container.read(appFlowProvider.notifier).toProgression();
     await tester.pump();
 
+    expect(find.bySemanticsLabel('Back to Nexus'), findsOneWidget);
+
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
     await tester.pump();
 
     expect(container.read(appFlowProvider), AppView.nexus);
   });
+
+  testWidgets('the advisor action opens Creator when no work exists', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = await pumpProgression(
+      tester,
+      trajectory: _emptyTrajectory,
+      weeklySummaryOverride: (Ref ref) async => _summaryText,
+      tasksOverride: (Ref ref) async => const <Task>[],
+      timelineOverdue: const <TimelineEventEntity>[],
+    );
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Open Creator'));
+    await tester.pump();
+
+    expect(container.read(appFlowProvider), AppView.creator);
+  });
+
+  testWidgets('the advisor action opens Timeline when active work exists', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = await pumpProgression(
+      tester,
+      trajectory: _activeTrajectory,
+      weeklySummaryOverride: (Ref ref) async => _summaryText,
+      tasksOverride: (Ref ref) async => const <Task>[
+        Task(
+          id: 'task-1',
+          title: 'Finish the active thing',
+          priority: 2,
+          difficulty: 2,
+          energyRequired: 2,
+        ),
+      ],
+      timelineOverdue: const <TimelineEventEntity>[],
+    );
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Open Timeline'));
+    await tester.pump();
+
+    expect(container.read(appFlowProvider), AppView.timeline);
+  });
+
+  testWidgets(
+    'the progress chart reports completion momentum, not estimated XP',
+    (WidgetTester tester) async {
+      final DateTime now = DateTime.now();
+      await pumpProgression(
+        tester,
+        trajectory: _activeTrajectory,
+        learningHistorySnapshots: [
+          LearningHistorySnapshot(
+            timestamp: now.subtract(const Duration(days: 2)),
+            completed: 2,
+          ),
+          LearningHistorySnapshot(
+            timestamp: now.subtract(const Duration(days: 1)),
+            completed: 5,
+          ),
+        ],
+      );
+
+      expect(find.text('COMPLETION MOMENTUM'), findsOneWidget);
+      expect(find.text('XP PROGRESSION'), findsNothing);
+      expect(find.text('Last 3 checkpoints • +3 completed'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'share progress falls back to clipboard + SnackBar when the share sheet is unavailable',
@@ -202,6 +291,9 @@ void main() {
     },
   );
 }
+
+const String _summaryText =
+    'SYSTEM GUIDANCE REPORT\n\nRecommendation: complete one grounded action.';
 
 const TrajectorySummaryView _emptyTrajectory = TrajectorySummaryView(
   pendingTasks: 0,

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/app/router/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
@@ -98,9 +99,9 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
                     onCompleteTask: _completeTimeBlockTask,
                     onRetry: () => ref.invalidate(tasksProvider),
                     onCreateTask: () =>
-                        ref.read(appFlowProvider.notifier).toCreator(),
+                        goToAppView(context, ref, AppView.creator),
                     onOpenTimeline: () =>
-                        ref.read(appFlowProvider.notifier).toTimeline(),
+                        goToAppView(context, ref, AppView.timeline),
                     onReviewPlan: _reviewNextDecision,
                   ),
                 ),
@@ -212,7 +213,7 @@ class _NexusScreenState extends ConsumerState<NexusScreen>
           .read(adaptiveGuidanceProvider.notifier)
           .record(GuidanceMilestone.firstNexusReview),
     );
-    ref.read(appFlowProvider.notifier).toSmartPlanner();
+    goToAppView(context, ref, AppView.smartPlanner);
   }
 
   void _recordDecisionShown(OperatingDecisionReceipt? decision) {

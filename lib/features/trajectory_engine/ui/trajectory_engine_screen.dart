@@ -1,12 +1,13 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/app/router/app_view_navigation.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_consequence_contract.dart';
 import 'package:fantastic_guacamole/domain/trajectory/trajectory_forecast_receipt.dart';
 import 'package:fantastic_guacamole/features/nexus/domain/nexus_decision_model.dart';
-import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/controllers/app_flow_controller.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_consequence_provider.dart';
+import 'package:fantastic_guacamole/state/providers/trajectory_engine_model_provider.dart';
 import 'package:fantastic_guacamole/state/providers/trajectory_forecast_ledger_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -71,7 +72,7 @@ class _TrajectoryEngineScreenState
           leading: IconButton(
             tooltip: 'Back to Nexus',
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => ref.read(appFlowProvider.notifier).toNexus(),
+            onPressed: () => goToAppView(context, ref, AppView.nexus),
           ),
           title: const Text('Trajectory Engine'),
           actions: <Widget>[
@@ -90,7 +91,7 @@ class _TrajectoryEngineScreenState
               detail: model.statusDetail,
               onRetry: () =>
                   ref.read(trajectoryEngineActionsProvider).refresh(),
-              onCreate: () => ref.read(appFlowProvider.notifier).toCreator(),
+              onCreate: () => goToAppView(context, ref, AppView.creator),
             ),
             if (blocksContent) const SizedBox(height: 8),
             if (blocksContent && model.status == TrajectoryEngineStatus.loading)
@@ -178,20 +179,19 @@ class _TrajectoryEngineScreenState
   }
 
   void _openDecisionAction(OperatingActionIntent intent) {
-    final AppFlowController flow = ref.read(appFlowProvider.notifier);
     switch (NexusActionResolver.resolve(intent)) {
       case NexusActionDestination.creator:
-        flow.toCreator();
+        goToAppView(context, ref, AppView.creator);
       case NexusActionDestination.timeline:
-        flow.toTimeline();
+        goToAppView(context, ref, AppView.timeline);
       case NexusActionDestination.smartPlanner:
-        flow.toSmartPlanner();
+        goToAppView(context, ref, AppView.smartPlanner);
       case NexusActionDestination.siConsole:
-        flow.toSIConsole();
+        goToAppView(context, ref, AppView.console);
       case NexusActionDestination.trajectoryEngine:
-        flow.toTrajectoryEngine();
+        goToAppView(context, ref, AppView.trajectoryEngine);
       case NexusActionDestination.progression:
-        flow.toProgression();
+        goToAppView(context, ref, AppView.progression);
       case NexusActionDestination.acknowledge:
       case NexusActionDestination.none:
         break;
@@ -241,16 +241,15 @@ class _TrajectoryEngineScreenState
   }
 
   void _openScenarioDestination(TrajectoryIntervention intervention) {
-    final AppFlowController flow = ref.read(appFlowProvider.notifier);
     switch (intervention.type) {
       case TrajectoryInterventionType.applySmartPlanner:
       case TrajectoryInterventionType.maintainCourse:
-        flow.toSmartPlanner();
+        goToAppView(context, ref, AppView.smartPlanner);
       case TrajectoryInterventionType.completeTask:
       case TrajectoryInterventionType.delayTask:
       case TrajectoryInterventionType.reduceScope:
       case TrajectoryInterventionType.recoverCommitment:
-        flow.toTimeline();
+        goToAppView(context, ref, AppView.timeline);
     }
   }
 }

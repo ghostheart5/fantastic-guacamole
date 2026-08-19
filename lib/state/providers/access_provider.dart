@@ -63,3 +63,14 @@ final appAccessProvider = Provider<AppAccessState>((ref) {
     paywallDisabled: intelligence.flags.paywallDisabled,
   );
 });
+
+/// Trusted Product Advisor authorization.
+///
+/// This intentionally reads only server-controlled auth app metadata propagated
+/// from Supabase. User-editable profile/user metadata, premium entitlement,
+/// tester-full-access, and mock-login flags must not grant access to internal
+/// Product Advisor diagnostics.
+final internalAdvisorAccessProvider = Provider<bool>((ref) {
+  final user = ref.watch(authUserProvider).asData?.value;
+  return user?.hasInternalAdvisorAccess ?? false;
+});

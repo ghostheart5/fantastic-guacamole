@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/app/router/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/level_card.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/streak_card.dart';
@@ -8,6 +9,7 @@ import 'package:fantastic_guacamole/features/progression/widgets/weekly_summary_
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/advisor_provider.dart';
 import 'package:fantastic_guacamole/state/providers/feature_derived_providers.dart';
+import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -23,24 +25,10 @@ class ProgressionScreen extends ConsumerStatefulWidget {
   const ProgressionScreen({super.key});
 
   @override
-  ConsumerState<ProgressionScreen> createState() =>
-      _ProgressionScreenState();
+  ConsumerState<ProgressionScreen> createState() => _ProgressionScreenState();
 }
 
 class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      unawaited(
-        ref
-            .read(adaptiveGuidanceProvider.notifier)
-            .record(GuidanceMilestone.firstProgressionReview),
-      );
-    });
-  }
-
   Future<bool> _confirmShare(
     BuildContext context, {
     required String title,
@@ -188,8 +176,8 @@ class _ProgressionScreenState extends ConsumerState<ProgressionScreen> {
                 Row(
                   children: [
                     SmartPressable(
-                      onTap: () => ref.read(appFlowProvider.notifier).toNexus(),
-                      semanticLabel: 'Back to Smart Planner',
+                      onTap: () => goToAppView(context, ref, AppView.nexus),
+                      semanticLabel: 'Back to Nexus',
                       child: Container(
                         width: 48,
                         height: 48,
@@ -447,6 +435,7 @@ class _AdvisorSummaryCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summaryAsync = ref.watch(weeklySummaryProvider);
+    final action = _ProgressionAdvisorAction.from(ref);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -469,21 +458,67 @@ class _AdvisorSummaryCard extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
           summaryAsync.when(
-            data: (summary) => Text(
-              summary,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                height: 1.55,
-              ),
+            data: (summary) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  summary,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    height: 1.55,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: () {
+                    _recordProgressionReview(ref);
+                    action.navigate(context, ref);
+                  },
+                  icon: Icon(action.icon, size: 18),
+                  label: Text(action.label),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.memoryAmber,
+                    foregroundColor: Colors.black,
+                    minimumSize: const Size.fromHeight(44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
             ),
             loading: () => const Text(
               'Building a progress view from your saved Timeline and completed actions...',
               style: TextStyle(color: Colors.white38, fontSize: 12),
             ),
-            error: (_, _) => const Text(
-              'Not enough saved evidence yet. Add or complete an item, then return to see a grounded progression signal.',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
+            error: (_, _) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Not enough saved evidence yet. Add or complete an item, then return to see a grounded progression signal.',
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    _recordProgressionReview(ref);
+                    goToAppView(context, ref, AppView.creator);
+                  },
+                  icon: const Icon(Icons.add_task_rounded, size: 18),
+                  label: const Text('Open Creator'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.memoryAmber,
+                    side: BorderSide(
+                      color: AppColors.memoryAmber.withValues(alpha: 0.7),
+                    ),
+                    minimumSize: const Size.fromHeight(44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -492,11 +527,67 @@ class _AdvisorSummaryCard extends ConsumerWidget {
   }
 }
 
-class _XpPoint {
-  const _XpPoint(this.day, this.xp);
+void _recordProgressionReview(WidgetRef ref) {
+  unawaited(
+    ref
+        .read(adaptiveGuidanceProvider.notifier)
+        .record(GuidanceMilestone.firstProgressionReview),
+  );
+}
+
+enum _ProgressionAdvisorTarget { creator, timeline }
+
+class _ProgressionAdvisorAction {
+  const _ProgressionAdvisorAction({
+    required this.target,
+    required this.label,
+    required this.icon,
+  });
+
+  final _ProgressionAdvisorTarget target;
+  final String label;
+  final IconData icon;
+
+  static _ProgressionAdvisorAction from(WidgetRef ref) {
+    final int overdueCount = ref.watch(timelineOverdueProvider).length;
+    final int activeTasks = ref.watch(tasksProvider).asData?.value.length ?? 0;
+
+    if (overdueCount > 0) {
+      return const _ProgressionAdvisorAction(
+        target: _ProgressionAdvisorTarget.timeline,
+        label: 'Open Timeline',
+        icon: Icons.event_repeat_rounded,
+      );
+    }
+    if (activeTasks > 0) {
+      return const _ProgressionAdvisorAction(
+        target: _ProgressionAdvisorTarget.timeline,
+        label: 'Open Timeline',
+        icon: Icons.check_circle_outline_rounded,
+      );
+    }
+    return const _ProgressionAdvisorAction(
+      target: _ProgressionAdvisorTarget.creator,
+      label: 'Open Creator',
+      icon: Icons.add_task_rounded,
+    );
+  }
+
+  void navigate(BuildContext context, WidgetRef ref) {
+    switch (target) {
+      case _ProgressionAdvisorTarget.creator:
+        goToAppView(context, ref, AppView.creator);
+      case _ProgressionAdvisorTarget.timeline:
+        goToAppView(context, ref, AppView.timeline);
+    }
+  }
+}
+
+class _ProgressPoint {
+  const _ProgressPoint(this.day, this.completed);
 
   final DateTime day;
-  final int xp;
+  final int completed;
 }
 
 class _XpProgressChartCard extends ConsumerWidget {
@@ -504,11 +595,10 @@ class _XpProgressChartCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileProvider);
     final history = ref.watch(learningHistorySnapshotsProvider);
-    final List<_XpPoint> points = _buildXpPoints(profile.xp, history);
-    final int start = points.isEmpty ? profile.xp : points.first.xp;
-    final int end = points.isEmpty ? profile.xp : points.last.xp;
+    final List<_ProgressPoint> points = _buildProgressPoints(history);
+    final int start = points.isEmpty ? 0 : points.first.completed;
+    final int end = points.isEmpty ? 0 : points.last.completed;
 
     return Container(
       width: double.infinity,
@@ -522,7 +612,7 @@ class _XpProgressChartCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'XP PROGRESSION',
+            'COMPLETION MOMENTUM',
             style: TextStyle(
               fontSize: 10,
               letterSpacing: 2.5,
@@ -532,7 +622,7 @@ class _XpProgressChartCard extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Last ${points.length} checkpoints • ${end - start >= 0 ? '+' : ''}${end - start} XP',
+            'Last ${points.length} checkpoints • ${end - start >= 0 ? '+' : ''}${end - start} completed',
             style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
           const SizedBox(height: 12),
@@ -545,15 +635,16 @@ class _XpProgressChartCard extends ConsumerWidget {
             SizedBox(
               height: 110,
               width: double.infinity,
-              child: CustomPaint(painter: _XpLineChartPainter(points: points)),
+              child: CustomPaint(
+                painter: _ProgressLineChartPainter(points: points),
+              ),
             ),
         ],
       ),
     );
   }
 
-  List<_XpPoint> _buildXpPoints(
-    int currentXp,
+  List<_ProgressPoint> _buildProgressPoints(
     List<LearningHistorySnapshot> history,
   ) {
     final DateTime now = DateTime.now();
@@ -580,39 +671,35 @@ class _XpProgressChartCard extends ConsumerWidget {
       completedByDay[key] = math.max(existing, completed);
     }
 
-    if (completedByDay.isEmpty) return <_XpPoint>[];
+    if (completedByDay.isEmpty) return <_ProgressPoint>[];
 
     final List<MapEntry<String, int>> sorted = completedByDay.entries.toList(
       growable: true,
     )..sort((a, b) => a.key.compareTo(b.key));
-    final int maxCompleted = sorted.last.value <= 0 ? 1 : sorted.last.value;
 
-    final List<_XpPoint> points = <_XpPoint>[];
-    int lastXp = 0;
+    final List<_ProgressPoint> points = <_ProgressPoint>[];
+    int lastCompleted = 0;
     for (final MapEntry<String, int> entry in sorted) {
       final DateTime day = DateTime.parse(entry.key);
-      final int estimate = ((currentXp * (entry.value / maxCompleted)))
-          .round()
-          .clamp(0, currentXp);
-      lastXp = math.max(lastXp, estimate);
-      points.add(_XpPoint(day, lastXp));
+      lastCompleted = math.max(lastCompleted, entry.value);
+      points.add(_ProgressPoint(day, lastCompleted));
     }
 
     final DateTime today = DateTime(now.year, now.month, now.day);
     if (points.isEmpty || points.last.day != today) {
-      points.add(_XpPoint(today, currentXp));
+      points.add(_ProgressPoint(today, lastCompleted));
     } else {
-      points[points.length - 1] = _XpPoint(today, currentXp);
+      points[points.length - 1] = _ProgressPoint(today, lastCompleted);
     }
 
     return points.length > 10 ? points.sublist(points.length - 10) : points;
   }
 }
 
-class _XpLineChartPainter extends CustomPainter {
-  _XpLineChartPainter({required this.points});
+class _ProgressLineChartPainter extends CustomPainter {
+  _ProgressLineChartPainter({required this.points});
 
-  final List<_XpPoint> points;
+  final List<_ProgressPoint> points;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -636,14 +723,14 @@ class _XpLineChartPainter extends CustomPainter {
       return;
     }
 
-    final int minXp = points.map((p) => p.xp).reduce(math.min);
-    final int maxXp = points.map((p) => p.xp).reduce(math.max);
-    final int span = math.max(1, maxXp - minXp);
+    final int minCompleted = points.map((p) => p.completed).reduce(math.min);
+    final int maxCompleted = points.map((p) => p.completed).reduce(math.max);
+    final int span = math.max(1, maxCompleted - minCompleted);
 
     final Path path = Path();
     for (int i = 0; i < points.length; i++) {
       final double x = (i / (points.length - 1)) * size.width;
-      final double normalized = (points[i].xp - minXp) / span;
+      final double normalized = (points[i].completed - minCompleted) / span;
       final double y = size.height - (normalized * (size.height - 8)) - 4;
       if (i == 0) {
         path.moveTo(x, y);
@@ -659,12 +746,12 @@ class _XpLineChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _XpLineChartPainter oldDelegate) {
+  bool shouldRepaint(covariant _ProgressLineChartPainter oldDelegate) {
     if (oldDelegate.points.length != points.length) {
       return true;
     }
     for (int i = 0; i < points.length; i++) {
-      if (oldDelegate.points[i].xp != points[i].xp ||
+      if (oldDelegate.points[i].completed != points[i].completed ||
           oldDelegate.points[i].day != points[i].day) {
         return true;
       }

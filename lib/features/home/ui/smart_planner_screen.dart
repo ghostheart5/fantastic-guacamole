@@ -1,6 +1,11 @@
 import 'dart:async';
 
+import 'package:fantastic_guacamole/app/router/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
+import 'package:fantastic_guacamole/domain/entities/plan_proposal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/entities/time_block.dart';
+import 'package:fantastic_guacamole/domain/planning/planner_input.dart';
 import 'package:fantastic_guacamole/features/emotion/widgets/emotion_selector.dart';
 import 'package:fantastic_guacamole/features/progression/widgets/progress_bar.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
@@ -37,10 +42,15 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   String? _planningGuidancePrompt;
   String? _lastSavedNotes;
   String? _followUpError;
+  String? _proposalError;
+  String? _proposalStatusMessage;
   final List<_Exchange> _followUps = [];
   bool _saved = false;
   bool _gettingPlanningGuidance = false;
   bool _sendingFollowUp = false;
+  bool _previewingPlan = false;
+  bool _applyingPlan = false;
+  bool _rejectingPlan = false;
 
   List<_Exchange> get _visibleFollowUps {
     const int maxVisibleFollowUps = 20;
@@ -230,6 +240,109 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     }
   }
 
+  Future<void> _previewPlan() async {
+    if (_previewingPlan) return;
+    setState(() {
+      _previewingPlan = true;
+      _proposalError = null;
+      _proposalStatusMessage = null;
+    });
+    try {
+      final List<Task> tasks = await ref.read(tasksProvider.future);
+      final List<PlannerInput> inputs = PlannerInputAdapter.fromLegacyTasks(
+        tasks,
+      );
+      if (inputs.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _proposalError = 'Create a task first so Smart Planner has evidence.';
+          _previewingPlan = false;
+        });
+        return;
+      }
+      await ref
+          .read(planProposalProvider.notifier)
+          .preview(inputs: inputs, energy: _energy);
+      if (!mounted) return;
+      setState(() {
+        _proposalStatusMessage = 'Preview ready. Review it before applying.';
+        _previewingPlan = false;
+      });
+      unawaited(
+        ref
+            .read(adaptiveGuidanceProvider.notifier)
+            .record(GuidanceMilestone.firstPlannerQuestion),
+      );
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      setState(() {
+        _proposalError =
+            'Plan preview failed. Try again after refreshing tasks.';
+        _previewingPlan = false;
+      });
+      ErrorBoundary.of(context)?.captureError(error, stackTrace);
+    }
+  }
+
+  Future<void> _applyProposal() async {
+    if (_applyingPlan) return;
+    setState(() {
+      _applyingPlan = true;
+      _proposalError = null;
+      _proposalStatusMessage = null;
+    });
+    try {
+      final plan = await ref.read(planProposalProvider.notifier).apply();
+      if (!mounted) return;
+      setState(() {
+        _applyingPlan = false;
+        _proposalStatusMessage = plan == null
+            ? 'No preview is ready to apply.'
+            : 'Plan applied. Timeline is now the source of action.';
+      });
+      if (plan != null) {
+        ref.invalidate(adaptivePlanProvider);
+        ref.invalidate(todayTimeBlocksProvider);
+        goToAppView(context, ref, AppView.timeline);
+      }
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      setState(() {
+        _proposalError = 'Plan could not be applied. Review conflicts first.';
+        _applyingPlan = false;
+      });
+      ErrorBoundary.of(context)?.captureError(error, stackTrace);
+    }
+  }
+
+  Future<void> _rejectProposal() async {
+    if (_rejectingPlan) return;
+    setState(() {
+      _rejectingPlan = true;
+      _proposalError = null;
+      _proposalStatusMessage = null;
+    });
+    try {
+      final proposal = await ref
+          .read(planProposalProvider.notifier)
+          .reject(reason: 'User rejected Smart Planner preview.');
+      if (!mounted) return;
+      setState(() {
+        _rejectingPlan = false;
+        _proposalStatusMessage = proposal == null
+            ? 'No preview is ready to reject.'
+            : 'Preview rejected. Adjust tasks or ask for a new plan.';
+      });
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      setState(() {
+        _proposalError = 'Preview could not be rejected.';
+        _rejectingPlan = false;
+      });
+      ErrorBoundary.of(context)?.captureError(error, stackTrace);
+    }
+  }
+
   List<Map<String, String>> _conversationHistory() {
     final List<Map<String, String>> history = <Map<String, String>>[];
     final String initialPrompt = _planningGuidancePrompt?.trim() ?? '';
@@ -257,15 +370,13 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
   @override
   Widget build(BuildContext context) {
     ref.watch(extendedDomainBootstrapProvider);
-    final smartModel = ref.watch(smartPlannerScreenModelProvider).asData?.value;
-    final String modelPlannerMessage =
-        smartModel?.decision.plannerMessage ?? '';
+    final AsyncValue<PlanProposalEntity?> proposalState = ref.watch(
+      planProposalProvider,
+    );
     final String effectivePlannerMessage =
         (_planningGuidanceMessage?.trim().isNotEmpty ?? false)
         ? _planningGuidanceMessage!
-        : (modelPlannerMessage.trim().isNotEmpty
-              ? modelPlannerMessage
-              : 'Stabilize scope and execute one specific action now.');
+        : '';
     final bool hasPlannerMessage = effectivePlannerMessage.trim().isNotEmpty;
     final double keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return AnimatedSystemBackground(
@@ -296,7 +407,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () =>
-                          ref.read(appFlowProvider.notifier).toCreator(),
+                          goToAppView(context, ref, AppView.creator),
                       child: const Text('OPEN CREATOR TO MAKE TASK'),
                     ),
                     const SizedBox(height: 14),
@@ -352,7 +463,17 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    const _GuidanceCheatSheet(),
+                    _PlanProposalPanel(
+                      proposalState: proposalState,
+                      previewing: _previewingPlan,
+                      applying: _applyingPlan,
+                      rejecting: _rejectingPlan,
+                      errorText: _proposalError,
+                      statusText: _proposalStatusMessage,
+                      onPreview: _previewPlan,
+                      onApply: _applyProposal,
+                      onReject: _rejectProposal,
+                    ),
                     const SizedBox(height: 20),
                     HoloButton(
                       label: _gettingPlanningGuidance
@@ -443,7 +564,7 @@ class _SmartPlannerScreenState extends ConsumerState<SmartPlannerScreen> {
     return Row(
       children: [
         SmartPressable(
-          onTap: () => ref.read(appFlowProvider.notifier).toNexus(),
+          onTap: () => goToAppView(context, ref, AppView.nexus),
           semanticLabel: 'Back',
           child: const Padding(
             padding: EdgeInsets.all(11),
@@ -523,28 +644,177 @@ class _Exchange {
   final String answer;
 }
 
-class _GuidanceCheatSheet extends StatelessWidget {
-  const _GuidanceCheatSheet();
+class _PlanProposalPanel extends StatelessWidget {
+  const _PlanProposalPanel({
+    required this.proposalState,
+    required this.previewing,
+    required this.applying,
+    required this.rejecting,
+    required this.onPreview,
+    required this.onApply,
+    required this.onReject,
+    this.errorText,
+    this.statusText,
+  });
+
+  final AsyncValue<PlanProposalEntity?> proposalState;
+  final bool previewing;
+  final bool applying;
+  final bool rejecting;
+  final VoidCallback onPreview;
+  final VoidCallback onApply;
+  final VoidCallback onReject;
+  final String? errorText;
+  final String? statusText;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: const Text(
-        'Get Guidance cheat sheet:\n'
-        '• One topic: lose weight, tired, stressed, sleep, nutrition, exercise, productivity, goals\n'
-        '• One feeling: drained, anxious, stuck, unmotivated\n'
-        '• One detail: sleep, food, deadlines, workouts, or what keeps failing\n\n'
-        'Examples: “I’m tired”, “lose weight”, “stressed about work”, “what should I do next?”',
-        style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+    final PlanProposalEntity? proposal = proposalState.asData?.value;
+    final bool busy = previewing || applying || rejecting;
+    final bool canResolve =
+        proposal != null && proposal.status == PlanProposalStatus.preview;
+
+    return _PlannerPanel(
+      label: 'PLAN PREVIEW',
+      accentColor: AppColors.neonCyan,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (proposal == null)
+            const Text(
+              'Preview the next schedule from your saved tasks, then choose whether to apply it to Timeline.',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            )
+          else ...[
+            Text(
+              _proposalSummary(proposal),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+            if (proposal.blocks.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ...proposal.blocks
+                  .take(3)
+                  .map(
+                    (TimeBlock block) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_formatTime(block.start)} ',
+                            style: const TextStyle(
+                              color: AppColors.neonCyan,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              block.title,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+            ],
+          ],
+          if (errorText != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              errorText!,
+              style: const TextStyle(
+                color: AppColors.recallRed,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (statusText != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              statusText!,
+              style: const TextStyle(
+                color: AppColors.memoryAmber,
+                fontSize: 12,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              ElevatedButton.icon(
+                onPressed: busy ? null : onPreview,
+                icon: previewing
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome_rounded, size: 16),
+                label: Text(previewing ? 'Previewing' : 'Preview Plan'),
+              ),
+              OutlinedButton.icon(
+                onPressed: busy || !canResolve || !proposal.isFeasible
+                    ? null
+                    : onApply,
+                icon: applying
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_circle_outline_rounded, size: 16),
+                label: Text(applying ? 'Applying' : 'Apply to Timeline'),
+              ),
+              OutlinedButton.icon(
+                onPressed: busy || !canResolve ? null : onReject,
+                icon: rejecting
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.close_rounded, size: 16),
+                label: Text(rejecting ? 'Rejecting' : 'Reject'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
+  }
+
+  static String _proposalSummary(PlanProposalEntity proposal) {
+    final String status = switch (proposal.status) {
+      PlanProposalStatus.preview => 'Preview',
+      PlanProposalStatus.applied => 'Applied',
+      PlanProposalStatus.rejected => 'Rejected',
+    };
+    final String conflictText = proposal.conflicts.isEmpty
+        ? 'No conflicts detected.'
+        : '${proposal.conflicts.length} conflict detected.';
+    return '$status plan: ${proposal.blocks.length} blocks. $conflictText';
+  }
+
+  static String _formatTime(DateTime value) {
+    final int hour = value.hour;
+    final int displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    final String minute = value.minute.toString().padLeft(2, '0');
+    final String period = hour >= 12 ? 'PM' : 'AM';
+    return '$displayHour:$minute $period';
   }
 }
 
@@ -1151,14 +1421,14 @@ class _QuickNavRow extends ConsumerWidget {
           label: 'GOALS',
           icon: Icons.flag_rounded,
           color: AppColors.memoryAmber,
-          onTap: () => ref.read(appFlowProvider.notifier).toGoals(),
+          onTap: () => goToAppView(context, ref, AppView.goals),
         ),
         const SizedBox(width: 8),
         _QuickNavCard(
-          label: 'MEMORIES',
-          icon: Icons.auto_awesome_rounded,
+          label: 'TIMELINE',
+          icon: Icons.timeline_rounded,
           color: AppColors.neonViolet,
-          onTap: () => ref.read(appFlowProvider.notifier).toMemories(),
+          onTap: () => goToAppView(context, ref, AppView.timeline),
         ),
       ],
     );

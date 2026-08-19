@@ -1,7 +1,10 @@
 import 'package:fantastic_guacamole/core/debug/logger.dart';
+import 'package:fantastic_guacamole/domain/entities/plan_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/plan_proposal_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/task.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
 import 'package:fantastic_guacamole/features/home/ui/smart_planner_screen.dart';
-import 'package:fantastic_guacamole/state/controllers/smart_planner_query_controller.dart';
-import 'package:fantastic_guacamole/state/controllers/voice_controller.dart';
+import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/state/emotional_state.dart';
 import 'package:fantastic_guacamole/system/voice/voice_service.dart';
 import 'package:fantastic_guacamole/ui/widgets/error_boundary_widget.dart';
@@ -10,6 +13,120 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'starts without fallback guidance, follow-up box, or cheat sheet',
+    (WidgetTester tester) async {
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          smartPlannerQueryControllerProvider.overrideWith(
+            _ConversationalSmartPlannerQueryController.new,
+          ),
+          voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: ErrorBoundary(child: SmartPlannerScreen()),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await _scrollToText(tester, 'Preview Plan');
+
+      expect(
+        find.text('Stabilize scope and execute one specific action now.'),
+        findsNothing,
+      );
+      expect(find.text('Send a follow-up question...'), findsNothing);
+      expect(find.textContaining('Get Guidance cheat sheet'), findsNothing);
+      expect(find.text('Preview Plan'), findsOneWidget);
+    },
+  );
+
+  testWidgets('previews and applies a plan proposal from saved tasks', (
+    WidgetTester tester,
+  ) async {
+    final _PlanRepository planRepository = _PlanRepository();
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        domainPlanRepositoryProvider.overrideWithValue(planRepository),
+        tasksProvider.overrideWith((ref) async {
+          return <Task>[
+            Task(
+              id: 'task-1',
+              title: 'Write launch checklist',
+              priority: 4,
+              difficulty: 2,
+              energyRequired: 2,
+              scheduledFor: DateTime(2026, 8, 19, 9),
+            ),
+          ];
+        }),
+        smartPlannerQueryControllerProvider.overrideWith(
+          _ConversationalSmartPlannerQueryController.new,
+        ),
+        voiceServiceProvider.overrideWithValue(_NoopVoiceService()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: ErrorBoundary(child: SmartPlannerScreen()),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await _scrollToText(tester, 'Preview Plan');
+
+    final Finder previewButton = find.widgetWithText(
+      ElevatedButton,
+      'Preview Plan',
+    );
+    await tester.ensureVisible(previewButton);
+    await tester.pump();
+    final ElevatedButton preview = tester.widget<ElevatedButton>(previewButton);
+    expect(preview.onPressed, isNotNull);
+    await tester.runAsync(() async {
+      preview.onPressed!();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    final AsyncValue<PlanProposalEntity?> proposalState = container.read(
+      planProposalProvider,
+    );
+    expect(proposalState.hasError, isFalse);
+    expect(proposalState.asData?.value, isNotNull);
+
+    expect(find.textContaining('Preview plan:'), findsOneWidget);
+    expect(find.text('Write launch checklist'), findsOneWidget);
+
+    final Finder applyButton = find.widgetWithText(
+      OutlinedButton,
+      'Apply to Timeline',
+    );
+    await tester.ensureVisible(applyButton);
+    await tester.pump();
+    final OutlinedButton apply = tester.widget<OutlinedButton>(applyButton);
+    expect(apply.onPressed, isNotNull);
+    await tester.runAsync(() async {
+      apply.onPressed!();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(container.read(appFlowProvider), AppView.timeline);
+  });
+
   testWidgets(
     'renders ErrorBoundary and recovers on retry after planner request failure',
     (WidgetTester tester) async {
@@ -231,6 +348,32 @@ class _NoopVoiceService extends VoiceService {
   Future<void> stop() async {}
 }
 
+class _PlanRepository implements IPlanRepository {
+  PlanEntity? plan;
+  PlanProposalEntity? proposal;
+
+  @override
+  Future<void> applyProposal({
+    required PlanProposalEntity proposal,
+    required PlanEntity plan,
+  }) async {
+    this.proposal = proposal;
+    this.plan = plan;
+  }
+
+  @override
+  Future<PlanEntity?> getPlan(DateTime date) async => plan;
+
+  @override
+  Future<PlanProposalEntity?> getProposal(String id) async => proposal;
+
+  @override
+  Future<void> savePlan(PlanEntity value) async => plan = value;
+
+  @override
+  Future<void> saveProposal(PlanProposalEntity value) async => proposal = value;
+}
+
 class _ConversationalSmartPlannerQueryController
     extends SmartPlannerQueryController {
   _ConversationalSmartPlannerQueryController(super.ref);
@@ -307,5 +450,17 @@ Future<void> _tapPrimaryPlannerButton(WidgetTester tester) async {
     scrollable: find.byType(Scrollable).first,
   );
   await tester.tap(cta.first, warnIfMissed: false);
+  await tester.pump();
+}
+
+Future<void> _scrollToText(WidgetTester tester, String text) async {
+  await tester.scrollUntilVisible(
+    find.text(text),
+    250,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.ensureVisible(find.text(text));
+  await tester.pump();
+  await tester.drag(find.byType(Scrollable).first, const Offset(0, -120));
   await tester.pump();
 }

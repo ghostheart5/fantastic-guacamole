@@ -5,7 +5,6 @@ import 'package:fantastic_guacamole/domain/entities/notification_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
-import 'package:fantastic_guacamole/features/memories/ui/memories_screen.dart';
 import 'package:fantastic_guacamole/features/nexus/ui/nexus_screen.dart';
 import 'package:fantastic_guacamole/features/timeline/ui/timeline_screen.dart';
 import 'package:fantastic_guacamole/state/controllers/profile_controller.dart';
@@ -14,9 +13,9 @@ import 'package:fantastic_guacamole/state/models/signals_models.dart';
 import 'package:fantastic_guacamole/state/models/si_pipeline_models.dart';
 import 'package:fantastic_guacamole/state/models/trajectory_summary_view.dart';
 import 'package:fantastic_guacamole/state/providers/goals_provider.dart';
-import 'package:fantastic_guacamole/state/providers/memories_provider.dart';
 import 'package:fantastic_guacamole/state/providers/notification_provider.dart';
 import 'package:fantastic_guacamole/state/providers/si_pipeline_provider.dart';
+import 'package:fantastic_guacamole/state/providers/task_provider.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,24 +45,42 @@ void main() {
     expect(find.text('Completed sprint review'), findsOneWidget);
   });
 
-  testWidgets('MemoriesScreen renders starred memories first', (
+  testWidgets('TimelineScreen projects due-date tasks with actions', (
     WidgetTester tester,
   ) async {
     final ProviderContainer container = ProviderContainer(
-      overrides: [memoriesProvider.overrideWith(_StaticMemoriesNotifier.new)],
+      overrides: [
+        timelineProvider.overrideWith(_EmptyTimelineNotifier.new),
+        goalsProvider.overrideWith(_StaticGoalsNotifier.new),
+        tasksProvider.overrideWith((ref) async {
+          return <Task>[
+            Task(
+              id: 'task-due-only',
+              title: 'Due-date only task',
+              priority: 3,
+              difficulty: 2,
+              energyRequired: 2,
+              dueDate: DateTime.now().add(const Duration(days: 1)),
+            ),
+          ];
+        }),
+      ],
     );
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: MemoriesScreen()),
+        child: const MaterialApp(home: TimelineScreen()),
       ),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('MEMORIES'), findsOneWidget);
-    expect(find.text('Saved the best signal from today'), findsOneWidget);
+    expect(find.bySemanticsLabel('Back to Nexus'), findsOneWidget);
+    expect(find.text('Due-date only task'), findsOneWidget);
+    expect(find.text('Complete'), findsOneWidget);
+    expect(find.text('Skip'), findsOneWidget);
   });
 
   testWidgets('NexusScreen renders with a supplied screen model', (
@@ -112,21 +129,9 @@ class _StaticTimelineNotifier extends TimelineNotifier {
   ];
 }
 
-class _StaticMemoriesNotifier extends MemoriesNotifier {
+class _EmptyTimelineNotifier extends TimelineNotifier {
   @override
-  List<MemoryEntity> build() => <MemoryEntity>[
-    MemoryEntity(
-      id: 'memory-1',
-      text: 'Saved the best signal from today',
-      date: DateTime.utc(2026, 7, 7),
-      starred: true,
-    ),
-    MemoryEntity(
-      id: 'memory-2',
-      text: 'Reviewed the daily reflection prompt',
-      date: DateTime.utc(2026, 7, 6),
-    ),
-  ];
+  List<TimelineEventEntity> build() => const <TimelineEventEntity>[];
 }
 
 class _StaticProfileController extends ProfileController {

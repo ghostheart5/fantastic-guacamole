@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:fantastic_guacamole/app/router/app_view_navigation.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/models/task_view.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
@@ -26,7 +27,7 @@ class TaskCard extends ConsumerWidget {
 
     return SmartPressable(
       onTap: () {
-        ref.read(appFlowProvider.notifier).toSmartPlanner();
+        goToAppView(context, ref, AppView.smartPlanner);
       },
       pressedScale: 0.97,
       child: Container(

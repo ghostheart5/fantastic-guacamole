@@ -1,9 +1,11 @@
+import 'package:fantastic_guacamole/app/router/app_view_navigation.dart';
 import 'package:fantastic_guacamole/core/utils/date_time_formats.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/state/app_state.dart';
 import 'package:fantastic_guacamole/state/providers/timeline_provider.dart';
+import 'package:fantastic_guacamole/tutorial/adaptive_guidance.dart';
 import 'package:fantastic_guacamole/tutorial/first_run_tutorial_state.dart';
 import 'package:fantastic_guacamole/ui/constants/app_colors.dart';
 import 'package:fantastic_guacamole/ui/constants/app_assets.dart';
@@ -160,9 +162,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   child: Row(
                     children: [
                       SmartPressable(
-                        onTap: () =>
-                            ref.read(appFlowProvider.notifier).toNexus(),
-                        semanticLabel: 'Back to Smart Planner',
+                        onTap: () => goToAppView(context, ref, AppView.nexus),
+                        semanticLabel: 'Back to Nexus',
                         child: Container(
                           width: 48,
                           height: 48,
@@ -522,6 +523,7 @@ class _TimelineEventTile extends StatelessWidget {
                       ),
                     ),
                   ],
+                  _TimelineEventActions(event: event),
                 ],
               ),
             ),
@@ -529,6 +531,145 @@ class _TimelineEventTile extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _TimelineEventActions extends ConsumerStatefulWidget {
+  const _TimelineEventActions({required this.event});
+
+  final TimelineEventEntity event;
+
+  @override
+  ConsumerState<_TimelineEventActions> createState() =>
+      _TimelineEventActionsState();
+}
+
+class _TimelineEventActionsState extends ConsumerState<_TimelineEventActions> {
+  bool _busy = false;
+  String? _error;
+
+  bool get _isProjectedTask =>
+      widget.event.relatedId != null &&
+      widget.event.id.startsWith('timeline-projected-task-');
+
+  bool get _canComplete =>
+      widget.event.status != TimelineEventStatus.completed &&
+      widget.event.status != TimelineEventStatus.canceled &&
+      (widget.event.type == TimelineEventType.task ||
+          widget.event.type == TimelineEventType.deadline);
+
+  bool get _canSkip =>
+      widget.event.status != TimelineEventStatus.skipped &&
+      widget.event.status != TimelineEventStatus.completed &&
+      widget.event.status != TimelineEventStatus.canceled &&
+      (widget.event.type == TimelineEventType.task ||
+          widget.event.type == TimelineEventType.deadline);
+
+  bool get _canMove =>
+      !_isProjectedTask &&
+      (widget.event.status == TimelineEventStatus.overdue ||
+          widget.event.status == TimelineEventStatus.skipped);
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_canComplete && !_canSkip && !_canMove) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (_canComplete)
+              OutlinedButton.icon(
+                onPressed: _busy ? null : () => _run(_complete),
+                icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+                label: const Text('Complete'),
+              ),
+            if (_canSkip)
+              OutlinedButton.icon(
+                onPressed: _busy ? null : () => _run(_skip),
+                icon: const Icon(Icons.redo_rounded, size: 16),
+                label: const Text('Skip'),
+              ),
+            if (_canMove)
+              OutlinedButton.icon(
+                onPressed: _busy ? null : () => _run(_moveTomorrow),
+                icon: const Icon(Icons.event_repeat_rounded, size: 16),
+                label: Text(
+                  widget.event.status == TimelineEventStatus.skipped
+                      ? 'Recover Tomorrow'
+                      : 'Move Tomorrow',
+                ),
+              ),
+          ],
+        ),
+        if (_busy) ...[
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(minHeight: 2),
+        ],
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            _error!,
+            style: const TextStyle(
+              color: AppColors.recallRed,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await action();
+      await ref
+          .read(adaptiveGuidanceProvider.notifier)
+          .record(GuidanceMilestone.firstTimelineReview);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Timeline action failed. Refresh and try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _complete() {
+    final String? taskId = widget.event.relatedId;
+    if (_isProjectedTask && taskId != null) {
+      return ref.read(taskActionsProvider).completeTask(taskId);
+    }
+    return ref.read(timelineActionsProvider).complete(widget.event.id);
+  }
+
+  Future<void> _skip() {
+    final String? taskId = widget.event.relatedId;
+    if (_isProjectedTask && taskId != null) {
+      return ref.read(taskActionsProvider).skipTask(taskId);
+    }
+    return ref.read(timelineActionsProvider).skip(widget.event.id);
+  }
+
+  Future<void> _moveTomorrow() {
+    final DateTime nextDue = DateTime.now().add(const Duration(days: 1));
+    return ref.read(timelineActionsProvider).recover(widget.event.id, nextDue);
   }
 }
 
@@ -776,7 +917,7 @@ List<TimelineEventEntity> _buildProjectedEvents({
   final List<TimelineEventEntity> events = <TimelineEventEntity>[];
 
   for (final Task task in tasks) {
-    final DateTime? due = task.scheduledFor;
+    final DateTime? due = task.scheduledFor ?? task.dueDate;
     if (due == null) {
       continue;
     }

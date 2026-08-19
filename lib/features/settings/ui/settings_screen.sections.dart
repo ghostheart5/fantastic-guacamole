@@ -296,6 +296,54 @@ class _ReminderAutomationSectionState
 class _PersonalizationSection extends ConsumerWidget {
   const _PersonalizationSection();
 
+  Future<void> _exportSiMemory(BuildContext context, WidgetRef ref) async {
+    final Map<String, dynamic>? state = await ref
+        .read(siEngineServiceProvider)
+        .exportState();
+    await Clipboard.setData(
+      ClipboardData(
+        text: const JsonEncoder.withIndent(
+          '  ',
+        ).convert(state ?? <String, dynamic>{}),
+      ),
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Assistant memory copied.')));
+  }
+
+  Future<void> _clearSiMemory(BuildContext context, WidgetRef ref) async {
+    final bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) => AlertDialog(
+            title: const Text('Clear assistant memory?'),
+            content: const Text(
+              'This removes locally stored assistant memory. Tasks, goals, and timeline events are not changed.',
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Clear'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    await ref.read(siEngineServiceProvider).clearMemory();
+    ref.invalidate(siEngineStateProvider);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Assistant memory cleared.')));
+  }
+
   Future<void> _save(
     BuildContext context,
     WidgetRef ref,
@@ -422,6 +470,16 @@ class _PersonalizationSection extends ConsumerWidget {
             onTap: () => unawaited(
               ref.read(observedPlanningPatternsProvider.notifier).reset(),
             ),
+          ),
+          _NeonNavTile(
+            title: 'Export assistant memory',
+            subtitle: 'Copies your locally stored assistant state.',
+            onTap: () => unawaited(_exportSiMemory(context, ref)),
+          ),
+          _NeonNavTile(
+            title: 'Clear assistant memory',
+            subtitle: 'Removes assistant state without changing your tasks.',
+            onTap: () => unawaited(_clearSiMemory(context, ref)),
           ),
         ],
       ),
