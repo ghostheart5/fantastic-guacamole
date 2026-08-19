@@ -14,12 +14,46 @@ class User {
     this.email,
     this.displayName,
     required this.emailVerified,
+    this.appMetadata = const <String, dynamic>{},
   });
 
   final String id;
   final String? email;
   final String? displayName;
   final bool emailVerified;
+  final Map<String, dynamic> appMetadata;
+
+  bool get hasInternalAdvisorAccess {
+    if (appMetadata['chronospark_admin'] == true) {
+      return true;
+    }
+    return _metadataRoles(appMetadata['chronospark_roles']).any(_isAdminRole) ||
+        _metadataRoles(appMetadata['roles']).any(_isAdminRole) ||
+        _isAdminRole(appMetadata['role']?.toString());
+  }
+
+  static Iterable<String> _metadataRoles(Object? raw) {
+    if (raw is Iterable) {
+      return raw
+          .map((Object? value) => value?.toString().trim().toLowerCase() ?? '')
+          .where((String value) => value.isNotEmpty);
+    }
+    if (raw is String) {
+      return raw
+          .split(',')
+          .map((String value) => value.trim().toLowerCase())
+          .where((String value) => value.isNotEmpty);
+    }
+    return const <String>[];
+  }
+
+  static bool _isAdminRole(String? raw) {
+    final String value = raw?.trim().toLowerCase() ?? '';
+    return value == 'admin' ||
+        value == 'developer' ||
+        value == 'product_admin' ||
+        value == 'qa_admin';
+  }
 }
 
 class UserCredential {

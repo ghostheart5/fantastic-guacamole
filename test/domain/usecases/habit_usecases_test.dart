@@ -1,24 +1,29 @@
-import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 import 'package:fantastic_guacamole/domain/usecases/habit_usecases.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeHabitRepository implements IHabitRepository {
-  List<HabitRecord> stored = const <HabitRecord>[];
+  List<HabitEntity> stored = const <HabitEntity>[];
   int saveCount = 0;
 
   @override
-  Future<List<HabitRecord>> getHabits() async => stored;
+  Future<List<HabitEntity>> getHabits() async => stored;
 
   @override
-  Future<void> saveHabits(List<HabitRecord> habits) async {
+  Future<void> saveHabits(List<HabitEntity> habits) async {
     saveCount++;
     stored = habits;
   }
 }
 
-HabitRecord _habit(String id, {String? title, bool active = true}) {
-  return HabitRecord(id: id, title: title ?? 'Habit $id', active: active);
+HabitEntity _habit(String id, {String? title, bool active = true}) {
+  return HabitEntity(
+    id: id,
+    title: title ?? 'Habit $id',
+    createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+    status: active ? HabitStatus.active : HabitStatus.paused,
+  );
 }
 
 void main() {
@@ -28,16 +33,16 @@ void main() {
 
   group('GetHabits', () {
     test('returns what the repository holds', () async {
-      repository.stored = <HabitRecord>[_habit('a')];
-      final List<HabitRecord> habits = await GetHabits(repository)();
+      repository.stored = <HabitEntity>[_habit('a')];
+      final List<HabitEntity> habits = await GetHabits(repository)();
       expect(habits.single.id, 'a');
     });
   });
 
   group('CreateHabit', () {
     test('adds a trimmed habit to the front and persists', () async {
-      final List<HabitRecord> next = await CreateHabit(repository)(
-        current: <HabitRecord>[_habit('existing')],
+      final List<HabitEntity> next = await CreateHabit(repository)(
+        current: <HabitEntity>[_habit('existing')],
         title: '  Morning run  ',
         id: 'new-id',
       );
@@ -51,8 +56,8 @@ void main() {
     });
 
     test('rejects a blank title without saving', () async {
-      final List<HabitRecord> current = <HabitRecord>[_habit('a')];
-      final List<HabitRecord> next = await CreateHabit(repository)(
+      final List<HabitEntity> current = <HabitEntity>[_habit('a')];
+      final List<HabitEntity> next = await CreateHabit(repository)(
         current: current,
         title: '   ',
       );
@@ -64,22 +69,22 @@ void main() {
 
   group('ToggleHabit', () {
     test('flips only the targeted habit and persists', () async {
-      final List<HabitRecord> next = await ToggleHabit(repository)(
-        current: <HabitRecord>[
+      final List<HabitEntity> next = await ToggleHabit(repository)(
+        current: <HabitEntity>[
           _habit('a', active: true),
           _habit('b', active: true),
         ],
         id: 'a',
       );
 
-      expect(next.firstWhere((HabitRecord h) => h.id == 'a').active, isFalse);
-      expect(next.firstWhere((HabitRecord h) => h.id == 'b').active, isTrue);
+      expect(next.firstWhere((HabitEntity h) => h.id == 'a').active, isFalse);
+      expect(next.firstWhere((HabitEntity h) => h.id == 'b').active, isTrue);
       expect(repository.saveCount, 1);
     });
 
     test('toggles an inactive habit back to active', () async {
-      final List<HabitRecord> next = await ToggleHabit(repository)(
-        current: <HabitRecord>[_habit('a', active: false)],
+      final List<HabitEntity> next = await ToggleHabit(repository)(
+        current: <HabitEntity>[_habit('a', active: false)],
         id: 'a',
       );
 
@@ -87,8 +92,8 @@ void main() {
     });
 
     test('an unknown id changes nothing and does not save', () async {
-      final List<HabitRecord> current = <HabitRecord>[_habit('a')];
-      final List<HabitRecord> next = await ToggleHabit(repository)(
+      final List<HabitEntity> current = <HabitEntity>[_habit('a')];
+      final List<HabitEntity> next = await ToggleHabit(repository)(
         current: current,
         id: 'missing',
       );
@@ -100,8 +105,8 @@ void main() {
 
   group('UpdateHabit', () {
     test('renames while preserving the active flag', () async {
-      final List<HabitRecord> next = await UpdateHabit(repository)(
-        current: <HabitRecord>[_habit('a', title: 'Old', active: false)],
+      final List<HabitEntity> next = await UpdateHabit(repository)(
+        current: <HabitEntity>[_habit('a', title: 'Old', active: false)],
         id: 'a',
         title: '  New name ',
       );
@@ -112,7 +117,7 @@ void main() {
     });
 
     test('ignores blank titles and unknown ids', () async {
-      final List<HabitRecord> current = <HabitRecord>[_habit('a')];
+      final List<HabitEntity> current = <HabitEntity>[_habit('a')];
 
       expect(
         await UpdateHabit(repository)(current: current, id: 'a', title: '  '),
@@ -128,8 +133,8 @@ void main() {
 
   group('DeleteHabit', () {
     test('removes the habit and persists', () async {
-      final List<HabitRecord> next = await DeleteHabit(repository)(
-        current: <HabitRecord>[_habit('a'), _habit('b')],
+      final List<HabitEntity> next = await DeleteHabit(repository)(
+        current: <HabitEntity>[_habit('a'), _habit('b')],
         id: 'a',
       );
 
@@ -138,7 +143,7 @@ void main() {
     });
 
     test('an unknown id changes nothing and does not save', () async {
-      final List<HabitRecord> current = <HabitRecord>[_habit('a')];
+      final List<HabitEntity> current = <HabitEntity>[_habit('a')];
       expect(
         await DeleteHabit(repository)(current: current, id: 'missing'),
         same(current),
@@ -149,8 +154,8 @@ void main() {
 
   group('SaveHabits', () {
     test('bulk replaces the stored list', () async {
-      final List<HabitRecord> replacement = <HabitRecord>[_habit('x')];
-      final List<HabitRecord> next = await SaveHabits(repository)(replacement);
+      final List<HabitEntity> replacement = <HabitEntity>[_habit('x')];
+      final List<HabitEntity> next = await SaveHabits(repository)(replacement);
 
       expect(next, replacement);
       expect(repository.stored, replacement);

@@ -12,6 +12,7 @@ import 'package:fantastic_guacamole/data/repositories/signal_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/learning_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/log_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/memory_repository.dart';
+import 'package:fantastic_guacamole/data/repositories/milestone_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/note_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/notifications_repository.dart';
 import 'package:fantastic_guacamole/data/repositories/paywall_repository.dart';
@@ -200,4 +201,8 @@ final firebaseSupabaseBridgeRepositoryProvider =
     });
 final noteRepositoryProvider = Provider<NoteRepository>(
   (Ref ref) => NoteRepository(ref.read(sharedPrefsStoreProvider)),
+);
+
+final milestoneRepositoryProvider = Provider<MilestoneRepository>(
+  (Ref ref) => MilestoneRepository(ref.read(secureStoreProvider)),
 );

@@ -1,4 +1,11 @@
-enum DecisionOutcomeKind { shown, accepted, corrected, completed, deferred }
+enum DecisionOutcomeKind {
+  shown,
+  accepted,
+  rejected,
+  corrected,
+  completed,
+  deferred,
+}
 
 /// Bounded evidence connecting one recommendation to what the user did next.
 class DecisionOutcomeEntity {

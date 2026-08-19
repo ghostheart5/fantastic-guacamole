@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
-import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 
 class HabitRepository implements IHabitRepository {
@@ -12,11 +12,11 @@ class HabitRepository implements IHabitRepository {
   final HiveStorage<String> _storage;
 
   @override
-  Future<List<HabitRecord>> getHabits() async {
+  Future<List<HabitEntity>> getHabits() async {
     await _storage.open();
     final String? raw = _storage.get(_key);
     if (raw == null || raw.trim().isEmpty) {
-      return const <HabitRecord>[];
+      return const <HabitEntity>[];
     }
     final Object? decoded = jsonDecode(raw);
     final List<dynamic> list = decoded is List<dynamic>
@@ -25,22 +25,22 @@ class HabitRepository implements IHabitRepository {
     return list
         .whereType<Map<dynamic, dynamic>>()
         .map(
-          (Map<dynamic, dynamic> map) => HabitRecord.fromJson(
+          (Map<dynamic, dynamic> map) => HabitEntity.fromJson(
             map.map<String, dynamic>(
               (dynamic key, dynamic value) => MapEntry(key.toString(), value),
             ),
           ),
         )
-        .where((HabitRecord record) => record.id.isNotEmpty)
+        .where((HabitEntity record) => record.id.isNotEmpty)
         .toList(growable: false);
   }
 
   @override
-  Future<void> saveHabits(List<HabitRecord> habits) {
+  Future<void> saveHabits(List<HabitEntity> habits) {
     return _storage.put(
       _key,
       jsonEncode(
-        habits.map((HabitRecord item) => item.toJson()).toList(growable: false),
+        habits.map((HabitEntity item) => item.toJson()).toList(growable: false),
       ),
     );
   }

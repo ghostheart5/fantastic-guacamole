@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/note_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 
-class NoteRepository {
+class NoteRepository implements INoteRepository {
   NoteRepository(this._store);
   final SharedPrefsStore _store;
   static const String _key = 'notes_v1';
 
+  @override
   Future<List<NoteEntity>> getNotes() async {
     final raw = _store.load(_key);
     if (raw == null || raw.trim().isEmpty) return const <NoteEntity>[];
@@ -21,7 +23,8 @@ class NoteRepository {
     }
   }
 
-  Future<void> save(NoteEntity note) async {
+  @override
+  Future<void> saveNote(NoteEntity note) async {
     final notes = (await getNotes()).toList();
     final index = notes.indexWhere((item) => item.id == note.id);
     if (index >= 0) {
@@ -35,15 +38,17 @@ class NoteRepository {
     );
   }
 
-  Future<NoteEntity?> archive(String id) async {
-    final notes = await getNotes();
-    final index = notes.indexWhere((item) => item.id == id);
-    if (index < 0) return null;
-    final archived = notes[index].copyWith(
-      isArchived: true,
-      updatedAt: DateTime.now(),
+  @override
+  Future<void> deleteNote(String id) async {
+    final List<NoteEntity> notes = await getNotes();
+    await _store.save(
+      _key,
+      jsonEncode(
+        notes
+            .where((NoteEntity note) => note.id != id)
+            .map((NoteEntity note) => note.toJson())
+            .toList(growable: false),
+      ),
     );
-    await save(archived);
-    return archived;
   }
 }

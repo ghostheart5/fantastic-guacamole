@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.d
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/progression_policy.dart';
+import 'package:fantastic_guacamole/domain/policies/completion_side_effect_policy.dart';
 import 'package:fantastic_guacamole/domain/policies/task_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/award_xp.dart';
 
@@ -10,7 +11,7 @@ import 'package:fantastic_guacamole/domain/usecases/award_xp.dart';
 ///
 /// Resolved by taskActionsProvider. Gated by TaskPolicy.canComplete; awards XP
 /// via AwardXp.
-typedef DurableCompleteMutation = Future<bool> Function(String taskId);
+typedef DurableCompleteMutation = Future<Object?> Function(String taskId);
 
 class CompleteTask {
   CompleteTask(
@@ -25,11 +26,14 @@ class CompleteTask {
   final IProgressionRepository? progressionRepo;
   final DurableCompleteMutation? durableMutation;
 
-  Future<void> call(String id) async {
+  Future<CompletionSideEffectDecision> call(String id) async {
+    CompletionMutationOutcome outcome = CompletionMutationOutcome.applied;
     final DurableCompleteMutation? mutation = durableMutation;
     if (mutation != null) {
-      final bool applied = await mutation(id);
-      if (!applied) return;
+      outcome = _durableOutcome(await mutation(id));
+      final CompletionSideEffectDecision decision =
+          CompletionSideEffectPolicy.decide(outcome);
+      if (!decision.shouldRunReward) return decision;
     } else {
       final task = await repository.getTaskById(id);
       if (task == null) throw StateError('Task not found');
@@ -61,5 +65,21 @@ class CompleteTask {
         await si.saveState(current.withConfidenceDelta(0.05));
       }
     }
+    return CompletionSideEffectPolicy.decide(outcome);
+  }
+
+  CompletionMutationOutcome _durableOutcome(Object? raw) {
+    if (raw is CompletionMutationOutcome) return raw;
+    if (raw is bool) {
+      return raw
+          ? CompletionMutationOutcome.applied
+          : CompletionMutationOutcome.conflict;
+    }
+    final String name = raw?.toString().split('.').last ?? '';
+    for (final CompletionMutationOutcome outcome
+        in CompletionMutationOutcome.values) {
+      if (outcome.name == name) return outcome;
+    }
+    return CompletionMutationOutcome.blocked;
   }
 }

@@ -3,6 +3,7 @@ import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/repositories/decision_outcome_repository.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
 import 'package:fantastic_guacamole/domain/operating_system/operating_system_contract.dart';
+import 'package:fantastic_guacamole/domain/usecases/decision_outcome_usecases.dart';
 import 'package:fantastic_guacamole/state/providers/account_storage_scope_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,7 +21,9 @@ final decisionOutcomesProvider = FutureProvider<List<DecisionOutcomeEntity>>((
   final DecisionOutcomeRepository? repository = ref.watch(
     decisionOutcomeRepositoryProvider,
   );
-  return repository?.load() ?? const <DecisionOutcomeEntity>[];
+  return repository == null
+      ? const <DecisionOutcomeEntity>[]
+      : GetDecisionOutcomes(repository)();
 });
 
 final decisionOutcomeActionsProvider = Provider<DecisionOutcomeActions>(
@@ -43,7 +46,7 @@ class DecisionOutcomeActions {
       decisionOutcomeRepositoryProvider,
     );
     if (!before.isWritable || repository == null) return;
-    await repository.record(
+    await RecordDecisionOutcome(repository)(
       DecisionOutcomeEntity(
         decisionId: receipt.decisionId,
         kind: kind,

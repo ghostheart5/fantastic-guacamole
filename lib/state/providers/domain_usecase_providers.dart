@@ -13,6 +13,8 @@ import 'package:fantastic_guacamole/domain/interfaces/i_signal_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_learning_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_log_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_memory_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_milestone_repository.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_note_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_notification_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_profile_repository.dart';
@@ -80,6 +82,9 @@ import 'package:fantastic_guacamole/domain/usecases/get_timeline_events.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_user_level.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_workspace.dart';
 import 'package:fantastic_guacamole/domain/usecases/hydrate_si_state.dart';
+import 'package:fantastic_guacamole/domain/usecases/milestone_usecases.dart';
+import 'package:fantastic_guacamole/domain/usecases/note_usecases.dart';
+import 'package:fantastic_guacamole/domain/usecases/plan_proposal_usecases.dart';
 import 'package:fantastic_guacamole/domain/usecases/remove_calendar_entry.dart';
 import 'package:fantastic_guacamole/domain/usecases/remove_timeline_event.dart';
 import 'package:fantastic_guacamole/domain/usecases/recommend_next_block.dart';
@@ -114,6 +119,8 @@ import 'package:fantastic_guacamole/domain/usecases/update_streak.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_subtask.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/update_xp.dart';
+import 'package:fantastic_guacamole/domain/usecases/timeline_lifecycle_usecases.dart';
+import 'package:fantastic_guacamole/domain/policies/completion_side_effect_policy.dart';
 import 'package:fantastic_guacamole/engine/assistant/assistant_context_builder.dart';
 import 'package:fantastic_guacamole/engine/si/models/si_state.dart';
 import 'package:fantastic_guacamole/state/controllers/si_state_controller.dart';
@@ -147,6 +154,14 @@ final domainLogRepositoryProvider = Provider<ILogRepository>((ref) {
 
 final domainMemoryRepositoryProvider = Provider<IMemoryRepository>((ref) {
   return ref.read(memoryRepositoryProvider);
+});
+
+final domainNoteRepositoryProvider = Provider<INoteRepository>((ref) {
+  return ref.read(noteRepositoryProvider);
+});
+
+final domainMilestoneRepositoryProvider = Provider<IMilestoneRepository>((ref) {
+  return ref.read(milestoneRepositoryProvider);
 });
 
 final domainPlanRepositoryProvider = Provider<IPlanRepository>((ref) {
@@ -752,6 +767,54 @@ final saveTimelineEventsUseCaseProvider = Provider<SaveTimelineEvents>((ref) {
   return SaveTimelineEvents(ref.read(domainTimelineRepositoryProvider));
 });
 
+final queryTimelineRangeUseCaseProvider = Provider<QueryTimelineRange>((ref) {
+  return QueryTimelineRange(ref.read(domainTimelineRepositoryProvider));
+});
+
+final scheduleTimelineEventUseCaseProvider = Provider<ScheduleTimelineEvent>((
+  ref,
+) {
+  return ScheduleTimelineEvent(ref.read(domainTimelineRepositoryProvider));
+});
+
+final rescheduleTimelineEventUseCaseProvider =
+    Provider<RescheduleTimelineEvent>((ref) {
+      return RescheduleTimelineEvent(
+        ref.read(domainTimelineRepositoryProvider),
+      );
+    });
+
+final completeTimelineEventUseCaseProvider = Provider<CompleteTimelineEvent>((
+  ref,
+) {
+  return CompleteTimelineEvent(ref.read(domainTimelineRepositoryProvider));
+});
+
+final skipTimelineEventUseCaseProvider = Provider<SkipTimelineEvent>((ref) {
+  return SkipTimelineEvent(ref.read(domainTimelineRepositoryProvider));
+});
+
+final recoverTimelineEventUseCaseProvider = Provider<RecoverTimelineEvent>((
+  ref,
+) {
+  return RecoverTimelineEvent(ref.read(domainTimelineRepositoryProvider));
+});
+
+final previewAdaptivePlanUseCaseProvider = Provider<PreviewAdaptivePlan>((ref) {
+  return PreviewAdaptivePlan(
+    ref.read(generateAdaptivePlanUseCaseProvider),
+    ref.read(domainPlanRepositoryProvider),
+  );
+});
+
+final applyPlanProposalUseCaseProvider = Provider<ApplyPlanProposal>((ref) {
+  return ApplyPlanProposal(ref.read(domainPlanRepositoryProvider));
+});
+
+final rejectPlanProposalUseCaseProvider = Provider<RejectPlanProposal>((ref) {
+  return RejectPlanProposal(ref.read(domainPlanRepositoryProvider));
+});
+
 final createTaskUseCaseProvider = Provider<CreateTask>((ref) {
   return CreateTask(
     ref.read(domainTaskRepositoryProvider),
@@ -768,7 +831,14 @@ final completeTaskUseCaseProvider = Provider<CompleteTask>((ref) {
       final TaskOccurrenceResult result = await ref
           .read(taskOccurrenceCoordinatorProvider)
           .complete(taskId);
-      return result.mutation == TaskOccurrenceMutation.applied;
+      switch (result.mutation) {
+        case TaskOccurrenceMutation.applied:
+          return CompletionMutationOutcome.applied;
+        case TaskOccurrenceMutation.idempotent:
+          return CompletionMutationOutcome.idempotent;
+        case TaskOccurrenceMutation.conflict:
+          return CompletionMutationOutcome.conflict;
+      }
     },
   );
 });
@@ -792,6 +862,57 @@ final scheduleNotificationUseCaseProvider = Provider<ScheduleNotification>((
 
 final cancelNotificationUseCaseProvider = Provider<CancelNotification>((ref) {
   return CancelNotification(ref.read(domainNotificationRepositoryProvider));
+});
+
+final getNotesUseCaseProvider = Provider<GetNotes>((ref) {
+  return GetNotes(ref.read(domainNoteRepositoryProvider));
+});
+
+final createNoteUseCaseProvider = Provider<CreateNote>((ref) {
+  return CreateNote(ref.read(domainNoteRepositoryProvider));
+});
+
+final updateNoteUseCaseProvider = Provider<UpdateNote>((ref) {
+  return UpdateNote(ref.read(domainNoteRepositoryProvider));
+});
+
+final archiveNoteUseCaseProvider = Provider<ArchiveNote>((ref) {
+  return ArchiveNote(ref.read(domainNoteRepositoryProvider));
+});
+
+final deleteNoteUseCaseProvider = Provider<DeleteNote>((ref) {
+  return DeleteNote(ref.read(domainNoteRepositoryProvider));
+});
+
+final getMilestonesUseCaseProvider = Provider<GetMilestones>((ref) {
+  return GetMilestones(ref.read(domainMilestoneRepositoryProvider));
+});
+
+final createMilestoneUseCaseProvider = Provider<CreateMilestone>((ref) {
+  return CreateMilestone(ref.read(domainMilestoneRepositoryProvider));
+});
+
+final updateMilestoneUseCaseProvider = Provider<UpdateMilestone>((ref) {
+  return UpdateMilestone(ref.read(domainMilestoneRepositoryProvider));
+});
+
+final updateMilestoneProgressUseCaseProvider =
+    Provider<UpdateMilestoneProgress>((ref) {
+      return UpdateMilestoneProgress(
+        ref.read(domainMilestoneRepositoryProvider),
+      );
+    });
+
+final completeMilestoneUseCaseProvider = Provider<CompleteMilestone>((ref) {
+  return CompleteMilestone(ref.read(domainMilestoneRepositoryProvider));
+});
+
+final archiveMilestoneUseCaseProvider = Provider<ArchiveMilestone>((ref) {
+  return ArchiveMilestone(ref.read(domainMilestoneRepositoryProvider));
+});
+
+final deleteMilestoneUseCaseProvider = Provider<DeleteMilestone>((ref) {
+  return DeleteMilestone(ref.read(domainMilestoneRepositoryProvider));
 });
 
 final generateSiDecisionUseCaseProvider = Provider<GenerateSiDecision>((ref) {

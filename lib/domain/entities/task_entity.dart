@@ -4,11 +4,12 @@ import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 ///
 /// Canonical task type used by repositories and use cases.
 class TaskEntity {
+  // Public `createdAt` remains a computed non-null compatibility getter.
   const TaskEntity({
     required this.id,
     required this.title,
     this.description,
-    required this.createdAt,
+    DateTime? createdAt,
     this.updatedAt,
     this.isCompleted = false,
     this.priority = 3,
@@ -25,12 +26,15 @@ class TaskEntity {
     this.isCanceled = false,
     this.subtasks = const [],
     this.recurrenceRule = RecurrenceRule.none,
-  });
+    // ignore: prefer_initializing_formals
+  }) : _createdAt = createdAt;
 
   final String id;
   final String title;
   final String? description;
-  final DateTime createdAt;
+  final DateTime? _createdAt;
+  DateTime get createdAt =>
+      _createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
   final DateTime? updatedAt;
   final bool isCompleted;
   final int priority;
@@ -47,6 +51,67 @@ class TaskEntity {
   final bool isCanceled;
   final List<String> subtasks;
   final RecurrenceRule recurrenceRule;
+
+  factory TaskEntity.fromJson(Map<String, dynamic> json) {
+    final DateTime createdAt =
+        DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    return TaskEntity(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Untitled',
+      description: json['description']?.toString(),
+      createdAt: createdAt,
+      updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? ''),
+      isCompleted: json['isCompleted'] as bool? ?? false,
+      priority: (json['priority'] as num?)?.toInt() ?? 3,
+      difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,
+      energyRequired: (json['energyRequired'] as num?)?.toInt() ?? 3,
+      estimatedDuration: Duration(
+        minutes: ((json['estimatedDurationMinutes'] as num?)?.toInt() ?? 30)
+            .clamp(1, 1440),
+      ),
+      completedAt: DateTime.tryParse(json['completedAt']?.toString() ?? ''),
+      isSkipped: json['isSkipped'] as bool? ?? false,
+      skippedAt: DateTime.tryParse(json['skippedAt']?.toString() ?? ''),
+      scheduledFor: DateTime.tryParse(json['scheduledFor']?.toString() ?? ''),
+      occurrenceKey: json['occurrenceKey']?.toString(),
+      dueDate: DateTime.tryParse(json['dueDate']?.toString() ?? ''),
+      goalId: json['goalId']?.toString(),
+      isCanceled: json['isCanceled'] as bool? ?? false,
+      subtasks: (json['subtasks'] as List<dynamic>? ?? const <dynamic>[])
+          .map((dynamic value) => value.toString())
+          .toList(growable: false),
+      recurrenceRule: RecurrenceRule.values.firstWhere(
+        (RecurrenceRule value) =>
+            value.name == json['recurrenceRule']?.toString(),
+        orElse: () => RecurrenceRule.none,
+      ),
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'id': id,
+    'title': title,
+    if (description != null) 'description': description,
+    'createdAt': createdAt.toIso8601String(),
+    if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
+    'priority': priority,
+    'difficulty': difficulty,
+    'energyRequired': energyRequired,
+    if (scheduledFor != null) 'scheduledFor': scheduledFor!.toIso8601String(),
+    if (dueDate != null) 'dueDate': dueDate!.toIso8601String(),
+    'estimatedDurationMinutes': estimateOrDefault.inMinutes,
+    'isCompleted': isCompleted,
+    'isSkipped': isSkipped,
+    'isCanceled': isCanceled,
+    if (completedAt != null) 'completedAt': completedAt!.toIso8601String(),
+    if (skippedAt != null) 'skippedAt': skippedAt!.toIso8601String(),
+    if (occurrenceKey != null) 'occurrenceKey': occurrenceKey,
+    if (goalId != null) 'goalId': goalId,
+    if (subtasks.isNotEmpty) 'subtasks': subtasks,
+    if (recurrenceRule != RecurrenceRule.none)
+      'recurrenceRule': recurrenceRule.name,
+  };
 
   static String deriveOccurrenceKey({
     required String taskId,
@@ -110,6 +175,10 @@ class TaskEntity {
   TaskEntity cancel() => copyWith(isCanceled: true, updatedAt: DateTime.now());
 
   bool get isScheduled => scheduledFor != null;
+
+  bool get hasDeadline => dueDate != null;
+
+  bool get isActive => !isCompleted && !isSkipped && !isCanceled;
 
   bool get isOverdue {
     if (dueDate == null) return false;

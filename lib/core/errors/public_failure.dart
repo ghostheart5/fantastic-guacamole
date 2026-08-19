@@ -17,6 +17,12 @@ class PublicFailure implements Exception {
   @override
   String toString() => message;
 
+  Map<String, dynamic> toEnvelope() => <String, dynamic>{
+    'code': code,
+    'message': message,
+    'retryable': retryable,
+  };
+
   static PublicFailure from(
     Object error, {
     String fallback = 'Something went wrong.',
@@ -43,5 +49,31 @@ class PublicFailure implements Exception {
       );
     }
     return PublicFailure(code: 'unexpected', message: fallback);
+  }
+}
+
+class PublicErrorEnvelope {
+  const PublicErrorEnvelope({
+    required this.failure,
+    required this.recoveryAction,
+  });
+
+  final PublicFailure failure;
+  final String recoveryAction;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    ...failure.toEnvelope(),
+    'recoveryAction': recoveryAction,
+  };
+
+  static PublicErrorEnvelope from(
+    Object error, {
+    String fallback = 'Something went wrong.',
+    String recoveryAction = 'retry',
+  }) {
+    return PublicErrorEnvelope(
+      failure: PublicFailure.from(error, fallback: fallback),
+      recoveryAction: recoveryAction,
+    );
   }
 }

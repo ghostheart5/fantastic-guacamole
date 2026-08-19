@@ -8,6 +8,7 @@ import 'package:fantastic_guacamole/domain/entities/si_state_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
+import 'package:fantastic_guacamole/domain/policies/completion_side_effect_policy.dart';
 import 'package:fantastic_guacamole/engine/learning/neural_dump.dart';
 import 'package:fantastic_guacamole/engine/optimizer/optimization_config.dart';
 import 'package:fantastic_guacamole/engine/scoring/completion_scoring_engine.dart';
@@ -144,11 +145,15 @@ class TaskActions {
         ? Future<Task?>.value(selectedTask)
         : _taskFromRepository(id);
 
-    await _ref.read(completeTaskUseCaseProvider).call(id);
-    unawaited(_recordGuidance(GuidanceMilestone.firstCompletion));
+    final CompletionSideEffectDecision completionDecision = await _ref
+        .read(completeTaskUseCaseProvider)
+        .call(id);
+    if (completionDecision.shouldRunGuidance) {
+      unawaited(_recordGuidance(GuidanceMilestone.firstCompletion));
+    }
     selectedTask ??= await selectedTaskFuture;
 
-    if (selectedTask != null) {
+    if (selectedTask != null && completionDecision.shouldRunReward) {
       final DateTime now = DateTime.now();
       final int estimatedSeconds = (selectedTask.difficulty * 300).clamp(
         60,
@@ -187,24 +192,26 @@ class TaskActions {
       );
     }
 
-    if (selectedTask == null) {
+    if (selectedTask == null && completionDecision.shouldRunNotification) {
       unawaited(_refreshPlannerDecision(notify: notify));
     }
 
-    if (selectedTask != null) {
+    if (selectedTask != null && completionDecision.shouldRunAnalytics) {
       AppAnalytics.track(
         'task_completed',
         params: <String, Object?>{'has_task_id': selectedTask.id.isNotEmpty},
       );
-      _ref
-          .read(eventBusProvider)
-          .emit(
-            TaskLifecycleEvent(
-              taskId: selectedTask.id,
-              title: selectedTask.title,
-              action: 'completed',
-            ),
-          );
+      if (completionDecision.shouldRunEvent) {
+        _ref
+            .read(eventBusProvider)
+            .emit(
+              TaskLifecycleEvent(
+                taskId: selectedTask.id,
+                title: selectedTask.title,
+                action: 'completed',
+              ),
+            );
+      }
     }
 
     _ref.invalidate(tasksProvider);

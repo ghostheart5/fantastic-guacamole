@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/data/storage/secure_store.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/domain/policies/completion_side_effect_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_task.dart';
 import 'package:fantastic_guacamole/domain/usecases/get_tasks.dart';
@@ -154,6 +155,59 @@ void main() {
       final score = container.read(completionScoreProvider);
       expect(score, isNotNull);
       expect(score!.xp, greaterThan(0));
+    },
+  );
+
+  test(
+    'idempotent durable completion suppresses provider side effects',
+    () async {
+      final _MemoryTaskRepository repository = _MemoryTaskRepository();
+      await repository.saveTask(
+        TaskEntity(
+          id: 'task-replay',
+          title: 'Already completed',
+          createdAt: DateTime.utc(2026, 7, 6),
+          difficulty: 5,
+          priority: 5,
+        ),
+      );
+
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          secureStoreProvider.overrideWithValue(
+            SecureStore(backend: InMemorySecureStoreBackend()),
+          ),
+          getTasksUseCaseProvider.overrideWithValue(GetTasks(repository)),
+          domainTaskRepositoryProvider.overrideWithValue(repository),
+          completeTaskUseCaseProvider.overrideWithValue(
+            CompleteTask(
+              repository,
+              durableMutation: (_) async =>
+                  CompletionMutationOutcome.idempotent,
+            ),
+          ),
+          optimizationConfigProvider.overrideWith(
+            (Ref ref) async => OptimizationConfig.neutral(),
+          ),
+          learningProvider.overrideWith(_FixedLearningController.new),
+          profileProvider.overrideWith(_TestProfileController.new),
+          siStateProvider.overrideWith(_FixedSiStateController.new),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(taskActionsProvider)
+          .completeTask('task-replay', notify: false);
+
+      expect(container.read(completionScoreProvider), isNull);
+      expect(container.read(profileProvider).xp, 0);
+      expect(container.read(learningProvider).completed, 0);
+      expect(container.read(siStateProvider).completedToday, 0);
+      expect(
+        (await repository.getTaskById('task-replay'))?.isCompleted,
+        isFalse,
+      );
     },
   );
 

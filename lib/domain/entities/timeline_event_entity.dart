@@ -20,7 +20,16 @@ enum TimelineEventType {
   noteDeleted,
 }
 
-enum TimelineEventStatus { planned, active, completed, overdue, atRisk, info }
+enum TimelineEventStatus {
+  planned,
+  active,
+  completed,
+  skipped,
+  canceled,
+  overdue,
+  atRisk,
+  info,
+}
 
 class TimelineEventEntity {
   const TimelineEventEntity({
@@ -73,6 +82,8 @@ class TimelineEventEntity {
   bool get isDeadline => type == TimelineEventType.deadline;
   bool get isForecast => type == TimelineEventType.forecast;
   bool get isOverdue => status == TimelineEventStatus.overdue;
+  bool get isSkipped => status == TimelineEventStatus.skipped;
+  bool get isCanceled => status == TimelineEventStatus.canceled;
   bool get isUpcoming {
     final DateTime? due = dueAt;
     if (due == null) {
@@ -140,6 +151,36 @@ class TimelineEventEntity {
     if (status == TimelineEventStatus.overdue && due == null) {
       throw StateError('Overdue timeline event must include dueAt');
     }
+  }
+
+  TimelineEventEntity copyWith({
+    TimelineEventType? type,
+    String? title,
+    String? detail,
+    DateTime? timestamp,
+    TimelineEventStatus? status,
+    DateTime? dueAt,
+    bool clearDueAt = false,
+    String? phase,
+    String? relatedId,
+    String? sourceFeature,
+    String? decisionId,
+    bool? userOverride,
+  }) {
+    return TimelineEventEntity(
+      id: id,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      detail: detail ?? this.detail,
+      timestamp: timestamp ?? this.timestamp,
+      status: status ?? this.status,
+      dueAt: clearDueAt ? null : dueAt ?? this.dueAt,
+      phase: phase ?? this.phase,
+      relatedId: relatedId ?? this.relatedId,
+      sourceFeature: sourceFeature ?? this.sourceFeature,
+      decisionId: decisionId ?? this.decisionId,
+      userOverride: userOverride ?? this.userOverride,
+    );
   }
 
   Map<String, dynamic> toJson() => {

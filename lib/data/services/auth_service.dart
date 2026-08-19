@@ -383,6 +383,7 @@ class AuthService implements AuthServiceContract {
           ? fullName
           : ((name?.isNotEmpty ?? false) ? name : null),
       emailVerified: verified,
+      appMetadata: Map<String, dynamic>.unmodifiable(supabaseUser.appMetadata),
     );
   }
 

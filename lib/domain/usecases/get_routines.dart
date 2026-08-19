@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart';
 
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Future automation
@@ -9,5 +9,5 @@ class GetRoutines {
 
   final IRoutineRepository _repository;
 
-  List<RoutineEntity> call() => _repository.getRoutines();
+  List<HabitEntity> call() => _repository.getRoutines();
 }

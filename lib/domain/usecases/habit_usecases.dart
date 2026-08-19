@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_habit_repository.dart';
 
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Habits
@@ -9,7 +9,7 @@ class GetHabits {
 
   final IHabitRepository _repository;
 
-  Future<List<HabitRecord>> call() => _repository.getHabits();
+  Future<List<HabitEntity>> call() => _repository.getHabits();
 }
 
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Habits
@@ -24,8 +24,8 @@ class CreateHabit {
   /// Returns the updated list, or [current] unchanged when [title] is blank.
   ///
   /// [id] is injectable so callers and tests control identity generation.
-  Future<List<HabitRecord>> call({
-    required List<HabitRecord> current,
+  Future<List<HabitEntity>> call({
+    required List<HabitEntity> current,
     required String title,
     String? id,
   }) async {
@@ -34,10 +34,13 @@ class CreateHabit {
       return current;
     }
 
-    final List<HabitRecord> next = <HabitRecord>[
-      HabitRecord(
+    final DateTime now = DateTime.now();
+    final List<HabitEntity> next = <HabitEntity>[
+      HabitEntity(
         id: id ?? DateTime.now().microsecondsSinceEpoch.toString(),
         title: trimmed,
+        createdAt: now,
+        updatedAt: now,
       ),
       ...current,
     ];
@@ -49,27 +52,25 @@ class CreateHabit {
 /// CHRONOSPARK-CLASS: SHIPPING | Feature: Habits
 ///
 /// Flips a habit's active flag. This is what habit completion means in the
-/// current data model — [HabitRecord] carries no streak or frequency, so no
-/// streak evaluation is implied here.
+/// current model. Completion occurrences remain a separate timeline concern.
 class ToggleHabit {
   const ToggleHabit(this._repository);
 
   final IHabitRepository _repository;
 
-  Future<List<HabitRecord>> call({
-    required List<HabitRecord> current,
+  Future<List<HabitEntity>> call({
+    required List<HabitEntity> current,
     required String id,
   }) async {
-    if (!current.any((HabitRecord item) => item.id == id)) {
+    if (!current.any((HabitEntity item) => item.id == id)) {
       return current;
     }
-    final List<HabitRecord> next = current
+    final List<HabitEntity> next = current
         .map(
-          (HabitRecord item) => item.id == id
-              ? HabitRecord(
-                  id: item.id,
-                  title: item.title,
-                  active: !item.active,
+          (HabitEntity item) => item.id == id
+              ? item.copyWith(
+                  status: item.active ? HabitStatus.paused : HabitStatus.active,
+                  updatedAt: DateTime.now(),
                 )
               : item,
         )
@@ -87,19 +88,19 @@ class UpdateHabit {
 
   final IHabitRepository _repository;
 
-  Future<List<HabitRecord>> call({
-    required List<HabitRecord> current,
+  Future<List<HabitEntity>> call({
+    required List<HabitEntity> current,
     required String id,
     required String title,
   }) async {
     final String trimmed = title.trim();
-    if (trimmed.isEmpty || !current.any((HabitRecord item) => item.id == id)) {
+    if (trimmed.isEmpty || !current.any((HabitEntity item) => item.id == id)) {
       return current;
     }
-    final List<HabitRecord> next = current
+    final List<HabitEntity> next = current
         .map(
-          (HabitRecord item) => item.id == id
-              ? HabitRecord(id: item.id, title: trimmed, active: item.active)
+          (HabitEntity item) => item.id == id
+              ? item.copyWith(title: trimmed, updatedAt: DateTime.now())
               : item,
         )
         .toList(growable: false);
@@ -116,12 +117,12 @@ class DeleteHabit {
 
   final IHabitRepository _repository;
 
-  Future<List<HabitRecord>> call({
-    required List<HabitRecord> current,
+  Future<List<HabitEntity>> call({
+    required List<HabitEntity> current,
     required String id,
   }) async {
-    final List<HabitRecord> next = current
-        .where((HabitRecord item) => item.id != id)
+    final List<HabitEntity> next = current
+        .where((HabitEntity item) => item.id != id)
         .toList(growable: false);
     if (next.length == current.length) {
       return current;
@@ -139,7 +140,7 @@ class SaveHabits {
 
   final IHabitRepository _repository;
 
-  Future<List<HabitRecord>> call(List<HabitRecord> habits) async {
+  Future<List<HabitEntity>> call(List<HabitEntity> habits) async {
     await _repository.saveHabits(habits);
     return habits;
   }

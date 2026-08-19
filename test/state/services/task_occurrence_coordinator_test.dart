@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/repositories/task_occurrence_repository.dart';
+import 'package:fantastic_guacamole/data/services/task_occurrence_cloud_replica.dart';
 import 'package:fantastic_guacamole/data/storage/hive_boxes.dart';
 import 'package:fantastic_guacamole/data/storage/hive_service.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
@@ -76,6 +77,32 @@ void main() {
     );
   });
 
+  test('committed occurrences replicate to the cloud contract once', () async {
+    final AccountStorageScope scope = AccountStorageScope.authenticated(
+      'cloud-user',
+    );
+    final _Tasks tasks = _Tasks(<TaskEntity>[_task('cloud-task')]);
+    final _Replica replica = _Replica();
+    final TaskOccurrenceCoordinator coordinator = TaskOccurrenceCoordinator(
+      scope: scope,
+      taskRepository: tasks,
+      occurrenceRepository: _occurrences(scope),
+      cloudReplica: replica,
+      clock: () => DateTime.utc(2026, 8, 18, 11),
+    );
+
+    final TaskOccurrenceResult first = await coordinator.complete('cloud-task');
+    final TaskOccurrenceResult repeated = await coordinator.complete(
+      'cloud-task',
+    );
+
+    expect(first.mutation, TaskOccurrenceMutation.applied);
+    expect(repeated.mutation, TaskOccurrenceMutation.idempotent);
+    expect(replica.transitions, hasLength(1));
+    expect(replica.transitions.single.operationId, isNotEmpty);
+    expect(replica.occurrences.single.taskId, 'cloud-task');
+  });
+
   test('pending completion survives failure and converges on retry', () async {
     final AccountStorageScope scope = AccountStorageScope.authenticated(
       'retry-user',
@@ -109,6 +136,124 @@ void main() {
     expect(recovered.occurrence.transitions, hasLength(1));
     expect(tasks.values['retry']?.isCompleted, isTrue);
   });
+
+  test(
+    'successor write failure keeps pending operation and converges on retry',
+    () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'successor-failure-user',
+      );
+      final _Tasks tasks = _Tasks(<TaskEntity>[
+        _task(
+          'successor-fail',
+          recurrenceRule: RecurrenceRule.daily,
+          scheduledFor: DateTime.utc(2026, 8, 18, 10),
+        ),
+      ])..failOnSaveCall = 2;
+      final TaskOccurrenceRepository occurrences = _occurrences(scope);
+      final TaskOccurrenceCoordinator coordinator = TaskOccurrenceCoordinator(
+        scope: scope,
+        taskRepository: tasks,
+        occurrenceRepository: occurrences,
+        clock: () => DateTime.utc(2026, 8, 18, 11),
+      );
+
+      await expectLater(
+        coordinator.complete('successor-fail'),
+        throwsStateError,
+      );
+      final String key = TaskOccurrence.occurrenceKeyFor(
+        _task('successor-fail'),
+      );
+      expect(
+        (await occurrences.getOccurrence(
+          'successor-fail',
+          key,
+        ))?.pendingOperation,
+        isNotNull,
+      );
+
+      final TaskOccurrenceResult recovered = await TaskOccurrenceCoordinator(
+        scope: scope,
+        taskRepository: tasks,
+        occurrenceRepository: occurrences,
+        clock: () => DateTime.utc(2026, 8, 18, 12),
+      ).complete('successor-fail');
+
+      expect(recovered.mutation, TaskOccurrenceMutation.applied);
+      expect(
+        tasks.values.values.where(
+          (TaskEntity task) => task.id.startsWith('successor-fail::next::'),
+        ),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'final ledger failure converges without duplicating successor',
+    () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'ledger-failure-user',
+      );
+      final _Tasks tasks = _Tasks(<TaskEntity>[
+        _task(
+          'ledger-fail',
+          recurrenceRule: RecurrenceRule.daily,
+          scheduledFor: DateTime.utc(2026, 8, 18, 10),
+        ),
+      ]);
+      final _FailingOccurrenceRepository occurrences =
+          _FailingOccurrenceRepository(failOnSaveCall: 2);
+      final TaskOccurrenceCoordinator coordinator = TaskOccurrenceCoordinator(
+        scope: scope,
+        taskRepository: tasks,
+        occurrenceRepository: occurrences,
+        clock: () => DateTime.utc(2026, 8, 18, 11),
+      );
+
+      await expectLater(coordinator.complete('ledger-fail'), throwsStateError);
+      expect(occurrences.saved.single.pendingOperation, isNotNull);
+
+      final TaskOccurrenceResult recovered = await TaskOccurrenceCoordinator(
+        scope: scope,
+        taskRepository: tasks,
+        occurrenceRepository: occurrences,
+        clock: () => DateTime.utc(2026, 8, 18, 12),
+      ).complete('ledger-fail');
+
+      expect(recovered.mutation, TaskOccurrenceMutation.applied);
+      expect(recovered.occurrence.pendingOperation, isNull);
+      expect(recovered.occurrence.transitions, hasLength(1));
+      expect(
+        tasks.values.values.where(
+          (TaskEntity task) => task.id.startsWith('ledger-fail::next::'),
+        ),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'reschedule records reschedule target without terminal side effects',
+    () async {
+      final AccountStorageScope scope = AccountStorageScope.authenticated(
+        'reschedule-user',
+      );
+      final _Tasks tasks = _Tasks(<TaskEntity>[_task('move-me')]);
+      final DateTime target = DateTime.utc(2026, 8, 19, 15);
+
+      final TaskOccurrenceResult result = await _coordinator(
+        scope,
+        tasks,
+      ).reschedule('move-me', scheduledFor: target);
+
+      expect(result.mutation, TaskOccurrenceMutation.applied);
+      expect(result.occurrence.terminalOutcome, isNull);
+      expect(result.occurrence.transitions.single.rescheduledFor, target);
+      expect(tasks.values['move-me']?.scheduledFor, target);
+    },
+  );
 
   test('concurrent complete and skip select one terminal outcome', () async {
     final AccountStorageScope scope = AccountStorageScope.authenticated(
@@ -214,6 +359,8 @@ class _Tasks implements ITaskRepository {
 
   final Map<String, TaskEntity> values = <String, TaskEntity>{};
   bool failNextSave = false;
+  int? failOnSaveCall;
+  int saveCalls = 0;
 
   @override
   Future<void> deleteTask(String id) async => values.remove(id);
@@ -226,6 +373,10 @@ class _Tasks implements ITaskRepository {
 
   @override
   Future<void> saveTask(TaskEntity task) async {
+    saveCalls += 1;
+    if (failOnSaveCall == saveCalls) {
+      throw StateError('injected task write failure $saveCalls');
+    }
     if (failNextSave) {
       failNextSave = false;
       throw StateError('injected task write failure');
@@ -261,5 +412,61 @@ class _DirectHiveStore implements HiveStore {
   @override
   Future<void> closeBox(String key) async {
     if (Hive.isBoxOpen(key)) await Hive.box<dynamic>(key).close();
+  }
+}
+
+class _Replica implements TaskOccurrenceCloudReplica {
+  final List<TaskOccurrence> occurrences = <TaskOccurrence>[];
+  final List<TaskOccurrenceTransition> transitions =
+      <TaskOccurrenceTransition>[];
+
+  @override
+  Future<bool> replicate({
+    required TaskOccurrence occurrence,
+    required TaskOccurrenceTransition transition,
+  }) async {
+    occurrences.add(occurrence);
+    transitions.add(transition);
+    return true;
+  }
+}
+
+class _FailingOccurrenceRepository extends TaskOccurrenceRepository {
+  _FailingOccurrenceRepository({required this.failOnSaveCall})
+    : super.unavailable();
+
+  final int failOnSaveCall;
+  int saveCalls = 0;
+  final List<TaskOccurrence> saved = <TaskOccurrence>[];
+
+  @override
+  Future<TaskOccurrence?> getOccurrence(
+    String taskId,
+    String occurrenceKey,
+  ) async {
+    return saved.cast<TaskOccurrence?>().firstWhere(
+      (TaskOccurrence? occurrence) =>
+          occurrence?.taskId == taskId &&
+          occurrence?.occurrenceKey == occurrenceKey,
+      orElse: () => null,
+    );
+  }
+
+  @override
+  Future<List<TaskOccurrence>> listOccurrencesForTask(String taskId) async {
+    return saved
+        .where((TaskOccurrence occurrence) => occurrence.taskId == taskId)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> save(TaskOccurrence occurrence) async {
+    saveCalls += 1;
+    if (saveCalls == failOnSaveCall) {
+      throw StateError('injected occurrence write failure $saveCalls');
+    }
+    saved
+      ..removeWhere((TaskOccurrence item) => item.id == occurrence.id)
+      ..add(occurrence);
   }
 }

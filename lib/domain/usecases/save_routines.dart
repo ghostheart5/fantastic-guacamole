@@ -1,4 +1,4 @@
-import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart';
 import 'package:fantastic_guacamole/domain/policies/input_guard.dart';
 
@@ -12,7 +12,7 @@ class SaveRoutines {
 
   final IRoutineRepository _repository;
 
-  Future<void> call(List<RoutineEntity> routines, {bool allowClear = false}) {
+  Future<void> call(List<HabitEntity> routines, {bool allowClear = false}) {
     return _repository.saveRoutines(
       InputGuard.batch(routines, 'routines', allowClear: allowClear),
     );

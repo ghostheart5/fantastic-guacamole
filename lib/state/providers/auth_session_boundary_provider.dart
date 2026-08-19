@@ -9,6 +9,7 @@ class AuthSessionBoundary {
     this.blockingIssue,
     this.canRecoverBySigningOut = false,
     this.canClaimPreservedData = false,
+    this.canClearPreservedData = false,
   });
 
   const AuthSessionBoundary.initial()
@@ -18,7 +19,8 @@ class AuthSessionBoundary {
       isStorageReady = false,
       blockingIssue = null,
       canRecoverBySigningOut = false,
-      canClaimPreservedData = false;
+      canClaimPreservedData = false,
+      canClearPreservedData = false;
 
   final int generation;
   final String? userId;
@@ -27,6 +29,7 @@ class AuthSessionBoundary {
   final String? blockingIssue;
   final bool canRecoverBySigningOut;
   final bool canClaimPreservedData;
+  final bool canClearPreservedData;
 }
 
 final authSessionBoundaryProvider =
@@ -47,6 +50,7 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
       isStorageReady: false,
       canRecoverBySigningOut: false,
       canClaimPreservedData: false,
+      canClearPreservedData: false,
     );
     return generation;
   }
@@ -60,6 +64,7 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
       isStorageReady: true,
       canRecoverBySigningOut: false,
       canClaimPreservedData: false,
+      canClearPreservedData: false,
     );
   }
 
@@ -72,6 +77,7 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
       isStorageReady: storageReady,
       canRecoverBySigningOut: false,
       canClaimPreservedData: false,
+      canClearPreservedData: false,
     );
   }
 
@@ -80,6 +86,7 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
     String? issue,
     bool canRecoverBySigningOut = false,
     bool canClaimPreservedData = false,
+    bool canClearPreservedData = false,
   }) {
     if (state.generation != generation) return;
     state = AuthSessionBoundary(
@@ -89,6 +96,7 @@ class AuthSessionBoundaryNotifier extends Notifier<AuthSessionBoundary> {
       isStorageReady: state.isStorageReady,
       canRecoverBySigningOut: canRecoverBySigningOut,
       canClaimPreservedData: canClaimPreservedData,
+      canClearPreservedData: canClearPreservedData,
       blockingIssue: issue ?? 'ChronoSpark could not isolate data safely.',
     );
   }

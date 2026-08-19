@@ -1,5 +1,10 @@
--- Quickstart todos table
--- Referenced by lib/supabase_quickstart_example.dart
+-- INTERNAL QUICKSTART COMPATIBILITY TABLE.
+--
+-- This table exists only for the Supabase quickstart/example surface referenced
+-- by lib/supabase_quickstart_example.dart. It is not a ChronoSpark product
+-- feature, not account-owned production data, and not part of the canonical app
+-- backup/sync contract. The later boundary-hardening migration revokes public
+-- access before production use.
 
 create table if not exists public.todos (
   id   bigint generated always as identity primary key,

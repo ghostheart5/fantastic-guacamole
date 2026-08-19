@@ -92,6 +92,35 @@ class TimelineActions {
         .read(timelineProvider.notifier)
         .record(event, refreshPlanner: false, awardProgression: false);
   }
+
+  List<TimelineEventEntity> eventsInRange({
+    required DateTime start,
+    required DateTime end,
+  }) {
+    return _ref
+        .read(queryTimelineRangeUseCaseProvider)
+        .call(start: start, end: end);
+  }
+
+  Future<void> schedule(TimelineEventEntity event) {
+    return _ref.read(timelineProvider.notifier).schedule(event);
+  }
+
+  Future<void> reschedule(String id, DateTime dueAt) {
+    return _ref.read(timelineProvider.notifier).reschedule(id, dueAt);
+  }
+
+  Future<void> complete(String id) {
+    return _ref.read(timelineProvider.notifier).complete(id);
+  }
+
+  Future<void> skip(String id) {
+    return _ref.read(timelineProvider.notifier).skip(id);
+  }
+
+  Future<void> recover(String id, DateTime dueAt) {
+    return _ref.read(timelineProvider.notifier).recover(id, dueAt);
+  }
 }
 
 class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
@@ -141,6 +170,65 @@ class TimelineNotifier extends Notifier<List<TimelineEventEntity>> {
   Future<void> remove(String id) async {
     await ref.read(removeTimelineEventUseCaseProvider).call(id);
     state = state.where((event) => event.id != id).toList(growable: false);
+  }
+
+  Future<void> schedule(TimelineEventEntity event) async {
+    final TimelineEventEntity scheduled = await ref
+        .read(scheduleTimelineEventUseCaseProvider)
+        .call(event);
+    state = <TimelineEventEntity>[scheduled, ...state];
+    await _afterLifecycleMutation(scheduled);
+  }
+
+  Future<void> reschedule(String id, DateTime dueAt) async {
+    final TimelineEventEntity? updated = await ref
+        .read(rescheduleTimelineEventUseCaseProvider)
+        .call(id: id, dueAt: dueAt);
+    if (updated != null) await _replaceAfterLifecycleMutation(updated);
+  }
+
+  Future<void> complete(String id) async {
+    final TimelineEventEntity? updated = await ref
+        .read(completeTimelineEventUseCaseProvider)
+        .call(id);
+    if (updated != null) await _replaceAfterLifecycleMutation(updated);
+  }
+
+  Future<void> skip(String id) async {
+    final TimelineEventEntity? updated = await ref
+        .read(skipTimelineEventUseCaseProvider)
+        .call(id);
+    if (updated != null) await _replaceAfterLifecycleMutation(updated);
+  }
+
+  Future<void> recover(String id, DateTime dueAt) async {
+    final TimelineEventEntity? updated = await ref
+        .read(recoverTimelineEventUseCaseProvider)
+        .call(id: id, dueAt: dueAt);
+    if (updated != null) await _replaceAfterLifecycleMutation(updated);
+  }
+
+  Future<void> _replaceAfterLifecycleMutation(
+    TimelineEventEntity updated,
+  ) async {
+    state = <TimelineEventEntity>[
+      for (final TimelineEventEntity event in state)
+        if (event.id == updated.id) updated else event,
+    ];
+    await _afterLifecycleMutation(updated);
+  }
+
+  Future<void> _afterLifecycleMutation(TimelineEventEntity event) async {
+    await _refreshPlannerDecision();
+    ref
+        .read(eventBusProvider)
+        .emit(
+          TimelineLifecycleEvent(
+            eventId: event.id,
+            title: event.title,
+            type: event.type.name,
+          ),
+        );
   }
 
   Future<void> _refreshPlannerDecision() async {

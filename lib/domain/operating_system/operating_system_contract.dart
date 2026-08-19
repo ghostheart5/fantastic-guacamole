@@ -320,10 +320,9 @@ class OperatingDecisionReceipt {
     this.warnings = const <String>[],
     String? decisionId,
   }) : recommendationConfidence =
-           (recommendationConfidence ?? _defaultConfidence(confidence)).clamp(
-             0.0,
-             .99,
-           ).toDouble(),
+           (recommendationConfidence ?? _defaultConfidence(confidence))
+               .clamp(0.0, .99)
+               .toDouble(),
        decisionId =
            decisionId ??
            stableId(<String, dynamic>{

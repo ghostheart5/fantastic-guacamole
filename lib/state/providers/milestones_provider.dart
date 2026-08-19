@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:fantastic_guacamole/core/eventing/domain_event.dart';
-import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/domain/entities/milestone_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
@@ -427,11 +424,9 @@ class MilestoneActions {
 }
 
 class MilestonesNotifier extends AsyncNotifier<List<MilestoneEntity>> {
-  static const String _storageKey = 'milestones_v1';
-
   @override
   Future<List<MilestoneEntity>> build() async {
-    return _loadMilestones();
+    return ref.read(getMilestonesUseCaseProvider).call();
   }
 
   Future<void> create({
@@ -448,32 +443,28 @@ class MilestonesNotifier extends AsyncNotifier<List<MilestoneEntity>> {
     DateTime? reminderAt,
     List<String> dependencies = const <String>[],
   }) async {
-    final String trimmed = title.trim();
-    if (trimmed.isEmpty) {
-      return;
-    }
-    final List<MilestoneEntity> current = _current();
-    final DateTime now = DateTime.now();
-    final MilestoneEntity milestone = MilestoneEntity(
-      id: now.microsecondsSinceEpoch.toString(),
-      goalId: goalId,
-      projectId: projectId,
-      habitId: habitId,
-      title: trimmed,
-      description: description?.trim(),
-      category: category,
-      priority: priority,
-      targetDate: targetDate,
-      reward: reward?.trim(),
-      note: note?.trim(),
-      reminderAt: reminderAt,
-      dependencies: dependencies,
-      createdAt: now,
-      updatedAt: now,
-    );
+    final MilestoneEntity? milestone = await ref
+        .read(createMilestoneUseCaseProvider)
+        .call(
+          title: title,
+          description: description,
+          goalId: goalId,
+          projectId: projectId,
+          habitId: habitId,
+          category: category,
+          priority: priority,
+          targetDate: targetDate,
+          reward: reward,
+          note: note,
+          reminderAt: reminderAt,
+          dependencies: dependencies,
+        );
+    if (milestone == null) return;
 
-    final List<MilestoneEntity> next = <MilestoneEntity>[milestone, ...current];
-    await _persist(next);
+    final List<MilestoneEntity> next = <MilestoneEntity>[
+      milestone,
+      ..._current(),
+    ];
     state = AsyncData(next);
     await _recordTimelineEvent(
       type: TimelineEventType.milestone,
@@ -487,130 +478,93 @@ class MilestonesNotifier extends AsyncNotifier<List<MilestoneEntity>> {
   }
 
   Future<void> updateMilestone(MilestoneEntity updated) async {
-    final List<MilestoneEntity> current = _current();
-    final DateTime now = DateTime.now();
-    final List<MilestoneEntity> next = current
+    final MilestoneEntity? persisted = await ref
+        .read(updateMilestoneUseCaseProvider)
+        .call(updated);
+    if (persisted == null) return;
+    final List<MilestoneEntity> next = _current()
         .map(
-          (MilestoneEntity item) =>
-              item.id == updated.id ? updated.copyWith(updatedAt: now) : item,
+          (MilestoneEntity item) => item.id == persisted.id ? persisted : item,
         )
         .toList(growable: false);
-    await _persist(next);
     state = AsyncData(next);
     await _refreshPlannerDecision();
   }
 
   Future<void> updateProgress(String id, double completionPercent) async {
-    final List<MilestoneEntity> current = _current();
-    final DateTime now = DateTime.now();
-    final double clamped = completionPercent.clamp(0, 100);
-    MilestoneEntity? target;
-    final List<MilestoneEntity> next = current
-        .map((MilestoneEntity item) {
-          if (item.id != id) {
-            return item;
-          }
-          final MilestoneStatus status = clamped >= 100
-              ? MilestoneStatus.completed
-              : item.isOverdue
-              ? MilestoneStatus.overdue
-              : MilestoneStatus.inProgress;
-          target = item.copyWith(
-            completionPercent: clamped,
-            status: status,
-            completedAt: clamped >= 100 ? now : item.completedAt,
-            updatedAt: now,
-          );
-          return target!;
-        })
+    final MilestoneEntity? target = await ref
+        .read(updateMilestoneProgressUseCaseProvider)
+        .call(id, completionPercent);
+    if (target == null) return;
+    final List<MilestoneEntity> next = _current()
+        .map((MilestoneEntity item) => item.id == target.id ? target : item)
         .toList(growable: false);
-
-    await _persist(next);
     state = AsyncData(next);
 
-    if (target != null && target!.isCompleted) {
+    if (target.isCompleted) {
       await _recordTimelineEvent(
         type: TimelineEventType.milestone,
         title: 'Milestone Achieved',
-        detail: target!.title,
-        dueAt: target!.targetDate,
+        detail: target.title,
+        dueAt: target.targetDate,
         status: TimelineEventStatus.completed,
-        relatedId: target!.id,
+        relatedId: target.id,
       );
     }
     await _refreshPlannerDecision();
   }
 
   Future<void> complete(String id, {String? reflection}) async {
-    final List<MilestoneEntity> current = _current();
-    final DateTime now = DateTime.now();
-    MilestoneEntity? completed;
-
-    final List<MilestoneEntity> next = current
-        .map((MilestoneEntity item) {
-          if (item.id != id) {
-            return item;
-          }
-          completed = item.copyWith(
-            status: MilestoneStatus.completed,
-            completionPercent: 100,
-            reflection: reflection?.trim() ?? item.reflection,
-            completedAt: now,
-            updatedAt: now,
-          );
-          return completed!;
-        })
+    final MilestoneEntity? completed = await ref
+        .read(completeMilestoneUseCaseProvider)
+        .call(id, reflection: reflection);
+    if (completed == null) return;
+    final List<MilestoneEntity> next = _current()
+        .map(
+          (MilestoneEntity item) => item.id == completed.id ? completed : item,
+        )
         .toList(growable: false);
-
-    await _persist(next);
     state = AsyncData(next);
 
-    if (completed != null) {
-      await _recordTimelineEvent(
-        type: TimelineEventType.milestone,
-        title: 'Milestone Achieved',
-        detail: completed!.title,
-        dueAt: completed!.targetDate,
-        status: TimelineEventStatus.completed,
-        relatedId: completed!.id,
-      );
-      ref
-          .read(eventBusProvider)
-          .emit(
-            TimelineLifecycleEvent(
-              eventId: 'milestone-achieved-${completed!.id}',
-              title: completed!.title,
-              type: TimelineEventType.milestone.name,
-            ),
-          );
-    }
+    await _recordTimelineEvent(
+      type: TimelineEventType.milestone,
+      title: 'Milestone Achieved',
+      detail: completed.title,
+      dueAt: completed.targetDate,
+      status: TimelineEventStatus.completed,
+      relatedId: completed.id,
+    );
+    ref
+        .read(eventBusProvider)
+        .emit(
+          TimelineLifecycleEvent(
+            eventId: 'milestone-achieved-${completed.id}',
+            title: completed.title,
+            type: TimelineEventType.milestone.name,
+          ),
+        );
     await _refreshPlannerDecision();
   }
 
   Future<void> archive(String id) async {
-    final List<MilestoneEntity> current = _current();
-    final DateTime now = DateTime.now();
-    final List<MilestoneEntity> next = current
-        .map(
-          (MilestoneEntity item) => item.id == id
-              ? item.copyWith(
-                  status: MilestoneStatus.archived,
-                  archivedAt: now,
-                  updatedAt: now,
-                )
-              : item,
-        )
+    final MilestoneEntity? archived = await ref
+        .read(archiveMilestoneUseCaseProvider)
+        .call(id);
+    if (archived == null) return;
+    final List<MilestoneEntity> next = _current()
+        .map((MilestoneEntity item) => item.id == id ? archived : item)
         .toList(growable: false);
-    await _persist(next);
     state = AsyncData(next);
   }
 
   Future<void> remove(String id) async {
-    final List<MilestoneEntity> current = _current();
-    final List<MilestoneEntity> next = current
+    final bool deleted = await ref
+        .read(deleteMilestoneUseCaseProvider)
+        .call(id);
+    if (!deleted) return;
+    final List<MilestoneEntity> next = _current()
         .where((MilestoneEntity item) => item.id != id)
         .toList(growable: false);
-    await _persist(next);
     state = AsyncData(next);
   }
 
@@ -618,33 +572,6 @@ class MilestonesNotifier extends AsyncNotifier<List<MilestoneEntity>> {
     final AsyncValue<List<MilestoneEntity>> current = state;
     return current.asData?.value.toList(growable: false) ??
         const <MilestoneEntity>[];
-  }
-
-  Future<List<MilestoneEntity>> _loadMilestones() async {
-    final String? raw = await ref
-        .read(secureStoreProvider)
-        .readString(_storageKey);
-    if (raw == null || raw.trim().isEmpty) {
-      return const <MilestoneEntity>[];
-    }
-    final dynamic decoded = jsonDecode(raw);
-    if (decoded is! List<dynamic>) {
-      return const <MilestoneEntity>[];
-    }
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .map(MilestoneEntity.fromJson)
-        .toList(growable: false)
-      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-  }
-
-  Future<void> _persist(List<MilestoneEntity> milestones) {
-    final String payload = jsonEncode(
-      milestones
-          .map((MilestoneEntity item) => item.toJson())
-          .toList(growable: false),
-    );
-    return ref.read(secureStoreProvider).writeString(_storageKey, payload);
   }
 
   Future<void> _recordTimelineEvent({

@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
-import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_routine_repository.dart';
 
 class RoutineRepository implements IRoutineRepository {
@@ -13,21 +13,21 @@ class RoutineRepository implements IRoutineRepository {
   final HiveStorage<String> _store;
 
   @override
-  List<RoutineEntity> getRoutines() {
+  List<HabitEntity> getRoutines() {
     String? raw;
     try {
       raw = _store.get(_key);
     } on StateError {
-      return const <RoutineEntity>[];
+      return const <HabitEntity>[];
     }
     if (raw == null || raw.trim().isEmpty) {
-      return const <RoutineEntity>[];
+      return const <HabitEntity>[];
     }
     try {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
       return list
           .whereType<Map<String, dynamic>>()
-          .map(RoutineEntity.fromJson)
+          .map(HabitEntity.fromJson)
           .toList(growable: false);
     } catch (error, stackTrace) {
       // Corrupted payload: return the empty/absent value so the app stays
@@ -39,15 +39,15 @@ class RoutineRepository implements IRoutineRepository {
         error,
         stackTrace,
       );
-      return const <RoutineEntity>[];
+      return const <HabitEntity>[];
     }
   }
 
   @override
-  Future<void> saveRoutine(RoutineEntity routine) {
-    final List<RoutineEntity> existing = getRoutines().toList(growable: true);
+  Future<void> saveRoutine(HabitEntity routine) {
+    final List<HabitEntity> existing = getRoutines().toList(growable: true);
     final int index = existing.indexWhere(
-      (RoutineEntity item) => item.id == routine.id,
+      (HabitEntity item) => item.id == routine.id,
     );
     if (index >= 0) {
       existing[index] = routine;
@@ -58,19 +58,19 @@ class RoutineRepository implements IRoutineRepository {
   }
 
   @override
-  Future<void> saveRoutines(List<RoutineEntity> routines) {
+  Future<void> saveRoutines(List<HabitEntity> routines) {
     return _store.put(
       _key,
       jsonEncode(
-        routines.map((RoutineEntity routine) => routine.toJson()).toList(),
+        routines.map((HabitEntity routine) => routine.toJson()).toList(),
       ),
     );
   }
 
   @override
   Future<void> deleteRoutine(String id) {
-    final List<RoutineEntity> next = getRoutines()
-        .where((RoutineEntity routine) => routine.id != id)
+    final List<HabitEntity> next = getRoutines()
+        .where((HabitEntity routine) => routine.id != id)
         .toList(growable: false);
     return saveRoutines(next);
   }

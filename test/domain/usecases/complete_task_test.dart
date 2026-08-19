@@ -5,6 +5,7 @@ import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_progression_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_si_repository.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_task_repository.dart';
+import 'package:fantastic_guacamole/domain/policies/completion_side_effect_policy.dart';
 import 'package:fantastic_guacamole/domain/usecases/complete_task.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -98,6 +99,38 @@ void main() {
               .isCompleted,
           isFalse,
         );
+      },
+    );
+
+    test(
+      'suppresses reward and SI effects for idempotent durable completion',
+      () async {
+        await taskRepository.saveTask(
+          TaskEntity(
+            id: 'task-replay',
+            title: 'Already complete elsewhere',
+            createdAt: DateTime.utc(2026, 7, 5),
+            recurrenceRule: RecurrenceRule.daily,
+          ),
+        );
+        progressionRepository.progression = const ProgressionEntity(xp: 0);
+        siRepository.state = SiStateEntity(
+          energy: 0.7,
+          attention: 0.7,
+          fatigue: 0.3,
+        );
+
+        final CompletionSideEffectDecision decision = await CompleteTask(
+          taskRepository,
+          progressionRepo: progressionRepository,
+          siRepo: siRepository,
+          durableMutation: (_) async => CompletionMutationOutcome.idempotent,
+        ).call('task-replay');
+
+        expect(decision.outcome, CompletionMutationOutcome.idempotent);
+        expect(decision.enabledEffects, isEmpty);
+        expect(progressionRepository.progression?.xp, 0);
+        expect(siRepository.savedStates, isEmpty);
       },
     );
 

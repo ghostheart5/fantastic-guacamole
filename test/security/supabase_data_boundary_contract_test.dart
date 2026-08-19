@@ -22,6 +22,21 @@ void main() {
     );
   });
 
+  test(
+    'quickstart todos migration is classified as non-production demo data',
+    () {
+      final String sql = File(
+        'supabase/migrations/20260714000001_quickstart_todos.sql',
+      ).readAsStringSync().toLowerCase();
+
+      expect(sql, contains('internal quickstart compatibility table'));
+      expect(sql, contains('not a chronospark product'));
+      expect(sql, contains('feature, not account-owned production data'));
+      expect(sql, contains('not part of the canonical app'));
+      expect(sql, contains('backup/sync contract'));
+    },
+  );
+
   test('tenant policies use scalar auth checks and supporting indexes', () {
     final String sql = File(migrationPath).readAsStringSync().toLowerCase();
 

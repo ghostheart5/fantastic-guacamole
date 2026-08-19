@@ -176,6 +176,30 @@ final offlineQueueCountProvider = FutureProvider<int>((ref) async {
   return queue.queuedCount();
 });
 
+final offlineDeadLetterCountProvider = FutureProvider<int>((ref) async {
+  final OfflineSyncQueueService? queue = _boundQueue(ref);
+  if (queue == null) {
+    return 0;
+  }
+  return queue.deadLetteredCount();
+});
+
+final retryOfflineDeadLettersProvider = FutureProvider<int>((ref) async {
+  final OfflineSyncQueueService? queue = _boundQueue(ref);
+  if (queue == null) {
+    return 0;
+  }
+  return queue.retryDeadLetters();
+});
+
+final pruneOfflineDeadLettersProvider = FutureProvider<int>((ref) async {
+  final OfflineSyncQueueService? queue = _boundQueue(ref);
+  if (queue == null) {
+    return 0;
+  }
+  return queue.pruneExpiredDeadLetters();
+});
+
 final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
   await Future<void>.value();
   ref.read(syncErrorMessageProvider.notifier).clear();
@@ -194,7 +218,7 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
       ref
           .read(syncErrorMessageProvider.notifier)
           .report(
-            'No cloud backup could be restored. Local data was not replaced.',
+            'No cloud backup could be restored. Local data may be unchanged; verify it before making further changes.',
           );
     }
     if (restored) {
@@ -207,7 +231,9 @@ final restoreFromCloudProvider = FutureProvider<bool>((ref) async {
   } catch (error, stackTrace) {
     ref
         .read(syncErrorMessageProvider.notifier)
-        .report('Cloud restore could not finish. Local data was not replaced.');
+        .report(
+          'Cloud restore could not finish. Local data may have changed; verify it before making further changes.',
+        );
     Logger.errorCategory(
       'Sync Errors',
       'restoreFromCloudProvider execution failed',

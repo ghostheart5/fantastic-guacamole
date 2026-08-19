@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:fantastic_guacamole/core/debug/logger.dart';
-import 'package:fantastic_guacamole/core/storage/account_storage_namespace.dart';
 import 'package:fantastic_guacamole/data/di/storage_providers.dart';
 import 'package:fantastic_guacamole/data/models/auth_models.dart';
 import 'package:fantastic_guacamole/state/providers/account_provider_fence.dart';
@@ -115,15 +114,8 @@ class AuthSessionBoundaryCoordinator {
       if (!_isLatest(sequence)) return;
 
       if (currentId == null) {
-        final String? departingId = previousId ?? storedId;
-        await _ref
-            .read(localUserDataCleanupServiceProvider)
-            .clearForAccountSwitch();
-        if (!_isLatest(sequence)) return;
-        await _deleteScopedReceipt(departingId);
-        if (!_isLatest(sequence)) return;
-        await _ref.read(secureStoreProvider).delete(_accountMarkerKey);
-        if (!_isLatest(sequence)) return;
+        // Signing out must not destroy local or queued work. Retaining the
+        // owner marker lets a later sign-in prove which account may reopen it.
         invalidateAccountOwnedProviders(_ref);
         boundary.complete(generation, storageReady: false);
         return;
@@ -145,6 +137,7 @@ class AuthSessionBoundaryCoordinator {
                 'Preserved device data was found, but its account owner cannot be verified. Review it before ChronoSpark unlocks account data.',
             canRecoverBySigningOut: true,
             canClaimPreservedData: true,
+            canClearPreservedData: true,
           );
           return;
         }
@@ -154,12 +147,18 @@ class AuthSessionBoundaryCoordinator {
           (previousId != null && previousId != currentId) ||
           (storedId != null && storedId != currentId);
       if (changedAccount) {
-        await _ref
-            .read(localUserDataCleanupServiceProvider)
-            .clearForAccountSwitch();
-        if (!_isLatest(sequence)) return;
-        await _deleteScopedReceipt(previousId ?? storedId);
-        if (!_isLatest(sequence)) return;
+        // Global stores cannot safely be shown to a different account, but
+        // deleting them here would lose unsynced/local-only data. Block the
+        // new account until an explicit, separately confirmed data action is
+        // available; the original account can sign back in and recover it.
+        boundary.block(
+          generation,
+          issue:
+              'Protected local data belongs to a different account. Sign in with the original account before switching devices or clearing local data.',
+          canRecoverBySigningOut: true,
+          canClearPreservedData: true,
+        );
+        return;
       }
 
       await _ref
@@ -183,14 +182,6 @@ class AuthSessionBoundaryCoordinator {
         canRecoverBySigningOut: true,
       );
     }
-  }
-
-  Future<void> _deleteScopedReceipt(String? userId) async {
-    if (userId == null) return;
-    final String scope = AccountStorageNamespace.authenticated(userId).v2Scope;
-    await _ref
-        .read(secureStoreProvider)
-        .delete('creator_latest_receipt_v1:$scope');
   }
 
   /// Explicitly assigns markerless preserved data to the currently signed-in
@@ -219,6 +210,37 @@ class AuthSessionBoundaryCoordinator {
     boundary.complete(current.generation);
   }
 
+  /// Clears preserved account-owned local data only after an explicit user
+  /// confirmation from the lock UI. This is intentionally separate from
+  /// sign-out/account-change cleanup so a transition can never delete data by
+  /// itself.
+  Future<void> clearPreservedDataForCurrentAccount() async {
+    final User? user = _ref.read(authUserProvider).asData?.value;
+    final String? userId = _validId(user?.id);
+    final AuthSessionBoundary current = _ref.read(authSessionBoundaryProvider);
+    if (userId == null ||
+        current.userId != userId ||
+        !current.canClearPreservedData ||
+        current.isTransitioning) {
+      return;
+    }
+    final int sequence = _latestSequence;
+    await _ref
+        .read(localUserDataCleanupServiceProvider)
+        .clearForAccountSwitch();
+    if (!_isLatest(sequence) ||
+        _validId(_ref.read(authUserProvider).asData?.value?.id) != userId) {
+      return;
+    }
+    await _ref.read(secureStoreProvider).writeString(_accountMarkerKey, userId);
+    invalidateAccountOwnedProviders(_ref);
+    final AuthSessionBoundaryNotifier boundary = _ref.read(
+      authSessionBoundaryProvider.notifier,
+    );
+    boundary.markStorageReady(current.generation);
+    boundary.complete(current.generation);
+  }
+
   void _blockForAuthError(int sequence, User? previousUser) {
     if (!_isLatest(sequence)) return;
     final AuthSessionBoundaryNotifier boundary = _ref.read(
@@ -233,6 +255,7 @@ class AuthSessionBoundaryCoordinator {
       generation,
       issue: 'Authentication state could not be verified safely.',
       canRecoverBySigningOut: true,
+      canClearPreservedData: false,
     );
   }
 
@@ -257,6 +280,7 @@ class AuthSessionBoundaryCoordinator {
       generation,
       issue: 'ChronoSpark could not isolate account data safely.',
       canRecoverBySigningOut: true,
+      canClearPreservedData: false,
     );
   }
 

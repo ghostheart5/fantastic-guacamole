@@ -15,6 +15,34 @@ class BackupCipher {
 
   final SecureStore _secureStore;
 
+  /// Returns a user-held recovery key that can be stored outside this device
+  /// and imported on a replacement device before restoring encrypted backups.
+  ///
+  /// Callers must never log this value. UI should present it once, behind an
+  /// explicit confirmation, and ask the user to store it in a password manager.
+  Future<String> exportRecoveryKey() async {
+    final encrypt.Key key = await _loadOrCreateKey();
+    return base64Encode(key.bytes);
+  }
+
+  /// Installs a user-held recovery key on this device. This enables decrypting
+  /// cloud backups created elsewhere without generating a new incompatible key.
+  Future<void> importRecoveryKey(String recoveryKey) async {
+    final String normalized = recoveryKey.trim();
+    final List<int> decoded;
+    try {
+      decoded = base64Decode(normalized);
+    } on FormatException {
+      throw const FormatException('Backup recovery key is not valid base64.');
+    }
+    if (decoded.length != 32) {
+      throw const FormatException(
+        'Backup recovery key must contain a 256-bit key.',
+      );
+    }
+    await _secureStore.writeString(_keyName, base64Encode(decoded));
+  }
+
   Future<Map<String, dynamic>> encryptPayload(
     Map<String, dynamic> payload,
   ) async {
@@ -45,7 +73,7 @@ class BackupCipher {
         payload['ciphertext'] is! String) {
       return payload;
     }
-    final encrypt.Key key = await _loadOrCreateKey();
+    final encrypt.Key key = await _loadKeyForDecryption();
     final bool legacy = format == _legacyFormat;
     final encrypt.Encrypter encrypter = encrypt.Encrypter(
       encrypt.AES(
@@ -76,5 +104,15 @@ class BackupCipher {
     );
     await _secureStore.writeString(_keyName, base64Encode(bytes));
     return encrypt.Key(bytes);
+  }
+
+  Future<encrypt.Key> _loadKeyForDecryption() async {
+    final String? stored = await _secureStore.readString(_keyName);
+    if (stored == null || stored.trim().isEmpty) {
+      throw StateError(
+        'This backup is encrypted with a key that is unavailable on this device.',
+      );
+    }
+    return encrypt.Key(base64Decode(stored));
   }
 }

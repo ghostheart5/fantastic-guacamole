@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/plan_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/plan_proposal_entity.dart';
 
 /// CHRONOSPARK-CLASS: PLANNED | Feature: Smart Planner
 ///
@@ -13,5 +14,11 @@ import 'package:fantastic_guacamole/domain/entities/plan_entity.dart';
 /// every implementor to grow stubs for a path that may not be taken.
 abstract class IPlanRepository {
   Future<PlanEntity?> getPlan(DateTime date);
+  Future<PlanProposalEntity?> getProposal(String id);
   Future<void> savePlan(PlanEntity plan);
+  Future<void> saveProposal(PlanProposalEntity proposal);
+  Future<void> applyProposal({
+    required PlanProposalEntity proposal,
+    required PlanEntity plan,
+  });
 }

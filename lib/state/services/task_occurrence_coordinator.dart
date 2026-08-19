@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/repositories/task_occurrence_repository.dart';
+import 'package:fantastic_guacamole/data/services/task_occurrence_cloud_replica.dart';
 import 'package:fantastic_guacamole/domain/entities/recurrence_rule.dart';
 import 'package:fantastic_guacamole/domain/entities/task_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/task_occurrence_entity.dart';
@@ -29,12 +30,14 @@ class TaskOccurrenceCoordinator {
     required this.scope,
     required this.taskRepository,
     required this.occurrenceRepository,
+    this.cloudReplica,
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
   final AccountStorageScope scope;
   final ITaskRepository taskRepository;
   final TaskOccurrenceRepository occurrenceRepository;
+  final TaskOccurrenceCloudReplica? cloudReplica;
   final DateTime Function() _clock;
   bool _cancelled = false;
   Future<void> _tail = Future<void>.value();
@@ -198,6 +201,10 @@ class TaskOccurrenceCoordinator {
       clearPendingOperation: true,
     );
     await occurrenceRepository.save(committed);
+    await cloudReplica?.replicate(
+      occurrence: committed,
+      transition: committed.transitions.last,
+    );
     return TaskOccurrenceResult(
       mutation: TaskOccurrenceMutation.applied,
       occurrence: committed,

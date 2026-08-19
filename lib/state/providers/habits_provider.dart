@@ -1,10 +1,10 @@
 import 'package:fantastic_guacamole/core/debug/app_analytics.dart';
-import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/state/providers/domain_usecase_providers.dart';
 import 'package:fantastic_guacamole/state/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final habitsProvider = AsyncNotifierProvider<HabitsNotifier, List<HabitRecord>>(
+final habitsProvider = AsyncNotifierProvider<HabitsNotifier, List<HabitEntity>>(
   HabitsNotifier.new,
 );
 
@@ -13,31 +13,31 @@ final habitProvider = habitsProvider;
 /// Orchestrates the habit use cases. Persistence and list rules live in the
 /// domain layer; reminder syncing and analytics stay here because they are
 /// side effects of the surface, not habit rules.
-class HabitsNotifier extends AsyncNotifier<List<HabitRecord>> {
+class HabitsNotifier extends AsyncNotifier<List<HabitEntity>> {
   @override
-  Future<List<HabitRecord>> build() async {
-    final List<HabitRecord> habits = await ref
+  Future<List<HabitEntity>> build() async {
+    final List<HabitEntity> habits = await ref
         .read(getHabitsUseCaseProvider)
         .call();
     await _syncReminders(habits);
     return habits;
   }
 
-  List<HabitRecord> _currentHabits() {
-    return state is AsyncData<List<HabitRecord>>
-        ? (state as AsyncData<List<HabitRecord>>).value
-        : const <HabitRecord>[];
+  List<HabitEntity> _currentHabits() {
+    return state is AsyncData<List<HabitEntity>>
+        ? (state as AsyncData<List<HabitEntity>>).value
+        : const <HabitEntity>[];
   }
 
-  Future<void> _syncReminders(List<HabitRecord> habits) {
+  Future<void> _syncReminders(List<HabitEntity> habits) {
     return ref
         .read(reminderOrchestratorServiceProvider)
         .syncHabitReminders(habits);
   }
 
   Future<void> _apply(
-    List<HabitRecord> previous,
-    List<HabitRecord> next,
+    List<HabitEntity> previous,
+    List<HabitEntity> next,
   ) async {
     if (identical(previous, next)) {
       return;
@@ -47,24 +47,24 @@ class HabitsNotifier extends AsyncNotifier<List<HabitRecord>> {
   }
 
   Future<void> addHabit({required String title}) async {
-    final List<HabitRecord> current = _currentHabits();
-    final List<HabitRecord> next = await ref
+    final List<HabitEntity> current = _currentHabits();
+    final List<HabitEntity> next = await ref
         .read(createHabitUseCaseProvider)
         .call(current: current, title: title);
     await _apply(current, next);
   }
 
   Future<void> toggleHabit(String id) async {
-    final List<HabitRecord> current = _currentHabits();
-    HabitRecord? toggled;
-    for (final HabitRecord item in current) {
+    final List<HabitEntity> current = _currentHabits();
+    HabitEntity? toggled;
+    for (final HabitEntity item in current) {
       if (item.id == id) {
         toggled = item;
         break;
       }
     }
 
-    final List<HabitRecord> next = await ref
+    final List<HabitEntity> next = await ref
         .read(toggleHabitUseCaseProvider)
         .call(current: current, id: id);
 
@@ -78,16 +78,16 @@ class HabitsNotifier extends AsyncNotifier<List<HabitRecord>> {
   }
 
   Future<void> renameHabit(String id, String title) async {
-    final List<HabitRecord> current = _currentHabits();
-    final List<HabitRecord> next = await ref
+    final List<HabitEntity> current = _currentHabits();
+    final List<HabitEntity> next = await ref
         .read(updateHabitUseCaseProvider)
         .call(current: current, id: id, title: title);
     await _apply(current, next);
   }
 
   Future<void> removeHabit(String id) async {
-    final List<HabitRecord> current = _currentHabits();
-    final List<HabitRecord> next = await ref
+    final List<HabitEntity> current = _currentHabits();
+    final List<HabitEntity> next = await ref
         .read(deleteHabitUseCaseProvider)
         .call(current: current, id: id);
     await _apply(current, next);

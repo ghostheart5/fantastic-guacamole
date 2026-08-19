@@ -3,8 +3,9 @@ import 'dart:convert';
 import 'package:fantastic_guacamole/core/storage/account_storage_scope.dart';
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/decision_outcome_entity.dart';
+import 'package:fantastic_guacamole/domain/interfaces/i_decision_outcome_repository.dart';
 
-class DecisionOutcomeRepository {
+class DecisionOutcomeRepository implements IDecisionOutcomeRepository {
   DecisionOutcomeRepository(this._store, this._scope, {this.maxRecords = 200});
 
   final SharedPrefsStore _store;
@@ -20,6 +21,7 @@ class DecisionOutcomeRepository {
     return 'chronospark.decision_outcomes.v1.$namespace';
   }
 
+  @override
   Future<List<DecisionOutcomeEntity>> load() async {
     await _store.init();
     final String? raw = _store.load(_key);
@@ -41,6 +43,7 @@ class DecisionOutcomeRepository {
         .toList(growable: false);
   }
 
+  @override
   Future<void> record(DecisionOutcomeEntity outcome) {
     final Future<void> operation = _tail.then((_) async {
       if (outcome.decisionId.trim().isEmpty || outcome.surface.trim().isEmpty) {

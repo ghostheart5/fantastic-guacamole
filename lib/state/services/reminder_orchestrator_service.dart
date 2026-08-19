@@ -1,6 +1,6 @@
 import 'package:fantastic_guacamole/data/storage/shared_prefs_service.dart';
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/state/services/notifications_service.dart';
 import 'package:fantastic_guacamole/system/notifications/notification_scheduler.dart';
 
@@ -96,14 +96,14 @@ class ReminderOrchestratorService {
     }
   }
 
-  Future<void> syncHabitReminders(List<HabitRecord> habits) async {
+  Future<void> syncHabitReminders(List<HabitEntity> habits) async {
     if (!_isEnabled(_habitReminderEnabledKey, defaultValue: true)) {
       await _notifications.cancel(_habitReminderId);
       return;
     }
 
-    HabitRecord? activeHabit;
-    for (final HabitRecord habit in habits) {
+    HabitEntity? activeHabit;
+    for (final HabitEntity habit in habits) {
       if (habit.active) {
         activeHabit = habit;
         break;

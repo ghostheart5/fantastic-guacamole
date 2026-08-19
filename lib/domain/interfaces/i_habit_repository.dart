@@ -1,13 +1,11 @@
-import 'package:fantastic_guacamole/domain/entities/habit_record.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 
 /// Contract for habit persistence.
 ///
-/// Deliberately expressed in [HabitRecord], the shape habits are actually
-/// stored in today. `HabitEntity` is the richer planned domain type; migrating
-/// storage onto it would change the persisted format. This interface keeps
-/// domain use cases independent from the concrete data repository.
+/// Existing `habit_records_v1` payloads remain readable through
+/// [HabitEntity.fromJson].
 abstract class IHabitRepository {
-  Future<List<HabitRecord>> getHabits();
+  Future<List<HabitEntity>> getHabits();
 
-  Future<void> saveHabits(List<HabitRecord> habits);
+  Future<void> saveHabits(List<HabitEntity> habits);
 }

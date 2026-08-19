@@ -1,4 +1,5 @@
 import 'package:fantastic_guacamole/domain/entities/plan_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/plan_proposal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/time_block.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_plan_repository.dart';
 import 'package:fantastic_guacamole/domain/usecases/create_plan.dart';
@@ -110,6 +111,8 @@ void main() {
 
 class _FakePlanRepository implements IPlanRepository {
   final List<PlanEntity> saved = <PlanEntity>[];
+  final Map<String, PlanProposalEntity> proposals =
+      <String, PlanProposalEntity>{};
 
   @override
   Future<PlanEntity?> getPlan(DateTime date) async {
@@ -127,5 +130,22 @@ class _FakePlanRepository implements IPlanRepository {
     } else {
       saved.add(plan);
     }
+  }
+
+  @override
+  Future<PlanProposalEntity?> getProposal(String id) async => proposals[id];
+
+  @override
+  Future<void> saveProposal(PlanProposalEntity proposal) async {
+    proposals[proposal.id] = proposal;
+  }
+
+  @override
+  Future<void> applyProposal({
+    required PlanProposalEntity proposal,
+    required PlanEntity plan,
+  }) async {
+    await saveProposal(proposal);
+    await savePlan(plan);
   }
 }

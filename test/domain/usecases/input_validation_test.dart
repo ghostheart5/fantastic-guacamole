@@ -1,7 +1,7 @@
 import 'package:fantastic_guacamole/domain/entities/goal_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/memory_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/project_entity.dart';
-import 'package:fantastic_guacamole/domain/entities/routine_entity.dart';
+import 'package:fantastic_guacamole/domain/entities/habit_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/subtask_entity.dart';
 import 'package:fantastic_guacamole/domain/entities/timeline_event_entity.dart';
 import 'package:fantastic_guacamole/domain/interfaces/i_goal_repository.dart';
@@ -149,7 +149,7 @@ void main() {
     test('SaveRoutines', () async {
       final _FakeRoutineRepository repository = _FakeRoutineRepository();
       await expectLater(
-        () => SaveRoutines(repository).call(<RoutineEntity>[]),
+        () => SaveRoutines(repository).call(<HabitEntity>[]),
         throwsArgumentError,
       );
       expect(repository.savedBatches, isEmpty);
@@ -225,16 +225,16 @@ class _FakeProjectRepository implements IProjectRepository {
 
 class _FakeRoutineRepository implements IRoutineRepository {
   final List<String> deletedIds = <String>[];
-  final List<List<RoutineEntity>> savedBatches = <List<RoutineEntity>>[];
+  final List<List<HabitEntity>> savedBatches = <List<HabitEntity>>[];
 
   @override
-  List<RoutineEntity> getRoutines() => const <RoutineEntity>[];
+  List<HabitEntity> getRoutines() => const <HabitEntity>[];
 
   @override
-  Future<void> saveRoutine(RoutineEntity routine) async {}
+  Future<void> saveRoutine(HabitEntity routine) async {}
 
   @override
-  Future<void> saveRoutines(List<RoutineEntity> routines) async =>
+  Future<void> saveRoutines(List<HabitEntity> routines) async =>
       savedBatches.add(routines);
 
   @override

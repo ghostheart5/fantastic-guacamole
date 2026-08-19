@@ -137,6 +137,19 @@ void main() {
             );
 
     expect(backup['version'], '3.0.0');
+    expect(backup['manifest'], isA<Map<String, dynamic>>());
+    expect(
+      ((backup['manifest'] as Map<String, dynamic>)['includedDomains']
+              as List<dynamic>)
+          .cast<String>(),
+      containsAll(<String>['tasks', 'profile', 'settings']),
+    );
+    expect(
+      ((backup['manifest'] as Map<String, dynamic>)['excludedDomains']
+              as List<dynamic>)
+          .cast<String>(),
+      contains('timeline'),
+    );
     expect(task['id'], 'task-1');
     expect(backup['profile'], <String, dynamic>{'name': 'Keegan', 'xp': 42});
     expect(backup['settings'], <String, dynamic>{'soundEnabled': false});

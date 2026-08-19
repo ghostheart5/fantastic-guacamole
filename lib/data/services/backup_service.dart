@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fantastic_guacamole/core/data/account_data_registry.dart';
 import 'package:fantastic_guacamole/data/local/hive_storage.dart';
 import 'package:fantastic_guacamole/data/local/shared_prefs_storage.dart';
 import 'package:fantastic_guacamole/data/local/task_entity_mapper.dart';
@@ -30,6 +31,7 @@ class BackupService {
 
     return <String, dynamic>{
       'version': '3.0.0',
+      'manifest': accountDataBackupManifest(),
       'timestamp': DateTime.now().toIso8601String(),
       'tasks': tasks.map(TaskEntityMapper.toJson).toList(),
       'profile': profile,
@@ -68,18 +70,36 @@ class BackupService {
   }
 
   Future<void> restoreFullBackup(Map<String, dynamic> backup) async {
-    await restoreTasks(backup);
+    final String? previousProfile = await _readProfile();
+    final Map<String, dynamic> previousSettings = prefs.getJson('settings');
 
-    final Map<String, dynamic>? profile =
-        _asStringKeyMap(backup['profile']) ??
-        _profileFromLegacyUser(backup['user']);
-    if (profile != null) {
-      await _writeProfile(jsonEncode(profile));
-    }
+    try {
+      await restoreTasks(backup);
 
-    final Map<String, dynamic>? settings = _asStringKeyMap(backup['settings']);
-    if (settings != null) {
-      await prefs.setJson('settings', settings);
+      final Map<String, dynamic>? profile =
+          _asStringKeyMap(backup['profile']) ??
+          _profileFromLegacyUser(backup['user']);
+      if (profile != null) {
+        await _writeProfile(jsonEncode(profile));
+      }
+
+      final Map<String, dynamic>? settings = _asStringKeyMap(
+        backup['settings'],
+      );
+      if (settings != null) {
+        await prefs.setJson('settings', settings);
+      }
+    } on Object {
+      try {
+        if (previousProfile != null) {
+          await _writeProfile(previousProfile);
+        }
+        await prefs.setJson('settings', previousSettings);
+      } on Object {
+        // Preserve the restore failure. Callers already surface that local data
+        // may have changed if rollback itself cannot complete.
+      }
+      rethrow;
     }
   }
 
@@ -92,11 +112,30 @@ class BackupService {
     }
 
     final List<TaskEntity> existing = await taskRepository.getAllTasks();
-    for (final TaskEntity task in existing) {
-      await taskRepository.deleteTask(task.id);
-    }
-    for (final TaskEntity task in restoredTasks) {
-      await taskRepository.saveTask(task);
+    try {
+      for (final TaskEntity task in existing) {
+        await taskRepository.deleteTask(task.id);
+      }
+      for (final TaskEntity task in restoredTasks) {
+        await taskRepository.saveTask(task);
+      }
+    } on Object {
+      // The repository has no transaction boundary. Restore the pre-restore
+      // snapshot before surfacing the failure so a partial replacement does
+      // not masquerade as an unchanged local dataset.
+      try {
+        final List<TaskEntity> partial = await taskRepository.getAllTasks();
+        for (final TaskEntity task in partial) {
+          await taskRepository.deleteTask(task.id);
+        }
+        for (final TaskEntity task in existing) {
+          await taskRepository.saveTask(task);
+        }
+      } on Object {
+        // Preserve the original restore failure; callers report that local
+        // data may have changed if rollback itself cannot complete.
+      }
+      rethrow;
     }
   }
 

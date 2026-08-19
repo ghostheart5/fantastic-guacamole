@@ -34,4 +34,11 @@ class SiEngineRepository {
   Future<void> saveState(Map<String, dynamic> state) async {
     await _store.writeString(_stateKey, jsonEncode(state));
   }
+
+  Future<Map<String, dynamic>?> exportState() async {
+    final Map<String, dynamic>? state = await loadState();
+    return state == null ? null : Map<String, dynamic>.from(state);
+  }
+
+  Future<void> clearState() => _store.delete(_stateKey);
 }

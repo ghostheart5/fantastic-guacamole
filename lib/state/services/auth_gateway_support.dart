@@ -5,7 +5,6 @@ import 'package:fantastic_guacamole/data/services/contracts/auth_service_contrac
 import 'package:fantastic_guacamole/data/services/mock_auth_service.dart';
 import 'package:fantastic_guacamole/data/services/unavailable_auth_service.dart';
 import 'package:fantastic_guacamole/data/storage/secure_store.dart';
-import 'package:fantastic_guacamole/state/services/local_user_data_cleanup_service.dart';
 import 'package:fantastic_guacamole/state/state/intelligence_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
@@ -17,7 +16,6 @@ AuthServiceContract createAuthService({
   required SecureStore store,
   required sb.SupabaseClient? supabaseClient,
   required IntelligenceState intelligence,
-  LocalUserDataCleanupService? localDataCleanup,
 }) {
   // Hard release guard. The flag cascade below is driven by env/flavor
   // resolution; this makes any misconfiguration of that resolution
@@ -32,13 +30,10 @@ AuthServiceContract createAuthService({
           displayName: 'Mock Planner',
           emailVerified: true,
         ),
-        onSignedOut: localDataCleanup?.clearForAccountSwitch,
       );
     }
     if (intelligence.flags.mockLoginEnabled) {
-      return MockAuthService(
-        onSignedOut: localDataCleanup?.clearForAccountSwitch,
-      );
+      return MockAuthService();
     }
   }
   if (!intelligence.environment.isSupabaseConfigured) {
@@ -52,9 +47,5 @@ AuthServiceContract createAuthService({
           'Authentication backend has not finished initialization. Please retry.',
     );
   }
-  return AuthService(
-    supabaseClient: supabaseClient,
-    store: store,
-    onSignedOut: localDataCleanup?.clearForAccountSwitch,
-  );
+  return AuthService(supabaseClient: supabaseClient, store: store);
 }
